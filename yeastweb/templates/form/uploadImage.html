@@ -1,0 +1,6 @@
+<!--component from https://www.youtube.com/watch?v=V5-4OUEmE0I  -->
+<form action="" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <p>{{form.file}}</p>
+  <input type="submit" value="Upload" />
+</form>

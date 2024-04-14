@@ -1,0 +1,7 @@
+<h1>Django Image Uploading</h1>
+<ul>
+  {% for image in images %}
+  <h2>{{ image.name }}</h2>
+  <img src="{{ image.cover.url}}" agealt="{{ post.name }}" />
+  {% endfor %}
+</ul>
