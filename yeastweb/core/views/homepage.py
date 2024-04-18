@@ -5,6 +5,7 @@ from django.template.response import TemplateResponse
 # Create your views here.
 # chose function because https://spookylukey.github.io/django-views-the-right-way/context-data.html
 def homepage(request):
+    # print(Image.objects.all())
     return TemplateResponse(request, "home.html", {'images' : Image.objects.all()})
 # class HomePageView(ListView) :
 #     model = Test

@@ -6,7 +6,7 @@ class Image(models.Model):
     name = models.TextField()
     cover = models.ImageField(upload_to='images/')
     def __str__(self):
-        return self.title
+        return self.name
     
 # class Test(models.Model):
 #     name = models.TextField()
