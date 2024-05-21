@@ -30,28 +30,24 @@ from mrc import DVFile
 from yeastweb.settings import MEDIA_ROOT
 # def preprocess_images(inputdirectory, mask_dir, outputdirectory, outputfile, verbose = False, use_cache=True):
 def preprocess_images(uuid, uploaded_image : UploadedImage):
-    # if inputdirectory[-1] != "/":
-    #     inputdirectory = inputdirectory + "/"
-    # if outputdirectory[-1] != "/":
-    #     outputdirectory = outputdirectory + "/"
+    # constants, easily can be changed 
+    PRE_PROCESS_FOLDER_NAME = "preprocessed_images"
+    CSV_NAME = 'preprocessed_images_list.csv'
     
+    #converts windows file path to linux path 
+    output_directory = os.path.join(MEDIA_ROOT, str(uuid))
+    csv_path = os.path.join(output_directory, CSV_NAME)
+    print("output_directory", output_directory)
+
     # Creates csv file and writes in first 2 columns ImageId and EncodedRLE
-    # output = open(outputfile, "w")
-    # output.write("ImageId, EncodedRLE" + "\n")
-    # output.close()
+    csv = open(csv_path, "w")
+    csv.write("ImageId, EncodedRLE" + "\n")
+    csv.close()
     
-    # for imagename in os.listdir(inputdirectory):
-    # if '_PRJ' not in imagename:
-        # continue
-    # extspl = os.path.splitext(imagename)
-    #check if there are .dv files and use them first
-    # image = 0
-    # print("ADAM",uploaded_image.file_location.open('r'))
-    print("ADAM2", str(uploaded_image.file_location))
-    print("ADAM3", MEDIA_ROOT)
-    imagePath = os.path.join(MEDIA_ROOT, str(uploaded_image.file_location).replace("/", "\\"))
-    print("ADAM4", imagePath)
-    f = DVFile(imagePath)
+    #converts windows file path to linux path and joins 
+    image_path = os.path.join(MEDIA_ROOT, str(uploaded_image.file_location).replace("/", "\\"))
+    f = DVFile(image_path)
+    # gets raw image from uploaded dv file
     image = f.asarray()[0]
     # fileSize = os.path.getsize(uploaded_image.file_location)
     # if fileSize > 8230000:
@@ -73,8 +69,9 @@ def preprocess_images(uuid, uploaded_image : UploadedImage):
         # existing_files = os.listdir(mask_dir)
         # if imagename in existing_files and use_cache:   #skip this if we have a mask already
             # continue
-    outputdirectory = imagePath
-    imagename = uploaded_image.name
+    # outputdirectory = imagePath
+    # grabs only file name
+ 
     if len(image.shape) > 2:
         image = image[:, :, 0]
     height = image.shape[0]
@@ -84,21 +81,23 @@ def preprocess_images(uuid, uploaded_image : UploadedImage):
     image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
     image = np.round(image * 255).astype(np.uint8)        #convert to 8 bit
     image = np.expand_dims(image, axis=-1)
-    rgbimage = np.tile(image, 3)                          #convert to RGB
+    rgb_image = np.tile(image, 3)                          #convert to RGB
     #rgbimage = skimage.filters.gaussian(rgbimage, sigma=(1,1))   # blur it first?
-    imagename = imagename.split(".")[0]
 
     # if not os.path.exists(outputdirectory + imagename) or not use_cache:
-    if not os.path.exists(outputdirectory + imagename):
-        os.makedirs(outputdirectory + imagename)
-        os.makedirs(outputdirectory + imagename + "/images/")
-    rgbimage = Image.fromarray(rgbimage)
-    rgbimage.save(outputdirectory + imagename + "/images/" + imagename + ".tif")
-
+    # if not os.path.exists(outputdirectory + imagename):
+    # os.makedirs(outputdirectory + imagename)
+    # os.makedirs(outputdirectory + imagename + "/images/")
+    rgb_image = Image.fromarray(rgb_image)
+    pre_process_folder_path = os.path.join(output_directory, PRE_PROCESS_FOLDER_NAME)
+    os.makedirs(pre_process_folder_path)
+    image_name = uploaded_image.name.split(".")[0] + ".tif"
+    rgb_image.save(os.path.join(pre_process_folder_path, image_name))
+    
     # output = open(outputfile, "a")
     # output.write(imagename + ", " + str(height) + " " + str(width) + "\n")
     # output.close()
-    print("FINISHED")
+    print('Pre-process completed FINISHED')
     # except IOError:
     #     pass
 

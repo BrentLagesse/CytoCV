@@ -25,7 +25,6 @@ class Migration(migrations.Migration):
                 ),
                 ("original_name", models.TextField()),
                 ("uuid", models.UUIDField(default=uuid.uuid4, editable=False)),
-                ("file_location", models.FileField(upload_to=core.models.picture_path)),
             ],
         ),
         migrations.DeleteModel(

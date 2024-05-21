@@ -2,21 +2,52 @@ import uuid
 from django.db import models
 # https://docs.djangoproject.com/en/5.0/topics/forms/modelforms/#django.forms.ModelForm
 from django.forms import ModelForm
+from functools import partial
+import os
+
+# helper method to 
 
 
+# # 
+# def upload_to_root(new_file_name :str):
+#     return partial(_update_filename, new_file_name=new_file_name)
 
-def picture_path(instance, filename):
-    uuid = instance.uuid
-    return f'images/{uuid}/uploaded-image.dv'
+# def upload_to_directory(new_file_name :str, directory_name :str):
+#     return partial(_update_filename, new_file_name=new_file_name)
 
 class UploadedImage(models.Model):
+    def update_to(instance, filename):
+        uuid = instance.uuid
+        name = instance.name
+        # file cannot have . in its
+        file_extension = '.' + filename.split('.')[-1]
+        return f'{uuid}/{name}{file_extension}'
+
     name = models.TextField()
     uuid = models.UUIDField(primary_key=False, default=uuid.uuid4, editable=False)
-    file_location = models.FileField(upload_to=picture_path)
+    file_location = models.FileField(upload_to=update_to)
     def __str__(self):
         return self.name
+    
+# class PreprocessImage(models.Model):
+#     uploaded_image_id = models.OneToOneField(UploadedImage, on_delete = models.CASCADE, primary_key = True)
+#     file_location = models.FileField(upload_to=update_to)
+    
 
 
+# class FileHandler(models.Model):
+#     FILE_TYPES_CHOICES = {
+#      "UpI"  : "UploadedImage",
+#      "PrePI" : "PreProcessedImage",
+#      "CSV" : "CSV",
+#      "SegI" : "SegmentedImage",
+#      "SegIO" : "SegmentedImageOutlined"
+#     #  Add more when needed
+#     }
+#     name = models.TextField()
+#     type = models.CharField(max_length=5, choices = FILE_TYPES_CHOICES)
+#     file_path = models.FileField()
+#     uploadedImageId = models.ForeignKey(UploadedImage, on_delete =models.CASCADE)
 # class Contour(Enum):
 #     CONTOUR = 0
 #     CONVEX = 1
