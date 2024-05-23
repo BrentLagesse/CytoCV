@@ -32,13 +32,13 @@ Having the same assumptions that Python(3.11.5) is installed in the machine
 2. pip uninstall -r deleteRequirements.txt
 # installs repo's pip packages
 3. pip install -r ./requirements.txt --no-cache-dir
-#deletes Requirements
+#deletes temporary Requirements
 4. del deleteRequirements.txt
 ```
 
 ## Launching project
 
-11. Download this link https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing and put it in the weights directory under yeastweb/core/weights the previous script just made.
+11. Download this link https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing and put it in the weights directory under yeastweb/core/weights
 
 ```
 1. cd yeastweb
