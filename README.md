@@ -17,9 +17,9 @@ Having the same assumptions that Python(3.11.5) is installed in the machine
 
 5. py -m pip install --user virtualenv #install virtual environment
 
-6. py -m venv venv #create venv folder
+6. py -m venv yeast_web
 
-7. .\venv\Scripts\activate #activate venv
+7. yeast_web\Scripts\activate #activate venv
 
 ## Due to the machine learning part only works on certain versions of packages, we have to specifically use them
 
