@@ -24,16 +24,19 @@ def upload_images(request):
         form = UploadImageForm(request.POST, request.FILES)
         if form.is_valid():
             name = form.cleaned_data['name']
-            image_location = request.FILES['file']
-            image_uuid= uuid.uuid4()
-            instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location)
-            instance.save()
-            output_dir = Path(MEDIA_ROOT, str(image_uuid))
-            print("output dir: ",str(output_dir))
-            pre_processed_dir = output_dir / PRE_PROCESS_FOLDER_NAME
-            stored_dv_path = Path(str(MEDIA_ROOT), str(instance.file_location))
-            # form.save()
-            generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
+            files = request.FILES.getlist('files') 
+            
+            for image in files:
+                image_uuid= uuid.uuid4()
+                instance = UploadedImage(name=name, uuid=image_uuid, file_location=image)
+                instance.save()
+
+                output_dir = Path(MEDIA_ROOT, str(image_uuid))
+                print("output dir: ",str(output_dir))
+
+                pre_processed_dir = output_dir / PRE_PROCESS_FOLDER_NAME
+                stored_dv_path = Path(str(MEDIA_ROOT), str(instance.file_location))
+                generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
             return redirect(f'/image/{image_uuid}/')
             return HttpResponse("Image successfully uploaded")
     else:
