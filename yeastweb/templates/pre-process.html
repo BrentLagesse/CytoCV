@@ -5,7 +5,11 @@
     <input type="submit" value="Start Analysis" />
   </form>
   {% for image in images %}
-  <h2>{{ image.wavelength }}</h2>
-  <img src="{{ image.file_location.url}}" />
-  {% endfor %}
+    <!-- <h2>{{ image.wavelength }}</h2> -->
+    {% cycle 500 300 300 300 as imgSize silent %}
+    <img src="{{ image.file_location.url}}" width={{imgSize}} height={{imgSize}}/>
+   <!-- <li style='background-color:{% cycle 'lightblue' 'pink' 'yellow' 'coral' 'grey' %}'></li> -->
+    {% endfor %}
 </ul>
+
+<!-- <img src="{{ image.file_location.url}}" style="width: 250px;height: 300px;"/> -->

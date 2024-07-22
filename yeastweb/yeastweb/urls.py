@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image
+from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image, display
 from django.conf import settings
 from django.conf.urls.static import static  # new
 
@@ -26,7 +26,8 @@ urlpatterns = [
     path('image/upload/', upload_images, name="image_upload" ),
     path('image/<uuid:uuid>/', pre_process_step, name="pre_process"),
     path('image/<uuid:uuid>/convert/', convert_to_image.convert_to_image),
-    path('image/<uuid:uuid>/segment/', segment_image.segment_image)
+    path('image/<uuid:uuid>/segment/', segment_image.segment_image),
+    path('image/<uuid:uuid>/display/', display.display_cell)
 ]
 
 if settings.DEBUG:  # new

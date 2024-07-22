@@ -10,6 +10,7 @@ import skimage
 from core.models import UploadedImage
 from cv2_rolling_ball import subtract_background_rolling_ball
 from django.http import HttpResponse
+from django.shortcuts import redirect
 from mrc import DVFile
 from pathlib import Path
 from PIL import Image
@@ -281,7 +282,7 @@ def segment_image(request, uuid):
             seg[np.where(seg == x)] = i + 1
 
         # now seg has the updated masks, so lets save them so we don't have to do this every time
-        outputdirectory = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/' + 'output/'
+        outputdirectory = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/output/'
         seg_image = Image.fromarray(seg)
         seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
     else:   #g1 arrested
@@ -355,7 +356,7 @@ def segment_image(request, uuid):
         else:
             print('could not find cell id ' + str(i))
 
-    fig.savefig(str(outputdirectory), dpi=600, bbox_inches='tight', pad_inches=0)
+    fig.savefig(str(outputdirectory) + DV_Name, dpi=600, bbox_inches='tight', pad_inches=0)
 
     #plt.show()
 
@@ -425,8 +426,8 @@ def segment_image(request, uuid):
 
             #convert from absolute location to relative location for later use
 
-            if not os.path.exists(str(outputdirectory) + str(i) + '.outline')  or not use_cache:
-                with open(str(outputdirectory) + str(i) + '.outline', 'w') as csvfile:
+            if not os.path.exists(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline')  or not use_cache:
+                with open(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline', 'w') as csvfile:
                     csvwriter = csv.writer(csvfile, lineterminator='\n')
                     csvwriter.writerows(zip(a[0] - min_x, a[1] - min_y))
 
@@ -447,4 +448,5 @@ def segment_image(request, uuid):
     #    display_cell(k, v[0])
     #else: show error message'''
 
+    return redirect(f'/image/{uuid}/display/')
     return HttpResponse("Congrats")
