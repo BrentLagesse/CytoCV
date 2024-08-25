@@ -1,9 +1,55 @@
-
-
 <h1>Display Cell</h1>
-<img src="{{MainImagePath}}" width="500" height="500" id="MainImage">
-<button onclick="increment">Next Cell</button>
 
+<img src="{{MainImagePath}}" width="500" height="500" id="MainImage">
+
+<img>
+<img>
+<img>
+<img>
+
+<!-- <br></br>
+{% with CurrentCell="1" %}
+<input type="hidden" id="CurrentCell" value="1"/>
+{% with CurrentCell=}
+{% with CellPairPath|add:"-0-"|add:CurrentCell|add:".png" as Cell1%}
+<img src="concat(CellPairPath, 0, )" width="100" height="100">
+{% endwith %}
+{% with CellPairPath|add:"-1-"|add:CurrentCell|add:".png" as Cell2%}
+<img src="{{Cell2}}" width="100" height="100">
+{% endwith %}
+{% with CellPairPath|add:"-2-"|add:CurrentCell|add:".png" as Cell3%}
+<img src="{{Cell3}}" width="100" height="100">
+{% endwith %}
+{% with CellPairPath|add:"-3-"|add:CurrentCell|add:".png" as Cell4%}
+<img src="{{Cell4}}" width="100" height="100">
+{% endwith %}
+<br></br>
+
+<button onclick="decrement()">Previous Cell</button>
+<button onclick="increment()">Next Cell</button>
+{% endwith %} -->
+
+<script>
+    let maxCells = Number("{{NumberOfCells}}")
+    // let currentCell = Number(document.getElementById("CurrentCell").value)
+    let cellNumber = 1
+    let pairPath = "{{CellPairPath}}"
+
+    function increment() {
+        cellNumber = (cellNumber % (maxCells - 1)) + 1
+        document.getElementById("CurrentCell").value = currentCell
+    }
+
+    function decrement() {
+        CurrentCell = (CurrentCell - 1) % maxCells
+    }
+
+    function concat(path, waveLengthNumber, cellNumber) {
+
+    }
+</script>
+
+<!--
 <script>
     let max = "{{NumberOfCells}}"
     let current = 1
@@ -19,3 +65,4 @@
     }
     
 </script>
+-->

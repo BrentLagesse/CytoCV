@@ -412,8 +412,8 @@ def segment_image(request, uuid):
             #no_outline_image = tif_image.split('.')[0] + '-' + str(i) + '-no_outline.tif'
             # cell_tif_image = images.split('.')[0] + '-' + str(i) + '.tif'
             # no_outline_image = images.split('.')[0] + '-' + str(i) + '-no_outline.tif'
-            cell_tif_image = DV_Name + '-' + str(image_num) + '-' + str(i) + '.tif'
-            no_outline_image = DV_Name + '-' + str(image_num) + '-'  + str(i) + '-no_outline.tif'
+            cell_tif_image = DV_Name + '-' + str(image_num) + '-' + str(i) + '.png'
+            no_outline_image = DV_Name + '-' + str(image_num) + '-'  + str(i) + '-no_outline.png'
 
             a = np.where(seg == i)   # somethin bad is happening when i = 4 on my tests
             min_x = max(np.min(a[0]) - 1, 0)
@@ -434,15 +434,15 @@ def segment_image(request, uuid):
             cellpair_image = image_outlined[min_x: max_x, min_y:max_y]
             not_outlined_image = image[min_x: max_x, min_y:max_y]
             if not os.path.exists(segmented_directory + cell_tif_image) or not use_cache:  # don't redo things we already have
-                plt.imsave(segmented_directory + cell_tif_image, cellpair_image, dpi=600, format='TIFF')
+                plt.imsave(segmented_directory + cell_tif_image, cellpair_image, dpi=600, format='PNG')
                 plt.clf()
             if not os.path.exists(segmented_directory + no_outline_image) or not use_cache:  # don't redo things we already have
-                plt.imsave(segmented_directory + no_outline_image, not_outlined_image, dpi=600, format='TIFF')
+                plt.imsave(segmented_directory + no_outline_image, not_outlined_image, dpi=600, format='PNG')
                 plt.clf()
 
         instance = SegmentedImage(UUID = uuid, 
-                                  ImagePath = (MEDIA_URL  + '/' + str(uuid) + '/output/' + DV_Name + '.png'), 
-                                  CellPairPrefix = (MEDIA_URL +'/' + str(uuid) + '/segmented/' + DV_Name),
+                                  ImagePath = (MEDIA_URL  + str(uuid) + '/output/' + DV_Name + '.png'), 
+                                  CellPairPrefix = (MEDIA_URL + str(uuid) + '/segmented/' + DV_Name),
                                   NumCells = int(np.max(seg) + 1))
         instance.save()
         #print(instance)

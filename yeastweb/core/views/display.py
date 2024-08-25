@@ -11,6 +11,15 @@ def display_cell(request, uuid):
     Image_Name = UploadedImage.objects.get(pk=uuid).name
     full_outlined =  str(Path(MEDIA_URL)) + '\\' + str(uuid) + '\\output\\' + Image_Name + '.png'
     CellImage = SegmentedImage.objects.get(pk=uuid)
+    Images = {}
 
-    content = {'MainImagePath' : CellImage.ImagePath, 'NumberOfCells' : CellImage.NumCells}
+    for i in range(0, CellImage.NumCells):
+        Images[str(i)] = []
+        Images[str(i)].append(CellImage.CellPairPrefix + '-0-' + str(i))
+        Images[str(i)].append(CellImage.CellPairPrefix + '-1-' + str(i))
+        Images[str(i)].append(CellImage.CellPairPrefix + '-2-' + str(i))
+        Images[str(i)].append(CellImage.CellPairPrefix + '-3-' + str(i))
+    
+
+    content = {'MainImagePath' : CellImage.ImagePath, 'NumberOfCells' : CellImage.NumCells, 'CellPairPath' : CellImage.CellPairPrefix}
     return TemplateResponse(request, "display_cell.html", content)
