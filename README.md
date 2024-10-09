@@ -44,6 +44,7 @@ Due to the machine learning part only works on certain versions of packages, we 
 2. pip uninstall -r deleteRequirements.txt
 # installs repo's pip packages
 3. pip install -r ./requirements.txt --no-cache-dir
+    * If fails, might be using the wrong Python version or go into deleteRequirments.txt and delete the line with pip
 #deletes temporary Requirements
 4. del deleteRequirements.txt
 ```
