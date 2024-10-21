@@ -365,8 +365,22 @@ def segment_image(request, uuid):
     # This is where we overlay what we learned in the DIC onto the other images
     
     #filter_dir = input_dir  + base_image_name + '_PRJ_TIFFS/'
-    segmented_directory = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/segmented/'
-    os.makedirs(segmented_directory)
+    segmented_directory = Path(MEDIA_ROOT) / str(uuid) / 'segmented'
+    # Ensure directory exists
+    segmented_directory.mkdir(parents=True, exist_ok=True)
+
+    # Iterate over the segmented cells
+    for cell_number in range(1, int(np.max(seg)) + 1):
+        cell_image = np.zeros_like(seg)
+        cell_image[seg == cell_number] = 255  # Mark cell areas
+
+        # File paths
+        cell_image_path = segmented_directory / f"cell_{cell_number}.png"
+
+        # Save each cell image as PNG
+        Image.fromarray(cell_image.astype(np.uint8)).save(cell_image_path)
+    
+    os.makedirs(segmented_directory, exist_ok=True)
     f = DVFile(DV_path)
     for image_num in range(4):
         # images = os.path.split(full_path)[1]  # we start in separate directories, but need to end up in the same one
@@ -433,16 +447,16 @@ def segment_image(request, uuid):
 
             cellpair_image = image_outlined[min_x: max_x, min_y:max_y]
             not_outlined_image = image[min_x: max_x, min_y:max_y]
-            if not os.path.exists(segmented_directory + cell_tif_image) or not use_cache:  # don't redo things we already have
-                plt.imsave(segmented_directory + cell_tif_image, cellpair_image, dpi=600, format='PNG')
+            if not os.path.exists(segmented_directory / cell_tif_image) or not use_cache:  # don't redo things we already have
+                plt.imsave(segmented_directory / cell_tif_image, cellpair_image, dpi=600, format='PNG')
                 plt.clf()
-            if not os.path.exists(segmented_directory + no_outline_image) or not use_cache:  # don't redo things we already have
-                plt.imsave(segmented_directory + no_outline_image, not_outlined_image, dpi=600, format='PNG')
+            if not os.path.exists(segmented_directory / no_outline_image) or not use_cache:  # don't redo things we already have
+                plt.imsave(segmented_directory / no_outline_image, not_outlined_image, dpi=600, format='PNG')
                 plt.clf()
 
         instance = SegmentedImage(UUID = uuid, 
                                   ImagePath = (MEDIA_URL  + str(uuid) + '/output/' + DV_Name + '.png'), 
-                                  CellPairPrefix = (MEDIA_URL + str(uuid) + '/segmented/' + DV_Name),
+                                  CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
                                   NumCells = int(np.max(seg) + 1))
         instance.save()
         #print(instance)

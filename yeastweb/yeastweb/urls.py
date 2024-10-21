@@ -23,12 +23,11 @@ from django.conf.urls.static import static  # new
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', homepage, name="homepage"),
-    path('image/upload/', upload_images, name="image_upload" ),
+    path('image/upload/', upload_images, name="image_upload"),
     path('image/<uuid:uuid>/', pre_process_step, name="pre_process"),
     path('image/<uuid:uuid>/convert/', convert_to_image.convert_to_image),
     path('image/<uuid:uuid>/segment/', segment_image.segment_image),
-    path('image/<uuid:uuid>/display/', display.display_cell)
+    path('image/<uuid:uuid>/display/', display.display_cell),  # Ensure this points to display_cell
 ]
 
-if settings.DEBUG:  # new
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -42,7 +42,6 @@ optree==0.11.0
 packaging==24.0
 pandas==2.2.1
 pillow==10.2.0
-pip==24.0
 protobuf==4.25.3
 pyasn1==0.5.1
 pyasn1-modules==0.3.0
