@@ -1,159 +1,163 @@
-<!-- 
-HTML template for displaying cell images and related information.
-
-Styles:
-- Defines layout and styling for the body, main container, cell images, labels, and buttons.
-
-HTML Structure:
-- Displays the image name at the top.
-- Main container for the main image.
-- Container for cell ID and cell images with labels.
-- Info boxes for additional cell data.
-- Buttons for navigating between cells.
-
-JavaScript:
-- Handles cell navigation and updates cell images based on the current cell number.
-- Functions:
-    - window.onload: Initializes maxCells and cellPairImages, updates cell images.
-    - increment: Moves to the next cell and updates images.
-    - decrement: Moves to the previous cell and updates images.
-    - updateCellImages: Updates the displayed cell images and cell ID.
-    - cellExists: Checks if a cell exists in the cellPairImages.
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Set character encoding and page title -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Display Cell</title>
+    <title>Display Cell Images</title>
     <style>
-        /* Center body content and set base styles */
         body {
-            display: flex; 
+            display: flex;
             flex-direction: column;
             align-items: center;
             font-family: Arial, sans-serif;
             min-height: 100vh;
-            position: relative;
+            background-color: #333;
+            color: #fff;
         }
-        /* Style the main container with max width */
+        h2 {
+            font-size: 24px;
+            margin-top: 0px;
+            color: #fff;
+        }
         .main-container {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            margin-bottom: 5px;
-            width: 100%;
-            max-width: 700px;
+            margin: 0px 0;
         }
-        /* Style for the main image */
-        #MainImage {
-            margin: 0 10px;
+        .main-image {
+            width: 500px;
+            height: 500px;
+            border: 5px solid #333;
+            border-radius: 10px;
         }
-        /* Title styling for the image name */
-        #imageTitle {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 15px;
+        .file-navigation-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 0 20px;
         }
-        /* Style for the container holding cell images */
-        #cellImagesContainer {
+        .file-navigation-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Flex container for the row */
+        .cell-images-row {
             display: flex;
+            align-items: stretch; /* Ensure all items have the same height */
             justify-content: flex-start;
-            align-items: flex-start;
-            margin-top: 5px;
-            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            gap: 20px; /* Adds even space between items */
         }
-        /* Cell number label styling */
-        #cellNumber {
-            font-size: 20px;
-            margin-right: 20px;
-            align-self: center;
+
+        /* Cell ID style */
+        .cell-id {
+            font-size: 18px;
+            display: flex;
+            align-items: center;  /* Ensure vertical centering */
+            justify-content: center;
+            height: 100%;  /* Stretch height to match images */
+            flex-shrink: 0;  /* Prevent Cell ID from shrinking */
         }
-        /* Column layout for each cell image */
+
+        /* Cell image container */
         .cell-column {
             display: flex;
             flex-direction: column;
             align-items: center;
+            flex-shrink: 0;
         }
-        /* Common style for cell image labels */
-        .cell-label {
-            width: 200px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
-            margin-bottom: 2px;
-        }
-        /* Specific background colors for different image types */
-        .dic { background-color: black; }
-        .dapi { background-color: blue; }
-        .mcherry { background-color: red; }
-        .gfp { background-color: green; }
-        /* Style for the actual cell images */
         .cell-image {
             width: 200px;
             height: 200px;
             object-fit: contain;
+            border: 2px solid #333;
+            border-radius: 8px;
         }
-        /* Style for the information box below some cell images */
-        .info-box {
-            margin-top: 0px;
-            font-size: 14px;
-            text-align: left;
-        }
-        /* Tight spacing for info text */
-        .tight-info {
-            margin-top: 0px;
-            line-height: 1.2; 
-            font-size: 16px;
-        }
-        /* Layout for navigation buttons */
-        .button-container {
+        .cell-label {
+            width: 200px;
+            height: 30px;
             display: flex;
+            color: white;
+            align-items: center;
             justify-content: center;
-            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 2px;
         }
-        /* Style for navigation buttons */
-        .button-container button {
+        .dic { background-color: black; }
+        .dapi { background-color: blue; }
+        .mcherry { background-color: red; }
+        .gfp { background-color: green; }
+
+        /* Info box for extra details */
+        .info-box {
+            font-size: 14px;
+            text-align: center;
+            margin-top: 2px;
+        }
+        .tight-info {
+            line-height: 1.2;
+            margin: 0px 0;
+        }
+
+        /* Cell navigation buttons */
+        .navigation-buttons {
+            margin-top: 5px;
+            display: flex;
+            justify-content: space-between;
+            width: 300px;
+        }
+        .navigation-buttons button {
             padding: 10px 20px;
             font-size: 16px;
-            margin: 0 50px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .navigation-buttons button:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
 
-    <!-- Display uploaded image name -->
-    <div id="imageTitle">{{ Image_Name }}</div>
-
-    <!-- Main image container -->
+    <!-- Main Image and Title -->
+    <h2 id="imageTitle">{{ Image_Name }}</h2>
     <div class="main-container">
-        <img src="{{ MainImagePath }}" width="500" height="500" id="MainImage">
+        <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
+        <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
+        <button class="file-navigation-button" onclick="nextFile()">Next File</button>
     </div>
 
-    <!-- Cell images and corresponding labels -->
-    <div id="cellImagesContainer">
-        <div id="cellNumber">Cell ID: 1</div>
+    <!-- Cell Images Row with Cell ID on Same Line -->
+    <div class="cell-images-row">
+        <div class="cell-id">Cell ID: <span id="cellID">1</span></div>
 
         <!-- DIC cell image -->
         <div class="cell-column">
             <div class="cell-label dic">DIC</div>
-            <img id="cellImage1" class="cell-image">
+            <img id="cellImage1" class="cell-image" src="">
         </div>
 
         <!-- DAPI cell image -->
         <div class="cell-column">
             <div class="cell-label dapi">DAPI</div>
-            <img id="cellImage2" class="cell-image">
+            <img id="cellImage2" class="cell-image" src="">
         </div>
 
         <!-- mCherry cell image with additional info -->
         <div class="cell-column">
             <div class="cell-label mcherry">mCherry</div>
-            <img id="cellImage3" class="cell-image">
+            <img id="cellImage3" class="cell-image" src="">
             <div class="info-box">
                 <div class="tight-info">Distance: {{ distance }}</div>
                 <div class="tight-info">Line GFP Intensity: {{ line_gfp_intensity }}</div>
@@ -163,7 +167,7 @@ JavaScript:
         <!-- GFP cell image with additional info -->
         <div class="cell-column">
             <div class="cell-label gfp">GFP</div>
-            <img id="cellImage4" class="cell-image">
+            <img id="cellImage4" class="cell-image" src="">
             <div class="info-box">
                 <div class="tight-info">Nucleus Intensity Sum: {{ nucleus_intensity_sum }}</div>
                 <div class="tight-info">Cellular Intensity Sum: {{ cellular_intensity_sum }}</div>
@@ -171,54 +175,73 @@ JavaScript:
         </div>
     </div>
 
-    <!-- Navigation buttons -->
-    <div class="button-container">
-        <button id="prevButton" onclick="decrement()">Previous Cell</button>
-        <button id="nextButton" onclick="increment()">Next Cell</button>
+    <!-- Navigation Buttons for Cells -->
+    <div class="navigation-buttons">
+        <button onclick="previousCell()">Previous Cell</button>
+        <button onclick="nextCell()">Next Cell</button>
     </div>
 
     <script>
+        let filesData = JSON.parse('{{ files_data|safe }}');  // Get all the file data (multiple UUIDs)
+        let fileUUIDs = Object.keys(filesData);  // Extract all UUIDs (the list of file UUIDs)
+        let currentFileIndex = 0;  // Initialize the first file
+        let currentCellNumber = 1;
         let maxCells;
-        let cellNumber = 1;
-        let cellPairImages;
 
-        // Initialize variables and load the first cell images on page load
+        // Load the first file on page load
         window.onload = function() {
-            maxCells = Number("{{ NumberOfCells }}") - 1;
-            cellPairImages = JSON.parse('{{ CellPairImages|safe|escapejs }}');
-            updateCellImages();
+            loadFile(currentFileIndex);  // Load the first file
         };
 
-        // Move to the next cell and update images
-        function increment() {
-            cellNumber = (cellNumber % maxCells) + 1;
-            updateCellImages();
+        // Function to load a file (UUID) and display its images
+        function loadFile(fileIndex) {
+            const fileUUID = fileUUIDs[fileIndex];
+            const fileData = filesData[fileUUID];
+
+            // Update the main image and cell images
+            document.getElementById("mainImage").src = fileData.MainImagePath;
+            document.getElementById("imageTitle").textContent = fileData.Image_Name;
+
+            // Load the first cell images for the current file
+            maxCells = Number(fileData.NumberOfCells) - 1;
+            currentCellNumber = 1;  // Reset to the first cell when changing files
+            updateCellImages(fileData.CellPairImages);
         }
 
-        // Move to the previous cell and update images
-        function decrement() {
-            cellNumber = (cellNumber - 1) > 0 ? (cellNumber - 1) : maxCells;
-            updateCellImages();
-        }
-
-        // Update the images for the current cell number
-        function updateCellImages() {
-            if (!cellExists(cellNumber)) {
-                cellNumber = 1; // Reset to first cell if current does not exist
-            }
-
-            let imageUrls = cellPairImages[cellNumber];
-            document.getElementById("cellImage1").src = imageUrls[0];  
-            document.getElementById("cellImage2").src = imageUrls[1];  
-            document.getElementById("cellImage3").src = imageUrls[2];  
+        // Function to update the images for the current cell
+        function updateCellImages(cellPairImages) {
+            const imageUrls = cellPairImages[currentCellNumber];
+            document.getElementById("cellImage1").src = imageUrls[0];
+            document.getElementById("cellImage2").src = imageUrls[1];
+            document.getElementById("cellImage3").src = imageUrls[2];
             document.getElementById("cellImage4").src = imageUrls[3];
-            document.getElementById("cellNumber").textContent = "Cell ID: " + cellNumber;
+            document.getElementById("cellID").textContent = currentCellNumber;
         }
 
-        // Check if the cell exists
-        function cellExists(cellNum) {
-            return cellPairImages[cellNum] !== undefined;
+        // Function to load the next main image (file) without page reload
+        function nextFile() {
+            currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
+            loadFile(currentFileIndex);  // Dynamically update images for the next file
         }
+
+        // Function to load the previous main image (file) without page reload
+        function previousFile() {
+            currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
+            loadFile(currentFileIndex);  // Dynamically update images for the previous file
+        }
+
+        // Function to load the next set of cell images without page reload
+        function nextCell() {
+            currentCellNumber = (currentCellNumber % maxCells) + 1;
+            updateCellImages(filesData[fileUUIDs[currentFileIndex]].CellPairImages);
+        }
+
+        // Function to load the previous set of cell images without page reload
+        function previousCell() {
+            currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
+            updateCellImages(filesData[fileUUIDs[currentFileIndex]].CellPairImages);
+        }
+
     </script>
 
 </body>

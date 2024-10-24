@@ -9,38 +9,64 @@ from yeastweb.settings import MEDIA_ROOT
 from .variables import PRE_PROCESS_FOLDER_NAME
 from mrc import DVFile
 from PIL import Image
-
 import uuid, os
-
 import numpy as np
-
 import skimage.exposure
+from django.http import HttpResponseNotAllowed
 
 def upload_images(request):
     """
-    To avoid the issue when files have the same name, we generate a uuid4 as the folder name to store all files
+    Uploads and processes each image in the selected folder individually.
+    Generates a unique UUID for each image and applies the same process to each one.
     """
     if request.method == "POST":
-        form = UploadImageForm(request.POST, request.FILES)
-        if form.is_valid():
-            name = form.cleaned_data['name']
-            image_location = request.FILES['file']
-            image_uuid= uuid.uuid4()
+        print("POST request received")
+
+        files = request.FILES.getlist('files')
+        if not files:
+            print("No files received")
+            return render(request, 'form/uploadImage.html', {'error': 'No files received.'})
+
+        print(f"Files received: {[file.name for file in files]}")
+
+        # Store all UUIDs of the processed images
+        image_uuids = []
+
+        # Iterate through each file and assign a unique UUID
+        for image_location in files:
+            name = image_location.name
+            name = Path(name).stem
+
+            # Generate a UUID for the image
+            image_uuid = uuid.uuid4()
+            image_uuids.append(image_uuid)
+
+            # Save the image instance with the generated UUID
             instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location)
             instance.save()
+
+            # Create a directory for each image based on its UUID
             output_dir = Path(MEDIA_ROOT, str(image_uuid))
-            print("output dir: ",str(output_dir))
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Define the directory for storing preprocessed images
             pre_processed_dir = output_dir / PRE_PROCESS_FOLDER_NAME
             stored_dv_path = Path(str(MEDIA_ROOT), str(instance.file_location))
-            # form.save()
+
+            print(f"Processing file: {name}, UUID: {image_uuid}")
+
+            # Apply the preprocessing step to each image
             generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
-            return redirect(f'/image/{image_uuid}/')
+
+        # After processing all files, redirect to pre-process step for the first file
+        if image_uuids:
+            return redirect(f'/image/preprocess/{",".join(map(str, image_uuids))}/')
+        else:
+            return render(request, 'form/uploadImage.html', {'error': 'Error processing files.'})
+    
     else:
         form = UploadImageForm()
-    form = UploadImageForm()
-    return render(request, 'form/uploadImage.html', {'form' : form})
-
-
+    return render(request, 'form/uploadImage.html', {'form': form})
 
 def generate_tif_preview_images(dv_path :Path, save_path :Path, uploaded_image : UploadedImage, n_layers : int ):
     """

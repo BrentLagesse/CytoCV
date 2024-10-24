@@ -1,14 +1,138 @@
-<h1>Pre-process</h1>
-<ul>
-  <form action="" method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <input type="submit" value="Start Analysis" />
-  </form>
-  {% for image in images %}
-    <!-- <h2>{{ image.wavelength }}</h2> -->
-    {% cycle 500 300 300 300 as imgSize silent %}
-    <img src="{{ image.file_location.url}}" width={{imgSize}} height={{imgSize}}/>
-  {% endfor %}
-</ul>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-process</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #333; /* Dark background */
+            color: #fff; /* Light text */
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .image-container {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        img {
+            border: 2px solid #333; 
+            border-radius: 5px;
+        }
+        .navigation {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .button {
+            background-color: #007bff; /* Button background */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            display: inline-block;
+            font-size: 16px;
+            margin: 0 50px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3; /* Darker button background */
+        }
+    </style>
+</head>
+<body>
 
-<!-- <img src="{{ image.file_location.url}}" style="width: 250px;height: 300px;"/> -->
+    <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
+
+    <form action="" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="submit" value="Start Analysis" class="button" />
+    </form>
+
+    <div class="image-container" id="imageContainer">
+        {% for image in images %}
+            {% if forloop.first %}
+                <img src="{{ image.file_location.url }}" width="500" height="500" />
+            {% else %}
+                <img src="{{ image.file_location.url }}" width="300" height="300" />
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="navigation">
+        <button class="button" id="prevButton" {% if current_file_index == 0 %}disabled{% endif %}>Previous Image</button>
+        <button class="button" id="nextButton" {% if current_file_index >= total_files|add:-1 %}disabled{% endif %}>Next Image</button>
+    </div>
+
+    <p>Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}</p>
+
+    <script>
+        // Make sure the variables are passed in as numbers and strings properly.
+        let currentFileIndex = parseInt('{{ current_file_index|default:0 }}', 10); // Ensure we pass the current_file_index as a number
+        const totalFiles = parseInt('{{ total_files|default:1 }}', 10);  // Ensure total_files is passed as a number
+        const uuids = "{{ uuids }}";  // Pass the uuids string safely for navigation
+    
+        // Add event listeners for 'next' and 'prev' buttons
+        document.getElementById('nextButton').addEventListener('click', function() {
+            loadImage(currentFileIndex + 1);
+        });
+    
+        document.getElementById('prevButton').addEventListener('click', function() {
+            loadImage(currentFileIndex - 1);
+        });
+    
+        function loadImage(newIndex) {
+            if (newIndex < 0 || newIndex >= totalFiles) return;
+    
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `?file_index=${newIndex}&total_files=${totalFiles}`, true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    updateContent(response);
+                }
+            };
+    
+            xhr.send();
+        }
+    
+        function updateContent(data) {
+            // Update the images
+            const imageContainer = document.getElementById('imageContainer');
+            imageContainer.innerHTML = '';  // Clear the current images
+    
+            data.images.forEach((image, index) => {
+                const imgElement = document.createElement('img');
+                imgElement.src = image.file_location.url;
+                imgElement.width = index === 0 ? 500 : 300;
+                imgElement.height = index === 0 ? 500 : 300;
+                imageContainer.appendChild(imgElement);
+            });
+    
+            // Update the current file index
+            document.getElementById('currentFileIndex').textContent = data.current_file_index + 1;
+    
+            // Update the file name
+            document.getElementById('fileName').textContent = data.file_name;
+    
+            // Update the currentFileIndex in JS
+            currentFileIndex = data.current_file_index;
+    
+            // Enable/Disable buttons based on current file index
+            document.getElementById('prevButton').disabled = currentFileIndex === 0;
+            document.getElementById('nextButton').disabled = currentFileIndex >= totalFiles - 1;
+        }
+    </script>
+</body>
+</html>

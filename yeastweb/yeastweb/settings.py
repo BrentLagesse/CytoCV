@@ -38,7 +38,7 @@ ROOT_URLCONF = 'yeastweb.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / "templates"],  # Use BASE_DIR for templates
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -46,10 +46,12 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.media',  # This adds MEDIA_URL to all templates
             ],
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'yeastweb.wsgi.application'
 

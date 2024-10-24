@@ -29,109 +29,115 @@ def rleToMask(rleString, height, width):
 
     return img
 
-def convert_to_image(request, uuid):
+def convert_to_image(request, uuids):
     rescale = False
     scale_factor = 2
     verbose = True  # Set verbose to True for debugging
 
-    # Define paths
-    rle_file = Path(MEDIA_ROOT) / str(uuid) / "compressed_masks.csv"
-    image_list_file = Path(MEDIA_ROOT) / str(uuid) / "preprocessed_images_list.csv"
-    outputdirectory = Path(MEDIA_ROOT) / str(uuid) / "output"
+    # Split the `uuids` string into a list of individual UUIDs
+    uuid_list = uuids.split(',')
 
-    # Debugging log for file paths
-    logging.info(f"Checking paths for UUID: {uuid}")
-    logging.info(f"RLE file path: {rle_file}")
-    logging.info(f"Image list file path: {image_list_file}")
-    logging.info(f"Output directory: {outputdirectory}")
+    for uuid in uuid_list:
+        # Define paths for each UUID
+        rle_file = Path(MEDIA_ROOT) / str(uuid) / "compressed_masks.csv"
+        image_list_file = Path(MEDIA_ROOT) / str(uuid) / "preprocessed_images_list.csv"
+        outputdirectory = Path(MEDIA_ROOT) / str(uuid) / "output"
 
-    # Check if files exist
-    if not rle_file.exists():
-        logging.error(f"RLE file not found: {rle_file}")
-        return HttpResponse("RLE file not found", status=404)
+        # Debugging log for file paths
+        logging.info(f"Checking paths for UUID: {uuid}")
+        logging.info(f"RLE file path: {rle_file}")
+        logging.info(f"Image list file path: {image_list_file}")
+        logging.info(f"Output directory: {outputdirectory}")
 
-    if not image_list_file.exists():
-        logging.error(f"Image list file not found: {image_list_file}")
-        return HttpResponse("Image list file not found", status=404)
-
-    logging.info("Both RLE and image list files found, proceeding...")
-
-    # Create output directory if it doesn't exist
-    outputdirectory.mkdir(parents=True, exist_ok=True)
-
-    # Check if output directory is writable
-    if not os.access(outputdirectory, os.W_OK):
-        logging.error(f"Cannot write to output directory: {outputdirectory}")
-        return HttpResponse("Output directory is not writable", status=500)
-
-    # Read the RLE and image list files
-    try:
-        rle = csv.reader(open(rle_file), delimiter=',')
-        rle = np.array([row for row in rle])[1:, :]
-    except Exception as e:
-        logging.error(f"Error reading RLE file: {e}")
-        return HttpResponse("Error reading RLE file", status=500)
-
-    try:
-        image_list = csv.reader(open(image_list_file), delimiter=',')
-        image_list = np.array([row for row in image_list])[1:, :]
-    except Exception as e:
-        logging.error(f"Error reading image list file: {e}")
-        return HttpResponse("Error reading image list file", status=500)
-
-    files = np.unique(rle[:, 0])
-    for f in files:
-        if verbose:
-            start_time = time.time()
-        logging.info(f"Converting {f} to mask...")
-
-        try:
-            list_index = np.where(image_list[:, 0] == f)[0][0]
-        except IndexError:
-            logging.error(f"Image {f} not found in image list.")
+        # Check if files exist
+        if not rle_file.exists():
+            logging.error(f"RLE file not found for UUID {uuid}: {rle_file}")
             continue
 
-        file_string = image_list[list_index, 1]
-        size = file_string.split(" ")
-        height = int(size[1])
-        width = int(size[2])
+        if not image_list_file.exists():
+            logging.error(f"Image list file not found for UUID {uuid}: {image_list_file}")
+            continue
 
-        logging.info(f"Image size for {f}: height={height}, width={width}")
+        logging.info(f"Both RLE and image list files found for UUID {uuid}, proceeding...")
 
-        new_height = height
-        new_width = width
-        if rescale:
-            new_height = height // scale_factor
-            new_width = width // scale_factor
+        # Create output directory if it doesn't exist
+        outputdirectory.mkdir(parents=True, exist_ok=True)
 
-        image = np.zeros((new_height, new_width)).astype(np.float32)
-        columns = np.where(rle[:, 0] == f)
-        currobj = 1
-        for i in columns[0]:
-            logging.info(f"Processing RLE data for object {currobj}")
+        # Check if output directory is writable
+        if not os.access(outputdirectory, os.W_OK):
+            logging.error(f"Cannot write to output directory for UUID {uuid}: {outputdirectory}")
+            continue
+
+        # Read the RLE and image list files
+        try:
+            rle = csv.reader(open(rle_file), delimiter=',')
+            rle = np.array([row for row in rle])[1:, :]
+        except Exception as e:
+            logging.error(f"Error reading RLE file for UUID {uuid}: {e}")
+            continue
+
+        try:
+            image_list = csv.reader(open(image_list_file), delimiter=',')
+            image_list = np.array([row for row in image_list])[1:, :]
+        except Exception as e:
+            logging.error(f"Error reading image list file for UUID {uuid}: {e}")
+            continue
+
+        files = np.unique(rle[:, 0])
+        for f in files:
+            if verbose:
+                start_time = time.time()
+            logging.info(f"Converting {f} to mask for UUID {uuid}...")
+
             try:
-                currimg = rleToMask(rle[i, 1], new_height, new_width)
-                currimg = currimg > 1
-                image = image + (currimg * currobj)
-                currobj += 1
-            except Exception as e:
-                logging.error(f"Error generating mask for {f}: {e}")
+                list_index = np.where(image_list[:, 0] == f)[0][0]
+            except IndexError:
+                logging.error(f"Image {f} not found in image list for UUID {uuid}.")
                 continue
 
-        if rescale:
-            image = skimage.transform.resize(image, output_shape=(height, width), order=0, preserve_range=True)
+            file_string = image_list[list_index, 1]
+            size = file_string.split(" ")
+            height = int(size[1])
+            width = int(size[2])
 
-        # Save the image
-        mask_path = outputdirectory / "mask.tif"
-        try:
-            image = Image.fromarray(image.astype(np.uint8))
-            image.save(mask_path)
-            logging.info(f"Saved mask to: {mask_path}")
-        except Exception as e:
-            logging.error(f"Error saving mask: {e}")
-            return HttpResponse("Error saving mask", status=500)
+            logging.info(f"Image size for {f}: height={height}, width={width}")
 
-        if verbose:
-            logging.info(f"Completed conversion for {f} in {time.time() - start_time} seconds")
+            new_height = height
+            new_width = width
+            if rescale:
+                new_height = height // scale_factor
+                new_width = width // scale_factor
 
-    return redirect(f'/image/{uuid}/segment/')
+            image = np.zeros((new_height, new_width)).astype(np.float32)
+            columns = np.where(rle[:, 0] == f)
+            currobj = 1
+            for i in columns[0]:
+                logging.info(f"Processing RLE data for object {currobj} in UUID {uuid}")
+                try:
+                    currimg = rleToMask(rle[i, 1], new_height, new_width)
+                    currimg = currimg > 1
+                    image = image + (currimg * currobj)
+                    currobj += 1
+                except Exception as e:
+                    logging.error(f"Error generating mask for {f} in UUID {uuid}: {e}")
+                    continue
+
+            if rescale:
+                image = skimage.transform.resize(image, output_shape=(height, width), order=0, preserve_range=True)
+
+            # Save the image
+            mask_path = outputdirectory / "mask.tif"
+            try:
+                image = Image.fromarray(image.astype(np.uint8))
+                image.save(mask_path)
+                logging.info(f"Saved mask for UUID {uuid} to: {mask_path}")
+            except Exception as e:
+                logging.error(f"Error saving mask for UUID {uuid}: {e}")
+                continue
+
+            if verbose:
+                logging.info(f"Completed conversion for {f} in UUID {uuid} in {time.time() - start_time} seconds")
+
+    # Redirect after processing all UUIDs
+    return redirect(f'/image/{uuids}/segment/')
+

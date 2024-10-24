@@ -24,10 +24,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', homepage, name="homepage"),
     path('image/upload/', upload_images, name="image_upload"),
-    path('image/<uuid:uuid>/', pre_process_step, name="pre_process"),
-    path('image/<uuid:uuid>/convert/', convert_to_image.convert_to_image),
-    path('image/<uuid:uuid>/segment/', segment_image.segment_image),
-    path('image/<uuid:uuid>/display/', display.display_cell),  # Ensure this points to display_cell
+    path('image/preprocess/', pre_process_step, name="pre_process_step"),  
+    path('image/preprocess/<str:uuids>/', pre_process_step, name="pre_process_step"),  # Multiple UUIDs
+    path('image/<str:uuids>/convert/', convert_to_image.convert_to_image),
+    path('image/<str:uuids>/segment/', segment_image.segment_image),
+    path('image/<str:uuids>/display/', display.display_cell),  # Accepting multiple UUIDs as a comma-separated string
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

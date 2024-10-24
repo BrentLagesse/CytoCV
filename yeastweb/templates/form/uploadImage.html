@@ -1,5 +1,95 @@
-<!--component from https://www.youtube.com/watch?v=V5-4OUEmE0I  -->
-<form action="" method="post" enctype="multipart/form-data">
-  {% csrf_token %} {{form}}
-  <input type="submit" value="Upload" />
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Files</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #333; /* Dark background */
+            color: #fff; /* Light text */
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full height to center vertically in the viewport */
+            box-sizing: border-box;
+        }
+        form {
+            width: 90%;
+            max-width: 600px;
+            border: 1px solid #444; /* Add a subtle border */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Add shadow for better visibility */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #222; /* Slightly lighter background for contrast */
+        }
+        input[type="file"] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0; /* Ensure margin is consistent around the element */
+            box-sizing: border-box;
+            cursor: pointer;
+            border: 1px solid #555; /* Make the border more visible */
+            background-color: #333; /* Dark background for the input */
+            color: #fff; /* Light text color */
+        }
+        input[type="submit"] {
+            background-color: #007bff; 
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            margin-top: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+            width: 100%;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3; /* Slightly darker blue on hover */
+        }
+        #fileList {
+            width: 100%; /* Full width to align with the input above */
+            text-align: left; /* Align text to the left */
+            padding-left: 0; /* No padding needed for alignment */
+            margin-top: 10px;
+        }
+        #fileList div {
+            padding: 8px;
+            background-color: #333; /* Darker background for file list items */
+            border: 1px solid #555; /* More visible border */
+            margin-top: 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<form action="" method="post" enctype="multipart/form-data" id="uploadForm">
+    {% csrf_token %}
+    <input type="file" id="folderInput" name="files" webkitdirectory multiple />
+    <div id="fileList"></div> <!-- To display the list of files -->
+    <input type="submit" value="Upload Files" />
 </form>
+
+<script>
+// JavaScript to display selected files in the browser before upload
+document.getElementById('folderInput').addEventListener('change', function(event) {
+    const fileList = document.getElementById('fileList');
+    fileList.innerHTML = '';  // Clear previous files
+
+    Array.from(event.target.files).forEach((file) => {
+        const listItem = document.createElement('div');
+        listItem.textContent = file.name;
+        fileList.appendChild(listItem);  // Add each file name to the list
+    });
+});
+</script>
+
+</body>
+</html>
