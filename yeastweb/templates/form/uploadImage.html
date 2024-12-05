@@ -3,68 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Files</title>
+    <title>Upload Files and Folders</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #333; /* Dark background */
-            color: #fff; /* Light text */
+            background-color: #333; 
+            color: #fff; 
             margin: 0;
             padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh; /* Full height to center vertically in the viewport */
+            height: 100vh;
             box-sizing: border-box;
         }
         form {
             width: 90%;
             max-width: 600px;
-            border: 1px solid #444; /* Add a subtle border */
+            border: 1px solid #444; 
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Add shadow for better visibility */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #222; /* Slightly lighter background for contrast */
-        }
-        input[type="file"] {
-            width: 100%;
-            padding: 12px 20px;
-            margin: 8px 0; /* Ensure margin is consistent around the element */
-            box-sizing: border-box;
-            cursor: pointer;
-            border: 1px solid #555; /* Make the border more visible */
-            background-color: #333; /* Dark background for the input */
-            color: #fff; /* Light text color */
-        }
-        input[type="submit"] {
-            background-color: #007bff; 
-            color: white;
-            border: none;
-            padding: 14px 20px;
-            margin-top: 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s ease; /* Smooth transition for hover effect */
-            width: 100%;
-        }
-        input[type="submit"]:hover {
-            background-color: #0056b3; /* Slightly darker blue on hover */
+            background-color: #222; 
         }
         #fileList {
-            width: 100%; /* Full width to align with the input above */
-            text-align: left; /* Align text to the left */
-            padding-left: 0; /* No padding needed for alignment */
+            width: 100%;
+            text-align: left;
             margin-top: 10px;
         }
         #fileList div {
             padding: 8px;
-            background-color: #333; /* Darker background for file list items */
-            border: 1px solid #555; /* More visible border */
+            background-color: #333;
+            border: 1px solid #555;
             margin-top: 8px;
             border-radius: 4px;
+        }
+        .buttons-container {
+            display: flex;
+            justify-content: center; 
+            gap: 20px; 
+            width: 100%;
+            margin-top: 20px; 
+            margin-bottom: 10px; 
+        }
+        .upload-btn {
+            flex: 1;
+            max-width: 200px; 
+            padding: 8px 10px; 
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.3s ease;
+            font-size: 14px; 
+        }
+        .upload-btn:hover {
+            background-color: #0056b3; 
+        }
+        input[type="file"] {
+            display: none; 
+        }
+        input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            margin-top: 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3; 
         }
     </style>
 </head>
@@ -72,24 +88,109 @@
 
 <form action="" method="post" enctype="multipart/form-data" id="uploadForm">
     {% csrf_token %}
-    <input type="file" id="folderInput" name="files" webkitdirectory multiple />
-    <div id="fileList"></div> <!-- To display the list of files -->
-    <input type="submit" value="Upload Files" />
+    <!-- Display list of selected files -->
+    <div id="fileList"></div>
+
+    <!-- Buttons for uploading files and folders -->
+    <div class="buttons-container">
+        <!-- Upload files button -->
+        <label class="upload-btn">
+            Upload Files
+            <input type="file" id="fileInput" multiple>
+        </label>
+        <!-- Upload folders button -->
+        <label class="upload-btn">
+            Upload Folders
+            <input type="file" id="folderInput" webkitdirectory multiple>
+        </label>
+    </div>
+
+    <!-- Submit button -->
+    <input type="submit" value="Pre-process Files">
 </form>
 
 <script>
-// JavaScript to display selected files in the browser before upload
-document.getElementById('folderInput').addEventListener('change', function(event) {
-    const fileList = document.getElementById('fileList');
-    fileList.innerHTML = '';  // Clear previous files
+    // Set to store unique file names
+    const selectedFiles = new Map(); // Map to store files by their normalized name
 
-    Array.from(event.target.files).forEach((file) => {
-        const listItem = document.createElement('div');
-        listItem.textContent = file.name;
-        fileList.appendChild(listItem);  // Add each file name to the list
+    // Function to display files in the queue
+    function displayFileQueue() {
+        const fileList = document.getElementById('fileList');
+        fileList.innerHTML = ''; // Clear previous display
+
+        selectedFiles.forEach((file, normalizedName) => {
+            const listItem = document.createElement('div');
+            listItem.textContent = file.webkitRelativePath || file.name;
+            fileList.appendChild(listItem);
+        });
+    }
+
+    // Function to handle file selection and prevent duplicates
+    function handleFileSelection(event) {
+        const files = Array.from(event.target.files); // Convert FileList to Array
+        const duplicateFiles = []; // To track duplicate files
+
+        files.forEach(file => {
+            const normalizedName = file.name; // Use just the filename for duplicate detection
+
+            // Check if the normalized filename already exists in the Map
+            if (selectedFiles.has(normalizedName)) {
+                duplicateFiles.push(normalizedName); // Track duplicate files
+            } else {
+                selectedFiles.set(normalizedName, file); // Add file to Map if not a duplicate
+            }
+        });
+
+        if (duplicateFiles.length > 0) {
+            alert(`Duplicate files detected: ${duplicateFiles.join(', ')}`);
+        }
+
+        displayFileQueue(); // Update the displayed file list
+    }
+
+    // Event listener for file input
+    document.getElementById('fileInput').addEventListener('change', handleFileSelection);
+
+    // Event listener for folder input
+    document.getElementById('folderInput').addEventListener('change', handleFileSelection);
+
+    // Handle form submission
+    document.getElementById('uploadForm').addEventListener('submit', function (event) {
+        event.preventDefault(); // Prevent default form submission
+
+        const formData = new FormData();
+
+        // Add all selected files to the FormData object
+        selectedFiles.forEach((file) => {
+            formData.append('files', file); // Append each file to the 'files' field
+        });
+
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Send the form data via a fetch POST request
+        fetch(this.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken, // Include CSRF token in headers
+            },
+            body: formData,
+        })
+            .then((response) => {
+                if (response.redirected) {
+                    // Follow the redirect URL
+                    window.location.href = response.url;
+                } else {
+                    alert('Error during upload.');
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert('Error during upload.');
+            });
     });
-});
 </script>
+
 
 </body>
 </html>
