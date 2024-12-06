@@ -34,12 +34,27 @@
             text-align: left;
             margin-top: 10px;
         }
-        #fileList div {
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 8px;
             background-color: #333;
             border: 1px solid #555;
             margin-top: 8px;
             border-radius: 4px;
+        }
+        .remove-btn {
+            background-color: #e74c3c;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+        .remove-btn:hover {
+            background-color: #c0392b;
         }
         .buttons-container {
             display: flex;
@@ -93,12 +108,10 @@
 
     <!-- Buttons for uploading files and folders -->
     <div class="buttons-container">
-        <!-- Upload files button -->
         <label class="upload-btn">
             Upload Files
-            <input type="file" id="fileInput" multiple>
+            <input type="file" id="fileInput" accept=".dv" multiple>
         </label>
-        <!-- Upload folders button -->
         <label class="upload-btn">
             Upload Folders
             <input type="file" id="folderInput" webkitdirectory multiple>
@@ -110,87 +123,95 @@
 </form>
 
 <script>
-    // Set to store unique file names
-    const selectedFiles = new Map(); // Map to store files by their normalized name
+    const selectedFiles = new Map();
 
-    // Function to display files in the queue
     function displayFileQueue() {
         const fileList = document.getElementById('fileList');
-        fileList.innerHTML = ''; // Clear previous display
+        fileList.innerHTML = '';
 
-        selectedFiles.forEach((file, normalizedName) => {
+        selectedFiles.forEach((file, fileName) => {
             const listItem = document.createElement('div');
-            listItem.textContent = file.webkitRelativePath || file.name;
+            listItem.className = 'file-item';
+
+            const fileNameSpan = document.createElement('span');
+            fileNameSpan.textContent = file.webkitRelativePath || file.name;
+
+            const removeButton = document.createElement('button');
+            removeButton.textContent = 'X';
+            removeButton.className = 'remove-btn';
+            removeButton.onclick = () => {
+                selectedFiles.delete(fileName);
+                displayFileQueue();
+            };
+
+            listItem.appendChild(fileNameSpan);
+            listItem.appendChild(removeButton);
             fileList.appendChild(listItem);
         });
     }
 
-    // Function to handle file selection and prevent duplicates
     function handleFileSelection(event) {
-        const files = Array.from(event.target.files); // Convert FileList to Array
-        const duplicateFiles = []; // To track duplicate files
+        const files = Array.from(event.target.files);
+        const duplicateFiles = [];
+        const invalidFiles = [];
 
         files.forEach(file => {
-            const normalizedName = file.name; // Use just the filename for duplicate detection
+            const fileName = file.name;
 
-            // Check if the normalized filename already exists in the Map
-            if (selectedFiles.has(normalizedName)) {
-                duplicateFiles.push(normalizedName); // Track duplicate files
+            if (!file.name.endsWith('.dv')) {
+                invalidFiles.push(file.name);
+                return;
+            }
+
+            if (selectedFiles.has(fileName)) {
+                duplicateFiles.push(fileName);
             } else {
-                selectedFiles.set(normalizedName, file); // Add file to Map if not a duplicate
+                selectedFiles.set(fileName, file);
             }
         });
+
+        if (invalidFiles.length > 0) {
+            alert(`Invalid files detected (only .dv files are allowed): ${invalidFiles.join(', ')}`);
+        }
 
         if (duplicateFiles.length > 0) {
             alert(`Duplicate files detected: ${duplicateFiles.join(', ')}`);
         }
 
-        displayFileQueue(); // Update the displayed file list
+        displayFileQueue();
     }
 
-    // Event listener for file input
     document.getElementById('fileInput').addEventListener('change', handleFileSelection);
-
-    // Event listener for folder input
     document.getElementById('folderInput').addEventListener('change', handleFileSelection);
 
-    // Handle form submission
     document.getElementById('uploadForm').addEventListener('submit', function (event) {
-        event.preventDefault(); // Prevent default form submission
+        event.preventDefault();
 
         const formData = new FormData();
+        selectedFiles.forEach(file => formData.append('files', file));
 
-        // Add all selected files to the FormData object
-        selectedFiles.forEach((file) => {
-            formData.append('files', file); // Append each file to the 'files' field
-        });
-
-        // Get CSRF token
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        // Send the form data via a fetch POST request
         fetch(this.action, {
             method: 'POST',
             headers: {
-                'X-CSRFToken': csrfToken, // Include CSRF token in headers
+                'X-CSRFToken': csrfToken,
             },
             body: formData,
         })
-            .then((response) => {
-                if (response.redirected) {
-                    // Follow the redirect URL
-                    window.location.href = response.url;
-                } else {
-                    alert('Error during upload.');
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
+        .then(response => {
+            if (response.redirected) {
+                window.location.href = response.url;
+            } else {
                 alert('Error during upload.');
-            });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error during upload.');
+        });
     });
 </script>
-
 
 </body>
 </html>
