@@ -62,7 +62,7 @@
 <body>
 
 <h1>Django Image Uploading</h1>
-<a href="image/upload">Upload Image</a>
+<a href="image/upload" id="uploadImageButton">Upload Image</a>
 
 <!-- List all image's uuid and name-->
 <ul>
@@ -74,6 +74,17 @@
   </li>
   {% endfor %}
 </ul>
+
+<!-- Add JavaScript here -->
+<script>
+    const uploadImageButton = document.getElementById('uploadImageButton');
+    uploadImageButton.addEventListener('click', function (event) {
+        // Change button text to "Loading..."
+        uploadImageButton.textContent = "Loading...";
+        // Disable further clicks by preventing pointer events
+        uploadImageButton.style.pointerEvents = "none";
+    });
+</script>
 
 </body>
 </html>

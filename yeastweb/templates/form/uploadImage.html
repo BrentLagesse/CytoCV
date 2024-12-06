@@ -187,6 +187,14 @@
     document.getElementById('uploadForm').addEventListener('submit', function (event) {
         event.preventDefault();
 
+        // Disable all buttons and inputs
+        const buttons = document.querySelectorAll('button, input[type="submit"], input[type="file"]');
+        buttons.forEach((button) => {
+            button.disabled = true; // Disable the button
+            if (button.type === "submit") button.value = "Loading..."; // Change text for the submit button
+        });
+
+
         const formData = new FormData();
         selectedFiles.forEach(file => formData.append('files', file));
 
@@ -204,11 +212,15 @@
                 window.location.href = response.url;
             } else {
                 alert('Error during upload.');
+                submitButton.disabled = false; // Re-enable button on error
+                submitButton.value = "Pre-process Files"; // Reset button text
             }
         })
         .catch(error => {
             console.error('Error:', error);
             alert('Error during upload.');
+            submitButton.disabled = false; // Re-enable button on error
+            submitButton.value = "Pre-process Files"; // Reset button text
         });
     });
 </script>
