@@ -97,6 +97,7 @@
         input[type="submit"]:hover {
             background-color: #0056b3; 
         }
+
     </style>
 </head>
 <body>
@@ -119,7 +120,7 @@
     </div>
 
     <!-- Submit button -->
-    <input type="submit" value="Pre-process Files">
+    <input type="submit" value="Preprocess Files">
 </form>
 
 <script>
@@ -179,7 +180,11 @@
         }
 
         displayFileQueue();
+
+        // Clear the input value to allow re-adding the same file
+        event.target.value = '';
     }
+
 
     document.getElementById('fileInput').addEventListener('change', handleFileSelection);
     document.getElementById('folderInput').addEventListener('change', handleFileSelection);
@@ -187,13 +192,29 @@
     document.getElementById('uploadForm').addEventListener('submit', function (event) {
         event.preventDefault();
 
+        // Check if any files are selected
+        if (selectedFiles.size === 0) {
+            alert('No files selected! Please upload at least one file before preprocessing.');
+            return; // Stop submission
+        }
+
         // Disable all buttons and inputs
-        const buttons = document.querySelectorAll('button, input[type="submit"], input[type="file"]');
+        const buttons = document.querySelectorAll('.upload-btn, input[type="submit"], input[type="file"], .remove-btn');
         buttons.forEach((button) => {
             button.disabled = true; // Disable the button
-            if (button.type === "submit") button.value = "Loading..."; // Change text for the submit button
-        });
+            button.style.pointerEvents = 'none'; // Disable pointer interactions
+            button.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
 
+            // Handle specific button types
+            if (button.classList.contains('remove-btn') || button.classList.contains('upload-btn')) {
+                // "X" buttons
+                button.style.backgroundColor = button.style.backgroundColor; 
+            } else if (button.type === "submit") {
+                // Submit button
+                button.value = "Preprocessing..."; // Change text for the submit button
+                button.style.backgroundColor = '#0056b3'; // Set submit button hover color
+            }
+        });
 
         const formData = new FormData();
         selectedFiles.forEach(file => formData.append('files', file));
@@ -212,17 +233,18 @@
                 window.location.href = response.url;
             } else {
                 alert('Error during upload.');
-                submitButton.disabled = false; // Re-enable button on error
-                submitButton.value = "Pre-process Files"; // Reset button text
+                buttons.forEach(button => button.disabled = false); // Re-enable buttons on error
+                document.querySelector('input[type="submit"]').value = "Preprocess Files"; // Reset button text
             }
         })
         .catch(error => {
             console.error('Error:', error);
             alert('Error during upload.');
-            submitButton.disabled = false; // Re-enable button on error
-            submitButton.value = "Pre-process Files"; // Reset button text
+            buttons.forEach(button => button.disabled = false); // Re-enable buttons on error
+            document.querySelector('input[type="submit"]').value = "Preprocess Files"; // Reset button text
         });
     });
+
 </script>
 
 </body>

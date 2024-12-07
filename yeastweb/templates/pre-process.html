@@ -79,9 +79,9 @@
 
     <script>
         // Make sure the variables are passed in as numbers and strings properly.
-        let currentFileIndex = parseInt('{{ current_file_index|default:0 }}', 10); // Ensure we pass the current_file_index as a number
-        const totalFiles = parseInt('{{ total_files|default:1 }}', 10);  // Ensure total_files is passed as a number
-        const uuids = "{{ uuids }}";  // Pass the uuids string safely for navigation
+        let currentFileIndex = parseInt('{{ current_file_index|default:0 }}', 10); 
+        const totalFiles = parseInt('{{ total_files|default:1 }}', 10);  
+        const uuids = "{{ uuids }}";  
     
         // Add event listeners for 'next' and 'prev' buttons
         document.getElementById('nextButton').addEventListener('click', function() {
@@ -94,9 +94,13 @@
 
         document.getElementById('preprocessForm').addEventListener('submit', function (event) {
             const startButton = document.getElementById('startAnalysisButton');
-            startButton.disabled = true; // Disable button
-            startButton.value = "Loading..."; // Update text
+            startButton.disabled = true; 
+            button.style.pointerEvents = 'none'; 
+            button.style.cursor = 'not-allowed'; 
+            startButton.value = "Analyzing..."; 
+            startButton.style.backgroundColor = '#0056b3'; 
         });
+
 
         function loadImage(newIndex) {
             if (newIndex < 0 || newIndex >= totalFiles) return;

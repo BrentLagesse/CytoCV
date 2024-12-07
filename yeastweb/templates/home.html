@@ -81,6 +81,8 @@
     uploadImageButton.addEventListener('click', function (event) {
         // Change button text to "Loading..."
         uploadImageButton.textContent = "Loading...";
+        button.style.pointerEvents = 'none'; // Disable pointer interactions
+        button.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
         // Disable further clicks by preventing pointer events
         uploadImageButton.style.pointerEvents = "none";
     });
