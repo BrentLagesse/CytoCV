@@ -11,13 +11,13 @@ Example of wave-length image (notice the white spots): <br />
 <img src="https://github.com/user-attachments/assets/26681f65-530a-4c99-9573-39a54387bb6e" width="300">
 
 
-
+## Installation
 You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are installed and are in the $PATH (you can type those command names on the commandline and your computer finds them).
 
-###########################################################################################################################################################
+1. Download this link https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing and put it in the weights directory under yeastweb/core/weights (might need to create folder manually)
 
-Running on Windows
-Having the same assumptions that Python(3.11.5) is installed in the machine
+### Running on Windows
+Python version  **NEEDS TO BE 3.11.5** or else it will not work <br/>
 
 1. git clone https://github.com/BrentLagesse/Yeast-Web.git #Clone github Repo using
 
@@ -33,9 +33,9 @@ Having the same assumptions that Python(3.11.5) is installed in the machine
 
 7. yeast_web\Scripts\activate #activate venv
 
-## Due to the machine learning part only works on certain versions of packages, we have to specifically use them
+Due to the machine learning part only works on certain versions of packages, we have to specifically use them 
 
-#### the easiest way do to do is to delete all your personal pip packages and reinstall them
+###the easiest way do to do is to delete all your personal pip packages and reinstall them
 
 ```bash
 # puts all personal packages into deleteRequirements.txt
@@ -44,13 +44,12 @@ Having the same assumptions that Python(3.11.5) is installed in the machine
 2. pip uninstall -r deleteRequirements.txt
 # installs repo's pip packages
 3. pip install -r ./requirements.txt --no-cache-dir
+    * If fails, might be using the wrong Python version or go into deleteRequirments.txt and delete the line with pip
 #deletes temporary Requirements
 4. del deleteRequirements.txt
 ```
 
 ## Launching project
-
-11. Download this link https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing and put it in the weights directory under yeastweb/core/weights
 
 ```
 1. cd yeastweb
