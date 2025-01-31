@@ -1,9 +1,14 @@
-import uuid
-import json
-from django.db import models
 # https://docs.djangoproject.com/en/5.0/topics/forms/modelforms/#django.forms.ModelForm
 from django.forms import ModelForm
 from functools import partial
+import uuid, os, json
+from django.db import models
+from django.conf import settings
+from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
+from enum import Enum
+from PIL import Image
+from mrc import DVFile
+from core.config import input_dir
 
 class UploadedImage(models.Model):
     # stores image in its own uuid folder along with its name
@@ -36,18 +41,100 @@ class DVLayerTifPreview(models.Model):
     # since the tif is already generated, manually set to path 
     file_location = models.ImageField()
 
+class Contour(Enum):
+    CONTOUR = 0
+    CONVEX = 1
+    CIRCLE = 2
+
 class CellStatistics(models.Model):
-    segmented_image = models.ForeignKey(SegmentedImage, on_delete=models.CASCADE)
+    segmented_image = models.ForeignKey("SegmentedImage", on_delete=models.CASCADE)
     cell_id = models.IntegerField()
     distance = models.FloatField()
     line_gfp_intensity = models.FloatField()
     nucleus_intensity_sum = models.FloatField()
     cellular_intensity_sum = models.FloatField()
 
+    dv_file_path = models.TextField(default="")
+
+    # Not sure why needed, included to maintain consistency with legacy code
+    image_name = models.TextField(default="")
+
+    # Additional fields migrated from CellPair:
+    is_correct = models.BooleanField(default=True)
+    nuclei_count = models.IntegerField(default=1)
+    red_dot_count = models.IntegerField(default=1)
+    gfp_dot_count = models.IntegerField(default=0)
+    red_dot_distance = models.FloatField(default=0.0)
+    gfp_red_dot_distance = models.FloatField(default=0.0)
+    cyan_dot_count = models.IntegerField(default=1)
+    green_dot_count = models.IntegerField(default=1)
+    ground_truth = models.BooleanField(default=False)
+    nucleus_intensity = models.JSONField(default=dict)   # For storing intensities by contour type
+    nucleus_total_points = models.IntegerField(default=0)
+    cell_intensity = models.JSONField(default=dict)      # For storing intensities (if keeping it as dict)
+    cell_total_points = models.IntegerField(default=0)
+    ignored = models.BooleanField(default=False)
+    mcherry_line_gfp_intensity = models.FloatField(default=0.0)
+    gfp_line_gfp_intensity = models.FloatField(default=0.0)
+    properties = models.JSONField(default=dict)
+
     def __str__(self):
         return f"Cell ID: {self.cell_id} - Dist: {self.distance}, Line GFP: {self.line_gfp_intensity}"
 
+    #
+    # Legacy "getter" methods moved into the model:
+    #
+    def get_base_name(self):
+        """
+        Legacy helper to extract the base name before '_PRJ' in self.image_name.
+        """
+        return self.image_name.split('_PRJ')[0]
 
+    def get_mCherry(self, use_id=False, outline=True):
+        """
+        Legacy helper that returns either a filename or opens an image
+        depending on the file extension and whether we're using the cell_id.
+        """
+        mcherry_channel = 2
+
+        outlinestr = ''
+        if not outline:
+            outlinestr = '-no_outline'
+        if use_id:
+            # Use the cell_id in the filename
+            return f"{self.get_base_name()}_PRJ-{mcherry_channel}-{self.cell_id}{outlinestr}.png"
+        else:
+            extspl = os.path.splitext(self.image_name)
+            if extspl[1] == '.dv':
+                f = DVFile(self.dv_file_path)
+                image = f.asarray()
+                img = Image.fromarray(image[3])
+                return img
+            else:
+                return f"{self.get_base_name()}_PRJ-{mcherry_channel}{outlinestr}.png"
+
+    def get_GFP(self, use_id=False, outline=True):
+        """
+        Legacy helper that returns either a filename or opens an image
+        depending on the file extension and whether we're using the cell_id.
+        """
+        gfpchannel = 3
+
+        outlinestr = ''
+        if not outline:
+            outlinestr = '-no_outline'
+        if use_id:
+            # Use the cell_id in the filename
+            return f"{self.get_base_name()}_PRJ-{gfpchannel}-{self.cell_id}{outlinestr}.png"
+        else:
+            extspl = os.path.splitext(self.image_name)
+            if extspl[1] == '.dv':
+                f = DVFile(self.dv_file_path)
+                image = f.asarray()
+                img = Image.fromarray(image[2])
+                return img
+            else:
+                return f"{self.get_base_name()}_PRJ-{gfpchannel}{outlinestr}.png"
 
 
 
@@ -98,6 +185,5 @@ class CellStatistics(models.Model):
 #         self.gfp_line_gfp_intensity = 0
 #         self.properties = dict()
         
-
 
 

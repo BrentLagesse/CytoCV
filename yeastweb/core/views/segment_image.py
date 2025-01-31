@@ -1,13 +1,13 @@
-import csv
-import cv2
-import math
 import matplotlib.patheffects as PathEffects
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import skimage
+import os, csv, math, cv2, skimage, logging, time
 
-from core.models import UploadedImage, SegmentedImage, CellStatistics
+from skimage import io
+from django.conf import settings
+
+from core.models import UploadedImage, SegmentedImage, CellStatistics, Contour
+from core.config import input_dir, output_dir
 from cv2_rolling_ball import subtract_background_rolling_ball
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -19,13 +19,8 @@ from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
 from scipy.spatial.distance import euclidean  
 from collections import defaultdict
 
-import cv2
-import numpy as np
 from scipy.spatial.distance import euclidean
 from cv2_rolling_ball import subtract_background_rolling_ball
-
-import logging
-import time
 
 # Configure logging
 logging.basicConfig(
@@ -37,96 +32,257 @@ logging.basicConfig(
     ]
 )
 
-def calculate_cell_statistics(seg, gfp_channel, nucleus_channel, cell_number, kernel_size, deviation, mcherry_line_width):
-    """Calculates all necessary statistics for a single cell with detailed logging for debugging."""
-    start_time = time.time()
-    logging.debug(f"Starting statistics calculation for cell {cell_number}.")
-    
-    # Create mask and find contours
-    cell_mask = (seg == cell_number).astype(np.uint8) * 255
-    contours, _ = cv2.findContours(cell_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    logging.debug(f"Found {len(contours)} contours for cell {cell_number}.")
-    
-    if not contours:
-        logging.warning(f"No contours found for cell {cell_number}.")
-        return {
-            'distance': 0,
-            'line_gfp_intensity': 0,
-            'nucleus_intensity_sum': 0,
-            'cellular_intensity_sum': 0
-        }
+def set_options(opt):
+    """
+    This function sets global variables based on parsed arguments (like the old legacy code).
+    """
+    global input_dir, output_dir, ignore_btn, current_image, current_cell, outline_dict, image_dict, cp_dict, n
+    input_dir = opt.input_directory
+    output_dir = opt.output_directory
 
-    # Identify the largest contour for the cell outline
-    cell_contour = max(contours, key=cv2.contourArea)
-    mask_contour = np.zeros_like(gfp_channel, dtype=np.uint8)
-    cv2.drawContours(mask_contour, [cell_contour], -1, 255, -1)
-    logging.debug(f"Largest contour drawn for cell {cell_number}.")
+def get_stats(cp, conf):
+    data = conf
+    print(data)
+    global input_dir 
+    input_dir = data['input_dir']
+    global output_dir 
+    output_dir = data['output_dir']
+    kernel_size_input = data['kernel_size']
+    mcherry_line_width_input = data['mCherry_line_width']
+    kernel_deviation_input = data['kernel_diviation']
+    choice_var = data['arrested']
+    
+    # outlines screw up the analysis
+    print("test123", 'segmented/' + cp.get_mCherry(use_id=True, outline=False))
+    im = Image.open(output_dir + '/segmented/' + cp.get_mCherry(use_id=True, outline=False))
+    im_GFP = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True, outline=False))
+    im_GFP_for_cellular_intensity = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True))  # has outline
+    testimg = np.array(im)
+    GFP_img = np.array(im_GFP)
+    img_for_cell_intensity = np.array(im_GFP_for_cellular_intensity)
 
-    # Convert nucleus image to grayscale if necessary and apply Gaussian blur and background subtraction
-    start_preprocess = time.time()
-    nucleus_image_gray = cv2.cvtColor(nucleus_channel, cv2.COLOR_RGB2GRAY) if len(nucleus_channel.shape) == 3 else nucleus_channel
-    nucleus_image_gray = cv2.GaussianBlur(nucleus_image_gray, (kernel_size, kernel_size), deviation)
-    nucleus_image_gray, _ = subtract_background_rolling_ball(nucleus_image_gray, 50, light_background=False)
-    logging.debug(f"Nucleus preprocessing completed for cell {cell_number} in {time.time() - start_preprocess:.2f} seconds.")
+    cell_intensity_gray = cv2.cvtColor(img_for_cell_intensity, cv2.COLOR_RGB2GRAY)
+
+    # was RGBA2GRAY
+    orig_gray_GFP = cv2.cvtColor(GFP_img, cv2.COLOR_RGB2GRAY)
+    orig_gray_GFP_no_bg, background = subtract_background_rolling_ball(orig_gray_GFP, 50, light_background=False,
+                                                                       use_paraboloid=False, do_presmooth=True)
+    orig_gray = cv2.cvtColor(testimg, cv2.COLOR_RGB2GRAY)
+    kdev = int(kernel_deviation_input)
+    ksize = int(kernel_size_input)
+    # ksize must be odd
+    if ksize % 2 == 0:
+        ksize += 1
+        print("You used an even ksize, updating to odd number +1")
+
+    gray_mcherry = cv2.GaussianBlur(orig_gray, (3,3), 1)
+    ret_mcherry, thresh_mcherry = cv2.threshold(gray_mcherry, 0, 1,
+                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    gray = cv2.GaussianBlur(orig_gray, (ksize, ksize), kdev)
+    ret, thresh = cv2.threshold(gray, 0, 1,
+                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+
+    # Some of the cell outlines are split into two circles. Blur so that the contour covers both
+    cell_intensity_gray = cv2.GaussianBlur(cell_intensity_gray, (3,3), 1)
+    cell_int_ret, cell_int_thresh = cv2.threshold(cell_intensity_gray, 0, 1,
+                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
+
+    # Biggest contour for the cellular intensity boundary
+    largest = 0
+    largest_cell_cnt = None
+    # TODO: In the future, handle multiple large contours more robustly
+    for i, cnt in enumerate(cell_int_cont):
+        area = cv2.contourArea(cnt)
+        if area > largest:
+            largest = area
+            largest_cell_cnt = cnt
+
+    contours, h = cv2.findContours(thresh, 1, 2)
+    contours_mcherry = cv2.findContours(thresh_mcherry, 1, 2)
+
+    # Identify the two largest contours in each set
+    bestContours = []
+    bestArea = []
+    for i, cnt in enumerate(contours):
+        if len(cnt) == 0:
+            continue
+        if i == len(contours) - 1:  # not robust #TODO fix it
+            continue
+        area = cv2.contourArea(cnt)
+        if len(bestContours) == 0:
+            bestContours.append(i)
+            bestArea.append(area)
+            continue
+        if len(bestContours) == 1:
+            bestContours.append(i)
+            bestArea.append(area)
+
+        if area > bestArea[0]:
+            bestArea[1] = bestArea[0]
+            bestArea[0] = area
+            bestContours[1] = bestContours[0]
+            bestContours[0] = i
+        elif area > bestArea[1]:
+            bestArea[1] = area
+            bestContours[1] = i
+
+    if len(bestContours) == 0:
+        print("we didn't find any contours")
+        return im, im_GFP  # returns original images if no contours found
+
+    bestContours_mcherry = []
+    bestArea_mcherry = []
+    for i, cnt in enumerate(contours_mcherry[0]):
+        if len(cnt) == 0:
+            continue
+        if i == len(contours_mcherry[0]) - 1:  # not robust #TODO fix it
+            continue
+        try:
+            area = cv2.contourArea(cnt)
+        except:
+            continue
+
+        if len(bestContours_mcherry) == 0:
+            bestContours_mcherry.append(i)
+            bestArea_mcherry.append(area)
+            continue
+        if len(bestContours_mcherry) == 1:
+            bestContours_mcherry.append(i)
+            bestArea_mcherry.append(area)
+
+        if area > bestArea_mcherry[0]:
+            bestArea_mcherry[1] = bestArea_mcherry[0]
+            bestArea_mcherry[0] = area
+            bestContours_mcherry[1] = bestContours_mcherry[0]
+            bestContours_mcherry[0] = i
+        elif area > bestArea_mcherry[1]:
+            bestArea_mcherry[1] = area
+            bestContours_mcherry[1] = i
+
+    edit_im = Image.open(output_dir + '/segmented/' + cp.get_mCherry(use_id=True))
+    edit_im_GFP = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True))
+    edit_testimg = np.array(edit_im)
+    edit_GFP_img = np.array(edit_im_GFP)
+
+    mcherry_line_pts = []
+    if len(bestContours_mcherry) == 2:
+        c1 = contours_mcherry[0][bestContours_mcherry[0]]
+        c2 = contours_mcherry[0][bestContours_mcherry[1]]
+        M1 = cv2.moments(c1)
+        M2 = cv2.moments(c2)
+
+        if M1['m00'] == 0 or M2['m00'] == 0:
+            print("Warning:  The m00 moment = 0")
+        else:
+            c1x = int(M1['m10'] / M1['m00'])
+            c1y = int(M1['m01'] / M1['m00'])
+            c2x = int(M2['m10'] / M2['m00'])
+            c2y = int(M2['m01'] / M2['m00'])
+            d = math.sqrt((c1x - c2x)**2 + (c1y - c2y)**2)
+
+            # Directly assign to cp.red_dot_distance (instead of cp.set_red_dot_distance(d))
+            cp.red_dot_distance = d
+
+            cv2.line(edit_testimg, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
+            mcherry_line_mask = np.zeros(gray.shape, np.uint8)
+            cv2.line(mcherry_line_mask, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
+            mcherry_line_pts = np.transpose(np.nonzero(mcherry_line_mask))
+
+    best_contour = None
+    if len(bestContours) == 2:
+        c1 = contours[bestContours[0]]
+        c2 = contours[bestContours[1]]
+        MERGE_CLOSEST = True
+        if MERGE_CLOSEST:
+            smallest_distance = 999999999
+            second_smallest_distance = 999999999
+            smallest_pair = (-1, -1)
+
+            for pt1 in c1:
+                for i, pt2 in enumerate(c2):
+                    d = math.sqrt((pt1[0][0] - pt2[0][0])**2 + (pt1[0][1] - pt2[0][1])**2)
+                    if d < smallest_distance:
+                        second_smallest_distance = smallest_distance
+                        second_smallest_pair = smallest_pair
+                        smallest_distance = d
+                        smallest_pair = (pt1, pt2, i)
+                    elif d < second_smallest_distance:
+                        second_smallest_distance = d
+                        second_smallest_pair = (pt1, pt2, i)
+
+            # Merge c2 into c1 at the closest points
+            best_contour = []
+            for pt1 in c1:
+                best_contour.append(pt1)
+                if pt1[0].tolist() != smallest_pair[0][0].tolist():
+                    continue
+                # we are at the closest p1
+                start_loc = smallest_pair[2]
+                finish_loc = start_loc - 1
+                if start_loc == 0:
+                    finish_loc = len(c2) - 1
+                current_loc = start_loc
+                while current_loc != finish_loc:
+                    best_contour.append(c2[current_loc])
+                    current_loc += 1
+                    if current_loc >= len(c2):
+                        current_loc = 0
+                best_contour.append(c2[finish_loc])
+
+            best_contour = np.array(best_contour).reshape((-1, 1, 2)).astype(np.int32)
+
+    if len(bestContours) == 1:
+        best_contour = contours[bestContours[0]]
+
+    print("only 1 contour found")
+    cv2.drawContours(edit_testimg, [best_contour], 0, (0, 255, 0), 1)
+    cv2.drawContours(edit_GFP_img, [best_contour], 0, (0, 255, 0), 1)
+
+    mask_contour = np.zeros(gray.shape, np.uint8)
+    cv2.fillPoly(mask_contour, [best_contour], 255)
+    pts_contour = np.transpose(np.nonzero(mask_contour))
+
+    border_cells = []
+    with open(output_dir + '/masks/' + cp.get_base_name() + '-' + str(cp.cell_id) + '.outline', 'r') as csvfile:
+        csvreader = csv.reader(csvfile)
+        for row in csvreader:
+            border_cells.append([int(row[0]), int(row[1])])
+
+    # Calculate nucleus intensity inside the best_contour
+    intensity_sum = 0
+    for p in pts_contour:
+        intensity_sum += orig_gray_GFP_no_bg[p[0]][p[1]]
+
+    cp.nucleus_intensity[Contour.CONTOUR.name] = intensity_sum
+    cp.nucleus_total_points = len(pts_contour)
+
+    # Calculate cell intensity from the "border_cells" list
+    cell_intensity_sum = 0
+    for p in border_cells:
+        cell_intensity_sum += orig_gray_GFP_no_bg[p[0]][p[1]]
+
+    cp.cell_intensity = cell_intensity_sum  # or store as dict
+    cp.cell_total_points = len(border_cells)
 
     # Calculate mCherry line intensity
     mcherry_line_intensity_sum = 0
-    if len(contours) >= 2:
-        c1, c2 = sorted(contours, key=cv2.contourArea, reverse=True)[:2]
-        M1, M2 = cv2.moments(c1), cv2.moments(c2)
-        
-        if M1["m00"] != 0 and M2["m00"] != 0:
-            c1x, c1y = int(M1["m10"] / M1["m00"]), int(M1["m01"] / M1["m00"])
-            c2x, c2y = int(M2["m10"] / M2["m00"]), int(M2["m01"] / M2["m00"])
-            mcherry_line_mask = np.zeros_like(nucleus_image_gray, dtype=np.uint8)
-            cv2.line(mcherry_line_mask, (c1x, c1y), (c2x, c2y), 255, mcherry_line_width)
-            mcherry_line_intensity_sum = np.sum(nucleus_image_gray[mcherry_line_mask == 255])
-            logging.debug(f"Calculated mCherry line intensity for cell {cell_number}.")
+    for p in mcherry_line_pts:
+        mcherry_line_intensity_sum += orig_gray_GFP_no_bg[p[0]][p[1]]
 
-    # Calculate nucleus and cellular intensities
-    nucleus_no_bg, _ = subtract_background_rolling_ball(nucleus_image_gray, 50, light_background=False)
-    nucleus_intensity_sum = np.sum(nucleus_no_bg[mask_contour == 255])
-    cellular_intensity_sum = np.sum(gfp_channel[mask_contour == 255])
-    logging.debug(f"Nucleus intensity sum: {nucleus_intensity_sum}, Cellular intensity sum: {cellular_intensity_sum} for cell {cell_number}.")
+    cp.mcherry_line_gfp_intensity = mcherry_line_intensity_sum
 
-    # Calculate distance to the nearest cell
-    start_distance = time.time()
-    M = cv2.moments(cell_contour)
-    centroid_x = int(M["m10"] / M["m00"]) if M["m00"] != 0 else 0
-    centroid_y = int(M["m01"] / M["m00"]) if M["m00"] != 0 else 0
-    distances = [
-        euclidean((centroid_x, centroid_y), (int(np.mean(np.where(seg == i)[0])), int(np.mean(np.where(seg == i)[1]))))
-        for i in range(1, int(np.max(seg)) + 1) if i != cell_number
-    ]
-    distance = min(distances) if distances else 0
-    logging.debug(f"Calculated distance: {distance} for cell {cell_number} in {time.time() - start_distance:.2f} seconds.")
+    return Image.fromarray(edit_testimg), Image.fromarray(edit_GFP_img)
 
-    # Total execution time
-    logging.info(f"Finished calculating statistics for cell {cell_number} in {time.time() - start_time:.2f} seconds.")
-    
-    return {
-        'distance': distance,
-        'line_gfp_intensity': mcherry_line_intensity_sum,
-        'nucleus_intensity_sum': nucleus_intensity_sum,
-        'cellular_intensity_sum': cellular_intensity_sum
-    }
 
-def get_neighbor_count(seg_image, center, radius=3, distance_loss=0.5):
-    """
-    Counts neighboring cells around the `center` point in `seg_image` within a specified `radius`.
-    Applies a loss factor as the distance from the center increases.
-    """
-    neighbor_list = []
+def get_neighbor_count(seg_image, center, radius=1, loss=0):
+    #TODO:  account for loss as distance gets larger
+    neighbor_list = list()
     neighbors = seg_image[center[0] - radius:center[0] + radius + 1, center[1] - radius:center[1] + radius + 1]
-    
     for x, row in enumerate(neighbors):
         for y, val in enumerate(row):
             if (x, y) != (radius, radius) and int(val) != 0 and int(val) != int(seg_image[center[0], center[1]]):
-                distance = math.sqrt((x - radius) ** 2 + (y - radius) ** 2)
-                # Apply distance-based loss if necessary
-                if distance <= radius * distance_loss:
-                    neighbor_list.append(val)
-                    
+                neighbor_list.append(val)
     return neighbor_list
 
 '''Creates image "segments" from the desired image'''
@@ -577,26 +733,48 @@ def segment_image(request, uuids):
                                     NumCells = int(np.max(seg) + 1))
             instance.save()
 
+        # ================================================
         # Calculate statistics for each cell only once after the loop
+        # ================================================
+        
+        # Build a proper 'conf' dict with required keys for get_stats
+        conf = {
+            'input_dir': input_dir,
+            'output_dir': os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
+            'kernel_size': kernel_size,      
+            'mCherry_line_width': mcherry_line_width,  
+            'kernel_diviation': deviation,       
+            'arrested': choice_var               
+        }
+
+        # For each cell_number in the segmentation, create/fetch a CellStatistics object
+        # and call get_stats so it can mutate the fields on cp.
         for cell_number in range(1, int(np.max(seg)) + 1):
             print(f"Calculating statistics for cell {cell_number} in image {DV_Name} (UUID: {uuid})")
-            
-            # Call the unified function to calculate all statistics with direct parameter values
-            stats = calculate_cell_statistics(
-                seg, gfp_channel, nucleus_channel, cell_number,
-                kernel_size=kernel_size, deviation=deviation, mcherry_line_width=mcherry_line_width
-            )
 
-            # Store the statistics in the dictionary
-            cell_stats[cell_number] = stats
-
-        # Save all statistics for each cell once after loop and statistics calculation
-        for cell_number, stats in cell_stats.items():
-            CellStatistics.objects.update_or_create(
+            # Create or get a CellStatistics row
+            cp, created = CellStatistics.objects.get_or_create(
                 segmented_image=instance,
                 cell_id=cell_number,
-                defaults=stats
+                defaults={
+                    # Cell statistics numerical defaults
+                    'distance': 0.0,
+                    'line_gfp_intensity': 0.0,
+                    'nucleus_intensity_sum': 0.0,
+                    'cellular_intensity_sum': 0.0,
+
+                    # Store file path information
+                    'dv_file_path': DV_path,
+                    'image_name': DV_Name + '.dv',
+                }
             )
+
+            # Now pass the real model object + conf to get_stats
+            # This modifies cp's fields in place
+            get_stats(cp, conf)
+
+            # Save the updated fields to the DB
+            cp.save()
 
         # if the image_dict is empty, then we didn't get anything interesting from the directory
         #print("image_dict123", image_dict)
