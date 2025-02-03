@@ -95,14 +95,14 @@ class CellStatistics(models.Model):
         Legacy helper that returns either a filename or opens an image
         depending on the file extension and whether we're using the cell_id.
         """
-        mcherry_channel = 2
+        channel = 2
 
         outlinestr = ''
         if not outline:
             outlinestr = '-no_outline'
         if use_id:
             # Use the cell_id in the filename
-            return f"{self.get_base_name()}_PRJ-{mcherry_channel}-{self.cell_id}{outlinestr}.png"
+            return f"{self.get_base_name()}_PRJ-{channel}-{self.cell_id}{outlinestr}.png"
         else:
             extspl = os.path.splitext(self.image_name)
             if extspl[1] == '.dv':
@@ -111,21 +111,21 @@ class CellStatistics(models.Model):
                 img = Image.fromarray(image[3])
                 return img
             else:
-                return f"{self.get_base_name()}_PRJ-{mcherry_channel}{outlinestr}.png"
+                return f"{self.get_base_name()}_PRJ-{channel}{outlinestr}.png"
 
     def get_GFP(self, use_id=False, outline=True):
         """
         Legacy helper that returns either a filename or opens an image
         depending on the file extension and whether we're using the cell_id.
         """
-        gfpchannel = 3
+        channel = 2
 
         outlinestr = ''
         if not outline:
             outlinestr = '-no_outline'
         if use_id:
             # Use the cell_id in the filename
-            return f"{self.get_base_name()}_PRJ-{gfpchannel}-{self.cell_id}{outlinestr}.png"
+            return f"{self.get_base_name()}_PRJ-{channel}-{self.cell_id}{outlinestr}.png"
         else:
             extspl = os.path.splitext(self.image_name)
             if extspl[1] == '.dv':
@@ -134,7 +134,7 @@ class CellStatistics(models.Model):
                 img = Image.fromarray(image[2])
                 return img
             else:
-                return f"{self.get_base_name()}_PRJ-{gfpchannel}{outlinestr}.png"
+                return f"{self.get_base_name()}_PRJ-{channel}{outlinestr}.png"
 
 
 

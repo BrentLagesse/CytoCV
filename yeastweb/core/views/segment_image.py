@@ -172,6 +172,7 @@ def get_stats(cp, conf):
         M1 = cv2.moments(c1)
         M2 = cv2.moments(c2)
 
+        # ---- Compute red dot distance from mCherry contours ----
         if M1['m00'] == 0 or M2['m00'] == 0:
             print("Warning:  The m00 moment = 0")
         else:
@@ -183,6 +184,8 @@ def get_stats(cp, conf):
 
             # Directly assign to cp.red_dot_distance (instead of cp.set_red_dot_distance(d))
             cp.red_dot_distance = d
+
+            cp.distance = float(d)
 
             cv2.line(edit_testimg, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
             mcherry_line_mask = np.zeros(gray.shape, np.uint8)
@@ -243,9 +246,17 @@ def get_stats(cp, conf):
     cv2.fillPoly(mask_contour, [best_contour], 255)
     pts_contour = np.transpose(np.nonzero(mask_contour))
 
-    border_cells = []
-    with open(output_dir + '/masks/' + cp.get_base_name() + '-' + str(cp.cell_id) + '.outline', 'r') as csvfile:
+    # Build the expected outline filename:
+    # cp.image_name is set (in the get_or_create for CellStatistics) as DV_Name + '.dv',
+    # so taking os.path.splitext(cp.image_name)[0] gives the full DV name (e.g. "M3850_001_PRJ")
+    outline_filename = os.path.splitext(cp.image_name)[0] + '-' + str(cp.cell_id) + '.outline'
+
+    # The outline files are stored in the "output" folder (not in a "masks" folder)
+    mask_file_path = os.path.join(output_dir, 'output', outline_filename)
+
+    with open(mask_file_path, 'r') as csvfile:
         csvreader = csv.reader(csvfile)
+        border_cells = []
         for row in csvreader:
             border_cells.append([int(row[0]), int(row[1])])
 
@@ -254,23 +265,32 @@ def get_stats(cp, conf):
     for p in pts_contour:
         intensity_sum += orig_gray_GFP_no_bg[p[0]][p[1]]
 
-    cp.nucleus_intensity[Contour.CONTOUR.name] = intensity_sum
-    cp.nucleus_total_points = len(pts_contour)
+    # Cast to Python int before saving into the JSON field
+    cp.nucleus_intensity[Contour.CONTOUR.name] = int(intensity_sum)
+    cp.nucleus_total_points = len(pts_contour)  # This is usually a Python int already
+
+    cp.nucleus_intensity_sum = float(intensity_sum)
 
     # Calculate cell intensity from the "border_cells" list
     cell_intensity_sum = 0
     for p in border_cells:
         cell_intensity_sum += orig_gray_GFP_no_bg[p[0]][p[1]]
 
-    cp.cell_intensity = cell_intensity_sum  # or store as dict
+    # Ensure that the JSON field gets a Python int
+    cp.cell_intensity = int(cell_intensity_sum)
     cp.cell_total_points = len(border_cells)
+
+    cp.cellular_intensity_sum = float(cell_intensity_sum)
 
     # Calculate mCherry line intensity
     mcherry_line_intensity_sum = 0
     for p in mcherry_line_pts:
         mcherry_line_intensity_sum += orig_gray_GFP_no_bg[p[0]][p[1]]
 
-    cp.mcherry_line_gfp_intensity = mcherry_line_intensity_sum
+    # Again, cast to a Python int
+    cp.mcherry_line_gfp_intensity = int(mcherry_line_intensity_sum)
+
+    cp.line_gfp_intensity = float(mcherry_line_intensity_sum)
 
     return Image.fromarray(edit_testimg), Image.fromarray(edit_GFP_img)
 
