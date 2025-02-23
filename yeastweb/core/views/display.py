@@ -32,7 +32,14 @@ def display_cell(request, uuids):
             for i in range(1, cell_image.NumCells + 1):
                 images[str(i)] = []
                 for channel in range(4):
-                    image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel}-{i}.png"
+                    # !! Remove this code once decided to replace old images with the lines/contoured images.
+                    # For channels 2 (mCherry) and 3 (GFP), use the debug image filenames.
+                    if channel == 2:
+                        image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-mCherry_debug.png"
+                    elif channel == 3:
+                        image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-GFP_debug.png"
+                    else:
+                        image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel}-{i}.png"
                     images[str(i)].append(image_url)
                 
                 # Retrieve statistics for the cell

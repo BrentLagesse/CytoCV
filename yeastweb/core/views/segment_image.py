@@ -165,6 +165,20 @@ def get_stats(cp, conf):
     edit_testimg = np.array(edit_im)
     edit_GFP_img = np.array(edit_im_GFP)
 
+    def ensure_3channel_bgr(img_array):
+        # If single channel (shape: H x W), convert to BGR
+        if len(img_array.shape) == 2:
+            return cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
+        # If RGBA (shape: H x W x 4), convert to BGR
+        elif img_array.shape[2] == 4:
+            return cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
+        # If already H x W x 3, we assume it's BGR or RGB, but let's treat as BGR
+        return img_array
+
+    # Force the arrays to 3-channel BGR
+    edit_testimg = ensure_3channel_bgr(edit_testimg)
+    edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
+
     mcherry_line_pts = []
     if len(bestContours_mcherry) == 2:
         c1 = contours_mcherry[0][bestContours_mcherry[0]]
@@ -187,7 +201,8 @@ def get_stats(cp, conf):
 
             cp.distance = float(d)
 
-            cv2.line(edit_testimg, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
+            # Use a 3-channel white color tuple:
+            cv2.line(edit_testimg, (c1x, c1y), (c2x, c2y), (255, 255, 255), int(mcherry_line_width_input))
             mcherry_line_mask = np.zeros(gray.shape, np.uint8)
             cv2.line(mcherry_line_mask, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
             mcherry_line_pts = np.transpose(np.nonzero(mcherry_line_mask))
@@ -239,8 +254,10 @@ def get_stats(cp, conf):
         best_contour = contours[bestContours[0]]
 
     print("only 1 contour found")
-    cv2.drawContours(edit_testimg, [best_contour], 0, (0, 255, 0), 1)
-    cv2.drawContours(edit_GFP_img, [best_contour], 0, (0, 255, 0), 1)
+
+    # Use white contour
+    cv2.drawContours(edit_testimg, [best_contour], 0, (255, 255, 255), 1)
+    cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
 
     mask_contour = np.zeros(gray.shape, np.uint8)
     cv2.fillPoly(mask_contour, [best_contour], 255)
@@ -292,7 +309,11 @@ def get_stats(cp, conf):
 
     cp.line_gfp_intensity = float(mcherry_line_intensity_sum)
 
-    return Image.fromarray(edit_testimg), Image.fromarray(edit_GFP_img)
+    # Convert BGR back to RGB so PIL shows correct colors
+    edit_testimg_rgb = cv2.cvtColor(edit_testimg, cv2.COLOR_BGR2RGB)
+    edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
+
+    return Image.fromarray(edit_testimg_rgb), Image.fromarray(edit_GFP_img_rgb)
 
 
 def get_neighbor_count(seg_image, center, radius=1, loss=0):
@@ -791,7 +812,14 @@ def segment_image(request, uuids):
 
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
-            get_stats(cp, conf)
+            # Call get_stats to do the real work
+            debug_mcherry, debug_gfp = get_stats(cp, conf)
+
+            # Save the debug images so we can view them later
+            debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"
+            debug_gfp_path = segmented_directory / f"{DV_Name}-{cell_number}-GFP_debug.png"
+            debug_mcherry.save(debug_mcherry_path)
+            debug_gfp.save(debug_gfp_path)
 
             # Save the updated fields to the DB
             cp.save()
