@@ -13,6 +13,8 @@ import uuid, os
 import numpy as np
 import skimage.exposure
 from django.http import HttpResponseNotAllowed
+import json
+from core.dv_channel_parser import extract_channel_config
 
 def upload_images(request):
     """
@@ -48,6 +50,13 @@ def upload_images(request):
             # Create a directory for each image based on its UUID
             output_dir = Path(MEDIA_ROOT, str(image_uuid))
             output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Extract and save the per-file channel configuration
+            dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
+            channel_config = extract_channel_config(dv_file_path)
+            config_json_path = output_dir / "channel_config.json"
+            with open(config_json_path, "w") as config_file:
+                json.dump(channel_config, config_file)
 
             # Define the directory for storing preprocessed images
             pre_processed_dir = output_dir / PRE_PROCESS_FOLDER_NAME

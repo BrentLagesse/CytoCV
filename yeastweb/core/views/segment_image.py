@@ -15,7 +15,8 @@ from mrc import DVFile
 from pathlib import Path
 from PIL import Image
 from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
-from core.config import input_dir, CHANNEL_CONFIG
+from core.config import input_dir
+from core.config import get_channel_config_for_uuid
 
 from scipy.spatial.distance import euclidean  
 from collections import defaultdict
@@ -442,7 +443,9 @@ def segment_image(request, uuids):
 
                 # Which file are we trying to find here?
                 f = DVFile(DV_path)
-                mcherry_image = f.asarray()[CHANNEL_CONFIG["mCherry"]]
+                channel_config = get_channel_config_for_uuid(uuid)
+                mcherry_index = channel_config.get("mCherry")
+                mcherry_image = f.asarray()[mcherry_index]
 
                 # mcherry_image = skimage.exposure.rescale_intensity(mcherry_np.float32(image), out_range=(0, 1))
                 mcherry_image = np.round(mcherry_image * 255).astype(np.uint8)

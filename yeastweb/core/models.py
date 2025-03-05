@@ -8,7 +8,7 @@ from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
 from enum import Enum
 from PIL import Image
 from mrc import DVFile
-from core.config import input_dir, CHANNEL_CONFIG
+from core.config import input_dir, get_channel_config_for_uuid
 
 class UploadedImage(models.Model):
     # stores image in its own uuid folder along with its name
@@ -91,58 +91,52 @@ class CellStatistics(models.Model):
         return self.image_name.split('_PRJ')[0]
 
     def get_mCherry(self, use_id=False, outline=True):
-        """
-        Legacy helper that returns either a filename or an image,
-        depending on the file extension and whether we're using the cell_id.
-        With the new configuration, the mCherry channel is taken from
-        dv_image[CHANNEL_CONFIG["mCherry"]].
-        """
-        channel = CHANNEL_CONFIG["mCherry"]
-
+        # Retrieve the per‑file configuration using the DV file's UUID.
+        # We assume that the associated SegmentedImage's UUID stores the DV file's UUID.
+        channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
+        mcherry_channel = channel_config.get("mCherry")
+        
         outlinestr = ''
         if not outline:
             outlinestr = '-no_outline'
         if use_id:
             # Return the pre-split PNG file that includes the cell_id.
-            return f"{self.get_base_name()}_PRJ-{channel}-{self.cell_id}{outlinestr}.png"
+            return f"{self.get_base_name()}_PRJ-{mcherry_channel}-{self.cell_id}{outlinestr}.png"
         else:
             extspl = os.path.splitext(self.image_name)
             if extspl[1] == '.dv':
                 f = DVFile(self.dv_file_path)
                 image = f.asarray()
-                # Use the configured channel index
-                img = Image.fromarray(image[channel])
+                # Use the per‑file configured channel index for mCherry.
+                img = Image.fromarray(image[mcherry_channel])
                 return img
             else:
-                return f"{self.get_base_name()}_PRJ-{channel}{outlinestr}.png"
-
+                return f"{self.get_base_name()}_PRJ-{mcherry_channel}{outlinestr}.png"
 
 
     def get_GFP(self, use_id=False, outline=True):
-        """
-        Legacy helper that returns either a filename or an image,
-        depending on the file extension and whether we're using the cell_id.
-        With the new configuration, the GFP channel is taken from
-        dv_image[CHANNEL_CONFIG["GFP"]].
-        """
-        channel = CHANNEL_CONFIG["GFP"]
-
+        # Retrieve the per‑file configuration using the DV file's UUID.
+        channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
+        gfp_channel = channel_config.get("GFP")
+        
         outlinestr = ''
         if not outline:
             outlinestr = '-no_outline'
         if use_id:
             # Return the pre-split PNG file that includes the cell_id.
-            return f"{self.get_base_name()}_PRJ-{channel}-{self.cell_id}{outlinestr}.png"
+            return f"{self.get_base_name()}_PRJ-{gfp_channel}-{self.cell_id}{outlinestr}.png"
         else:
             extspl = os.path.splitext(self.image_name)
             if extspl[1] == '.dv':
                 f = DVFile(self.dv_file_path)
                 image = f.asarray()
-                # Use the configured channel index
-                img = Image.fromarray(image[channel])
+                # Use the per‑file configured channel index for GFP.
+                img = Image.fromarray(image[gfp_channel])
                 return img
             else:
-                return f"{self.get_base_name()}_PRJ-{channel}{outlinestr}.png"
+                return f"{self.get_base_name()}_PRJ-{gfp_channel}{outlinestr}.png"
+
+
 
 
 # class PreprocessImage(models.Model):

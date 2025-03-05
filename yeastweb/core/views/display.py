@@ -5,7 +5,7 @@ from yeastweb.settings import MEDIA_URL
 import json
 import os
 from django.http import HttpResponse
-from core.config import CHANNEL_CONFIG  # Import your channel configuration
+from core.config import get_channel_config_for_uuid
 
 def display_cell(request, uuids):
     # Split the comma-separated UUIDs into a list
@@ -30,13 +30,15 @@ def display_cell(request, uuids):
             # Get the segmented image details
             cell_image = SegmentedImage.objects.get(UUID=uuid)
 
+            channel_config = get_channel_config_for_uuid(uuid)
+
             # Build the images for each cell based on the dynamic channel configuration
             images = {}
             statistics = {}
             for i in range(1, cell_image.NumCells + 1):
                 images[str(i)] = []
                 for channel_name in channel_order:
-                    channel_index = CHANNEL_CONFIG.get(channel_name)
+                    channel_index = channel_config.get(channel_name)
                     # For mCherry and GFP, use the debug filename pattern
                     if channel_name in ["mCherry", "GFP"]:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
