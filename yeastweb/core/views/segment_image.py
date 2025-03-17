@@ -429,7 +429,7 @@ def segment_image(request, uuids):
             #TODO:  Examine the spc110 dots and make closest dots neighbors
 
             #resolve_cells_using_spc110 = use_spc110.get()
-            resolve_cells_using_spc110 = True # Hard coding this for now but will have to use a config file in the future
+            resolve_cells_using_spc110 = False # Hard coding this for now but will have to use a config file in the future
             lines_to_draw = dict()
             if resolve_cells_using_spc110:
 

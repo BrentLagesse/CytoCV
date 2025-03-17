@@ -95,6 +95,7 @@ class CellStatistics(models.Model):
         # We assume that the associated SegmentedImage's UUID stores the DV file's UUID.
         channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
         mcherry_channel = channel_config.get("mCherry")
+        print('Using channel for mCherry: ' + str(mcherry_channel))
         
         outlinestr = ''
         if not outline:
@@ -118,6 +119,7 @@ class CellStatistics(models.Model):
         # Retrieve the per‑file configuration using the DV file's UUID.
         channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
         gfp_channel = channel_config.get("GFP")
+        print('Using channel for GFP: ' + str(gfp_channel))
         
         outlinestr = ''
         if not outline:
