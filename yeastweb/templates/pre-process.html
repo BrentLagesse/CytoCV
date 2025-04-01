@@ -1,151 +1,324 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pre-process</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #333; /* Dark background */
-            color: #fff; /* Light text */
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        h1 {
-            margin-bottom: 20px;
-        }
-        .image-container {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-        img {
-            border: 2px solid #333; 
-            border-radius: 5px;
-        }
-        .navigation {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        .button {
-            background-color: #007bff; /* Button background */
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            text-align: center;
-            display: inline-block;
-            font-size: 16px;
-            margin: 0 50px;
-            cursor: pointer;
-            border-radius: 5px;
-            min-width: 150px; /* Add this to fix button size */
-            text-align: center; /* Keep the text centered */
-        }
-        .button:hover {
-            background-color: #0056b3; /* Darker button background */
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pre-process</title>
+  <style>
+    /* Overall page styling */
+    body {
+      margin: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: #333;
+      color: #fff;
+    }
+    .page-container {
+      display: flex;
+      flex-direction: row;
+      min-height: 100vh; /* ensures the sidebar and content stretch the full viewport height */
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      position: relative;    
+      width: 240px;         
+      background-color: #222; /* darker grey than main page */
+      transition: width 0.3s ease;
+      overflow: hidden;      
+      display: flex;
+      flex-direction: column;
+    }
+    /* Collapsed state: set width to something minimal */
+    .sidebar.collapsed {
+      width: 40px;
+    }
+    /* Hide text + content when collapsed */
+    .sidebar.collapsed .sidebar-header h2 {
+      display: none;
+    }
+    .sidebar.collapsed .sidebar-content {
+      display: none;
+    }
+
+    /* Sidebar header: text on left, arrow in top-right corner */
+    .sidebar-header {
+      position: relative;
+      padding: 10px;
+    }
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 18px;
+      text-align: left; /* left align “Files” */
+    }
+
+    /* Toggle button (arrows) in top-right corner */
+    .toggle-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 24px;
+    }
+    .toggle-btn:hover {
+        color: #ddd; /* darker white on hover */
+    }
+    /* By default, show a left arrow (◀) for “collapse” */
+    .toggle-btn::before {
+        content: '◀';
+    }
+    /* When sidebar is collapsed, show a right arrow (▶) for “expand” */
+    .sidebar.collapsed .toggle-btn::before {
+        content: '▶';
+    }
+
+    /* Sidebar content (file list) */
+    .sidebar-content {
+      flex-grow: 1; /* let the list fill the remaining vertical space */
+      overflow-y: auto;
+      padding-bottom: 10px; /* space at bottom */
+    }
+    .sidebar-content ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .sidebar-content li {
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+
+    /* Each file is in a "file-item" box */
+    .file-item {
+      margin: 8px 10px;         /* spacing around the box */
+      padding: 10px;
+      background-color: #333;   /* slightly lighter than #222 but darker than #444 */
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    /* Hover to a lighter blue (#3399ff) if not active */
+    .file-item:hover {
+      background-color: #3399ff;
+    }
+
+    /* Active file highlight (darker blue) */
+    .file-item.active {
+      background-color: #007bff; 
+      color: #fff; 
+    }
+    /* If it's active AND hovered, go to an even darker blue (#0056b3) */
+    .file-item.active:hover {
+      background-color: #0056b3;
+    }
+
+    /* MAIN CONTENT */
+    .main-content {
+      flex-grow: 1;        
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .image-container {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    img {
+      border: 2px solid #333;
+      border-radius: 5px;
+    }
+    .navigation {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 0 50px;
+      cursor: pointer;
+      border-radius: 5px;
+      min-width: 150px;
+      text-align: center;
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+    #currentFileInfo {
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
+  <div class="page-container">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <!-- Header with “Files” text on the left, arrow top-right -->
+      <div class="sidebar-header">
+        <h2>Files</h2>
+        <button class="toggle-btn" id="toggleSidebarBtn"></button>
+      </div>
 
-    <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
+      <!-- Sidebar content (file list) -->
+      <div class="sidebar-content">
+        <ul id="fileList">
+          {% for file in file_list %}
+          <li>
+            <div class="file-item" data-index="{{ forloop.counter0 }}">{{ file.name }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
 
-    <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+      <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
+      
+      <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
         {% csrf_token %}
         <input type="submit" value="Start Analysis" class="button" id="startAnalysisButton" />
-    </form>    
+      </form>    
 
-    <div class="image-container" id="imageContainer">
+      <div class="image-container" id="imageContainer">
         {% for image in images %}
-            {% if forloop.first %}
-                <img src="{{ image.file_location.url }}" width="500" height="500" />
-            {% else %}
-                <img src="{{ image.file_location.url }}" width="300" height="300" />
-            {% endif %}
+          {% if forloop.first %}
+            <img src="{{ image.file_location.url }}" width="500" height="500" />
+          {% else %}
+            <img src="{{ image.file_location.url }}" width="300" height="300" />
+          {% endif %}
         {% endfor %}
+      </div>
+
+      <div class="navigation">
+        <button class="button" id="prevButton" {% if current_file_index == 0 %}disabled{% endif %}>
+          Previous Image
+        </button>
+        <button class="button" id="nextButton" {% if current_file_index >= total_files|add:-1 %}disabled{% endif %}>
+          Next Image
+        </button>
+      </div>
+
+      <p id="currentFileInfo">
+        Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}
+      </p>
     </div>
+  </div>
 
-    <div class="navigation">
-        <button class="button" id="prevButton" {% if current_file_index == 0 %}disabled{% endif %}>Previous Image</button>
-        <button class="button" id="nextButton" {% if current_file_index >= total_files|add:-1 %}disabled{% endif %}>Next Image</button>
-    </div>
+  <script>
+    // Current index and total files
+    let currentFileIndex = parseInt('{{ current_file_index|default:0 }}', 10); 
+    const totalFiles = parseInt('{{ total_files|default:1 }}', 10);
 
-    <p>Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}</p>
+    // Sidebar references
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('toggleSidebarBtn');
+    const fileItems = document.querySelectorAll('.file-item');
 
-    <script>
-        // Make sure the variables are passed in as numbers and strings properly.
-        let currentFileIndex = parseInt('{{ current_file_index|default:0 }}', 10); 
-        const totalFiles = parseInt('{{ total_files|default:1 }}', 10);  
-        const uuids = "{{ uuids }}";  
-    
-        // Add event listeners for 'next' and 'prev' buttons
-        document.getElementById('nextButton').addEventListener('click', function() {
-            loadImage(currentFileIndex + 1);
-        });
-    
-        document.getElementById('prevButton').addEventListener('click', function() {
-            loadImage(currentFileIndex - 1);
-        });
+    // Highlight the active item in the sidebar
+    function updateSidebarActive() {
+      fileItems.forEach(item => item.classList.remove('active'));
+      const activeItem = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
+      if (activeItem) {
+        activeItem.classList.add('active');
+      }
+    }
+    updateSidebarActive();
 
-        document.getElementById('preprocessForm').addEventListener('submit', function (event) {
-            const startButton = document.getElementById('startAnalysisButton');
-            startButton.disabled = true; 
-            startButton.value = "Analyzing..."; 
-            startButton.style.backgroundColor = '#0056b3'; 
+    // Click on a file in the sidebar to load that index
+    fileItems.forEach(item => {
+      item.addEventListener('click', function() {
+        const index = parseInt(this.getAttribute('data-index'), 10);
+        loadImage(index);
+      });
+    });
 
-            startButton.style.pointerEvents = 'none'; 
-            startButton.style.cursor = 'not-allowed';
-        });
+    // Collapsible sidebar
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+    });
 
+    // Next/Previous buttons
+    const nextButton = document.getElementById('nextButton');
+    const prevButton = document.getElementById('prevButton');
 
-        function loadImage(newIndex) {
-            if (newIndex < 0 || newIndex >= totalFiles) return;
-    
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', `?file_index=${newIndex}&total_files=${totalFiles}`, true);
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-    
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    updateContent(response);
-                }
-            };
-    
-            xhr.send();
+    nextButton.addEventListener('click', () => {
+      loadImage(currentFileIndex + 1);
+    });
+    prevButton.addEventListener('click', () => {
+      loadImage(currentFileIndex - 1);
+    });
+
+    // On form submission, disable the button and show "Analyzing..."
+    const preprocessForm = document.getElementById('preprocessForm');
+    preprocessForm.addEventListener('submit', function () {
+      const startButton = document.getElementById('startAnalysisButton');
+      startButton.disabled = true; 
+      startButton.value = "Analyzing..."; 
+      startButton.style.backgroundColor = '#0056b3'; 
+      startButton.style.pointerEvents = 'none'; 
+      startButton.style.cursor = 'not-allowed';
+    });
+
+    // AJAX to load images by index
+    function loadImage(newIndex) {
+      if (newIndex < 0 || newIndex >= totalFiles) return;
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', `?file_index=${newIndex}&total_files=${totalFiles}`, true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          updateContent(response);
         }
-    
-        function updateContent(data) {
-            // Update the images
-            const imageContainer = document.getElementById('imageContainer');
-            imageContainer.innerHTML = '';  // Clear the current images
-    
-            data.images.forEach((image, index) => {
-                const imgElement = document.createElement('img');
-                imgElement.src = image.file_location.url;
-                imgElement.width = index === 0 ? 500 : 300;
-                imgElement.height = index === 0 ? 500 : 300;
-                imageContainer.appendChild(imgElement);
-            });
-    
-            // Update the current file index
-            document.getElementById('currentFileIndex').textContent = data.current_file_index + 1;
-    
-            // Update the file name
-            document.getElementById('fileName').textContent = data.file_name;
-    
-            // Update the currentFileIndex in JS
-            currentFileIndex = data.current_file_index;
-    
-            // Enable/Disable buttons based on current file index
-            document.getElementById('prevButton').disabled = currentFileIndex === 0;
-            document.getElementById('nextButton').disabled = currentFileIndex >= totalFiles - 1;
+      };
+      xhr.send();
+    }
+
+    // Update the main content with the new image data
+    function updateContent(data) {
+      // Clear existing images
+      const imageContainer = document.getElementById('imageContainer');
+      imageContainer.innerHTML = '';
+
+      // Insert new images
+      data.images.forEach((imgData, index) => {
+        const imgElement = document.createElement('img');
+        imgElement.src = imgData.file_location.url;
+        if (index === 0) {
+          imgElement.width = 500;
+          imgElement.height = 500;
+        } else {
+          imgElement.width = 300;
+          imgElement.height = 300;
         }
-    </script>
+        imageContainer.appendChild(imgElement);
+      });
+      
+      // Update current index and file name
+      document.getElementById('currentFileIndex').textContent = data.current_file_index + 1;
+      document.getElementById('fileName').textContent = data.file_name;
+      currentFileIndex = data.current_file_index;
+      
+      // Enable/disable navigation buttons
+      prevButton.disabled = (currentFileIndex === 0);
+      nextButton.disabled = (currentFileIndex >= totalFiles - 1);
+      
+      // Update sidebar highlight
+      updateSidebarActive();
+    }
+  </script>
 </body>
 </html>

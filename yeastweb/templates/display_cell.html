@@ -1,257 +1,382 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Display Cell Images</title>
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            font-family: Arial, sans-serif;
-            min-height: 100vh;
-            background-color: #333;
-            color: #fff;
-        }
-        h2 {
-            font-size: 24px;
-            margin-top: 0px;
-            color: #fff;
-        }
-        .main-container {
-            display: flex;
-            align-items: center;
-            margin: 0px 0;
-        }
-        .main-image {
-            width: 500px;
-            height: 500px;
-            border: 5px solid #333;
-            border-radius: 10px;
-        }
-        .file-navigation-button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin: 0 20px;
-        }
-        .file-navigation-button:hover {
-            background-color: #0056b3;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Display Cell Images</title>
+  <style>
+    /* Overall page styling */
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #333;
+      color: #fff;
+      min-height: 100vh;
+      display: flex; /* so the sidebar + content fill vertical space */
+    }
+    .page-container {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      min-height: 100vh; /* ensures the sidebar and content fill the viewport height */
+    }
 
-        /* Flex container for the row */
-        .cell-images-row {
-            display: flex;
-            align-items: stretch; /* Ensure all items have the same height */
-            justify-content: center;
-            width: 100%;
-            max-width: 1000px;
-            gap: 20px; /* Adds even space between items */
-        }
+    /* SIDEBAR */
+    .sidebar {
+      position: relative;
+      width: 240px;
+      background-color: #222;
+      transition: width 0.3s ease;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar.collapsed {
+      width: 40px;
+    }
+    .sidebar.collapsed .sidebar-header h2,
+    .sidebar.collapsed .sidebar-content {
+      display: none;
+    }
+    .sidebar-header {
+      position: relative;
+      padding: 10px;
+    }
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 18px;
+      text-align: left;
+    }
+    .toggle-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 24px;
+    }
+    .toggle-btn:hover {
+      color: #ddd;
+    }
+    .toggle-btn::before {
+      content: '◀';
+    }
+    .sidebar.collapsed .toggle-btn::before {
+      content: '▶';
+    }
+    .sidebar-content {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding-bottom: 10px;
+    }
+    .sidebar-content ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .sidebar-content li {
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+    /* Each file is in its own "file-item" box */
+    .file-item {
+      margin: 8px 10px;
+      padding: 10px;
+      background-color: #333;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .file-item:hover {
+      background-color: #3399ff;
+    }
+    .file-item.active {
+      background-color: #007bff;
+      color: #fff;
+    }
+    .file-item.active:hover {
+      background-color: #0056b3;
+    }
 
-        /* Cell ID style */
-        .cell-id {
-            font-size: 18px;
-            display: flex;
-            align-items: center;  /* Ensure vertical centering */
-            justify-content: center;
-            height: 100%;  /* Stretch height to match images */
-            flex-shrink: 0;  /* Prevent Cell ID from shrinking */
-            padding-top: 120px;
-        }
+    /* CONTENT WRAPPER */
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;  /* center all content horizontally */
+      justify-content: flex-start;
+      flex-grow: 1;         /* take remaining horizontal space */
+      padding: 10px;        /* reduced from 20px to 10px */
+    }
 
-        /* Cell image container */
-        .cell-column {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        .cell-image {
-            width: 200px;
-            height: 200px;
-            object-fit: contain;
-            border: 2px solid #333;
-            border-radius: 8px;
-        }
-        .cell-label {
-            width: 200px;
-            height: 30px;
-            display: flex;
-            color: white;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 2px;
-        }
-        .dic { background-color: black; }
-        .dapi { background-color: blue; }
-        .mcherry { background-color: red; }
-        .gfp { background-color: green; }
+    /* MAIN CONTENT */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;  /* center items within main-content */
+      max-width: 1200px;    /* optional max-width to keep content from stretching too wide */
+      width: 100%;
+    }
 
-        /* Info box for extra details */
-        .info-box {
-            font-size: 14px;
-            text-align: center;
-            margin-top: 2px;
-        }
-        .tight-info {
-            line-height: 1.2;
-            margin: 0px 0;
-        }
+    /* Reduced top/bottom margin for the main container */
+    .main-container {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;       /* reduced from 20px 0 to 10px 0 */
+      gap: 20px;
+    }
 
-        /* Cell navigation buttons */
-        .navigation-buttons {
-            margin-top: 5px;
-            display: flex;
-            justify-content: space-between;
-            width: 300px;
-        }
-        .navigation-buttons button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .navigation-buttons button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+    /* Adjust heading margin so it’s closer to the top */
+    h2#imageTitle {
+      margin: 5px 0 10px 0; /* less space above, a bit below */
+    }
+
+    .main-image {
+      width: 500px;
+      height: 500px;
+      border: 5px solid #333;
+      border-radius: 10px;
+    }
+    .file-navigation-button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .file-navigation-button:hover {
+      background-color: #0056b3;
+    }
+
+    /* Cell Images Row */
+    .cell-images-row {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      width: 100%;
+      max-width: 1000px;
+      gap: 20px;
+      margin-bottom: 20px; /* spacing below row */
+    }
+    .cell-id {
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      flex-shrink: 0;
+      padding-top: 120px;
+    }
+    .cell-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .cell-image {
+      width: 200px;
+      height: 200px;
+      object-fit: contain;
+      border: 2px solid #333;
+      border-radius: 8px;
+    }
+    .cell-label {
+      width: 200px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+    .dic { background-color: black; }
+    .dapi { background-color: blue; }
+    .mcherry { background-color: red; }
+    .gfp { background-color: green; }
+    .info-box {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 2px;
+    }
+    .tight-info {
+      line-height: 1.2;
+      margin: 0;
+    }
+    .navigation-buttons {
+      margin-top: 5px;
+      display: flex;
+      justify-content: space-between;
+      width: 300px;
+    }
+    .navigation-buttons button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .navigation-buttons button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
-
-    <!-- Main Image and Title -->
-    <h2 id="imageTitle">{{ Image_Name }}</h2>
-    <div class="main-container">
-        <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
-        <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
-        <button class="file-navigation-button" onclick="nextFile()">Next File</button>
+  <div class="page-container">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Files</h2>
+        <button class="toggle-btn" id="toggleSidebarBtn"></button>
+      </div>
+      <div class="sidebar-content">
+        <ul id="fileList">
+          {% for file in file_list %}
+          <li>
+            <div class="file-item" data-index="{{ forloop.counter0 }}">{{ file.name }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
     </div>
 
-    <!-- Cell Images Row with Cell ID on Same Line -->
-    <div class="cell-images-row">
-        <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
-
-        <!-- DIC cell image -->
-        <div class="cell-column">
-            <div class="cell-label dic">DIC</div>
-            <img id="cellImage1" class="cell-image" src="">
+    <!-- CONTENT WRAPPER to center everything else -->
+    <div class="content-wrapper">
+      <!-- MAIN CONTENT -->
+      <div class="main-content">
+        <h2 id="imageTitle">{{ Image_Name }}</h2>
+        <div class="main-container">
+            <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
+            <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
+            <button class="file-navigation-button" onclick="nextFile()">Next File</button>
         </div>
 
-        <!-- DAPI cell image -->
-        <div class="cell-column">
-            <div class="cell-label dapi">DAPI</div>
-            <img id="cellImage2" class="cell-image" src="">
-        </div>
-
-        <!-- mCherry cell image with additional info -->
-        <div class="cell-column">
-            <div class="cell-label mcherry">mCherry</div>
-            <img id="cellImage3" class="cell-image" src="">
-            <div class="info-box">
-                <div class="tight-info">Distance: <span id="distance"></span></div>
-                <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+        <div class="cell-images-row">
+            <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
+            <div class="cell-column">
+                <div class="cell-label dic">DIC</div>
+                <img id="cellImage1" class="cell-image" src="">
+            </div>
+            <div class="cell-column">
+                <div class="cell-label dapi">DAPI</div>
+                <img id="cellImage2" class="cell-image" src="">
+            </div>
+            <div class="cell-column">
+                <div class="cell-label mcherry">mCherry</div>
+                <img id="cellImage3" class="cell-image" src="">
+                <div class="info-box">
+                    <div class="tight-info">Distance: <span id="distance"></span></div>
+                    <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                </div>
+            </div>
+            <div class="cell-column">
+                <div class="cell-label gfp">GFP</div>
+                <img id="cellImage4" class="cell-image" src="">
+                <div class="info-box">
+                    <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
+                    <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
+                </div>
             </div>
         </div>
 
-        <!-- GFP cell image with additional info -->
-        <div class="cell-column">
-            <div class="cell-label gfp">GFP</div>
-            <img id="cellImage4" class="cell-image" src="">
-            <div class="info-box">
-                <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
-                <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
-            </div>
+        <div class="navigation-buttons">
+            <button onclick="previousCell()">Previous Cell</button>
+            <button onclick="nextCell()">Next Cell</button>
         </div>
-    </div>
+      </div> <!-- end main-content -->
+    </div> <!-- end content-wrapper -->
+  </div> <!-- end page-container -->
 
-    <!-- Navigation Buttons for Cells -->
-    <div class="navigation-buttons">
-        <button onclick="previousCell()">Previous Cell</button>
-        <button onclick="nextCell()">Next Cell</button>
-    </div>
+  <script>
+      // Parse JSON file data from context
+      let filesData = JSON.parse('{{ files_data|safe }}');
+      let fileUUIDs = Object.keys(filesData);
+      let currentFileIndex = 0;
+      let currentCellNumber = 1;
+      let maxCells;
 
-    <script>
-        let filesData = JSON.parse('{{ files_data|safe }}');  // Get all the file data (multiple UUIDs)
-        let fileUUIDs = Object.keys(filesData);  // Extract all UUIDs (the list of file UUIDs)
-        let currentFileIndex = 0;  // Initialize the first file
-        let currentCellNumber = 1;
-        let maxCells;
-    
-        // Load the first file on page load
-        window.onload = function() {
-            loadFile(currentFileIndex);  // Load the first file
-        };
-    
-        // Function to load a file (UUID) and display its images
-        function loadFile(fileIndex) {
-            const fileUUID = fileUUIDs[fileIndex];
-            const fileData = filesData[fileUUID];
-    
-            // Update the main image and cell images
-            document.getElementById("mainImage").src = fileData.MainImagePath;
-            document.getElementById("imageTitle").textContent = fileData.Image_Name;
-    
-            // Load the first cell images for the current file
-            maxCells = Number(fileData.NumberOfCells) - 1;
-            currentCellNumber = 1;  // Reset to the first cell when changing files
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-        }
-    
-        // Function to update the images and statistics for the current cell
-        function updateCellImages(cellPairImages, statistics) {
-            const imageUrls = cellPairImages[currentCellNumber];
-            document.getElementById("cellImage1").src = imageUrls[0];
-            document.getElementById("cellImage2").src = imageUrls[1];
-            document.getElementById("cellImage3").src = imageUrls[2];
-            document.getElementById("cellImage4").src = imageUrls[3];
-            document.getElementById("cellID").textContent = currentCellNumber;
-    
-            // Update the statistics for the current cell
-            const cellStats = statistics[currentCellNumber];
-            document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
-            document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
-            document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
-            document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
-        }
-    
-        // Function to load the next main image (file) without page reload
-        function nextFile() {
-            currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
-            loadFile(currentFileIndex);  // Dynamically update images for the next file
-        }
-    
-        // Function to load the previous main image (file) without page reload
-        function previousFile() {
-            currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
-            loadFile(currentFileIndex);  // Dynamically update images for the previous file
-        }
-    
-        // Function to load the next set of cell images without page reload
-        function nextCell() {
-            currentCellNumber = (currentCellNumber % maxCells) + 1;
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-        }
-    
-        // Function to load the previous set of cell images without page reload
-        function previousCell() {
-            currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-        }
-    </script>
+      window.onload = function() {
+          loadFile(currentFileIndex);
+      };
 
+      function loadFile(fileIndex) {
+          const fileUUID = fileUUIDs[fileIndex];
+          const fileData = filesData[fileUUID];
+          document.getElementById("mainImage").src = fileData.MainImagePath;
+          document.getElementById("imageTitle").textContent = fileData.Image_Name;
+          maxCells = Number(fileData.NumberOfCells) - 1;
+          currentCellNumber = 1;
+          updateCellImages(fileData.CellPairImages, fileData.Statistics);
+          updateSidebarActive();
+      }
+
+      function updateCellImages(cellPairImages, statistics) {
+          const imageUrls = cellPairImages[currentCellNumber];
+          document.getElementById("cellImage1").src = imageUrls[0];
+          document.getElementById("cellImage2").src = imageUrls[1];
+          document.getElementById("cellImage3").src = imageUrls[2];
+          document.getElementById("cellImage4").src = imageUrls[3];
+          document.getElementById("cellID").textContent = currentCellNumber;
+          const cellStats = statistics[currentCellNumber];
+          document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
+          document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
+          document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
+          document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
+      }
+
+      function nextFile() {
+          currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
+          loadFile(currentFileIndex);
+      }
+      function previousFile() {
+          currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
+          loadFile(currentFileIndex);
+      }
+
+      function nextCell() {
+          currentCellNumber = (currentCellNumber % maxCells) + 1;
+          const fileData = filesData[fileUUIDs[currentFileIndex]];
+          updateCellImages(fileData.CellPairImages, fileData.Statistics);
+      }
+      function previousCell() {
+          currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
+          const fileData = filesData[fileUUIDs[currentFileIndex]];
+          updateCellImages(fileData.CellPairImages, fileData.Statistics);
+      }
+
+      // SIDEBAR
+      const sidebar = document.getElementById('sidebar');
+      const toggleBtn = document.getElementById('toggleSidebarBtn');
+      const fileItems = document.querySelectorAll('.file-item');
+
+      function updateSidebarActive() {
+          fileItems.forEach(item => item.classList.remove('active'));
+          const activeItem = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
+          if (activeItem) {
+              activeItem.classList.add('active');
+          }
+      }
+
+      fileItems.forEach(item => {
+          item.addEventListener('click', function() {
+              const index = parseInt(this.getAttribute('data-index'), 10);
+              currentFileIndex = index;
+              loadFile(currentFileIndex);
+          });
+      });
+
+      toggleBtn.addEventListener('click', () => {
+          sidebar.classList.toggle('collapsed');
+      });
+  </script>
 </body>
 </html>

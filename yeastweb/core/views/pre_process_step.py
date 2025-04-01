@@ -1,4 +1,4 @@
-from django.shortcuts import  get_object_or_404, render, get_list_or_404, redirect
+from django.shortcuts import get_object_or_404, render, get_list_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from core.models import DVLayerTifPreview, UploadedImage
 from django.template.response import TemplateResponse
@@ -8,7 +8,6 @@ import os
 from .utils import tif_to_jpg
 from yeastweb.settings import MEDIA_ROOT
 from pathlib import Path
-# chose function because https://spookylukey.github.io/django-views-the-right-way/context-data.html
 
 def pre_process_step(request, uuids):
     """
@@ -17,15 +16,20 @@ def pre_process_step(request, uuids):
     and processes all UUIDs for POST requests.
     """
     uuid_list = uuids.split(',')
-
-    # Get the total number of files
     total_files = len(uuid_list)
 
     # Get the current file index from the request query (default is 0 if not provided)
     current_file_index = int(request.GET.get('file_index', 0))
-
-    # Ensure the current file index is within bounds
     current_file_index = max(0, min(current_file_index, total_files - 1))
+
+    # Build a file_list for sidebar navigation with image names
+    file_list = []
+    for uid in uuid_list:
+        uploaded = get_object_or_404(UploadedImage, uuid=uid)
+        file_list.append({
+            'uuid': uid,
+            'name': uploaded.name,
+        })
 
     # Retrieve the current UUID based on file index
     current_uuid = uuid_list[current_file_index]
@@ -56,11 +60,13 @@ def pre_process_step(request, uuids):
             'current_file_index': current_file_index,
         })
 
-    # Render the template for standard (non-AJAX) requests
+    # Render the template for standard (non-AJAX) requests,
+    # now including file_list for the sidebar.
     return TemplateResponse(request, "pre-process.html", {
         'images': preview_images,
         'file_name': uploaded_image.name,
         'current_file_index': current_file_index,
         'total_files': total_files,
         'uuids': uuids,
+        'file_list': file_list,
     })
