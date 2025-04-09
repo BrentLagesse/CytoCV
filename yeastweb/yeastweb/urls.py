@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image, display
+from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image, display, auth_login
 from django.conf import settings
 from django.conf.urls.static import static  
 from django.urls import path
@@ -25,6 +25,7 @@ from core.views.pre_process_step import update_channel_order
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', homepage, name="homepage"),
+    path('login/',auth_login, name="login"),
     path('image/upload/', upload_images, name="image_upload"),
     path('image/preprocess/', pre_process_step, name="pre_process_step"),  
     path('image/preprocess/<str:uuids>/', pre_process_step, name="pre_process_step"),  # Multiple UUIDs
