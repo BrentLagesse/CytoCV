@@ -6,9 +6,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Django Image Uploading</title>
-    <style>
+    <title>Sign Up</title>
+        <style>
         body {
             font-family: 'Arial', sans-serif;
             background-color: #333; /* Dark background */
@@ -61,37 +60,50 @@
             display: block; /* Block display to handle margin */
             margin: 10px auto; /* Centering the image */
         }
-
+        input{
+            display: block;
+            gap: 10px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        button{
+            background-color: #007bff; /* Full blue background */
+            color: #fff; /* White text */
+            text-decoration: none; /* Remove underline */
+            padding: 12px 20px; /* Padding for a larger clickable area */
+            border: none; /* Remove border */
+            border-radius: 4px; /* Rounded corners */
+            transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
+            margin-top: 30px;
+            margin-bottom: 30px; /* Space between the button and the list */
+        }
+        .fieldWrapper{
+            display: grid;
+            place-items: center;
+        }
     </style>
 </head>
 <body>
-
-<h1>Django Image Uploading</h1>
-<a href="image/upload" id="uploadImageButton">Upload Image</a>
-
-<!-- List all image's uuid and name-->
-<ul>
-  {% for image in images %}
-  <li>
-    <h2>{{ image.name }}</h2>
-    <p>{{ image.uuid }}</p>
-    <img src="{{ image.cover.url }}" alt="{{ image.name }}" />
-  </li>
-  {% endfor %}
-</ul>
-
-<!-- Add JavaScript here -->
-<script>
-    const uploadImageButton = document.getElementById('uploadImageButton');
-    uploadImageButton.addEventListener('click', function (event) {
-        // Change button text to "Loading..."
-        uploadImageButton.textContent = "Loading...";
-        button.style.pointerEvents = 'none'; // Disable pointer interactions
-        button.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
-        // Disable further clicks by preventing pointer events
-        uploadImageButton.style.pointerEvents = "none";
-    });
-</script>
+    <h1>Sign Up</h1>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="fieldWrapper">
+                {{ field.label_tag }} {{ field }}
+                {% if field.help_text %}
+                  <p class="help" id="{{ field.auto_id }}_helptext">
+                    {{ field.help_text|safe }}
+                  </p>
+                {% endif %}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <button type="submit" name="send_code">Send Code</button>
+        <button type="submit" name="submit">Submit</button>
+    </form>
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
 
 </body>
 </html>

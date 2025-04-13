@@ -3,6 +3,7 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/venv" />
+      <excludeFolder url="file://$MODULE_DIR$/yeastweb/media" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11 virtualenv at C:\Users\minhn\Documents\Capstone\yeast_web" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

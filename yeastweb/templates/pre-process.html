@@ -1,3 +1,7 @@
+<!-- Navigation bar -->
+{% extends 'base.html' %}
+<!-- Template specific content -->
+{% block content %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,7 +30,7 @@
     /* SIDEBAR */
     .sidebar {
       position: relative;    
-      width: 400px;         
+      width: 400px;
       background-color: #222; /* darker grey than main page */
       transition:
         width 0.3s ease,
@@ -135,7 +139,7 @@
       gap: 4px;
       margin-top: 6px;
       flex-wrap: nowrap;
-      overflow-x: auto;      
+      overflow-x: auto;
     }
     .channel-chip {
       background-color: #555;
@@ -199,6 +203,20 @@
     #currentFileInfo {
       margin-top: 10px;
     }
+    a {
+            background-color: #007bff; /* Full blue background */
+            color: #fff; /* White text */
+            text-decoration: none; /* Remove underline */
+            padding: 12px 20px; /* Padding for a larger clickable area */
+            border: none; /* Remove border */
+            border-radius: 4px; /* Rounded corners */
+            transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
+            margin-bottom: 30px; /* Space between the button and the list */
+        }
+        a:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            color: #fff; /* Keep the text white */
+        }
   </style>
 
   <!-- Sortable.js for drag & drop -->
@@ -288,7 +306,7 @@
 
     // Toggle sidebar
     toggleBtn.addEventListener('click', e => {
-      e.stopPropagation();                 
+      e.stopPropagation();
       sidebar.classList.toggle('collapsed');
     });
 
@@ -296,7 +314,7 @@
     sidebar.addEventListener('click', e => {
       if (sidebar.classList.contains('collapsed')) {
         sidebar.classList.remove('collapsed');
-    
+
       }
     });
 
@@ -384,3 +402,4 @@
   </script>
 </body>
 </html>
+{% endblock content %}

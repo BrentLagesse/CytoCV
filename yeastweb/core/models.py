@@ -4,11 +4,13 @@ from functools import partial
 import uuid, os, json
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
 from enum import Enum
 from PIL import Image
 from mrc import DVFile
 from core.config import input_dir, get_channel_config_for_uuid
+
 
 class UploadedImage(models.Model):
     # stores image in its own uuid folder along with its name
@@ -24,9 +26,23 @@ class UploadedImage(models.Model):
 
     def __str__(self):
         return 'Name: ' + self.name + ' UUID: ' + str(self.uuid)
-    
+
+
+def get_guest_user():
+    return get_user_model().objects.get(username='guest').id  # this is for not logged in user
+
+def user_directory_path(instance, filename):
+    uuid = instance.uuid
+    return f'user_{uuid}/{filename}'
+
 class SegmentedImage(models.Model):
+    # This will be point to user primary key
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             to_field='id', default=get_guest_user) # call get_guest_user at runtime
+
     UUID = models.UUIDField(primary_key=True)
+    uploaded_date = models.DateTimeField(auto_now_add=True)
+    file_location = models.FileField(upload_to=user_directory_path)
     ImagePath = models.FilePathField()
     CellPairPrefix = models.FilePathField()
     NumCells = models.IntegerField()

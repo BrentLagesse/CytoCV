@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 999;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #222;
+            padding: 10px 20px;
+        }
+        .navbar a{
+            color: #f0f0f0;
+            background-color: transparent;
+        }
+        .nav-right{
+            margin-right: 100px;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    {% block navbar %}
+        <nav class="navbar">
+            <div class="nav-left">
+                <a href="/">Home</a>
+            </div>
+            <div class="nav-right">
+                {% if user.is_authenticated %}
+                    <a href="/profile">Profile</a>
+                    <a href="/logout">Log Out</a>
+                {% else %}
+                    <a href="/login">Log In</a>
+                    <a href="/signup">Sign Up</a>
+                {% endif %}
+            </div>
+        </nav>
+    {% endblock navbar %}
+    {% block content %}
+    {% endblock content %}
+</body>
+</html>

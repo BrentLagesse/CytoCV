@@ -14,6 +14,18 @@ DEFAULT_CHANNEL_CONFIG = {
     "DIC": 0,
 }
 
+# Default processing configuration for every user
+# From legacy code
+DEFAULT_PROCESS_CONFIG = dict(
+    kernel_size=13,
+    kernel_deviation=5,
+    mCherry_line_width=1,
+    useCache="on",
+    mCherry_to_find_pairs="on",
+    drop_ignore="off",
+    arrested="Metaphase Arrested"
+)
+
 def get_channel_config_for_uuid(uuid):
     """
     Given a DV file's UUID, looks for a channel_config.json file in its folder.

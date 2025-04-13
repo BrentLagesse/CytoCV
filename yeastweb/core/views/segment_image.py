@@ -11,6 +11,7 @@ from core.config import input_dir, output_dir
 from cv2_rolling_ball import subtract_background_rolling_ball
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.utils import timezone
 from mrc import DVFile
 from pathlib import Path
 from PIL import Image
@@ -51,7 +52,7 @@ def get_stats(cp, conf):
     output_dir = data['output_dir']
     kernel_size_input = data['kernel_size']
     mcherry_line_width_input = data['mCherry_line_width']
-    kernel_deviation_input = data['kernel_diviation']
+    kernel_deviation_input = data['kernel_deviation']
     choice_var = data['arrested']
     
     # outlines screw up the analysis
@@ -329,6 +330,21 @@ def get_neighbor_count(seg_image, center, radius=1, loss=0):
                 neighbor_list.append(val)
     return neighbor_list
 
+'''Get file size of a directory recursively'''
+def get_dir_size(path):
+    """
+    Calculate the size of a directory recursively
+    """
+    total = 0
+    with os.scandir(path) as it:
+        for entry in it:
+            if entry.is_file():
+                total += entry.stat().st_size
+            elif entry.is_dir():
+                total += get_dir_size(entry.path)
+    return total
+
+
 '''Creates image "segments" from the desired image'''
 def segment_image(request, uuids):
     """
@@ -345,6 +361,9 @@ def segment_image(request, uuids):
     kernel_size = 3
     deviation = 1
     mcherry_line_width = 1
+
+    # Calculate processing time
+    start_time = time.time()
 
     # We're gonna use image_dict to store all of the cell pairs (i think?)
     for uuid in uuid_list:
@@ -770,24 +789,37 @@ def segment_image(request, uuids):
                     plt.imsave(segmented_directory / no_outline_image, not_outlined_image, dpi=600, format='PNG')
                     plt.clf()
 
-            instance = SegmentedImage(UUID = uuid, 
-                                    ImagePath = (MEDIA_URL  + str(uuid) + '/output/' + DV_Name + '.png'), 
-                                    CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                                    NumCells = int(np.max(seg) + 1))
+            # Assign SegmentedImage to a user
+            if request.user.is_authenticated:
+                user = request.user
+                instance = SegmentedImage(UUID = uuid, user=user,
+                                        ImagePath = (MEDIA_URL  + str(uuid) + '/output/' + DV_Name + '.png'),
+                                        CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
+                                        NumCells = int(np.max(seg) + 1),
+                                        uploaded_date=timezone.now())
+            else:
+                instance = SegmentedImage(UUID=uuid,
+                                          ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
+                                          CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
+                                          NumCells=int(np.max(seg) + 1),
+                                          uploaded_date=timezone.now())
             instance.save()
 
         # ================================================
         # Calculate statistics for each cell only once after the loop
         # ================================================
-        
+
+        configuration = request.user.config
+
+        print(configuration)
         # Build a proper 'conf' dict with required keys for get_stats
         conf = {
             'input_dir': input_dir,
             'output_dir': os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
-            'kernel_size': kernel_size,      
-            'mCherry_line_width': mcherry_line_width,  
-            'kernel_diviation': deviation,       
-            'arrested': choice_var               
+            'kernel_size': configuration["kernel_size"],
+            'mCherry_line_width': configuration["mCherry_line_width"],
+            'kernel_deviation': configuration["kernel_deviation"],
+            'arrested': configuration["arrested"],
         }
 
         # For each cell_number in the segmentation, create/fetch a CellStatistics object
@@ -833,6 +865,23 @@ def segment_image(request, uuids):
         #    print("displaycell",k,v[0])
         #    display_cell(k, v[0])
         #else: show error message'''
+
+        # calculate storage size for this uuid
+        if request.user.is_authenticated:
+            stored_path = Path(str(MEDIA_ROOT), str(uuid))
+            storing_size = get_dir_size(stored_path)
+            user = request.user
+            user.available_storage -= storing_size
+            user.used_storage += storing_size
+            user.save()
+
+    # saving processing time
+    duration = time.time() - start_time
+    if request.user.is_authenticated:
+        user = request.user
+        user.processing_used += duration
+        user.save()
+
 
     return redirect(f'/image/{uuids}/display/')
     return HttpResponse("Congrats")

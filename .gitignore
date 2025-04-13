@@ -9,3 +9,11 @@ yeast_web
 
 # neural network
 deepretina_final.h5
+
+#migration
+yeastweb/core/migrations
+yeastweb/accounts/migrations
+yeastweb/cache
+yeastweb/media
+
+.idea

@@ -15,8 +15,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
-from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image, display, auth_login
+from django.urls import path, include
+from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image, display
+from accounts.views import profile_view, auth_login, auth_logout, signup
 from django.conf import settings
 from django.conf.urls.static import static  
 from django.urls import path
@@ -26,6 +27,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', homepage, name="homepage"),
     path('login/',auth_login, name="login"),
+    path('login/oauth',include('allauth.urls'), name="oauth_login"),
+    path('logout/',auth_logout, name="logout"),
+    path('signup/',signup, name="signup"),
+    path('profile/',profile_view ,name="profile"),
     path('image/upload/', upload_images, name="image_upload"),
     path('image/preprocess/', pre_process_step, name="pre_process_step"),  
     path('image/preprocess/<str:uuids>/', pre_process_step, name="pre_process_step"),  # Multiple UUIDs
