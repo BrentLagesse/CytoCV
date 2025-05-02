@@ -1,9 +1,6 @@
 from django.template.response import TemplateResponse
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect
-# test user:
-# username: timmy
-# password: 12345
 
 def auth_login(request):
     if request.method == "POST":
