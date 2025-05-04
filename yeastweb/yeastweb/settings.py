@@ -164,3 +164,14 @@ EMAIL_HOST_USER = 'yeastanalysistool@gmail.com'
 EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: CHANGE when enter production
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+
+DEFAULT_SEGMENT_CONFIG = {
+    # odd integer for your Gaussian blur kernel
+    "kernel_size": 5,
+    # sigma for that blur
+    "kernel_deviation": 1,
+    # pixel-width of the mCherry “line” drawn for intensity
+    "mCherry_line_width": 1,
+    # must be either "Metaphase Arrested" or "G1 Arrested"
+    "arrested": "Metaphase Arrested",
+}

@@ -809,7 +809,10 @@ def segment_image(request, uuids):
         # Calculate statistics for each cell only once after the loop
         # ================================================
 
-        configuration = request.user.config
+        if request.user.is_authenticated:
+            configuration = request.user.config
+        else:
+            configuration = settings.DEFAULT_SEGMENT_CONFIG
 
         print(configuration)
         # Build a proper 'conf' dict with required keys for get_stats
