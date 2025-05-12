@@ -1,5 +1,6 @@
 from django.apps import AppConfig
 
+# this is use to create guest user on start up
 class AccountsConfig(AppConfig):
     name = 'accounts'
 

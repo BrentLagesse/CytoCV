@@ -21,6 +21,8 @@ AUTHENTICATION_BACKENDS = [
 
     # `allauth` specific authentication methods, such as login by email
     'allauth.account.auth_backends.AuthenticationBackend',
+    # for microsoft
+    #'django_auth_adfs.backend.AdfsAccessTokenBackend',
 ]
 
 # Application definition
@@ -130,14 +132,31 @@ SOCIALACCOUNT_PROVIDERS = {
         "APPS": [
             {
                 "client_id": "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-                "secret": "91673088-079a-4bc0-a7de-348e3a0f0752",
+                "secret": "Fw.8Q~cetTJeJ3vqSmNsVdSjA1EcoXqL5Y2z3aBT",
                 "settings": {
                     "tenant": "organizations",
-                }
+                    "login_url": "https://login.microsoftonline.com",
+                },
+                'OAUTH_PKCE_ENABLED': True,
             }
         ],
-        'REDIRECT_URL': 'http://127.0.0.1:8000/login/oauthmicrosoft/login/callback/',
     }
+}
+
+# for microsoft login
+
+AUTH_ADFS = {
+    'AUDIENCE': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
+    'CLIENT_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
+    'CLIENT_SECRET': "91673088-079a-4bc0-a7de-348e3a0f0752",
+    'CLAIM_MAPPING': {'first_name': 'given_name',
+                      'last_name': 'family_name',
+                      'email': 'upn'},
+    'GROUPS_CLAIM': 'roles',
+    'MIRROR_GROUPS': True,
+    'USERNAME_CLAIM': 'upn',
+    'TENANT_ID': "f6b6dd5b-f02f-441a-99a0-162ac5060bd2",
+    'RELYING_PARTY_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
 }
 
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'

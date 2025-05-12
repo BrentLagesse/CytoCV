@@ -18,6 +18,7 @@ from PIL import Image
 from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
 from core.config import input_dir
 from core.config import get_channel_config_for_uuid
+from core.config import DEFAULT_PROCESS_CONFIG
 
 from scipy.spatial.distance import euclidean  
 from collections import defaultdict
@@ -40,177 +41,165 @@ def set_options(opt):
     This function sets global variables based on parsed arguments (like the old legacy code).
     """
     global input_dir, output_dir, ignore_btn, current_image, current_cell, outline_dict, image_dict, cp_dict, n
-    input_dir = opt.input_directory
-    output_dir = opt.output_directory
+    input_dir = opt['input_dir']
+    output_dir = opt['output_dir']
+    kernel_size_input = opt['kernel_size']
+    mcherry_line_width_input = opt['mCherry_line_width']
+    kernel_deviation_input = opt['kernel_deviation']
+    choice_var = opt['arrested']
+    return kernel_size_input, mcherry_line_width_input, kernel_deviation_input, choice_var
 
-def get_stats(cp, conf):
-    data = conf
-    print(data)
-    global input_dir 
-    input_dir = data['input_dir']
-    global output_dir 
-    output_dir = data['output_dir']
-    kernel_size_input = data['kernel_size']
-    mcherry_line_width_input = data['mCherry_line_width']
-    kernel_deviation_input = data['kernel_deviation']
-    choice_var = data['arrested']
-    
+def load_image(cp):
+    """
+    This function loads an image from a file path and returns it as a numpy array.
+    :param cp: A CellStatistics object
+    :return: A dictionary consist of mCherry, GFP image along with their version in numpy array
+    """
     # outlines screw up the analysis
-    print("test123", 'segmented/' + cp.get_mCherry(use_id=True, outline=False))
-    im = Image.open(output_dir + '/segmented/' + cp.get_mCherry(use_id=True, outline=False))
-    im_GFP = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True, outline=False))
-    im_GFP_for_cellular_intensity = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True))  # has outline
-    testimg = np.array(im)
-    GFP_img = np.array(im_GFP)
-    img_for_cell_intensity = np.array(im_GFP_for_cellular_intensity)
+    cp_mCherry = cp.get_mCherry(use_id=True, outline=False)
+    cp_GFP = cp.get_GFP(use_id=True, outline=False)
 
-    cell_intensity_gray = cv2.cvtColor(img_for_cell_intensity, cv2.COLOR_RGB2GRAY)
+    # opening the image from the saved segmented directory
+    print("test123", 'segmented/' + cp_mCherry)
+    im_mCherry = Image.open(output_dir + '/segmented/' + cp_mCherry)
+    im_GFP = Image.open(output_dir + '/segmented/' + cp_GFP)
+    im_GFP_for_cellular_intensity = Image.open(output_dir + '/segmented/' + cp_GFP)  # has outline
 
-    # was RGBA2GRAY
-    orig_gray_GFP = cv2.cvtColor(GFP_img, cv2.COLOR_RGB2GRAY)
-    orig_gray_GFP_no_bg, background = subtract_background_rolling_ball(orig_gray_GFP, 50, light_background=False,
-                                                                       use_paraboloid=False, do_presmooth=True)
-    orig_gray = cv2.cvtColor(testimg, cv2.COLOR_RGB2GRAY)
-    kdev = int(kernel_deviation_input)
-    ksize = int(kernel_size_input)
+    # convert image to matrix
+    im_mCherry_mat = np.array(im_mCherry)
+    GFP_img_mat = np.array(im_GFP)
+    img_for_cell_intensity_mat = np.array(im_GFP_for_cellular_intensity)
+
+    return {
+        'im_mCherry': im_mCherry,
+        'im_GFP': im_GFP,
+        "mCherry": im_mCherry_mat,
+        "GFP":GFP_img_mat,
+        "GFP_outline": img_for_cell_intensity_mat}
+
+
+def preprocess_image(images, kdev, ksize):
+    """
+    This function preprocesses an image and returns a gray scale of images and blurred version of it.
+    :param images: A dictionary consist of mCherry, GFP image along with their version in numpy array
+    :param kdev: Kernel deviation for blurring
+    :param ksize: Kernel size for blurring
+    :return: A dictionary containing grayscale and background-subtracted image data
+    """
     # ksize must be odd
     if ksize % 2 == 0:
         ksize += 1
         print("You used an even ksize, updating to odd number +1")
 
-    gray_mcherry = cv2.GaussianBlur(orig_gray, (3,3), 1)
-    ret_mcherry, thresh_mcherry = cv2.threshold(gray_mcherry, 0, 1,
-                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    gray = cv2.GaussianBlur(orig_gray, (ksize, ksize), kdev)
-    ret, thresh = cv2.threshold(gray, 0, 1,
-                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    # was RGBA2GRAY
+    # converting to gray scale
+    cell_intensity_gray = cv2.cvtColor(images["GFP_outline"], cv2.COLOR_RGB2GRAY)
+    orig_gray_GFP = cv2.cvtColor(images['GFP'], cv2.COLOR_RGB2GRAY)
+    orig_gray_GFP_no_bg, background = subtract_background_rolling_ball(orig_gray_GFP, 50, light_background=False,
+                                                                       use_paraboloid=False, do_presmooth=True)
+    original_gray_mcherry = cv2.cvtColor(images['mCherry'], cv2.COLOR_RGB2GRAY)
+
+    # blurring the boundaries
+    gray_mcherry = cv2.GaussianBlur(original_gray_mcherry, (3, 3), 1)
+
+    gray = cv2.GaussianBlur(original_gray_mcherry, (ksize, ksize), kdev)  # need to save gray
 
     # Some of the cell outlines are split into two circles. Blur so that the contour covers both
     cell_intensity_gray = cv2.GaussianBlur(cell_intensity_gray, (3,3), 1)
-    cell_int_ret, cell_int_thresh = cv2.threshold(cell_intensity_gray, 0, 1,
+
+    return {"gray_mcherry": gray_mcherry,
+            "gray": gray,
+            'orig_gray_GFP_no_bg':orig_gray_GFP_no_bg,
+            "cell_intensity_gray": cell_intensity_gray}
+
+def find_contours(images):
+    """
+    This function finds contours in an image and returns them as a numpy array.
+    :param images: Gray scale image list
+    :return: Dictionary of contours, best contours
+    """
+    # finding threshold
+    ret_mcherry, thresh_mcherry = cv2.threshold(images['gray_mcherry'], 0, 1,
+                                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    ret, thresh = cv2.threshold(images['gray'], 0, 1,
                                 cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    cell_int_ret, cell_int_thresh = cv2.threshold(images['cell_intensity_gray'], 0, 1,
+                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+
     cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
 
+    contours, h = cv2.findContours(thresh, 1, 2)
+    contours_mcherry = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
+
     # Biggest contour for the cellular intensity boundary
+    # TODO: In the future, handle multiple large contours more robustly
+    """
     largest = 0
     largest_cell_cnt = None
-    # TODO: In the future, handle multiple large contours more robustly
     for i, cnt in enumerate(cell_int_cont):
         area = cv2.contourArea(cnt)
         if area > largest:
             largest = area
             largest_cell_cnt = cnt
-
-    contours, h = cv2.findContours(thresh, 1, 2)
-    contours_mcherry = cv2.findContours(thresh_mcherry, 1, 2)
-
+    """
     # Identify the two largest contours in each set
-    bestContours = []
-    bestArea = []
-    for i, cnt in enumerate(contours):
-        if len(cnt) == 0:
-            continue
-        if i == len(contours) - 1:  # not robust #TODO fix it
-            continue
-        area = cv2.contourArea(cnt)
-        if len(bestContours) == 0:
-            bestContours.append(i)
-            bestArea.append(area)
-            continue
-        if len(bestContours) == 1:
-            bestContours.append(i)
-            bestArea.append(area)
+    bestContours = get_largest(contours)
+    bestContours_mcherry = get_largest(contours_mcherry[0])
 
-        if area > bestArea[0]:
-            bestArea[1] = bestArea[0]
-            bestArea[0] = area
-            bestContours[1] = bestContours[0]
-            bestContours[0] = i
-        elif area > bestArea[1]:
-            bestArea[1] = area
-            bestContours[1] = i
+    return {
+        'bestContours': bestContours,
+        'bestContours_mcherry': bestContours_mcherry,
+        'contours': contours,
+        'contours_mcherry': contours_mcherry
+    }
 
-    if len(bestContours) == 0:
-        print("we didn't find any contours")
-        return im, im_GFP  # returns original images if no contours found
-
-    bestContours_mcherry = []
-    bestArea_mcherry = []
-    for i, cnt in enumerate(contours_mcherry[0]):
-        if len(cnt) == 0:
-            continue
-        if i == len(contours_mcherry[0]) - 1:  # not robust #TODO fix it
-            continue
-        try:
-            area = cv2.contourArea(cnt)
-        except:
-            continue
-
-        if len(bestContours_mcherry) == 0:
-            bestContours_mcherry.append(i)
-            bestArea_mcherry.append(area)
-            continue
-        if len(bestContours_mcherry) == 1:
-            bestContours_mcherry.append(i)
-            bestArea_mcherry.append(area)
-
-        if area > bestArea_mcherry[0]:
-            bestArea_mcherry[1] = bestArea_mcherry[0]
-            bestArea_mcherry[0] = area
-            bestContours_mcherry[1] = bestContours_mcherry[0]
-            bestContours_mcherry[0] = i
-        elif area > bestArea_mcherry[1]:
-            bestArea_mcherry[1] = area
-            bestContours_mcherry[1] = i
-
-    # Open the debug images using the legacy getters
-    edit_im = Image.open(output_dir + '/segmented/' + cp.get_mCherry(use_id=True))
-    edit_im_GFP = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True))
-    edit_testimg = np.array(edit_im)
-    edit_GFP_img = np.array(edit_im_GFP)
-
-    def ensure_3channel_bgr(img_array):
-        # If single channel (shape: H x W), convert to BGR
-        if len(img_array.shape) == 2:
-            return cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-        # If RGBA (shape: H x W x 4), convert to BGR
-        elif img_array.shape[2] == 4:
-            return cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
-        # If already H x W x 3, we assume it's BGR or RGB, but let's treat as BGR
-        return img_array
-
-    # Force the arrays to 3-channel BGR
-    edit_testimg = ensure_3channel_bgr(edit_testimg)
-    edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
-
+def mcherry_line_calculation(cp, contours_mcherry,best_mcherry_contours, mcherry_line_width_input,edit_testing,gray):
+    """
+    This function calculates the mCherry line distance of a cell pair.
+    :param cp: CellStatistics object
+    :param contours_mcherry: List of contours in mCherry
+    :param best_mcherry_contours: Index of best contours in mCherry
+    :return: Distance between centers of cell pair
+    """
     mcherry_line_pts = []
-    if len(bestContours_mcherry) == 2:
-        c1 = contours_mcherry[0][bestContours_mcherry[0]]
-        c2 = contours_mcherry[0][bestContours_mcherry[1]]
-        M1 = cv2.moments(c1)
-        M2 = cv2.moments(c2)
+    if len(best_mcherry_contours) == 2:
+        # choose two best contour
+        c1 = contours_mcherry[0][best_mcherry_contours[0]]
+        c2 = contours_mcherry[0][best_mcherry_contours[1]]
 
-        # ---- Compute red dot distance from mCherry contours ----
-        if M1['m00'] == 0 or M2['m00'] == 0:
-            print("Warning:  The m00 moment = 0")
-        else:
-            c1x = int(M1['m10'] / M1['m00'])
-            c1y = int(M1['m01'] / M1['m00'])
-            c2x = int(M2['m10'] / M2['m00'])
-            c2y = int(M2['m01'] / M2['m00'])
-            d = math.sqrt((c1x - c2x)**2 + (c1y - c2y)**2)
-
+        # getting 2 centers of contours
+        try:
+            centers = get_contour_center([c1, c2])
+            # distance between 2 contour
+            d = math.dist(centers[0],centers[1])
             # Directly assign to cp.red_dot_distance (instead of cp.set_red_dot_distance(d))
             cp.red_dot_distance = d
-
             cp.distance = float(d)
 
+            c1x, c1y = centers[0]
+            c2x, c2y = centers[1]
+
             # Use a 3-channel white color tuple:
-            cv2.line(edit_testimg, (c1x, c1y), (c2x, c2y), (255, 255, 255), int(mcherry_line_width_input))
+            cv2.line(edit_testing, (c1x, c1y), (c2x, c2y), (255, 255, 255), int(mcherry_line_width_input))
             mcherry_line_mask = np.zeros(gray.shape, np.uint8)
             cv2.line(mcherry_line_mask, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
             mcherry_line_pts = np.transpose(np.nonzero(mcherry_line_mask))
 
+            return mcherry_line_pts
+
+        except ZeroDivisionError:
+            print("can't find contours")
+            return []
+    else:
+        return []
+
+def merge_contour(bestContours, contours):
+    """
+    This function merges contours into a single contour.
+    :param bestContours: List of best contours
+    :param contours: List of contours
+    :return: Merged contour
+    """
     best_contour = None
     if len(bestContours) == 2:
         c1 = contours[bestContours[0]]
@@ -223,7 +212,7 @@ def get_stats(cp, conf):
 
             for pt1 in c1:
                 for i, pt2 in enumerate(c2):
-                    d = math.sqrt((pt1[0][0] - pt2[0][0])**2 + (pt1[0][1] - pt2[0][1])**2)
+                    d = math.sqrt((pt1[0][0] - pt2[0][0]) ** 2 + (pt1[0][1] - pt2[0][1]) ** 2)
                     if d < smallest_distance:
                         second_smallest_distance = smallest_distance
                         second_smallest_pair = smallest_pair
@@ -258,11 +247,12 @@ def get_stats(cp, conf):
         best_contour = contours[bestContours[0]]
 
     print("only 1 contour found")
+    return best_contour
 
-    # Use white contour for both images (mCherry and GFP)
-    cv2.drawContours(edit_testimg, [best_contour], 0, (255, 255, 255), 1)
-    cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
-
+def calculate_intensity(cp,gray,best_contour,orig_gray_GFP_no_bg,mcherry_line_pts):
+    """
+    This function calculate the intensity within each cell
+    """
     mask_contour = np.zeros(gray.shape, np.uint8)
     cv2.fillPoly(mask_contour, [best_contour], 255)
     pts_contour = np.transpose(np.nonzero(mask_contour))
@@ -313,20 +303,127 @@ def get_stats(cp, conf):
 
     cp.line_gfp_intensity = float(mcherry_line_intensity_sum)
 
+def get_stats(cp, conf):
+    # loading configuration
+    kernel_size_input, mcherry_line_width_input,kernel_deviation_input, choice_var = set_options(conf)
+
+    images = load_image(cp)
+    # gray scale conversion and blurring
+    preprocessed_images = preprocess_image(images, kernel_deviation_input, kernel_size_input)
+
+    contours_data = find_contours(preprocessed_images)
+
+    if len(contours_data['bestContours']) == 0:
+        print("we didn't find any contours")
+        return images['im_mCherry'], images['im_GFP']  # returns original images if no contours found
+
+    # Open the debug images using the legacy getters
+    edit_im = Image.open(output_dir + '/segmented/' + cp.get_mCherry(use_id=True))
+    edit_im_GFP = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True))
+    edit_testing = np.array(edit_im)
+    edit_GFP_img = np.array(edit_im_GFP)
+
+    def ensure_3channel_bgr(img_array):
+        # If single channel (shape: H x W), convert to BGR
+        if len(img_array.shape) == 2:
+            return cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
+        # If RGBA (shape: H x W x 4), convert to BGR
+        elif img_array.shape[2] == 4:
+            return cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
+        # If already H x W x 3, we assume it's BGR or RGB, but let's treat as BGR
+        return img_array
+
+    # Force the arrays to 3-channel BGR
+    edit_testing = ensure_3channel_bgr(edit_testing)
+    edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
+
+    mcherry_line_pts = mcherry_line_calculation(cp,contours_data['contours_mcherry'],contours_data['bestContours_mcherry'],mcherry_line_width_input,edit_testing,preprocessed_images['gray'])
+
+    best_contour = merge_contour(contours_data['bestContours'],contours_data['contours'])
+
+    # Use white contour for both images (mCherry and GFP)
+    cv2.drawContours(edit_testing, [best_contour], 0, (255, 255, 255), 1)
+    cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
+
+    calculate_intensity(cp,preprocessed_images['gray'],best_contour,preprocessed_images['orig_gray_GFP_no_bg'],mcherry_line_pts)
+
     # Convert BGR back to RGB so PIL shows correct colors
-    edit_testimg_rgb = cv2.cvtColor(edit_testimg, cv2.COLOR_BGR2RGB)
+    edit_testing_rgb = cv2.cvtColor(edit_testing, cv2.COLOR_BGR2RGB)
     edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
 
-    return Image.fromarray(edit_testimg_rgb), Image.fromarray(edit_GFP_img_rgb)
+    return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb)
 
+def get_contour_center(contour_list):
+    """
+    This function calculate the center of the contours
+    :param contour_list: list of contours
+    :return: Dictionary with x,y coordinates of centers
+    """
+    coordinates = {}
+    for i in range(len(contour_list)):
+        contour = contour_list[i]
+        moment = cv2.moments(contour)
+        if moment['m00'] != 0:
+            x = int(moment['m10'] / moment['m00'])
+            y = int(moment['m01'] / moment['m00'])
+        else: # divide by 0
+            raise ZeroDivisionError
+        coordinates[i] = (x, y)
+    return coordinates
+
+def get_largest(contours):
+    """
+    This function output the two largest contours index in the list of contours
+    :param contours: List of contours
+    :return: List of indexes of the largest contour in descending order
+    """
+    best_contour = []
+    best_area = []
+    for i, contour in enumerate(contours):
+        if len(contour) == 0: # if no contour found
+            continue
+        if i == len(contours) - 1:  # not robust #TODO fix it
+            continue
+        area = cv2.contourArea(contour)
+        if len(best_contour) == 0: # first contour
+            best_contour.append(i)
+            best_area.append(area)
+            continue
+        if len(best_contour) == 1: # second contour
+            best_contour.append(i)
+            best_area.append(area)
+
+        if area > best_area[0]: # check if current contour area is bigger than biggest
+            # swapping 1st to 2nd and new one to 1st
+            best_area[1] = best_area[0]
+            best_area[0] = area
+            best_contour[1] = best_contour[0]
+            best_contour[0] = i
+        elif area > best_area[1]: # check if current contour area is bigger than second biggest
+            best_area[1] = area
+            best_contour[1] = i
+    return best_contour
 
 def get_neighbor_count(seg_image, center, radius=1, loss=0):
+    """
+    This function output the number of neighbors between center and radius
+    :param seg_image: 2D matrix represent a cell segmented image
+    :param center: coordinate of the center of the cell in (y,x)
+    :param radius: radius of searching for neighbor
+    :param loss:
+    :return: list of cell's id of cell that is within the radius
+    """
     #TODO:  account for loss as distance gets larger
     neighbor_list = list()
-    neighbors = seg_image[center[0] - radius:center[0] + radius + 1, center[1] - radius:center[1] + radius + 1]
+    center_y = center[0]
+    center_x = center[1]
+    # select a square segment that is a radius away from the center
+    neighbors = seg_image[center_y - radius:center_y + radius + 1, center_x - radius:center_x + radius + 1]
     for x, row in enumerate(neighbors):
         for y, val in enumerate(row):
-            if (x, y) != (radius, radius) and int(val) != 0 and int(val) != int(seg_image[center[0], center[1]]):
+            if ((x, y) != (radius, radius) and # check for pixel that are in the circumference
+                    int(val) != 0 and # not a cell pixel
+                    int(val) != int(seg_image[center_y, center_x])): # not part of the same cell
                 neighbor_list.append(val)
     return neighbor_list
 
@@ -344,7 +441,6 @@ def get_dir_size(path):
                 total += get_dir_size(entry.path)
     return total
 
-
 '''Creates image "segments" from the desired image'''
 def segment_image(request, uuids):
     """
@@ -358,9 +454,9 @@ def segment_image(request, uuids):
     use_cache = True
 
     # Configuations for statistic calculation
-    kernel_size = 3
-    deviation = 1
-    mcherry_line_width = 1
+    #kernel_size = 3
+    #deviation = 1
+    #mcherry_line_width = 1
 
     # Calculate processing time
     start_time = time.time()
@@ -392,8 +488,10 @@ def segment_image(request, uuids):
             image = np.expand_dims(image, axis=-1)
             image = np.tile(image, 3)
 
-        # Open the segmentation file (the mask generated in convert_to_image)    # TODO -- make it show it is choosing the correct segmented
-        seg = np.array(Image.open(Path(MEDIA_ROOT) / str(uuid) / "output" / "mask.tif"))   #TODO:  on first run, this can't find outputs/masks/M***.tif'
+        # TODO -- make it show it is choosing the correct segmented
+        # Open the segmentation file (the mask generated in convert_to_image)
+        # TODO:  on first run, this can't find outputs/masks/M***.tif'
+        seg = np.array(Image.open(Path(MEDIA_ROOT) / str(uuid) / "output" / "mask.tif"))   # create a 2D matrix of the image
 
         #TODO:   If G1 Arrested, we don't want to merge neighbors and ignore non-budding cells
         #choices = ['Metaphase Arrested', 'G1 Arrested']
@@ -414,12 +512,12 @@ def segment_image(request, uuids):
                     #TODO:  account for going over the edge without throwing out the data
 
                     try:
-                        neighbor_list = get_neighbor_count(seg, cell, 3)
+                        neighbor_list = get_neighbor_count(seg, cell, 10) # get neighbor with a 3 pixel radius from the cell
                     except:
                         continue
-
+                    # count the number of pixels that are within 3 pixel radius of all neighbors
                     for neighbor in neighbor_list:
-                        if int(neighbor) == i or int(neighbor) == 0:
+                        if int(neighbor) == i or int(neighbor) == 0: # same cell
                             continue
                         if neighbor in neighbor_count:
                             neighbor_count[neighbor] += 1
@@ -434,6 +532,7 @@ def segment_image(request, uuids):
                     if len(sorted_dict) == 1:
                         closest_neighbors[i] = list(sorted_dict.items())[0][0]
                     else:
+                        # find the closest neighbor by number of pixels close by
                         top_val = list(sorted_dict.items())[0][1]
                         second_val = list(sorted_dict.items())[1][1]
                         if second_val > 0.5 * top_val:    # things got confusing, so we throw it and its neighbor out
@@ -448,7 +547,9 @@ def segment_image(request, uuids):
             #TODO:  Examine the spc110 dots and make closest dots neighbors
 
             #resolve_cells_using_spc110 = use_spc110.get()
-            resolve_cells_using_spc110 = False # Hard coding this for now but will have to use a config file in the future
+
+            resolve_cells_using_spc110 = True # Hard coding this for now but will have to use a config file in the future
+
             lines_to_draw = dict()
             if resolve_cells_using_spc110:
 
@@ -511,10 +612,10 @@ def segment_image(request, uuids):
                         if contourArea > 100000:   #test for the big box, TODO: fix this to be adaptive
                             print('threw out the bounding box for the entire image')
                             continue
-                        M1 = cv2.moments(cnt1)
+                        coordinate = get_contour_center(cnt1)
                         # These are opposite of what we would expect
-                        c1y = int(M1['m10'] / M1['m00'])
-                        c1x = int(M1['m01'] / M1['m00'])
+                        c1y = coordinate[0][0]
+                        c1x = coordinate[0][1]
 
 
                     except:  #no moment found
@@ -524,10 +625,10 @@ def segment_image(request, uuids):
                         continue
                     for cnt2 in mcherry_image_cont:
                         try:
-                            M2 = cv2.moments(cnt2)
+                            coordinate = get_contour_center(cnt2)
                             # find center of each contour
-                            c2y = int(M2['m10'] / M2['m00'])
-                            c2x = int(M2['m01'] / M2['m00'])
+                            c2y = coordinate[0][0]
+                            c2x = coordinate[0][1]
 
                             
 
@@ -644,8 +745,8 @@ def segment_image(request, uuids):
         f = DVFile(DV_path)
         im = f.asarray()
         image = Image.fromarray(im[0])
-        image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
-        image = np.round(image * 255).astype(np.uint8)
+        image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1)) # 0/1 normalization
+        image = np.round(image * 255).astype(np.uint8) # scale for 8 bit gray scale
 
         # Convert the image to an RGB image, if necessary
         if len(image.shape) == 3 and image.shape[2] == 3:
@@ -691,7 +792,8 @@ def segment_image(request, uuids):
             else:
                 print('could not find cell id ' + str(i))
 
-        fig.savefig(str(outputdirectory) + DV_Name, dpi=600, bbox_inches='tight', pad_inches=0)
+        file = str(outputdirectory) + DV_Name
+        fig.savefig(file, dpi=600, bbox_inches='tight', pad_inches=0)
 
         #plt.show()
 
@@ -798,6 +900,7 @@ def segment_image(request, uuids):
                                         NumCells = int(np.max(seg) + 1),
                                         uploaded_date=timezone.now())
             else:
+                # this would save to a guest user for now
                 instance = SegmentedImage(UUID=uuid,
                                           ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
                                           CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
@@ -809,12 +912,12 @@ def segment_image(request, uuids):
         # Calculate statistics for each cell only once after the loop
         # ================================================
 
+        configuration = DEFAULT_PROCESS_CONFIG
         if request.user.is_authenticated:
             configuration = request.user.config
         else:
             configuration = settings.DEFAULT_SEGMENT_CONFIG
 
-        print(configuration)
         # Build a proper 'conf' dict with required keys for get_stats
         conf = {
             'input_dir': input_dir,

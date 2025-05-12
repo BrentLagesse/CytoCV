@@ -112,7 +112,7 @@
     <button type="submit">Log In</button>
 </form>
 <a href="{% provider_login_url 'google' %}" class="login-with-google-btn">Log in with Google</a>
-<!--<a href="{% provider_login_url 'microsoft' %}" class="login-with-microsoft-btn">Log in with Microsoft</a>-->
+<a href="{% provider_login_url 'microsoft' %}" class="login-with-microsoft-btn">Log in with Microsoft</a>
 
 {% if error %}
     <p style="color: red;">{{ error }}</p>
