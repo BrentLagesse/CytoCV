@@ -28,7 +28,7 @@ def preprocess_images(uuid, uploaded_image : UploadedImage, output_dir :Path) ->
     image_path = Path(MEDIA_ROOT, str(uploaded_image.file_location)) #.replace("/", "\\")
     f = DVFile(image_path)
     # gets raw image from uploaded dv file
-    image = f.asarray()[0]
+    image = f.asarray()[3]
     # fileSize = os.path.getsize(uploaded_image.file_location)
     # if fileSize > 8230000:
         #File is a live cell imaging that has more than 4 images

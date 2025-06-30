@@ -255,11 +255,18 @@
       width: 200px;
       height: 30px;
       display: flex;
+      color:white;
       align-items: center;
       justify-content: center;
       text-align: center;
       font-weight: bold;
       margin-bottom: 2px;
+        border: none;
+      border-radius: 5px;
+    }
+    .cell-label:hover{
+        background-color: #0056b3; /* Darker blue on hover */
+        color: #fff; /* Keep the text white */
     }
     .dic { background-color: black; }
     .dapi { background-color: blue; }
@@ -353,15 +360,24 @@
         <div class="cell-images-row">
             <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
             <div class="cell-column">
-                <div class="cell-label dic">DIC</div>
+                <form method="post" id="dic_form">
+                    {% csrf_token %}
+                    <button name="dic" class="cell-label dic">DIC</button>
+                </form>
                 <img id="cellImage1" class="cell-image" src="">
             </div>
             <div class="cell-column">
-                <div class="cell-label dapi">DAPI</div>
+                <form method="post"  id="dapi_form">
+                    {% csrf_token %}
+                    <button name="dapi" class="cell-label dapi">DAPI</button>
+                </form>
                 <img id="cellImage2" class="cell-image" src="">
             </div>
             <div class="cell-column">
-                <div class="cell-label mcherry">mCherry</div>
+                <form method="post" id="mCherry_form">
+                    {% csrf_token %}
+                    <button name="mCherry" class="cell-label mcherry">mCherry</button>
+                </form>
                 <img id="cellImage3" class="cell-image" src="">
                 <div class="info-box">
                     <div class="tight-info">Distance: <span id="distance"></span></div>
@@ -369,7 +385,10 @@
                 </div>
             </div>
             <div class="cell-column">
-                <div class="cell-label gfp">GFP</div>
+                <form method="post" id="gfp_form">
+                    {% csrf_token %}
+                    <button name="gfp" class="cell-label gfp" type="submit">GFP</button>
+                </form>
                 <img id="cellImage4" class="cell-image" src="">
                 <div class="info-box">
                     <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
@@ -393,6 +412,7 @@
       let currentFileIndex = 0;
       let currentCellNumber = 1;
       let maxCells;
+      const channels = ["dapi","mCherry","gfp","dic"];
 
       window.onload = function() {
           loadFile(currentFileIndex);
@@ -403,6 +423,10 @@
           const fileData = filesData[fileUUID];
           document.getElementById("mainImage").src = fileData.MainImagePath;
           document.getElementById("imageTitle").textContent = fileData.Image_Name;
+          for (const channel of channels){
+              let form = channel + '_form';
+              document.getElementById(form).action = `/image/${fileUUID}/display/`;
+          }
           maxCells = Number(fileData.NumberOfCells) - 1;
           currentCellNumber = 1;
           updateCellImages(fileData.CellPairImages, fileData.Statistics);
