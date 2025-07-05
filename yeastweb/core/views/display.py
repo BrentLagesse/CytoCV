@@ -40,7 +40,20 @@ def display_cell(request, uuids):
                 'detected_channels': detected,
             })
             image_name_stem = Path(image_name).stem
-            full_outlined = f"{MEDIA_URL}{uuid}/output/{image_name_stem}.png"
+            image_index = 0
+
+            if request.method == 'POST':
+                if 'gfp' in request.POST:
+                    image_index = 1
+                elif 'mCherry' in request.POST:
+                    image_index = 0
+                elif 'dic' in request.POST:
+                    image_index = 3
+                else:
+                    image_index = 2
+            print(image_index)
+            image_file_name = image_name_stem + "_frame_" + str(image_index)
+            full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
             
             # Get the segmented image details
             cell_image = SegmentedImage.objects.get(UUID=uuid)
@@ -76,6 +89,7 @@ def display_cell(request, uuids):
                         'line_gfp_intensity': cell_stat.line_gfp_intensity,
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
+                        'green_red_intensity': cell_stat.green_red_intensity,
                     }
                 except CellStatistics.DoesNotExist:
                     statistics[str(i)] = None  # In case statistics are missing for a cell

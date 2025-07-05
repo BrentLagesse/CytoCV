@@ -69,6 +69,7 @@ class CellStatistics(models.Model):
     line_gfp_intensity = models.FloatField()
     nucleus_intensity_sum = models.FloatField()
     cellular_intensity_sum = models.FloatField()
+    green_red_intensity = models.FloatField()
 
     dv_file_path = models.TextField(default="")
 

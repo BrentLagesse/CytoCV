@@ -51,7 +51,8 @@ def profile_view(request):
     uuid = uploaded_image.uuid
     image_name = uploaded_image.name
     image_name_stem = Path(image_name).stem
-    full_outlined = f"{MEDIA_URL}{uuid}/output/{image_name_stem}.png"
+    image_file_name = image_name_stem + "_frame_" + '0'
+    full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
 
     # Get the segmented image details
     cell_image = recent['segmented']

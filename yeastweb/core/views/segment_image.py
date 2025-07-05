@@ -77,7 +77,6 @@ def load_image(cp):
         "GFP":GFP_img_mat,
         "GFP_outline": img_for_cell_intensity_mat}
 
-
 def preprocess_image(images, kdev, ksize):
     """
     This function preprocesses an image and returns a gray scale of images and blurred version of it.
@@ -108,7 +107,7 @@ def preprocess_image(images, kdev, ksize):
     cell_intensity_gray = cv2.GaussianBlur(cell_intensity_gray, (3,3), 1)
 
     return {"gray_mcherry": gray_mcherry,
-            "gray": gray,
+            "gray": gray, # this is gray mcherry but with the user setting
             'orig_gray_GFP_no_bg':orig_gray_GFP_no_bg,
             "cell_intensity_gray": cell_intensity_gray}
 
@@ -251,7 +250,8 @@ def merge_contour(bestContours, contours):
 
 def calculate_intensity(cp,gray,best_contour,orig_gray_GFP_no_bg,mcherry_line_pts):
     """
-    This function calculate the intensity within each cell
+    This function calculate the nucleus intensity within a green image
+    :param gray: Gray scale of green image
     """
     mask_contour = np.zeros(gray.shape, np.uint8)
     cv2.fillPoly(mask_contour, [best_contour], 255)
@@ -303,6 +303,26 @@ def calculate_intensity(cp,gray,best_contour,orig_gray_GFP_no_bg,mcherry_line_pt
 
     cp.line_gfp_intensity = float(mcherry_line_intensity_sum)
 
+
+def identify_red_signal(red_image, intensity):
+    """
+    Identify red signal from mCherry image
+    :param red_image: Gray scale of mCherry image
+    :param intensity: Threshold for detection
+    :return: list of red dot's center coordinates
+    """
+    red_dot = []
+
+    _, thresh = cv2.threshold(red_image,intensity,255,cv2.THRESH_BINARY) # zeroing the value under the thresh hold
+    contours,_ = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if 5 < area < 1000: #TODO: Make area adjustable
+            red_dot.append(get_contour_center([contour])[0])
+
+    return red_dot
+
 def get_stats(cp, conf):
     # loading configuration
     kernel_size_input, mcherry_line_width_input,kernel_deviation_input, choice_var = set_options(conf)
@@ -351,7 +371,47 @@ def get_stats(cp, conf):
     edit_testing_rgb = cv2.cvtColor(edit_testing, cv2.COLOR_BGR2RGB)
     edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
 
+
+    cp.green_red_intensity = calculate_red_green_intensity(preprocessed_images['gray'],preprocessed_images['orig_gray_GFP_no_bg'])
+
     return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb)
+
+def calculate_red_green_intensity(mcherry_gray,GFP_gray):
+    """
+    :param mcherry_gray: mCherry image in grayscale
+    :param GFP_gray: GFP image in grayscale
+    :return: ratio between red and green intensity
+    """
+    red_dot = identify_red_signal(mcherry_gray, 10) # identify red signal from the mCherry
+    ratio = 0
+    for i in red_dot:
+        mask = create_circular_mask(mcherry_gray.shape, i, 10) # draw a contour around red signal TODO: make the radius configurable
+        red_intensity = calculate_intensity_dot(mcherry_gray, mask)
+        green_intensity = calculate_intensity_dot(GFP_gray, mask)
+
+        ratio = green_intensity / red_intensity if red_intensity != 0 else 0
+    return ratio
+
+def calculate_intensity_dot(image, mask):
+    """
+    :param image: Gray scale image
+    :param mask: Contour mask
+    :return: Sum of values in the mask from the image
+    """
+    masked_pixel = image[mask > 0]
+    return np.sum(masked_pixel) if len(masked_pixel) > 0 else 0
+
+def create_circular_mask(image_shape, center, radius):
+    """
+    Draw a circular mask around the center
+    :param image_shape: Gray scale image
+    :param center: Coordinates of the center of the mask
+    :param radius: Radius of the mask
+    :return: Masked image
+    """
+    mask = np.zeros(image_shape, dtype=np.uint8)
+    cv2.circle(mask, center, radius, 255, -1)
+    return mask
 
 def get_contour_center(contour_list):
     """
@@ -498,7 +558,6 @@ def segment_image(request, uuids):
         outlines = np.zeros(seg.shape)
         if choice_var == 'Metaphase Arrested':
             # Create a raw file to store the outlines
-
             ignore_list = list()
             single_cell_list = list()
             # merge cell pairs
@@ -512,7 +571,7 @@ def segment_image(request, uuids):
                     #TODO:  account for going over the edge without throwing out the data
 
                     try:
-                        neighbor_list = get_neighbor_count(seg, cell, 10) # get neighbor with a 3 pixel radius from the cell
+                        neighbor_list = get_neighbor_count(seg, cell, 3) # get neighbor with a 3 pixel radius from the cell
                     except:
                         continue
                     # count the number of pixels that are within 3 pixel radius of all neighbors
@@ -529,7 +588,9 @@ def segment_image(request, uuids):
                     print('found single cell at: ' + str(cell))
                     single_cell_list.append(int(i))
                 else:
+                    print('found neighbouring cell at: ' + str(cell))
                     if len(sorted_dict) == 1:
+                        # one cell close by
                         closest_neighbors[i] = list(sorted_dict.items())[0][0]
                     else:
                         # find the closest neighbor by number of pixels close by
@@ -548,7 +609,7 @@ def segment_image(request, uuids):
 
             #resolve_cells_using_spc110 = use_spc110.get()
 
-            resolve_cells_using_spc110 = True # Hard coding this for now but will have to use a config file in the future
+            resolve_cells_using_spc110 = False # Hard coding this for now but will have to use a config file in the future
 
             lines_to_draw = dict()
             if resolve_cells_using_spc110:
@@ -629,8 +690,6 @@ def segment_image(request, uuids):
                             # find center of each contour
                             c2y = coordinate[0][0]
                             c2x = coordinate[0][1]
-
-                            
 
                         except:
                             continue #no moment found
@@ -744,56 +803,59 @@ def segment_image(request, uuids):
         #image = np.array(Image.open(to_open))
         f = DVFile(DV_path)
         im = f.asarray()
-        image = Image.fromarray(im[0])
-        image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1)) # 0/1 normalization
-        image = np.round(image * 255).astype(np.uint8) # scale for 8 bit gray scale
 
-        # Convert the image to an RGB image, if necessary
-        if len(image.shape) == 3 and image.shape[2] == 3:
-            pass
-        else:
-            image = np.expand_dims(image, axis=-1)
-            image = np.tile(image, 3)
+        for frame_idx in range(im.shape[0]):
+            image = Image.fromarray(im[frame_idx])
+            image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1)) # 0/1 normalization
+            image = np.round(image * 255).astype(np.uint8) # scale for 8 bit gray scale
 
-        # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
-        for i in range(1, int(np.max(seg) + 1)):
-            tmp = np.zeros(seg.shape)
-            tmp[np.where(seg == i)] = 1
-            tmp = tmp - skimage.morphology.binary_erosion(tmp)
-            outlines += tmp
-
-        # Overlay the outlines on the original image in green
-        image_outlined = image.copy()
-        image_outlined[outlines > 0] = (0, 255, 0)
-
-        # Display the outline file
-        fig = plt.figure(frameon=False)
-        ax = plt.Axes(fig, [0., 0., 1., 1.])
-        ax.set_axis_off()
-        fig.add_axes(ax)
-        ax.imshow(image_outlined)
-
-        # debugging to see where the mcherry signals connect
-        for k, v in lines_to_draw.items():
-            start, stop = v
-            cv2.line(image_outlined, start, stop, (255,0,0), 1)
-            #txt = ax.text(start[0], start[1], str(start), size=12)
-            #txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
-            #txt = ax.text(stop[0], stop[1], str(stop), size=12)
-            #txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
-
-
-        # iterate over each cell pair and add an ID to the image
-        for i in range(1, int(np.max(seg) + 1)):
-            loc = np.where(seg == i)
-            if len(loc[0]) > 0:
-                txt = ax.text(loc[1][0], loc[0][0], str(i), size=12)
-                txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
+            # Convert the image to an RGB image, if necessary
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                pass
             else:
-                print('could not find cell id ' + str(i))
+                image = np.expand_dims(image, axis=-1)
+                image = np.tile(image, 3)
 
-        file = str(outputdirectory) + DV_Name
-        fig.savefig(file, dpi=600, bbox_inches='tight', pad_inches=0)
+            # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
+            for i in range(1, int(np.max(seg) + 1)):
+                tmp = np.zeros(seg.shape)
+                tmp[np.where(seg == i)] = 1
+                tmp = tmp - skimage.morphology.binary_erosion(tmp)
+                outlines += tmp
+
+            # Overlay the outlines on the original image in green
+            image_outlined = image.copy()
+            image_outlined[outlines > 0] = (0, 255, 0)
+
+            # Display the outline file
+            fig = plt.figure(frameon=False)
+            ax = plt.Axes(fig, [0., 0., 1., 1.])
+            ax.set_axis_off()
+            fig.add_axes(ax)
+            ax.imshow(image_outlined)
+
+            # debugging to see where the mcherry signals connect
+            for k, v in lines_to_draw.items():
+                start, stop = v
+                cv2.line(image_outlined, start, stop, (255,0,0), 1)
+                #txt = ax.text(start[0], start[1], str(start), size=12)
+                #txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
+                #txt = ax.text(stop[0], stop[1], str(stop), size=12)
+                #txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
+
+
+            # iterate over each cell pair and add an ID to the image
+            for i in range(1, int(np.max(seg) + 1)):
+                loc = np.where(seg == i)
+                if len(loc[0]) > 0:
+                    txt = ax.text(loc[1][0], loc[0][0], str(i), size=12)
+                    txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
+                else:
+                    print('could not find cell id ' + str(i))
+
+            output_file = os.path.join(outputdirectory, f"{DV_Name}_frame_{frame_idx}.png")
+            fig.savefig(output_file, dpi=600, bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
 
         #plt.show()
 
@@ -943,6 +1005,7 @@ def segment_image(request, uuids):
                     'line_gfp_intensity': 0.0,
                     'nucleus_intensity_sum': 0.0,
                     'cellular_intensity_sum': 0.0,
+                    'green_red_intensity': 0.0,
 
                     # Store file path information
                     'dv_file_path': DV_path,
