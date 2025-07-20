@@ -382,7 +382,7 @@
                 <div class="info-box">
                     <div class="tight-info">Distance: <span id="distance"></span></div>
                     <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
-                    <div class="tight-info">Red Green Intensity: <span id="redgreenIntensity"></span></div>
+                    <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
                 </div>
             </div>
             <div class="cell-column">
@@ -445,7 +445,7 @@
           console.log(cellStats);
           document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
           document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
-          document.getElementById("redgreenIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
+          document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
           document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
           document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
       }

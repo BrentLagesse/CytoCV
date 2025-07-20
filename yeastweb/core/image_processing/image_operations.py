@@ -2,27 +2,9 @@ import cv2
 from PIL import Image
 import numpy as np
 from cv2_rolling_ball import subtract_background_rolling_ball
+from core.image_processing import GrayImage
 
-class GrayImage:
-    _image_storage = {}
-    def __init__(self, img:dict = None):
-        if img:
-            self._image_storage = img
-        else:
-            self._image_storage = {
-                'gray_mcherry_3': None,
-                'gray_mcherry': None,
-                'GFP': None,
-                'GFP_no_bg': None,
-            }
-    def set_image(self, key:str, image:np.ndarray):
-        self._image_storage[key] = image
 
-    def set_image(self, images:dict):
-        self._image_storage = images
-
-    def get_image(self, key):
-        return self._image_storage[key]
 
 def load_image(cp, output_dir):
     """

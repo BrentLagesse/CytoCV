@@ -1,7 +1,7 @@
 import matplotlib.patheffects as PathEffects
 import matplotlib.pyplot as plt
 import numpy as np
-import os, csv, math, cv2, skimage, logging, time
+import os, csv, math, cv2, skimage, logging, time, sys, pkgutil, importlib
 
 from skimage import io
 from django.conf import settings
@@ -14,14 +14,15 @@ from django.utils import timezone
 from mrc import DVFile
 from pathlib import Path
 from PIL import Image
-from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
+from yeastweb.settings import MEDIA_ROOT, MEDIA_URL, BASE_DIR
 from core.config import input_dir
 from core.config import get_channel_config_for_uuid
 from core.config import DEFAULT_PROCESS_CONFIG
 
-from core.cell_analysis.image_processing import find_contours, merge_contour, load_image, preprocess_image_to_gray
-from core.cell_analysis.analysis import mcherry_line_calculation, calculate_red_green_intensity, calculate_nucleus_intensity,NucleusIntensity
-from core.cell_analysis.utils import get_neighbor_count, get_contour_center, ensure_3channel_bgr
+from core.image_processing import  load_image, preprocess_image_to_gray, ensure_3channel_bgr
+from core.contour_processing import find_contours, merge_contour, get_neighbor_count, get_contour_center
+from core.cell_analysis import NucleusIntensity, Green_Red_Intensity, MCherryLine, Analysis
+
 
 
 from scipy.spatial.distance import euclidean  
@@ -53,7 +54,37 @@ def set_options(opt):
     choice_var = opt['arrested']
     return kernel_size_input, mcherry_line_width_input, kernel_deviation_input, choice_var
 
-def get_stats(cp, conf):
+def import_analyses(path:str, selected_analysis:list) -> list:
+    """
+    This function dynamically load the list of analyses from the path folder
+    :param path: Path the analysis folder
+    :return: List of the object of the analyses
+    """
+    analyses = []
+    sys.path.append(str(path))
+    print(path)
+
+    modules = pkgutil.iter_modules(path=[path])
+    for loader, mod_name, ispkg in modules:
+        # Ensure that module isn't already loaded
+        loaded_mod = None
+        if mod_name not in sys.modules:
+            # Import module
+            loaded_mod = importlib.import_module('.cell_analysis','core')
+        if loaded_mod is None: continue
+        if mod_name != 'Analysis' and mod_name in selected_analysis:
+            loaded_class = getattr(loaded_mod, mod_name)
+            instanceOfClass = loaded_class()
+            if isinstance(instanceOfClass, Analysis):
+                print('Imported Plugin -- ' + mod_name)
+                analyses.append(instanceOfClass)
+            else:
+                print
+                mod_name + " was not an instance of Analysis"
+
+    return analyses
+
+def get_stats(cp, conf, selected_analysis):
     # loading configuration
     kernel_size_input, mcherry_line_width_input,kernel_deviation_input, choice_var = set_options(conf)
 
@@ -77,7 +108,6 @@ def get_stats(cp, conf):
     edit_testing = ensure_3channel_bgr(edit_testing)
     edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
 
-    mcherry_line_pts = mcherry_line_calculation(cp,contours_data['contours_mcherry'],contours_data['bestContours_mcherry'],mcherry_line_width_input,edit_testing,preprocessed_images)
 
     best_contour = merge_contour(contours_data['bestContours'],contours_data['contours'])
 
@@ -85,16 +115,26 @@ def get_stats(cp, conf):
     cv2.drawContours(edit_testing, [best_contour], 0, (255, 255, 255), 1)
     cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
 
+    import_path = BASE_DIR / 'core/cell_analysis'
+    analyses = import_analyses(import_path, selected_analysis)
+    for analysis in analyses:
+        analysis.setting_up(cp,preprocessed_images,output_dir)
+        analysis.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)
+    '''
+    mcherry_line = MCherryLine(cp,preprocessed_images,output_dir)
+    mcherry_line.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)
+
     #calculate_nucleus_intensity(cp,  best_contour, mcherry_line_pts,output_dir, preprocessed_images)
     ni = NucleusIntensity(cp,preprocessed_images,output_dir)
-    ni.calculate_statistics(best_contour,mcherry_line_pts)
+    ni.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)
+
+    gr = Green_Red_Intensity(cp,preprocessed_images,output_dir)
+    gr.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)  # need to draw red circle
+    '''
 
     # Convert BGR back to RGB so PIL shows correct colors
     edit_testing_rgb = cv2.cvtColor(edit_testing, cv2.COLOR_BGR2RGB)
     edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
-
-
-    cp.green_red_intensity = calculate_red_green_intensity(preprocessed_images)
 
     return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb)
 
@@ -628,8 +668,9 @@ def segment_image(request, uuids):
 
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
+            selected_analysis = request.session.get('selected_analysis',[])
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp = get_stats(cp, conf)
+            debug_mcherry, debug_gfp = get_stats(cp, conf,selected_analysis)
 
             # Save the debug images so we can view them later
             debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"

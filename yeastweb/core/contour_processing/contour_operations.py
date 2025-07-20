@@ -1,7 +1,7 @@
 import cv2, math
 import numpy as np
-from ..utils.contour_helper import get_largest
-from .image_operations import GrayImage
+from core.contour_processing import get_largest
+from core.image_processing import GrayImage
 
 def find_contours(images:GrayImage):
     """
@@ -49,7 +49,7 @@ def merge_contour(bestContours, contours):
     This function merges contours into a single contour.
     :param bestContours: List of best contours
     :param contours: List of contours
-    :return: Merged contour
+    :return: bestContours merged list
     """
     best_contour = None
     if len(bestContours) == 2:

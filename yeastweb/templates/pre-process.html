@@ -351,9 +351,9 @@
                     <div id="list1" class="dropdown-check-list" tabindex="100">
                         <span class="anchor">Select Analysis</span>
                         <ul class="items">
-                            <li><input type="checkbox" name="selected_analysis" value="mCherry_line"/>mCherry Line</li>
-                            <li><input type="checkbox" name="selected_analysis" value="nucleus_intensity"/>Nucleus Intensity</li>
-                            <li><input type="checkbox" name="selected_analysis" value="red_green"/>Green vs Red Ratio</li>
+                            {% for analysis in analyses %}
+                                <li><input type="checkbox" name="selected_analysis" value="{{ analysis }}"/>{{analysis}}</li>
+                            {% endfor %}
                         </ul>
                     </div>
                 </form>
