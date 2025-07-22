@@ -372,6 +372,11 @@
                     <button name="dapi" class="cell-label dapi">DAPI</button>
                 </form>
                 <img id="cellImage2" class="cell-image" src="">
+                <div class="info-box">
+                    <div class="tight-info">Nucleus intensity from DAPI: <span id="nucleusIntensitySum_DAPI"></span></div>
+                    <div class="tight-info">Total cellular intensity from DAPI: <span id="cellularIntensitySum_DAPI"></span></div>
+                    <div class="tight-info">Cytoplasmic intensity from DAPI: <span id="cytoplasmicIntensity_DAPI"></span></div>
+                </div>
             </div>
             <div class="cell-column">
                 <form method="post" id="mCherry_form">
@@ -394,6 +399,8 @@
                 <div class="info-box">
                     <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
                     <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
+                    <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+
                 </div>
             </div>
         </div>
@@ -448,6 +455,10 @@
           document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
           document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
           document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
+          document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+          document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
+          document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
+          document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI: "N/A";
       }
 
       function nextFile() {

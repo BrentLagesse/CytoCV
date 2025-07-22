@@ -9,6 +9,8 @@ class GrayImage:
             self._image_storage = {
                 'gray_mcherry_3': None,
                 'gray_mcherry': None,
+                'gray_dapi': None,
+                'gray_dapi_3': None,
                 'GFP': None,
                 'GFP_no_bg': None,
             }

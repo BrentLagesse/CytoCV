@@ -15,7 +15,7 @@ class NucleusIntensity(Analysis):
         gray_GFP_no_bg = self.preprocessed_images.get_image('GFP_no_bg')
 
         mask_contour = np.zeros(gray_GFP.shape, np.uint8)
-        cv2.fillPoly(mask_contour, [best_contours], 255)
+        cv2.fillPoly(mask_contour, [best_contours['mCherry']], 255)
         pts_contour = np.transpose(np.nonzero(mask_contour))
 
         # Build the expected outline filename:
@@ -53,5 +53,7 @@ class NucleusIntensity(Analysis):
         self.cp.cell_total_points = len(border_cells)
 
         self.cp.cellular_intensity_sum = float(cell_intensity_sum)
+
+        self.cp.cytoplasmic_intensity = float(cell_intensity_sum) - float(intensity_sum)
 
 

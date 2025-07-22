@@ -5,7 +5,7 @@ from core.image_processing import calculate_intensity_mask,create_circular_mask
 from core.image_processing.GrayImage import GrayImage
 from .Analysis import Analysis
 
-class Green_Red_Intensity(Analysis):
+class GreenRedIntensity(Analysis):
     name = 'Green Red Intensity'
     def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input):
         """
@@ -18,7 +18,7 @@ class Green_Red_Intensity(Analysis):
         GFP_gray = self.preprocessed_images.get_image('GFP')
 
         ratio = 0
-        centers = get_contour_center([best_contours])
+        centers = get_contour_center([best_contours['mCherry']])
 
         for i in centers:
             mask = create_circular_mask(mcherry_gray.shape, centers[i],

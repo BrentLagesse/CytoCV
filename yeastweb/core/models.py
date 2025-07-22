@@ -70,7 +70,13 @@ class CellStatistics(models.Model):
     line_gfp_intensity = models.FloatField()
     nucleus_intensity_sum = models.FloatField()
     cellular_intensity_sum = models.FloatField()
+    cytoplasmic_intensity = models.FloatField(default=0.0)
+
     green_red_intensity = models.FloatField()
+
+    cellular_intensity_sum_DAPI = models.FloatField(default=0.0)
+    nucleus_intensity_sum_DAPI = models.FloatField(default=0.0)
+    cytoplasmic_intensity_DAPI = models.FloatField(default=0.0)
 
     dv_file_path = models.TextField(default="")
 
@@ -80,12 +86,10 @@ class CellStatistics(models.Model):
     # Additional fields migrated from CellPair:
     is_correct = models.BooleanField(default=True)
     nuclei_count = models.IntegerField(default=1)
-    red_dot_count = models.IntegerField(default=1)
     gfp_dot_count = models.IntegerField(default=0)
     red_dot_distance = models.FloatField(default=0.0)
     gfp_red_dot_distance = models.FloatField(default=0.0)
     cyan_dot_count = models.IntegerField(default=1)
-    green_dot_count = models.IntegerField(default=1)
     ground_truth = models.BooleanField(default=False)
     nucleus_intensity = models.JSONField(default=dict)   # For storing intensities by contour type
     nucleus_total_points = models.IntegerField(default=0)
@@ -108,53 +112,29 @@ class CellStatistics(models.Model):
         """
         return self.image_name.split('_PRJ')[0]
 
-    def get_mCherry(self, use_id=False, outline=True):
+    def get_image(self,channel:str, use_id=False, outline=True):
         # Retrieve the per‑file configuration using the DV file's UUID.
         # We assume that the associated SegmentedImage's UUID stores the DV file's UUID.
         channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
-        mcherry_channel = channel_config.get("mCherry")
-        print('Using channel for mCherry: ' + str(mcherry_channel))
-        
+        image_channel = channel_config.get(channel)
+        print(f'Using channel for {channel}' + str(image_channel))
+
         outlinestr = ''
         if not outline:
             outlinestr = '-no_outline'
         if use_id:
             # Return the pre-split PNG file that includes the cell_id.
-            return f"{self.get_base_name()}_PRJ-{mcherry_channel}-{self.cell_id}{outlinestr}.png"
+            return f"{self.get_base_name()}_PRJ-{image_channel}-{self.cell_id}{outlinestr}.png"
         else:
             extspl = os.path.splitext(self.image_name)
             if extspl[1] == '.dv':
                 f = DVFile(self.dv_file_path)
                 image = f.asarray()
                 # Use the per‑file configured channel index for mCherry.
-                img = Image.fromarray(image[mcherry_channel])
+                img = Image.fromarray(image[image_channel])
                 return img
             else:
-                return f"{self.get_base_name()}_PRJ-{mcherry_channel}{outlinestr}.png"
-
-
-    def get_GFP(self, use_id=False, outline=True):
-        # Retrieve the per‑file configuration using the DV file's UUID.
-        channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
-        gfp_channel = channel_config.get("GFP")
-        print('Using channel for GFP: ' + str(gfp_channel))
-        
-        outlinestr = ''
-        if not outline:
-            outlinestr = '-no_outline'
-        if use_id:
-            # Return the pre-split PNG file that includes the cell_id.
-            return f"{self.get_base_name()}_PRJ-{gfp_channel}-{self.cell_id}{outlinestr}.png"
-        else:
-            extspl = os.path.splitext(self.image_name)
-            if extspl[1] == '.dv':
-                f = DVFile(self.dv_file_path)
-                image = f.asarray()
-                # Use the per‑file configured channel index for GFP.
-                img = Image.fromarray(image[gfp_channel])
-                return img
-            else:
-                return f"{self.get_base_name()}_PRJ-{gfp_channel}{outlinestr}.png"
+                return f"{self.get_base_name()}_PRJ-{image_channel}{outlinestr}.png"
 
 # class FileHandler(models.Model):
 #     FILE_TYPES_CHOICES = {

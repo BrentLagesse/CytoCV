@@ -21,7 +21,7 @@ from core.config import DEFAULT_PROCESS_CONFIG
 
 from core.image_processing import  load_image, preprocess_image_to_gray, ensure_3channel_bgr
 from core.contour_processing import find_contours, merge_contour, get_neighbor_count, get_contour_center
-from core.cell_analysis import NucleusIntensity, Green_Red_Intensity, MCherryLine, Analysis
+from core.cell_analysis import Analysis
 
 
 
@@ -96,47 +96,47 @@ def get_stats(cp, conf, selected_analysis):
 
     if len(contours_data['bestContours']) == 0:
         print("we didn't find any contours")
-        return images['im_mCherry'], images['im_GFP']  # returns original images if no contours found
+        return images['im_mCherry'], images['im_GFP'], images['im_DAPI']  # returns original images if no contours found
 
     # Open the debug images using the legacy getters
-    edit_im = Image.open(output_dir + '/segmented/' + cp.get_mCherry(use_id=True))
-    edit_im_GFP = Image.open(output_dir + '/segmented/' + cp.get_GFP(use_id=True))
-    edit_testing = np.array(edit_im)
+    edit_im = Image.open(output_dir + '/segmented/' + cp.get_image('mCherry',use_id=True))
+    edit_im_GFP = Image.open(output_dir + '/segmented/' + cp.get_image('GFP',use_id=True))
+    edit_im_DAPI = Image.open(output_dir + '/segmented/' + cp.get_image('DAPI',use_id=True))
+
+    edit_mCherry_img = np.array(edit_im)
     edit_GFP_img = np.array(edit_im_GFP)
+    edit_DAPI_img = np.array(edit_im_DAPI)
 
     # Force the arrays to 3-channel BGR
-    edit_testing = ensure_3channel_bgr(edit_testing)
+    edit_mCherry_img = ensure_3channel_bgr(edit_mCherry_img)
     edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
+    edit_DAPI_img = ensure_3channel_bgr(edit_DAPI_img)
 
 
     best_contour = merge_contour(contours_data['bestContours'],contours_data['contours'])
+    best_contour_dapi = merge_contour(contours_data['bestContours_dapi'],contours_data['contours_dapi'])
+    best_contour_data = {
+        "mCherry" : best_contour,
+        "DAPI": best_contour_dapi,
+    }
 
     # Use white contour for both images (mCherry and GFP)
-    cv2.drawContours(edit_testing, [best_contour], 0, (255, 255, 255), 1)
+    cv2.drawContours(edit_mCherry_img, [best_contour], 0, (255, 255, 255), 1)
     cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
+    cv2.drawContours(edit_DAPI_img, [best_contour_dapi], 0, (255, 255, 255), 1)
 
     import_path = BASE_DIR / 'core/cell_analysis'
     analyses = import_analyses(import_path, selected_analysis)
     for analysis in analyses:
         analysis.setting_up(cp,preprocessed_images,output_dir)
-        analysis.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)
-    '''
-    mcherry_line = MCherryLine(cp,preprocessed_images,output_dir)
-    mcherry_line.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)
-
-    #calculate_nucleus_intensity(cp,  best_contour, mcherry_line_pts,output_dir, preprocessed_images)
-    ni = NucleusIntensity(cp,preprocessed_images,output_dir)
-    ni.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)
-
-    gr = Green_Red_Intensity(cp,preprocessed_images,output_dir)
-    gr.calculate_statistics(best_contour, contours_data, edit_testing, edit_GFP_img, mcherry_line_width_input)  # need to draw red circle
-    '''
+        analysis.calculate_statistics(best_contour_data, contours_data, edit_mCherry_img, edit_GFP_img, mcherry_line_width_input)
 
     # Convert BGR back to RGB so PIL shows correct colors
-    edit_testing_rgb = cv2.cvtColor(edit_testing, cv2.COLOR_BGR2RGB)
+    edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
     edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
+    edit_DAPI_img_rgb = cv2.cvtColor(edit_DAPI_img, cv2.COLOR_BGR2RGB)
 
-    return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb)
+    return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb), Image.fromarray(edit_DAPI_img_rgb)
 
 '''Get file size of a directory recursively'''
 def get_dir_size(path):
@@ -456,6 +456,8 @@ def segment_image(request, uuids):
         im = f.asarray()
 
         for frame_idx in range(im.shape[0]):
+            # begin drawing the cell contours all over 4 DV images
+            # TODO: Make this a method
             image = Image.fromarray(im[frame_idx])
             image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1)) # 0/1 normalization
             image = np.round(image * 255).astype(np.uint8) # scale for 8 bit gray scale
@@ -670,13 +672,16 @@ def segment_image(request, uuids):
             # This modifies cp's fields in place
             selected_analysis = request.session.get('selected_analysis',[])
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp = get_stats(cp, conf,selected_analysis)
+            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis)
 
             # Save the debug images so we can view them later
             debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"
             debug_gfp_path = segmented_directory / f"{DV_Name}-{cell_number}-GFP_debug.png"
+            debug_dapi_path = segmented_directory / f"{DV_Name}-{cell_number}-DAPI_debug.png"
+
             debug_mcherry.save(debug_mcherry_path)
             debug_gfp.save(debug_gfp_path)
+            debug_dapi.save(debug_dapi_path)
 
             # Save the updated fields to the DB
             cp.save()
