@@ -1,18 +1,53 @@
 from django.shortcuts import get_object_or_404, get_list_or_404, redirect
 from django.http import JsonResponse
 from django.template.response import TemplateResponse
+from django.utils import inspect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+import sys, pkgutil, importlib, inspect
 
 from core.models import DVLayerTifPreview, UploadedImage
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 from .utils import tif_to_jpg
 from core.dv_channel_parser import extract_channel_config
+from core.cell_analysis import Analysis
 
-from yeastweb.settings import MEDIA_ROOT
+from yeastweb.settings import MEDIA_ROOT, BASE_DIR
 from pathlib import Path
 import json
+
+
+
+def load_analyses(path:str) -> list:
+    """
+    This function dynamically load the list of analyses from the path folder
+    :param path: Path the analysis folder
+    :return: List of the name of the analyses
+    """
+    analyses = []
+    sys.path.append(str(path))
+    print(path)
+
+    modules = pkgutil.iter_modules(path=[path])
+    for loader, mod_name, ispkg in modules:
+        # Ensure that module isn't already loaded
+        loaded_mod = None
+        if mod_name not in sys.modules:
+            # Import module
+            loaded_mod = importlib.import_module('.cell_analysis','core')
+        if loaded_mod is None: continue
+        if mod_name != 'Analysis':
+            loaded_class = getattr(loaded_mod, mod_name)
+            instanceOfClass = loaded_class()
+            if isinstance(instanceOfClass, Analysis):
+                print('Added Plugin -- ' + mod_name)
+                analyses.append(mod_name)
+            else:
+                print
+                mod_name + " was not an instance of Analysis"
+
+    return analyses
 
 
 def pre_process_step(request, uuids):
@@ -20,6 +55,11 @@ def pre_process_step(request, uuids):
     GET: Render previews + sidebar (with auto-detected channel order).
     POST: Run preprocess + inference on every UUID, then redirect.
     """
+
+    path = BASE_DIR / 'core/cell_analysis'
+    analyses_list = load_analyses(path)
+    print(analyses_list)
+
     uuid_list = uuids.split(',')
     total_files = len(uuid_list)
 
@@ -59,6 +99,12 @@ def pre_process_step(request, uuids):
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
+        selected_analysis = request.POST.getlist('selected_analysis')
+        print("selected_analysis")
+        print(selected_analysis)
+
+        request.session['selected_analysis'] = selected_analysis  # save selected analysis to session
+
         for image_uuid in uuid_list:
             img_obj = get_object_or_404(UploadedImage, uuid=image_uuid)
             out_dir = Path(MEDIA_ROOT) / image_uuid
@@ -88,6 +134,7 @@ def pre_process_step(request, uuids):
         'total_files': total_files,
         'uuids': uuids,
         'file_list': file_list,
+        'analyses' : analyses_list,
     })
 
 
