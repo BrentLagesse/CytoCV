@@ -348,15 +348,15 @@
                 <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
                 {% csrf_token %}
                     <input type="submit" value="Start Analysis" class="button" id="startAnalysisButton"/>
+                    <div id="list1" class="dropdown-check-list" tabindex="100">
+                        <span class="anchor">Select Analysis</span>
+                        <ul class="items">
+                            {% for analysis in analyses %}
+                                <li><input type="checkbox" name="selected_analysis" value="{{ analysis }}"/>{{analysis}}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 </form>
-                <div id="list1" class="dropdown-check-list" tabindex="100">
-                    <span class="anchor">Select Analysis</span>
-                    <ul class="items">
-                        <li><input type="checkbox"/>mCherry Line</li>
-                        <li><input type="checkbox"/>Nucleus Intensity</li>
-                        <li><input type="checkbox"/>Grapes</li>
-                    </ul>
-                </div>
             </div>
 
 

@@ -75,7 +75,7 @@ def display_cell(request, uuids):
                 for channel_name in channel_order:
                     channel_index = channel_config.get(channel_name)
                     # For mCherry and GFP, use the debug filename pattern
-                    if channel_name in ["mCherry", "GFP"]:
+                    if channel_name in ["mCherry", "GFP", "DAPI"]:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
                     else:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
@@ -90,6 +90,10 @@ def display_cell(request, uuids):
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
                         'green_red_intensity': cell_stat.green_red_intensity,
+                        'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
+                        'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
+                        'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
+                        'cytoplasmic_intensity_DAPI': cell_stat.cytoplasmic_intensity_DAPI,
                     }
                 except CellStatistics.DoesNotExist:
                     statistics[str(i)] = None  # In case statistics are missing for a cell

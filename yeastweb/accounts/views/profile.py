@@ -24,8 +24,8 @@ def profile_view(request):
 
     user_id = request.user.id
     images_saved = []; # use to hold images' uuid
-    for image in SegmentedImage.objects.filter(user=user_id):
-        image_id = image.UUID
+    for image in SegmentedImage.objects.filter(user=user_id).order_by('-uploaded_date'):
+        image_id = image.UUID   
         image_name = UploadedImage.objects.get(uuid=image_id).name
         images_saved.append(dict(id=image.UUID, name=image_name,date=image.uploaded_date,cell=image.NumCells))
 
