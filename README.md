@@ -51,9 +51,10 @@ Due to the machine learning part only works on certain versions of packages, we 
 
 ## Launching project
 
-```
-1. cd yeastweb
+1. Navigate to the yeastweb directory:
+   ```bash
+   cd yeastweb
 
-2. python manage.py runserver
-
-```
+2. Run the application:
+   ```bash
+   python manage.py runserver
