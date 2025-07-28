@@ -2,7 +2,7 @@
 {% extends 'base.html' %}
 <!-- Template specific content -->
 {% block content %}
-
+{% load render_table from django_tables2 %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,24 +23,26 @@
       color: #fff;
       min-height: 100vh;
       display: flex; /* so the sidebar + content fill vertical space */
-      padding-top: 40px;
+    padding-top: 40px;
+
     }
     .page-container {
       display: flex;
       flex-direction: row;
       width: 100%;
       min-height: 100vh; /* ensures the sidebar and content fill the viewport height */
+        height: 100%;
     }
 
     /* SIDEBAR */
     .sidebar {
-      position: relative;    
-      width: 400px;         
+      position: relative;
+      width: 400px;
       background-color: #222; /* darker grey than main page */
       transition:
         width 0.3s ease,
         background-color 0.2s ease;    /* animate the color change too */
-      overflow: hidden;      
+      overflow: hidden;
       display: flex;
       flex-direction: column;
     }
@@ -146,7 +148,7 @@
       gap: 4px;
       margin-top: 6px;
       flex-wrap: nowrap;
-      overflow-x: auto;      
+      overflow-x: auto;
     }
     .channel-chip {
       background-color: #555;
@@ -171,18 +173,18 @@
     .content-wrapper {
       display: flex;
       flex-direction: column;
-      align-items: center;  
+      align-items: center;
       justify-content: flex-start;
-      flex-grow: 1;         
-      padding: 10px;        
+      flex-grow: 1;
+      padding: 10px;
     }
 
     /* MAIN CONTENT */
     .main-content {
       display: flex;
       flex-direction: column;
-      align-items: center;  
-      max-width: 1200px;    
+      align-items: center;
+      max-width: 1200px;
       width: 100%;
     }
 
@@ -190,13 +192,13 @@
     .main-container {
       display: flex;
       align-items: center;
-      margin: 10px 0;      
+      margin: 10px 0;
       gap: 20px;
     }
 
     /* Adjust heading margin so it’s closer to the top */
     h2#imageTitle {
-      margin: 5px 0 10px 0; 
+      margin: 5px 0 10px 0;
     }
 
     .main-image {
@@ -314,6 +316,136 @@
             background-color: #0056b3; /* Darker blue on hover */
             color: #fff; /* Keep the text white */
         }
+
+        /* Table container */
+        .celltable {
+          width: 100%;
+          max-width: 1000px;
+          background-color: #222;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+          margin-top: 20px;
+        }
+
+        /* Table itself */
+        .celltable table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          background-color: #222;
+          color: #fff;
+          font-family: Arial, sans-serif;
+          font-size: 14px;
+        }
+
+        /* Table header */
+        .celltable thead {
+          background-color: #333;
+        }
+
+        .celltable th {
+          padding: 15px 12px;
+          text-align: left;
+          font-weight: bold;
+          color: #fff;
+          background-color: #333;
+          border-bottom: 2px solid #007bff;
+          position: relative;
+        }
+
+        .celltable th:first-child {
+          border-top-left-radius: 10px;
+        }
+
+        .celltable th:last-child {
+          border-top-right-radius: 10px;
+        }
+
+
+        /* Table body */
+        .celltable tbody {
+          background-color: #222;
+        }
+
+        .celltable td {
+          padding: 12px;
+          border-bottom: 1px solid #444;
+          transition: background-color 0.2s;
+        }
+
+        /* Row striping for better readability */
+        .celltable tbody tr:nth-child(even) {
+          background-color: #2a2a2a;
+        }
+
+        .celltable tbody tr:nth-child(odd) {
+          background-color: #222;
+        }
+
+        /* Row hover effect */
+        .celltable tbody tr:hover {
+          background-color: #2f2f2f;
+          cursor: pointer;
+        }
+
+        /* Active/selected row */
+        .celltable tbody tr.selected {
+          background-color: #1a4a6b;
+        }
+
+        .celltable tbody tr.selected:hover {
+          background-color: #1e5474;
+        }
+
+        /* Numeric columns - right align */
+        .celltable td.numeric {
+          text-align: right;
+          font-family: 'Courier New', monospace;
+        }
+
+        /* Links within table cells */
+        .celltable a {
+          color: #66b3ff;
+          text-decoration: none;
+          font-size: 14px;
+            padding: 0;
+          border-radius: 3px;
+          background-color: transparent;
+          transition: all 0.2s;
+        }
+
+        .celltable a:hover {
+          color: #fff;
+          background-color: #007bff;
+          text-decoration: none;
+        }
+
+        /* Action buttons within table */
+        .celltable .action-btn {
+          padding: 4px 8px;
+          font-size: 12px;
+          background-color: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .celltable .action-btn:hover {
+          background-color: #0056b3;
+        }
+
+    /* Empty table message */
+    .celltable .no-data {
+      text-align: center;
+      padding: 30px;
+      color: #888;
+      font-style: italic;
+    }
+
+
   </style>
 
 
@@ -385,7 +517,7 @@
                 </form>
                 <img id="cellImage3" class="cell-image" src="">
                 <div class="info-box">
-                    <div class="tight-info">Distance: <span id="distance"></span></div>
+                    <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
                     <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
                     <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
                 </div>
@@ -404,11 +536,15 @@
                 </div>
             </div>
         </div>
-
         <div class="navigation-buttons">
             <button onclick="previousCell()">Previous Cell</button>
             <button onclick="nextCell()">Next Cell</button>
         </div>
+          <div class="table-section">
+              {% render_table cell_table %}
+
+
+          </div>
       </div> <!-- end main-content -->
     </div> <!-- end content-wrapper -->
   </div> <!-- end page-container -->
