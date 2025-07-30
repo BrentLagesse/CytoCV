@@ -1,4 +1,5 @@
 import re
+from mrc import DVFile
 
 def extract_channel_config(dv_file_path):
     """
@@ -52,3 +53,21 @@ def extract_channel_config(dv_file_path):
             channel = orig_name  # fallback if no match
         config[channel] = int(idx)
     return config
+
+def is_valid_dv_file(dv_file_path):
+    """
+    Returns True only if the DV actually contains 4 image layers.
+    """
+    dv = DVFile(dv_file_path)
+    try:
+        arr = dv.asarray()
+        # arr might be 3‑D (layers, H, W) or 2‑D (H, W) if only one layer.
+        if hasattr(arr, "ndim") and arr.ndim >= 3:
+            num_layers = arr.shape[0]
+        else:
+            num_layers = 1
+    finally:
+        dv.close()
+    # debug print—remove once it’s behaving
+    print(f"DEBUG: {dv_file_path} → {num_layers} layers found")
+    return num_layers == 4

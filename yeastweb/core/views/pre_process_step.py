@@ -4,13 +4,14 @@ from django.template.response import TemplateResponse
 from django.utils import inspect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
 import sys, pkgutil, importlib, inspect
 
 from core.models import DVLayerTifPreview, UploadedImage
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 from .utils import tif_to_jpg
-from core.dv_channel_parser import extract_channel_config
+from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.cell_analysis import Analysis
 
 from yeastweb.settings import MEDIA_ROOT, BASE_DIR
