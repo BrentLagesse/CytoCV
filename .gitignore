@@ -17,6 +17,7 @@ yeastweb/cache/
 yeastweb/media/
 
 .idea
+.env
 
 # Code Formatting
 .vscode/

@@ -1,4 +1,9 @@
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -8,7 +13,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = 'django-insecure-r_afs-3hujl8xfiqc%l#t*%$(bs*@ycdlnz$okl%i57g!tn%3y'
+SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = True
 ALLOWED_HOSTS = []
 
@@ -124,8 +129,8 @@ SOCIALACCOUNT_PROVIDERS = {
         # credentials, or list them here:
         'APP': {
             #TODO: Hide these
-            'client_id': '225323565107-ofofsr4m2hta51gmm68ocrtukh1jou83.apps.googleusercontent.com',
-            'secret': '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',
+            'client_id': os.getenv('GOOGLE_CLIENT'),
+            'secret': os.getenv('GOOGLE_SECRET'),
             'key': ''
         },
         'SCOPE': ['profile', 'email']
@@ -133,8 +138,8 @@ SOCIALACCOUNT_PROVIDERS = {
     "microsoft": {
         "APPS": [
             {
-                "client_id": "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-                "secret": "Fw.8Q~cetTJeJ3vqSmNsVdSjA1EcoXqL5Y2z3aBT",
+                "client_id": os.getenv('MSFT_CLIENT'),
+                "secret": os.getenv('MSFT_SECRET'),
                 "settings": {
                     "tenant": "organizations",
                     "login_url": "https://login.microsoftonline.com",
@@ -146,19 +151,18 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 # for microsoft login
-
 AUTH_ADFS = {
-    'AUDIENCE': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-    'CLIENT_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-    'CLIENT_SECRET': "91673088-079a-4bc0-a7de-348e3a0f0752",
+    'AUDIENCE': os.getenv('MSFT_CLIENT'),
+    'CLIENT_ID': os.getenv('MSFT_CLIENT'),
+    'CLIENT_SECRET': os.getenv('MSFT_CLIENT_SECRET'),
     'CLAIM_MAPPING': {'first_name': 'given_name',
                       'last_name': 'family_name',
                       'email': 'upn'},
     'GROUPS_CLAIM': 'roles',
     'MIRROR_GROUPS': True,
     'USERNAME_CLAIM': 'upn',
-    'TENANT_ID': "f6b6dd5b-f02f-441a-99a0-162ac5060bd2",
-    'RELYING_PARTY_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
+    'TENANT_ID': os.getenv('MSFT_TENANT_ID'),
+    'RELYING_PARTY_ID': os.getenv('MSFT_CLIENT'),
 }
 
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
@@ -181,8 +185,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Email setting
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'yeastanalysistool@gmail.com'
-EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: CHANGE when enter production
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
