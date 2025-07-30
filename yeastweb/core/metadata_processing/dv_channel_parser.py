@@ -54,20 +54,30 @@ def extract_channel_config(dv_file_path):
         config[channel] = int(idx)
     return config
 
-def is_valid_dv_file(dv_file_path):
+def get_dv_layer_count(dv_file_path):
     """
-    Returns True only if the DV actually contains 4 image layers.
+    Returns the actual number of Z‑slices (layers) in the DV.
+    Handles shapes of:
+      - 2D arrays  → 1 layer
+      - 3D arrays where the small dimension is Z, e.g. (Z, H, W) or (H, W, Z).
     """
     dv = DVFile(dv_file_path)
     try:
         arr = dv.asarray()
-        # arr might be 3‑D (layers, H, W) or 2‑D (H, W) if only one layer.
-        if hasattr(arr, "ndim") and arr.ndim >= 3:
-            num_layers = arr.shape[0]
+        # 2D → exactly one layer
+        if arr.ndim == 2:
+            return 1
+        # 3D → assume the smallest axis is the Z dimension
+        elif arr.ndim == 3:
+            return min(arr.shape)
         else:
-            num_layers = 1
+            # unexpected rank → treat as zero
+            return 0
     finally:
         dv.close()
-    # debug print—remove once it’s behaving
-    print(f"DEBUG: {dv_file_path} → {num_layers} layers found")
-    return num_layers == 4
+
+def is_valid_dv_file(dv_file_path):
+    """
+    Returns True only if the DV actually contains exactly 4 image layers.
+    """
+    return get_dv_layer_count(dv_file_path) == 4

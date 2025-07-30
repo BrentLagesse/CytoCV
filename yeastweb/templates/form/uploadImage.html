@@ -118,7 +118,6 @@
     </style>
 </head>
 <body>
-
 <form action="" method="post" enctype="multipart/form-data" id="uploadForm">
     {% csrf_token %}
     <!-- Display list of selected files -->
@@ -141,6 +140,59 @@
 </form>
 
 <script>
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const raw = sessionStorage.getItem('dvErrors');
+        if (!raw) return;
+        const lines = JSON.parse(raw);
+        sessionStorage.removeItem('dvErrors');
+        showErrors(lines);
+    });
+
+
+    function showErrors(lines) {
+        const banner = document.createElement('div');
+        Object.assign(banner.style, {
+        position:    'fixed',
+        top:         '2vh',
+        left:        '50%',
+        transform:   'translateX(-50%)',
+        width:       '65vw',
+        maxWidth:    '650px',
+        background:  '#a71d2a',
+        color:       'fffffff',
+        padding:     '1.2vh 3vw 1.2vh 1.2vw',
+        borderRadius:'0.6vh',
+        boxShadow:   '0 0.5vh 1vh rgba(0,0,0,0.2)',
+        zIndex:      '2000',
+        fontSize:    '1.1rem',
+        lineHeight:  '1.4',
+        textAlign:   'left',
+        });
+
+        banner.innerHTML = `
+            ${lines.map(l => `<div>${l}</div>`).join('')}
+            <button id="bannerClose"
+            style="
+                position:absolute;
+                top:0.8vh; right:1vw;
+                background:transparent;
+                border:none;
+                font-size:1.6rem;
+                cursor:pointer;
+                color:inherit;
+            ">
+            &times;
+            </button>
+        `;
+
+        document.body.appendChild(banner);
+        banner.querySelector('#bannerClose')
+            .addEventListener('click', () => banner.remove());
+        setTimeout(() => banner.remove(), 10000);
+    }
+
+
     const selectedFiles = new Map();
 
     function displayFileQueue() {
@@ -242,23 +294,28 @@
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData,
         })
-        .then(response => {
-            if (response.redirected) {
-                window.location.href = response.url;
-            } else {
-                alert('Error during upload.');
-                buttons.forEach(button => button.disabled = false); // Re-enable buttons on error
-                document.querySelector('input[type="submit"]').value = "Preprocess Files"; // Reset button text
+        .then(res => res.json().then(data => {
+            // Case A: errors but no redirect => save & reload current page
+            if (data.errors && !data.redirect) {
+                sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
+                window.location.reload();
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+            // Case B: redirect (with or without errors) => save errors and jump
+            if (data.redirect) {
+                if (data.errors) {
+                sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
+                }
+                window.location.href = data.redirect;
+            }
+        }))
+            .catch(err => {
+            console.error(err);
             alert('Error during upload.');
-            buttons.forEach(button => button.disabled = false); // Re-enable buttons on error
-            document.querySelector('input[type="submit"]').value = "Preprocess Files"; // Reset button text
         });
     });
 

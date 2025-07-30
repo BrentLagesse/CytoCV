@@ -22,7 +22,20 @@
         .nav-right{
             margin-right: 100px;
         }
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: block;
+        }
+
+        .message-container {
+            position: relative;
+            z-index: 1000;
+            margin-top: 60px;
+        }
     </style>
+    {% block head %}{% endblock head %}
 </head>
 <body>
     {% block navbar %}
@@ -41,7 +54,22 @@
             </div>
         </nav>
     {% endblock navbar %}
+
+    {% if messages %}
+      <div class="message-container" style="padding:10px; max-width:600px; margin:60px auto 0;">
+        {% for msg in messages %}
+          <div class="message {{ msg.tags }}"
+               style="background:#f8d7da; color:#721c24;
+                      padding:8px; border-radius:4px; margin-bottom:8px;">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+
     {% block content %}
     {% endblock content %}
+    {% block scripts %}{% endblock scripts %}
 </body>
 </html>

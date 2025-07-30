@@ -14,8 +14,9 @@ import numpy as np
 import skimage.exposure
 from django.http import HttpResponseNotAllowed
 import json
-from ..metadata_processing.dv_channel_parser import extract_channel_config, is_valid_dv_file
 from django.contrib import messages
+from django.http import JsonResponse
+from ..metadata_processing.dv_channel_parser import extract_channel_config, is_valid_dv_file, get_dv_layer_count
 
 def upload_images(request):
     """
@@ -24,6 +25,8 @@ def upload_images(request):
     """
     if request.method == "POST":
         print("POST request received")
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         files = request.FILES.getlist('files')
         
@@ -55,12 +58,8 @@ def upload_images(request):
             # Validate actual layer count before any preview work
             dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
             if not is_valid_dv_file(str(dv_file_path)):
-                messages.error(
-                    request,
-                    f'Upload skipped “{name}”: DV must contain exactly 4 image layers.'
-                )
                 # record name and actual layer count
-                count = len(DVFile(str(dv_file_path)).asarray())
+                count = get_dv_layer_count(str(dv_file_path))
                 invalid_files.append((name, count))
                 instance.delete()
                 continue
@@ -88,25 +87,31 @@ def upload_images(request):
             # Apply the preprocessing step to each image
             generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
 
-            if invalid_files:
-                header = "The following files have an invalid number of images and were excluded:"
-                lines  = [header] + [
-                    f"{nm}.dv has {cnt} image{'s' if cnt!=1 else ''}"
-                    for nm, cnt in invalid_files
-                ]
-            messages.error(request, "\n".join(lines))
+        preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
 
-        # After processing all files, redirect to preprocess step for the first file
+        # Case 3: no valid files
         if not image_uuids:
-            messages.error(
-                request,
-                'No valid DV files were uploaded. Please upload files with exactly 4 image layers.'
-            )
+            msg = 'No valid DV files were uploaded. Please upload files with exactly 4 image layers.'
+            if is_ajax:
+                return JsonResponse({'errors': [msg]}, status=400)
+            messages.error(request, msg)
             return redirect(request.path)
 
-        # Otherwise go to preprocess with only the valid UUIDs
-        return redirect(f'/image/preprocess/{",".join(map(str, image_uuids))}/')
-    
+        # Case 2: some invalid files
+        if invalid_files:
+            header = "Could not process the following files due to invalid layer counts (expected 4 layers):"
+            lines  = [header] + [
+                f"- {nm}.dv has {cnt} layer{'s' if cnt!=1 else ''}"
+                for nm, cnt in invalid_files
+            ]
+            if is_ajax:
+                return JsonResponse({'errors': lines, 'redirect': preprocess_url})
+            messages.error(request, "\n".join(lines))
+
+        # Case 1: all valid (or mixed after pushing messages)
+        if is_ajax:
+            return JsonResponse({'redirect': preprocess_url})
+        return redirect(preprocess_url)
     else:
         form = UploadImageForm()
     return render(request, 'form/uploadImage.html', {'form': form})
