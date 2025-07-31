@@ -14,7 +14,9 @@ import numpy as np
 import skimage.exposure
 from django.http import HttpResponseNotAllowed
 import json
-from core.dv_channel_parser import extract_channel_config
+from django.contrib import messages
+from django.http import JsonResponse
+from ..metadata_processing.dv_channel_parser import extract_channel_config, is_valid_dv_file, get_dv_layer_count
 
 def upload_images(request):
     """
@@ -23,8 +25,14 @@ def upload_images(request):
     """
     if request.method == "POST":
         print("POST request received")
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         files = request.FILES.getlist('files')
+        
+        # collect any bad files here
+        invalid_files = []
+
         if not files:
             print("No files received")
             return render(request, 'form/uploadImage.html', {'error': 'No files received.'})
@@ -41,11 +49,23 @@ def upload_images(request):
 
             # Generate a UUID for the image
             image_uuid = uuid.uuid4()
-            image_uuids.append(image_uuid)
 
             # Save the image instance with the generated UUID
             instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location)
             instance.save()
+
+
+            # Validate actual layer count before any preview work
+            dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
+            if not is_valid_dv_file(str(dv_file_path)):
+                # record name and actual layer count
+                count = get_dv_layer_count(str(dv_file_path))
+                invalid_files.append((name, count))
+                instance.delete()
+                continue
+
+            # only valid files make it into the queue
+            image_uuids.append(image_uuid)
 
             # Create a directory for each image based on its UUID
             output_dir = Path(MEDIA_ROOT, str(image_uuid))
@@ -67,12 +87,31 @@ def upload_images(request):
             # Apply the preprocessing step to each image
             generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
 
-        # After processing all files, redirect to pre-process step for the first file
-        if image_uuids:
-            return redirect(f'/image/preprocess/{",".join(map(str, image_uuids))}/')
-        else:
-            return render(request, 'form/uploadImage.html', {'error': 'Error processing files.'})
-    
+        preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
+
+        # Case 3: no valid files
+        if not image_uuids:
+            msg = 'No valid DV files were uploaded. Please upload files with exactly 4 image layers.'
+            if is_ajax:
+                return JsonResponse({'errors': [msg]}, status=400)
+            messages.error(request, msg)
+            return redirect(request.path)
+
+        # Case 2: some invalid files
+        if invalid_files:
+            header = "Could not process the following files due to invalid layer counts (expected 4 layers):"
+            lines  = [header] + [
+                f"- {nm}.dv has {cnt} layer{'s' if cnt!=1 else ''}"
+                for nm, cnt in invalid_files
+            ]
+            if is_ajax:
+                return JsonResponse({'errors': lines, 'redirect': preprocess_url})
+            messages.error(request, "\n".join(lines))
+
+        # Case 1: all valid (or mixed after pushing messages)
+        if is_ajax:
+            return JsonResponse({'redirect': preprocess_url})
+        return redirect(preprocess_url)
     else:
         form = UploadImageForm()
     return render(request, 'form/uploadImage.html', {'form': form})

@@ -16,9 +16,11 @@ yeastweb/accounts/migrations/
 yeastweb/cache/
 yeastweb/media/
 
-# IDE
-.idea/
+.idea
+
+# Code Formatting
 .vscode/
+settings.json
 
 # Config files
 *.cfg
