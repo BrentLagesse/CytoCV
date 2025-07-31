@@ -14,8 +14,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = True
-ALLOWED_HOSTS = []
+DEBUG = False
+ALLOWED_HOSTS = ['.localhost', '127.0.0.1']
 
 # Custom User with unique uuid
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -100,8 +100,16 @@ WSGI_APPLICATION = 'yeastweb.wsgi.application'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # PostgreSQL
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DBNAME'),
+        'HOST': os.getenv('DBHOST'),
+        'USER': os.getenv('DBUSER'),
+        'PASSWORD': os.getenv('DBPASS'),
+        #"PORT": "5432",
+        # SQLite3
+        #'ENGINE': 'django.db.backends.sqlite3',
+        #'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -168,6 +176,10 @@ AUTH_ADFS = {
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
 
 LOGIN_REDIRECT_URL = "profile"
+
+# Security
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
