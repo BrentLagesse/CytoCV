@@ -1,19 +1,24 @@
-# Django #
+# Django
 *.log
 *.pot
 *.pyc
-__pycache__
+__pycache__/
 db.sqlite3
-media
-yeast_web
+media/
+yeast_web/
 
-# neural network
+# Neural network
 deepretina_final.h5
 
-#migration
-yeastweb/core/migrations
-yeastweb/accounts/migrations
-yeastweb/cache
-yeastweb/media
+# Migrations and cache
+yeastweb/core/migrations/
+yeastweb/accounts/migrations/
+yeastweb/cache/
+yeastweb/media/
 
-.idea
+# IDE
+.idea/
+.vscode/
+
+# Config files
+*.cfg
