@@ -348,6 +348,14 @@
                     <div class="cell-column">
                         <div class="cell-label dapi">DAPI</div>
                         <img id="cellImage2" class="cell-image" src="">
+                        <div class="info-box">
+                            <div class="tight-info">Nucleus intensity from DAPI: <span
+                                    id="nucleusIntensitySum_DAPI"></span></div>
+                            <div class="tight-info">Total cellular intensity from DAPI: <span
+                                    id="cellularIntensitySum_DAPI"></span></div>
+                            <div class="tight-info">Cytoplasmic intensity from DAPI: <span
+                                    id="cytoplasmicIntensity_DAPI"></span></div>
+                        </div>
                     </div>
 
                     <!-- mCherry cell image with additional info -->
@@ -355,8 +363,9 @@
                         <div class="cell-label mcherry">mCherry</div>
                         <img id="cellImage3" class="cell-image" src="">
                         <div class="info-box">
-                            <div class="tight-info">Distance: <span id="distance"></span></div>
+                            <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
                             <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                            <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
                         </div>
                     </div>
 
@@ -367,6 +376,8 @@
                         <div class="info-box">
                             <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
                             <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span>
+                            </div>
+                            <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
                             </div>
                         </div>
                     </div>
@@ -382,7 +393,7 @@
                     let filesData = JSON.parse('{{ files_data|safe }}');  // Get all the file data (multiple UUIDs)
                     let fileUUIDs = Object.keys(filesData);  // Extract all UUIDs (the list of file UUIDs)
                     let currentFileIndex = 0;  // Initialize the first file
-                    let currentCellNumber = 0;
+                    let currentCellNumber = 1;
                     let maxCells;
 
                     // Load the first file on page load
@@ -416,10 +427,16 @@
 
                         // Update the statistics for the current cell
                         const cellStats = statistics[currentCellNumber];
+
                         document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
                         document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
+                        document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
                         document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
                         document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
+                        document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+                        document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
+                        document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
+                        document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";
                     }
 
                     // Function to load the next main image (file) without page reload

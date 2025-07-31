@@ -12,9 +12,9 @@ def get_cache_image(user_id):
             return None
         uploaded_image = UploadedImage.objects.get(uuid=segmented_image.UUID)
         cells =  CellStatistics.objects.filter(segmented_image_id=segmented_image.UUID).order_by('cell_id')
-        cell_stat = []
+        cell_stat = {}
         for cell in cells:
-            cell_stat.append(cell)
+            cell_stat[cell.cell_id] = cell
 
         value = {
             'id' : user_id,

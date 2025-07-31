@@ -1,4 +1,5 @@
 from core.models import UploadedImage, SegmentedImage, CellStatistics
+from core.tables import CellTable
 from django.shortcuts import render
 from pathlib import Path
 from yeastweb.settings import MEDIA_URL
@@ -7,6 +8,9 @@ from django.contrib.auth import get_user_model
 import os
 from django.http import HttpResponse
 from core.config import get_channel_config_for_uuid
+from django_tables2.config import RequestConfig
+from django_tables2.export.export import TableExport
+
 
 def display_cell(request, uuids):
     # Split the comma-separated UUIDs into a list
@@ -43,7 +47,12 @@ def display_cell(request, uuids):
             image_index = 0
 
             if request.method == 'POST':
-                if 'gfp' in request.POST:
+                if 'delete' in request.POST:
+                    cell_id = request.POST.get('cell_id')
+                    cell_image = SegmentedImage.objects.get(UUID=uuid)
+                    delete_cell = CellStatistics.objects.get(segmented_image=cell_image,cell_id=cell_id)
+                    delete_cell.delete()
+                elif 'gfp' in request.POST:
                     image_index = 1
                 elif 'mCherry' in request.POST:
                     image_index = 0
@@ -51,19 +60,18 @@ def display_cell(request, uuids):
                     image_index = 3
                 else:
                     image_index = 2
-            print(image_index)
             image_file_name = image_name_stem + "_frame_" + str(image_index)
             full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
-            
+
             # Get the segmented image details
             cell_image = SegmentedImage.objects.get(UUID=uuid)
 
-            if ((cell_image.user_id != request.user.id and request.user.id) or # this is not your image OR
-                    (not request.user.id and cell_image.user_id != get_user_model().objects.get(username='guest').id)): # you viewing your guest image
+            if ((cell_image.user_id != request.user.id and request.user.id) or  # this is not your image OR
+                    (not request.user.id and cell_image.user_id != get_user_model().objects.get(
+                        username='guest').id)):  # you viewing your guest image
                 print(cell_image.user_id)
                 print(request.user.id)
                 return HttpResponse('Unauthorized', status=401)
-
 
             channel_config = get_channel_config_for_uuid(uuid)
 
@@ -80,9 +88,10 @@ def display_cell(request, uuids):
                     else:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
                     images[str(i)].append(image_url)
-                
+
                 # Retrieve statistics for the cell
                 try:
+                    cell_table = CellTable(CellStatistics.objects.all().filter(segmented_image=cell_image))
                     cell_stat = CellStatistics.objects.get(segmented_image=cell_image, cell_id=i)
                     statistics[str(i)] = {
                         'distance': cell_stat.distance,
@@ -117,5 +126,6 @@ def display_cell(request, uuids):
 
     return render(request, "display_cell.html", {
         'files_data': json_files_data,  # Pass all file data to the template
-        'file_list': file_list,         # Pass sidebar file list data to the template
+        'file_list': file_list,  # Pass sidebar file list data to the template
+        'cell_table': cell_table,
     })

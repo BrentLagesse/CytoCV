@@ -60,7 +60,7 @@ def profile_view(request):
     # Build the images for each cell based on the dynamic channel configuration
     images = {}
     statistics = {}
-    for i in range(0, cell_image.NumCells - 1):
+    for i in range(1, cell_image.NumCells + 1):
         images[str(i)] = []
         for channel_name in channel_order:
             channel_index = DEFAULT_CHANNEL_CONFIG.get(channel_name)
@@ -72,13 +72,22 @@ def profile_view(request):
             images[str(i)].append(image_url)
 
         # Retrieve statistics for the cell
-        cell_stat = recent['cell'][i]
-        statistics[str(i)] = {
-            'distance': cell_stat.distance,
-            'line_gfp_intensity': cell_stat.line_gfp_intensity,
-            'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
-            'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
-        }
+        try:
+            cell_stat = recent['cell'][i]
+            print(cell_stat)
+            statistics[str(i)] = {
+                'distance': cell_stat.distance,
+                'line_gfp_intensity': cell_stat.line_gfp_intensity,
+                'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
+                'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
+                'green_red_intensity': cell_stat.green_red_intensity,
+                'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
+                'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
+                'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
+                'cytoplasmic_intensity_DAPI': cell_stat.cytoplasmic_intensity_DAPI,
+            }
+        except:
+            statistics[str(i)] = None
 
 
     # Store all image details and statistics for this UUID
