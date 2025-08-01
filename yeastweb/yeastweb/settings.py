@@ -7,7 +7,7 @@ load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+WSGI_APPLICATION = 'yeastweb.wsgi.application'
 # Media files directory
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
