@@ -1,0 +1,616 @@
+<!-- Navigation bar -->
+{% extends 'base.html' %}
+<!-- Template specific content -->
+{% block content %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const raw = sessionStorage.getItem("dvErrors");
+    if (!raw) return;
+    const lines = JSON.parse(raw);
+    sessionStorage.removeItem("dvErrors");
+
+    // build a compact, responsive banner
+    const banner = document.createElement("div");
+    Object.assign(banner.style, {
+      position: "fixed",
+      top: "2vh",
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: "65vw" /* 5% wider */,
+      maxWidth: "750px" /* up from 600px */,
+      background: "#a71d2a",
+      color: "fffffff",
+      padding: "1.2vh 2vw 1.2vh 1.2vw",
+      borderRadius: "0.6vh" /* just a hair bigger */,
+      boxShadow: "0 0.5vh 1vh rgba(0,0,0,0.2)",
+      zIndex: "2000",
+      fontSize: "1.1rem" /* tiny bump for text */,
+      lineHeight: "1.4",
+      textAlign: "left",
+    });
+
+    banner.innerHTML = `
+   <!-- header with a little bottom‐margin -->
+   <div style="font-weight:600; margin-bottom:1vh;">
+   ${lines[0]}
+   </div>
+   <!-- then the rest of the list -->
+   ${lines
+     .slice(1)
+     .map((l) => `<div>${l}</div>`)
+     .join("")}
+    <button id="bannerClose"
+      style="
+        position:absolute;
+        top:0.8vh; right:1vw;
+        background:transparent;
+        border:none;
+        font-size:1.6rem;
+        cursor:pointer;
+        color:inherit;
+      ">
+      &times;
+    </button>
+  `;
+
+    document.body.appendChild(banner);
+    banner
+      .querySelector("#bannerClose")
+      .addEventListener("click", () => banner.remove());
+    setTimeout(() => banner.remove(), 30000);
+  });
+</script>
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pre-process</title>
+    <style>
+      .channel-chip.dic {
+        background-color: black;
+      }
+
+      .channel-chip.dapi {
+        background-color: blue;
+      }
+
+      .channel-chip.mcherry {
+        background-color: red;
+      }
+
+      .channel-chip.gfp {
+        background-color: green;
+      }
+
+      /* Overall page styling */
+      body {
+        margin: 0;
+        font-family: "Arial", sans-serif;
+        background-color: #333;
+        color: #fff;
+        padding-top: 40px;
+      }
+
+      .page-container {
+        display: flex;
+        flex-direction: row;
+        min-height: 100vh; /* ensures the sidebar and content stretch the full viewport height */
+      }
+
+      /* SIDEBAR */
+      .sidebar {
+        position: relative;
+        width: 400px;
+        background-color: #222; /* darker grey than main page */
+        transition: width 0.3s ease, background-color 0.2s ease; /* animate the color change too */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Collapsed state: set width to something minimal */
+      .sidebar.collapsed {
+        width: 60px;
+        background-color: #222;
+      }
+
+      /* Hide text + content when collapsed */
+      .sidebar.collapsed .sidebar-header h2,
+      .sidebar.collapsed .sidebar-content {
+        display: none;
+      }
+
+      /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
+      .sidebar:hover {
+        background-color: #222;
+      }
+
+      /* Only lighten when collapsed AND hovered */
+      .sidebar.collapsed:hover {
+        background-color: #2f2f2f;
+      }
+
+      /* Sidebar header */
+      .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #333;
+        border-radius: 8px;
+        margin: 8px 10px;
+        padding: 10px;
+      }
+
+      .sidebar-header h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      /* Toggle button */
+      .toggle-btn {
+        position: static;
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 24px;
+      }
+
+      .toggle-btn:hover {
+        color: #ddd;
+      }
+
+      .toggle-btn::before {
+        content: "◀";
+      }
+
+      .sidebar.collapsed .toggle-btn::before {
+        content: "▶";
+      }
+
+      /* Sidebar content (file list) */
+      .sidebar-content {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding-bottom: 10px;
+      }
+
+      .sidebar-content ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .sidebar-content li {
+        margin: 0;
+        padding: 0;
+        border: none;
+      }
+
+      /* Each file-item */
+      .file-item {
+        margin: 8px 10px;
+        padding: 10px;
+        background-color: #333;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+
+        font-size: 14px;
+      }
+
+      .file-item:hover {
+        background-color: #3399ff;
+      }
+
+      .file-item.active {
+        background-color: #007bff;
+        color: #fff;
+      }
+
+      .file-item.active:hover {
+        background-color: #0056b3;
+      }
+
+      /* Channel pills */
+      .channel-bar {
+        display: flex;
+        gap: 4px;
+        margin-top: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+      }
+
+      .channel-chip {
+        background-color: #555;
+        color: #fff;
+        /* vertical padding only, remove horizontal padding */
+        padding: 6px 0;
+        border-radius: 4px;
+        cursor: grab;
+        user-select: none;
+
+        /* make each chip flexibly 1 share of the row */
+        flex: 1;
+        box-sizing: border-box;
+        text-align: center;
+      }
+
+      .channel-chip:active {
+        cursor: grabbing;
+      }
+
+      /* MAIN CONTENT */
+      .main-content {
+        flex-grow: 1;
+        padding: 20px;
+        text-align: center;
+      }
+
+      h1 {
+        margin-bottom: 20px;
+      }
+
+      .image-container {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+
+      img {
+        border: 2px solid #333;
+        border-radius: 5px;
+      }
+
+      .navigation {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        margin: 0 50px;
+        cursor: pointer;
+        border-radius: 5px;
+        min-width: 150px;
+        text-align: center;
+      }
+
+      .button:hover {
+        background-color: #0056b3;
+      }
+
+      #currentFileInfo {
+        margin-top: 10px;
+      }
+
+      a {
+        background-color: #007bff; /* Full blue background */
+        color: #fff; /* White text */
+        text-decoration: none; /* Remove underline */
+        padding: 12px 20px; /* Padding for a larger clickable area */
+        border: none; /* Remove border */
+        border-radius: 4px; /* Rounded corners */
+        transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
+        margin-bottom: 30px; /* Space between the button and the list */
+      }
+
+      a:hover {
+        background-color: #0056b3; /* Darker blue on hover */
+        color: #fff; /* Keep the text white */
+      }
+      .analysis {
+        display: inline;
+      }
+
+      .dropdown-check-list {
+        margin-top: 10px;
+        display: inline-block;
+        background-color: #007bff; /* Full blue background */
+        color: #fff; /* White text */
+        border: none; /* Remove border */
+        border-radius: 4px; /* Rounded corners */
+      }
+
+      .dropdown-check-list .anchor {
+        position: relative;
+        cursor: pointer;
+        display: inline-block;
+        padding: 5px 50px 5px 10px;
+      }
+
+      .dropdown-check-list .anchor:after {
+        position: absolute;
+        content: "";
+        border-left: 2px solid white;
+        border-top: 2px solid white;
+        padding: 5px;
+        right: 10px;
+        top: 20%;
+        -moz-transform: rotate(-135deg);
+        -ms-transform: rotate(-135deg);
+        -o-transform: rotate(-135deg);
+        -webkit-transform: rotate(-135deg);
+        transform: rotate(-135deg);
+      }
+
+      .dropdown-check-list .anchor:active:after {
+        right: 8px;
+        top: 21%;
+      }
+
+      .dropdown-check-list ul.items {
+        padding: 2px;
+        display: none;
+        margin: 0;
+        border-top: none;
+      }
+
+      .dropdown-check-list ul.items li {
+        list-style: none;
+      }
+
+      .dropdown-check-list.visible .anchor {
+        color: #ffffff;
+      }
+
+      .dropdown-check-list.visible .items {
+        display: block;
+      }
+    </style>
+
+    <!-- Sortable.js for drag & drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  </head>
+  <body>
+    {% if messages %} {% for msg in messages %}
+    <div
+      style="
+        background: #f8d7da;
+        color: #721c24;
+        padding: 8px;
+        border-radius: 4px;
+        margin: 10px 0;
+      "
+    >
+      {{ msg }}
+    </div>
+    {% endfor %} {% endif %}
+
+    <div class="page-container">
+      <!-- SIDEBAR -->
+      <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <h2>Configuration</h2>
+          <button class="toggle-btn" id="toggleSidebarBtn"></button>
+        </div>
+        <div class="sidebar-content">
+          <ul id="fileList">
+            {% for file in file_list %}
+            <li>
+              <div
+                class="file-item"
+                data-index="{{ forloop.counter0 }}"
+                data-uuid="{{ file.uuid }}"
+              >
+                {{ file.name }}
+                <div class="channel-bar">
+                  {% for channel in file.detected_channels %}
+                  <span class="channel-chip {{ channel|lower }}"
+                    >{{ channel }}</span
+                  >
+                  {% endfor %}
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="main-content">
+        <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
+        <div class="analysis">
+          <form
+            action=""
+            method="post"
+            enctype="multipart/form-data"
+            id="preprocessForm"
+          >
+            {% csrf_token %}
+            <input
+              type="submit"
+              value="Start Analysis"
+              class="button"
+              id="startAnalysisButton"
+            />
+            <div id="list1" class="dropdown-check-list" tabindex="100">
+              <span class="anchor">Select Analysis</span>
+              <ul class="items">
+                {% for analysis in analyses %}
+                <li>
+                  <input
+                    type="checkbox"
+                    name="selected_analysis"
+                    value="{{ analysis }}"
+                  />{{analysis}}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </form>
+        </div>
+
+        <div class="image-container" id="imageContainer">
+          {% for image in images %} {% if forloop.first %}
+          <img src="{{ image.file_location.url }}" width="500" height="500" />
+          {% else %}
+          <img src="{{ image.file_location.url }}" width="300" height="300" />
+          {% endif %} {% endfor %}
+        </div>
+
+        <div class="navigation">
+          <button class="button" id="prevButton">Previous Image</button>
+          <button class="button" id="nextButton">Next Image</button>
+        </div>
+
+        <p id="currentFileInfo">
+          Viewing file
+          <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of
+          {{ total_files }}
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // Current index & total
+      let currentFileIndex = parseInt("{{ current_file_index|default:0 }}", 10);
+      const totalFiles = parseInt("{{ total_files|default:1 }}", 10);
+
+      // Sidebar elements
+      const sidebar = document.getElementById("sidebar");
+      const toggleBtn = document.getElementById("toggleSidebarBtn");
+      const fileItems = document.querySelectorAll(".file-item");
+
+      // Highlight active
+      function updateSidebarActive() {
+        fileItems.forEach((i) => i.classList.remove("active"));
+        const active = document.querySelector(
+          `.file-item[data-index="${currentFileIndex}"]`
+        );
+        if (active) active.classList.add("active");
+      }
+
+      updateSidebarActive();
+
+      // Click file
+      fileItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          const idx = parseInt(item.dataset.index, 10);
+          loadImage(idx);
+        });
+      });
+
+      // Toggle sidebar
+      toggleBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        sidebar.classList.toggle("collapsed");
+      });
+
+      // ALSO expand when collapsed sidebar area is clicked
+      sidebar.addEventListener("click", (e) => {
+        if (sidebar.classList.contains("collapsed")) {
+          sidebar.classList.remove("collapsed");
+        }
+      });
+      var checkList = document.getElementById("list1");
+      checkList.getElementsByClassName("anchor")[0].onclick = function (evt) {
+        if (checkList.classList.contains("visible"))
+          checkList.classList.remove("visible");
+        else checkList.classList.add("visible");
+      };
+
+      // Next / Prev buttons
+      document.getElementById("nextButton").addEventListener("click", () => {
+        loadImage((currentFileIndex + 1) % totalFiles);
+      });
+      document.getElementById("prevButton").addEventListener("click", () => {
+        loadImage((currentFileIndex - 1 + totalFiles) % totalFiles);
+      });
+
+      // Disable analyse button on submit
+      document
+        .getElementById("preprocessForm")
+        .addEventListener("submit", () => {
+          const btn = document.getElementById("startAnalysisButton");
+          btn.disabled = true;
+          btn.value = "Analyzing...";
+          btn.style.pointerEvents = "none";
+          btn.style.cursor = "not-allowed";
+        });
+
+      // AJAX load
+      function loadImage(newIndex) {
+        if (newIndex < 0) newIndex = totalFiles - 1;
+        if (newIndex >= totalFiles) newIndex = 0;
+        fetch(`?file_index=${newIndex}&total_files=${totalFiles}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            // update images
+            const container = document.getElementById("imageContainer");
+            container.innerHTML = "";
+            data.images.forEach((img, i) => {
+              const el = document.createElement("img");
+              el.src = img.file_location.url;
+              if (i === 0) {
+                el.width = 500;
+                el.height = 500;
+              } else {
+                el.width = 300;
+                el.height = 300;
+              }
+              container.appendChild(el);
+            });
+            // update text & index
+            document.getElementById("fileName").textContent = data.file_name;
+            document.getElementById("currentFileIndex").textContent =
+              data.current_file_index + 1;
+            currentFileIndex = data.current_file_index;
+            updateSidebarActive();
+          });
+      }
+    </script>
+
+    <script>
+      // CSRF helper
+      function getCookie(name) {
+        let val = null;
+        document.cookie.split(";").forEach((c) => {
+          c = c.trim();
+          if (c.startsWith(name + "=")) {
+            val = decodeURIComponent(c.slice(name.length + 1));
+          }
+        });
+        return val;
+      }
+
+      // Make each .channel-bar sortable
+      document.querySelectorAll(".channel-bar").forEach((bar) => {
+        const uuid = bar.parentElement.dataset.uuid;
+        Sortable.create(bar, {
+          animation: 150,
+          onEnd() {
+            const newOrder = Array.from(bar.children).map(
+              (chip) => chip.textContent
+            );
+            fetch(`/api/update-channel-order/${uuid}/`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+              },
+              body: JSON.stringify({ order: newOrder }),
+            }).then((r) => {
+              if (!r.ok) console.error("Failed to save channel order", r);
+            });
+          },
+        });
+      });
+    </script>
+  </body>
+</html>
+{% endblock content %}
