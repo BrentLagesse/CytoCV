@@ -1,0 +1,1 @@
+PRE_PROCESS_FOLDER_NAME = "preprocessed_images"

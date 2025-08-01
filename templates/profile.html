@@ -1,0 +1,473 @@
+<!-- Navigation bar -->
+{% extends 'base.html' %}
+<!-- Template specific content -->
+{% block content %}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Profile</title>
+        <style>
+            body {
+                font-family: 'Arial', sans-serif;
+                background-color: #333; /* Dark background */
+                color: #fff; /* Light text */
+                margin: 0;
+                padding: 20px;
+                text-align: center;
+                min-height: 100vh; /* Full height to center vertically in the viewport */
+            }
+
+            h1 {
+                margin-bottom: 20px; /* Adding space below the title */
+                font-size: 28px;
+            }
+
+            a {
+                background-color: #007bff; /* Full blue background */
+                color: #fff; /* White text */
+                text-decoration: none; /* Remove underline */
+                padding: 12px 20px; /* Padding for a larger clickable area */
+                border: none; /* Remove border */
+                border-radius: 4px; /* Rounded corners */
+                transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
+                margin-bottom: 30px; /* Space between the button and the list */
+            }
+
+            a:hover {
+                background-color: #0056b3; /* Darker blue on hover */
+                color: #fff; /* Keep the text white */
+            }
+
+            ul {
+                list-style: none; /* Remove bullet points */
+                padding: 0; /* Remove padding */
+                margin: 20px auto; /* Centering the list */
+                text-align: left; /* Align text to the left for list items */
+                width: 80%; /* Width of the list */
+            }
+
+            li {
+                background-color: #222; /* Dark background for list items */
+                padding: 10px; /* Padding around text */
+                border: 1px solid #444; /* Slightly lighter border for the items */
+                margin-top: 8px; /* Space between items */
+                border-radius: 4px; /* Rounded corners */
+            }
+
+            img {
+                width: 100%; /* Responsive images */
+                max-width: 500px; /* Maximum width */
+                height: auto; /* Maintain aspect ratio */
+                display: block; /* Block display to handle margin */
+                margin: 10px auto; /* Centering the image */
+            }
+
+            .info {
+                margin-top: 40px;
+                margin-bottom: 40px;
+                font-size: 20px;
+                text-align: center;
+                background-color: #222;
+                border-radius: 25px;
+                padding: 40px;
+            }
+
+            .display {
+                margin: 40px;
+                font-size: 20px;
+                text-align: center;
+                background-color: #222;
+                border-radius: 25px;
+                padding: 20px;
+                flex-grow: 1;
+            }
+
+            .wrapper {
+                display: flex;
+
+            }
+
+            .progress-bar-container {
+                width: 500px;
+                height: 50px;
+                margin-left: auto;
+                margin-right: auto;
+                background-color: #eee;
+                border-radius: 5px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .progress-bar {
+                background-color: #007bff;
+                height: 100%;
+                /* Width will be set inline */
+                border-radius: 5px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .progress-text {
+                color: white;
+                font-size: 12px;
+            }
+
+            .files {
+                text-align: left;
+            }
+
+            .files li {
+                padding: 10px;
+                margin-top: 5px;
+                display: flex;
+                border: transparent;
+            }
+
+            .files p {
+                margin-left: 30px;
+            }
+
+            .recent{
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                font-family: Arial, sans-serif;
+                min-height: 100vh;
+                background-color: #333;
+                color: #fff;
+            }
+
+            h2 {
+                font-size: 24px;
+                margin-top: 0px;
+                color: #fff;
+            }
+
+            .main-container {
+                display: flex;
+                align-items: center;
+                margin: 0px 0;
+                flex-grow: 1;
+                width: 1000px;
+
+            }
+
+            .main-image {
+                width: 1000px;
+                height: 500px;
+                border: 5px solid #333;
+                border-radius: 10px;
+                flex-grow: 1;
+            }
+
+            .file-navigation-button {
+                padding: 10px 20px;
+                font-size: 16px;
+                background-color: #007bff;
+                color: #fff;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+                margin: 0 20px;
+            }
+
+            .file-navigation-button:hover {
+                background-color: #0056b3;
+            }
+
+            /* Flex container for the row */
+            .cell-images-row {
+                display: flex;
+                align-items: stretch; /* Ensure all items have the same height */
+                justify-content: center;
+                width: 100%;
+                max-width: 1000px;
+                gap: 20px; /* Adds even space between items */
+            }
+
+            /* Cell ID style */
+            .cell-id {
+                font-size: 18px;
+                display: flex;
+                align-items: center; /* Ensure vertical centering */
+                justify-content: center;
+                height: 100%; /* Stretch height to match images */
+                flex-shrink: 0; /* Prevent Cell ID from shrinking */
+                padding-top: 120px;
+            }
+
+            /* Cell image container */
+            .cell-column {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                flex-shrink: 0;
+            }
+
+            .cell-image {
+                width: 200px;
+                height: 200px;
+                object-fit: contain;
+                border: 2px solid #333;
+                border-radius: 8px;
+            }
+
+            .cell-label {
+                width: 200px;
+                height: 30px;
+                display: flex;
+                color: white;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                font-weight: bold;
+                margin-bottom: 2px;
+            }
+
+            .dic {
+                background-color: black;
+            }
+
+            .dapi {
+                background-color: blue;
+            }
+
+            .mcherry {
+                background-color: red;
+            }
+
+            .gfp {
+                background-color: green;
+            }
+
+            /* Info box for extra details */
+            .info-box {
+                font-size: 14px;
+                text-align: center;
+                margin-top: 2px;
+            }
+
+            .tight-info {
+                line-height: 1.2;
+                margin: 0px 0;
+            }
+
+            /* Cell navigation buttons */
+            .navigation-buttons {
+                margin-top: 5px;
+                display: flex;
+                justify-content: space-between;
+                width: 300px;
+            }
+
+            .navigation-buttons button {
+                padding: 10px 20px;
+                font-size: 16px;
+                background-color: #007bff;
+                color: #fff;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+
+            .navigation-buttons button:hover {
+                background-color: #0056b3;
+            }
+
+            a {
+                background-color: #007bff; /* Full blue background */
+                color: #fff; /* White text */
+                text-decoration: none; /* Remove underline */
+                padding: 12px 20px; /* Padding for a larger clickable area */
+                border: none; /* Remove border */
+                border-radius: 4px; /* Rounded corners */
+                transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
+                margin-bottom: 30px; /* Space between the button and the list */
+            }
+
+            a:hover {
+                background-color: #0056b3; /* Darker blue on hover */
+                color: #fff; /* Keep the text white */
+            }
+        </style>
+    </head>
+    <body>
+    <div class="wrapper">
+        <div class="info">
+            <p>{{ username }}</p>
+            <p>{{ first_name }} {{ last_name }} </p>
+            <p>{{ email }}</p>
+        </div>
+        {% load bytes_filters %}
+        <div class="display">
+            <h1>Used Storage</h1>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ percentage_used }}%;">
+                    <span class="progress-text">{{ used_storage|filesize }} / {{ total_storage|filesize }}</span>
+                </div>
+            </div>
+            <p>Storage Available: {{ available_storage|filesize }}</p>
+            <div class="files">
+                <h1>Your files</h1>
+                <ul>
+                    {% for image in images %}
+                        <li>
+                            <a href="/image/{{ image.id }}/display/">{{ image.name }}</a>
+                            <p>Uploaded date {{ image.date }} UTC</p>
+                            <p>Cell Pairs: {{ image.cell }}</p>
+                        </li>
+                        {% empty %}
+                        <li>No images available.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="recent">
+                <h1>Recent files</h1>
+                <!-- Main Image and Title -->
+                <h2 id="imageTitle">{{ Image_Name }}</h2>
+                <div class="main-container">
+                    <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
+                </div>
+
+                <!-- Cell Images Row with Cell ID on Same Line -->
+                <div class="cell-images-row">
+                    <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
+
+                    <!-- DIC cell image -->
+                    <div class="cell-column">
+                        <div class="cell-label dic">DIC</div>
+                        <img id="cellImage1" class="cell-image" src="">
+                    </div>
+
+                    <!-- DAPI cell image -->
+                    <div class="cell-column">
+                        <div class="cell-label dapi">DAPI</div>
+                        <img id="cellImage2" class="cell-image" src="">
+                        <div class="info-box">
+                            <div class="tight-info">Nucleus intensity from DAPI: <span
+                                    id="nucleusIntensitySum_DAPI"></span></div>
+                            <div class="tight-info">Total cellular intensity from DAPI: <span
+                                    id="cellularIntensitySum_DAPI"></span></div>
+                            <div class="tight-info">Cytoplasmic intensity from DAPI: <span
+                                    id="cytoplasmicIntensity_DAPI"></span></div>
+                        </div>
+                    </div>
+
+                    <!-- mCherry cell image with additional info -->
+                    <div class="cell-column">
+                        <div class="cell-label mcherry">mCherry</div>
+                        <img id="cellImage3" class="cell-image" src="">
+                        <div class="info-box">
+                            <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
+                            <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                            <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
+                        </div>
+                    </div>
+
+                    <!-- GFP cell image with additional info -->
+                    <div class="cell-column">
+                        <div class="cell-label gfp">GFP</div>
+                        <img id="cellImage4" class="cell-image" src="">
+                        <div class="info-box">
+                            <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
+                            <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span>
+                            </div>
+                            <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons for Cells -->
+                <div class="navigation-buttons">
+                    <button onclick="previousCell()">Previous Cell</button>
+                    <button onclick="nextCell()">Next Cell</button>
+                </div>
+
+                <script>
+                    let filesData = JSON.parse('{{ files_data|safe }}');  // Get all the file data (multiple UUIDs)
+                    let fileUUIDs = Object.keys(filesData);  // Extract all UUIDs (the list of file UUIDs)
+                    let currentFileIndex = 0;  // Initialize the first file
+                    let currentCellNumber = 1;
+                    let maxCells;
+
+                    // Load the first file on page load
+                    window.onload = function () {
+                        loadFile(currentFileIndex);  // Load the first file
+                    };
+
+                    // Function to load a file (UUID) and display its images
+                    function loadFile(fileIndex) {
+                        const fileUUID = fileUUIDs[fileIndex];
+                        const fileData = filesData[fileUUID];
+
+                        // Update the main image and cell images
+                        document.getElementById("mainImage").src = fileData.MainImagePath;
+                        document.getElementById("imageTitle").textContent = fileData.Image_Name;
+
+                        // Load the first cell images for the current file
+                        maxCells = Number(fileData.NumberOfCells);
+                        currentCellNumber = 1;  // Reset to the first cell when changing files
+                        updateCellImages(fileData.CellPairImages, fileData.Statistics);
+                    }
+
+                    // Function to update the images and statistics for the current cell
+                    function updateCellImages(cellPairImages, statistics) {
+                        const imageUrls = cellPairImages[currentCellNumber];
+                        document.getElementById("cellImage1").src = imageUrls[0];
+                        document.getElementById("cellImage2").src = imageUrls[1];
+                        document.getElementById("cellImage3").src = imageUrls[2];
+                        document.getElementById("cellImage4").src = imageUrls[3];
+                        document.getElementById("cellID").textContent = currentCellNumber;
+
+                        // Update the statistics for the current cell
+                        const cellStats = statistics[currentCellNumber];
+
+                        document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
+                        document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
+                        document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
+                        document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
+                        document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
+                        document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+                        document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
+                        document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
+                        document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";
+                    }
+
+                    // Function to load the next main image (file) without page reload
+                    function nextFile() {
+                        currentFileIndex = (currentFileIndex) % fileUUIDs.length;
+                        loadFile(currentFileIndex);  // Dynamically update images for the next file
+                    }
+
+                    // Function to load the previous main image (file) without page reload
+                    function previousFile() {
+                        currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
+                        loadFile(currentFileIndex);  // Dynamically update images for the previous file
+                    }
+
+                    // Function to load the next set of cell images without page reload
+                    function nextCell() {
+                        currentCellNumber = (currentCellNumber % maxCells) + 1;
+                        const fileData = filesData[fileUUIDs[currentFileIndex]];
+                        updateCellImages(fileData.CellPairImages, fileData.Statistics);
+                    }
+
+                    // Function to load the previous set of cell images without page reload
+                    function previousCell() {
+                        currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
+                        const fileData = filesData[fileUUIDs[currentFileIndex]];
+                        updateCellImages(fileData.CellPairImages, fileData.Statistics);
+                    }
+                </script>
+            </div>
+        </div>
+    </div>
+    </body>
+    </html>
+{% endblock content %}
