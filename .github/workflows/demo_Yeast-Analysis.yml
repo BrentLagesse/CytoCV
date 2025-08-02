@@ -1,0 +1,51 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy container app to Azure Web App - Yeast-Analysis
+
+on:
+  push:
+    branches:
+      - demo
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: 'ubuntu-latest'
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to registry
+      uses: docker/login-action@v2
+      with:
+        registry: https://yeastdemo.azurecr.io/
+        username: ${{ secrets.AzureAppService_ContainerUsername_72988c8f1690421fa0f6b28a513c46ed }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_0380015df767441d88a42ce345eab5c6 }}
+
+    - name: Build and push container image to registry
+      uses: docker/build-push-action@v3
+      with:
+        push: true
+        tags: yeastdemo.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_72988c8f1690421fa0f6b28a513c46ed }}/yeast-web-django-web:${{ github.sha }}
+        file: ./Dockerfile
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+    - name: Deploy to Azure Web App
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'Yeast-Analysis'
+        slot-name: 'production'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_aa54692b240d49e8aa0a047726c8dc53 }}
+        images: 'yeastdemo.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_72988c8f1690421fa0f6b28a513c46ed }}/yeast-web-django-web:${{ github.sha }}'
