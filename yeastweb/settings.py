@@ -103,6 +103,7 @@ DATABASES = {
         "HOST": os.getenv("DBHOST"),
         "USER": os.getenv("DBUSER"),
         "PASSWORD": os.getenv("DBPASS"),
+        "PORT": os.getenv("DBPORT", "5432"),
         # "PORT": "5432",
         # SQLite3
         #'ENGINE': 'django.db.backends.sqlite3',
@@ -179,6 +180,9 @@ LOGIN_REDIRECT_URL = "profile"
 # Security
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net/"
+]
 
 # Internationalization
 LANGUAGE_CODE = "en-us"

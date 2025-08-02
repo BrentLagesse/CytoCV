@@ -1,0 +1,23 @@
+services:
+  django-web:
+    build: .
+    container_name: django-docker
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DBNAME: ${DBNAME}
+      DBUSER: ${DBUSER}
+      DBPASS: ${DBPASS}
+      DBHOST: ${DBHOST}  # This will point to your local PostgreSQL
+      DATABASE_PORT: ${DBPORT:-5432}
+      GOOGLE_CLIENT: ${GOOGLE_CLIENT}
+      GOOGLE_SECRET: ${GOOGLE_SECRET}
+      MSFT_CLIENT: ${MSFT_CLIENT}
+      MSFT_SECRET: ${MSFT_SECRET}
+      MSFT_CLIENT_SECRET: ${MSFT_CLIENT_SECRET}
+      MSFT_TENANT_ID: ${MSFT_TENANT_ID}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+    env_file:
+      - .env
