@@ -181,7 +181,7 @@ LOGIN_REDIRECT_URL = "profile"
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
-    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net/"
+    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net"
 ]
 
 # Internationalization
