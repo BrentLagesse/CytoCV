@@ -1,8 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - Yeast-Analysis
+name: Build and deploy container app to Azure Web App - Yeast-Analysis
 
 on:
   push:
@@ -12,63 +11,41 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
+    runs-on: 'ubuntu-latest'
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
 
-      - name: Set up Python version
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11.5'
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-      
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip uninstall opencv-python opencv-contrib-python -y
-        
-      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+    - name: Log in to registry
+      uses: docker/login-action@v2
+      with:
+        registry: https://yeastdemo.azurecr.io/
+        username: ${{ secrets.AzureAppService_ContainerUsername_72988c8f1690421fa0f6b28a513c46ed }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_0380015df767441d88a42ce345eab5c6 }}
 
-      - name: Upload artifact for deployment jobs
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-app
-          path: |
-            .
-            !venv/
+    - name: Build and push container image to registry
+      uses: docker/build-push-action@v3
+      with:
+        push: true
+        tags: yeastdemo.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_72988c8f1690421fa0f6b28a513c46ed }}/yeast-web-django-web:${{ github.sha }}
+        file: ./Dockerfile
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+    environment:
+      name: 'production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: python-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_080736A0AB75419099C871D395D0710E }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9F7187966F56409388ADBF79DC3C0750 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_790B3AFF575B47D782D7385B09DE20D0 }}
-
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
-        with:
-          app-name: 'Yeast-Analysis'
-          slot-name: 'Production'
-          
+    - name: Deploy to Azure Web App
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'Yeast-Analysis'
+        slot-name: 'production'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_aa54692b240d49e8aa0a047726c8dc53 }}
+        images: 'yeastdemo.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_72988c8f1690421fa0f6b28a513c46ed }}/yeast-web-django-web:${{ github.sha }}'
