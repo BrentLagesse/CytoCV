@@ -33,6 +33,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+          pip uninstall opencv-python opencv-contrib-python
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
