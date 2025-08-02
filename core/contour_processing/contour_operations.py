@@ -3,35 +3,51 @@ import numpy as np
 from core.contour_processing import get_largest
 from core.image_processing import GrayImage
 
-def find_contours(images:GrayImage):
+
+def find_contours(images: GrayImage):
     """
     This function finds contours in an image and returns them as a numpy array.
     :param images: Gray scale image list
     :return: Dictionary of contours, best contours
     """
     # finding threshold
-    ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
-                                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
-                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    ret_mcherry, thresh_mcherry = cv2.threshold(
+        images.get_image("gray_mcherry_3"),
+        0,
+        1,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+    )
+    ret, thresh = cv2.threshold(
+        images.get_image("gray_mcherry"),
+        0,
+        1,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+    )
 
     # finding threshold
-    ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,
-                                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    ret_dapi, thresh_dapi = cv2.threshold(images.get_image('gray_dapi'), 0, 1,
-                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    ret_dapi_3, thresh_dapi_3 = cv2.threshold(
+        images.get_image("gray_dapi_3"),
+        0,
+        1,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+    )
+    ret_dapi, thresh_dapi = cv2.threshold(
+        images.get_image("gray_dapi"),
+        0,
+        1,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+    )
 
-
-    #cell_int_ret, cell_int_thresh = cv2.threshold(images.get_image('GFP'), 0, 1,
+    # cell_int_ret, cell_int_thresh = cv2.threshold(images.get_image('GFP'), 0, 1,
     #                            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
 
-    #cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
+    # cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
 
     contours, h = cv2.findContours(thresh, 1, 2)
-    contours_mcherry = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
+    contours_mcherry = cv2.findContours(thresh_mcherry, 1, 2)  # return list of contours
 
     contours_dapi, h = cv2.findContours(thresh_dapi, 1, 2)
-    contours_dapi_3 = cv2.findContours(thresh_dapi_3, 1, 2) # return list of contours
+    contours_dapi_3 = cv2.findContours(thresh_dapi_3, 1, 2)  # return list of contours
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly
@@ -52,15 +68,16 @@ def find_contours(images:GrayImage):
     bestContours_dapi_3 = get_largest(contours_dapi_3[0])
 
     return {
-        'bestContours': bestContours,
-        'bestContours_mcherry': bestContours_mcherry,
-        'contours': contours,
-        'contours_mcherry': contours_mcherry,
-        'contours_dapi': contours_dapi,
-        'contours_dapi_3': contours_dapi_3,
-        'bestContours_dapi': bestContours_dapi,
-        'bestContours_dapi_3': bestContours_dapi_3
+        "bestContours": bestContours,
+        "bestContours_mcherry": bestContours_mcherry,
+        "contours": contours,
+        "contours_mcherry": contours_mcherry,
+        "contours_dapi": contours_dapi,
+        "contours_dapi_3": contours_dapi_3,
+        "bestContours_dapi": bestContours_dapi,
+        "bestContours_dapi_3": bestContours_dapi_3,
     }
+
 
 def merge_contour(bestContours, contours):
     """
@@ -81,7 +98,9 @@ def merge_contour(bestContours, contours):
 
             for pt1 in c1:
                 for i, pt2 in enumerate(c2):
-                    d = math.sqrt((pt1[0][0] - pt2[0][0]) ** 2 + (pt1[0][1] - pt2[0][1]) ** 2)
+                    d = math.sqrt(
+                        (pt1[0][0] - pt2[0][0]) ** 2 + (pt1[0][1] - pt2[0][1]) ** 2
+                    )
                     if d < smallest_distance:
                         second_smallest_distance = smallest_distance
                         second_smallest_pair = smallest_pair
@@ -112,8 +131,10 @@ def merge_contour(bestContours, contours):
 
             best_contour = np.array(best_contour).reshape((-1, 1, 2)).astype(np.int32)
 
-    if len(bestContours) == 1:
+    elif len(bestContours) == 1:
         best_contour = contours[bestContours[0]]
+        print("Only 1 contour found")
 
-    print("only 1 contour found")
+    else:
+        print("No contours to merge")
     return best_contour

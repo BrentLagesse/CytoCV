@@ -1,17 +1,19 @@
 import re
 from mrc import DVFile
+from core.file.azure import read_blob_file, temp_blob
+
 
 def extract_channel_config(dv_file_path):
     """
     Reads the header of a DV file and extracts channel mapping.
     Returns a dictionary mapping channel names (e.g. "mCherry", "GFP", etc.)
     to their corresponding indices.
-    
+
     The method assumes that the DV header includes XML snippets like:
       <Channel name="Red" index="0" ...>
     and an emission filter tag like:
       <EmissionFilter name="Red" wavelength="625" unit="nm"/>
-    
+
     We then map:
       - wavelength ~625 nm  -> mCherry
       - wavelength ~525 nm  -> GFP
@@ -19,21 +21,20 @@ def extract_channel_config(dv_file_path):
       - wavelength negative or very low -> DIC
     """
     # Increase read size to capture more header content (8KB instead of 4KB)
-    with open(dv_file_path, "rb") as f:
-        header_bytes = f.read(8192)
+    header_bytes = read_blob_file(dv_file_path)
     header_text = header_bytes.decode("latin1", errors="ignore")
-    
+
     # Find all Channel tags with a name and index
     channel_pattern = r'<Channel\s+name="([^"]+)"\s+index="(\d+)"'
     channel_matches = re.findall(channel_pattern, header_text)
-    
+
     # Use a more generic regex to capture the wavelength from the emission filter tag
     emission_pattern = r'<EmissionFilter\s+.*?wavelength="([^"]+)"'
     wavelength_matches = re.findall(emission_pattern, header_text, re.DOTALL)
-    
+
     # Print all extracted wavelengths for debugging
     print("Extracted wavelengths:", wavelength_matches)
-    
+
     config = {}
     for (orig_name, idx), wl in zip(channel_matches, wavelength_matches):
         try:
@@ -54,6 +55,7 @@ def extract_channel_config(dv_file_path):
         config[channel] = int(idx)
     return config
 
+
 def get_dv_layer_count(dv_file_path):
     """
     Returns the actual number of Z‑slices (layers) in the DV.
@@ -62,7 +64,13 @@ def get_dv_layer_count(dv_file_path):
       - 3D arrays where the small dimension is Z, e.g. (Z, H, W) or (H, W, Z).
     """
     print(f"Reading DV file metadata: {dv_file_path}")
-    dv = DVFile(dv_file_path)
+    try:
+        with temp_blob(dv_file_path, ".dv") as temp_file_path:
+            dv = DVFile(temp_file_path)
+    except Exception as e:
+        print(f"Error procesing {e}")
+        return None
+
     try:
         arr = dv.asarray()
         # 2D, exactly one layer
@@ -76,6 +84,7 @@ def get_dv_layer_count(dv_file_path):
             return 0
     finally:
         dv.close()
+
 
 def is_valid_dv_file(dv_file_path):
     """

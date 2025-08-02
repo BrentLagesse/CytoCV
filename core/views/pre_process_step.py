@@ -13,14 +13,14 @@ from core.mrcnn.preprocess_images import preprocess_images
 from .utils import tif_to_jpg
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.cell_analysis import Analysis
+from core.file.azure import read_blob_file
 
 from yeastweb.settings import MEDIA_ROOT, BASE_DIR
 from pathlib import Path
 import json
 
 
-
-def load_analyses(path:str) -> list:
+def load_analyses(path: str) -> list:
     """
     This function dynamically load the list of analyses from the path folder
     :param path: Path the analysis folder
@@ -36,13 +36,14 @@ def load_analyses(path:str) -> list:
         loaded_mod = None
         if mod_name not in sys.modules:
             # Import module
-            loaded_mod = importlib.import_module('.cell_analysis','core')
-        if loaded_mod is None: continue
-        if mod_name != 'Analysis':
+            loaded_mod = importlib.import_module(".cell_analysis", "core")
+        if loaded_mod is None:
+            continue
+        if mod_name != "Analysis":
             loaded_class = getattr(loaded_mod, mod_name)
             instanceOfClass = loaded_class()
             if isinstance(instanceOfClass, Analysis):
-                print('Added Plugin -- ' + mod_name)
+                print("Added Plugin -- " + mod_name)
                 analyses.append(mod_name)
             else:
                 print
@@ -57,15 +58,15 @@ def pre_process_step(request, uuids):
     POST: Run preprocess + inference on every UUID, then redirect.
     """
 
-    path = BASE_DIR / 'core/cell_analysis'
+    path = BASE_DIR / "core/cell_analysis"
     analyses_list = load_analyses(path)
     print(analyses_list)
 
-    uuid_list = uuids.split(',')
+    uuid_list = uuids.split(",")
     total_files = len(uuid_list)
 
     # clamp file_index into [0, total_files-1]
-    current_file_index = int(request.GET.get('file_index', 0))
+    current_file_index = int(request.GET.get("file_index", 0))
     current_file_index = max(0, min(current_file_index, total_files - 1))
 
     # build sidebar list, including the 4-channel order per file
@@ -74,69 +75,74 @@ def pre_process_step(request, uuids):
         uploaded = get_object_or_404(UploadedImage, uuid=uid)
 
         # try reading existing channel_config.json
-        cfg_path = Path(MEDIA_ROOT) / uid / 'channel_config.json'
-        if cfg_path.exists():
-            cfg = json.loads(cfg_path.read_text())
-            detected_channels = [ch for ch, _ in sorted(cfg.items(), key=lambda t: t[1])]
-        else:
-            # fallback: parse header of first .dv file
-            dv_files = list((Path(MEDIA_ROOT) / uid).glob('*.dv'))
-            if dv_files:
-                cfg = extract_channel_config(str(dv_files[0]))
-                detected_channels = [ch for ch, _ in sorted(cfg.items(), key=lambda t: t[1])]
-            else:
-                detected_channels = []
+        cfg_path = uid + "/channel_config.json"
+        json_string = read_blob_file(cfg_path).decode("utf-8")
+        cfg = json.loads(json_string)
 
-        file_list.append({
-            'uuid': uid,
-            'name': uploaded.name,
-            'detected_channels': detected_channels,
-        })
+        detected_channels = [ch for ch, _ in sorted(cfg.items(), key=lambda t: t[1])]
+
+        file_list.append(
+            {
+                "uuid": uid,
+                "name": uploaded.name,
+                "detected_channels": detected_channels,
+            }
+        )
 
     # current file previews
     current_uuid = uuid_list[current_file_index]
     uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid)
-    preview_images = get_list_or_404(DVLayerTifPreview, uploaded_image_uuid=current_uuid)
+    preview_images = get_list_or_404(
+        DVLayerTifPreview, uploaded_image_uuid=current_uuid
+    )
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
-        selected_analysis = request.POST.getlist('selected_analysis')
+        selected_analysis = request.POST.getlist("selected_analysis")
         print("selected_analysis")
         print(selected_analysis)
 
-        request.session['selected_analysis'] = selected_analysis  # save selected analysis to session
+        request.session["selected_analysis"] = (
+            selected_analysis  # save selected analysis to session
+        )
 
         for image_uuid in uuid_list:
             img_obj = get_object_or_404(UploadedImage, uuid=image_uuid)
-            out_dir = Path(MEDIA_ROOT) / image_uuid
+            out_dir = image_uuid
 
             prep_path, prep_list = preprocess_images(image_uuid, img_obj, out_dir)
             tif_to_jpg(Path(prep_path), out_dir)
             predict_images(prep_path, prep_list, out_dir)
 
-        return redirect(f'/image/{uuids}/convert/')
+        return redirect(f"/image/{uuids}/convert/")
 
     # AJAX navigation
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({
-            'images': [
-                {'file_location': {'url': img.file_location.url}}
-                for img in preview_images
-            ],
-            'file_name': uploaded_image.name,
-            'current_file_index': current_file_index,
-        })
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse(
+            {
+                "images": [
+                    {"file_location": {"url": img.file_location.url}}
+                    for img in preview_images
+                ],
+                "file_name": uploaded_image.name,
+                "current_file_index": current_file_index,
+            }
+        )
 
     # Normal render
-    return TemplateResponse(request, "pre-process.html", {
-        'images': preview_images,
-        'file_name': uploaded_image.name,
-        'current_file_index': current_file_index,
-        'total_files': total_files,
-        'uuids': uuids,
-        'file_list': file_list,
-        'analyses' : analyses_list,
-    })
+    return TemplateResponse(
+        request,
+        "pre-process.html",
+        {
+            "images": preview_images,
+            "file_name": uploaded_image.name,
+            "current_file_index": current_file_index,
+            "total_files": total_files,
+            "uuids": uuids,
+            "file_list": file_list,
+            "analyses": analyses_list,
+        },
+    )
 
 
 @require_POST
@@ -148,22 +154,21 @@ def update_channel_order(request, uuid):
     """
     try:
         data = json.loads(request.body)
-        new_order = data.get('order', [])
+        new_order = data.get("order", [])
         expected = {"mCherry", "GFP", "DAPI", "DIC"}
         if set(new_order) != expected:
-            return JsonResponse({'error': 'invalid channel list'}, status=400)
+            return JsonResponse({"error": "invalid channel list"}, status=400)
 
         # new: 0–3 mapping to match your layer filenames
         mapping = {ch: i for i, ch in enumerate(new_order)}
 
-
-        cfg_path = Path(MEDIA_ROOT) / uuid / 'channel_config.json'
+        cfg_path = Path(MEDIA_ROOT) / uuid / "channel_config.json"
         if not cfg_path.exists():
-            return JsonResponse({'error': 'config not found'}, status=404)
+            return JsonResponse({"error": "config not found"}, status=404)
 
         # SAVE: overwrite the JSON file with new mapping
         cfg_path.write_text(json.dumps(mapping))
-        return JsonResponse({'status': 'ok'})
+        return JsonResponse({"status": "ok"})
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)

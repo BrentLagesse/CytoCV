@@ -9,7 +9,7 @@ services:
       DBNAME: ${DBNAME}
       DBUSER: ${DBUSER}
       DBPASS: ${DBPASS}
-      DBHOST: ${DBHOST}  # This will point to your local PostgreSQL
+      DBHOST: ${DBHOST}
       DATABASE_PORT: ${DBPORT:-5432}
       GOOGLE_CLIENT: ${GOOGLE_CLIENT}
       GOOGLE_SECRET: ${GOOGLE_SECRET}
@@ -19,5 +19,8 @@ services:
       MSFT_TENANT_ID: ${MSFT_TENANT_ID}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      WEBSITE_HOSTNAME : ${WEBSITE_HOSTNAME}
+      AZ_STORAGE_NAME : ${AZ_STORAGE_NAME}
+      AZ_ACCESS_KEY: ${AZ_ACCESS_KEY}
     env_file:
       - .env

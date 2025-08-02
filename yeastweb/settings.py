@@ -1,7 +1,10 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from azure.identity import DefaultAzureCredential
+import logging
 
+logging.basicConfig(level=logging.WARNING)
 
 load_dotenv()
 
@@ -9,13 +12,18 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 WSGI_APPLICATION = "yeastweb.wsgi.application"
 # Media files directory
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+AZ_STORAGE_NAME = os.getenv("AZ_STORAGE_NAME")
+AZ_ACCESS_KEY = os.getenv("AZ_ACCESS_KEY")
+MEDIA_URL = f"https://{AZ_STORAGE_NAME}/media/"
+MEDIA_ROOT = None
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = False
+
+
 ALLOWED_HOSTS = ["*"]
+
 
 # Custom User with unique uuid
 AUTH_USER_MODEL = "accounts.CustomUser"
@@ -41,6 +49,7 @@ INSTALLED_APPS = [
     "django_tables2",
     "core",
     "accounts",
+    "storages",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -104,13 +113,28 @@ DATABASES = {
         "USER": os.getenv("DBUSER"),
         "PASSWORD": os.getenv("DBPASS"),
         "PORT": os.getenv("DBPORT", "5432"),
-        # "PORT": "5432",
-        # SQLite3
-        #'ENGINE': 'django.db.backends.sqlite3',
-        #'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
+# Storage
+STORAGES = {
+    "default": {
+        "BACKEND": "core.file.azure.CustomStorage",
+        "OPTIONS": {
+            "account_key": AZ_ACCESS_KEY,
+            "account_name": AZ_STORAGE_NAME,
+            "azure_container": "media",
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.azure_storage.AzureStorage",
+        "OPTIONS": {
+            "token_credential": AZ_ACCESS_KEY,
+            "account_name": AZ_STORAGE_NAME,
+            "azure_container": "static",
+        },
+    },
+}
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -151,6 +175,7 @@ SOCIALACCOUNT_PROVIDERS = {
                     "login_url": "https://login.microsoftonline.com",
                 },
                 "OAUTH_PKCE_ENABLED": True,
+                "redirect_uri": f"https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net/login/oauthmicrosoft/login/callback/",
             }
         ],
     },
@@ -181,7 +206,8 @@ LOGIN_REDIRECT_URL = "profile"
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
-    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net/"
+    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net",
+    "http://localhost:8000/",
 ]
 
 # Internationalization

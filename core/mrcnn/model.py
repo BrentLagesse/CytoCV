@@ -2339,7 +2339,7 @@ class MaskRCNN():
             then set a new log directory and start epochs from 0. Otherwise,
             extract the log directory and the epoch counter from the file
             name.
-        """
+       
         # Set date and epoch counter as if starting a new model
         self.epoch = 0
         now = datetime.datetime.now()
@@ -2372,6 +2372,8 @@ class MaskRCNN():
             self.config.NAME.lower()))
         self.checkpoint_path = self.checkpoint_path.replace(
             "*epoch*", "{epoch:04d}")
+         """
+        self.log_dir = None
 
     def train(self, train_dataset, val_dataset, learning_rate, epochs, layers,
               augmentation=None,augment=False):
