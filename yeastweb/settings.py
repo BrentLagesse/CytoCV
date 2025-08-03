@@ -9,7 +9,8 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 WSGI_APPLICATION = "yeastweb.wsgi.application"
 # Media files directory
-MEDIA_URL = f"https://{os.getenv('AZ_STORAGE_NAME')}/media"
+AZ_STORAGE_NAME = os.getenv("AZ_STORAGE_NAME")
+MEDIA_URL = f"https://{AZ_STORAGE_NAME}/media/"
 MEDIA_ROOT = None
 
 # Quick-start development settings - unsuitable for production
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     "django_tables2",
     "core",
     "accounts",
+    "storages",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -115,16 +117,16 @@ STORAGES = {
     "default": {
         "BACKEND": "storages.backends.azure_storage.AzureStorage",
         "OPTIONS": {
-            "token_credential": DefaultAzureCredential(),
-            "account_name": "yeastimagestorage",
+            "token_credential": os.getenv("AZ_ACCESS_KEY"),
+            "account_name": AZ_STORAGE_NAME,
             "azure_container": "media",
         },
     },
     "staticfiles": {
         "BACKEND": "storages.backends.azure_storage.AzureStorage",
         "OPTIONS": {
-            "token_credential": DefaultAzureCredential(),
-            "account_name": "yeastimagestorage",
+            "token_credential": os.getenv("AZ_ACCESS_KEY"),
+            "account_name": AZ_STORAGE_NAME,
             "azure_container": "static",
         },
     },
@@ -201,7 +203,7 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
     "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net",
-    "localhost",
+    "http://localhost:8000/",
 ]
 
 # Internationalization
