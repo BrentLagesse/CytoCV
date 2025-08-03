@@ -535,10 +535,11 @@
         loadImage((currentFileIndex - 1 + totalFiles) % totalFiles);
       });
 
-      // Disable analyze button on submit
+      // Disable buttons on form submit
       document
         .getElementById("preprocessForm")
         .addEventListener("submit", () => {
+          // Disable the start analysis button on submit
           const btn = document.getElementById("startAnalysisButton");
           btn.disabled = true;
           btn.value = "Analyzing...";
@@ -546,13 +547,18 @@
           btn.style.cursor = "not-allowed";
           btn.style.backgroundColor = "#0056b3";
 
-          // disable the analysis-plugin dropdown
+          // Disable the analysis-plugin dropdown
           const plugin = document.getElementById("list1");
           if (plugin) {
             plugin.style.pointerEvents = "none";
             plugin.style.opacity = "0.8";
             plugin.style.backgroundColor = "#0056b3";
           }
+
+          // Disable drag-and-drop on the channel bars
+          document.querySelectorAll(".channel-bar").forEach(bar => {
+            bar.style.pointerEvents = "none";
+          });
         });
 
       // AJAX load
