@@ -169,7 +169,7 @@ SOCIALACCOUNT_PROVIDERS = {
                     "login_url": "https://login.microsoftonline.com",
                 },
                 "OAUTH_PKCE_ENABLED": True,
-                "redirect_uri": f"https://{os.getenv('WEBSITE_HOSTNAME')}/login/oauthmicrosoft/login/callback/",
+                "redirect_uri": f"https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net/login/oauthmicrosoft/login/callback/",
             }
         ],
     },
@@ -199,7 +199,10 @@ LOGIN_REDIRECT_URL = "profile"
 # Security
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
-CSRF_TRUSTED_ORIGINS = [os.getenv("WEBSITE_HOSTNAME"), "localhost"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net",
+    "localhost",
+]
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
