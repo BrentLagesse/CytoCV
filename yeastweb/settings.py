@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-
+from azure.identity import DefaultAzureCredential
 
 load_dotenv()
 
@@ -9,13 +9,16 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 WSGI_APPLICATION = "yeastweb.wsgi.application"
 # Media files directory
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = f"https://{os.getenv('AZ_STORAGE_NAME')}/media"
+MEDIA_ROOT = None
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = True
-ALLOWED_HOSTS = ["*"]
+
+
+ALLOWED_HOSTS = [os.getenv("WEBSITE_HOSTNAME"), "localhost", "127.0.0.1"]
+
 
 # Custom User with unique uuid
 AUTH_USER_MODEL = "accounts.CustomUser"
@@ -104,13 +107,28 @@ DATABASES = {
         "USER": os.getenv("DBUSER"),
         "PASSWORD": os.getenv("DBPASS"),
         "PORT": os.getenv("DBPORT", "5432"),
-        # "PORT": "5432",
-        # SQLite3
-        #'ENGINE': 'django.db.backends.sqlite3',
-        #'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
+# Storage
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.azure_storage.AzureStorage",
+        "OPTIONS": {
+            "token_credential": DefaultAzureCredential(),
+            "account_name": "yeastimagestorage",
+            "azure_container": "media",
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.azure_storage.AzureStorage",
+        "OPTIONS": {
+            "token_credential": DefaultAzureCredential(),
+            "account_name": "yeastimagestorage",
+            "azure_container": "static",
+        },
+    },
+}
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -151,6 +169,7 @@ SOCIALACCOUNT_PROVIDERS = {
                     "login_url": "https://login.microsoftonline.com",
                 },
                 "OAUTH_PKCE_ENABLED": True,
+                "redirect_uri": f"https://{os.getenv('WEBSITE_HOSTNAME')}/login/oauthmicrosoft/login/callback/",
             }
         ],
     },
@@ -180,9 +199,7 @@ LOGIN_REDIRECT_URL = "profile"
 # Security
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
-CSRF_TRUSTED_ORIGINS = [
-    "https://yeast-analysis-brh8hhbrb2etcwds.westus2-01.azurewebsites.net"
-]
+CSRF_TRUSTED_ORIGINS = [os.getenv("WEBSITE_HOSTNAME"), "localhost"]
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
