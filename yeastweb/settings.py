@@ -2,6 +2,9 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
+import logging
+
+logging.basicConfig(level=logging.WARNING)
 
 load_dotenv()
 
@@ -16,7 +19,7 @@ MEDIA_ROOT = None
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv("SECRET_KEY")
-DEBUG = True
+DEBUG = False
 
 
 ALLOWED_HOSTS = ["*"]

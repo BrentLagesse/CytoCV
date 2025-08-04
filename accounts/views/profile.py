@@ -8,6 +8,8 @@ import json
 from core.config import DEFAULT_CHANNEL_CONFIG  # Import your channel configuration
 from yeastweb.settings import MEDIA_URL
 from pathlib import Path
+import os
+from core.file.azure import CustomStorage
 
 
 @login_required
@@ -23,23 +25,38 @@ def profile_view(request):
     percentage_used = used_storage / total_storage * 100
 
     user_id = request.user.id
-    images_saved = []; # use to hold images' uuid
-    for image in SegmentedImage.objects.filter(user=user_id).order_by('-uploaded_date'):
-        image_id = image.UUID   
+    images_saved = []
+    # use to hold images' uuid
+    for image in SegmentedImage.objects.filter(user=user_id).order_by("-uploaded_date"):
+        image_id = image.UUID
         image_name = UploadedImage.objects.get(uuid=image_id).name
-        images_saved.append(dict(id=image.UUID, name=image_name,date=image.uploaded_date,cell=image.NumCells))
-
+        images_saved.append(
+            dict(
+                id=image.UUID,
+                name=image_name,
+                date=image.uploaded_date,
+                cell=image.NumCells,
+            )
+        )
 
     # Everything down here is cache session
     recent = get_cache_image(user_id)
 
     if not recent:
-        return TemplateResponse(request, "profile.html", {"username": username, "first_name": first_name,
-                                                          "last_name": last_name, "email": email,
-                                                          "available_storage": available_storage,
-                                                          "used_storage": used_storage,
-                                                          "percentage_used": percentage_used,
-                                                          "total_storage": total_storage})
+        return TemplateResponse(
+            request,
+            "profile.html",
+            {
+                "username": username,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "available_storage": available_storage,
+                "used_storage": used_storage,
+                "percentage_used": percentage_used,
+                "total_storage": total_storage,
+            },
+        )
     # Dictionary to store data for all files (UUIDs)
     all_files_data = {}
 
@@ -47,66 +64,86 @@ def profile_view(request):
     # Order: DIC, DAPI, mCherry, GFP
     channel_order = ["DIC", "DAPI", "mCherry", "GFP"]
 
-    uploaded_image = recent['uploaded']
+    uploaded_image = recent["uploaded"]
     uuid = uploaded_image.uuid
     image_name = uploaded_image.name
     image_name_stem = Path(image_name).stem
-    image_file_name = image_name_stem + "_frame_" + '0'
-    full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+    image_file_name = image_name_stem + "_frame_" + "0"
+    full_outlined = f"{uuid}/output/{image_file_name}.png"
 
     # Get the segmented image details
-    cell_image = recent['segmented']
+    cell_image = recent["segmented"]
 
     # Build the images for each cell based on the dynamic channel configuration
     images = {}
     statistics = {}
+
+    options = {
+        "account_key": os.getenv("AZ_ACCESS_KEY"),
+        "account_name": os.getenv("AZ_STORAGE_NAME"),
+        "azure_container": "media",
+    }
+
+    storage = CustomStorage(**options)
+
     for i in range(1, cell_image.NumCells + 1):
         images[str(i)] = []
         for channel_name in channel_order:
             channel_index = DEFAULT_CHANNEL_CONFIG.get(channel_name)
             # For mCherry and GFP, use the debug filename pattern
             if channel_name in ["mCherry", "GFP"]:
-                image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
+                image_url = (
+                    f"{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
+                )
             else:
-                image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
-            images[str(i)].append(image_url)
+                image_url = (
+                    f"{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
+                )
+            images[str(i)].append(storage.url(image_url))
 
         # Retrieve statistics for the cell
         try:
-            cell_stat = recent['cell'][i]
+            cell_stat = recent["cell"][i]
             print(cell_stat)
             statistics[str(i)] = {
-                'distance': cell_stat.distance,
-                'line_gfp_intensity': cell_stat.line_gfp_intensity,
-                'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
-                'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
-                'green_red_intensity': cell_stat.green_red_intensity,
-                'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
-                'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
-                'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
-                'cytoplasmic_intensity_DAPI': cell_stat.cytoplasmic_intensity_DAPI,
+                "distance": cell_stat.distance,
+                "line_gfp_intensity": cell_stat.line_gfp_intensity,
+                "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
+                "cellular_intensity_sum": cell_stat.cellular_intensity_sum,
+                "green_red_intensity": cell_stat.green_red_intensity,
+                "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
+                "cellular_intensity_sum_DAPI": cell_stat.cellular_intensity_sum_DAPI,
+                "nucleus_intensity_sum_DAPI": cell_stat.nucleus_intensity_sum_DAPI,
+                "cytoplasmic_intensity_DAPI": cell_stat.cytoplasmic_intensity_DAPI,
             }
         except:
             statistics[str(i)] = None
 
-
     # Store all image details and statistics for this UUID
     all_files_data[str(uuid)] = {
-        'MainImagePath': full_outlined,
-        'NumberOfCells': cell_image.NumCells,
-        'CellPairImages': images,
-        'Image_Name': image_name,
-        'Statistics': statistics
+        "MainImagePath": storage.url(full_outlined),
+        "NumberOfCells": cell_image.NumCells,
+        "CellPairImages": images,
+        "Image_Name": image_name,
+        "Statistics": statistics,
     }
 
     # Convert the files_data to JSON to be used in the template
     json_files_data = json.dumps(all_files_data)
 
-    return TemplateResponse(request,"profile.html",{"username":username,"first_name":first_name,
-                                                    "last_name":last_name,"email":email,"available_storage":available_storage,
-                                                    "used_storage":used_storage, "percentage_used":percentage_used,
-                                                    "total_storage":total_storage, "images":images_saved, 'files_data': json_files_data})
-
-
-
-
+    return TemplateResponse(
+        request,
+        "profile.html",
+        {
+            "username": username,
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "available_storage": available_storage,
+            "used_storage": used_storage,
+            "percentage_used": percentage_used,
+            "total_storage": total_storage,
+            "images": images_saved,
+            "files_data": json_files_data,
+        },
+    )

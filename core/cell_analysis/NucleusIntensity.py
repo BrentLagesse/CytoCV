@@ -1,36 +1,52 @@
 import cv2, os, csv
 import numpy as np
 from core.models import Contour
+from core.file.azure import temp_blob
 from .Analysis import Analysis
 
+
 class NucleusIntensity(Analysis):
-    name = 'Nucleus Intensity'
-    def calculate_statistics(self, best_contours, contours_data,red_image=None, green_image=None,mcherry_line_width_input=None):
+    name = "Nucleus Intensity"
+
+    def calculate_statistics(
+        self,
+        best_contours,
+        contours_data,
+        red_image=None,
+        green_image=None,
+        mcherry_line_width_input=None,
+    ):
         """
-            This function calculate the nucleus intensity within a green image
-            :param best_contour: The green contour of the green image
-            :param gray: Gray scale of green image
+        This function calculate the nucleus intensity within a green image
+        :param best_contour: The green contour of the green image
+        :param gray: Gray scale of green image
         """
-        gray_GFP = self.preprocessed_images.get_image('GFP')
-        gray_GFP_no_bg = self.preprocessed_images.get_image('GFP_no_bg')
+        gray_GFP = self.preprocessed_images.get_image("GFP")
+        gray_GFP_no_bg = self.preprocessed_images.get_image("GFP_no_bg")
 
         mask_contour = np.zeros(gray_GFP.shape, np.uint8)
-        cv2.fillPoly(mask_contour, [best_contours['mCherry']], 255)
+        cv2.fillPoly(mask_contour, [best_contours["mCherry"]], 255)
         pts_contour = np.transpose(np.nonzero(mask_contour))
 
         # Build the expected outline filename:
         # cp.image_name is set (in the get_or_create for CellStatistics) as DV_Name + '.dv',
         # so taking os.path.splitext(cp.image_name)[0] gives the full DV name (e.g. "M3850_001_PRJ")
-        outline_filename = os.path.splitext(self.cp.image_name)[0] + '-' + str(self.cp.cell_id) + '.outline'
+        outline_filename = (
+            os.path.splitext(self.cp.image_name)[0]
+            + "-"
+            + str(self.cp.cell_id)
+            + ".outline"
+        )
 
         # The outline files are stored in the "output" folder (not in a "masks" folder)
-        mask_file_path = os.path.join(self.output_dir, 'output', outline_filename)
+        mask_file_path = os.path.join(self.output_dir, "output", outline_filename)
 
-        with open(mask_file_path, 'r') as csvfile:
-            csvreader = csv.reader(csvfile)
-            border_cells = []
-            for row in csvreader:
-                border_cells.append([int(row[0]), int(row[1])])
+        with temp_blob(mask_file_path, ".outline", True) as tempfile:
+            with open(tempfile, "r", encoding="utf-8") as csvfile:
+                csvreader = csv.reader(csvfile)
+                border_cells = []
+                for row in csvreader:
+                    border_cells.append([int(row[0]), int(row[1])])
 
         # Calculate nucleus intensity inside the best_contour
         intensity_sum = 0
@@ -39,7 +55,9 @@ class NucleusIntensity(Analysis):
 
         # Cast to Python int before saving into the JSON field
         self.cp.nucleus_intensity[Contour.CONTOUR.name] = int(intensity_sum)
-        self.cp.nucleus_total_points = len(pts_contour)  # This is usually a Python int already
+        self.cp.nucleus_total_points = len(
+            pts_contour
+        )  # This is usually a Python int already
 
         self.cp.nucleus_intensity_sum = float(intensity_sum)
 
@@ -55,5 +73,3 @@ class NucleusIntensity(Analysis):
         self.cp.cellular_intensity_sum = float(cell_intensity_sum)
 
         self.cp.cytoplasmic_intensity = float(cell_intensity_sum) - float(intensity_sum)
-
-

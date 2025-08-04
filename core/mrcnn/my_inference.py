@@ -109,7 +109,7 @@ def predict_images(
     # ROOT_DIR = os.getcwd()
     rle_file_path = Path(output_dir, "compressed_masks.csv")
     print("output_directory", output_dir)
-    logs_path = Path(output_dir, "logs")
+
     MODEL_DIR = Path(output_dir, "logs")
     # MODEL_DIR= os.path.join()
     csv_buffer = StringIO()
@@ -212,7 +212,7 @@ def predict_images(
             for i in range(0, len(ImageId_batch)):  ## Some objects are detected
 
                 # f.write2csv(rle_file_path, ImageId_batch, EncodedPixels_batch)
-                csv_writer.writerow([ImageId_batch[0], EncodedPixels_batch[0]])
+                csv_writer.writerow([ImageId_batch[i], EncodedPixels_batch[i]])
         else:
             pass
 
