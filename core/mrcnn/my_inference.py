@@ -146,17 +146,15 @@ def predict_images(
     # gets core's absolute path
     dirname = Path(core.__file__).parent
     print("dirname", dirname)
-    model_path = dirname / "weights" / "deepretina_final.h5"
-    print("model_path", model_path)
-    if verbose:
-        print("Loading weights from ", model_path)
-
-    start_time = time.time()
-    # Recreate the model in inference mode
-    model = modellib.MaskRCNN(
-        mode="inference", config=inference_config, model_dir=MODEL_DIR
-    )
-    model.load_weights(str(model_path), by_name=True)
+    with temp_blob("weights/deepretina_final.h5", ".h5") as temp_path:
+        if verbose:
+            print("Loading weights from ", temp_path)
+        start_time = time.time()
+        # Recreate the model in inference mode
+        model = modellib.MaskRCNN(
+            mode="inference", config=inference_config, model_dir=MODEL_DIR
+        )
+        model.load_weights(temp_path, by_name=True)
 
     for i in np.arange(n_images):
         start_time = time.time()
