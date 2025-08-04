@@ -146,7 +146,7 @@ def predict_images(
     # gets core's absolute path
     dirname = Path(core.__file__).parent
     print("dirname", dirname)
-    with temp_blob("weights/deepretina_final.h5", ".h5") as temp_path:
+    with temp_blob("deepretina_final.h5", ".h5") as temp_path:
         if verbose:
             print("Loading weights from ", temp_path)
         start_time = time.time()
