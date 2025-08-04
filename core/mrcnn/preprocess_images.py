@@ -63,7 +63,7 @@ def preprocess_images(
     pre_process_image_path = os.path.join(pre_process_dir_path, image_name)
     pre_process_image_path = upload_image(rgb_image, pre_process_image_path)
 
-    csv_writer.writerow([uploaded_image.name, height, width])
+    csv_writer.writerow([uploaded_image.name, str(height) + " " + str(width)])
     csv_content = csv_buffer.getvalue().encode("utf-8")
     content = ContentFile(csv_content)
     save_path = output_dir + "/preprocessed_images_list.csv"
