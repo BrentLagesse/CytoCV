@@ -30,4 +30,4 @@ RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
 
 # Run Django’s development server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "yeastweb.wsgi:application"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
