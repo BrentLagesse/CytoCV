@@ -21,5 +21,6 @@ services:
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
       WEBSITE_HOSTNAME : ${WEBSITE_HOSTNAME}
       AZ_STORAGE_NAME : ${AZ_STORAGE_NAME}
+      AZ_ACCESS_KEY: ${AZ_ACCESS_KEY}
     env_file:
       - .env
