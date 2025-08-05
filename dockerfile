@@ -26,7 +26,14 @@ COPY . /app/
 # Expose the Django port
 EXPOSE 8000
 
-RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
+# Install system dependencies in a single layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
 
 
 # Run Django’s development server
