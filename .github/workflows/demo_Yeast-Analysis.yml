@@ -23,14 +23,14 @@ jobs:
       uses: docker/login-action@v2
       with:
         registry: https://index.docker.io/v1/
-        username: ${{ secrets.AzureAppService_ContainerUsername_f9f8bba7c9e741018d25b65edb85aeac }}
-        password: ${{ secrets.AzureAppService_ContainerPassword_010c11da561f4eb4b2e632b1b5be56e9 }}
+        username: ${{ secrets.AzureAppService_ContainerUsername_e4eaf050d5f14f328625dffb3bfd0bbe }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_947e096a566443a2ace6eb5b47c433e1 }}
 
     - name: Build and push container image to registry
       uses: docker/build-push-action@v3
       with:
         push: true
-        tags: index.docker.io/${{ secrets.AzureAppService_ContainerUsername_f9f8bba7c9e741018d25b65edb85aeac }}/timhmn/yeast-web:${{ github.sha }}
+        tags: index.docker.io/${{ secrets.AzureAppService_ContainerUsername_e4eaf050d5f14f328625dffb3bfd0bbe }}/timhmn/yeast-web:${{ github.sha }}
         file: ./Dockerfile
 
   deploy:
@@ -47,5 +47,5 @@ jobs:
       with:
         app-name: 'Yeast-Analysis'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_c45877adc24743839dfdf36654754871 }}
-        images: 'index.docker.io/${{ secrets.AzureAppService_ContainerUsername_f9f8bba7c9e741018d25b65edb85aeac }}/timhmn/yeast-web:${{ github.sha }}'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_187ee26ba5d44e58bca1222087a1e6c9 }}
+        images: 'index.docker.io/${{ secrets.AzureAppService_ContainerUsername_e4eaf050d5f14f328625dffb3bfd0bbe }}/timhmn/yeast-web:${{ github.sha }}'
