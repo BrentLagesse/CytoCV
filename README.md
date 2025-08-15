@@ -56,22 +56,24 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 ### Installing Dependencies
 Due to the machine learning part only works on certain versions of packages, we have to specifically use them. The easiest way do to do is to delete all your personal pip packages and reinstall them.
 
+1. Export all personal packages into deleteRequirements.txt:
+   ```bash
+   pip freeze --all > deleteRequirements.txt
 
+2. Uninstall all packages listed:
+   ```bash
+   pip uninstall -r deleteRequirements.txt
+   
+3. Install this repository's dependencies. If this fails, you may be using the wrong Python version or try deleting the line with pip in deleteRequirments.txt and trying again:
+    ```bash
+   pip install -r ./requirements.txt --no-cache-dir
 
+5. Remove the temporary list of requirements:
+   ```bash
+   del deleteRequirements.txt
 
-###
-
-```bash
-# puts all personal packages into deleteRequirements.txt
-1. pip freeze --all > deleteRequirements.txt
-# uninstalls all packages
-2. pip uninstall -r deleteRequirements.txt
-# installs repo's pip packages
-3. pip install -r ./requirements.txt --no-cache-dir
-    * If fails, might be using the wrong Python version or go into deleteRequirments.txt and delete the line with pip
-#deletes temporary Requirements
-4. del deleteRequirements.txt
-```
+### Migrations
+You must have your virtual environemnt activated to make the respective migrations.
 
 ## Launching project
 
