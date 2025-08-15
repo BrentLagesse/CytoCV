@@ -56,6 +56,7 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 ### Installing Dependencies
 Due to the machine learning part only works on certain versions of packages, we have to specifically use them. The easiest way do to do is to delete all your personal pip packages and reinstall them.
 
+
 1. Export all personal packages into deleteRequirements.txt:
    ```bash
    pip freeze --all > deleteRequirements.txt
@@ -73,7 +74,21 @@ Due to the machine learning part only works on certain versions of packages, we 
    del deleteRequirements.txt
 
 ### Migrations
-You must have your virtual environemnt activated to make the respective migrations.
+You must have your virtual environemnt activated to make the respective migrations. Please refer to the previous steps under **Environment Setup**.
+
+
+1. Delete the local SQLite database (If the file does not exist, no output or a “cannot find path” message is fine):
+   ```bash
+   Remove-Item .\db.sqlite3 -Force
+
+2. Create migrations for specific apps (accounts, core):
+   ```bash
+   python manage.py makemigrations accounts core
+
+3. Apply migrations to build the schema:
+   ```bash
+   python manage.py migrate
+
 
 ## Launching project
 
