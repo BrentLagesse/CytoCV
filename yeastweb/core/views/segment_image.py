@@ -150,9 +150,8 @@ def get_stats(cp, conf, selected_analysis):
     edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
     edit_DAPI_img = ensure_3channel_bgr(edit_DAPI_img)
 
-
     best_contour = merge_contour(contours_data['bestContours'],contours_data['contours'])
-    best_contour_dapi = merge_contour(contours_data['bestContours_dapi'],contours_data['contours_dapi'])
+    best_contour_dapi = contours_data['contours_dapi'][contours_data['bestContours_dapi'][0]]
     best_contour_data = {
         "mCherry" : best_contour,
         "DAPI": best_contour_dapi,
@@ -160,8 +159,14 @@ def get_stats(cp, conf, selected_analysis):
 
     # Use white contour for both images (mCherry and GFP)
     cv2.drawContours(edit_mCherry_img, [best_contour], 0, (255, 255, 255), 1)
+    cv2.drawContours(edit_mCherry_img, contours_data['dot_contours'], -1, (0, 0, 255),1)
+
     cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
-    cv2.drawContours(edit_DAPI_img, [best_contour_dapi], 0, (255, 255, 255), 1)
+    cv2.drawContours(edit_GFP_img, contours_data['dot_contours'], -1, (0, 0, 255),1)
+    cv2.drawContours(edit_GFP_img, [best_contour_dapi], 0, (255, 0, 0), 1)
+
+
+    cv2.drawContours(edit_DAPI_img, [best_contour_dapi],0, (255, 0, 0), 1)
 
     import_path = BASE_DIR / 'core/cell_analysis'
     analyses = import_analyses(import_path, selected_analysis)
@@ -274,10 +279,8 @@ def segment_image(request, uuids):
 
                 sorted_dict = {k: v for k, v in sorted(neighbor_count.items(), key=lambda item: item[1])}
                 if len(sorted_dict) == 0:
-                    print('found single cell at: ' + str(cell))
                     single_cell_list.append(int(i))
                 else:
-                    print('found neighbouring cell at: ' + str(cell))
                     if len(sorted_dict) == 1:
                         # one cell close by
                         closest_neighbors[i] = list(sorted_dict.items())[0][0]
@@ -698,7 +701,9 @@ def segment_image(request, uuids):
                     'line_gfp_intensity': 0.0,
                     'nucleus_intensity_sum': 0.0,
                     'cellular_intensity_sum': 0.0,
-                    'green_red_intensity': 0.0,
+                    'green_red_intensity_1': 0.0,
+                    'green_red_intensity_2': 0.0,
+                    'green_red_intensity_3': 0.0,
 
                     # Store file path information
                     'dv_file_path': DV_path,

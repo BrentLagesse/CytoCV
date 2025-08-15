@@ -2,6 +2,9 @@ import cv2, math
 import numpy as np
 from core.contour_processing import get_largest
 from core.image_processing import GrayImage
+import scipy.ndimage as ndi
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
 
 def find_contours(images:GrayImage):
     """
@@ -9,6 +12,10 @@ def find_contours(images:GrayImage):
     :param images: Gray scale image list
     :return: Dictionary of contours, best contours
     """
+    _,bright_thresh = cv2.threshold(images.get_image('gray_mcherry_3'),0.65,1,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    dot_contours, _ = cv2.findContours(bright_thresh,1,2)
+    dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt)<100] # remove the one that border image
+
     # finding threshold
     ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
                                                 cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
@@ -28,10 +35,12 @@ def find_contours(images:GrayImage):
     #cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
 
     contours, h = cv2.findContours(thresh, 1, 2)
-    contours_mcherry = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
+    contours_mcherry,_ = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
 
     contours_dapi, h = cv2.findContours(thresh_dapi, 1, 2)
-    contours_dapi_3 = cv2.findContours(thresh_dapi_3, 1, 2) # return list of contours
+    contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, 1, 2) # return list of contours
+    contours_dapi_3 = [cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt)>100 and cv2.contourArea(cnt)<1000]
+
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly
@@ -59,7 +68,8 @@ def find_contours(images:GrayImage):
         'contours_dapi': contours_dapi,
         'contours_dapi_3': contours_dapi_3,
         'bestContours_dapi': bestContours_dapi,
-        'bestContours_dapi_3': bestContours_dapi_3
+        'bestContours_dapi_3': bestContours_dapi_3,
+        'dot_contours': dot_contours,
     }
 
 def merge_contour(bestContours, contours):

@@ -1,16 +1,15 @@
 import cv2
 import numpy as np
 
-def create_circular_mask(image_shape, center, radius):
+def create_circular_mask(image_shape, contour, index):
     """
     Draw a circular mask around the center
     :param image_shape: Gray scale image
-    :param center: Coordinates of the center of the mask
-    :param radius: Radius of the mask
+    :param contour: Contours to create a mask
     :return: Masked image
     """
     mask = np.zeros(image_shape, dtype=np.uint8)
-    cv2.circle(mask, center, radius, 255, -1)
+    cv2.drawContours(mask, contour, index, 255, -1)
     return mask
 
 def calculate_intensity_mask(image, mask):

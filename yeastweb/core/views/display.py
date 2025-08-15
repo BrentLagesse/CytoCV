@@ -98,7 +98,7 @@ def display_cell(request, uuids):
                         'line_gfp_intensity': cell_stat.line_gfp_intensity,
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
-                        'green_red_intensity': cell_stat.green_red_intensity,
+                        'green_red_intensity': cell_stat.green_red_intensity_1,
                         'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
                         'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
                         'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
