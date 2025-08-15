@@ -69,7 +69,7 @@ Due to the machine learning part only works on certain versions of packages, we 
    ```bash
    pip uninstall -r deleteRequirements.txt
    
-3. Install this repository's dependencies. If this fails, you may be using the wrong Python version or try deleting the line with pip in deleteRequirments.txt and trying again:
+3. Install this repository's dependencies. If this fails, you may be using the wrong Python version or try deleting the line with pip in deleteRequirements.txt and trying again:
     ```bash
    pip install -r ./requirements.txt --no-cache-dir
 
