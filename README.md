@@ -5,10 +5,20 @@
 The project is a tool to automatically analyze WIDE-fluorescent microscopy images of yeast cells undergoing mitosis. The biologist uses yeast cells that have a controlled mutation in them. The biologists then use fluorescent labeling to point of interest (POI) like a specific protein and this program automatically analyzes those POI to collect useful data that can maybe be used to find the cause of cellular mutation. The user will upload a special DV (Delta Vision) file that has multiple images that are taken at the same time; thus, allowing them to be overlapped. One of them is a Differential interference contrast (DIC) image, which basically is a clear image of the cells, and multiple images of the cells through different wavelengths which excite the fluorescent labels separately, leading to the POI being brightened (small dots). Currently, the fluorescent labels being used are DAPI, mcherry, and GFP.
 
 Example of DIC image: <br />
-<img src="https://github.com/user-attachments/assets/148bde06-610e-4659-87ac-d7b6469136c1" width="300">
+<img width="300" height="300" alt="Screenshot 2025-08-14 221948" src="https://github.com/user-attachments/assets/1830b15d-d0cf-4558-ba3f-7d45462e0a13" />
 
-Example of wave-length image (notice the white spots): <br />
-<img src="https://github.com/user-attachments/assets/26681f65-530a-4c99-9573-39a54387bb6e" width="300">
+
+Example of wave-length image DAPI: <br />
+<img width="300" height="300" alt="Screenshot 2025-08-14 221953" src="https://github.com/user-attachments/assets/0b6dc954-ed78-4abf-b9c9-436ded7551fa" />
+
+
+Example of wave-length image mCherry: <br />
+<img width="300" height="300" alt="Screenshot 2025-08-14 221958" src="https://github.com/user-attachments/assets/68767176-2aec-4634-9b74-de8c085e32a4" />
+
+
+Example of wave-length image GFP: <br />
+<img width="300" height="300" alt="Screenshot 2025-08-14 222004" src="https://github.com/user-attachments/assets/67e9c4f4-f520-422e-9a0b-48fa9fd370c0" />
+
 
 
 ## Installation
