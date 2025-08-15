@@ -37,9 +37,13 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
    python -m venv yeast_web
 
 5. Activate virtual environment:
-    ```bash
+   ```bash
    source .venv/Scripts/activate
-
+   ```
+   or
+   ```bash
+   yeast_web\Scripts\activate
+   ```
 6. Make sure pip exists in the virtual environment:
     ```bash
    python -m ensurepip --upgrade
