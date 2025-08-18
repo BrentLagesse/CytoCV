@@ -72,9 +72,28 @@ class CellStatistics(models.Model):
     cellular_intensity_sum = models.FloatField()
     cytoplasmic_intensity = models.FloatField(default=0.0)
 
+    blue_contour_size = models.FloatField(default=0.0)
+
+    red_contour_1_size = models.FloatField(default=0.0)
+    red_contour_2_size = models.FloatField(default=0.0)
+    red_contour_3_size = models.FloatField(default=0.0)
+
+    red_intensity_1 = models.FloatField(default=0.0)
+    red_intensity_2 = models.FloatField(default=0.0)
+    red_intensity_3 = models.FloatField(default=0.0)
+
+    # Green intensity in red contour wrt green image
+    green_intensity_1 = models.FloatField(default=0.0)
+    green_intensity_2 = models.FloatField(default=0.0)
+    green_intensity_3 = models.FloatField(default=0.0)
+
     green_red_intensity_1 = models.FloatField(default=0.0)
     green_red_intensity_2 = models.FloatField(default=0.0)
     green_red_intensity_3 = models.FloatField(default=0.0)
+
+    red_blue_intensity_1 = models.FloatField(default=0.0)
+    red_blue_intensity_2 = models.FloatField(default=0.0)
+    red_blue_intensity_3 = models.FloatField(default=0.0)
 
     cellular_intensity_sum_DAPI = models.FloatField(default=0.0)
     nucleus_intensity_sum_DAPI = models.FloatField(default=0.0)

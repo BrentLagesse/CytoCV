@@ -150,22 +150,24 @@ def get_stats(cp, conf, selected_analysis):
     edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
     edit_DAPI_img = ensure_3channel_bgr(edit_DAPI_img)
 
-    best_contour = merge_contour(contours_data['bestContours'],contours_data['contours'])
     best_contour_dapi = contours_data['contours_dapi'][contours_data['bestContours_dapi'][0]]
     best_contour_data = {
-        "mCherry" : best_contour,
         "DAPI": best_contour_dapi,
     }
 
+    for i in range(0,len(contours_data['dot_contours'])):
+        area = cv2.contourArea(contours_data['dot_contours'][i])
+        setattr(cp, f'red_contour_{i+1}_size', area)
+
+    cp.blue_contour_size = cv2.contourArea(best_contour_dapi)
+
     # Use white contour for both images (mCherry and GFP)
-    cv2.drawContours(edit_mCherry_img, [best_contour], 0, (255, 255, 255), 1)
     cv2.drawContours(edit_mCherry_img, contours_data['dot_contours'], -1, (0, 0, 255),1)
 
-    cv2.drawContours(edit_GFP_img, [best_contour], 0, (255, 255, 255), 1)
     cv2.drawContours(edit_GFP_img, contours_data['dot_contours'], -1, (0, 0, 255),1)
     cv2.drawContours(edit_GFP_img, [best_contour_dapi], 0, (255, 0, 0), 1)
 
-
+    cv2.drawContours(edit_DAPI_img, contours_data['dot_contours'],-1, (0, 0, 255), 1)
     cv2.drawContours(edit_DAPI_img, [best_contour_dapi],0, (255, 0, 0), 1)
 
     import_path = BASE_DIR / 'core/cell_analysis'

@@ -24,7 +24,7 @@
         flex-direction: row;
         width: 100%;
         min-height: calc(100dvh - 40px);
-        align-items: stretch;           
+        align-items: stretch;
         }
 
         /* SIDEBAR */
@@ -80,13 +80,13 @@
         .sidebar.collapsed .toggle-btn::before { content: '▶'; }
 
         /* Sidebar content (file list) */
-        .sidebar-content { 
-            flex-grow: 1; 
+        .sidebar-content {
+            flex-grow: 1;
             overflow-y: scroll;  /* show scrollbar only when needed */
             min-height: 0;       /* critical for flex children to allow scrolling */
-            padding-bottom: 10px; 
+            padding-bottom: 10px;
         }
-      
+
         .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
         .sidebar-content li { margin: 0; padding: 0; border: none; }
 
@@ -261,6 +261,21 @@
         background: #222 !important;
         }
 
+            }
+            .popup button:hover {
+                background-color: darkred;
+                color: #fff;
+            }
+            .table-section{
+                margin-bottom: 10px;
+            }
+            .export-buttons {
+                display: flex;
+                gap: 10px;
+                margin-top: 50px;
+            }
+
+        </style>
         /* Firefox */
         .sidebar-content {
         /* first = thumb, second = track */
@@ -341,7 +356,10 @@
                         <div class="info-box">
                             <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
                             <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
-                            <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
+                            <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
+                            <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
+                            <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
+
                         </div>
                     </div>
                     <div class="cell-column">
@@ -374,6 +392,12 @@
                         </form>
                         <button class="hide" onclick="hidePopUp()">Close</button>
                     </div>
+                    {% load export_url from django_tables2 %}
+                    <div class="export-buttons">
+                        <a class="export_btn" href="{% export_url 'csv' %}">Download CSV</a>
+                        <a class="export_btn" href="{% export_url 'xlsx' %}">Download Excel</a>
+                    </div>
+
                 </div>
             </div> <!-- end main-content -->
         </div> <!-- end content-wrapper -->
@@ -417,7 +441,9 @@
             const cellStats = statistics[currentCellNumber];
             document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
             document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
-            document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
+            document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
+            document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
+            document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";
             document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
             document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
             document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";

@@ -21,4 +21,6 @@ class GreenRedIntensity(Analysis):
             red_intensity = calculate_intensity_mask(mcherry_gray, mask)
             green_intensity = calculate_intensity_mask(GFP_gray, mask)
             ratio = green_intensity / red_intensity if red_intensity != 0 else 0
+            setattr(self.cp, f'red_intensity_{i+1}', red_intensity)
+            setattr(self.cp, f'green_intensity_{i+1}', green_intensity)
             setattr(self.cp, f'green_red_intensity_{i+1}', ratio)

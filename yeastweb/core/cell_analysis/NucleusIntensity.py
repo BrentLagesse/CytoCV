@@ -15,7 +15,7 @@ class NucleusIntensity(Analysis):
         gray_GFP_no_bg = self.preprocessed_images.get_image('GFP_no_bg')
 
         mask_contour = np.zeros(gray_GFP.shape, np.uint8)
-        cv2.fillPoly(mask_contour, [best_contours['mCherry']], 255)
+        cv2.fillPoly(mask_contour, [best_contours['DAPI']], 255)
         pts_contour = np.transpose(np.nonzero(mask_contour))
 
         # Build the expected outline filename:

@@ -98,7 +98,9 @@ def display_cell(request, uuids):
                         'line_gfp_intensity': cell_stat.line_gfp_intensity,
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
-                        'green_red_intensity': cell_stat.green_red_intensity_1,
+                        'green_red_intensity_1': cell_stat.green_red_intensity_1,
+                        'green_red_intensity_2': cell_stat.green_red_intensity_2,
+                        'green_red_intensity_3': cell_stat.green_red_intensity_3,
                         'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
                         'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
                         'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
@@ -106,6 +108,11 @@ def display_cell(request, uuids):
                     }
                 except CellStatistics.DoesNotExist:
                     statistics[str(i)] = None  # In case statistics are missing for a cell
+
+            export_format = request.GET.get('_export', None)
+            if TableExport.is_valid_format(export_format) and cell_table:
+                exporter = TableExport(export_format,cell_table)
+                return exporter.response(f"table.{export_format}")
 
             # Store all image details and statistics for this UUID
             all_files_data[str(uuid)] = {
