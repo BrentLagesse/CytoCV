@@ -1,548 +1,262 @@
-<!-- Navigation bar -->
 {% extends 'base.html' %}
-<!-- Template specific content -->
+
+{% block head %}
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Display Cell Images</title>
+    <style>
+        .channel-chip.dic { background-color: black; }
+        .channel-chip.dapi { background-color: blue; }
+        .channel-chip.mcherry { background-color: red; }
+        .channel-chip.gfp { background-color: green; }
+
+        /* Overall page styling */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #333;
+            color: #fff;
+            padding-top: 40px; /* keep your offset for the fixed navbar */
+        }
+
+        .page-container {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            min-height: 100vh; /* ensures the sidebar and content fill the viewport height */
+            align-items: stretch; /* make children equal height */
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: relative;
+            width: 400px;
+            background-color: #222; /* darker grey than main page */
+            transition: width 0.3s ease, background-color 0.2s ease; /* animate the color change too */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-self: stretch; /* ensure it stretches with content column */
+        }
+
+        /* Collapsed state: set width to something minimal */
+        .sidebar.collapsed { width: 60px; background-color: #222; }
+
+        /* Hide text + content when collapsed */
+        .sidebar.collapsed .sidebar-header h2,
+        .sidebar.collapsed .sidebar-content { display: none; }
+
+        /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
+        .sidebar:hover { background-color: #222; }
+
+        /* Only lighten when collapsed AND hovered */
+        .sidebar.collapsed:hover { background-color: #2f2f2f; }
+
+        /* Sidebar header */
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #333;
+            border-radius: 8px;
+            margin: 8px 10px;
+            padding: 10px;
+        }
+        .sidebar-header h2 { margin: 0; font-size: 18px; }
+
+        /* Toggle button */
+        .toggle-btn {
+            position: static;
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 24px;
+        }
+        .toggle-btn:hover { color: #ddd; }
+        .toggle-btn::before { content: '◀'; }
+        .sidebar.collapsed .toggle-btn::before { content: '▶'; }
+
+        /* Sidebar content (file list) */
+        .sidebar-content { flex-grow: 1; overflow-y: auto; padding-bottom: 10px; }
+        .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
+        .sidebar-content li { margin: 0; padding: 0; border: none; }
+
+        /* Each file-item */
+        .file-item {
+            margin: 8px 10px;
+            padding: 10px;
+            background-color: #333;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 14px;
+        }
+        .file-item:hover { background-color: #3399ff; }
+        .file-item.active { background-color: #007bff; color: #fff; }
+        .file-item.active:hover { background-color: #0056b3; }
+
+        /* Channel pills */
+        .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
+        .channel-chip {
+            background-color: #555; color: #fff;
+            padding: 6px 0; border-radius: 4px; cursor: grab; user-select: none;
+            flex: 1; box-sizing: border-box; text-align: center;
+        }
+        .channel-chip:active { cursor: grabbing; }
+
+        /* CONTENT WRAPPER */
+        .content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            flex-grow: 1;
+            padding: 10px;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Reduced top/bottom margin for the main container */
+        .main-container { display: flex; align-items: center; margin: 10px 0; gap: 20px; }
+
+        /* Adjust heading margin so it’s closer to the top */
+        h2#imageTitle { margin: 5px 0 10px 0; }
+
+        .main-image { width: 500px; height: 500px; border: 5px solid #333; border-radius: 10px; }
+
+        .file-navigation-button {
+            padding: 10px 20px; font-size: 16px; background-color: #007bff; color: #fff;
+            border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;
+        }
+        .file-navigation-button:hover { background-color: #0056b3; }
+
+        /* Cell Images Row */
+        .cell-images-row {
+            display: flex; align-items: stretch; justify-content: center;
+            width: 100%; max-width: 1000px; gap: 20px; margin-bottom: 20px;
+        }
+        .cell-id {
+            font-size: 18px; display: flex; align-items: center; justify-content: center;
+            height: 100%; flex-shrink: 0; padding-top: 120px;
+        }
+        .cell-column { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+        .cell-image { width: 200px; height: 200px; object-fit: contain; border: 2px solid #333; border-radius: 8px; }
+
+        .cell-label {
+            width: 200px; height: 30px; display: flex; color: white; align-items: center; justify-content: center;
+            text-align: center; font-weight: bold; margin-bottom: 2px; border: none; border-radius: 5px;
+        }
+        .cell-label:hover { background-color: #0056b3; color: #fff; }
+        .dic { background-color: black; }
+        .dapi { background-color: blue; }
+        .mcherry { background-color: red; }
+        .gfp { background-color: green; }
+
+        .info-box { font-size: 14px; text-align: center; margin-top: 2px; }
+        .tight-info { line-height: 1.2; margin: 0; }
+
+        .navigation-buttons { margin-top: 5px; display: flex; justify-content: space-between; width: 300px; }
+        .navigation-buttons button {
+            padding: 10px 20px; font-size: 16px; background-color: #007bff; color: #fff;
+            border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;
+        }
+        .navigation-buttons button:hover { background-color: #0056b3; }
+
+        a {
+            background-color: #007bff; color: #fff; text-decoration: none; padding: 12px 20px; border: none;
+            border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin-bottom: 30px;
+        }
+        a:hover { background-color: #0056b3; color: #fff; }
+
+        .table-section { margin-top: 15px; margin-bottom: 15px; }
+
+        /* Table container */
+        .celltable {
+            width: 100%; max-width: 1000px; background-color: #222; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); margin-top: 20px;
+        }
+
+        /* Table itself */
+        .celltable table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            background-color: #222; color: #fff; font-family: Arial, sans-serif; font-size: 14px;
+        }
+
+        /* Table header */
+        .celltable thead { background-color: #333; }
+        .celltable th {
+            padding: 15px 12px; text-align: left; font-weight: bold; color: #fff; background-color: #333;
+            border-bottom: 2px solid #007bff; position: relative;
+        }
+        .celltable th:first-child { border-top-left-radius: 10px; }
+        .celltable th:last-child { border-top-right-radius: 10px; }
+
+        /* Table body */
+        .celltable tbody { background-color: #222; }
+        .celltable td { padding: 12px; border-bottom: 1px solid #444; transition: background-color 0.2s; }
+
+        /* Row striping for better readability */
+        .celltable tbody tr:nth-child(even) { background-color: #2a2a2a; }
+        .celltable tbody tr:nth-child(odd) { background-color: #222; }
+
+        /* Row hover effect */
+        .celltable tbody tr:hover { background-color: #2f2f2f; cursor: pointer; }
+
+        /* Active/selected row */
+        .celltable tbody tr.selected { background-color: #1a4a6b; }
+        .celltable tbody tr.selected:hover { background-color: #1e5474; }
+
+        /* Numeric columns - right align */
+        .celltable td.numeric { text-align: right; font-family: 'Courier New', monospace; }
+
+        /* Links within table cells */
+        .celltable a {
+            color: #66b3ff; text-decoration: none; font-size: 14px; padding: 0; border-radius: 3px;
+            background-color: transparent; transition: all 0.2s;
+        }
+        .celltable a:hover { color: #fff; background-color: #007bff; text-decoration: none; }
+
+        /* Action buttons within table */
+        .celltable .action-btn {
+            padding: 4px 8px; font-size: 12px; background-color: #007bff; color: #fff;
+            border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;
+        }
+        .celltable .action-btn:hover { background-color: #0056b3; }
+
+        /* Empty table message */
+        .celltable .no-data { text-align: center; padding: 30px; color: #888; font-style: italic; }
+
+        .popup {
+            position: absolute; display: none; background-color: #222; border-radius: 4px; padding: 5px;
+            font-family: Arial, sans-serif; align-items: center; justify-content: space-around;
+        }
+        .popup a { padding: 5px; font-size: 15px; margin-bottom:20px; }
+        .popup button {
+            font-size: 15px; background-color: red; color: white; text-decoration: none; padding: 5px;
+            border: none; border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin-bottom: 20px;
+        }
+        .popup .hide { background-color: #007bff; }
+        .popup .hide:hover { background-color: #0056b3; }
+        .popup button:hover { background-color: darkred; color: #fff; }
+    </style>
+
+    <!-- Sortable.js for drag & drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% endblock head %}
+
 {% block content %}
     {% load render_table from django_tables2 %}
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <title>Display Cell Images</title>
-        <style>
-            .channel-chip.dic {
-                background-color: black;
-            }
 
-            .channel-chip.dapi {
-                background-color: blue;
-            }
-
-            .channel-chip.mcherry {
-                background-color: red;
-            }
-
-            .channel-chip.gfp {
-                background-color: green;
-            }
-
-            /* Overall page styling */
-            body {
-                margin: 0;
-                font-family: Arial, sans-serif;
-                background-color: #333;
-                color: #fff;
-                min-height: 100vh;
-                display: flex; /* so the sidebar + content fill vertical space */
-                padding-top: 40px;
-
-            }
-
-            .page-container {
-                display: flex;
-                flex-direction: row;
-                width: 100%;
-                min-height: 100vh; /* ensures the sidebar and content fill the viewport height */
-                height: 100%;
-            }
-
-            /* SIDEBAR */
-            .sidebar {
-                position: relative;
-                width: 400px;
-                background-color: #222; /* darker grey than main page */
-                transition: width 0.3s ease,
-                background-color 0.2s ease; /* animate the color change too */
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
-            }
-
-            /* Collapsed state: set width to something minimal */
-            .sidebar.collapsed {
-                width: 60px;
-                background-color: #222;
-            }
-
-            /* Hide text + content when collapsed */
-            .sidebar.collapsed .sidebar-header h2,
-            .sidebar.collapsed .sidebar-content {
-                display: none;
-            }
-
-            /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
-            .sidebar:hover {
-                background-color: #222;
-            }
-
-            /* Only lighten when collapsed AND hovered */
-            .sidebar.collapsed:hover {
-                background-color: #2f2f2f;
-            }
-
-            /* Sidebar header */
-            .sidebar-header {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background-color: #333;
-                border-radius: 8px;
-                margin: 8px 10px;
-                padding: 10px;
-            }
-
-            .sidebar-header h2 {
-                margin: 0;
-                font-size: 18px;
-            }
-
-            /* Toggle button */
-            .toggle-btn {
-                position: static;
-                margin-left: auto;
-                background: none;
-                border: none;
-                color: #fff;
-                cursor: pointer;
-                font-size: 18px;
-                line-height: 24px;
-            }
-
-            .toggle-btn:hover {
-                color: #ddd;
-            }
-
-            .toggle-btn::before {
-                content: '◀';
-            }
-
-            .sidebar.collapsed .toggle-btn::before {
-                content: '▶';
-            }
-
-            /* Sidebar content (file list) */
-            .sidebar-content {
-                flex-grow: 1;
-                overflow-y: auto;
-                padding-bottom: 10px;
-            }
-
-            .sidebar-content ul {
-                list-style: none;
-                margin: 0;
-                padding: 0;
-            }
-
-            .sidebar-content li {
-                margin: 0;
-                padding: 0;
-                border: none;
-            }
-
-            /* Each file-item */
-            .file-item {
-                margin: 8px 10px;
-                padding: 10px;
-                background-color: #333;
-                border-radius: 8px;
-                cursor: pointer;
-                transition: background-color 0.2s;
-
-                font-size: 14px;
-            }
-
-            .file-item:hover {
-                background-color: #3399ff;
-            }
-
-            .file-item.active {
-                background-color: #007bff;
-                color: #fff;
-            }
-
-            .file-item.active:hover {
-                background-color: #0056b3;
-            }
-
-            /* Channel pills */
-            .channel-bar {
-                display: flex;
-                gap: 4px;
-                margin-top: 6px;
-                flex-wrap: nowrap;
-                overflow-x: auto;
-            }
-
-            .channel-chip {
-                background-color: #555;
-                color: #fff;
-                /* vertical padding only, remove horizontal padding */
-                padding: 6px 0;
-                border-radius: 4px;
-                cursor: grab;
-                user-select: none;
-
-                /* make each chip flexibly 1 share of the row */
-                flex: 1;
-                box-sizing: border-box;
-                text-align: center;
-            }
-
-            .channel-chip:active {
-                cursor: grabbing;
-            }
-
-            /* CONTENT WRAPPER */
-            .content-wrapper {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: flex-start;
-                flex-grow: 1;
-                padding: 10px;
-            }
-
-            /* MAIN CONTENT */
-            .main-content {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                max-width: 1200px;
-                width: 100%;
-            }
-
-            /* Reduced top/bottom margin for the main container */
-            .main-container {
-                display: flex;
-                align-items: center;
-                margin: 10px 0;
-                gap: 20px;
-            }
-
-            /* Adjust heading margin so it’s closer to the top */
-            h2#imageTitle {
-                margin: 5px 0 10px 0;
-            }
-
-            .main-image {
-                width: 500px;
-                height: 500px;
-                border: 5px solid #333;
-                border-radius: 10px;
-            }
-
-            .file-navigation-button {
-                padding: 10px 20px;
-                font-size: 16px;
-                background-color: #007bff;
-                color: #fff;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-            }
-
-            .file-navigation-button:hover {
-                background-color: #0056b3;
-            }
-
-            /* Cell Images Row */
-            .cell-images-row {
-                display: flex;
-                align-items: stretch;
-                justify-content: center;
-                width: 100%;
-                max-width: 1000px;
-                gap: 20px;
-                margin-bottom: 20px; /* spacing below row */
-            }
-
-            .cell-id {
-                font-size: 18px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 100%;
-                flex-shrink: 0;
-                padding-top: 120px;
-            }
-
-            .cell-column {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                flex-shrink: 0;
-            }
-
-            .cell-image {
-                width: 200px;
-                height: 200px;
-                object-fit: contain;
-                border: 2px solid #333;
-                border-radius: 8px;
-            }
-
-            .cell-label {
-                width: 200px;
-                height: 30px;
-                display: flex;
-                color: white;
-                align-items: center;
-                justify-content: center;
-                text-align: center;
-                font-weight: bold;
-                margin-bottom: 2px;
-                border: none;
-                border-radius: 5px;
-            }
-
-            .cell-label:hover {
-                background-color: #0056b3; /* Darker blue on hover */
-                color: #fff; /* Keep the text white */
-            }
-
-            .dic {
-                background-color: black;
-            }
-
-            .dapi {
-                background-color: blue;
-            }
-
-            .mcherry {
-                background-color: red;
-            }
-
-            .gfp {
-                background-color: green;
-            }
-
-            .info-box {
-                font-size: 14px;
-                text-align: center;
-                margin-top: 2px;
-            }
-
-            .tight-info {
-                line-height: 1.2;
-                margin: 0;
-            }
-
-            .navigation-buttons {
-                margin-top: 5px;
-                display: flex;
-                justify-content: space-between;
-                width: 300px;
-            }
-
-            .navigation-buttons button {
-                padding: 10px 20px;
-                font-size: 16px;
-                background-color: #007bff;
-                color: #fff;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-            }
-
-            .navigation-buttons button:hover {
-                background-color: #0056b3;
-            }
-
-            a {
-                background-color: #007bff; /* Full blue background */
-                color: #fff; /* White text */
-                text-decoration: none; /* Remove underline */
-                padding: 12px 20px; /* Padding for a larger clickable area */
-                border: none; /* Remove border */
-                border-radius: 4px; /* Rounded corners */
-                transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
-                margin-bottom: 30px; /* Space between the button and the list */
-            }
-
-            a:hover {
-                background-color: #0056b3; /* Darker blue on hover */
-                color: #fff; /* Keep the text white */
-            }
-
-            /* Table container */
-            .celltable {
-                width: 100%;
-                max-width: 1000px;
-                background-color: #222;
-                border-radius: 10px;
-                overflow: hidden;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-                margin-top: 20px;
-            }
-
-            /* Table itself */
-            .celltable table {
-                width: 100%;
-                border-collapse: separate;
-                border-spacing: 0;
-                background-color: #222;
-                color: #fff;
-                font-family: Arial, sans-serif;
-                font-size: 14px;
-            }
-
-            /* Table header */
-            .celltable thead {
-                background-color: #333;
-            }
-
-            .celltable th {
-                padding: 15px 12px;
-                text-align: left;
-                font-weight: bold;
-                color: #fff;
-                background-color: #333;
-                border-bottom: 2px solid #007bff;
-                position: relative;
-            }
-
-            .celltable th:first-child {
-                border-top-left-radius: 10px;
-            }
-
-            .celltable th:last-child {
-                border-top-right-radius: 10px;
-            }
-
-
-            /* Table body */
-            .celltable tbody {
-                background-color: #222;
-            }
-
-            .celltable td {
-                padding: 12px;
-                border-bottom: 1px solid #444;
-                transition: background-color 0.2s;
-            }
-
-            /* Row striping for better readability */
-            .celltable tbody tr:nth-child(even) {
-                background-color: #2a2a2a;
-            }
-
-            .celltable tbody tr:nth-child(odd) {
-                background-color: #222;
-            }
-
-            /* Row hover effect */
-            .celltable tbody tr:hover {
-                background-color: #2f2f2f;
-                cursor: pointer;
-            }
-
-            /* Active/selected row */
-            .celltable tbody tr.selected {
-                background-color: #1a4a6b;
-            }
-
-            .celltable tbody tr.selected:hover {
-                background-color: #1e5474;
-            }
-
-            /* Numeric columns - right align */
-            .celltable td.numeric {
-                text-align: right;
-                font-family: 'Courier New', monospace;
-            }
-
-            /* Links within table cells */
-            .celltable a {
-                color: #66b3ff;
-                text-decoration: none;
-                font-size: 14px;
-                padding: 0;
-                border-radius: 3px;
-                background-color: transparent;
-                transition: all 0.2s;
-            }
-
-            .celltable a:hover {
-                color: #fff;
-                background-color: #007bff;
-                text-decoration: none;
-            }
-
-            /* Action buttons within table */
-            .celltable .action-btn {
-                padding: 4px 8px;
-                font-size: 12px;
-                background-color: #007bff;
-                color: #fff;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                transition: background-color 0.2s;
-            }
-
-            .celltable .action-btn:hover {
-                background-color: #0056b3;
-            }
-
-            /* Empty table message */
-            .celltable .no-data {
-                text-align: center;
-                padding: 30px;
-                color: #888;
-                font-style: italic;
-            }
-            .popup {
-                position: absolute;
-                display: none;
-                background-color: #222;
-                border-radius: 4px;
-                padding: 5px;
-                font-family: Arial, sans-serif;
-                align-items: center;
-                justify-content: space-around;
-
-            }
-
-            .popup a{
-                padding: 5px;
-                font-size: 15px;
-                margin-bottom:20px;
-
-            }
-            .popup button{
-                font-size: 15px;
-                background-color: red;
-                color: white;
-                text-decoration: none;
-                padding: 5px;
-                border: none;
-                border-radius: 4px;
-                transition: background-color 0.3s, color 0.3s;
-                margin-bottom: 20px;
-            }
-
-            .popup .hide{
-                background-color: #007bff;
-
-            }
-            .popup .hide:hover{
-                background-color: #0056b3;
-
-            }
-            .popup button:hover {
-                background-color: darkred;
-                color: #fff;
-            }
-
-        </style>
-
-
-        <!-- Sortable.js for drag & drop -->
-        <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    </head>
-    <body>
     <div class="page-container">
         <!-- SIDEBAR -->
         <div class="sidebar" id="sidebar">
@@ -595,12 +309,9 @@
                         </form>
                         <img id="cellImage2" class="cell-image" src="">
                         <div class="info-box">
-                            <div class="tight-info">Nucleus intensity from DAPI: <span
-                                    id="nucleusIntensitySum_DAPI"></span></div>
-                            <div class="tight-info">Total cellular intensity from DAPI: <span
-                                    id="cellularIntensitySum_DAPI"></span></div>
-                            <div class="tight-info">Cytoplasmic intensity from DAPI: <span
-                                    id="cytoplasmicIntensity_DAPI"></span></div>
+                            <div class="tight-info">Nucleus intensity from DAPI: <span id="nucleusIntensitySum_DAPI"></span></div>
+                            <div class="tight-info">Total cellular intensity from DAPI: <span id="cellularIntensitySum_DAPI"></span></div>
+                            <div class="tight-info">Cytoplasmic intensity from DAPI: <span id="cytoplasmicIntensity_DAPI"></span></div>
                         </div>
                     </div>
                     <div class="cell-column">
@@ -623,17 +334,17 @@
                         <img id="cellImage4" class="cell-image" src="">
                         <div class="info-box">
                             <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
-                            <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span>
-                            </div>
+                            <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
                             <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
-
                         </div>
                     </div>
                 </div>
+
                 <div class="navigation-buttons">
                     <button onclick="previousCell()">Previous Cell</button>
                     <button onclick="nextCell()">Next Cell</button>
                 </div>
+
                 <div class="table-section">
                     {% render_table cell_table %}
                     <div class="popup">
@@ -644,7 +355,6 @@
                             <button name="delete" class="deleteCell" type="submit">Delete</button>
                         </form>
                         <button class="hide" onclick="hidePopUp()">Close</button>
-
                     </div>
                 </div>
             </div> <!-- end main-content -->
@@ -731,7 +441,6 @@
             const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
             if (active) active.classList.add('active');
         }
-
         updateSidebarActive();
 
         // Click file
@@ -753,7 +462,6 @@
         sidebar.addEventListener('click', e => {
             if (sidebar.classList.contains('collapsed')) {
                 sidebar.classList.remove('collapsed');
-
             }
         });
     </script>
@@ -774,7 +482,7 @@
     </script>
 
     <script>
-        //table script
+        // table script
         var table = document.getElementById('celltable');
         var popup = document.getElementsByClassName('popup');
         var closebtn = document.getElementsByClassName('hide');
@@ -805,19 +513,21 @@
             popup[0].style.display = 'none';
         }
 
-        table.addEventListener("click", rowListener);
+        if (table) {
+            table.addEventListener("click", rowListener);
+        }
 
         function setCellID(){
             var cell_id = document.getElementById('popup-id').innerText;
             document.getElementById('cell_id_input').value = cell_id;
         }
 
-        document.querySelector('.deleteCell').addEventListener('click', function (e){
-            setCellID();
-            document.getElementById('delete_cell').submit();
-        })
-
+        var deleteBtn = document.querySelector('.deleteCell');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function (e){
+                setCellID();
+                document.getElementById('delete_cell').submit();
+            });
+        }
     </script>
-    </body>
-    </html>
 {% endblock content %}
