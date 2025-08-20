@@ -68,21 +68,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pre-process</title>
     <style>
-      .channel-chip.dic {
-        background-color: black;
-      }
-
-      .channel-chip.dapi {
-        background-color: blue;
-      }
-
-      .channel-chip.mcherry {
-        background-color: red;
-      }
-
-      .channel-chip.gfp {
-        background-color: green;
-      }
+      .channel-chip.dic { background-color: black; }
+      .channel-chip.dapi { background-color: blue; }
+      .channel-chip.mcherry { background-color: red; }
+      .channel-chip.gfp { background-color: green; }
 
       /* Overall page styling */
       body {
@@ -96,41 +85,33 @@
       .page-container {
         display: flex;
         flex-direction: row;
-        min-height: 100vh; /* ensures the sidebar and content stretch the full viewport height */
+        height: calc(100dvh); 
+        align-items: stretch;           
       }
 
       /* SIDEBAR */
       .sidebar {
         position: relative;
         width: 400px;
-        background-color: #222; /* darker grey than main page */
-        transition: width 0.3s ease, background-color 0.2s ease; /* animate the color change too */
-        overflow: hidden;
+        background-color: #222; 
+        transition: width 0.3s ease, background-color 0.2s ease; 
+        overflow-x: hidden;
         display: flex;
         flex-direction: column;
       }
 
       /* Collapsed state: set width to something minimal */
-      .sidebar.collapsed {
-        width: 60px;
-        background-color: #222;
-      }
+      .sidebar.collapsed { width: 60px; background-color: #222; }
 
       /* Hide text + content when collapsed */
       .sidebar.collapsed .sidebar-header h2,
-      .sidebar.collapsed .sidebar-content {
-        display: none;
-      }
+      .sidebar.collapsed .sidebar-content { display: none; }
 
       /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
-      .sidebar:hover {
-        background-color: #222;
-      }
+      .sidebar:hover { background-color: #222; }
 
       /* Only lighten when collapsed AND hovered */
-      .sidebar.collapsed:hover {
-        background-color: #2f2f2f;
-      }
+      .sidebar.collapsed:hover { background-color: #2f2f2f; }
 
       /* Sidebar header */
       .sidebar-header {
@@ -142,11 +123,7 @@
         margin: 8px 10px;
         padding: 10px;
       }
-
-      .sidebar-header h2 {
-        margin: 0;
-        font-size: 18px;
-      }
+      .sidebar-header h2 { margin: 0; font-size: 18px; }
 
       /* Toggle button */
       .toggle-btn {
@@ -159,38 +136,19 @@
         font-size: 18px;
         line-height: 24px;
       }
-
-      .toggle-btn:hover {
-        color: #ddd;
-      }
-
-      .toggle-btn::before {
-        content: "◀";
-      }
-
-      .sidebar.collapsed .toggle-btn::before {
-        content: "▶";
-      }
+      .toggle-btn:hover { color: #ddd; }
+      .toggle-btn::before { content: "◀"; }
+      .sidebar.collapsed .toggle-btn::before { content: "▶"; }
 
       /* Sidebar content (file list) */
       .sidebar-content {
         flex-grow: 1;
-        overflow-y: scroll;
-        min-height: 0; 
+        overflow-y: scroll;  /* show scrollbar only when needed */
+        min-height: 0;       /* allow flex child to shrink and scroll */
         padding-bottom: 10px;
       }
-
-      .sidebar-content ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .sidebar-content li {
-        margin: 0;
-        padding: 0;
-        border: none;
-      }
+      .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
+      .sidebar-content li { margin: 0; padding: 0; border: none; }
 
       /* Each file-item */
       .file-item {
@@ -200,50 +158,40 @@
         border-radius: 8px;
         cursor: pointer;
         transition: background-color 0.2s;
-
         font-size: 14px;
       }
-
-      .file-item:hover {
-        background-color: #3399ff;
-      }
-
-      .file-item.active {
-        background-color: #007bff;
-        color: #fff;
-      }
-
-      .file-item.active:hover {
-        background-color: #0056b3;
-      }
+      .file-item:hover { background-color: #3399ff; }
+      .file-item.active { background-color: #007bff; color: #fff; }
+      .file-item.active:hover { background-color: #0056b3; }
 
       /* Channel pills */
-      .channel-bar {
-        display: flex;
-        gap: 4px;
-        margin-top: 6px;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-      }
-
+      .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
       .channel-chip {
-        background-color: #555;
-        color: #fff;
-        /* vertical padding only, remove horizontal padding */
-        padding: 6px 0;
-        border-radius: 4px;
-        cursor: grab;
-        user-select: none;
-
-        /* make each chip flexibly 1 share of the row */
-        flex: 1;
-        box-sizing: border-box;
-        text-align: center;
+        background-color: #555; color: #fff;
+        padding: 6px 0; border-radius: 4px; cursor: grab; user-select: none;
+        flex: 1; box-sizing: border-box; text-align: center;
       }
+      .channel-chip:active { cursor: grabbing; }
 
-      .channel-chip:active {
-        cursor: grabbing;
+      /* ---- ADDED: Always show and style the HORIZONTAL scrollbar on each .channel-bar ---- */
+      .channel-bar {
+        scrollbar-gutter: stable;   /* reserve space so the bar is always visible */
+        scrollbar-width: auto;      /* Firefox: show normal-width scrollbar */
       }
+      .channel-bar::-webkit-scrollbar {
+        height: 10px;               /* horizontal bar height (Chromium/Edge/WebKit) */
+      }
+      .channel-bar::-webkit-scrollbar-thumb {
+        background: #444;           /* draggable thumb */
+        border-radius: 8px;
+      }
+      .channel-bar::-webkit-scrollbar-track {
+        background: #222;           /* track color to match sidebar */
+      }
+      .channel-bar::-webkit-scrollbar-button {
+        display: none;              /* hide tiny arrow buttons */
+      }
+      /* ---- END ADDED ---- */
 
       /* MAIN CONTENT */
       .main-content {
@@ -252,9 +200,9 @@
         text-align: center;
       }
 
-      h1 {
-        margin-bottom: 20px;
-      }
+      .main-content > :last-child { margin-bottom: 0 !important; }
+
+      h1 { margin-bottom: 20px; }
 
       .image-container {
         display: flex;
@@ -264,123 +212,75 @@
         margin-bottom: 20px;
       }
 
-      img {
-        border: 2px solid #333;
-        border-radius: 5px;
-      }
+      img { border: 2px solid #333; border-radius: 5px; }
 
-      .navigation {
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-      }
+      .navigation { display: flex; justify-content: center; margin-top: 20px; }
 
       .button {
-        background-color: #007bff;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        font-size: 16px;
-        margin: 0 50px;
-        cursor: pointer;
-        border-radius: 5px;
-        min-width: 150px;
-        text-align: center;
+        background-color: #007bff; color: white; border: none; padding: 10px 20px;
+        font-size: 16px; margin: 0 50px; cursor: pointer; border-radius: 5px;
+        min-width: 150px; text-align: center;
       }
+      .button:hover { background-color: #0056b3; }
 
-      .button:hover {
-        background-color: #0056b3;
-      }
+      .dropdown-check-list:hover { background-color: #0056b3; color: #fff; }
 
-      .dropdown-check-list:hover {
-        background-color: #0056b3;
-        color: #fff;
-      }
+      .button { transition: background-color 0.3s ease; }
+      .dropdown-check-list { cursor: pointer; transition: background-color 0.3s ease, color 0.3s ease; }
 
-      .button {
-        transition: background-color 0.3s ease;
-      }
-      .dropdown-check-list {
-        cursor: pointer;
-        transition: background-color 0.3s ease, color 0.3s ease;
-      }
-
-      #currentFileInfo {
-        margin-top: 10px;
-      }
+      #currentFileInfo { margin-top: 10px; }
 
       a {
-        background-color: #007bff; /* Full blue background */
-        color: #fff; /* White text */
-        text-decoration: none; /* Remove underline */
-        padding: 12px 20px; /* Padding for a larger clickable area */
-        border: none; /* Remove border */
-        border-radius: 4px; /* Rounded corners */
-        transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
-        margin-bottom: 30px; /* Space between the button and the list */
+        background-color: #007bff; color: #fff; text-decoration: none; padding: 12px 20px; border: none;
+        border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin-bottom: 30px;
       }
+      a:hover { background-color: #0056b3; color: #fff; }
 
-      a:hover {
-        background-color: #0056b3; /* Darker blue on hover */
-        color: #fff; /* Keep the text white */
-      }
-      .analysis {
-        display: inline;
-      }
+      .analysis { display: inline; }
 
       .dropdown-check-list {
-        margin-top: 10px;
-        display: inline-block;
-        background-color: #007bff; /* Full blue background */
-        color: #fff; /* White text */
-        border: none; /* Remove border */
-        border-radius: 4px; /* Rounded corners */
+        margin-top: 10px; display: inline-block; background-color: #007bff; color: #fff; border: none; border-radius: 4px;
       }
-
       .dropdown-check-list .anchor {
-        position: relative;
-        cursor: pointer;
-        display: inline-block;
-        padding: 5px 50px 5px 10px;
+        position: relative; cursor: pointer; display: inline-block; padding: 5px 50px 5px 10px;
       }
-
       .dropdown-check-list .anchor:after {
-        position: absolute;
-        content: "";
-        border-left: 2px solid white;
-        border-top: 2px solid white;
-        padding: 5px;
-        right: 10px;
-        top: 20%;
-        -moz-transform: rotate(-135deg);
-        -ms-transform: rotate(-135deg);
-        -o-transform: rotate(-135deg);
-        -webkit-transform: rotate(-135deg);
-        transform: rotate(-135deg);
+        position: absolute; content: ""; border-left: 2px solid white; border-top: 2px solid white; padding: 5px;
+        right: 10px; top: 20%; transform: rotate(-135deg);
+      }
+      .dropdown-check-list .anchor:active:after { right: 8px; top: 21%; }
+      .dropdown-check-list ul.items { padding: 2px; display: none; margin: 0; border-top: none; }
+      .dropdown-check-list ul.items li { list-style: none; }
+      .dropdown-check-list.visible .anchor { color: #ffffff; }
+      .dropdown-check-list.visible .items { display: block; }
+
+      /* Chrome / Edge / Safari */
+      .sidebar-content::-webkit-scrollbar-track {
+        background: #222 !important;
       }
 
-      .dropdown-check-list .anchor:active:after {
-        right: 8px;
-        top: 21%;
+      /* Firefox */
+      .sidebar-content {
+        /* first = thumb, second = track */
+        scrollbar-color: #333 #222;
       }
 
-      .dropdown-check-list ul.items {
-        padding: 2px;
-        display: none;
-        margin: 0;
-        border-top: none;
+      /* NEW: force scrollbar to always show */
+      .sidebar-content {
+        scrollbar-gutter: stable both-edges; /* always leave room */
+        scrollbar-width: auto;               /* firefox: make sure it shows */
       }
 
-      .dropdown-check-list ul.items li {
-        list-style: none;
+      /* Chromium/Edge/WebKit scrollbar body & thumb */
+      .sidebar-content::-webkit-scrollbar {
+        width: 12px;                         /* visible width */
       }
-
-      .dropdown-check-list.visible .anchor {
-        color: #ffffff;
+      .sidebar-content::-webkit-scrollbar-thumb {
+        background: #444;                     /* actual draggable part */
+        border-radius: 8px;
       }
-
-      .dropdown-check-list.visible .items {
-        display: block;
+      .sidebar-content::-webkit-scrollbar-button {
+        display: none;                        /* hide tiny arrows */
       }
     </style>
 
@@ -390,13 +290,7 @@
   <body>
     {% if messages %} {% for msg in messages %}
     <div
-      style="
-        background: #f8d7da;
-        color: #721c24;
-        padding: 8px;
-        border-radius: 4px;
-        margin: 10px 0;
-      "
+      style="background: #f8d7da; color: #721c24; padding: 8px; border-radius: 4px; margin: 10px 0;"
     >
       {{ msg }}
     </div>
@@ -413,17 +307,11 @@
           <ul id="fileList">
             {% for file in file_list %}
             <li>
-              <div
-                class="file-item"
-                data-index="{{ forloop.counter0 }}"
-                data-uuid="{{ file.uuid }}"
-              >
+              <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                 {{ file.name }}
                 <div class="channel-bar">
                   {% for channel in file.detected_channels %}
-                  <span class="channel-chip {{ channel|lower }}"
-                    >{{ channel }}</span
-                  >
+                  <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>
                   {% endfor %}
                 </div>
               </div>
@@ -437,29 +325,15 @@
       <div class="main-content">
         <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
         <div class="analysis">
-          <form
-            action=""
-            method="post"
-            enctype="multipart/form-data"
-            id="preprocessForm"
-          >
+          <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
             {% csrf_token %}
-            <input
-              type="submit"
-              value="Start Analysis"
-              class="button"
-              id="startAnalysisButton"
-            />
+            <input type="submit" value="Start Analysis" class="button" id="startAnalysisButton" />
             <div id="list1" class="dropdown-check-list" tabindex="100">
               <span class="anchor">Select Statistics</span>
               <ul class="items">
                 {% for analysis in analyses %}
                 <li>
-                  <input
-                    type="checkbox"
-                    name="selected_analysis"
-                    value="{{ analysis }}"
-                  />{{analysis}}
+                  <input type="checkbox" name="selected_analysis" value="{{ analysis }}" />{{analysis}}
                 </li>
                 {% endfor %}
               </ul>
@@ -468,11 +342,13 @@
         </div>
 
         <div class="image-container" id="imageContainer">
-          {% for image in images %} {% if forloop.first %}
-          <img src="{{ image.file_location.url }}" width="500" height="500" />
-          {% else %}
-          <img src="{{ image.file_location.url }}" width="300" height="300" />
-          {% endif %} {% endfor %}
+          {% for image in images %}
+            {% if forloop.first %}
+              <img src="{{ image.file_location.url }}" width="500" height="500" />
+            {% else %}
+              <img src="{{ image.file_location.url }}" width="300" height="300" />
+            {% endif %}
+          {% endfor %}
         </div>
 
         <div class="navigation">
@@ -481,9 +357,7 @@
         </div>
 
         <p id="currentFileInfo">
-          Viewing file
-          <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of
-          {{ total_files }}
+          Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}
         </p>
       </div>
     </div>
@@ -501,12 +375,9 @@
       // Highlight active
       function updateSidebarActive() {
         fileItems.forEach((i) => i.classList.remove("active"));
-        const active = document.querySelector(
-          `.file-item[data-index="${currentFileIndex}"]`
-        );
+        const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
         if (active) active.classList.add("active");
       }
-
       updateSidebarActive();
 
       // Click file
@@ -529,10 +400,10 @@
           sidebar.classList.remove("collapsed");
         }
       });
+
       var checkList = document.getElementById("list1");
-      checkList.getElementsByClassName("anchor")[0].onclick = function (evt) {
-        if (checkList.classList.contains("visible"))
-          checkList.classList.remove("visible");
+      checkList.getElementsByClassName("anchor")[0].onclick = function () {
+        if (checkList.classList.contains("visible")) checkList.classList.remove("visible");
         else checkList.classList.add("visible");
       };
 
@@ -545,30 +416,25 @@
       });
 
       // Disable buttons on form submit
-      document
-        .getElementById("preprocessForm")
-        .addEventListener("submit", () => {
-          // Disable the start analysis button on submit
-          const btn = document.getElementById("startAnalysisButton");
-          btn.disabled = true;
-          btn.value = "Analyzing...";
-          btn.style.pointerEvents = "none";
-          btn.style.cursor = "not-allowed";
-          btn.style.backgroundColor = "#0056b3";
+      document.getElementById("preprocessForm").addEventListener("submit", () => {
+        const btn = document.getElementById("startAnalysisButton");
+        btn.disabled = true;
+        btn.value = "Analyzing...";
+        btn.style.pointerEvents = "none";
+        btn.style.cursor = "not-allowed";
+        btn.style.backgroundColor = "#0056b3";
 
-          // Disable the analysis-plugin dropdown
-          const plugin = document.getElementById("list1");
-          if (plugin) {
-            plugin.style.pointerEvents = "none";
-            plugin.style.opacity = "0.8";
-            plugin.style.backgroundColor = "#0056b3";
-          }
+        const plugin = document.getElementById("list1");
+        if (plugin) {
+          plugin.style.pointerEvents = "none";
+          plugin.style.opacity = "0.8";
+          plugin.style.backgroundColor = "#0056b3";
+        }
 
-          // Disable drag-and-drop on the channel bars
-          document.querySelectorAll(".channel-bar").forEach(bar => {
-            bar.style.pointerEvents = "none";
-          });
+        document.querySelectorAll(".channel-bar").forEach(bar => {
+          bar.style.pointerEvents = "none";
         });
+      });
 
       // AJAX load
       function loadImage(newIndex) {
@@ -579,25 +445,17 @@
         })
           .then((r) => r.json())
           .then((data) => {
-            // update images
             const container = document.getElementById("imageContainer");
             container.innerHTML = "";
             data.images.forEach((img, i) => {
               const el = document.createElement("img");
               el.src = img.file_location.url;
-              if (i === 0) {
-                el.width = 500;
-                el.height = 500;
-              } else {
-                el.width = 300;
-                el.height = 300;
-              }
+              if (i === 0) { el.width = 500; el.height = 500; }
+              else { el.width = 300; el.height = 300; }
               container.appendChild(el);
             });
-            // update text & index
             document.getElementById("fileName").textContent = data.file_name;
-            document.getElementById("currentFileIndex").textContent =
-              data.current_file_index + 1;
+            document.getElementById("currentFileIndex").textContent = data.current_file_index + 1;
             currentFileIndex = data.current_file_index;
             updateSidebarActive();
           });
@@ -623,9 +481,7 @@
         Sortable.create(bar, {
           animation: 150,
           onEnd() {
-            const newOrder = Array.from(bar.children).map(
-              (chip) => chip.textContent
-            );
+            const newOrder = Array.from(bar.children).map((chip) => chip.textContent);
             fetch(`/api/update-channel-order/${uuid}/`, {
               method: "POST",
               headers: {
@@ -639,6 +495,54 @@
           },
         });
       });
+    </script>
+
+    <!-- Sidebar Code -->
+    <script>
+      (function () {
+        function clampSidebar() {
+          var sidebar = document.getElementById('sidebar');
+          if (!sidebar) return;
+          var header  = sidebar.querySelector('.sidebar-header');
+          var content = sidebar.querySelector('.sidebar-content');
+          if (!content) return;
+
+          // visible viewport height (handles mobile UI chrome)
+          var vpH = document.documentElement.clientHeight;
+          var top = sidebar.getBoundingClientRect().top;  // distance from viewport top
+          var available = Math.max(0, vpH - top);
+
+          var headerH = header ? header.getBoundingClientRect().height : 0;
+          var hs = header ? getComputedStyle(header) : null;
+          var headerMargins = hs ? (parseFloat(hs.marginTop) || 0) + (parseFloat(hs.marginBottom) || 0) : 0;
+
+          var cs = getComputedStyle(content);
+          var vPad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+
+          var maxH = Math.max(0, Math.floor(available - headerH - headerMargins - vPad));
+          content.style.maxHeight = maxH + 'px';
+          content.style.overflowY = 'auto';
+          content.style.minHeight = '0';
+        }
+
+        window.addEventListener('load', function () {
+          requestAnimationFrame(clampSidebar);
+          setTimeout(clampSidebar, 0);
+        });
+        window.addEventListener('resize', clampSidebar);
+
+        var sidebarEl = document.getElementById('sidebar');
+        if (sidebarEl) {
+          sidebarEl.addEventListener('transitionend', function (e) {
+            if (e.propertyName === 'width') clampSidebar();
+          });
+        }
+
+        if ('ResizeObserver' in window) {
+          var main = document.querySelector('.main-content');
+          if (main) new ResizeObserver(clampSidebar).observe(main);
+        }
+      })();
     </script>
   </body>
 </html>

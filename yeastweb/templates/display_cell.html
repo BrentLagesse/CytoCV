@@ -20,11 +20,11 @@
         }
 
         .page-container {
-            display: flex;
-            flex-direction: row;
-            width: 100%;
-            min-height: 100vh; /* ensures the sidebar and content fill the viewport height */
-            align-items: stretch; /* make children equal height */
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        min-height: calc(100dvh - 40px);
+        align-items: stretch;           
         }
 
         /* SIDEBAR */
@@ -80,7 +80,13 @@
         .sidebar.collapsed .toggle-btn::before { content: '▶'; }
 
         /* Sidebar content (file list) */
-        .sidebar-content { flex-grow: 1; overflow-y: scroll; min-height: 0; padding-bottom: 10px; }
+        .sidebar-content { 
+            flex-grow: 1; 
+            overflow-y: scroll;  /* show scrollbar only when needed */
+            min-height: 0;       /* critical for flex children to allow scrolling */
+            padding-bottom: 10px; 
+        }
+      
         .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
         .sidebar-content li { margin: 0; padding: 0; border: none; }
 
@@ -248,6 +254,18 @@
         .popup .hide { background-color: #007bff; }
         .popup .hide:hover { background-color: #0056b3; }
         .popup button:hover { background-color: darkred; color: #fff; }
+
+
+        /* Chrome / Edge / Safari */
+        .sidebar-content::-webkit-scrollbar-track {
+        background: #222 !important;
+        }
+
+        /* Firefox */
+        .sidebar-content {
+        /* first = thumb, second = track */
+        scrollbar-color: #333 #222;
+        }
     </style>
 
     <!-- Sortable.js for drag & drop -->
@@ -530,4 +548,51 @@
             });
         }
     </script>
+
+    <!-- Sidebar Code -->
+    <script>
+        (function () {
+        function setSidebarScrollHeight() {
+            var sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            var header  = sidebar.querySelector('.sidebar-header');
+            var content = sidebar.querySelector('.sidebar-content');
+            if (!content) return;
+
+            // Sidebar height now equals the flex row height (which can exceed the viewport)
+            var sidebarH = sidebar.getBoundingClientRect().height;
+
+            var headerH = header ? header.getBoundingClientRect().height : 0;
+            var hs = header ? getComputedStyle(header) : null;
+            var headerMargins = hs ? (parseFloat(hs.marginTop)||0) + (parseFloat(hs.marginBottom)||0) : 0;
+
+            var cs = getComputedStyle(content);
+            var contentVPad = (parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0);
+
+            var maxH = Math.max(0, sidebarH - headerH - headerMargins - contentVPad);
+            content.style.maxHeight = maxH + 'px';
+            content.style.overflowY = 'auto';
+            content.style.minHeight  = '0';
+        }
+
+        window.addEventListener('load', function () {
+            requestAnimationFrame(setSidebarScrollHeight);
+            setTimeout(setSidebarScrollHeight, 0);
+        });
+        window.addEventListener('resize', setSidebarScrollHeight);
+
+        var sidebarEl = document.getElementById('sidebar');
+        if (sidebarEl) {
+            sidebarEl.addEventListener('transitionend', function (e) {
+            if (e.propertyName === 'width') setSidebarScrollHeight();
+            });
+        }
+
+        if ('ResizeObserver' in window) {
+            var main = document.querySelector('.main-content');
+            if (main) new ResizeObserver(setSidebarScrollHeight).observe(main);
+        }
+        })();
+    </script>
+
 {% endblock content %}
