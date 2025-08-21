@@ -24,3 +24,5 @@ settings.json
 
 # Config files
 *.cfg
+
+.env
