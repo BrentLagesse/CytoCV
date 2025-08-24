@@ -1,5 +1,5 @@
 # YeastAnalysisTool
-
+#
 ## Overview of Project
 
 The project is a tool to automatically analyze WIDE-fluorescent microscopy images of yeast cells undergoing mitosis. The biologist uses yeast cells that have a controlled mutation in them. The biologists then use fluorescent labeling to point of interest (POI) like a specific protein and this program automatically analyzes those POI to collect useful data that can maybe be used to find the cause of cellular mutation. The user will upload a special DV (Delta Vision) file that has multiple images that are taken at the same time; thus, allowing them to be overlapped. One of them is a Differential interference contrast (DIC) image, which basically is a clear image of the cells, and multiple images of the cells through different wavelengths which excite the fluorescent labels separately, leading to the POI being brightened (small dots). Currently, the fluorescent labels being used are DAPI, mcherry, and GFP.
