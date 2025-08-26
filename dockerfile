@@ -21,7 +21,7 @@ COPY requirements.txt  /app/
 # run this command to install all dependencies 
 RUN pip install --no-cache-dir -r requirements.txt
  
-COPY . /app/
+COPY ./yeastweb /app/
 
 # Expose the Django port
 EXPOSE 8000
@@ -38,3 +38,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Run Django’s development server
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "yeastweb.wsgi:application"]
+#CMD ["python", "manage.py", "runserver"]
