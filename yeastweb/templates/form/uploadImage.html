@@ -33,21 +33,84 @@
             align-items: center;
             background-color: #222; 
         }
+        
+        /* Upload list – hidden when empty, auto-grow, custom scrollbar */
         #fileList {
+            display: none;                    /* take no space when empty */
             width: 100%;
             text-align: left;
             margin-top: 10px;
+
+            background-color: #222;           /* same as form */
+            border: 0;
+            border-radius: 8px;
+            padding: 8px;
+
+            max-height: min(40vh, 320px);     /* cap height; then scroll */
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+            overscroll-behavior: contain;
+
+            /* Firefox scrollbar */
+            scrollbar-width: auto;
+            scrollbar-color: #333 transparent; /* thumb | track */
         }
+
+        /* Reveal the list only when it has at least one row */
+        #fileList:has(.file-item) {
+            display: block;
+        }
+
+        /* WebKit/Chromium/Safari scrollbars */
+        #fileList::-webkit-scrollbar { width: 16px; }
+        #fileList::-webkit-scrollbar-track { background: inherit; } /* no white box */
+        #fileList::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 8px;
+            border: 4px solid transparent;    /* inset look */
+            background-clip: content-box;
+        }
+        #fileList::-webkit-scrollbar-thumb:hover { background: #333; }
+
+        /* Keep the arrow end-caps but blend their bg */
+        #fileList::-webkit-scrollbar-button {
+            background: inherit;
+            height: 14px;
+        }
+        #fileList::-webkit-scrollbar-button:single-button:vertical:decrement {
+            border-width: 0 6px 6px 6px;
+            border-style: solid;
+            border-color: transparent transparent #333 transparent;
+        }
+        #fileList::-webkit-scrollbar-button:single-button:vertical:increment {
+            border-width: 6px 6px 0 6px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        #fileList::-webkit-scrollbar-corner { background: inherit; }
+
+        /* Rows (keep your contrast) */
         .file-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 8px;
             padding: 8px;
             background-color: #333;
             border: 1px solid #555;
             margin-top: 8px;
             border-radius: 4px;
         }
+
+        /* Long filenames don't shove the X button */
+        .file-item span:first-child {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .remove-btn {
             background-color: #e74c3c;
             color: #fff;
