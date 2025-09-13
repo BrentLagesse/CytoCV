@@ -494,8 +494,12 @@
               if (data && data.phase && textEl) {
                 if (data.phase === "Preprocessing Images") {
                   textEl.textContent = "Processing Images";
-                } else if (data.phase === "Detecting Cells" || data.phase === "Calculating Statistics") {
+                } else if (data.phase === "Detecting Cells") {
                   textEl.textContent = data.phase;
+                } else if (data.phase === "Calculating Statistics") {
+                  // Only show statistics phase if user selected at least one analysis
+                  const hasStats = !!document.querySelector('input[name="selected_analysis"]:checked');
+                  if (hasStats) textEl.textContent = data.phase;
                 }
               }
             } catch (err) { /* ignore polling errors */ }

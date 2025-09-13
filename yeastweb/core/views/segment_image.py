@@ -702,8 +702,9 @@ def segment_image(request, uuids):
             'analysis' : selected_analysis,
         }
 
-        # Mark accurate phase for UI
-        _write_progress(uuids, "Calculating Statistics")
+        # Mark accurate phase for UI only if user selected analyses
+        if selected_analysis:
+            _write_progress(uuids, "Calculating Statistics")
 
         # For each cell_number in the segmentation, create/fetch a CellStatistics object
         # and call get_stats so it can mutate the fields on cp.
