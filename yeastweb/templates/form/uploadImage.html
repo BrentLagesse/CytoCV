@@ -363,6 +363,22 @@
         submitBtn.style.backgroundColor = '#0056b3';
         btnText.textContent = 'Preprocessing Images';
 
+        // Reset server-side phase immediately so polling doesn't read stale values
+        (async () => {
+            try {
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                await fetch(`/api/progress/${encodeURIComponent("{{ progress_key }}")}/set/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({ phase: 'Preprocessing Images' }),
+                    credentials: 'same-origin',
+                });
+            } catch (e) { /* ignore */ }
+        })();
+
         // Start progress polling
         const progressKey = "{{ progress_key }}";
         let pollTimer = null;

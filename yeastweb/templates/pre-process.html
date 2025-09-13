@@ -468,6 +468,20 @@
           bar.style.pointerEvents = "none";
         });
 
+        // Reset server-side phase immediately to avoid stale reads
+        try {
+          const csrfToken = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]')?.value;
+          await fetch(`/api/progress/${encodeURIComponent("{{ uuids }}")}/set/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken || '',
+            },
+            body: JSON.stringify({ phase: 'Preprocessing Images' }),
+            credentials: 'same-origin',
+          });
+        } catch (e) { /* ignore */ }
+
         // Poll progress for accurate phases
         const uuids = "{{ uuids }}";
         let pollTimer = null;

@@ -175,6 +175,19 @@ def pre_process_step(request, uuids):
         'analyses' : analyses_list,
     })
 
+@require_POST
+def set_progress(request, key):
+    try:
+        body = json.loads(request.body or '{}')
+    except Exception:
+        body = {}
+    phase = body.get('phase', 'idle')
+    try:
+        _write_progress(key, phase)
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
 
 @require_POST
 @csrf_exempt
