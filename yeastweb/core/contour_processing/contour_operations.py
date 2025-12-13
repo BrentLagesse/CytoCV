@@ -34,7 +34,7 @@ def find_contours(images:GrayImage):
     # ret_dapi, thresh_dapi = cv2.threshold(images.get_image('gray_dapi'), 0, 1,
     #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
     
-    # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong intensity of cell
+    # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong brightness of cell
     thresh_dapi_3 = cv2.Canny(images.get_image('gray_dapi_3'), 60, 75)
     thresh_dapi = cv2.Canny(images.get_image('gray_dapi'), 60, 75)
 

@@ -378,6 +378,7 @@
                             <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span>
                             </div>
                             <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                            <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
                             </div>
                         </div>
                     </div>
@@ -419,14 +420,23 @@
                     // Function to update the images and statistics for the current cell
                     function updateCellImages(cellPairImages, statistics) {
                         const imageUrls = cellPairImages[currentCellNumber];
+                        // TODO: The solution for no outlines below is messy and could be improved
+                        const noOutline = (imageUrls[0].substring(0, imageUrls[0].length - 4) + "-no_outline.png");
+                        const reduceLength = noOutline.length - 17 - currentCellNumber.toString().length;
                         document.getElementById("cellImage1").src = imageUrls[0];
+                        document.getElementById("cellImage1_2").src = noOutline;
                         document.getElementById("cellImage2").src = imageUrls[1];
+                        document.getElementById("cellImage2_2").src = noOutline.substring(0, reduceLength) + "2" + noOutline.substring(reduceLength + 1, noOutline.length);
                         document.getElementById("cellImage3").src = imageUrls[2];
+                        document.getElementById("cellImage3_2").src = noOutline.substring(0, reduceLength) + "0" + noOutline.substring(reduceLength + 1, noOutline.length);
                         document.getElementById("cellImage4").src = imageUrls[3];
+                        document.getElementById("cellImage4_2").src = noOutline.substring(0, reduceLength) + "1" + noOutline.substring(reduceLength + 1, noOutline.length);
                         document.getElementById("cellID").textContent = currentCellNumber;
 
                         // Update the statistics for the current cell
                         const cellStats = statistics[currentCellNumber];
+                        const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
+                        const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
 
                         document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
                         document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
@@ -434,6 +444,7 @@
                         document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
                         document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
                         document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+                        document.getElementById("gfpDot").textContent = category;
                         document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
                         document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
                         document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";

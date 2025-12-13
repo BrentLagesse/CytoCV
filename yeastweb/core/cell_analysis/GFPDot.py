@@ -24,7 +24,7 @@ class GFPDot(Analysis):
                 # Distance between 2 contours
                 distance = math.dist(centers[0], centers[1])
                 
-                # Check whether distance is greater than 4 micrometers (37 pixels)
+                # Check whether distance is greater than 4 micrometers (37 pixels) TODO: This should be tunable and the distance is too much
                 # TODO: Is the return value actually pixels?
                 if distance > 37:
                     # Get green signals
@@ -37,7 +37,8 @@ class GFPDot(Analysis):
                     num_signals = [0] * len(centers)
                     for i in range(len(centers)):
                         for green_center in green_centers.values():
-                            if math.dist(centers[i], green_center) <= 20:
+                            cv2.circle(green_image, green_center, 20, (255, 255, 255), mcherry_line_width_input)
+                            if math.dist(centers[i], green_center) <= 20:       # TODO: 20-30?
                                 num_signals[i] += 1 # TODO: This is sometimes wrong because of GFP contours being counted twice sometimes
 
                     # TODO: Because of above issue, using >= instead of == below; should fix this issue in contour_operations.py find_contours
@@ -46,7 +47,7 @@ class GFPDot(Analysis):
                     elif (num_signals[0] == 1 and num_signals[1] == 0) or (num_signals[0] == 0 and num_signals[1] == 1):    # 1 green dot with only 1 of the 2 red dots
                         self.cp.category_GFP_dot = 2
                     elif (num_signals[0] == 2 and num_signals[1] == 0) or (num_signals[0] == 0 and num_signals[1] == 2):    # 2 green dots with only 1 of the 2 red dots
-                        self.cp.category_GFP_dot = 3
+                        self.cp.category_GFP_dot = 3    # TODO: Test since none of the original images actually had this
                     else:   # Other unexpected category
                         self.cp.category_GFP_dot = 4
 

@@ -336,6 +336,7 @@
                             <button name="dic" class="cell-label dic">DIC</button>
                         </form>
                         <img id="cellImage1" class="cell-image" src="">
+                        <img id="cellImage1_2" class="cell-image" src="">
                     </div>
                     <div class="cell-column">
                         <form method="post" id="dapi_form">
@@ -343,6 +344,7 @@
                             <button name="dapi" class="cell-label dapi">DAPI</button>
                         </form>
                         <img id="cellImage2" class="cell-image" src="">
+                        <img id="cellImage2_2" class="cell-image" src="">
                         <div class="info-box">
                             <div class="tight-info">Nucleus intensity from DAPI: <span id="nucleusIntensitySum_DAPI"></span></div>
                             <div class="tight-info">Total cellular intensity from DAPI: <span id="cellularIntensitySum_DAPI"></span></div>
@@ -355,6 +357,7 @@
                             <button name="mCherry" class="cell-label mcherry">mCherry</button>
                         </form>
                         <img id="cellImage3" class="cell-image" src="">
+                        <img id="cellImage3_2" class="cell-image" src="">
                         <div class="info-box">
                             <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
                             <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
@@ -370,10 +373,12 @@
                             <button name="gfp" class="cell-label gfp" type="submit">GFP</button>
                         </form>
                         <img id="cellImage4" class="cell-image" src="">
+                        <img id="cellImage4_2" class="cell-image" src="">
                         <div class="info-box">
                             <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
                             <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
                             <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                            <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
                         </div>
                     </div>
                 </div>
@@ -435,12 +440,22 @@
 
         function updateCellImages(cellPairImages, statistics) {
             const imageUrls = cellPairImages[currentCellNumber];
+            // TODO: The solution for no outlines below is messy and could be improved
+            const noOutline = (imageUrls[0].substring(0, imageUrls[0].length - 4) + "-no_outline.png");
+            const reduceLength = noOutline.length - 17 - currentCellNumber.toString().length;
             document.getElementById("cellImage1").src = imageUrls[0];
+            document.getElementById("cellImage1_2").src = noOutline;
             document.getElementById("cellImage2").src = imageUrls[1];
+            document.getElementById("cellImage2_2").src = noOutline.substring(0, reduceLength) + "2" + noOutline.substring(reduceLength + 1, noOutline.length);
             document.getElementById("cellImage3").src = imageUrls[2];
+            document.getElementById("cellImage3_2").src = noOutline.substring(0, reduceLength) + "0" + noOutline.substring(reduceLength + 1, noOutline.length);
             document.getElementById("cellImage4").src = imageUrls[3];
+            document.getElementById("cellImage4_2").src = noOutline.substring(0, reduceLength) + "1" + noOutline.substring(reduceLength + 1, noOutline.length);
             document.getElementById("cellID").textContent = currentCellNumber;
+            
             const cellStats = statistics[currentCellNumber];
+            const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
+            const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
             document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
             document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
             document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
@@ -449,6 +464,7 @@
             document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
             document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
             document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+            document.getElementById("gfpDot").textContent = category;
             document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
             document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
             document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";

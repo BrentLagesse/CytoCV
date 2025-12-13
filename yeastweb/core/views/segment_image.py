@@ -537,7 +537,7 @@ def segment_image(request, uuids):
 
             # Overlay the outlines on the original image in green
             image_outlined = image.copy()
-            image_outlined[outlines > 0] = (0, 255, 0)
+            image_outlined[outlines > 0] = (0, 255, 255)
 
             # Display the outline file
             fig = plt.figure(frameon=False)
