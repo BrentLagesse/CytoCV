@@ -379,6 +379,7 @@
                             </div>
                             <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
                             <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
+                            <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
                             </div>
                         </div>
                     </div>
@@ -445,6 +446,7 @@
                         document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
                         document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
                         document.getElementById("gfpDot").textContent = category;
+                        document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
                         document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
                         document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
                         document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";

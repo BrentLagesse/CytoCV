@@ -40,6 +40,7 @@ class CellTable(tables.Table):
 
     category_GFP_dot = tables.Column(verbose_name='GFP Dot Category')
 
+    biorientation = tables.Column(verbose_name="Biorientation")
 
     class Meta:
         attrs = {"class": "celltable","id":"celltable"}

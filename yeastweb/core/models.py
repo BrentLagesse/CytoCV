@@ -111,6 +111,9 @@ class CellStatistics(models.Model):
         default = CategoryGFPDot.NONE,
     )
 
+    # Biorientation in GFP Dot Analysis
+    biorientation = models.IntegerField(default=0)
+
     dv_file_path = models.TextField(default="")
 
     # Not sure why needed, included to maintain consistency with legacy code
