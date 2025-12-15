@@ -7,7 +7,7 @@ from .Analysis import Analysis
 
 class RedBlueIntensity(Analysis):
     name = 'Red in Blue Intensity'
-    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input):
+    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input,gfp_distance):
         """
         """
         dot_contours = contours_data['dot_contours']

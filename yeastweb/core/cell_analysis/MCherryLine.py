@@ -7,7 +7,7 @@ import numpy as np
 
 class MCherryLine(Analysis):
     name = "MCherryLine"
-    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input):
+    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input,gfp_distance):
         mcherry_line_pts = []
         dot_contours = contours_data['dot_contours']
 

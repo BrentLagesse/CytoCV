@@ -7,7 +7,7 @@ from .Analysis import Analysis
 
 class GreenRedIntensity(Analysis):
     name = 'Green Red Intensity'
-    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input):
+    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input,gfp_distance):
         """
         :param preprocessed_images: GrayImage object
         :return: ratio between red and green intensity

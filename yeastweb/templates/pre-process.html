@@ -140,6 +140,11 @@
       .toggle-btn::before { content: "◀"; }
       .sidebar.collapsed .toggle-btn::before { content: "▶"; }
 
+      /* Number entry */
+      .num-entry {
+        width: 60px
+      }
+
       /* Sidebar content (file list) */
       .sidebar-content {
         flex-grow: 1;
@@ -362,6 +367,9 @@
                 {% for analysis in analyses %}
                 <li>
                   <input type="checkbox" name="selected_analysis" value="{{ analysis }}" />{{analysis}}
+                  {% if analysis == 'GFPDot' %}
+                    <input class="num-entry" type="number" name="distance" id="distance" />
+                  {% endif %}
                 </li>
                 {% endfor %}
               </ul>
