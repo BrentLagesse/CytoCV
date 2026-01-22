@@ -16,7 +16,22 @@ from django.http import HttpResponseNotAllowed
 import json
 from django.contrib import messages
 from django.http import JsonResponse
-from ..metadata_processing.dv_channel_parser import extract_channel_config, is_valid_dv_file, get_dv_layer_count
+from ..metadata_processing.dv_channel_parser import extract_channel_config
+from ..metadata_processing.error_handling import (
+    DVValidationOptions,
+    build_dv_error_messages,
+    validate_dv_file,
+)
+
+
+def _parse_bool(value, default=False):
+    """Parse a POST boolean value with a safe default."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def upload_images(request):
@@ -36,20 +51,25 @@ def upload_images(request):
 
         files = request.FILES.getlist('files')
         
-        # collect any bad files here
-        invalid_files = []
-
         if not files:
             print("No files received")
             return render(request, 'form/uploadImage.html', {'error': 'No files received.'})
 
         print(f"Files received: {[file.name for file in files]}")
 
+        enforce_layer_count = _parse_bool(request.POST.get("enforce_layer_count"), default=True)
+        enforce_wavelengths = _parse_bool(request.POST.get("enforce_wavelengths"), default=True)
+        validation_options = DVValidationOptions(
+            enforce_layer_count=enforce_layer_count,
+            enforce_wavelengths=enforce_wavelengths,
+        )
+
         # Store all UUIDs of the processed images
         image_uuids = []
 
         # Iterate through each file and assign a unique UUID
         preprocess_marked = False
+        validation_failures = []
         for image_location in files:
             name = image_location.name
             name = Path(name).stem
@@ -62,12 +82,11 @@ def upload_images(request):
             instance.save()
 
 
-            # Validate actual layer count before any preview work
+            # Validate metadata before any preprocessing setup.
             dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
-            if not is_valid_dv_file(str(dv_file_path)):
-                # record name and actual layer count
-                count = get_dv_layer_count(str(dv_file_path))
-                invalid_files.append((name, count))
+            validation_result = validate_dv_file(dv_file_path, validation_options)
+            if not validation_result.is_valid:
+                validation_failures.append((name, validation_result))
                 instance.delete()
                 continue
 
@@ -97,26 +116,29 @@ def upload_images(request):
                 preprocess_marked = True
             generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
 
-        preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
+        error_lines = build_dv_error_messages(validation_failures, validation_options)
+        preprocess_url = None
+        if image_uuids:
+            preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
 
         # Case 3: no valid files
         if not image_uuids:
-            msg = 'No valid DV files were uploaded. Please upload files with exactly 4 image layers.'
+            if error_lines:
+                if is_ajax:
+                    return JsonResponse({'errors': error_lines}, status=400)
+                messages.error(request, "\n".join(error_lines))
+                return redirect(request.path)
+            msg = 'No valid DV files were uploaded. Please upload files that pass the selected checks.'
             if is_ajax:
                 return JsonResponse({'errors': [msg]}, status=400)
             messages.error(request, msg)
             return redirect(request.path)
 
         # Case 2: some invalid files
-        if invalid_files:
-            header = "Could not process the following files due to invalid layer counts (expected 4 layers):"
-            lines  = [header] + [
-                f"- {nm}.dv has {cnt} layer{'s' if cnt!=1 else ''}"
-                for nm, cnt in invalid_files
-            ]
+        if error_lines:
             if is_ajax:
-                return JsonResponse({'errors': lines, 'redirect': preprocess_url})
-            messages.error(request, "\n".join(lines))
+                return JsonResponse({'errors': error_lines, 'redirect': preprocess_url})
+            messages.error(request, "\n".join(error_lines))
 
         # Case 1: all valid (or mixed after pushing messages)
         if is_ajax:
@@ -131,14 +153,29 @@ def generate_tif_preview_images(dv_path :Path, save_path :Path, uploaded_image :
         Converts DV's layers into tif files
     """
     dv_file = DVFile(dv_path)
-    is_n_layers_the_same = len(dv_file.asarray()) == n_layers
-    if not is_n_layers_the_same :
-        # TODO handler if not the same
-        # currently changes n_layers to prevent from crashing
+    try:
+        arr = dv_file.asarray()
+    finally:
+        dv_file.close()
+
+    if arr.ndim == 2:
+        layers = np.expand_dims(arr, axis=0)
+    elif arr.ndim == 3:
+        # Use the smallest axis as the Z dimension for layer extraction.
+        z_axis = int(np.argmin(arr.shape))
+        layers = np.moveaxis(arr, z_axis, 0)
+    else:
+        print(f"Unexpected DV array rank {arr.ndim} for {dv_path}")
+        return
+
+    actual_layers = layers.shape[0]
+    if actual_layers != n_layers:
+        # Prevent huge loops when DV files don't match the expected layer count.
         print(f'Uploaded Dv file layers do not match n_layers {n_layers}')
-        n_layers = len(dv_file.asarray())
-    for i in range(n_layers) :
-        dv = DVFile(dv_path).asarray()[i]
+        n_layers = actual_layers
+
+    for i in range(n_layers):
+        dv = layers[i]
         # using the pre_preprocess methods from mrcnn because else the dv layers are essentially entirely black to the eye
         image = Image.fromarray(dv)
         # Preprocessing operations
@@ -149,13 +186,16 @@ def generate_tif_preview_images(dv_path :Path, save_path :Path, uploaded_image :
         #rgbimage = skimage.filters.gaussian(rgbimage, sigma=(1,1))   # blur it first?
 
         rgb_image = Image.fromarray(rgb_image)
-        save_path.mkdir(parents=True, exist_ok=True) 
+        save_path.mkdir(parents=True, exist_ok=True)
         tif_path = save_path / f"preprocess-image{i}.tif"
         rgb_image.save(str(tif_path))
-        dv_file.close()
-        jpg_path = tif_to_jpg(output_dir= save_path, tif_path= tif_path)
+        jpg_path = tif_to_jpg(output_dir=save_path, tif_path=tif_path)
         # gets path relative to MEDIA ROOT for django
-        # Ex. 0c51afb4-d8cb-43e5-a75c-8d4cc0f31a14\preprocessed_images\preprocess-image0.jpg 
+        # Ex. 0c51afb4-d8cb-43e5-a75c-8d4cc0f31a14\preprocessed_images\preprocess-image0.jpg
         file_location = jpg_path.relative_to(MEDIA_ROOT)
-        instance = DVLayerTifPreview(wavelength='', uploaded_image_uuid =uploaded_image, file_location = str(file_location))
+        instance = DVLayerTifPreview(
+            wavelength='',
+            uploaded_image_uuid=uploaded_image,
+            file_location=str(file_location),
+        )
         instance.save()

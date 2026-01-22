@@ -140,6 +140,9 @@ def get_stats(cp, conf, selected_analysis):
     if len(contours_data['bestContours']) == 0:
         print("we didn't find any contours")
         return images['im_mCherry'], images['im_GFP'], images['im_DAPI']  # returns original images if no contours found
+    if not contours_data['bestContours_dapi'] or not contours_data['contours_dapi']:
+        print("we didn't find any DAPI contours")
+        return images['im_mCherry'], images['im_GFP'], images['im_DAPI']
 
     # Open the debug images using the legacy getters
     edit_im = Image.open(output_dir + '/segmented/' + cp.get_image('mCherry',use_id=True))

@@ -26,6 +26,12 @@ DEFAULT_PROCESS_CONFIG = dict(
     arrested="Metaphase Arrested"
 )
 
+
+def default_process_config():
+    """Return a new default processing configuration per user."""
+
+    return dict(DEFAULT_PROCESS_CONFIG)
+
 def get_channel_config_for_uuid(uuid):
     """
     Given a DV file's UUID, looks for a channel_config.json file in its folder.

@@ -54,6 +54,20 @@ def extract_channel_config(dv_file_path):
         config[channel] = int(idx)
     return config
 
+def is_recognized_dv_file(dv_file_path):
+    """
+    Returns True if the file can be opened as a DV file.
+    """
+    dv = None
+    try:
+        dv = DVFile(dv_file_path)
+        return True
+    except Exception:
+        return False
+    finally:
+        if dv is not None:
+            dv.close()
+
 def get_dv_layer_count(dv_file_path):
     """
     Returns the actual number of Z‑slices (layers) in the DV.
