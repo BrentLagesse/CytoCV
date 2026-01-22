@@ -215,30 +215,31 @@
             background-color: #303030;
             border-color: #4a4a4a;
         }
-        .settings-popover {
+        .settings-modal-backdrop {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: min(420px, 94vw);
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+        }
+        .settings-modal {
+            width: min(600px, 94vw);
             background: #1b1b1b;
             border: 1px solid #444;
             border-radius: 10px;
-            padding: 14px;
+            padding: 22px;
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-            display: none;
-            z-index: 1000;
         }
-        .settings-popover.open {
-            display: block;
-        }
-        .settings-popover-header {
+        .settings-modal-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 12px;
         }
-        .settings-popover-title {
+        .settings-modal-title {
             font-size: 16px;
             font-weight: 600;
         }
@@ -351,12 +352,13 @@
     <!-- Display list of selected files -->
     <div id="fileList"></div>
 
-    <div class="settings-popover" id="settingsPopover" aria-hidden="true">
-        <div class="settings-popover-header">
-            <span class="settings-popover-title" id="settingsTitle">Analysis Settings</span>
-            <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">X</button>
-        </div>
-        <div class="settings-body">
+    <div class="settings-modal-backdrop" id="settingsBackdrop" aria-hidden="true">
+        <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <div class="settings-modal-header">
+                <span class="settings-modal-title" id="settingsTitle">Analysis Settings</span>
+                <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">X</button>
+            </div>
+            <div class="settings-body">
             <div class="toggle-row" id="moduleToggleRow">
                 <div class="toggle-text">
                     <span class="toggle-label">Enable Yeast Analysis</span>
@@ -389,6 +391,7 @@
                     </label>
                 </div>
             </div>
+            </div>
         </div>
     </div>
 
@@ -415,7 +418,7 @@
     
     document.addEventListener('DOMContentLoaded', () => {
         setupValidationToggles();
-        setupSettingsPopover();
+        setupSettingsModal();
         const raw = sessionStorage.getItem('dvErrors');
         if (!raw) return;
         const lines = JSON.parse(raw);
@@ -506,65 +509,42 @@
         sync();
     }
 
-    function setupSettingsPopover() {
+    function setupSettingsModal() {
         const settingsButton = document.getElementById('settingsButton');
-        const popover = document.getElementById('settingsPopover');
+        const backdrop = document.getElementById('settingsBackdrop');
         const closeButton = document.getElementById('settingsClose');
 
-        if (!settingsButton || !popover || !closeButton) {
+        if (!settingsButton || !backdrop || !closeButton) {
             return;
         }
 
-        const positionPopover = () => {
-            const rect = settingsButton.getBoundingClientRect();
-            const popoverWidth = popover.offsetWidth;
-            const popoverHeight = popover.offsetHeight;
-            const gutter = 12;
-            let left = rect.right - popoverWidth;
-            left = Math.max(gutter, Math.min(left, window.innerWidth - popoverWidth - gutter));
-            let top = rect.bottom + 8;
-            top = Math.max(gutter, Math.min(top, window.innerHeight - popoverHeight - gutter));
-            popover.style.left = `${left}px`;
-            popover.style.top = `${top}px`;
-        };
-        const openPopover = () => {
-            popover.classList.add('open');
-            popover.setAttribute('aria-hidden', 'false');
+        const openModal = () => {
+            backdrop.style.display = 'flex';
+            backdrop.setAttribute('aria-hidden', 'false');
             settingsButton.setAttribute('aria-expanded', 'true');
-            requestAnimationFrame(positionPopover);
         };
-        const closePopover = () => {
-            popover.classList.remove('open');
-            popover.setAttribute('aria-hidden', 'true');
+        const closeModal = () => {
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
             settingsButton.setAttribute('aria-expanded', 'false');
         };
 
         settingsButton.addEventListener('click', (event) => {
             event.stopPropagation();
-            if (popover.classList.contains('open')) {
-                closePopover();
-            } else {
-                openPopover();
-            }
+            openModal();
         });
         closeButton.addEventListener('click', (event) => {
             event.stopPropagation();
-            closePopover();
+            closeModal();
         });
-        popover.addEventListener('click', (event) => {
-            event.stopPropagation();
-        });
-        document.addEventListener('click', () => {
-            closePopover();
-        });
-        window.addEventListener('resize', () => {
-            if (popover.classList.contains('open')) {
-                positionPopover();
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) {
+                closeModal();
             }
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                closePopover();
+                closeModal();
             }
         });
     }
