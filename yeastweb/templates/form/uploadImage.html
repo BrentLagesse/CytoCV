@@ -32,6 +32,8 @@
             flex-direction: column;
             align-items: center;
             background-color: #222; 
+            position: relative;
+            overflow: hidden;
         }
         
         /* Upload list – hidden when empty, auto-grow, custom scrollbar */
@@ -180,6 +182,146 @@
         }
         .submit-btn.loading .spinner { display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .form-toolbar {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            height: 26px;
+            padding: 2px 10px;
+            margin: -20px -20px 14px -20px;
+            width: calc(100% + 40px);
+            background: #222;
+            border-bottom: 1px solid #333;
+            border-radius: 10px 10px 0 0;
+        }
+        .settings-btn {
+            background-color: transparent;
+            color: #c4c4c4;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .settings-btn svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+        .settings-btn:hover {
+            background-color: #303030;
+            border-color: #4a4a4a;
+        }
+        .settings-popover {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: min(420px, 94vw);
+            background: #1b1b1b;
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+            display: none;
+            z-index: 1000;
+        }
+        .settings-popover.open {
+            display: block;
+        }
+        .settings-popover-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .settings-popover-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .settings-close {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .settings-body {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background-color: #262626;
+            border: 1px solid #3a3a3a;
+        }
+        .toggle-subgroup {
+            margin-left: 10px;
+            padding-left: 10px;
+            border-left: 2px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toggle-row.subtoggle {
+            background-color: #242424;
+        }
+        .toggle-row.disabled {
+            opacity: 0.5;
+        }
+        .toggle-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .toggle-label {
+            font-size: 14px;
+        }
+        .toggle-hint {
+            font-size: 12px;
+            color: #b5b5b5;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 22px;
+            flex: 0 0 auto;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background-color: #555;
+            border-radius: 999px;
+            transition: background-color 0.2s ease;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            top: 2px;
+            background-color: #f2f2f2;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+        }
+        .switch input:checked + .slider {
+            background-color: #2f8f4e;
+        }
+        .switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
         a {
             background-color: #007bff; /* Full blue background */
             color: #fff; /* White text */
@@ -199,8 +341,56 @@
 <body>
 <form action="" method="post" enctype="multipart/form-data" id="uploadForm">
     {% csrf_token %}
+    <div class="form-toolbar">
+        <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
+            </svg>
+        </button>
+    </div>
     <!-- Display list of selected files -->
     <div id="fileList"></div>
+
+    <div class="settings-popover" id="settingsPopover" aria-hidden="true">
+        <div class="settings-popover-header">
+            <span class="settings-popover-title" id="settingsTitle">Analysis Settings</span>
+            <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">X</button>
+        </div>
+        <div class="settings-body">
+            <div class="toggle-row" id="moduleToggleRow">
+                <div class="toggle-text">
+                    <span class="toggle-label">Enable Yeast Analysis</span>
+                    <span class="toggle-hint">Enable metadata checks before preprocessing.</span>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="yeastAnalysisEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-subgroup">
+                <div class="toggle-row subtoggle" id="layerCheckRow">
+                    <div class="toggle-text">
+                        <span class="toggle-label">Enforce 4-image DV files</span>
+                        <span class="toggle-hint">Require exactly four layers before preprocessing.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="enforceLayerCount" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row subtoggle" id="wavelengthCheckRow">
+                    <div class="toggle-text">
+                        <span class="toggle-label">Enforce required wavelengths</span>
+                        <span class="toggle-hint">Require DIC, DAPI, mCherry, and GFP.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="enforceWavelengths" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Buttons for uploading files and folders -->
     <div class="buttons-container">
@@ -224,6 +414,8 @@
 <script>
     
     document.addEventListener('DOMContentLoaded', () => {
+        setupValidationToggles();
+        setupSettingsPopover();
         const raw = sessionStorage.getItem('dvErrors');
         if (!raw) return;
         const lines = JSON.parse(raw);
@@ -252,8 +444,22 @@
         textAlign:   'left',
         });
 
+        const formattedLines = lines.map((line) => {
+            if (!line) {
+                return '<div style="height:0.6vh;"></div>';
+            }
+            const isHeader = line.startsWith('Could not process');
+            const style = isHeader ? 'font-weight:600;' : '';
+            return `<div style="${style}">${line}</div>`;
+        }).join('');
+        const hasSections = lines.some((line) => !line);
+        const headerLine = hasSections
+            ? '<div style="font-weight:600; margin-bottom:0.4vh;">Validation issues:</div>'
+            : '';
+
         banner.innerHTML = `
-            ${lines.map(l => `<div>${l}</div>`).join('')}
+            ${headerLine}
+            ${formattedLines}
             <button id="bannerClose"
             style="
                 position:absolute;
@@ -272,6 +478,95 @@
         banner.querySelector('#bannerClose')
             .addEventListener('click', () => banner.remove());
         setTimeout(() => banner.remove(), 10000);
+    }
+
+    function setupValidationToggles() {
+        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const layerToggle = document.getElementById('enforceLayerCount');
+        const wavelengthToggle = document.getElementById('enforceWavelengths');
+        const layerRow = document.getElementById('layerCheckRow');
+        const wavelengthRow = document.getElementById('wavelengthCheckRow');
+
+        if (!moduleToggle || !layerToggle || !wavelengthToggle || !layerRow || !wavelengthRow) {
+            return;
+        }
+
+        const sync = () => {
+            const moduleEnabled = moduleToggle.checked;
+            layerToggle.disabled = !moduleEnabled;
+            layerRow.classList.toggle('disabled', !moduleEnabled);
+
+            const layerEnabled = moduleEnabled && layerToggle.checked;
+            wavelengthToggle.disabled = !layerEnabled;
+            wavelengthRow.classList.toggle('disabled', !layerEnabled);
+        };
+
+        moduleToggle.addEventListener('change', sync);
+        layerToggle.addEventListener('change', sync);
+        sync();
+    }
+
+    function setupSettingsPopover() {
+        const settingsButton = document.getElementById('settingsButton');
+        const popover = document.getElementById('settingsPopover');
+        const closeButton = document.getElementById('settingsClose');
+
+        if (!settingsButton || !popover || !closeButton) {
+            return;
+        }
+
+        const positionPopover = () => {
+            const rect = settingsButton.getBoundingClientRect();
+            const popoverWidth = popover.offsetWidth;
+            const popoverHeight = popover.offsetHeight;
+            const gutter = 12;
+            let left = rect.right - popoverWidth;
+            left = Math.max(gutter, Math.min(left, window.innerWidth - popoverWidth - gutter));
+            let top = rect.bottom + 8;
+            top = Math.max(gutter, Math.min(top, window.innerHeight - popoverHeight - gutter));
+            popover.style.left = `${left}px`;
+            popover.style.top = `${top}px`;
+        };
+        const openPopover = () => {
+            popover.classList.add('open');
+            popover.setAttribute('aria-hidden', 'false');
+            settingsButton.setAttribute('aria-expanded', 'true');
+            requestAnimationFrame(positionPopover);
+        };
+        const closePopover = () => {
+            popover.classList.remove('open');
+            popover.setAttribute('aria-hidden', 'true');
+            settingsButton.setAttribute('aria-expanded', 'false');
+        };
+
+        settingsButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (popover.classList.contains('open')) {
+                closePopover();
+            } else {
+                openPopover();
+            }
+        });
+        closeButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closePopover();
+        });
+        popover.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+        document.addEventListener('click', () => {
+            closePopover();
+        });
+        window.addEventListener('resize', () => {
+            if (popover.classList.contains('open')) {
+                positionPopover();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closePopover();
+            }
+        });
     }
 
 
@@ -353,7 +648,9 @@
         const btnText = submitBtn.querySelector('.btn-text');
 
         // Disable all buttons and inputs
-        const controls = document.querySelectorAll('.upload-btn, .submit-btn, input[type="file"], .remove-btn');
+        const controls = document.querySelectorAll(
+            '.upload-btn, .submit-btn, .settings-btn, .settings-close, input[type="file"], input[type="checkbox"], .remove-btn'
+        );
         controls.forEach((el) => {
             el.disabled = true;
             el.style.pointerEvents = 'none';
@@ -407,11 +704,24 @@
         };
         startPolling();
 
+        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const layerToggle = document.getElementById('enforceLayerCount');
+        const wavelengthToggle = document.getElementById('enforceWavelengths');
+        const moduleEnabled = moduleToggle ? moduleToggle.checked : true;
+        const layerEnabled = moduleEnabled && (layerToggle ? layerToggle.checked : true);
+        const wavelengthEnabled = layerEnabled && (wavelengthToggle ? wavelengthToggle.checked : true);
+
         // Build form data from queued files
         const formData = new FormData();
         selectedFiles.forEach(file => formData.append('files', file));
+        formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
+        formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        const uploadController = new AbortController();
+        const uploadTimeoutMs = 300000;
+        const uploadTimeout = setTimeout(() => uploadController.abort(), uploadTimeoutMs);
 
         fetch(this.action, {
             method: 'POST',
@@ -420,9 +730,11 @@
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData,
+            signal: uploadController.signal,
         })
         .then(res => res.json().then(data => {
             if (pollTimer) clearInterval(pollTimer);
+            clearTimeout(uploadTimeout);
             // Case A: errors but no redirect => save & reload current page
             if (data.errors && !data.redirect) {
                 sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
@@ -439,8 +751,15 @@
         }))
         .catch(err => {
             if (pollTimer) clearInterval(pollTimer);
+            clearTimeout(uploadTimeout);
             console.error(err);
-            alert('Error during upload.');
+            if (err && err.name === 'AbortError') {
+                showErrors([
+                    'Upload timed out. Please check file validity or try again.',
+                ]);
+            } else {
+                alert('Error during upload.');
+            }
             // Re-enable minimally
             submitBtn.classList.remove('loading');
             controls.forEach((el) => { el.disabled = false; el.style.pointerEvents = ''; el.style.cursor = ''; });

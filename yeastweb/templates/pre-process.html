@@ -29,29 +29,37 @@
       textAlign: "left",
     });
 
+    const formattedLines = lines
+      .map((line) => {
+        if (!line) {
+          return '<div style="height:0.6vh;"></div>';
+        }
+        const isHeader = line.startsWith("Could not process");
+        const style = isHeader ? "font-weight:600;" : "";
+        return `<div style="${style}">${line}</div>`;
+      })
+      .join("");
+    const hasSections = lines.some((line) => !line);
+    const headerLine = hasSections
+      ? '<div style="font-weight:600; margin-bottom:0.4vh;">Validation issues:</div>'
+      : "";
+
     banner.innerHTML = `
-   <!-- header with a little bottom‐margin -->
-   <div style="font-weight:600; margin-bottom:1vh;">
-   ${lines[0]}
-   </div>
-   <!-- then the rest of the list -->
-   ${lines
-     .slice(1)
-     .map((l) => `<div>${l}</div>`)
-     .join("")}
-    <button id="bannerClose"
-      style="
-        position:absolute;
-        top:0.8vh; right:1vw;
-        background:transparent;
-        border:none;
-        font-size:1.6rem;
-        cursor:pointer;
-        color:inherit;
-      ">
-      &times;
-    </button>
-  `;
+      ${headerLine}
+      ${formattedLines}
+      <button id="bannerClose"
+        style="
+          position:absolute;
+          top:0.8vh; right:1vw;
+          background:transparent;
+          border:none;
+          font-size:1.6rem;
+          cursor:pointer;
+          color:inherit;
+        ">
+        &times;
+      </button>
+    `;
 
     document.body.appendChild(banner);
     banner
