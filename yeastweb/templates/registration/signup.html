@@ -9,101 +9,133 @@
     <title>Sign Up</title>
         <style>
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #333; /* Dark background */
-            color: #fff; /* Light text */
+            font-family: var(--app-font);
+            background-color: var(--page-bg);
+            color: var(--text);
             margin: 0;
-            padding: 20px;
-            text-align: center;
+            padding: calc(var(--nav-height) + 24px) 16px 32px;
+            min-height: 100vh;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh; /* Full height to center vertically in the viewport */
+        }
+        .auth-card {
+            width: min(520px, 96vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 26px;
+            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+            display: grid;
+            gap: 16px;
         }
         h1 {
-            margin-bottom: 20px; /* Adding space below the title */
-            font-size: 28px;
+            margin: 0;
+            font-size: 26px;
+            text-align: left;
         }
-        a {
-            background-color: #007bff; /* Full blue background */
-            color: #fff; /* White text */
-            text-decoration: none; /* Remove underline */
-            padding: 12px 20px; /* Padding for a larger clickable area */
-            border: none; /* Remove border */
-            border-radius: 4px; /* Rounded corners */
-            transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
-            margin-bottom: 30px; /* Space between the button and the list */
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
         }
-        a:hover {
-            background-color: #0056b3; /* Darker blue on hover */
-            color: #fff; /* Keep the text white */
-        }
-        ul {
-            list-style: none; /* Remove bullet points */
-            padding: 0; /* Remove padding */
-            margin: 20px auto; /* Centering the list */
-            text-align: left; /* Align text to the left for list items */
-            width: 80%; /* Width of the list */
-        }
-        li {
-            background-color: #222; /* Dark background for list items */
-            padding: 10px; /* Padding around text */
-            border: 1px solid #444; /* Slightly lighter border for the items */
-            margin-top: 8px; /* Space between items */
-            border-radius: 4px; /* Rounded corners */
-        }
-        img {
-            width: 100%; /* Responsive images */
-            max-width: 200px; /* Maximum width */
-            height: auto; /* Maintain aspect ratio */
-            display: block; /* Block display to handle margin */
-            margin: 10px auto; /* Centering the image */
-        }
-        input{
-            display: block;
-            gap: 10px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-        }
-        button{
-            background-color: #007bff; /* Full blue background */
-            color: #fff; /* White text */
-            text-decoration: none; /* Remove underline */
-            padding: 12px 20px; /* Padding for a larger clickable area */
-            border: none; /* Remove border */
-            border-radius: 4px; /* Rounded corners */
-            transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
-            margin-top: 30px;
-            margin-bottom: 30px; /* Space between the button and the list */
-        }
-        .fieldWrapper{
+        form {
             display: grid;
-            place-items: center;
+            gap: 12px;
+        }
+        .fieldWrapper {
+            display: grid;
+            gap: 6px;
+            text-align: left;
+        }
+        label {
+            font-size: 13px;
+            color: var(--muted);
+        }
+        input {
+            width: 100%;
+            background: #1f1f1f;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text);
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+        }
+        .help {
+            margin: 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .errorlist {
+            list-style: none;
+            padding: 8px 10px;
+            margin: 6px 0 0;
+            background: #3b1a1f;
+            border: 1px solid var(--danger);
+            border-radius: 6px;
+            color: #ffd6d6;
+            font-size: 12px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            background-color: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 14px;
+        }
+        button:hover { background-color: var(--accent-dark); }
+        .error-text {
+            color: #ffd6d6;
+            background: #3b1a1f;
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 0;
+            font-size: 13px;
         }
     </style>
 </head>
 <body>
-    <h1>Sign Up</h1>
-    <form method="post">
-        {% csrf_token %}
-        {% for field in form %}
-            <div class="fieldWrapper">
-                {{ field.label_tag }} {{ field }}
-                {% if field.help_text %}
-                  <p class="help" id="{{ field.auto_id }}_helptext">
-                    {{ field.help_text|safe }}
-                  </p>
-                {% endif %}
-                {{ field.errors }}
+    <div class="auth-card soft-fade-in">
+        <div>
+            <h1>Sign Up</h1>
+            <p class="subtitle">Create your account and verify with a one-time code.</p>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="fieldWrapper">
+                    {{ field.label_tag }} {{ field }}
+                    {% if field.help_text %}
+                      <p class="help" id="{{ field.auto_id }}_helptext">
+                        {{ field.help_text|safe }}
+                      </p>
+                    {% endif %}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+            <div class="actions">
+                <button type="submit" name="send_code">Send Code</button>
+                <button type="submit" name="submit">Submit</button>
             </div>
-        {% endfor %}
-        <button type="submit" name="send_code">Send Code</button>
-        <button type="submit" name="submit">Submit</button>
-    </form>
-    {% if error %}
-        <p style="color: red;">{{ error }}</p>
-    {% endif %}
+        </form>
+        {% if error %}
+            <p class="error-text">{{ error }}</p>
+        {% endif %}
+    </div>
 
 </body>
 </html>

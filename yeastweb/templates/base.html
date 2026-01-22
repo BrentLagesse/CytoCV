@@ -3,36 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
+
+        :root {
+            --app-font: 'Space Grotesk', 'Segoe UI', sans-serif;
+            --page-bg: #333;
+            --card-bg: #222;
+            --panel-bg: #262626;
+            --panel-border: #3a3a3a;
+            --text: #f5f5f5;
+            --muted: #b9b9b9;
+            --accent: #007bff;
+            --accent-dark: #0056b3;
+            --danger: #a71d2a;
+            --nav-height: 52px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            font-family: var(--app-font);
+            background-color: var(--page-bg);
+            color: var(--text);
+            display: block;
+        }
+
         .navbar {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
+            height: var(--nav-height);
             z-index: 999;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: #222;
-            padding: 10px 20px;
+            background-color: #1f1f1f;
+            border-bottom: 1px solid #2a2a2a;
+            padding: 0 24px;
         }
-        .navbar a{
-            color: #f0f0f0;
+        .nav-left,
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-right { margin-right: 10px; }
+        .navbar a {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: 6px;
             background-color: transparent;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
         }
-        .nav-right{
-            margin-right: 100px;
-        }
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            display: block;
+        .navbar a:hover {
+            background-color: #2f2f2f;
+            color: #fff;
         }
 
         .message-container {
             position: relative;
             z-index: 1000;
-            margin-top: 60px;
+            margin: calc(var(--nav-height) + 12px) auto 0;
+            padding: 0 16px;
+            max-width: 720px;
+        }
+        .message {
+            background: #3b1a1f;
+            color: #ffd6d6;
+            border: 1px solid var(--danger);
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .soft-fade-in {
+            animation: softFadeUp 0.22s ease-out both;
+        }
+        @keyframes softFadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .soft-fade-in { animation: none; }
         }
     </style>
     {% block head %}{% endblock head %}
@@ -56,13 +123,9 @@
     {% endblock navbar %}
 
     {% if messages %}
-      <div class="message-container" style="padding:10px; max-width:600px; margin:60px auto 0;">
+      <div class="message-container">
         {% for msg in messages %}
-          <div class="message {{ msg.tags }}"
-               style="background:#f8d7da; color:#721c24;
-                      padding:8px; border-radius:4px; margin-bottom:8px;">
-            {{ msg }}
-          </div>
+          <div class="message {{ msg.tags }}">{{ msg }}</div>
         {% endfor %}
       </div>
     {% endif %}
