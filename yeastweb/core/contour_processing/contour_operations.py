@@ -35,10 +35,10 @@ def find_contours(images:GrayImage):
     #cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
 
     contours, h = cv2.findContours(thresh, 1, 2)
-    contours_mcherry,_ = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
+    contours_mcherry, _ = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
 
     contours_dapi, h = cv2.findContours(thresh_dapi, 1, 2)
-    contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, 1, 2) # return list of contours
+    contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, 1, 2) # return list of contours
     contours_dapi_3 = [cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt)>100 and cv2.contourArea(cnt)<1000]
 
 
@@ -55,10 +55,10 @@ def find_contours(images:GrayImage):
     """
     # Identify the two largest contours in each set
     bestContours = get_largest(contours)
-    bestContours_mcherry = get_largest(contours_mcherry[0])
+    bestContours_mcherry = get_largest(contours_mcherry)
 
     bestContours_dapi = get_largest(contours_dapi)
-    bestContours_dapi_3 = get_largest(contours_dapi_3[0])
+    bestContours_dapi_3 = get_largest(contours_dapi_3) if contours_dapi_3 else []
 
     return {
         'bestContours': bestContours,
