@@ -628,6 +628,7 @@
               headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken || '',
+                'X-Requested-With': 'XMLHttpRequest',
               },
               body: JSON.stringify({ reason: 'user_cancelled' }),
               credentials: 'same-origin',
@@ -635,6 +636,7 @@
             } catch (e) { /* ignore */ }
 
             const deadline = Date.now() + 180000;
+            let delay = 400;
             while (Date.now() < deadline) {
               try {
                 const pollUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/`, window.location.origin);
@@ -647,7 +649,8 @@
                   }
                 }
               } catch (e) { /* ignore */ }
-              await new Promise((resolve) => setTimeout(resolve, 400));
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              delay = Math.min(2000, Math.round(delay * 1.6));
             }
             if (Date.now() >= deadline) {
               console.warn('Cancel polling timed out.');
@@ -972,11 +975,12 @@
         // Submit via fetch, allowing backend to run through redirects
         try {
           analysisAbortController = new AbortController();
-          const resp = await fetch(window.location.href, {
-            method: 'POST',
-            body: new FormData(form),
-            credentials: 'same-origin',
-            redirect: 'follow',
+            const resp = await fetch(window.location.href, {
+              method: 'POST',
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+              body: new FormData(form),
+              credentials: 'same-origin',
+              redirect: 'follow',
             signal: analysisAbortController.signal,
           });
           if (analysisPollTimer) clearInterval(analysisPollTimer);

@@ -1,9 +1,9 @@
 from django.shortcuts import get_object_or_404, get_list_or_404, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.template.response import TemplateResponse
 from django.utils import inspect
 from django.views.decorators.http import require_POST, require_GET
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.contrib import messages
 import sys, pkgutil, importlib, inspect
 
@@ -137,12 +137,18 @@ def pre_process_step(request, uuids):
         detection_marked = False
 
         cancel_check = lambda: is_cancelled(uuids)
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        def cancel_response():
+            if is_ajax:
+                return JsonResponse({"status": "cancelled"})
+            return HttpResponse("Cancelled", status=409)
 
         for image_uuid in uuid_list:
             if cancel_check():
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return JsonResponse({"status": "cancelled"})
+                return cancel_response()
             img_obj = get_object_or_404(UploadedImage, uuid=image_uuid)
             out_dir = Path(MEDIA_ROOT) / image_uuid
 
@@ -158,7 +164,7 @@ def pre_process_step(request, uuids):
             if cancel_check() or not prep_path or not prep_list:
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return JsonResponse({"status": "cancelled"})
+                return cancel_response()
             tif_to_jpg(Path(prep_path), out_dir)
 
             if not detection_marked:
@@ -173,7 +179,7 @@ def pre_process_step(request, uuids):
             if prediction_result is None or cancel_check():
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return JsonResponse({"status": "cancelled"})
+                return cancel_response()
 
         return redirect(f'/image/{uuids}/convert/')
 
@@ -213,6 +219,7 @@ def set_progress(request, key):
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
+@csrf_protect
 @require_POST
 def cancel_progress(request, uuids):
     try:
