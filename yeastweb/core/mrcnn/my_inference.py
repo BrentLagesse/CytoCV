@@ -86,7 +86,18 @@ rescale: Set to True if rescale images before processing (saves time)
 scale_factor: Multiplier to downsample images by
 verbose: Verbose or not (true/false)'''
 # def predict_images(test_path, sample_submission, outputfilename, rescale = False, scale_factor = 2, verbose = True):
-def predict_images(preprocess_image_path, preprocessed_image_list_path : Path, output_dir : Path, rescale = False, scale_factor = 2, verbose = True) -> Path:
+def predict_images(
+    preprocess_image_path,
+    preprocessed_image_list_path: Path,
+    output_dir: Path,
+    rescale=False,
+    scale_factor=2,
+    verbose=True,
+    cancel_check=None,
+) -> Path:
+    if cancel_check and cancel_check():
+        return None
+
     inference_config = BowlConfig()
     # ROOT_DIR = os.getcwd()
     rle_file_path = Path(output_dir, "compressed_masks.csv")
@@ -105,6 +116,8 @@ def predict_images(preprocess_image_path, preprocessed_image_list_path : Path, o
     if n_images == 0:   # loading tensorflow takes a long time.  Don't do it if we don't use it.
         print("NO IMAGES WERE DETECTED")
         return
+    if cancel_check and cancel_check():
+        return None
     import tensorflow as tf
     from ..mrcnn import model as modellib
 
@@ -128,8 +141,12 @@ def predict_images(preprocess_image_path, preprocessed_image_list_path : Path, o
                               config=inference_config,
                               model_dir=MODEL_DIR)
     model.load_weights(str(model_path), by_name=True)
+    if cancel_check and cancel_check():
+        return None
     
     for i in np.arange(n_images):
+        if cancel_check and cancel_check():
+            return None
         start_time = time.time()
         image_id = preprocessed_image_list_path.ImageId[i]
         if verbose:

@@ -101,6 +101,70 @@
         @media (prefers-reduced-motion: reduce) {
             .soft-fade-in { animation: none; }
         }
+
+        .logout-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .logout-modal {
+            width: min(420px, 90vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        }
+        .logout-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .logout-modal-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .logout-modal-body {
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 16px;
+        }
+        .logout-modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .logout-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            line-height: 1.2;
+        }
+        .logout-btn.confirm {
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #3a3a3a;
+        }
+        .logout-btn.confirm:hover { background: #343434; }
+        .logout-btn.cancel {
+            background: var(--accent);
+            color: #fff;
+        }
+        .logout-btn.cancel:hover { background: var(--accent-dark); }
     </style>
     {% block head %}{% endblock head %}
 </head>
@@ -113,7 +177,7 @@
             <div class="nav-right">
                 {% if user.is_authenticated %}
                     <a href="/profile">Profile</a>
-                    <a href="/logout">Log Out</a>
+                    <a href="/logout" id="logoutLink">Log Out</a>
                 {% else %}
                     <a href="/login">Log In</a>
                     <a href="/signup">Sign Up</a>
@@ -133,6 +197,77 @@
 
     {% block content %}
     {% endblock content %}
+
+    <div class="logout-modal-backdrop" id="logoutBackdrop" aria-hidden="true">
+        <div class="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
+            <div class="logout-modal-header">
+                <span class="logout-modal-title" id="logoutTitle">Confirm Log Out</span>
+            </div>
+            <div class="logout-modal-body">
+                Are you sure you want to log out?
+            </div>
+            <div class="logout-modal-actions">
+                <button type="button" class="logout-btn cancel" id="logoutCancel">No</button>
+                <a class="logout-btn confirm" id="logoutConfirm" href="/logout/">Yes</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const logoutLink = document.getElementById('logoutLink');
+            const logoutBackdrop = document.getElementById('logoutBackdrop');
+            const logoutCancel = document.getElementById('logoutCancel');
+            const logoutConfirm = document.getElementById('logoutConfirm');
+
+            if (!logoutLink || !logoutBackdrop || !logoutCancel || !logoutConfirm) {
+                return;
+            }
+
+            const openLogoutModal = () => {
+                const titleEl = document.getElementById('logoutTitle');
+                const bodyEl = document.querySelector('.logout-modal-body');
+                if (window.isAnalysisRunning && titleEl && bodyEl) {
+                    titleEl.textContent = 'Log out and cancel analysis?';
+                    bodyEl.textContent = 'Analysis is currently running. Logging out will cancel the analysis. Are you sure you want to log out?';
+                } else if (titleEl && bodyEl) {
+                    titleEl.textContent = 'Confirm Log Out';
+                    bodyEl.textContent = 'Are you sure you want to log out?';
+                }
+                logoutBackdrop.style.display = 'flex';
+                logoutBackdrop.setAttribute('aria-hidden', 'false');
+            };
+            const closeLogoutModal = () => {
+                logoutBackdrop.style.display = 'none';
+                logoutBackdrop.setAttribute('aria-hidden', 'true');
+            };
+
+            logoutLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                openLogoutModal();
+            });
+            logoutConfirm.addEventListener('click', async (event) => {
+                if (window.requestAnalysisCancel && window.isAnalysisRunning) {
+                    event.preventDefault();
+                    logoutConfirm.textContent = 'Logging out...';
+                    logoutConfirm.style.pointerEvents = 'none';
+                    await window.requestAnalysisCancel();
+                    window.location.href = logoutConfirm.getAttribute('href');
+                }
+            });
+            logoutCancel.addEventListener('click', closeLogoutModal);
+            logoutBackdrop.addEventListener('click', (event) => {
+                if (event.target === logoutBackdrop) {
+                    closeLogoutModal();
+                }
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeLogoutModal();
+                }
+            });
+        });
+    </script>
     {% block scripts %}{% endblock scripts %}
 </body>
 </html>

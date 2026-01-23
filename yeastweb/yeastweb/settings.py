@@ -196,7 +196,7 @@ CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")
 CSP_CONNECT_SRC = ("'self'",)
 CSP_FRAME_ANCESTORS = ("'none'",)
 CSP_BASE_URI = ("'self'",)
-CSP_FORM_ACTION = ("'self'",)
+CSP_FORM_ACTION = ("'self'", "https://accounts.google.com", "https://login.microsoftonline.com")
 CSP_OBJECT_SRC = ("'none'",)
 
 DEFAULT_SEGMENT_CONFIG = {

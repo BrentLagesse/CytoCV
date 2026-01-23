@@ -10,7 +10,15 @@ import sys, pkgutil, importlib, inspect
 from core.models import DVLayerTifPreview, UploadedImage
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
-from .utils import tif_to_jpg, write_progress, progress_path
+from .utils import (
+    tif_to_jpg,
+    write_progress,
+    progress_path,
+    read_progress,
+    is_cancelled,
+    set_cancelled,
+    clear_cancelled,
+)
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.cell_analysis import Analysis
 
@@ -117,6 +125,7 @@ def pre_process_step(request, uuids):
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
+        clear_cancelled(uuids)
         selected_analysis = request.POST.getlist('selected_analysis')
         print("selected_analysis")
         print(selected_analysis)
@@ -127,20 +136,44 @@ def pre_process_step(request, uuids):
         preprocess_marked = False
         detection_marked = False
 
+        cancel_check = lambda: is_cancelled(uuids)
+
         for image_uuid in uuid_list:
+            if cancel_check():
+                write_progress(uuids, "Cancelled")
+                clear_cancelled(uuids)
+                return JsonResponse({"status": "cancelled"})
             img_obj = get_object_or_404(UploadedImage, uuid=image_uuid)
             out_dir = Path(MEDIA_ROOT) / image_uuid
 
             if not preprocess_marked:
                 write_progress(uuids, "Preprocessing Images")
                 preprocess_marked = True
-            prep_path, prep_list = preprocess_images(image_uuid, img_obj, out_dir)
+            prep_path, prep_list = preprocess_images(
+                image_uuid,
+                img_obj,
+                out_dir,
+                cancel_check=cancel_check,
+            )
+            if cancel_check() or not prep_path or not prep_list:
+                write_progress(uuids, "Cancelled")
+                clear_cancelled(uuids)
+                return JsonResponse({"status": "cancelled"})
             tif_to_jpg(Path(prep_path), out_dir)
 
             if not detection_marked:
                 write_progress(uuids, "Detecting Cells")
                 detection_marked = True
-            predict_images(prep_path, prep_list, out_dir)
+            predict_images(
+                prep_path,
+                prep_list,
+                out_dir,
+                cancel_check=cancel_check,
+            )
+            if cancel_check():
+                write_progress(uuids, "Cancelled")
+                clear_cancelled(uuids)
+                return JsonResponse({"status": "cancelled"})
 
         return redirect(f'/image/{uuids}/convert/')
 
@@ -176,6 +209,24 @@ def set_progress(request, key):
     try:
         write_progress(key, phase)
         return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@require_POST
+def cancel_progress(request, uuids):
+    try:
+        if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
+            return JsonResponse({"status": "invalid"}, status=400)
+        data = read_progress(uuids)
+        phase = data.get("phase", "idle")
+        if phase in ("idle", "Completed", "Cancelled"):
+            write_progress(uuids, "Cancelled")
+            clear_cancelled(uuids)
+            return JsonResponse({"status": "cancelled"})
+        set_cancelled(uuids)
+        write_progress(uuids, "Cancelling")
+        return JsonResponse({"status": "cancelling"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 

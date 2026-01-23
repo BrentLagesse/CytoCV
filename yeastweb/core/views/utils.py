@@ -29,6 +29,41 @@ def progress_path(key: str) -> Path:
     digest = hashlib.sha256(key.encode('utf-8')).hexdigest()
     return p / f"{digest}.json"
 
+def cancel_path(key: str) -> Path:
+    p = Path(MEDIA_ROOT) / 'progress'
+    p.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(key.encode('utf-8')).hexdigest()
+    return p / f"{digest}.cancel"
+
+def read_progress(key: str) -> dict:
+    try:
+        path = progress_path(key)
+        if path.exists():
+            return json.loads(path.read_text() or '{}')
+    except (OSError, IOError, PermissionError, json.JSONDecodeError):
+        return {}
+    return {}
+
+def is_cancelled(key: str) -> bool:
+    try:
+        return cancel_path(key).exists()
+    except (OSError, IOError, PermissionError):
+        return False
+
+def set_cancelled(key: str) -> None:
+    try:
+        cancel_path(key).write_text("1")
+    except (OSError, IOError, PermissionError):
+        pass
+
+def clear_cancelled(key: str) -> None:
+    try:
+        path = cancel_path(key)
+        if path.exists():
+            path.unlink()
+    except (OSError, IOError, PermissionError):
+        pass
+
 
 def write_progress(key: str, phase: str) -> None:
     try:

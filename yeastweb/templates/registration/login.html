@@ -42,7 +42,6 @@
             display: flex;
             flex-direction: column;
             gap: 18px;
-            animation: fadeUp 0.4s ease forwards;
         }
 
         .card-header {
@@ -84,7 +83,6 @@
             display: flex;
             flex-direction: column;
             gap: 14px;
-            animation: fadeUp 0.45s ease forwards;
         }
 
         .panel-title {
@@ -189,17 +187,6 @@
             font-size: 13px;
         }
 
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
         @media (max-width: 640px) {
             .login-card {
                 padding: 22px;
@@ -212,14 +199,14 @@
 </head>
 <body>
     <div class="page">
-        <div class="login-card">
+        <div class="login-card soft-fade-in">
             <div class="card-header">
                 <div class="brand-chip">Yeast Web</div>
                 <h1>Sign in</h1>
                 <p class="subtitle">Access your analysis workspace and continue where you left off.</p>
             </div>
 
-            <div class="panel" style="animation-delay: 0.05s;">
+            <div class="panel">
                 <div class="panel-title">Credentials</div>
                 <form method="post" class="login-form">
                     {% csrf_token %}
@@ -235,7 +222,7 @@
                 </form>
             </div>
 
-            <div class="panel" style="animation-delay: 0.1s;">
+            <div class="panel">
                 <div class="panel-title">Single sign-on</div>
                 <div class="oauth-grid">
                     <a href="{% provider_login_url 'google' %}" class="oauth-btn">
