@@ -164,13 +164,13 @@ def pre_process_step(request, uuids):
             if not detection_marked:
                 write_progress(uuids, "Detecting Cells")
                 detection_marked = True
-            predict_images(
+            prediction_result = predict_images(
                 prep_path,
                 prep_list,
                 out_dir,
                 cancel_check=cancel_check,
             )
-            if cancel_check():
+            if prediction_result is None or cancel_check():
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
                 return JsonResponse({"status": "cancelled"})

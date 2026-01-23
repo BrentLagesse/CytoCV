@@ -43,6 +43,8 @@ def convert_to_image(request, uuids):
         clear_cancelled(uuids)
         return HttpResponse("Cancelled")
 
+    write_progress(uuids, "Converting Images")
+
     for uuid in uuid_list:
         if is_cancelled(uuids):
             write_progress(uuids, "Cancelled")

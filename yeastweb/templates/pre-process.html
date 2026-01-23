@@ -617,11 +617,11 @@
         if (cancelPromise) {
           return cancelPromise;
         }
-        cancelPromise = (async () => {
-          cancelClientAnalysis();
-          const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
-          const csrfToken = csrfEl?.value;
-          const cancelUrl = `/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/cancel/`;
+          cancelPromise = (async () => {
+            cancelClientAnalysis();
+            const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
+            const csrfToken = csrfEl?.value;
+            const cancelUrl = `/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/cancel/`;
           try {
             await fetch(cancelUrl, {
               method: 'POST',
@@ -632,25 +632,29 @@
               body: JSON.stringify({ reason: 'user_cancelled' }),
               credentials: 'same-origin',
             });
-          } catch (e) { /* ignore */ }
-
-          while (true) {
-            try {
-              const pollUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/`, window.location.origin);
-              const resp = await fetch(pollUrl, { cache: 'no-store' });
-              if (resp.ok) {
-                const data = await resp.json();
-                const phase = data?.phase || 'idle';
-                if (phase === 'Cancelled' || phase === 'Completed' || phase === 'idle') {
-                  break;
-                }
-              }
             } catch (e) { /* ignore */ }
-            await new Promise((resolve) => setTimeout(resolve, 400));
-          }
-          window.isAnalysisRunning = false;
-          cancelPromise = null;
-          return true;
+
+            const deadline = Date.now() + 180000;
+            while (Date.now() < deadline) {
+              try {
+                const pollUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/`, window.location.origin);
+                const resp = await fetch(pollUrl, { cache: 'no-store' });
+                if (resp.ok) {
+                  const data = await resp.json();
+                  const phase = data?.phase || 'idle';
+                  if (phase === 'Cancelled' || phase === 'Completed' || phase === 'idle') {
+                    break;
+                  }
+                }
+              } catch (e) { /* ignore */ }
+              await new Promise((resolve) => setTimeout(resolve, 400));
+            }
+            if (Date.now() >= deadline) {
+              console.warn('Cancel polling timed out.');
+            }
+            window.isAnalysisRunning = false;
+            cancelPromise = null;
+            return true;
         })();
         return cancelPromise;
       };

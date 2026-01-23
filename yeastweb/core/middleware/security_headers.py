@@ -12,7 +12,10 @@ class ContentSecurityPolicyMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        if not response.has_header("Content-Security-Policy"):
+        if not (
+            response.has_header("Content-Security-Policy")
+            or response.has_header("Content-Security-Policy-Report-Only")
+        ):
             response["Content-Security-Policy"] = self.policy
         return response
 

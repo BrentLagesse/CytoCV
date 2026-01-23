@@ -587,7 +587,8 @@
 </div>
 
 <script>
-    
+    const selectedFiles = new Map();
+
     document.addEventListener('DOMContentLoaded', () => {
         setupValidationToggles();
         setupSettingsModal();
@@ -774,7 +775,6 @@
     }
 
 
-    const selectedFiles = new Map();
     const clearQueueButton = document.getElementById('clearQueueButton');
     const resetBackdrop = document.getElementById('resetBackdrop');
     const resetConfirm = document.getElementById('resetConfirm');

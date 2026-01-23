@@ -1,6 +1,7 @@
 import cv2
 import hashlib
 import json
+import logging
 from pathlib import Path
 from yeastweb.settings import MEDIA_ROOT
 
@@ -21,6 +22,8 @@ def tif_to_jpg(tif_path :Path, output_dir :Path) -> Path:
     cv2.imwrite(str(jpg_path), read,[int(cv2.IMWRITE_JPEG_QUALITY), 100])
     return jpg_path
 
+
+logger = logging.getLogger(__name__)
 
 # Progress helpers (shared across views)
 def progress_path(key: str) -> Path:
@@ -54,7 +57,7 @@ def set_cancelled(key: str) -> None:
     try:
         cancel_path(key).write_text("1")
     except (OSError, IOError, PermissionError):
-        pass
+        logger.debug("Failed to write cancel flag for %s", key)
 
 def clear_cancelled(key: str) -> None:
     try:
@@ -62,12 +65,11 @@ def clear_cancelled(key: str) -> None:
         if path.exists():
             path.unlink()
     except (OSError, IOError, PermissionError):
-        pass
+        logger.debug("Failed to clear cancel flag for %s", key)
 
 
 def write_progress(key: str, phase: str) -> None:
     try:
         progress_path(key).write_text(json.dumps({"phase": phase}))
     except (OSError, IOError, PermissionError):
-        # Best-effort only; never break main processing on failure
         pass
