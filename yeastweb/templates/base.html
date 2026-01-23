@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
 
         :root {
             --app-font: 'Space Grotesk', 'Segoe UI', sans-serif;
@@ -177,7 +177,7 @@
             <div class="nav-right">
                 {% if user.is_authenticated %}
                     <a href="/profile">Profile</a>
-                    <a href="/logout" id="logoutLink">Log Out</a>
+                    <a href="/logout/" id="logoutLink">Log Out</a>
                 {% else %}
                     <a href="/login">Log In</a>
                     <a href="/signup">Sign Up</a>

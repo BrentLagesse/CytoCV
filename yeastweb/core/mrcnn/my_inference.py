@@ -94,7 +94,7 @@ def predict_images(
     scale_factor=2,
     verbose=True,
     cancel_check=None,
-) -> Path:
+) -> Path | None:
     if cancel_check and cancel_check():
         return None
 
@@ -115,7 +115,7 @@ def predict_images(
     n_images = len(preprocessed_image_list_path.ImageId)
     if n_images == 0:   # loading tensorflow takes a long time.  Don't do it if we don't use it.
         print("NO IMAGES WERE DETECTED")
-        return
+        return None
     if cancel_check and cancel_check():
         return None
     import tensorflow as tf
