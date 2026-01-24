@@ -3,6 +3,7 @@ from django.shortcuts import redirect
 from pathlib import Path
 from PIL import Image
 from yeastweb.settings import MEDIA_ROOT
+from .utils import write_progress, is_cancelled, clear_cancelled
 
 import csv
 import numpy as np
@@ -37,7 +38,18 @@ def convert_to_image(request, uuids):
     # Split the `uuids` string into a list of individual UUIDs
     uuid_list = uuids.split(',')
 
+    if is_cancelled(uuids):
+        write_progress(uuids, "Cancelled")
+        clear_cancelled(uuids)
+        return HttpResponse("Cancelled")
+
+    write_progress(uuids, "Converting Images")
+
     for uuid in uuid_list:
+        if is_cancelled(uuids):
+            write_progress(uuids, "Cancelled")
+            clear_cancelled(uuids)
+            return HttpResponse("Cancelled")
         # Define paths for each UUID
         rle_file = Path(MEDIA_ROOT) / str(uuid) / "compressed_masks.csv"
         image_list_file = Path(MEDIA_ROOT) / str(uuid) / "preprocessed_images_list.csv"
@@ -85,6 +97,10 @@ def convert_to_image(request, uuids):
 
         files = np.unique(rle[:, 0])
         for f in files:
+            if is_cancelled(uuids):
+                write_progress(uuids, "Cancelled")
+                clear_cancelled(uuids)
+                return HttpResponse("Cancelled")
             if verbose:
                 start_time = time.time()
             logging.info(f"Converting {f} to mask for UUID {uuid}...")
@@ -112,6 +128,10 @@ def convert_to_image(request, uuids):
             columns = np.where(rle[:, 0] == f)
             currobj = 1
             for i in columns[0]:
+                if is_cancelled(uuids):
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return HttpResponse("Cancelled")
                 logging.info(f"Processing RLE data for object {currobj} in UUID {uuid}")
                 try:
                     currimg = rleToMask(rle[i, 1], new_height, new_width)

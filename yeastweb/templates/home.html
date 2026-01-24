@@ -10,87 +10,263 @@
     <title>Django Image Uploading</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #333; /* Dark background */
-            color: #fff; /* Light text */
+            font-family: var(--app-font);
+            background-color: var(--page-bg);
+            color: var(--text);
             margin: 0;
-            padding: 20px;
-            text-align: center;
+            padding: calc(var(--nav-height) + 10px) 10px 10px;
+            min-height: 100vh;
+        }
+        .home-layout {
+            --left-width: 70%;
+            --divider-width: 8px;
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(320px, var(--left-width)) var(--divider-width) minmax(260px, 1fr);
+            align-items: stretch;
+            justify-items: stretch;
+            gap: 10px;
+            height: calc(100vh - var(--nav-height) - 20px);
+            height: calc(100dvh - var(--nav-height) - 20px);
+        }
+        .module-card {
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh; /* Full height to center vertically in the viewport */
+            min-width: 0;
         }
-        h1 {
-            margin-bottom: 20px; /* Adding space below the title */
+        .overview-card {
+            gap: 14px;
+        }
+        .overview-header h1 {
+            margin: 0 0 6px 0;
             font-size: 28px;
+            letter-spacing: 0.2px;
         }
-        a {
-            background-color: #007bff; /* Full blue background */
-            color: #fff; /* White text */
-            text-decoration: none; /* Remove underline */
-            padding: 12px 20px; /* Padding for a larger clickable area */
-            border: none; /* Remove border */
-            border-radius: 4px; /* Rounded corners */
-            transition: background-color 0.3s, color 0.3s; /* Transition for hover effects */
-            margin-bottom: 30px; /* Space between the button and the list */
+        .overview-header p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
         }
-        a:hover {
-            background-color: #0056b3; /* Darker blue on hover */
-            color: #fff; /* Keep the text white */
+        .overview-scroll {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding-right: 6px;
+            display: grid;
+            gap: 16px;
         }
-        ul {
-            list-style: none; /* Remove bullet points */
-            padding: 0; /* Remove padding */
-            margin: 20px auto; /* Centering the list */
-            text-align: left; /* Align text to the left for list items */
-            width: 80%; /* Width of the list */
+        .overview-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
         }
-        li {
-            background-color: #222; /* Dark background for list items */
-            padding: 10px; /* Padding around text */
-            border: 1px solid #444; /* Slightly lighter border for the items */
-            margin-top: 8px; /* Space between items */
-            border-radius: 4px; /* Rounded corners */
+        .overview-section p {
+            margin: 0 0 10px 0;
+            color: var(--text);
+            line-height: 1.5;
+            font-size: 14px;
         }
-        img {
-            width: 100%; /* Responsive images */
-            max-width: 200px; /* Maximum width */
-            height: auto; /* Maintain aspect ratio */
-            display: block; /* Block display to handle margin */
-            margin: 10px auto; /* Centering the image */
+        .overview-list,
+        .upload-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 10px;
         }
-
+        .overview-list li,
+        .upload-list li {
+            background-color: #1f1f1f;
+            border: 1px solid #2f2f2f;
+            border-radius: 12px;
+            padding: 12px;
+            display: grid;
+            gap: 6px;
+            font-size: 14px;
+        }
+        .upload-list img {
+            width: 100%;
+            max-width: 220px;
+            height: auto;
+            display: block;
+            margin-top: 6px;
+            border-radius: 8px;
+            border: 1px solid #2b2b2b;
+        }
+        .cta-card {
+            justify-content: center;
+            text-align: center;
+            gap: 16px;
+        }
+        .cta-card h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+        .cta-card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .cta-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .cta-button {
+            background-color: var(--accent);
+            color: #fff;
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            min-width: 140px;
+            text-align: center;
+        }
+        .cta-button:hover { background-color: var(--accent-dark); }
+        .text-link {
+            color: #9fc7ff;
+            text-decoration: none;
+        }
+        .text-link:hover { text-decoration: underline; }
+        .splitter {
+            width: var(--divider-width);
+            background: #1f1f1f;
+            border: 1px solid #2f2f2f;
+            border-radius: 999px;
+            cursor: col-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+        .splitter::after {
+            content: "";
+            width: 2px;
+            height: 48px;
+            background: #3a3a3a;
+            border-radius: 999px;
+        }
+        .splitter.dragging,
+        .splitter:hover {
+            background: #2a2a2a;
+            border-color: #3a3a3a;
+        }
+        @media (max-width: 900px) {
+            .home-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .splitter { display: none; }
+        }
     </style>
 </head>
 <body>
 
-<h1>Django Image Uploading</h1>
-<a href="image/upload" id="uploadImageButton">Upload Image</a>
+<div class="home-layout">
+    <section class="module-card overview-card soft-fade-in">
+        <div class="overview-header">
+            <h1>Yeast Analysis Web</h1>
+            <p>Research platform built by the UWB STEM team for University of Utah collaborators.</p>
+        </div>
+        <div class="overview-scroll">
+            <div class="overview-section">
+                <h3>Project overview</h3>
+                <p>The project is a tool to automatically analyze WIDE-fluorescent microscopy images of yeast cells undergoing mitosis. The biologist uses yeast cells that have a controlled mutation in them. The biologists then use fluorescent labeling for points of interest (POIs), such as specific proteins, and this program automatically analyzes those POIs to collect useful data that may be used to find the cause of cellular mutation. The user will upload a special DV (Delta Vision) file that has multiple images that are taken at the same time; thus, allowing them to be overlapped. One of them is a Differential interference contrast (DIC) image, which basically is a clear image of the cells, and multiple images of the cells through different wavelengths which excite the fluorescent labels separately, leading to the POI being brightened (small dots). Currently, the fluorescent labels being used are DAPI, mCherry, and GFP.</p>
+            </div>
+        </div>
+    </section>
 
-<!-- List all image's uuid and name-->
-<ul>
-  {% for image in images %}
-  <li>
-    <h2>{{ image.name }}</h2>
-    <p>{{ image.uuid }}</p>
-    <img src="{{ image.cover.url }}" alt="{{ image.name }}" />
-  </li>
-  {% endfor %}
-</ul>
+    <div class="splitter" id="homeDivider" role="separator" aria-orientation="vertical" aria-label="Resize panels"></div>
+
+    <section class="module-card cta-card soft-fade-in">
+        <h2>Get started</h2>
+        <p>Choose how you want to access the analysis workflow.</p>
+        <div class="cta-buttons">
+            {% if user.is_authenticated %}
+                <a href="/profile" class="cta-button">Profile</a>
+            {% else %}
+                <a href="/signup" class="cta-button">Sign Up</a>
+            {% endif %}
+            <a href="/image/upload/" id="uploadImageButton" class="cta-button">Experiment</a>
+        </div>
+        {% if not user.is_authenticated %}
+            <p>Already have an account? <a href="/login" class="text-link">Log in</a></p>
+        {% endif %}
+    </section>
+</div>
 
 <!-- Add JavaScript here -->
 <script>
     const uploadImageButton = document.getElementById('uploadImageButton');
-    uploadImageButton.addEventListener('click', function (event) {
-        // Change button text to "Loading..."
-        uploadImageButton.textContent = "Loading...";
-        button.style.pointerEvents = 'none'; // Disable pointer interactions
-        button.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
-        // Disable further clicks by preventing pointer events
-        uploadImageButton.style.pointerEvents = "none";
-    });
+    if (uploadImageButton) {
+        uploadImageButton.addEventListener('click', function () {
+            // Change button text to "Loading..."
+            uploadImageButton.textContent = "Loading...";
+            uploadImageButton.style.pointerEvents = 'none'; // Disable pointer interactions
+            uploadImageButton.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
+        });
+    }
+
+    const homeLayout = document.querySelector('.home-layout');
+    const homeDivider = document.getElementById('homeDivider');
+    if (homeLayout && homeDivider) {
+        let dragging = false;
+        const minLeft = 320;
+        const minRight = 260;
+        const getGap = () => {
+            const styles = getComputedStyle(homeLayout);
+            const columnGap = styles.columnGap || styles.gap || '0px';
+            const gapValue = parseFloat(columnGap);
+            return Number.isNaN(gapValue) ? 0 : gapValue;
+        };
+
+        const updateColumns = (clientX) => {
+            const rect = homeLayout.getBoundingClientRect();
+            const dividerWidth = homeDivider.offsetWidth;
+            const gap = getGap();
+            const available = rect.width - dividerWidth - gap * 2;
+            const maxLeft = available - minRight;
+            const nextLeft = Math.max(minLeft, Math.min(clientX - rect.left - gap - dividerWidth / 2, maxLeft));
+            homeLayout.style.setProperty('--left-width', `${nextLeft}px`);
+        };
+
+        homeDivider.addEventListener('pointerdown', (event) => {
+            if (window.matchMedia('(max-width: 900px)').matches) return;
+            dragging = true;
+            homeDivider.classList.add('dragging');
+            if (homeDivider.setPointerCapture) {
+                homeDivider.setPointerCapture(event.pointerId);
+            }
+            updateColumns(event.clientX);
+        });
+
+        homeDivider.addEventListener('pointermove', (event) => {
+            if (!dragging) return;
+            updateColumns(event.clientX);
+        });
+
+        homeDivider.addEventListener('pointerup', (event) => {
+            dragging = false;
+            homeDivider.classList.remove('dragging');
+            if (homeDivider.releasePointerCapture) {
+                homeDivider.releasePointerCapture(event.pointerId);
+            }
+        });
+        homeDivider.addEventListener('pointercancel', (event) => {
+            dragging = false;
+            homeDivider.classList.remove('dragging');
+            if (homeDivider.releasePointerCapture) {
+                homeDivider.releasePointerCapture(event.pointerId);
+            }
+        });
+    }
 </script>
 
 </body>

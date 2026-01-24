@@ -6,66 +6,97 @@
   document.addEventListener("DOMContentLoaded", () => {
     const raw = sessionStorage.getItem("dvErrors");
     if (!raw) return;
-    const lines = JSON.parse(raw);
+    let lines = [];
+    try {
+      lines = JSON.parse(raw) || [];
+    } catch (err) {
+      sessionStorage.removeItem("dvErrors");
+      return;
+    }
     sessionStorage.removeItem("dvErrors");
+    if (!Array.isArray(lines) || lines.length === 0) return;
 
-    // build a compact, responsive banner
-    const banner = document.createElement("div");
-    Object.assign(banner.style, {
-      position: "fixed",
-      top: "2vh",
-      left: "50%",
-      transform: "translateX(-50%)",
-      width: "65vw" /* 5% wider */,
-      maxWidth: "750px" /* up from 600px */,
-      background: "#a71d2a",
-      color: "fffffff",
-      padding: "1.2vh 2vw 1.2vh 1.2vw",
-      borderRadius: "0.6vh" /* just a hair bigger */,
-      boxShadow: "0 0.5vh 1vh rgba(0,0,0,0.2)",
-      zIndex: "2000",
-      fontSize: "1.1rem" /* tiny bump for text */,
-      lineHeight: "1.4",
-      textAlign: "left",
-    });
+    let container = document.querySelector(".message-container.dv-overlay");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "message-container dv-overlay";
+      Object.assign(container.style, {
+        position: "fixed",
+        top: "calc(var(--nav-height) + 6px)",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "calc(100% - 32px)",
+        maxWidth: "720px",
+        zIndex: "2000",
+        pointerEvents: "none",
+        margin: "0",
+        padding: "0",
+      });
+      document.body.appendChild(container);
+    }
+
+    const key = lines.filter((line) => line).join("\n").trim() || "dv-errors";
+    const existing = Array.from(
+      container.querySelectorAll(".message.dv-error")
+    ).some((msg) => msg.dataset.key === key);
+    if (existing) return;
 
     const formattedLines = lines
       .map((line) => {
         if (!line) {
-          return '<div style="height:0.6vh;"></div>';
+          return '<div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>';
         }
         const isHeader = line.startsWith("Could not process");
-        const style = isHeader ? "font-weight:600;" : "";
-        return `<div style="${style}">${line}</div>`;
+        const cleanedLine = isHeader
+          ? line
+          : line
+              .replace(/\s*\(expected\s*\d+\s*layers?\)/i, "")
+              .replace(/\s*\(expected\s*\d+\s*\)/i, "");
+        const weight = isHeader ? "600" : "400";
+        return `<div style="font-weight:${weight};">${cleanedLine}</div>`;
       })
       .join("");
     const hasSections = lines.some((line) => !line);
     const headerLine = hasSections
-      ? '<div style="font-weight:600; margin-bottom:0.4vh;">Validation issues:</div>'
+      ? '<div style="font-weight:600; margin-bottom:4px;">Validation issues:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
       : "";
 
-    banner.innerHTML = `
-      ${headerLine}
-      ${formattedLines}
-      <button id="bannerClose"
-        style="
-          position:absolute;
-          top:0.8vh; right:1vw;
-          background:transparent;
-          border:none;
-          font-size:1.6rem;
-          cursor:pointer;
-          color:inherit;
-        ">
-        &times;
-      </button>
-    `;
-
-    document.body.appendChild(banner);
-    banner
-      .querySelector("#bannerClose")
-      .addEventListener("click", () => banner.remove());
-    setTimeout(() => banner.remove(), 30000);
+    const message = document.createElement("div");
+    message.className = "message dv-error";
+    message.dataset.key = key;
+    message.innerHTML = `${headerLine}${formattedLines}`;
+    message.style.position = "relative";
+    message.style.paddingRight = "32px";
+    message.style.fontSize = "16px";
+    message.style.lineHeight = "1.45";
+    message.style.pointerEvents = "auto";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.setAttribute("aria-label", "Dismiss");
+    close.innerHTML = "&times;";
+    Object.assign(close.style, {
+      position: "absolute",
+      top: "6px",
+      right: "10px",
+      background: "#3b1a1f",
+      border: "none",
+      color: "inherit",
+      fontSize: "20px",
+      cursor: "pointer",
+      lineHeight: "1",
+      padding: "2px 8px",
+      borderRadius: "6px",
+    });
+    close.addEventListener("mouseenter", () => {
+      close.style.background = "#5a2a31";
+    });
+    close.addEventListener("mouseleave", () => {
+      close.style.background = "#3b1a1f";
+    });
+    close.addEventListener("click", () => message.remove());
+    message.appendChild(close);
+    container.prepend(message);
+    setTimeout(() => message.remove(), 60000);
   });
 </script>
 
@@ -80,36 +111,45 @@
       .channel-chip.dapi { background-color: blue; }
       .channel-chip.mcherry { background-color: red; }
       .channel-chip.gfp { background-color: green; }
+      .channel-chip.dic:hover { background-color: #3a3a3a; }
+      .channel-chip.dapi:hover { background-color: #4d4dff; }
+      .channel-chip.mcherry:hover { background-color: #ff6b6b; }
+      .channel-chip.gfp:hover { background-color: #3bbf3b; }
 
       /* Overall page styling */
       body {
         margin: 0;
-        font-family: "Arial", sans-serif;
-        background-color: #333;
-        color: #fff;
-        padding-top: 40px;
+        font-family: var(--app-font);
+        background-color: var(--page-bg);
+        color: var(--text);
+        padding: calc(var(--nav-height) + 10px) 10px 10px;
       }
 
       .page-container {
         display: flex;
         flex-direction: row;
-        height: calc(100dvh); 
-        align-items: stretch;           
+        width: 100%;
+        min-height: calc(100dvh - var(--nav-height));
+        align-items: stretch;
+        gap: 10px;
       }
 
       /* SIDEBAR */
       .sidebar {
         position: relative;
         width: 400px;
-        background-color: #222; 
+        background-color: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
         transition: width 0.3s ease, background-color 0.2s ease; 
-        overflow-x: hidden;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
+        align-self: stretch;
       }
 
       /* Collapsed state: set width to something minimal */
-      .sidebar.collapsed { width: 60px; background-color: #222; }
+      .sidebar.collapsed { width: 60px; background-color: var(--card-bg); }
 
       /* Hide text + content when collapsed */
       .sidebar.collapsed .sidebar-header h2,
@@ -126,9 +166,9 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #333;
-        border-radius: 8px;
-        margin: 8px 10px;
+        background-color: #1f1f1f;
+        border-radius: 12px;
+        margin: 10px 12px;
         padding: 10px;
       }
       .sidebar-header h2 { margin: 0; font-size: 18px; }
@@ -160,10 +200,11 @@
 
       /* Each file-item */
       .file-item {
-        margin: 8px 10px;
-        padding: 10px;
-        background-color: #333;
-        border-radius: 8px;
+        margin: 8px 12px;
+        padding: 12px;
+        background-color: #2b2b2b;
+        border-radius: 12px;
+        border: 1px solid #3a3a3a;
         cursor: pointer;
         transition: background-color 0.2s;
         font-size: 14px;
@@ -175,8 +216,9 @@
       /* Channel pills */
       .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
       .channel-chip {
-        background-color: #555; color: #fff;
-        padding: 6px 0; border-radius: 4px; cursor: grab; user-select: none;
+        background-color: #3a3a3a; color: #fff;
+        border: 1px solid #454545;
+        padding: 6px 0; border-radius: 6px; cursor: grab; user-select: none;
         flex: 1; box-sizing: border-box; text-align: center;
       }
       .channel-chip:active { cursor: grabbing; }
@@ -204,8 +246,13 @@
       /* MAIN CONTENT */
       .main-content {
         flex-grow: 1;
-        padding: 20px;
+        min-width: 0;
+        padding: 16px;
         text-align: center;
+        background: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
       }
 
       .main-content > :last-child { margin-bottom: 0 !important; }
@@ -220,14 +267,14 @@
         margin-bottom: 20px;
       }
 
-      img { border: 2px solid #333; border-radius: 5px; }
+      img { border: 1px solid #2b2b2b; border-radius: 10px; background: #1b1b1b; }
 
       .navigation { display: flex; justify-content: center; margin-top: 20px; }
 
       .button {
         background-color: #007bff; color: white; border: none; padding: 10px 20px;
-        font-size: 16px; margin: 0 50px; cursor: pointer; border-radius: 5px;
-        min-width: 150px; text-align: center;
+        font-size: 15px; margin: 0 30px; cursor: pointer; border-radius: 10px;
+        min-width: 160px; text-align: center; font-weight: 600; letter-spacing: 0.2px;
       }
       .button:hover { background-color: #0056b3; }
 
@@ -261,8 +308,9 @@
       #currentFileInfo { margin-top: 10px; }
 
       a {
-        background-color: #007bff; color: #fff; text-decoration: none; padding: 12px 20px; border: none;
-        border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin-bottom: 30px;
+        background-color: #007bff; color: #fff; text-decoration: none; padding: 10px 16px; border: none;
+        border-radius: 8px; transition: background-color 0.3s, color 0.3s; margin-bottom: 0;
+        font-weight: 600; letter-spacing: 0.2px;
       }
       a:hover { background-color: #0056b3; color: #fff; }
 
@@ -285,11 +333,11 @@
         top: 0;
         left: 0;
         width: min(420px, 94vw);
-        background: #1b1b1b;
-        border: 1px solid #444;
-        border-radius: 10px;
-        padding: 14px;
-        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+        background: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
         display: none;
         z-index: 2200;
       }
@@ -322,10 +370,10 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        padding: 6px 8px;
-        border-radius: 6px;
-        background: #262626;
-        border: 1px solid #333;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #242424;
+        border: 1px solid #343434;
         color: #fff;
       }
       .analysis-toggle + .analysis-toggle {
@@ -333,7 +381,7 @@
       }
       .analysis-divider {
         height: 1px;
-        background: #333;
+        background: #2f2f2f;
         margin: 6px 4px;
       }
       .analysis-toggle input { display: none; }
@@ -363,6 +411,75 @@
       .analysis-toggle input:checked + .analysis-switch::before {
         transform: translateX(18px);
       }
+      .nav-exit-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2300;
+      }
+      .nav-exit-modal {
+        width: min(440px, 92vw);
+        background: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        text-align: left;
+      }
+      .nav-exit-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .nav-exit-body {
+        font-size: 14px;
+        color: var(--text);
+        margin-bottom: 16px;
+      }
+      .nav-exit-actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+      }
+      .nav-exit-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 18px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin: 0;
+      }
+      .nav-exit-btn .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-right-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+        display: none;
+      }
+      .nav-exit-btn.loading .spinner { display: inline-block; }
+      .nav-exit-btn.confirm {
+        background: #2a2a2a;
+        color: #fff;
+        border: 1px solid #3a3a3a;
+      }
+      .nav-exit-btn.confirm:hover { background: #343434; }
+      .nav-exit-btn.cancel {
+        background: var(--accent);
+        color: #fff;
+      }
+      .nav-exit-btn.cancel:hover { background: var(--accent-dark); }
 
       /* Chrome / Edge / Safari */
       .sidebar-content::-webkit-scrollbar-track {
@@ -406,7 +523,7 @@
     </div>
     {% endfor %} {% endif %}
 
-    <div class="page-container">
+    <div class="page-container soft-fade-in">
       <!-- SIDEBAR -->
       <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -492,6 +609,21 @@
         </p>
       </div>
     </div>
+    <div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
+      <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
+        <div class="nav-exit-title" id="navExitTitle">Leave experiment?</div>
+        <div class="nav-exit-body">
+          You have an active experiment session. Are you sure you want to leave this page?
+        </div>
+        <div class="nav-exit-actions">
+          <button type="button" class="nav-exit-btn cancel" id="navExitCancel">No</button>
+          <button type="button" class="nav-exit-btn confirm" id="navExitConfirm">
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Yes</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script>
       // Current index & total
@@ -502,6 +634,10 @@
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleSidebarBtn");
       const fileItems = document.querySelectorAll(".file-item");
+      let analysisAbortController = null;
+      let analysisPollTimer = null;
+      let suppressAnalysisErrors = false;
+      window.isAnalysisRunning = false;
 
       // Highlight active
       function updateSidebarActive() {
@@ -510,6 +646,152 @@
         if (active) active.classList.add("active");
       }
       updateSidebarActive();
+
+      const cancelClientAnalysis = () => {
+        suppressAnalysisErrors = true;
+        window.isAnalysisRunning = false;
+        if (analysisPollTimer) {
+          clearInterval(analysisPollTimer);
+          analysisPollTimer = null;
+        }
+        if (analysisAbortController) {
+          analysisAbortController.abort();
+          analysisAbortController = null;
+        }
+      };
+      let cancelPromise = null;
+      const requestAnalysisCancel = async () => {
+        if (!window.isAnalysisRunning) {
+          return true;
+        }
+        if (cancelPromise) {
+          return cancelPromise;
+        }
+          cancelPromise = (async () => {
+            cancelClientAnalysis();
+            const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
+            const csrfToken = csrfEl?.value;
+            const cancelUrl = `/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/cancel/`;
+          try {
+            await fetch(cancelUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken || '',
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              body: JSON.stringify({ reason: 'user_cancelled' }),
+              credentials: 'same-origin',
+            });
+            } catch (e) { /* ignore */ }
+
+            const customTimeout = Number.isFinite(window.CANCEL_POLLING_TIMEOUT_MS)
+              ? window.CANCEL_POLLING_TIMEOUT_MS
+              : 0;
+            const cancelPollingTimeoutMs = customTimeout > 0 ? customTimeout : 60000;
+            const deadline = Date.now() + cancelPollingTimeoutMs;
+            let delay = 400;
+            while (Date.now() < deadline) {
+              try {
+                const pollUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/`, window.location.origin);
+                const resp = await fetch(pollUrl, { cache: 'no-store' });
+                if (resp.ok) {
+                  const data = await resp.json();
+                  const phase = data?.phase || 'idle';
+                  if (phase === 'Cancelled' || phase === 'Completed' || phase === 'idle') {
+                    break;
+                  }
+                }
+              } catch (e) { /* ignore */ }
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              delay = Math.min(2000, Math.round(delay * 1.6));
+            }
+            if (Date.now() >= deadline) {
+              console.warn('Cancel polling timed out.');
+            }
+            window.isAnalysisRunning = false;
+            cancelPromise = null;
+            return true;
+        })();
+        return cancelPromise;
+      };
+      window.cancelActiveAnalysis = cancelClientAnalysis;
+      window.requestAnalysisCancel = requestAnalysisCancel;
+      window.addEventListener("beforeunload", cancelClientAnalysis);
+
+      function setupNavExitGuard() {
+        const navLinks = document.querySelectorAll(
+          '.navbar a[href="/"], .navbar a[href="/login"], .navbar a[href="/signup"], .navbar a[href="/profile"]'
+        );
+        const backdrop = document.getElementById('navExitBackdrop');
+        const cancel = document.getElementById('navExitCancel');
+        const confirm = document.getElementById('navExitConfirm');
+
+        if (!backdrop || !cancel || !confirm) {
+          return;
+        }
+
+        let pendingHref = null;
+        const defaultTitle = 'Leave experiment?';
+        const defaultBody = 'You have an active experiment session. Are you sure you want to leave this page?';
+        const runningTitle = 'Leave experiment and cancel analysis?';
+        const runningBody = 'Analysis is currently running. Leaving will cancel the analysis. Are you sure you want to leave this page?';
+        const openModal = (href) => {
+          pendingHref = href;
+          if (window.isAnalysisRunning) {
+            const titleEl = document.getElementById('navExitTitle');
+            const bodyEl = document.querySelector('.nav-exit-body');
+            if (titleEl) titleEl.textContent = runningTitle;
+            if (bodyEl) bodyEl.textContent = runningBody;
+          } else {
+            const titleEl = document.getElementById('navExitTitle');
+            const bodyEl = document.querySelector('.nav-exit-body');
+            if (titleEl) titleEl.textContent = defaultTitle;
+            if (bodyEl) bodyEl.textContent = defaultBody;
+          }
+          backdrop.style.display = 'flex';
+          backdrop.setAttribute('aria-hidden', 'false');
+        };
+        const closeModal = () => {
+          pendingHref = null;
+          backdrop.style.display = 'none';
+          backdrop.setAttribute('aria-hidden', 'true');
+        };
+        const handleNavClick = (event) => {
+          if (!Number.isFinite(totalFiles) || totalFiles <= 0) {
+            return;
+          }
+          event.preventDefault();
+          openModal(event.currentTarget.getAttribute('href'));
+        };
+        navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
+
+        cancel.addEventListener('click', closeModal);
+        confirm.addEventListener('click', async () => {
+          if (pendingHref) {
+            confirm.classList.add('loading');
+            confirm.style.pointerEvents = 'none';
+            confirm.disabled = true;
+            const label = confirm.querySelector('.btn-label');
+            if (label) {
+              label.textContent = 'Cancelling';
+            }
+            await requestAnalysisCancel();
+            window.location.href = pendingHref;
+          }
+        });
+        backdrop.addEventListener('click', (event) => {
+          if (event.target === backdrop) {
+            closeModal();
+          }
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            closeModal();
+          }
+        });
+      }
+      setupNavExitGuard();
 
       // Click file
       fileItems.forEach((item) => {
@@ -675,6 +957,8 @@
         const form = document.getElementById("preprocessForm");
         const btn = document.getElementById("startAnalysisButton");
         const textEl = btn.querySelector(".btn-text");
+        suppressAnalysisErrors = false;
+        window.isAnalysisRunning = true;
 
         btn.disabled = true;
         btn.classList.add("loading");
@@ -720,7 +1004,7 @@
 
         // Poll progress for accurate phases
         const uuids = "{{ uuids|escapejs }}";
-        let pollTimer = null;
+        analysisPollTimer = null;
         const startPolling = () => {
           const poll = async () => {
             try {
@@ -741,7 +1025,7 @@
               }
             } catch (err) { /* ignore polling errors */ }
           };
-          pollTimer = setInterval(poll, 1000);
+          analysisPollTimer = setInterval(poll, 1000);
           // Kick off immediately
           poll();
         };
@@ -749,21 +1033,30 @@
 
         // Submit via fetch, allowing backend to run through redirects
         try {
-          const resp = await fetch(window.location.href, {
-            method: 'POST',
-            body: new FormData(form),
-            credentials: 'same-origin',
-            redirect: 'follow',
+          analysisAbortController = new AbortController();
+            const resp = await fetch(window.location.href, {
+              method: 'POST',
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+              body: new FormData(form),
+              credentials: 'same-origin',
+              redirect: 'follow',
+            signal: analysisAbortController.signal,
           });
-          if (pollTimer) clearInterval(pollTimer);
+          if (analysisPollTimer) clearInterval(analysisPollTimer);
           // Navigate to final URL (display page) once processing completes
           if (resp && resp.url) {
+            window.isAnalysisRunning = false;
             window.location.href = resp.url;
           } else {
+            window.isAnalysisRunning = false;
             window.location.href = `/image/{{ uuids }}/display/`;
           }
         } catch (err) {
-          if (pollTimer) clearInterval(pollTimer);
+          if (analysisPollTimer) clearInterval(analysisPollTimer);
+          if (suppressAnalysisErrors || (err && err.name === "AbortError")) {
+            return;
+          }
+          window.isAnalysisRunning = false;
           // On error, re-enable button minimally and surface a message
           btn.disabled = false;
           btn.classList.remove("loading");
@@ -843,10 +1136,7 @@
           var content = sidebar.querySelector('.sidebar-content');
           if (!content) return;
 
-          // visible viewport height (handles mobile UI chrome)
-          var vpH = document.documentElement.clientHeight;
-          var top = sidebar.getBoundingClientRect().top;  // distance from viewport top
-          var available = Math.max(0, vpH - top);
+          var sidebarH = sidebar.getBoundingClientRect().height;
 
           var headerH = header ? header.getBoundingClientRect().height : 0;
           var hs = header ? getComputedStyle(header) : null;
@@ -855,7 +1145,7 @@
           var cs = getComputedStyle(content);
           var vPad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
 
-          var maxH = Math.max(0, Math.floor(available - headerH - headerMargins - vPad));
+          var maxH = Math.max(0, Math.floor(sidebarH - headerH - headerMargins - vPad));
           content.style.maxHeight = maxH + 'px';
           content.style.overflowY = 'auto';
           content.style.minHeight = '0';

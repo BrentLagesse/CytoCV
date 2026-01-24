@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'core.middleware.security_headers.ContentSecurityPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -145,6 +146,9 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+# Allow direct GET-based provider redirects for SSO buttons.
+SOCIALACCOUNT_LOGIN_ON_GET = False
+
 # for microsoft login
 
 AUTH_ADFS = {
@@ -164,6 +168,11 @@ AUTH_ADFS = {
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
 
 LOGIN_REDIRECT_URL = "profile"
+
+# Login rate limiting
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 15
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = 600
+LOGIN_RATE_LIMIT_DEBUG_WINDOW_SECONDS = 60
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -185,6 +194,18 @@ EMAIL_HOST_USER = 'yeastanalysistool@gmail.com'
 EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: CHANGE when enter production
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+
+# Content Security Policy (CSP)
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com")
+CSP_IMG_SRC = ("'self'", "data:", "blob:")
+CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")
+CSP_CONNECT_SRC = ("'self'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
+CSP_BASE_URI = ("'self'",)
+CSP_FORM_ACTION = ("'self'", "https://accounts.google.com", "https://login.microsoftonline.com")
+CSP_OBJECT_SRC = ("'none'",)
 
 DEFAULT_SEGMENT_CONFIG = {
     # odd integer for your Gaussian blur kernel
