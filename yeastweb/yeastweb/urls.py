@@ -21,7 +21,7 @@ from accounts.views import profile_view, auth_login, auth_logout, signup
 from django.conf import settings
 from django.conf.urls.static import static  
 from django.urls import path
-from core.views.pre_process_step import update_channel_order, get_progress, set_progress
+from core.views.pre_process_step import update_channel_order, get_progress, set_progress, cancel_progress
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/update-channel-order/<str:uuid>/', update_channel_order, name='update_channel_order'),
     path('api/progress/<str:uuids>/', get_progress, name='analysis_progress'),
     path('api/progress/<str:key>/set/', set_progress, name='set_progress'),
+    path('api/progress/<str:uuids>/cancel/', cancel_progress, name='cancel_progress'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

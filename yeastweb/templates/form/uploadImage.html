@@ -10,28 +10,45 @@
     <title>Upload Files and Folders</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #333; 
-            color: #fff; 
+            font-family: var(--app-font);
+            background-color: var(--page-bg);
+            color: var(--text);
             margin: 0;
-            padding: 20px;
+            padding: calc(var(--nav-height) + 24px) 20px 32px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             box-sizing: border-box;
         }
+        nav.navbar {
+            align-items: center;
+        }
+        nav.navbar .nav-left a,
+        nav.navbar .nav-right a {
+            margin: 0;
+            padding: 10px 12px 8px;
+            line-height: 1.2;
+        }
         form {
-            width: 90%;
-            max-width: 600px;
-            border: 1px solid #444; 
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 680px;
+            border: 1px solid var(--panel-border);
+            padding: 22px;
+            border-radius: 14px;
+            box-shadow: 0 18px 28px rgba(0, 0, 0, 0.3);
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #222; 
+            background: linear-gradient(180deg, #262626 0%, #1f1f1f 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-shell {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         
         /* Upload list – hidden when empty, auto-grow, custom scrollbar */
@@ -41,8 +58,8 @@
             text-align: left;
             margin-top: 10px;
 
-            background-color: #222;           /* same as form */
-            border: 0;
+            background-color: #1f1f1f;
+            border: 1px solid #2f2f2f;
             border-radius: 8px;
             padding: 8px;
 
@@ -96,10 +113,11 @@
             align-items: center;
             gap: 8px;
             padding: 8px;
-            background-color: #333;
-            border: 1px solid #555;
+            background-color: #2b2b2b;
+            border: 1px solid #3a3a3a;
             margin-top: 8px;
-            border-radius: 4px;
+            border-radius: 10px;
+            font-size: 13px;
         }
 
         /* Long filenames don't shove the X button */
@@ -115,9 +133,9 @@
             background-color: #e74c3c;
             color: #fff;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            padding: 2px 6px;
+            padding: 4px 8px;
             font-size: 12px;
         }
         .remove-btn:hover {
@@ -133,16 +151,18 @@
         }
         .upload-btn {
             flex: 1;
-            max-width: 200px; 
-            padding: 8px 10px; 
+            max-width: 220px; 
+            padding: 10px 12px; 
             border: none;
             background-color: #007bff;
             color: white;
-            border-radius: 4px;
+            border-radius: 10px;
             cursor: pointer;
             text-align: center;
             transition: background-color 0.3s ease;
-            font-size: 14px; 
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
         }
         .upload-btn:hover {
             background-color: #0056b3; 
@@ -156,7 +176,7 @@
             border: none;
             padding: 14px 20px;
             margin-top: 20px;
-            border-radius: 4px;
+            border-radius: 10px;
             cursor: pointer;
             transition: background-color 0.3s ease;
             width: 100%;
@@ -164,6 +184,8 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
         }
         .submit-btn:hover { background-color: #0056b3; }
 
@@ -180,6 +202,264 @@
         }
         .submit-btn.loading .spinner { display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .form-toolbar {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            height: 30px;
+            padding: 4px 12px;
+            margin: -22px -22px 16px -22px;
+            width: calc(100% + 44px);
+            background: #1f1f1f;
+            border-bottom: 1px solid #2f2f2f;
+            border-radius: 14px 14px 0 0;
+            gap: 6px;
+        }
+        .settings-btn {
+            background-color: transparent;
+            color: #b6b6b6;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .settings-btn svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+        .settings-btn:hover {
+            background-color: #2b2b2b;
+            border-color: #3a3a3a;
+        }
+        .settings-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+        }
+        .settings-modal {
+            width: min(600px, 94vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 26px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        }
+        .reset-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1600;
+        }
+        .reset-modal {
+            width: min(420px, 90vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        }
+        .reset-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .reset-modal-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .reset-modal-body {
+            font-size: 14px;
+            color: #d7d7d7;
+            margin-bottom: 16px;
+        }
+        .reset-modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .reset-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .reset-btn.confirm {
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #3a3a3a;
+        }
+        .reset-btn.confirm:hover { background: #343434; }
+        .reset-btn.cancel {
+            background: #007bff;
+            color: #fff;
+        }
+        .reset-btn.cancel:hover { background: #0056b3; }
+        .nav-exit-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1700;
+        }
+        .nav-exit-modal {
+            width: min(440px, 92vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+            text-align: left;
+        }
+        .nav-exit-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .nav-exit-body {
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 16px;
+        }
+        .nav-exit-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .nav-exit-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+        .nav-exit-btn.confirm {
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #3a3a3a;
+        }
+        .nav-exit-btn.confirm:hover { background: #343434; }
+        .nav-exit-btn.cancel {
+            background: var(--accent);
+            color: #fff;
+        }
+        .nav-exit-btn.cancel:hover { background: var(--accent-dark); }
+        .settings-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .settings-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .settings-close {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .settings-body {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background-color: #242424;
+            border: 1px solid #343434;
+        }
+        .toggle-subgroup {
+            margin-left: 10px;
+            padding-left: 10px;
+            border-left: 2px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toggle-row.subtoggle {
+            background-color: #202020;
+        }
+        .toggle-row.disabled {
+            opacity: 0.5;
+        }
+        .toggle-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .toggle-label {
+            font-size: 14px;
+        }
+        .toggle-hint {
+            font-size: 12px;
+            color: #b5b5b5;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 22px;
+            flex: 0 0 auto;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background-color: #555;
+            border-radius: 999px;
+            transition: background-color 0.2s ease;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            top: 2px;
+            background-color: #f2f2f2;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+        }
+        .switch input:checked + .slider {
+            background-color: #2f8f4e;
+        }
+        .switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
         a {
             background-color: #007bff; /* Full blue background */
             color: #fff; /* White text */
@@ -199,83 +479,380 @@
 <body>
 <form action="" method="post" enctype="multipart/form-data" id="uploadForm">
     {% csrf_token %}
-    <!-- Display list of selected files -->
-    <div id="fileList"></div>
-
-    <!-- Buttons for uploading files and folders -->
-    <div class="buttons-container">
-        <label class="upload-btn">
-            Upload Files
-            <input type="file" id="fileInput" accept=".dv" multiple>
-        </label>
-        <label class="upload-btn">
-            Upload Folders
-            <input type="file" id="folderInput" webkitdirectory multiple>
-        </label>
+    <div class="settings-modal-backdrop" id="settingsBackdrop" aria-hidden="true">
+        <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <div class="settings-modal-header">
+                <span class="settings-modal-title" id="settingsTitle">Analysis Settings</span>
+                <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">X</button>
+            </div>
+            <div class="settings-body">
+            <div class="toggle-row" id="moduleToggleRow">
+                <div class="toggle-text">
+                    <span class="toggle-label">Enable Yeast Analysis</span>
+                    <span class="toggle-hint">Enable metadata checks before preprocessing.</span>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="yeastAnalysisEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-subgroup">
+                <div class="toggle-row subtoggle" id="layerCheckRow">
+                    <div class="toggle-text">
+                        <span class="toggle-label">Enforce 4-image DV files</span>
+                        <span class="toggle-hint">Require exactly four layers before preprocessing.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="enforceLayerCount" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row subtoggle" id="wavelengthCheckRow">
+                    <div class="toggle-text">
+                        <span class="toggle-label">Enforce required wavelengths</span>
+                        <span class="toggle-hint">Require DIC, DAPI, mCherry, and GFP.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="enforceWavelengths" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Submit button with spinner + text -->
-    <button type="submit" class="submit-btn" id="uploadSubmit">
-        <span class="spinner" aria-hidden="true"></span>
-        <span class="btn-text">Preprocess Files</span>
-    </button>
+    <div class="reset-modal-backdrop" id="resetBackdrop" aria-hidden="true">
+        <div class="reset-modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+            <div class="reset-modal-header">
+                <span class="reset-modal-title" id="resetTitle">Reset Uploaded Files</span>
+            </div>
+            <div class="reset-modal-body">
+                Are you sure you want to remove all uploaded files from the queue?
+            </div>
+            <div class="reset-modal-actions">
+                <button type="button" class="reset-btn cancel" id="resetCancel">No</button>
+                <button type="button" class="reset-btn confirm" id="resetConfirm">Yes</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="upload-shell soft-fade-in">
+        <div class="form-toolbar">
+            <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear selected files" title="Clear selected files">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 20 12h-1.5a6.5 6.5 0 1 1-1.9-4.6L14.5 9.5H20V4l-2.35 2.35Z"/>
+                </svg>
+            </button>
+            <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Settings" title="Settings">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
+                </svg>
+            </button>
+        </div>
+        <!-- Display list of selected files -->
+        <div id="fileList"></div>
+
+        <!-- Buttons for uploading files and folders -->
+        <div class="buttons-container">
+            <label class="upload-btn">
+                Upload Files
+                <input type="file" id="fileInput" accept=".dv" multiple>
+            </label>
+            <label class="upload-btn">
+                Upload Folders
+                <input type="file" id="folderInput" webkitdirectory multiple>
+            </label>
+        </div>
+
+        <!-- Submit button with spinner + text -->
+        <button type="submit" class="submit-btn" id="uploadSubmit">
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-text">Preprocess Files</span>
+        </button>
+    </div>
 </form>
 
+<div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
+        <div class="nav-exit-title" id="navExitTitle">Leave experiment?</div>
+        <div class="nav-exit-body">
+            You have files queued for preprocessing. Are you sure you want to leave this page?
+        </div>
+        <div class="nav-exit-actions">
+            <button type="button" class="nav-exit-btn cancel" id="navExitCancel">No</button>
+            <button type="button" class="nav-exit-btn confirm" id="navExitConfirm">Yes</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    
+    const selectedFiles = new Map();
+
     document.addEventListener('DOMContentLoaded', () => {
+        setupValidationToggles();
+        setupSettingsModal();
+        setupNavExitGuard();
         const raw = sessionStorage.getItem('dvErrors');
         if (!raw) return;
-        const lines = JSON.parse(raw);
+        let lines = [];
+        try {
+            lines = JSON.parse(raw) || [];
+        } catch (err) {
+            sessionStorage.removeItem('dvErrors');
+            return;
+        }
         sessionStorage.removeItem('dvErrors');
         showErrors(lines);
     });
 
 
     function showErrors(lines) {
-        const banner = document.createElement('div');
-        Object.assign(banner.style, {
-        position:    'fixed',
-        top:         '2vh',
-        left:        '50%',
-        transform:   'translateX(-50%)',
-        width:       '65vw',
-        maxWidth:    '650px',
-        background:  '#a71d2a',
-        color:       'fffffff',
-        padding:     '1.2vh 3vw 1.2vh 1.2vw',
-        borderRadius:'0.6vh',
-        boxShadow:   '0 0.5vh 1vh rgba(0,0,0,0.2)',
-        zIndex:      '2000',
-        fontSize:    '1.1rem',
-        lineHeight:  '1.4',
-        textAlign:   'left',
+        if (!Array.isArray(lines) || lines.length === 0) return;
+
+        let container = document.querySelector('.message-container.dv-overlay');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'message-container dv-overlay';
+            Object.assign(container.style, {
+                position: 'fixed',
+                top: 'calc(var(--nav-height) + 6px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 'calc(100% - 32px)',
+                maxWidth: '720px',
+                zIndex: '2000',
+                pointerEvents: 'none',
+                margin: '0',
+                padding: '0',
+            });
+            document.body.appendChild(container);
+        }
+
+        const key = lines.filter((line) => line).join('\n').trim() || 'dv-errors';
+        const existing = Array.from(
+            container.querySelectorAll('.message.dv-error')
+        ).some((msg) => msg.dataset.key === key);
+        if (existing) return;
+
+        const formattedLines = lines.map((line) => {
+            if (!line) {
+                return '<div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>';
+            }
+            const isHeader = line.startsWith('Could not process');
+            const cleanedLine = isHeader
+                ? line
+                : line
+                    .replace(/\s*\(expected\s*\d+\s*layers?\)/i, '')
+                    .replace(/\s*\(expected\s*\d+\s*\)/i, '');
+            const weight = isHeader ? '600' : '400';
+            return `<div style="font-weight:${weight};">${cleanedLine}</div>`;
+        }).join('');
+        const hasSections = lines.some((line) => !line);
+        const headerLine = hasSections
+            ? '<div style="font-weight:600; margin-bottom:4px;">Validation issues:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
+            : '';
+
+        const message = document.createElement('div');
+        message.className = 'message dv-error';
+        message.dataset.key = key;
+        message.innerHTML = `${headerLine}${formattedLines}`;
+        message.style.position = 'relative';
+        message.style.paddingRight = '32px';
+        message.style.fontSize = '16px';
+        message.style.lineHeight = '1.45';
+        message.style.pointerEvents = 'auto';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.innerHTML = '&times;';
+        Object.assign(close.style, {
+            position: 'absolute',
+            top: '6px',
+            right: '10px',
+            background: '#3b1a1f',
+            border: 'none',
+            color: 'inherit',
+            fontSize: '20px',
+            cursor: 'pointer',
+            lineHeight: '1',
+            padding: '2px 8px',
+            borderRadius: '6px',
         });
+        close.addEventListener('mouseenter', () => {
+            close.style.background = '#5a2a31';
+        });
+        close.addEventListener('mouseleave', () => {
+            close.style.background = '#3b1a1f';
+        });
+        close.addEventListener('click', () => message.remove());
+        message.appendChild(close);
+        container.prepend(message);
+        setTimeout(() => message.remove(), 60000);
+    }
 
-        banner.innerHTML = `
-            ${lines.map(l => `<div>${l}</div>`).join('')}
-            <button id="bannerClose"
-            style="
-                position:absolute;
-                top:0.8vh; right:1vw;
-                background:transparent;
-                border:none;
-                font-size:1.6rem;
-                cursor:pointer;
-                color:inherit;
-            ">
-            &times;
-            </button>
-        `;
+    function setupValidationToggles() {
+        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const layerToggle = document.getElementById('enforceLayerCount');
+        const wavelengthToggle = document.getElementById('enforceWavelengths');
+        const layerRow = document.getElementById('layerCheckRow');
+        const wavelengthRow = document.getElementById('wavelengthCheckRow');
 
-        document.body.appendChild(banner);
-        banner.querySelector('#bannerClose')
-            .addEventListener('click', () => banner.remove());
-        setTimeout(() => banner.remove(), 10000);
+        if (!moduleToggle || !layerToggle || !wavelengthToggle || !layerRow || !wavelengthRow) {
+            return;
+        }
+
+        const sync = () => {
+            const moduleEnabled = moduleToggle.checked;
+            layerToggle.disabled = !moduleEnabled;
+            layerRow.classList.toggle('disabled', !moduleEnabled);
+
+            const layerEnabled = moduleEnabled && layerToggle.checked;
+            wavelengthToggle.disabled = !layerEnabled;
+            wavelengthRow.classList.toggle('disabled', !layerEnabled);
+        };
+
+        moduleToggle.addEventListener('change', sync);
+        layerToggle.addEventListener('change', sync);
+        sync();
+    }
+
+    function setupSettingsModal() {
+        const settingsButton = document.getElementById('settingsButton');
+        const backdrop = document.getElementById('settingsBackdrop');
+        const closeButton = document.getElementById('settingsClose');
+
+        if (!settingsButton || !backdrop || !closeButton) {
+            return;
+        }
+
+        const openModal = () => {
+            backdrop.style.display = 'flex';
+            backdrop.setAttribute('aria-hidden', 'false');
+            settingsButton.setAttribute('aria-expanded', 'true');
+        };
+        const closeModal = () => {
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
+            settingsButton.setAttribute('aria-expanded', 'false');
+        };
+
+        settingsButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openModal();
+        });
+        closeButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeModal();
+        });
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    }
+
+    function setupNavExitGuard() {
+        const navLinks = document.querySelectorAll(
+            '.navbar a[href="/"], .navbar a[href="/login"], .navbar a[href="/signup"], .navbar a[href="/profile"]'
+        );
+        const backdrop = document.getElementById('navExitBackdrop');
+        const cancel = document.getElementById('navExitCancel');
+        const confirm = document.getElementById('navExitConfirm');
+
+        if (!backdrop || !cancel || !confirm) {
+            return;
+        }
+
+        let pendingHref = null;
+        const openModal = (href) => {
+            pendingHref = href;
+            backdrop.style.display = 'flex';
+            backdrop.setAttribute('aria-hidden', 'false');
+        };
+        const closeModal = () => {
+            pendingHref = null;
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
+        };
+        const handleNavClick = (event) => {
+            if (!selectedFiles || selectedFiles.size === 0) {
+                return;
+            }
+            event.preventDefault();
+            openModal(event.currentTarget.getAttribute('href'));
+        };
+
+        navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
+
+        cancel.addEventListener('click', closeModal);
+        confirm.addEventListener('click', () => {
+            if (pendingHref) {
+                window.location.href = pendingHref;
+            }
+        });
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
     }
 
 
-    const selectedFiles = new Map();
+    const clearQueueButton = document.getElementById('clearQueueButton');
+    const resetBackdrop = document.getElementById('resetBackdrop');
+    const resetConfirm = document.getElementById('resetConfirm');
+    const resetCancel = document.getElementById('resetCancel');
+
+    const openResetModal = () => {
+        if (!resetBackdrop) return;
+        resetBackdrop.style.display = 'flex';
+        resetBackdrop.setAttribute('aria-hidden', 'false');
+    };
+    const closeResetModal = () => {
+        if (!resetBackdrop) return;
+        resetBackdrop.style.display = 'none';
+        resetBackdrop.setAttribute('aria-hidden', 'true');
+    };
+
+    if (clearQueueButton) {
+        clearQueueButton.addEventListener('click', () => {
+            if (selectedFiles.size === 0) return;
+            openResetModal();
+        });
+    }
+    if (resetConfirm) {
+        resetConfirm.addEventListener('click', () => {
+            selectedFiles.clear();
+            displayFileQueue();
+            closeResetModal();
+        });
+    }
+    if (resetCancel) {
+        resetCancel.addEventListener('click', closeResetModal);
+    }
+    if (resetBackdrop) {
+        resetBackdrop.addEventListener('click', (event) => {
+            if (event.target === resetBackdrop) {
+                closeResetModal();
+            }
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeResetModal();
+        }
+    });
 
     function displayFileQueue() {
         const fileList = document.getElementById('fileList');
@@ -353,7 +930,9 @@
         const btnText = submitBtn.querySelector('.btn-text');
 
         // Disable all buttons and inputs
-        const controls = document.querySelectorAll('.upload-btn, .submit-btn, input[type="file"], .remove-btn');
+        const controls = document.querySelectorAll(
+            '.upload-btn, .submit-btn, .settings-btn, .settings-close, input[type="file"], input[type="checkbox"], .remove-btn'
+        );
         controls.forEach((el) => {
             el.disabled = true;
             el.style.pointerEvents = 'none';
@@ -407,11 +986,24 @@
         };
         startPolling();
 
+        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const layerToggle = document.getElementById('enforceLayerCount');
+        const wavelengthToggle = document.getElementById('enforceWavelengths');
+        const moduleEnabled = moduleToggle ? moduleToggle.checked : true;
+        const layerEnabled = moduleEnabled && (layerToggle ? layerToggle.checked : true);
+        const wavelengthEnabled = layerEnabled && (wavelengthToggle ? wavelengthToggle.checked : true);
+
         // Build form data from queued files
         const formData = new FormData();
         selectedFiles.forEach(file => formData.append('files', file));
+        formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
+        formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        const uploadController = new AbortController();
+        const uploadTimeoutMs = 300000;
+        const uploadTimeout = setTimeout(() => uploadController.abort(), uploadTimeoutMs);
 
         fetch(this.action, {
             method: 'POST',
@@ -420,9 +1012,11 @@
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData,
+            signal: uploadController.signal,
         })
         .then(res => res.json().then(data => {
             if (pollTimer) clearInterval(pollTimer);
+            clearTimeout(uploadTimeout);
             // Case A: errors but no redirect => save & reload current page
             if (data.errors && !data.redirect) {
                 sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
@@ -439,8 +1033,15 @@
         }))
         .catch(err => {
             if (pollTimer) clearInterval(pollTimer);
+            clearTimeout(uploadTimeout);
             console.error(err);
-            alert('Error during upload.');
+            if (err && err.name === 'AbortError') {
+                showErrors([
+                    'Upload timed out. Please check file validity or try again.',
+                ]);
+            } else {
+                alert('Error during upload.');
+            }
             // Re-enable minimally
             submitBtn.classList.remove('loading');
             controls.forEach((el) => { el.disabled = false; el.style.pointerEvents = ''; el.style.cursor = ''; });

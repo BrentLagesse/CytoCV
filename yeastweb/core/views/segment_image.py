@@ -51,7 +51,7 @@ from django.utils import timezone
 # Local application imports
 # =========================
 from yeastweb.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
-from .utils import write_progress
+from .utils import write_progress, is_cancelled, clear_cancelled
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
     get_channel_config_for_uuid,
@@ -140,6 +140,9 @@ def get_stats(cp, conf, selected_analysis, gfp_distance):
     if len(contours_data['bestContours']) == 0:
         print("we didn't find any contours")
         return images['im_mCherry'], images['im_GFP'], images['im_DAPI']  # returns original images if no contours found
+    if not contours_data['bestContours_dapi'] or not contours_data['contours_dapi']:
+        print("we didn't find any DAPI contours")
+        return images['im_mCherry'], images['im_GFP'], images['im_DAPI']
 
     # Open the debug images using the legacy getters
     edit_im = Image.open(output_dir + '/segmented/' + cp.get_image('mCherry',use_id=True))
@@ -219,6 +222,12 @@ def segment_image(request, uuids):
     Handles segmentation cell_analysis for multiple images passed as UUIDs.
     """
     uuid_list = uuids.split(',')
+    cancelled = lambda: is_cancelled(uuids)
+
+    if cancelled():
+        write_progress(uuids, "Cancelled")
+        clear_cancelled(uuids)
+        return HttpResponse("Cancelled")
 
     # Initialize some variables that would normally be a part of config
     choice_var = "Metaphase Arrested" # We need to be able to change this
@@ -235,6 +244,10 @@ def segment_image(request, uuids):
 
     # We're gonna use image_dict to store all of the cell pairs (i think?)
     for uuid in uuid_list:
+        if cancelled():
+            write_progress(uuids, "Cancelled")
+            clear_cancelled(uuids)
+            return HttpResponse("Cancelled")
         DV_Name = UploadedImage.objects.get(pk=uuid).name
         image_dict = dict()
         image_dict[DV_Name] = list()
@@ -594,6 +607,10 @@ def segment_image(request, uuids):
         os.makedirs(segmented_directory, exist_ok=True)
         f = DVFile(DV_path)
         for image_num in range(4):
+            if cancelled():
+                write_progress(uuids, "Cancelled")
+                clear_cancelled(uuids)
+                return HttpResponse("Cancelled")
             # images = os.path.split(full_path)[1]  # we start in separate directories, but need to end up in the same one
             # # don't overlay if it isn't the right base image
             # if base_image_name not in images:
@@ -706,6 +723,11 @@ def segment_image(request, uuids):
             'analysis' : selected_analysis,
         }
 
+        if cancelled():
+            write_progress(uuids, "Cancelled")
+            clear_cancelled(uuids)
+            return HttpResponse("Cancelled")
+
         # Mark accurate phase for UI only if user selected analyses
         if selected_analysis:
             write_progress(uuids, "Calculating Statistics")
@@ -758,6 +780,11 @@ def segment_image(request, uuids):
             # Save the updated fields to the DB
             cp.save()
 
+        if cancelled():
+            write_progress(uuids, "Cancelled")
+            clear_cancelled(uuids)
+            return HttpResponse("Cancelled")
+
         # if the image_dict is empty, then we didn't get anything interesting from the directory
         #print("image_dict123", image_dict)
         #if len(image_dict) > 0:
@@ -783,5 +810,6 @@ def segment_image(request, uuids):
         user.save()
 
 
+    write_progress(uuids, "Completed")
+    clear_cancelled(uuids)
     return redirect(f'/image/{uuids}/display/')
-    return HttpResponse("Congrats")

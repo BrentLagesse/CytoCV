@@ -2,7 +2,7 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from core.config import DEFAULT_PROCESS_CONFIG
+from core.config import default_process_config
 
 
 class CustomUser(AbstractUser):
@@ -14,6 +14,6 @@ class CustomUser(AbstractUser):
     available_storage = models.IntegerField(default=1024 * 1024 * 1024)  # 1 GB
     used_storage = models.IntegerField(default=0)
     processing_used = models.FloatField(default=0) # in seconds
-    config = models.JSONField(default=DEFAULT_PROCESS_CONFIG)
+    config = models.JSONField(default=default_process_config)
 
 

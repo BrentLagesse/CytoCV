@@ -10,10 +10,18 @@ from pathlib import Path
 from core.views.variables import PRE_PROCESS_FOLDER_NAME
 #Original header
 # def preprocess_images(inputdirectory, mask_dir, outputdirectory, outputfile, verbose = False, use_cache=True):
-def preprocess_images(uuid, uploaded_image : UploadedImage, output_dir :Path) -> tuple[str, str]:
+def preprocess_images(
+    uuid,
+    uploaded_image: UploadedImage,
+    output_dir: Path,
+    cancel_check=None,
+) -> tuple[str | None, str | None]:
     """
         Most commented lines are from the old code base. Have kept until we have the entire product working
     """
+    if cancel_check and cancel_check():
+        return None, None
+
     # constants, easily can be changed 
     print("output_directory", output_dir)
 
@@ -75,6 +83,9 @@ def preprocess_images(uuid, uploaded_image : UploadedImage, output_dir :Path) ->
     pre_process_dir_path.mkdir(parents=True, exist_ok=True)
     # if not pre_process_dir_path.is_dir():
     # os.makedirs(pre_process_dir_path)
+    if cancel_check and cancel_check():
+        return None, None
+
     image_name = uploaded_image.name.split(".")[0] + ".tif"
     pre_process_image_path = os.path.join(pre_process_dir_path, image_name)
     rgb_image.save(pre_process_image_path)
