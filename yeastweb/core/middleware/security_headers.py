@@ -9,6 +9,8 @@ class ContentSecurityPolicyMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
         self.policy = self._build_policy()
+        self.enable_headers = getattr(settings, "SECURITY_HEADERS_ENABLED", True)
+        self.permissions_policy = getattr(settings, "SECURITY_PERMISSIONS_POLICY", "")
 
     def __call__(self, request):
         response = self.get_response(request)
@@ -17,6 +19,9 @@ class ContentSecurityPolicyMiddleware:
             or response.has_header("Content-Security-Policy-Report-Only")
         ):
             response["Content-Security-Policy"] = self.policy
+        if self.enable_headers and self.permissions_policy:
+            if not response.has_header("Permissions-Policy"):
+                response["Permissions-Policy"] = self.permissions_policy
         return response
 
     def _build_policy(self):
