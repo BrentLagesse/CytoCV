@@ -38,6 +38,9 @@ class CellTable(tables.Table):
 
     cellular_intensity_sum_DAPI = tables.Column(verbose_name='Cellular Intensity DAPI')
 
+    category_GFP_dot = tables.Column(verbose_name='GFP Dot Category')
+
+    biorientation = tables.Column(verbose_name="Biorientation")
 
     class Meta:
         attrs = {"class": "celltable","id":"celltable"}
@@ -48,7 +51,7 @@ class CellTable(tables.Table):
                   'red_intensity_1','red_intensity_2','red_intensity_3',
                   'green_intensity_1','green_intensity_2','green_intensity_3',
                   #'green_red_intensity_1','green_red_intensity_2','green_red_intensity_3','nucleus_intensity_sum',
-                'cellular_intensity_sum_DAPI',)
+                'cellular_intensity_sum_DAPI', 'category_GFP_dot')
         template_name = "django_tables2/semantic.html"
 
 

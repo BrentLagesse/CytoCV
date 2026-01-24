@@ -21,5 +21,5 @@ class Analysis:
         self.output_dir = output_dir
 
     @abstractmethod
-    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input):
+    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input, gfp_distance):
         pass

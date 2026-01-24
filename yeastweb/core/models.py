@@ -18,7 +18,7 @@ class UploadedImage(models.Model):
     def upload_to(instance, filename):
         uuid = instance.uuid
         name = instance.name
-        # file cannot have . in its
+        # file cannot have . in its name
         file_extension = '.' + filename.split('.')[-1]
         return f'{uuid}/{name}{file_extension}'
     name = models.TextField()
@@ -63,6 +63,12 @@ class Contour(Enum):
     CONVEX = 1
     CIRCLE = 2
 
+class CategoryGFPDot(models.IntegerChoices):
+    ONEEACH = 1, 'One green dot with each red dot'
+    ONEONE = 2, 'One green dot with one red dot'
+    TWOONE = 3, 'Two green dots with one red dot'
+    NONE = 4, 'N/A'
+
 class CellStatistics(models.Model):
     segmented_image = models.ForeignKey("SegmentedImage", on_delete=models.CASCADE)
     cell_id = models.IntegerField()
@@ -98,6 +104,15 @@ class CellStatistics(models.Model):
     cellular_intensity_sum_DAPI = models.FloatField(default=0.0)
     nucleus_intensity_sum_DAPI = models.FloatField(default=0.0)
     cytoplasmic_intensity_DAPI = models.FloatField(default=0.0)
+
+    # Category in GFP Dot Analysis
+    category_GFP_dot = models.IntegerField(
+        choices = CategoryGFPDot.choices,
+        default = CategoryGFPDot.NONE,
+    )
+
+    # Biorientation in GFP Dot Analysis
+    biorientation = models.IntegerField(default=0)
 
     dv_file_path = models.TextField(default="")
 

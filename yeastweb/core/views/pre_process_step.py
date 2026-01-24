@@ -127,10 +127,12 @@ def pre_process_step(request, uuids):
     if request.method == "POST":
         clear_cancelled(uuids)
         selected_analysis = request.POST.getlist('selected_analysis')
+        gfp_distance = request.POST['distance']
         print("selected_analysis")
         print(selected_analysis)
 
         request.session['selected_analysis'] = selected_analysis  # save selected analysis to session
+        request.session['distance'] = gfp_distance
 
         # Track when we first enter phases to mark progress once
         preprocess_marked = False
