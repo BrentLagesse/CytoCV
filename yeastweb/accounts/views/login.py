@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.messages import get_messages
-from django.template.response import TemplateResponse
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect
+from django.template.response import TemplateResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from core.security.rate_limit import (
     build_rate_limit_keys,
@@ -13,6 +14,8 @@ from core.security.rate_limit import (
     reset_limits,
 )
 
+
+@ensure_csrf_cookie
 def auth_login(request):
     rate_limit_cfg = getattr(settings, "SECURITY_RATE_LIMIT", {})
     rate_limit_enabled = getattr(settings, "SECURITY_RATE_LIMIT_ENABLED", False)
@@ -107,6 +110,7 @@ def auth_login(request):
 
     return render_login(login_failed=login_failed)
 
+
 def auth_logout(request):
     logout(request)
-    return redirect('homepage')
+    return redirect("homepage")

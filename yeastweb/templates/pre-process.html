@@ -6,66 +6,97 @@
   document.addEventListener("DOMContentLoaded", () => {
     const raw = sessionStorage.getItem("dvErrors");
     if (!raw) return;
-    const lines = JSON.parse(raw);
+    let lines = [];
+    try {
+      lines = JSON.parse(raw) || [];
+    } catch (err) {
+      sessionStorage.removeItem("dvErrors");
+      return;
+    }
     sessionStorage.removeItem("dvErrors");
+    if (!Array.isArray(lines) || lines.length === 0) return;
 
-    // build a compact, responsive banner
-    const banner = document.createElement("div");
-    Object.assign(banner.style, {
-      position: "fixed",
-      top: "2vh",
-      left: "50%",
-      transform: "translateX(-50%)",
-      width: "65vw" /* 5% wider */,
-      maxWidth: "750px" /* up from 600px */,
-      background: "#a71d2a",
-      color: "fffffff",
-      padding: "1.2vh 2vw 1.2vh 1.2vw",
-      borderRadius: "0.6vh" /* just a hair bigger */,
-      boxShadow: "0 0.5vh 1vh rgba(0,0,0,0.2)",
-      zIndex: "2000",
-      fontSize: "1.1rem" /* tiny bump for text */,
-      lineHeight: "1.4",
-      textAlign: "left",
-    });
+    let container = document.querySelector(".message-container.dv-overlay");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "message-container dv-overlay";
+      Object.assign(container.style, {
+        position: "fixed",
+        top: "calc(var(--nav-height) + 6px)",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "calc(100% - 32px)",
+        maxWidth: "720px",
+        zIndex: "2000",
+        pointerEvents: "none",
+        margin: "0",
+        padding: "0",
+      });
+      document.body.appendChild(container);
+    }
+
+    const key = lines.filter((line) => line).join("\n").trim() || "dv-errors";
+    const existing = Array.from(
+      container.querySelectorAll(".message.dv-error")
+    ).some((msg) => msg.dataset.key === key);
+    if (existing) return;
 
     const formattedLines = lines
       .map((line) => {
         if (!line) {
-          return '<div style="height:0.6vh;"></div>';
+          return '<div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>';
         }
         const isHeader = line.startsWith("Could not process");
-        const style = isHeader ? "font-weight:600;" : "";
-        return `<div style="${style}">${line}</div>`;
+        const cleanedLine = isHeader
+          ? line
+          : line
+              .replace(/\s*\(expected\s*\d+\s*layers?\)/i, "")
+              .replace(/\s*\(expected\s*\d+\s*\)/i, "");
+        const weight = isHeader ? "600" : "400";
+        return `<div style="font-weight:${weight};">${cleanedLine}</div>`;
       })
       .join("");
     const hasSections = lines.some((line) => !line);
     const headerLine = hasSections
-      ? '<div style="font-weight:600; margin-bottom:0.4vh;">Validation issues:</div>'
+      ? '<div style="font-weight:600; margin-bottom:4px;">Validation issues:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
       : "";
 
-    banner.innerHTML = `
-      ${headerLine}
-      ${formattedLines}
-      <button id="bannerClose"
-        style="
-          position:absolute;
-          top:0.8vh; right:1vw;
-          background:transparent;
-          border:none;
-          font-size:1.6rem;
-          cursor:pointer;
-          color:inherit;
-        ">
-        &times;
-      </button>
-    `;
-
-    document.body.appendChild(banner);
-    banner
-      .querySelector("#bannerClose")
-      .addEventListener("click", () => banner.remove());
-    setTimeout(() => banner.remove(), 30000);
+    const message = document.createElement("div");
+    message.className = "message dv-error";
+    message.dataset.key = key;
+    message.innerHTML = `${headerLine}${formattedLines}`;
+    message.style.position = "relative";
+    message.style.paddingRight = "32px";
+    message.style.fontSize = "16px";
+    message.style.lineHeight = "1.45";
+    message.style.pointerEvents = "auto";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.setAttribute("aria-label", "Dismiss");
+    close.innerHTML = "&times;";
+    Object.assign(close.style, {
+      position: "absolute",
+      top: "6px",
+      right: "10px",
+      background: "#3b1a1f",
+      border: "none",
+      color: "inherit",
+      fontSize: "20px",
+      cursor: "pointer",
+      lineHeight: "1",
+      padding: "2px 8px",
+      borderRadius: "6px",
+    });
+    close.addEventListener("mouseenter", () => {
+      close.style.background = "#5a2a31";
+    });
+    close.addEventListener("mouseleave", () => {
+      close.style.background = "#3b1a1f";
+    });
+    close.addEventListener("click", () => message.remove());
+    message.appendChild(close);
+    container.prepend(message);
+    setTimeout(() => message.remove(), 60000);
   });
 </script>
 
@@ -80,6 +111,10 @@
       .channel-chip.dapi { background-color: blue; }
       .channel-chip.mcherry { background-color: red; }
       .channel-chip.gfp { background-color: green; }
+      .channel-chip.dic:hover { background-color: #3a3a3a; }
+      .channel-chip.dapi:hover { background-color: #4d4dff; }
+      .channel-chip.mcherry:hover { background-color: #ff6b6b; }
+      .channel-chip.gfp:hover { background-color: #3bbf3b; }
 
       /* Overall page styling */
       body {
@@ -420,8 +455,20 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        gap: 8px;
         margin: 0;
       }
+      .nav-exit-btn .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-right-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+        display: none;
+      }
+      .nav-exit-btn.loading .spinner { display: inline-block; }
       .nav-exit-btn.confirm {
         background: #2a2a2a;
         color: #fff;
@@ -570,7 +617,10 @@
         </div>
         <div class="nav-exit-actions">
           <button type="button" class="nav-exit-btn cancel" id="navExitCancel">No</button>
-          <button type="button" class="nav-exit-btn confirm" id="navExitConfirm">Yes</button>
+          <button type="button" class="nav-exit-btn confirm" id="navExitConfirm">
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Yes</span>
+          </button>
         </div>
       </div>
     </div>
@@ -617,40 +667,51 @@
         if (cancelPromise) {
           return cancelPromise;
         }
-        cancelPromise = (async () => {
-          cancelClientAnalysis();
-          const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
-          const csrfToken = csrfEl?.value;
-          const cancelUrl = `/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/cancel/`;
+          cancelPromise = (async () => {
+            cancelClientAnalysis();
+            const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
+            const csrfToken = csrfEl?.value;
+            const cancelUrl = `/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/cancel/`;
           try {
             await fetch(cancelUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken || '',
+                'X-Requested-With': 'XMLHttpRequest',
               },
               body: JSON.stringify({ reason: 'user_cancelled' }),
               credentials: 'same-origin',
             });
-          } catch (e) { /* ignore */ }
-
-          while (true) {
-            try {
-              const pollUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/`, window.location.origin);
-              const resp = await fetch(pollUrl, { cache: 'no-store' });
-              if (resp.ok) {
-                const data = await resp.json();
-                const phase = data?.phase || 'idle';
-                if (phase === 'Cancelled' || phase === 'Completed' || phase === 'idle') {
-                  break;
-                }
-              }
             } catch (e) { /* ignore */ }
-            await new Promise((resolve) => setTimeout(resolve, 400));
-          }
-          window.isAnalysisRunning = false;
-          cancelPromise = null;
-          return true;
+
+            const customTimeout = Number.isFinite(window.CANCEL_POLLING_TIMEOUT_MS)
+              ? window.CANCEL_POLLING_TIMEOUT_MS
+              : 0;
+            const cancelPollingTimeoutMs = customTimeout > 0 ? customTimeout : 60000;
+            const deadline = Date.now() + cancelPollingTimeoutMs;
+            let delay = 400;
+            while (Date.now() < deadline) {
+              try {
+                const pollUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/`, window.location.origin);
+                const resp = await fetch(pollUrl, { cache: 'no-store' });
+                if (resp.ok) {
+                  const data = await resp.json();
+                  const phase = data?.phase || 'idle';
+                  if (phase === 'Cancelled' || phase === 'Completed' || phase === 'idle') {
+                    break;
+                  }
+                }
+              } catch (e) { /* ignore */ }
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              delay = Math.min(2000, Math.round(delay * 1.6));
+            }
+            if (Date.now() >= deadline) {
+              console.warn('Cancel polling timed out.');
+            }
+            window.isAnalysisRunning = false;
+            cancelPromise = null;
+            return true;
         })();
         return cancelPromise;
       };
@@ -708,8 +769,13 @@
         cancel.addEventListener('click', closeModal);
         confirm.addEventListener('click', async () => {
           if (pendingHref) {
-            confirm.textContent = 'Cancelling...';
+            confirm.classList.add('loading');
             confirm.style.pointerEvents = 'none';
+            confirm.disabled = true;
+            const label = confirm.querySelector('.btn-label');
+            if (label) {
+              label.textContent = 'Cancelling';
+            }
             await requestAnalysisCancel();
             window.location.href = pendingHref;
           }
@@ -968,11 +1034,12 @@
         // Submit via fetch, allowing backend to run through redirects
         try {
           analysisAbortController = new AbortController();
-          const resp = await fetch(window.location.href, {
-            method: 'POST',
-            body: new FormData(form),
-            credentials: 'same-origin',
-            redirect: 'follow',
+            const resp = await fetch(window.location.href, {
+              method: 'POST',
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+              body: new FormData(form),
+              credentials: 'same-origin',
+              redirect: 'follow',
             signal: analysisAbortController.signal,
           });
           if (analysisPollTimer) clearInterval(analysisPollTimer);

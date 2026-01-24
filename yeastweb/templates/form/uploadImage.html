@@ -587,73 +587,108 @@
 </div>
 
 <script>
-    
+    const selectedFiles = new Map();
+
     document.addEventListener('DOMContentLoaded', () => {
         setupValidationToggles();
         setupSettingsModal();
         setupNavExitGuard();
         const raw = sessionStorage.getItem('dvErrors');
         if (!raw) return;
-        const lines = JSON.parse(raw);
+        let lines = [];
+        try {
+            lines = JSON.parse(raw) || [];
+        } catch (err) {
+            sessionStorage.removeItem('dvErrors');
+            return;
+        }
         sessionStorage.removeItem('dvErrors');
         showErrors(lines);
     });
 
 
     function showErrors(lines) {
-        const banner = document.createElement('div');
-        Object.assign(banner.style, {
-        position:    'fixed',
-        top:         '2vh',
-        left:        '50%',
-        transform:   'translateX(-50%)',
-        width:       '65vw',
-        maxWidth:    '650px',
-        background:  '#a71d2a',
-        color:       'fffffff',
-        padding:     '1.2vh 3vw 1.2vh 1.2vw',
-        borderRadius:'0.6vh',
-        boxShadow:   '0 0.5vh 1vh rgba(0,0,0,0.2)',
-        zIndex:      '2000',
-        fontSize:    '1.1rem',
-        lineHeight:  '1.4',
-        textAlign:   'left',
-        });
+        if (!Array.isArray(lines) || lines.length === 0) return;
+
+        let container = document.querySelector('.message-container.dv-overlay');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'message-container dv-overlay';
+            Object.assign(container.style, {
+                position: 'fixed',
+                top: 'calc(var(--nav-height) + 6px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 'calc(100% - 32px)',
+                maxWidth: '720px',
+                zIndex: '2000',
+                pointerEvents: 'none',
+                margin: '0',
+                padding: '0',
+            });
+            document.body.appendChild(container);
+        }
+
+        const key = lines.filter((line) => line).join('\n').trim() || 'dv-errors';
+        const existing = Array.from(
+            container.querySelectorAll('.message.dv-error')
+        ).some((msg) => msg.dataset.key === key);
+        if (existing) return;
 
         const formattedLines = lines.map((line) => {
             if (!line) {
-                return '<div style="height:0.6vh;"></div>';
+                return '<div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>';
             }
             const isHeader = line.startsWith('Could not process');
-            const style = isHeader ? 'font-weight:600;' : '';
-            return `<div style="${style}">${line}</div>`;
+            const cleanedLine = isHeader
+                ? line
+                : line
+                    .replace(/\s*\(expected\s*\d+\s*layers?\)/i, '')
+                    .replace(/\s*\(expected\s*\d+\s*\)/i, '');
+            const weight = isHeader ? '600' : '400';
+            return `<div style="font-weight:${weight};">${cleanedLine}</div>`;
         }).join('');
         const hasSections = lines.some((line) => !line);
         const headerLine = hasSections
-            ? '<div style="font-weight:600; margin-bottom:0.4vh;">Validation issues:</div>'
+            ? '<div style="font-weight:600; margin-bottom:4px;">Validation issues:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
             : '';
 
-        banner.innerHTML = `
-            ${headerLine}
-            ${formattedLines}
-            <button id="bannerClose"
-            style="
-                position:absolute;
-                top:0.8vh; right:1vw;
-                background:transparent;
-                border:none;
-                font-size:1.6rem;
-                cursor:pointer;
-                color:inherit;
-            ">
-            &times;
-            </button>
-        `;
-
-        document.body.appendChild(banner);
-        banner.querySelector('#bannerClose')
-            .addEventListener('click', () => banner.remove());
-        setTimeout(() => banner.remove(), 10000);
+        const message = document.createElement('div');
+        message.className = 'message dv-error';
+        message.dataset.key = key;
+        message.innerHTML = `${headerLine}${formattedLines}`;
+        message.style.position = 'relative';
+        message.style.paddingRight = '32px';
+        message.style.fontSize = '16px';
+        message.style.lineHeight = '1.45';
+        message.style.pointerEvents = 'auto';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.innerHTML = '&times;';
+        Object.assign(close.style, {
+            position: 'absolute',
+            top: '6px',
+            right: '10px',
+            background: '#3b1a1f',
+            border: 'none',
+            color: 'inherit',
+            fontSize: '20px',
+            cursor: 'pointer',
+            lineHeight: '1',
+            padding: '2px 8px',
+            borderRadius: '6px',
+        });
+        close.addEventListener('mouseenter', () => {
+            close.style.background = '#5a2a31';
+        });
+        close.addEventListener('mouseleave', () => {
+            close.style.background = '#3b1a1f';
+        });
+        close.addEventListener('click', () => message.remove());
+        message.appendChild(close);
+        container.prepend(message);
+        setTimeout(() => message.remove(), 60000);
     }
 
     function setupValidationToggles() {
@@ -774,7 +809,6 @@
     }
 
 
-    const selectedFiles = new Map();
     const clearQueueButton = document.getElementById('clearQueueButton');
     const resetBackdrop = document.getElementById('resetBackdrop');
     const resetConfirm = document.getElementById('resetConfirm');

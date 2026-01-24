@@ -15,7 +15,7 @@ def preprocess_images(
     uploaded_image: UploadedImage,
     output_dir: Path,
     cancel_check=None,
-) -> tuple[str, str]:
+) -> tuple[str | None, str | None]:
     """
         Most commented lines are from the old code base. Have kept until we have the entire product working
     """

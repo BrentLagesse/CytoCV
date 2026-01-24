@@ -795,4 +795,3 @@ def segment_image(request, uuids):
     write_progress(uuids, "Completed")
     clear_cancelled(uuids)
     return redirect(f'/image/{uuids}/display/')
-    return HttpResponse("Congrats")

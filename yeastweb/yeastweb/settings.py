@@ -149,6 +149,9 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+# Allow direct GET-based provider redirects for SSO buttons.
+SOCIALACCOUNT_LOGIN_ON_GET = False
+
 # for microsoft login
 
 AUTH_ADFS = {
@@ -168,6 +171,11 @@ AUTH_ADFS = {
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
 
 LOGIN_REDIRECT_URL = "profile"
+
+# Login rate limiting
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 15
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = 600
+LOGIN_RATE_LIMIT_DEBUG_WINDOW_SECONDS = 60
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
