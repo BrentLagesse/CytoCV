@@ -82,8 +82,25 @@
             padding: 10px 12px;
             border-radius: 8px;
             margin-bottom: 10px;
-            font-size: 14px;
+            font-size: 15px;
+            animation: messageDrop 0.2s ease-out both;
+            position: relative;
+            padding-right: 36px;
         }
+        .message-close {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            background: #3b1a1f;
+            color: inherit;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .message-close:hover { background: #5a2a31; }
 
         .soft-fade-in {
             animation: softFadeUp 0.22s ease-out both;
@@ -98,8 +115,20 @@
                 transform: translateY(0);
             }
         }
+        @keyframes messageDrop {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) {
             .soft-fade-in { animation: none; }
+            .message { animation: none; }
         }
 
         .logout-modal-backdrop {
@@ -151,9 +180,21 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 8px;
             margin: 0;
             line-height: 1.2;
         }
+        .logout-btn .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-right-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            display: none;
+        }
+        .logout-btn.loading .spinner { display: inline-block; }
         .logout-btn.confirm {
             background: #2a2a2a;
             color: #fff;
@@ -208,13 +249,44 @@
             </div>
             <div class="logout-modal-actions">
                 <button type="button" class="logout-btn cancel" id="logoutCancel">No</button>
-                <a class="logout-btn confirm" id="logoutConfirm" href="/logout/">Yes</a>
+                <a class="logout-btn confirm" id="logoutConfirm" href="/logout/">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span class="btn-label">Yes</span>
+                </a>
             </div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const messageContainer = document.querySelector('.message-container');
+            if (messageContainer) {
+                const messages = Array.from(messageContainer.querySelectorAll('.message'));
+                const seen = new Set();
+                messages.forEach((msg) => {
+                    const key = `${msg.className}|${msg.textContent.trim()}`;
+                    if (seen.has(key)) {
+                        msg.remove();
+                        return;
+                    }
+                    seen.add(key);
+                    if (!msg.querySelector('.message-close')) {
+                        const close = document.createElement('button');
+                        close.type = 'button';
+                        close.className = 'message-close';
+                        close.setAttribute('aria-label', 'Dismiss');
+                        close.innerHTML = '&times;';
+                        close.addEventListener('click', () => msg.remove());
+                        msg.appendChild(close);
+                    }
+                    if (msg.classList.contains('auto-dismiss')) {
+                        setTimeout(() => {
+                            msg.remove();
+                        }, 15000);
+                    }
+                });
+            }
+
             const logoutLink = document.getElementById('logoutLink');
             const logoutBackdrop = document.getElementById('logoutBackdrop');
             const logoutCancel = document.getElementById('logoutCancel');
@@ -249,8 +321,13 @@
             logoutConfirm.addEventListener('click', async (event) => {
                 if (window.requestAnalysisCancel && window.isAnalysisRunning) {
                     event.preventDefault();
-                    logoutConfirm.textContent = 'Logging out...';
+                    logoutConfirm.classList.add('loading');
                     logoutConfirm.style.pointerEvents = 'none';
+                    logoutConfirm.setAttribute('aria-disabled', 'true');
+                    const label = logoutConfirm.querySelector('.btn-label');
+                    if (label) {
+                        label.textContent = 'Logging out';
+                    }
                     const logoutHref = logoutConfirm.getAttribute('href');
                     const timeoutMs = 10000;
                     try {

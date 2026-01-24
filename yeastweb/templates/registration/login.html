@@ -132,15 +132,40 @@
             font-size: 14px;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .primary-btn:hover {
             background-color: var(--accent-dark);
         }
 
+        .primary-btn .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-right-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            display: none;
+        }
+
+        .primary-btn.loading .spinner {
+            display: inline-block;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .oauth-grid {
             display: grid;
             gap: 10px;
+        }
+
+        .oauth-grid form {
+            margin: 0;
         }
 
         .oauth-btn {
@@ -150,12 +175,15 @@
             gap: 10px;
             padding: 12px;
             border-radius: 8px;
-            text-decoration: none;
             border: 1px solid #3d3d3d;
             color: #f5f5f5;
             background: #1f1f1f;
             transition: background-color 0.2s ease, border-color 0.2s ease;
             font-size: 14px;
+            width: 100%;
+            text-decoration: none;
+            cursor: pointer;
+            font-family: inherit;
         }
 
         .oauth-btn:hover {
@@ -163,20 +191,32 @@
             border-color: #4a4a4a;
         }
 
+        .oauth-btn.is-disabled {
+            background: #2a2a2a;
+            border-color: #4a4a4a;
+            color: #bdbdbd;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+
         .oauth-icon {
             width: 20px;
             height: 20px;
-            border-radius: 6px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
-            font-weight: 600;
-            color: #fff;
+            background: transparent;
         }
 
-        .oauth-icon.google { background: #db4437; }
-        .oauth-icon.microsoft { background: #2f7bd4; }
+        .oauth-icon svg {
+            width: 20px;
+            height: 20px;
+            display: block;
+        }
+
+        .oauth-btn.is-disabled .oauth-icon svg {
+            opacity: 0.55;
+        }
 
         .error-box {
             background: #3b1a1f;
@@ -185,6 +225,36 @@
             padding: 10px 12px;
             border-radius: 8px;
             font-size: 13px;
+        }
+
+        .message-container {
+            position: fixed;
+            top: calc(var(--nav-height) + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(720px, calc(100% - 32px));
+            margin: 0;
+            z-index: 1500;
+            pointer-events: none;
+        }
+
+        .message-container .message {
+            pointer-events: auto;
+        }
+
+        .rate-limit-banner {
+            background: #3b1a1f;
+            border: 1px solid var(--danger);
+            color: #ffd6d6;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            position: fixed;
+            top: calc(var(--nav-height) + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(720px, calc(100% - 32px));
+            z-index: 1500;
         }
 
         @media (max-width: 640px) {
@@ -199,6 +269,11 @@
 </head>
 <body>
     <div class="page">
+        {% if rate_limit_active %}
+            <div class="rate-limit-banner" id="rateLimitBanner" data-retry-until="{{ rate_limit_reset_at }}">
+                Too many login attempts. Try again in <span id="rateLimitCountdown"></span>.
+            </div>
+        {% endif %}
         <div class="login-card soft-fade-in">
             <div class="card-header">
                 <div class="brand-chip">Yeast Web</div>
@@ -218,29 +293,122 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
                     </div>
-                    <button type="submit" class="primary-btn">Log In</button>
+                    <button type="submit" class="primary-btn">
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span class="btn-label">Log In</span>
+                    </button>
                 </form>
             </div>
 
             <div class="panel">
                 <div class="panel-title">Single sign-on</div>
                 <div class="oauth-grid">
-                    <a href="{% provider_login_url 'google' %}" class="oauth-btn">
-                        <span class="oauth-icon google">G</span>
-                        Continue with Google
-                    </a>
-                    <a href="{% provider_login_url 'microsoft' %}" class="oauth-btn">
-                        <span class="oauth-icon microsoft">M</span>
-                        Continue with Microsoft
-                    </a>
+                    <form method="post" action="{% provider_login_url 'google' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="oauth-btn">
+                            <span class="oauth-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                    <path fill="#4285F4" d="M23.49 12.27c0-.8-.07-1.54-.2-2.27H12v4.29h6.44c-.28 1.5-1.13 2.77-2.4 3.62v3.01h3.88c2.27-2.09 3.57-5.17 3.57-8.65z"/>
+                                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.93l-3.88-3.01c-1.08.73-2.46 1.16-4.05 1.16-3.11 0-5.74-2.1-6.68-4.92H1.28v3.09C3.25 21.25 7.29 24 12 24z"/>
+                                    <path fill="#FBBC05" d="M5.32 14.3c-.24-.73-.38-1.51-.38-2.3s.14-1.57.38-2.3V6.61H1.28C.46 8.24 0 10.06 0 12s.46 3.76 1.28 5.39l4.04-3.09z"/>
+                                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.35.6 4.6 1.79l3.45-3.45C17.95 1.19 15.24 0 12 0 7.29 0 3.25 2.75 1.28 6.61l4.04 3.09C6.26 6.87 8.89 4.77 12 4.77z"/>
+                                </svg>
+                            </span>
+                            Continue with Google
+                        </button>
+                    </form>
+                    <form method="post" action="{% provider_login_url 'microsoft' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="oauth-btn">
+                            <span class="oauth-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                    <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+                                    <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+                                    <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+                                    <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+                                </svg>
+                            </span>
+                            Continue with Microsoft
+                        </button>
+                    </form>
                 </div>
             </div>
 
-            {% if error %}
-                <div class="error-box">{{ error }}</div>
-            {% endif %}
         </div>
     </div>
+    <div id="rateLimitState"
+         data-active="{{ rate_limit_active|yesno:'1,0' }}"
+         data-retry-until="{{ rate_limit_reset_at }}"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.querySelector('.login-form');
+            const loginButton = loginForm?.querySelector('.primary-btn');
+            const oauthButtons = Array.from(document.querySelectorAll('.oauth-btn'));
+            const rateLimitState = document.getElementById('rateLimitState');
+            const banner = document.getElementById('rateLimitBanner');
+            const countdownEl = document.getElementById('rateLimitCountdown');
+
+            const setOauthDisabled = (disabled) => {
+                oauthButtons.forEach((button) => {
+                    if (disabled) {
+                        button.classList.add('is-disabled');
+                        button.setAttribute('aria-disabled', 'true');
+                        button.tabIndex = -1;
+                    } else {
+                        button.classList.remove('is-disabled');
+                        button.removeAttribute('aria-disabled');
+                        button.removeAttribute('tabindex');
+                    }
+                });
+            };
+
+            if (loginForm && loginButton) {
+                loginForm.addEventListener('submit', () => {
+                    loginButton.disabled = true;
+                    loginButton.classList.add('loading');
+                });
+            }
+
+            const retryUntil = Number(rateLimitState?.dataset.retryUntil || 0);
+            const rateLimitActive = rateLimitState?.dataset.active === '1';
+            if (rateLimitActive && loginButton) {
+                loginButton.disabled = true;
+                setOauthDisabled(true);
+            }
+
+            if (rateLimitActive && banner && countdownEl && retryUntil) {
+                const updateCountdown = () => {
+                    const remainingMs = retryUntil - Date.now();
+                    if (remainingMs <= 0) {
+                        banner.remove();
+                        if (loginButton) {
+                            loginButton.disabled = false;
+                            loginButton.textContent = 'Log In';
+                        }
+                        setOauthDisabled(false);
+                        return false;
+                    }
+                    const totalSeconds = Math.ceil(remainingMs / 1000);
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    if (minutes > 0) {
+                        countdownEl.textContent = `${minutes}m ${seconds}s`;
+                    } else {
+                        countdownEl.textContent = `${seconds}s`;
+                    }
+                    return true;
+                };
+
+                updateCountdown();
+                const timer = setInterval(() => {
+                    if (!updateCountdown()) {
+                        clearInterval(timer);
+                    }
+                }, 1000);
+            }
+
+        });
+    </script>
 </body>
 </html>
 {% endblock content %}
