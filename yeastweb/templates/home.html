@@ -27,6 +27,7 @@
             align-items: stretch;
             justify-items: stretch;
             gap: 10px;
+            height: calc(100vh - var(--nav-height) - 20px);
             height: calc(100dvh - var(--nav-height) - 20px);
         }
         .module-card {
@@ -240,7 +241,9 @@
             if (window.matchMedia('(max-width: 900px)').matches) return;
             dragging = true;
             homeDivider.classList.add('dragging');
-            homeDivider.setPointerCapture(event.pointerId);
+            if (homeDivider.setPointerCapture) {
+                homeDivider.setPointerCapture(event.pointerId);
+            }
             updateColumns(event.clientX);
         });
 
@@ -252,12 +255,16 @@
         homeDivider.addEventListener('pointerup', (event) => {
             dragging = false;
             homeDivider.classList.remove('dragging');
-            homeDivider.releasePointerCapture(event.pointerId);
+            if (homeDivider.releasePointerCapture) {
+                homeDivider.releasePointerCapture(event.pointerId);
+            }
         });
         homeDivider.addEventListener('pointercancel', (event) => {
             dragging = false;
             homeDivider.classList.remove('dragging');
-            homeDivider.releasePointerCapture(event.pointerId);
+            if (homeDivider.releasePointerCapture) {
+                homeDivider.releasePointerCapture(event.pointerId);
+            }
         });
     }
 </script>

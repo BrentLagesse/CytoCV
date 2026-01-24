@@ -638,7 +638,7 @@
             const customTimeout = Number.isFinite(window.CANCEL_POLLING_TIMEOUT_MS)
               ? window.CANCEL_POLLING_TIMEOUT_MS
               : 0;
-            const cancelPollingTimeoutMs = customTimeout > 0 ? customTimeout : 600000;
+            const cancelPollingTimeoutMs = customTimeout > 0 ? customTimeout : 60000;
             const deadline = Date.now() + cancelPollingTimeoutMs;
             let delay = 400;
             while (Date.now() < deadline) {
