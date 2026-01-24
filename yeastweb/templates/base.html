@@ -251,8 +251,22 @@
                     event.preventDefault();
                     logoutConfirm.textContent = 'Logging out...';
                     logoutConfirm.style.pointerEvents = 'none';
-                    await window.requestAnalysisCancel();
-                    window.location.href = logoutConfirm.getAttribute('href');
+                    const logoutHref = logoutConfirm.getAttribute('href');
+                    const timeoutMs = 10000;
+                    try {
+                        const timeoutPromise = new Promise((resolve) => {
+                            setTimeout(resolve, timeoutMs);
+                        });
+                        await Promise.race([window.requestAnalysisCancel(), timeoutPromise]);
+                    } catch (error) {
+                        if (window.console && typeof window.console.error === 'function') {
+                            console.error('Cancel before logout failed.', error);
+                        }
+                    } finally {
+                        if (logoutHref) {
+                            window.location.href = logoutHref;
+                        }
+                    }
                 }
             });
             logoutCancel.addEventListener('click', closeLogoutModal);
