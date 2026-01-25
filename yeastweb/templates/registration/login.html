@@ -256,22 +256,33 @@
             background: #3b1a1f;
             border: 1px solid var(--danger);
             color: #ffd6d6;
-            padding: 14px 20px;
+            padding: 14px 36px 14px 20px;
             border-radius: 10px;
             display: flex;
-            align-items: center;
-            gap: 12px;
+            align-items: flex-start;
+            gap: 14px;
             box-shadow: 0 12px 22px rgba(0, 0, 0, 0.35);
             z-index: 1500;
             font-size: 14px;
+            width: min(720px, calc(100% - 32px));
+            line-height: 1.4;
+            text-align: left;
         }
+        .oauth-error-toast span { flex: 1; }
         .oauth-error-close {
-            background: transparent;
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            background: #3b1a1f;
             border: none;
             color: inherit;
             font-size: 18px;
             cursor: pointer;
+            line-height: 1;
+            padding: 2px 8px;
+            border-radius: 6px;
         }
+        .oauth-error-close:hover { background: #5a2a31; }
         .shake {
             animation: shake 0.18s ease-in-out 2;
         }
@@ -303,6 +314,7 @@
             border: 1px solid var(--danger);
             color: #ffd6d6;
             padding: 10px 12px;
+            padding-right: 36px;
             border-radius: 8px;
             font-size: 14px;
             position: fixed;
@@ -312,6 +324,20 @@
             width: min(720px, calc(100% - 32px));
             z-index: 1500;
         }
+        .rate-limit-banner .message-close {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            background: #3b1a1f;
+            border: none;
+            color: inherit;
+            font-size: 18px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .rate-limit-banner .message-close:hover { background: #5a2a31; }
 
         @media (max-width: 640px) {
             .login-card {
@@ -326,8 +352,9 @@
 <body{% if rate_limit_active %} class="rate-limited"{% endif %}>
     <div class="page">
         {% if rate_limit_active %}
-            <div class="rate-limit-banner" id="rateLimitBanner" data-retry-until="{{ rate_limit_reset_at }}">
+            <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
                 Too many login attempts. Try again in <span id="rateLimitCountdown"></span>.
+                <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
             </div>
         {% endif %}
         <div class="login-card soft-fade-in">
@@ -404,7 +431,7 @@
                 Third-party sign-in failed. Please try again.
             {% endif %}
         </span>
-        <button type="button" class="oauth-error-close" id="oauthErrorClose" aria-label="Close">×</button>
+        <button type="button" class="oauth-error-close" id="oauthErrorClose" aria-label="Close">&times;</button>
     </div>
     <script>
         (() => {
@@ -420,12 +447,31 @@
     <script>
         (() => {
             const meta = document.getElementById('rateLimitMeta');
-            const msg = document.querySelector('.message-container .message.rate-limit');
-            if (!meta || !msg) return;
+            const countdownEl = document.getElementById('rateLimitCountdown');
+            const banner = document.getElementById('rateLimitBanner');
+            const bannerClose = document.getElementById('rateLimitClose');
+            if (!meta) return;
+            const messageContainer = document.querySelector('.message-container');
+            if (messageContainer) {
+                messageContainer
+                    .querySelectorAll('.message.rate-limit')
+                    .forEach((msgEl) => msgEl.remove());
+            }
             let remaining = parseInt(meta.dataset.remaining || '0', 10);
+            if (!Number.isFinite(remaining) || remaining < 0) {
+                remaining = 0;
+            }
+            const dismissKey = 'rateLimitDismissedUntil';
+            const dismissedUntil = parseInt(sessionStorage.getItem(dismissKey) || '0', 10);
+            if (banner && dismissedUntil && dismissedUntil > Date.now()) {
+                banner.remove();
+            }
             const updateText = () => {
-                const mins = Math.max(1, Math.ceil(remaining / 60));
-                msg.textContent = `Too many login attempts. Try again in ${mins} minute(s).`;
+                const mins = Math.max(0, Math.floor(remaining / 60));
+                const seconds = Math.max(0, remaining % 60);
+                if (countdownEl) {
+                    countdownEl.textContent = mins > 0 ? `${mins}m ${seconds}s` : `${seconds}s`;
+                }
             };
             updateText();
             const timer = setInterval(() => {
@@ -433,9 +479,17 @@
                 updateText();
                 if (remaining <= 0) {
                     clearInterval(timer);
+                    sessionStorage.removeItem(dismissKey);
                     window.location.reload();
                 }
             }, 1000);
+            if (banner && bannerClose) {
+                bannerClose.addEventListener('click', () => {
+                    const dismissUntil = Date.now() + Math.max(remaining, 1) * 1000;
+                    sessionStorage.setItem(dismissKey, String(dismissUntil));
+                    banner.remove();
+                });
+            }
         })();
     </script>
     {% endif %}

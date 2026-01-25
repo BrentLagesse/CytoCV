@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.messages import get_messages
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -39,22 +38,6 @@ def auth_login(request):
 
     def redirect_login():
         return redirect("login")
-
-    def queue_rate_limit_message(wait_mins: int) -> None:
-        storage = get_messages(request)
-        kept = []
-        for msg in storage:
-            if "rate-limit" not in msg.tags.split():
-                kept.append(msg)
-        for msg in kept:
-            messages.add_message(
-                request, msg.level, msg.message, extra_tags=msg.tags
-            )
-        messages.error(
-            request,
-            f"Too many login attempts. Try again in {wait_mins} minute(s).",
-            extra_tags="rate-limit",
-        )
 
     ip = get_client_ip(request)
 
@@ -100,8 +83,6 @@ def auth_login(request):
             keys, max_attempts, window_seconds, lockout_schedule, mode
         )
         if limited:
-            wait_mins = max(1, int((retry_after + 59) / 60))
-            queue_rate_limit_message(wait_mins)
             return render_login(
                 rate_limit_active=True,
                 retry_after=retry_after,
