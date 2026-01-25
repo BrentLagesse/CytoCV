@@ -69,11 +69,14 @@
         }
 
         .message-container {
-            position: relative;
-            z-index: 1000;
-            margin: calc(var(--nav-height) + 12px) auto 0;
+            position: fixed;
+            top: calc(var(--nav-height) + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1200;
             padding: 0 16px;
-            max-width: 720px;
+            width: min(720px, 92vw);
+            pointer-events: none;
         }
         .message {
             background: #3b1a1f;
@@ -86,6 +89,7 @@
             animation: messageDrop 0.2s ease-out both;
             position: relative;
             padding-right: 36px;
+            pointer-events: auto;
         }
         .message-close {
             position: absolute;

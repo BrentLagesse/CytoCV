@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,6 +25,8 @@ AUTHENTICATION_BACKENDS = [
     # for microsoft
     #'django_auth_adfs.backend.AdfsAccessTokenBackend',
 ]
+
+SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 
 # Application definition
 INSTALLED_APPS = [
@@ -180,6 +183,7 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 SITE_ID = 1
+SOCIALACCOUNT_LOGIN_ON_GET = False
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
@@ -206,6 +210,48 @@ CSP_FRAME_ANCESTORS = ("'none'",)
 CSP_BASE_URI = ("'self'",)
 CSP_FORM_ACTION = ("'self'", "https://accounts.google.com", "https://login.microsoftonline.com")
 CSP_OBJECT_SRC = ("'none'",)
+
+# Security profile toggles (defaults to not DEBUG; override with YEASTWEB_SECURITY_STRICT)
+_security_strict_env = os.getenv("YEASTWEB_SECURITY_STRICT")
+if _security_strict_env is None or _security_strict_env.strip() == "":
+    SECURITY_STRICT = not DEBUG
+else:
+    SECURITY_STRICT = _security_strict_env.strip().lower() in ("1", "true", "yes", "on")
+SECURITY_RATE_LIMIT_ENABLED = os.getenv("YEASTWEB_RATE_LIMIT_ENABLED", "1") == "1"
+SECURITY_RATE_LIMIT = {
+    "mode": os.getenv("YEASTWEB_RATE_LIMIT_MODE", "sliding"),
+    "max_attempts": int(os.getenv("YEASTWEB_RATE_LIMIT_MAX", "15")),
+    "window_seconds": int(os.getenv("YEASTWEB_RATE_LIMIT_WINDOW", "60")),
+    "lockout_schedule": [60, 180, 300, 600, 1800, 3600],
+}
+SECURITY_HEADERS_ENABLED = True
+SECURITY_PERMISSIONS_POLICY = "geolocation=(), microphone=(), camera=()"
+
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_HTTPONLY = True
+# Keep False because some JS reads the CSRF cookie directly.
+CSRF_COOKIE_HTTPONLY = False
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "same-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+
+if SECURITY_STRICT:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 
 DEFAULT_SEGMENT_CONFIG = {
     # odd integer for your Gaussian blur kernel

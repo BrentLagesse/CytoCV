@@ -1,1 +1,1 @@
-"""Security helpers for request handling."""
+"""Security helpers for optional hardening features."""

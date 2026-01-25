@@ -141,6 +141,10 @@
         .primary-btn:hover {
             background-color: var(--accent-dark);
         }
+        .primary-btn:disabled {
+            background-color: var(--accent-dark);
+            cursor: not-allowed;
+        }
 
         .primary-btn .spinner {
             width: 16px;
@@ -163,6 +167,10 @@
             display: grid;
             gap: 10px;
         }
+        .oauth-grid form {
+            margin: 0;
+            width: 100%;
+        }
 
         .oauth-grid form {
             margin: 0;
@@ -184,11 +192,28 @@
             text-decoration: none;
             cursor: pointer;
             font-family: inherit;
+            line-height: 1.2;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
         }
 
         .oauth-btn:hover {
             background: #2a2a2a;
             border-color: #4a4a4a;
+        }
+        .oauth-btn:disabled {
+            background: #2a2a2a;
+            border-color: #4a4a4a;
+            cursor: not-allowed;
+        }
+        .rate-limited .oauth-btn {
+            background: #2a2a2a;
+            border-color: #4a4a4a;
+        }
+        .rate-limited .oauth-btn,
+        .rate-limited .primary-btn {
+            pointer-events: none;
         }
 
         .oauth-btn.is-disabled {
@@ -200,22 +225,19 @@
         }
 
         .oauth-icon {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             background: transparent;
+            border: none;
         }
-
         .oauth-icon svg {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             display: block;
-        }
-
-        .oauth-btn.is-disabled .oauth-icon svg {
-            opacity: 0.55;
         }
 
         .error-box {
@@ -225,6 +247,51 @@
             padding: 10px 12px;
             border-radius: 8px;
             font-size: 13px;
+        }
+        .oauth-error-toast {
+            position: fixed;
+            top: calc(var(--nav-height) + 16px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #3b1a1f;
+            border: 1px solid var(--danger);
+            color: #ffd6d6;
+            padding: 14px 36px 14px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            box-shadow: 0 12px 22px rgba(0, 0, 0, 0.35);
+            z-index: 1500;
+            font-size: 14px;
+            width: min(720px, calc(100% - 32px));
+            line-height: 1.4;
+            text-align: left;
+        }
+        .oauth-error-toast span { flex: 1; }
+        .oauth-error-close {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            background: #3b1a1f;
+            border: none;
+            color: inherit;
+            font-size: 18px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .oauth-error-close:hover { background: #5a2a31; }
+        .shake {
+            animation: shake 0.18s ease-in-out 2;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-1px); }
+            50% { transform: translateX(1px); }
+            75% { transform: translateX(-1px); }
+            100% { transform: translateX(0); }
         }
 
         .message-container {
@@ -247,6 +314,7 @@
             border: 1px solid var(--danger);
             color: #ffd6d6;
             padding: 10px 12px;
+            padding-right: 36px;
             border-radius: 8px;
             font-size: 14px;
             position: fixed;
@@ -256,6 +324,20 @@
             width: min(720px, calc(100% - 32px));
             z-index: 1500;
         }
+        .rate-limit-banner .message-close {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            background: #3b1a1f;
+            border: none;
+            color: inherit;
+            font-size: 18px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .rate-limit-banner .message-close:hover { background: #5a2a31; }
 
         @media (max-width: 640px) {
             .login-card {
@@ -267,11 +349,12 @@
         }
     </style>
 </head>
-<body>
+<body{% if rate_limit_active %} class="rate-limited"{% endif %}>
     <div class="page">
         {% if rate_limit_active %}
-            <div class="rate-limit-banner" id="rateLimitBanner" data-retry-until="{{ rate_limit_reset_at }}">
+            <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
                 Too many login attempts. Try again in <span id="rateLimitCountdown"></span>.
+                <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
             </div>
         {% endif %}
         <div class="login-card soft-fade-in">
@@ -293,7 +376,7 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
                     </div>
-                    <button type="submit" class="primary-btn">
+                    <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
                         <span class="spinner" aria-hidden="true"></span>
                         <span class="btn-label">Log In</span>
                     </button>
@@ -305,13 +388,13 @@
                 <div class="oauth-grid">
                     <form method="post" action="{% provider_login_url 'google' %}">
                         {% csrf_token %}
-                        <button type="submit" class="oauth-btn">
-                            <span class="oauth-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                                    <path fill="#4285F4" d="M23.49 12.27c0-.8-.07-1.54-.2-2.27H12v4.29h6.44c-.28 1.5-1.13 2.77-2.4 3.62v3.01h3.88c2.27-2.09 3.57-5.17 3.57-8.65z"/>
-                                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.93l-3.88-3.01c-1.08.73-2.46 1.16-4.05 1.16-3.11 0-5.74-2.1-6.68-4.92H1.28v3.09C3.25 21.25 7.29 24 12 24z"/>
-                                    <path fill="#FBBC05" d="M5.32 14.3c-.24-.73-.38-1.51-.38-2.3s.14-1.57.38-2.3V6.61H1.28C.46 8.24 0 10.06 0 12s.46 3.76 1.28 5.39l4.04-3.09z"/>
-                                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.35.6 4.6 1.79l3.45-3.45C17.95 1.19 15.24 0 12 0 7.29 0 3.25 2.75 1.28 6.61l4.04 3.09C6.26 6.87 8.89 4.77 12 4.77z"/>
+                        <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
+                            <span class="oauth-icon google" aria-hidden="true">
+                                <svg viewBox="0 0 48 48" role="img">
+                                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.22 9.24 3.22l6.89-6.89C35.75 2.19 30.15 0 24 0 14.64 0 6.61 5.38 2.69 13.22l7.98 6.19C12.64 12.27 17.94 9.5 24 9.5z"/>
+                                    <path fill="#4285F4" d="M46.08 24.55c0-1.64-.15-3.22-.43-4.74H24v9h12.47c-.54 2.85-2.17 5.27-4.64 6.89l7.1 5.52c4.14-3.81 6.15-9.41 6.15-16.67z"/>
+                                    <path fill="#FBBC05" d="M10.67 28.41c-.6-1.8-.94-3.72-.94-5.7 0-1.98.34-3.9.94-5.7l-7.98-6.19C1.13 14.65 0 18.72 0 22.71c0 3.99 1.13 8.06 2.69 11.89l7.98-6.19z"/>
+                                    <path fill="#34A853" d="M24 45.5c6.15 0 11.3-2.04 15.07-5.54l-7.1-5.52c-1.98 1.33-4.51 2.12-7.97 2.12-6.06 0-11.36-2.77-13.33-6.81l-7.98 6.19C6.61 42.62 14.64 48 24 48z"/>
                                 </svg>
                             </span>
                             Continue with Google
@@ -319,13 +402,13 @@
                     </form>
                     <form method="post" action="{% provider_login_url 'microsoft' %}">
                         {% csrf_token %}
-                        <button type="submit" class="oauth-btn">
-                            <span class="oauth-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                                    <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
-                                    <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
-                                    <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
-                                    <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+                        <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
+                            <span class="oauth-icon microsoft" aria-hidden="true">
+                                <svg viewBox="0 0 23 23" role="img">
+                                    <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                    <rect x="13" y="1" width="9" height="9" fill="#7FBA00"/>
+                                    <rect x="1" y="13" width="9" height="9" fill="#00A4EF"/>
+                                    <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
                                 </svg>
                             </span>
                             Continue with Microsoft
@@ -336,78 +419,107 @@
 
         </div>
     </div>
-    <div id="rateLimitState"
-         data-active="{{ rate_limit_active|yesno:'1,0' }}"
-         data-retry-until="{{ rate_limit_reset_at }}"></div>
+    {% if rate_limit_active %}
+    <div id="rateLimitMeta" data-remaining="{{ rate_limit_retry_after|default:0 }}"></div>
+    {% endif %}
+    {% if request.GET.oauth_error %}
+    <div class="oauth-error-toast" id="oauthErrorToast">
+        <span>
+            {% if request.GET.provider %}
+                {{ request.GET.provider|capfirst }} sign-in failed. Please try again.
+            {% else %}
+                Third-party sign-in failed. Please try again.
+            {% endif %}
+        </span>
+        <button type="button" class="oauth-error-close" id="oauthErrorClose" aria-label="Close">&times;</button>
+    </div>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const loginForm = document.querySelector('.login-form');
-            const loginButton = loginForm?.querySelector('.primary-btn');
-            const oauthButtons = Array.from(document.querySelectorAll('.oauth-btn'));
-            const rateLimitState = document.getElementById('rateLimitState');
-            const banner = document.getElementById('rateLimitBanner');
+        (() => {
+            const toast = document.getElementById('oauthErrorToast');
+            const close = document.getElementById('oauthErrorClose');
+            if (!toast || !close) return;
+            close.addEventListener('click', () => toast.remove());
+            setTimeout(() => toast.remove(), 7000);
+        })();
+    </script>
+    {% endif %}
+    {% if rate_limit_active %}
+    <script>
+        (() => {
+            const meta = document.getElementById('rateLimitMeta');
             const countdownEl = document.getElementById('rateLimitCountdown');
-
-            const setOauthDisabled = (disabled) => {
-                oauthButtons.forEach((button) => {
-                    if (disabled) {
-                        button.classList.add('is-disabled');
-                        button.setAttribute('aria-disabled', 'true');
-                        button.tabIndex = -1;
-                    } else {
-                        button.classList.remove('is-disabled');
-                        button.removeAttribute('aria-disabled');
-                        button.removeAttribute('tabindex');
-                    }
-                });
+            const banner = document.getElementById('rateLimitBanner');
+            const bannerClose = document.getElementById('rateLimitClose');
+            if (!meta) return;
+            const messageContainer = document.querySelector('.message-container');
+            if (messageContainer) {
+                messageContainer
+                    .querySelectorAll('.message.rate-limit')
+                    .forEach((msgEl) => msgEl.remove());
+            }
+            let remaining = parseInt(meta.dataset.remaining || '0', 10);
+            if (!Number.isFinite(remaining) || remaining < 0) {
+                remaining = 0;
+            }
+            const dismissKey = 'rateLimitDismissedUntil';
+            const dismissedUntil = parseInt(sessionStorage.getItem(dismissKey) || '0', 10);
+            if (banner && dismissedUntil && dismissedUntil > Date.now()) {
+                banner.remove();
+            }
+            const updateText = () => {
+                const mins = Math.max(0, Math.floor(remaining / 60));
+                const seconds = Math.max(0, remaining % 60);
+                if (countdownEl) {
+                    countdownEl.textContent = mins > 0 ? `${mins}m ${seconds}s` : `${seconds}s`;
+                }
             };
-
-            if (loginForm && loginButton) {
-                loginForm.addEventListener('submit', () => {
-                    loginButton.disabled = true;
-                    loginButton.classList.add('loading');
+            updateText();
+            const timer = setInterval(() => {
+                remaining = Math.max(0, remaining - 1);
+                updateText();
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    sessionStorage.removeItem(dismissKey);
+                    window.location.reload();
+                }
+            }, 1000);
+            if (banner && bannerClose) {
+                bannerClose.addEventListener('click', () => {
+                    const dismissUntil = Date.now() + Math.max(remaining, 1) * 1000;
+                    sessionStorage.setItem(dismissKey, String(dismissUntil));
+                    banner.remove();
                 });
             }
-
-            const retryUntil = Number(rateLimitState?.dataset.retryUntil || 0);
-            const rateLimitActive = rateLimitState?.dataset.active === '1';
-            if (rateLimitActive && loginButton) {
-                loginButton.disabled = true;
-                setOauthDisabled(true);
-            }
-
-            if (rateLimitActive && banner && countdownEl && retryUntil) {
-                const updateCountdown = () => {
-                    const remainingMs = retryUntil - Date.now();
-                    if (remainingMs <= 0) {
-                        banner.remove();
-                        if (loginButton) {
-                            loginButton.disabled = false;
-                            loginButton.textContent = 'Log In';
-                        }
-                        setOauthDisabled(false);
-                        return false;
-                    }
-                    const totalSeconds = Math.ceil(remainingMs / 1000);
-                    const minutes = Math.floor(totalSeconds / 60);
-                    const seconds = totalSeconds % 60;
-                    if (minutes > 0) {
-                        countdownEl.textContent = `${minutes}m ${seconds}s`;
-                    } else {
-                        countdownEl.textContent = `${seconds}s`;
-                    }
-                    return true;
-                };
-
-                updateCountdown();
-                const timer = setInterval(() => {
-                    if (!updateCountdown()) {
-                        clearInterval(timer);
-                    }
-                }, 1000);
-            }
-
-        });
+        })();
+    </script>
+    {% endif %}
+    {% if login_failed %}
+    <script>
+        (() => {
+            const btn = document.getElementById('loginSubmit');
+            if (!btn) return;
+            btn.classList.remove('shake');
+            void btn.offsetWidth;
+            btn.classList.add('shake');
+        })();
+    </script>
+    {% endif %}
+    <script>
+        (() => {
+            const form = document.querySelector('.login-form');
+            const submit = document.getElementById('loginSubmit');
+            if (!form || !submit) return;
+            let submitted = false;
+            form.addEventListener('submit', (event) => {
+                if (submitted) {
+                    event.preventDefault();
+                    return;
+                }
+                submitted = true;
+                submit.disabled = true;
+                submit.classList.add('loading');
+            });
+        })();
     </script>
 </body>
 </html>
