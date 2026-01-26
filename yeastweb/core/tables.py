@@ -1,14 +1,27 @@
+"""Table definitions for rendering and exporting cell statistics."""
+
+from __future__ import annotations
+
 import django_tables2 as tables
-from core.models import CellStatistics
 from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
+from core.models import CellStatistics
+
 
 class NumberColumn(tables.Column):
-    def render(self, value):
-        return '{:0.3f}'.format(value)
+    """Format numeric values for display with fixed precision."""
+
+    def render(self, value: float) -> str:
+        """Render a numeric value with three decimal places."""
+        return "{:0.3f}".format(value)
 
 class CellTable(tables.Table):
+    """Table layout for per-cell statistics.
+
+    The table focuses on distance metrics, contour sizes, and intensity
+    summaries needed for downstream analysis and export.
+    """
     cell_id = tables.Column(verbose_name='Cell ID')
     distance = NumberColumn(verbose_name='MCherry Line Distance')
     line_gfp_intensity = tables.Column(verbose_name='Line GFP Intensity')
@@ -53,6 +66,8 @@ class CellTable(tables.Table):
 
 
 class CellTableView(ExportMixin, SingleTableView):
+    """Table view with CSV/XLSX export support for cell statistics."""
+
     model = CellStatistics
     table_class = CellTable
     export_formats = ["csv", "xlsx"]
