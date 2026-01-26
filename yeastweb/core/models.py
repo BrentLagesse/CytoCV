@@ -1,45 +1,56 @@
-# https://docs.djangoproject.com/en/5.0/topics/forms/modelforms/#django.forms.ModelForm
-from django.forms import ModelForm
-from functools import partial
-import uuid, os, json
-from django.db import models
+"""Django models for uploads, previews, and analysis outputs."""
+"""https://docs.djangoproject.com/en/5.0/topics/forms/modelforms/#django.forms.ModelForm"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from enum import Enum
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from yeastweb.settings import MEDIA_ROOT, MEDIA_URL
-from enum import Enum
-from PIL import Image
+from django.db import models
 from mrc import DVFile
-from core.config import input_dir, get_channel_config_for_uuid
-import numpy as np
+from PIL import Image
+
+from core.config import get_channel_config_for_uuid
 
 
 class UploadedImage(models.Model):
-    # stores image in its own uuid folder along with its name
-    def upload_to(instance, filename):
-        uuid = instance.uuid
-        name = instance.name
-        # file cannot have . in its
-        file_extension = '.' + filename.split('.')[-1]
-        return f'{uuid}/{name}{file_extension}'
+    """Stores an uploaded image and its on-disk location."""
+
+    def upload_to(instance: "UploadedImage", filename: str) -> str:
+        """Build the storage path for an uploaded file."""
+        file_extension = "." + filename.split(".")[-1]
+        return f"{instance.uuid}/{instance.name}{file_extension}"
+
     name = models.TextField()
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file_location = models.FileField(upload_to=upload_to)
 
-    def __str__(self):
-        return 'Name: ' + self.name + ' UUID: ' + str(self.uuid)
+    def __str__(self) -> str:
+        return f"Name: {self.name} UUID: {self.uuid}"
 
 
-def get_guest_user():
-    return get_user_model().objects.get(username='guest').id  # this is for not logged in user
+def get_guest_user() -> int:
+    """Return the guest user id for unauthenticated runs."""
+    return get_user_model().objects.get(username="guest").id
 
-def user_directory_path(instance, filename):
-    uuid = instance.uuid
-    return f'user_{uuid}/{filename}'
+
+def user_directory_path(instance: "SegmentedImage", filename: str) -> str:
+    """Build the storage path for a segmented image file."""
+    return f"user_{instance.uuid}/{filename}"
+
 
 class SegmentedImage(models.Model):
-    # This will be point to user primary key
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                             to_field='id', default=get_guest_user) # call get_guest_user at runtime
+    """Stores segmentation outputs and metadata for a user run."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        to_field="id",
+        default=get_guest_user,
+    )
 
     UUID = models.UUIDField(primary_key=True)
     uploaded_date = models.DateTimeField(auto_now_add=True)
@@ -48,22 +59,32 @@ class SegmentedImage(models.Model):
     CellPairPrefix = models.FilePathField()
     NumCells = models.IntegerField()
 
-    def __str__(self):
-        return 'UUID: ' + self.UUID + ' Path: ' + self.ImagePath + ' Prefix: ' + self.CellPairPrefix + ' Number of Cells: ' + self.NumCells
+    def __str__(self) -> str:
+        return (
+            f"UUID: {self.UUID} Path: {self.ImagePath} "
+            f"Prefix: {self.CellPairPrefix} Number of Cells: {self.NumCells}"
+        )
 
 
 class DVLayerTifPreview(models.Model):
+    """Stores a single channel preview for a DV file."""
+
     wavelength = models.CharField(max_length=30)
     uploaded_image_uuid = models.ForeignKey(UploadedImage, on_delete=models.CASCADE)
-    # since the tif is already generated, manually set to path 
     file_location = models.ImageField()
 
+
 class Contour(Enum):
+    """Contour selection modes used in legacy processing."""
+
     CONTOUR = 0
     CONVEX = 1
     CIRCLE = 2
 
+
 class CellStatistics(models.Model):
+    """Stores per-cell statistics derived from segmentation output."""
+
     segmented_image = models.ForeignKey("SegmentedImage", on_delete=models.CASCADE)
     cell_id = models.IntegerField()
     distance = models.FloatField()
@@ -82,7 +103,6 @@ class CellStatistics(models.Model):
     red_intensity_2 = models.FloatField(default=0.0)
     red_intensity_3 = models.FloatField(default=0.0)
 
-    # Green intensity in red contour wrt green image
     green_intensity_1 = models.FloatField(default=0.0)
     green_intensity_2 = models.FloatField(default=0.0)
     green_intensity_3 = models.FloatField(default=0.0)
@@ -100,11 +120,8 @@ class CellStatistics(models.Model):
     cytoplasmic_intensity_DAPI = models.FloatField(default=0.0)
 
     dv_file_path = models.TextField(default="")
-
-    # Not sure why needed, included to maintain consistency with legacy code
     image_name = models.TextField(default="")
 
-    # Additional fields migrated from CellPair:
     is_correct = models.BooleanField(default=True)
     nuclei_count = models.IntegerField(default=1)
     gfp_dot_count = models.IntegerField(default=0)
@@ -112,50 +129,58 @@ class CellStatistics(models.Model):
     gfp_red_dot_distance = models.FloatField(default=0.0)
     cyan_dot_count = models.IntegerField(default=1)
     ground_truth = models.BooleanField(default=False)
-    nucleus_intensity = models.JSONField(default=dict)   # For storing intensities by contour type
+    nucleus_intensity = models.JSONField(default=dict)
     nucleus_total_points = models.IntegerField(default=0)
-    cell_intensity = models.JSONField(default=dict)      # For storing intensities (if keeping it as dict)
+    cell_intensity = models.JSONField(default=dict)
     cell_total_points = models.IntegerField(default=0)
     ignored = models.BooleanField(default=False)
     mcherry_line_gfp_intensity = models.FloatField(default=0.0)
     gfp_line_gfp_intensity = models.FloatField(default=0.0)
     properties = models.JSONField(default=dict)
 
-    def __str__(self):
-        return f"Cell ID: {self.cell_id} - Dist: {self.distance}, Line GFP: {self.line_gfp_intensity}"
+    def __str__(self) -> str:
+        return (
+            f"Cell ID: {self.cell_id} - Dist: {self.distance}, "
+            f"Line GFP: {self.line_gfp_intensity}"
+        )
 
-    #
-    # Legacy "getter" methods moved into the model:
-    #
-    def get_base_name(self):
-        """
-        Legacy helper to extract the base name before '_PRJ' in self.image_name.
-        """
-        return self.image_name.split('_PRJ')[0]
+    def get_base_name(self) -> str:
+        """Return the base name before the '_PRJ' suffix."""
+        return self.image_name.split("_PRJ")[0]
 
-    def get_image(self,channel:str, use_id=False, outline=True):
-        # Retrieve the per‑file configuration using the DV file's UUID.
-        # We assume that the associated SegmentedImage's UUID stores the DV file's UUID.
+    def get_image(
+        self,
+        channel: str,
+        use_id: bool = False,
+        outline: bool = True,
+    ) -> Image.Image | str:
+        """Fetch the image or filename for a given channel.
+
+        Args:
+            channel: Channel name to retrieve (e.g., "mCherry", "GFP").
+            use_id: Whether to include the cell_id in the filename.
+            outline: Whether to include the outline suffix for filenames.
+
+        Returns:
+            A PIL Image when reading from a DV file, or a filename string.
+        """
         channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
         image_channel = channel_config.get(channel)
-        print(f'Using channel for {channel}' + str(image_channel))
+        print(f"Using channel for {channel}" + str(image_channel))
 
-        outlinestr = ''
+        outlinestr = ""
         if not outline:
-            outlinestr = '-no_outline'
+            outlinestr = "-no_outline"
         if use_id:
-            # Return the pre-split PNG file that includes the cell_id.
             return f"{self.get_base_name()}_PRJ-{image_channel}-{self.cell_id}{outlinestr}.png"
-        else:
-            extspl = os.path.splitext(self.image_name)
-            if extspl[1] == '.dv':
-                f = DVFile(self.dv_file_path)
-                image = f.asarray()
-                # Use the per‑file configured channel index for mCherry.
-                img = Image.fromarray(image[image_channel])
-                return img
-            else:
-                return f"{self.get_base_name()}_PRJ-{image_channel}{outlinestr}.png"
+        extspl = os.path.splitext(self.image_name)
+        if extspl[1] == ".dv":
+            f = DVFile(self.dv_file_path)
+            image = f.asarray()
+            img = Image.fromarray(image[image_channel])
+            return img
+        return f"{self.get_base_name()}_PRJ-{image_channel}{outlinestr}.png"
+
 
 # class FileHandler(models.Model):
 #     FILE_TYPES_CHOICES = {
@@ -197,6 +222,3 @@ class CellStatistics(models.Model):
 #         self.mcherry_line_gfp_intensity = 0
 #         self.gfp_line_gfp_intensity = 0
 #         self.properties = dict()
-        
-
-
