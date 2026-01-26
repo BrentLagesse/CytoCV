@@ -1,5 +1,5 @@
 """Django models for uploads, previews, and analysis outputs."""
-"""https://docs.djangoproject.com/en/5.0/topics/forms/modelforms/#django.forms.ModelForm"""
+# https://docs.djangoproject.com/en/5.0/topics/forms/modelforms/#django.forms.ModelForm
 
 from __future__ import annotations
 
