@@ -1,18 +1,48 @@
+"""Middleware for setting security-related response headers."""
+
+from __future__ import annotations
+
+from typing import Callable, Iterable
+
 from django.conf import settings
+from django.http import HttpRequest, HttpResponse
 
 
-def _format_sources(sources):
+def _format_sources(sources: Iterable[str]) -> str:
+    """Format a list of CSP sources into a directive string.
+
+    Args:
+        sources: Iterable of CSP source values.
+
+    Returns:
+        A space-delimited string of sources.
+    """
     return " ".join(sources)
 
 
 class ContentSecurityPolicyMiddleware:
+    """Attach CSP and optional Permissions-Policy headers to responses."""
+
     def __init__(self, get_response):
+        """Initialize the middleware and build the CSP policy.
+
+        Args:
+            get_response: Django's next middleware or view callable.
+        """
         self.get_response = get_response
         self.policy = self._build_policy()
         self.enable_headers = getattr(settings, "SECURITY_HEADERS_ENABLED", True)
         self.permissions_policy = getattr(settings, "SECURITY_PERMISSIONS_POLICY", "")
 
     def __call__(self, request):
+        """Handle the request and append security headers to the response.
+
+        Args:
+            request: Incoming Django request.
+
+        Returns:
+            The response with security headers applied when absent.
+        """
         response = self.get_response(request)
         if not (
             response.has_header("Content-Security-Policy")
@@ -25,6 +55,11 @@ class ContentSecurityPolicyMiddleware:
         return response
 
     def _build_policy(self):
+        """Build the CSP header value from settings.
+
+        Returns:
+            A fully formatted CSP policy string.
+        """
         directives = {
             "default-src": _format_sources(getattr(settings, "CSP_DEFAULT_SRC", ("'self'",))),
             "script-src": _format_sources(getattr(settings, "CSP_SCRIPT_SRC", ("'self'",))),
