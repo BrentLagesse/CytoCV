@@ -6,7 +6,7 @@ from core.contour_processing import get_contour_center
 class GFPDot(Analysis):
     name = 'GFPDot'
 
-    # Calculate the distance between a point and a line defined by 
+    # Calculate the distance between a point and a line defined by endpoints
     def point_is_between(self, point, endpoint1, endpoint2, eps):
         # Convert to numpy array
         point = np.array(point)

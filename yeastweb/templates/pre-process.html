@@ -391,10 +391,14 @@
       }
       .analysis-toggle input[type="number"] {
         font-family: var(--app-font);
-        margin-left: auto;
+        /* margin-left: auto; */
         border: 1px solid #343434;
         background: #2f2f2f;
         color: #fff;
+        order: 2;
+      }
+      .analysis-toggle .field-label {
+        margin-left:auto;
         order: 1;
       }
       .analysis-toggle input[type="checkbox"] { display: none; }
@@ -406,7 +410,7 @@
         border-radius: 999px;
         transition: background-color 0.2s ease;
         flex: 0 0 auto;
-        order: 2;
+        order: 3;
       }
       .analysis-switch::before {
         content: "";
@@ -597,7 +601,7 @@
                   <input type="checkbox" name="selected_analysis" value="{{ analysis }}" />
                   <span class="analysis-switch"></span>
                   {% if analysis == 'GFPDot' %}
-                    <input class="num-entry" type="number" name="distance" id="distance" />
+                    <span class="field-label">Min. distance:</span><input class="num-entry" type="number" name="distance" id="distance" />
                   {% endif %}
                 </label>
                 {% endfor %}
