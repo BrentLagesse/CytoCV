@@ -1,7 +1,8 @@
+"""Admin registrations for core models."""
+
 from django.contrib import admin
 
-from core.models import UploadedImage, DVLayerTifPreview
+from core.models import DVLayerTifPreview, UploadedImage
 
-# Register your models here.
 admin.site.register(UploadedImage)
 admin.site.register(DVLayerTifPreview)
