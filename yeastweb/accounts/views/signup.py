@@ -1,26 +1,39 @@
-from django.template.response import TemplateResponse
-from django.shortcuts import redirect
-from django.core.mail import send_mail
-from django.conf import settings
-from .forms import SignupForm
+"""Signup view with email verification code flow."""
+
+from __future__ import annotations
 
 import uuid
 
-def signup(request):
-    # Initialize verify_code from session if it exists
+from django.conf import settings
+from django.core.mail import send_mail
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
+
+from .forms import SignupForm
+
+def signup(request: HttpRequest) -> HttpResponse:
+    """Handle signup form submission and email verification."""
     verify_code = request.session.get('verify_code', None)
     if request.method == 'POST':
         form = SignupForm(request.POST)
         if form.is_valid():
-            # save the user if success and redirect to login page
             if 'submit' in request.POST:
                 print(verify_code)
                 code = form.cleaned_data['verify_code']
                 if not code:
-                    return TemplateResponse(request,"registration/signup.html", {'form':form,'error':'Please enter a verification code'})
+                    return TemplateResponse(
+                        request,
+                        "registration/signup.html",
+                        {"form": form, "error": "Please enter a verification code"},
+                    )
                 else:
                     if not verify_code:
-                        return TemplateResponse(request,"registration/signup.html", {'form':form,'error':'Please send a verification code'})
+                        return TemplateResponse(
+                            request,
+                            "registration/signup.html",
+                            {"form": form, "error": "Please send a verification code"},
+                        )
                     if code == verify_code:
                         form.save()
                         return redirect('login')
@@ -39,7 +52,11 @@ def signup(request):
                     [email],
                     fail_silently=False,
                 )
-            return TemplateResponse(request,"registration/signup.html", {'form':form,'error':'Code sent'})
+            return TemplateResponse(
+                request,
+                "registration/signup.html",
+                {"form": form, "error": "Code sent"},
+            )
     else:
         form = SignupForm()
-    return TemplateResponse(request, "registration/signup.html", {'form':form})
+    return TemplateResponse(request, "registration/signup.html", {"form": form})
