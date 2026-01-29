@@ -5,7 +5,7 @@ from .Analysis import Analysis
 
 class NucleusIntensity(Analysis):
     name = 'Nucleus Intensity'
-    def calculate_statistics(self, best_contours, contours_data,red_image=None, green_image=None,mcherry_line_width_input=None):
+    def calculate_statistics(self, best_contours, contours_data,red_image=None, green_image=None,mcherry_line_width_input=None,gfp_distance=0):
         """
             This function calculate the nucleus intensity within a green image
             :param best_contour: The green contour of the green image

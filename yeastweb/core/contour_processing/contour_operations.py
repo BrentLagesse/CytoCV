@@ -13,21 +13,42 @@ def find_contours(images:GrayImage):
     :return: Dictionary of contours, best contours
     """
     _,bright_thresh = cv2.threshold(images.get_image('gray_mcherry_3'),0.65,1,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # bright_thresh = cv2.Canny(images.get_image('gray_mcherry_3'), 50, 150)
+    # bright_thresh = cv2.Canny(images.get_image('GFP'), 50, 150)
     dot_contours, _ = cv2.findContours(bright_thresh,1,2)
     dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt)<100] # remove the one that border image
 
     # finding threshold
-    ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
-                                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
-                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    # ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
+    #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    # ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
+    #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+
+    # TODO: No contours for second GFP image cell 14 are caused by the gray_mcherry threshold missing the dull signals
+    thresh_mcherry = cv2.Canny(images.get_image('gray_mcherry_3'), 50, 150)
+    thresh = cv2.Canny(images.get_image('gray_mcherry'), 50, 150)
 
     # finding threshold
-    ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,
-                                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    ret_dapi, thresh_dapi = cv2.threshold(images.get_image('gray_dapi'), 0, 1,
-                                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    # ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,
+    #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    # ret_dapi, thresh_dapi = cv2.threshold(images.get_image('gray_dapi'), 0, 1,
+    #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+    
+    # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong brightness of cell
+    thresh_dapi_3 = cv2.Canny(images.get_image('gray_dapi_3'), 60, 75)
+    thresh_dapi = cv2.Canny(images.get_image('gray_dapi'), 60, 75)
 
+    # TODO: Best kernel for closing so far, but better probably exists
+    kernel = np.ones((3,3), np.uint8)
+    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    thresh_dapi_3 = cv2.morphologyEx(thresh_dapi_3, cv2.MORPH_CLOSE, kernel)
+    thresh_dapi = cv2.morphologyEx(thresh_dapi, cv2.MORPH_CLOSE, kernel)
+
+    # TODO: verify that this works
+    thresh_gfp = cv2.Canny(images.get_image('GFP'), 50, 150)
+    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+    thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
 
     #cell_int_ret, cell_int_thresh = cv2.threshold(images.get_image('GFP'), 0, 1,
     #                            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
@@ -37,10 +58,15 @@ def find_contours(images:GrayImage):
     contours, h = cv2.findContours(thresh, 1, 2)
     contours_mcherry, _ = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
 
-    contours_dapi, h = cv2.findContours(thresh_dapi, 1, 2)
-    contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, 1, 2) # return list of contours
+    contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_EXTERNAL, 2)
+    contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, cv2.RETR_EXTERNAL, 2) # return list of contours
+
+    # for cnt in contours_dapi_3:
+    #     print("Contour area:")
+    #     print(cv2.contourArea(cnt))
     contours_dapi_3 = [cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt)>100 and cv2.contourArea(cnt)<1000]
 
+    contours_gfp, _ = cv2.findContours(thresh_gfp,1,2)
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly
@@ -70,6 +96,7 @@ def find_contours(images:GrayImage):
         'bestContours_dapi': bestContours_dapi,
         'bestContours_dapi_3': bestContours_dapi_3,
         'dot_contours': dot_contours,
+        'contours_gfp': contours_gfp,
     }
 
 def merge_contour(bestContours, contours):

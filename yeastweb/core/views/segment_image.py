@@ -127,7 +127,7 @@ def import_analyses(path:str, selected_analysis:list) -> list:
 
     return analyses
 
-def get_stats(cp, conf, selected_analysis):
+def get_stats(cp, conf, selected_analysis, gfp_distance):
     # loading configuration
     kernel_size_input, mcherry_line_width_input,kernel_deviation_input, choice_var = set_options(conf)
 
@@ -166,6 +166,9 @@ def get_stats(cp, conf, selected_analysis):
     for i in range(0,len(contours_data['dot_contours'])):
         area = cv2.contourArea(contours_data['dot_contours'][i])
         setattr(cp, f'red_contour_{i+1}_size', area)
+    # for i in range(0,len(contours_data['contours_mcherry'])):
+    #     area = cv2.contourArea(contours_data['contours_mcherry'][i])
+    #     setattr(cp, f'red_contour_{i+1}_size', area)
 
     cp.blue_contour_size = cv2.contourArea(best_contour_dapi)
 
@@ -178,11 +181,19 @@ def get_stats(cp, conf, selected_analysis):
     cv2.drawContours(edit_DAPI_img, contours_data['dot_contours'],-1, (0, 0, 255), 1)
     cv2.drawContours(edit_DAPI_img, [best_contour_dapi],0, (255, 0, 0), 1)
 
+
+    # Drawing GFP
+    cv2.drawContours(edit_mCherry_img, contours_data['contours_gfp'], -1, (0, 255, 0),1)
+
+    cv2.drawContours(edit_GFP_img, contours_data['contours_gfp'], -1, (0, 255, 0),1)
+
+    cv2.drawContours(edit_DAPI_img, contours_data['contours_gfp'],-1, (0, 255, 0), 1)
+
     import_path = BASE_DIR / 'core/cell_analysis'
     analyses = import_analyses(import_path, selected_analysis)
     for analysis in analyses:
         analysis.setting_up(cp,preprocessed_images,output_dir)
-        analysis.calculate_statistics(best_contour_data, contours_data, edit_mCherry_img, edit_GFP_img, mcherry_line_width_input)
+        analysis.calculate_statistics(best_contour_data, contours_data, edit_mCherry_img, edit_GFP_img, mcherry_line_width_input, gfp_distance)
 
     # Convert BGR back to RGB so PIL shows correct colors
     edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
@@ -539,7 +550,7 @@ def segment_image(request, uuids):
 
             # Overlay the outlines on the original image in green
             image_outlined = image.copy()
-            image_outlined[outlines > 0] = (0, 255, 0)
+            image_outlined[outlines > 0] = (0, 255, 255)
 
             # Display the outline file
             fig = plt.figure(frameon=False)
@@ -635,7 +646,9 @@ def segment_image(request, uuids):
             
             # Overlay the outlines on the original image in green
             image_outlined = image.copy()
-            image_outlined[outlines > 0] = (0, 255, 0)
+            # image_outlined[outlines > 0] = (0, 255, 0)
+            # NOTE: Temporarily changing to cyan to debug GFP
+            image_outlined[outlines > 0] = (0, 255, 255)
 
             # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
             for i in range(1, int(np.max(seg) + 1)):
@@ -747,8 +760,13 @@ def segment_image(request, uuids):
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
             selected_analysis = request.session.get('selected_analysis',[])
+            gfp_distance = request.session.get('distance', 37)
+            try:
+                gfp_distance = int(gfp_distance)
+            except ValueError:
+                gfp_distance = 37
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis)
+            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, gfp_distance)
 
             # Save the debug images so we can view them later
             debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"
