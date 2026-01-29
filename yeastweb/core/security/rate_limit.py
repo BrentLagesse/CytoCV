@@ -1,8 +1,23 @@
+"""Login rate limiting helpers using cache-backed counters."""
+
+from __future__ import annotations
+
 import time
+from typing import Iterable
+
 from django.core.cache import cache
+from django.http import HttpRequest
 
 
-def get_client_ip(request) -> str:
+def get_client_ip(request: HttpRequest) -> str:
+    """Extract the client IP address from request headers.
+
+    Args:
+        request: Incoming Django request.
+
+    Returns:
+        A best-effort client IP string.
+    """
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -10,6 +25,7 @@ def get_client_ip(request) -> str:
 
 
 def build_rate_limit_keys(ip: str, username: str) -> list[str]:
+    """Build cache keys for IP, user, and IP+user throttling."""
     keys = [f"rl:login:ip:{ip}"]
     if username:
         keys.append(f"rl:login:user:{username.lower()}")
@@ -18,16 +34,19 @@ def build_rate_limit_keys(ip: str, username: str) -> list[str]:
 
 
 def _ttl(window_seconds: int, lockout_schedule: list[int] | None = None) -> int:
+    """Compute the cache TTL for a given window and lockout schedule."""
     if lockout_schedule:
         return max(max(lockout_schedule), window_seconds, 60)
     return max(window_seconds, 60)
 
 
 def _prune_attempts(attempts: list[int], now: int, window_seconds: int) -> list[int]:
+    """Trim attempts outside the sliding window."""
     return [ts for ts in attempts if now - ts < window_seconds]
 
 
 def _get_state(key: str, now: int, window_seconds: int, mode: str) -> dict:
+    """Load and normalize the cached state for the given key."""
     state = cache.get(key) or {}
     if mode == "sliding":
         attempts = state.get("attempts", [])
@@ -61,6 +80,18 @@ def check_rate_limit(
     lockout_schedule: list[int],
     mode: str = "sliding",
 ) -> tuple[bool, int, int]:
+    """Check whether any key is currently rate-limited.
+
+    Args:
+        keys: Cache keys to evaluate.
+        max_attempts: Max attempts within the window.
+        window_seconds: Sliding window size in seconds.
+        lockout_schedule: Escalating lockout durations (seconds).
+        mode: "sliding" or "lockout".
+
+    Returns:
+        Tuple of (limited, retry_after_seconds, lockout_level).
+    """
     now = int(time.time())
     retry_after = 0
     limited = False
@@ -91,6 +122,7 @@ def register_failure(
     lockout_schedule: list[int],
     mode: str = "sliding",
 ) -> None:
+    """Record a failed login attempt across the provided keys."""
     now = int(time.time())
     for key in keys:
         state = _get_state(key, now, window_seconds, mode)
@@ -123,5 +155,6 @@ def register_failure(
 
 
 def reset_limits(keys: list[str]) -> None:
+    """Clear rate-limit state for the provided keys."""
     for key in keys:
         cache.delete(key)

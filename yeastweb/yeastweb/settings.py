@@ -1,34 +1,35 @@
+"""Django settings for Yeast-Web."""
+
 from pathlib import Path
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Media files directory
+# Media storage
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Quick-start development settings - unsuitable for production
+# Core settings (override in production)
 SECRET_KEY = 'django-insecure-r_afs-3hujl8xfiqc%l#t*%$(bs*@ycdlnz$okl%i57g!tn%3y'
 DEBUG = True
 ALLOWED_HOSTS = []
 
-# Custom User with unique uuid
+# Authentication
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 AUTHENTICATION_BACKENDS = [
-    # Needed to login by username in Django admin, regardless of `allauth`
+    # Admin username auth (works with allauth enabled)
     'django.contrib.auth.backends.ModelBackend',
 
-    # `allauth` specific authentication methods, such as login by email
+    # Allauth auth methods (email/social)
     'allauth.account.auth_backends.AuthenticationBackend',
-    # for microsoft
     #'django_auth_adfs.backend.AdfsAccessTokenBackend',
 ]
 
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 
-# Application definition
+# Apps
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.microsoft',
 ]
 
+# Middleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'core.middleware.security_headers.ContentSecurityPolicyMiddleware',
@@ -59,12 +61,14 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
 ]
 
+# Cache
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
         "LOCATION": BASE_DIR / 'cache',
     },
 
+    # Optional: memcached backend
     #"default": {
     #    "BACKEND": "django.core.cache.backends.memcached.PyMemcacheCache",
     #    "LOCATION": "127.0.0.1:11211",
@@ -72,8 +76,10 @@ CACHES = {
 
 }
 
+# URL routing
 ROOT_URLCONF = 'yeastweb.urls'
 
+# Templates
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -85,14 +91,14 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.media',  # This adds MEDIA_URL to all templates
+                'django.template.context_processors.media',
                 'django.template.context_processors.request',
             ],
         },
     },
 ]
 
-
+# WSGI
 WSGI_APPLICATION = 'yeastweb.wsgi.application'
 
 
@@ -120,14 +126,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# For account with different provider
+# Social auth providers
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         # For each OAuth based provider, either add a ``SocialApp``
         # (``socialaccount`` app) containing the required client
         # credentials, or list them here:
         'APP': {
-            #TODO: Hide these
+            # TODO: Move client secrets to environment variables
             'client_id': '225323565107-ofofsr4m2hta51gmm68ocrtukh1jou83.apps.googleusercontent.com',
             'secret': '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',
             'key': ''
@@ -149,11 +155,10 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-# Allow direct GET-based provider redirects for SSO buttons.
+# OAuth provider redirects
 SOCIALACCOUNT_LOGIN_ON_GET = False
 
-# for microsoft login
-
+# Microsoft ADFS (legacy / optional)
 AUTH_ADFS = {
     'AUDIENCE': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
     'CLIENT_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
@@ -185,17 +190,17 @@ USE_TZ = True
 SITE_ID = 1
 SOCIALACCOUNT_LOGIN_ON_GET = False
 
-# Static files (CSS, JavaScript, Images)
+# Static files
 STATIC_URL = 'static/'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Email setting
+# Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'yeastanalysistool@gmail.com'
-EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: CHANGE when enter production
+EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: Change before production
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
@@ -227,12 +232,13 @@ SECURITY_RATE_LIMIT = {
 SECURITY_HEADERS_ENABLED = True
 SECURITY_PERMISSIONS_POLICY = "geolocation=(), microphone=(), camera=()"
 
+# Cookie policy
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_HTTPONLY = True
-# Keep False because some JS reads the CSRF cookie directly.
-CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_HTTPONLY = False  # Some JS reads the CSRF cookie directly.
 
+# Browser security headers
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
@@ -253,13 +259,10 @@ else:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
 
+# Default segmentation parameters
 DEFAULT_SEGMENT_CONFIG = {
-    # odd integer for your Gaussian blur kernel
     "kernel_size": 5,
-    # sigma for that blur
     "kernel_deviation": 1,
-    # pixel-width of the mCherry “line” drawn for intensity
     "mCherry_line_width": 1,
-    # must be either "Metaphase Arrested" or "G1 Arrested"
     "arrested": "Metaphase Arrested",
 }

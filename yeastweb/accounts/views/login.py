@@ -1,6 +1,11 @@
+"""Authentication views for login and logout."""
+
+from __future__ import annotations
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -15,7 +20,8 @@ from core.security.rate_limit import (
 
 
 @ensure_csrf_cookie
-def auth_login(request):
+def auth_login(request: HttpRequest) -> HttpResponse:
+    """Handle login with optional rate limiting and feedback."""
     rate_limit_cfg = getattr(settings, "SECURITY_RATE_LIMIT", {})
     rate_limit_enabled = getattr(settings, "SECURITY_RATE_LIMIT_ENABLED", False)
     mode = rate_limit_cfg.get("mode", "sliding")
@@ -25,7 +31,12 @@ def auth_login(request):
     max_attempts = int(rate_limit_cfg.get("max_attempts", 5))
     window_seconds = int(rate_limit_cfg.get("window_seconds", 300))
 
-    def render_login(rate_limit_active=False, retry_after=0, login_failed=False):
+    def render_login(
+        rate_limit_active: bool = False,
+        retry_after: int = 0,
+        login_failed: bool = False,
+    ) -> TemplateResponse:
+        """Render the login page with rate-limit context."""
         return TemplateResponse(
             request,
             "registration/login.html",
@@ -36,7 +47,8 @@ def auth_login(request):
             },
         )
 
-    def redirect_login():
+    def redirect_login() -> HttpResponse:
+        """Redirect back to the login page."""
         return redirect("login")
 
     ip = get_client_ip(request)
@@ -92,6 +104,7 @@ def auth_login(request):
     return render_login(login_failed=login_failed)
 
 
-def auth_logout(request):
+def auth_logout(request: HttpRequest) -> HttpResponse:
+    """Log out the current user and return to the homepage."""
     logout(request)
     return redirect("homepage")
