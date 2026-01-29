@@ -83,11 +83,13 @@ def display_cell(request, uuids):
                 for channel_name in channel_order:
                     channel_index = channel_config.get(channel_name)
                     # For mCherry and GFP, use the debug filename pattern
+                    no_outline = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}-no_outline.png"
                     if channel_name in ["mCherry", "GFP", "DAPI"]:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
                     else:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
                     images[str(i)].append(image_url)
+                    images[str(i)].append(no_outline)
 
                 # Retrieve statistics for the cell
                 try:
