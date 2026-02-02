@@ -198,11 +198,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'yeastanalysistool@gmail.com'
-EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: Change before production
+EMAIL_HOST = os.getenv("YEASTWEB_EMAIL_HOST", "smtp.gmail.com")
+EMAIL_HOST_USER = os.getenv("YEASTWEB_EMAIL_HOST_USER", "yeastanalysistool@gmail.com")
+EMAIL_HOST_PASSWORD = os.getenv("YEASTWEB_EMAIL_HOST_PASSWORD", "drjx oiir ejnx lwdn")  # TODO: Change before production
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = os.getenv("YEASTWEB_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
+EMAIL_REPLY_TO = os.getenv("YEASTWEB_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 
 # Content Security Policy (CSP)
 CSP_DEFAULT_SRC = ("'self'",)

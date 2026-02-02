@@ -5,22 +5,35 @@ from __future__ import annotations
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.core.validators import EmailValidator, ValidationError
+from django.core.validators import EmailValidator, RegexValidator, ValidationError
 from django.forms import models
 
 
 class SignupForm(models.ModelForm):
     """Signup form with username, email, and password validation."""
-    username = forms.CharField(widget=forms.TextInput)
-    password = forms.CharField(widget=forms.PasswordInput)
-    verify_password = forms.CharField(widget=forms.PasswordInput)
+    username = forms.CharField(widget=forms.TextInput(attrs={"autocomplete": "username"}))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+    verify_password = forms.CharField(widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
     email = forms.EmailField(
-        widget=forms.EmailInput,
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
         validators=[EmailValidator(message="Enter a valid email address")],
     )
-    verify_code = forms.CharField(widget=forms.TextInput, required=False)
-    first_name = forms.CharField(max_length=20, widget=forms.TextInput)
-    last_name = forms.CharField(max_length=20, widget=forms.TextInput)
+    verify_code = forms.CharField(
+        max_length=6,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "numeric",
+                "autocomplete": "one-time-code",
+                "pattern": "[0-9]{6}",
+                "maxlength": "6",
+            }
+        ),
+        validators=[RegexValidator(r"^\d{6}$", "Enter the 6-digit code.")],
+        help_text="Enter the 6-digit code sent to your email.",
+    )
+    first_name = forms.CharField(max_length=20, widget=forms.TextInput(attrs={"autocomplete": "given-name"}))
+    last_name = forms.CharField(max_length=20, widget=forms.TextInput(attrs={"autocomplete": "family-name"}))
 
     class Meta:
         model = get_user_model()

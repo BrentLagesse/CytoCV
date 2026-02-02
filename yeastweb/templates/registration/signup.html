@@ -1,38 +1,41 @@
-<!-- Navigation bar -->
 {% extends 'base.html' %}
-<!-- Template specific content -->
-{% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Sign Up</title>
-        <style>
-        body {
-            font-family: var(--app-font);
-            background-color: var(--page-bg);
-            color: var(--text);
-            margin: 0;
-            padding: calc(var(--nav-height) + 24px) 16px 32px;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+
+{% block head %}
+    <style>
+        .signup-page {
+            min-height: calc(100vh - var(--nav-height));
+            padding: calc(var(--nav-height) + 32px) 16px 40px;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle at top, rgba(0, 123, 255, 0.08), transparent 55%),
+                var(--page-bg);
         }
-        .auth-card {
-            width: min(520px, 96vw);
+        .signup-card {
+            width: min(720px, 96vw);
             background: var(--card-bg);
             border: 1px solid var(--panel-border);
-            border-radius: 14px;
-            padding: 26px;
-            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+            border-radius: 20px;
+            padding: 32px 36px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
             display: grid;
-            gap: 16px;
+            gap: 22px;
+        }
+        .signup-header {
+            display: grid;
+            gap: 8px;
+        }
+        .signup-brand {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
         }
         h1 {
+            font-size: 28px;
             margin: 0;
-            font-size: 26px;
-            text-align: left;
+            color: var(--text);
         }
         .subtitle {
             margin: 0;
@@ -41,102 +44,332 @@
         }
         form {
             display: grid;
-            gap: 12px;
+            gap: 16px;
         }
-        .fieldWrapper {
+        .field-row {
+            display: grid;
+            gap: 16px;
+        }
+        .field-row.two {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .field {
             display: grid;
             gap: 6px;
-            text-align: left;
+            position: relative;
+        }
+        .label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
         label {
-            font-size: 13px;
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
             color: var(--muted);
         }
         input {
             width: 100%;
             background: #1f1f1f;
             border: 1px solid #3a3a3a;
-            border-radius: 8px;
-            padding: 10px 12px;
+            border-radius: 12px;
+            padding: 12px 14px;
             color: var(--text);
             font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         input:focus {
             outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
         }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+            -webkit-text-fill-color: var(--text);
+            box-shadow: 0 0 0px 1000px #1f1f1f inset;
+            caret-color: var(--text);
+            transition: background-color 9999s ease-in-out 0s;
+        }
+        input:autofill {
+            box-shadow: 0 0 0px 1000px #1f1f1f inset;
+            -webkit-text-fill-color: var(--text);
+            caret-color: var(--text);
+        }
+        .field.has-error input {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 2px rgba(167, 29, 42, 0.2);
+        }
         .help {
             margin: 0;
             font-size: 12px;
             color: var(--muted);
         }
-        .errorlist {
-            list-style: none;
-            padding: 8px 10px;
-            margin: 6px 0 0;
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            border-radius: 6px;
-            color: #ffd6d6;
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
             font-size: 12px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            position: relative;
+            width: fit-content;
+        }
+        .status-pill.error {
+            background: rgba(167, 29, 42, 0.18);
+            border: 1px solid rgba(167, 29, 42, 0.6);
+            color: #ffd6d6;
+        }
+        .status-pill.success {
+            background: rgba(34, 197, 94, 0.18);
+            border: 1px solid rgba(34, 197, 94, 0.6);
+            color: #c3f1d5;
+        }
+        .status-pill[data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 0;
+            top: calc(100% + 8px);
+            width: min(320px, 80vw);
+            background: #111;
+            border: 1px solid #333;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            text-transform: none;
+            letter-spacing: normal;
+            opacity: 0;
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .status-pill[data-tooltip]:hover::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .error-indicator {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            background: rgba(167, 29, 42, 0.2);
+            color: #ffd6d6;
+            border: 1px solid rgba(167, 29, 42, 0.6);
+            cursor: help;
+            position: relative;
+        }
+        .error-indicator::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            width: min(280px, 70vw);
+            background: #111;
+            border: 1px solid #333;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            opacity: 0;
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+            z-index: 10;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+        .error-indicator:hover::after,
+        .error-indicator:focus::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .code-row {
+            grid-template-columns: 1fr auto;
+            align-items: end;
+        }
+        .code-row .field {
+            max-width: 240px;
         }
         .actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+            display: grid;
+            gap: 12px;
         }
-        button {
-            background-color: var(--accent);
-            color: #fff;
+        .btn {
             border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
+            border-radius: 999px;
+            padding: 12px 18px;
             font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
-        button:hover { background-color: var(--accent-dark); }
-        .error-text {
-            color: #ffd6d6;
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin: 0;
+        .btn.primary {
+            background: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+        }
+        .btn.primary:hover {
+            background: var(--accent-dark);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
+        }
+        .btn.secondary {
+            background: var(--accent);
+            color: #ffffff;
+            border: 1px solid transparent;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+        }
+        .btn.secondary:hover {
+            background: var(--accent-dark);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
+        }
+        .signup-footer {
             font-size: 13px;
+            color: var(--muted);
+        }
+        .signup-footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .signup-footer a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 640px) {
+            .signup-card {
+                padding: 26px 22px;
+            }
+            .code-row {
+                grid-template-columns: 1fr;
+            }
+            .code-row .field {
+                max-width: none;
+            }
         }
     </style>
-</head>
-<body>
-    <div class="auth-card soft-fade-in">
-        <div>
-            <h1>Sign Up</h1>
-            <p class="subtitle">Create your account and verify with a one-time code.</p>
-        </div>
-        <form method="post">
-            {% csrf_token %}
-            {% for field in form %}
-                <div class="fieldWrapper">
-                    {{ field.label_tag }} {{ field }}
-                    {% if field.help_text %}
-                      <p class="help" id="{{ field.auto_id }}_helptext">
-                        {{ field.help_text|safe }}
-                      </p>
-                    {% endif %}
-                    {{ field.errors }}
-                </div>
-            {% endfor %}
-            <div class="actions">
-                <button type="submit" name="send_code">Send Code</button>
-                <button type="submit" name="submit">Submit</button>
-            </div>
-        </form>
-        {% if error %}
-            <p class="error-text">{{ error }}</p>
-        {% endif %}
-    </div>
+{% endblock head %}
 
-</body>
-</html>
+{% block content %}
+    <div class="signup-page">
+        <div class="signup-card soft-fade-in">
+            <div class="signup-header">
+                <div class="signup-brand">Yeast Analysis Tools</div>
+                <h1>Create your account</h1>
+                <p class="subtitle">Verify your email with a 6-digit code to finish.</p>
+            </div>
+
+            {% if error %}
+                <div class="status-pill error" data-tooltip="{{ error }}">Issue detected</div>
+            {% endif %}
+            {% if form.non_field_errors %}
+                <div class="status-pill error" data-tooltip="{{ form.non_field_errors|striptags }}">
+                    Form issue
+                </div>
+            {% endif %}
+            {% if notice %}
+                <div class="status-pill success">{{ notice }}</div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="field-row two">
+                    <div class="field{% if form.first_name.errors %} has-error{% endif %}">
+                        <div class="label-row">
+                            {{ form.first_name.label_tag }}
+                            {% if form.first_name.errors %}
+                                <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.first_name.errors|striptags }}">!</span>
+                            {% endif %}
+                        </div>
+                        {{ form.first_name }}
+                    </div>
+                    <div class="field{% if form.last_name.errors %} has-error{% endif %}">
+                        <div class="label-row">
+                            {{ form.last_name.label_tag }}
+                            {% if form.last_name.errors %}
+                                <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.last_name.errors|striptags }}">!</span>
+                            {% endif %}
+                        </div>
+                        {{ form.last_name }}
+                    </div>
+                </div>
+
+                <div class="field{% if form.username.errors %} has-error{% endif %}">
+                    <div class="label-row">
+                        {{ form.username.label_tag }}
+                        {% if form.username.errors %}
+                            <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.username.errors|striptags }}">!</span>
+                        {% endif %}
+                    </div>
+                    {{ form.username }}
+                </div>
+
+                <div class="field{% if form.email.errors %} has-error{% endif %}">
+                    <div class="label-row">
+                        {{ form.email.label_tag }}
+                        {% if form.email.errors %}
+                            <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.email.errors|striptags }}">!</span>
+                        {% endif %}
+                    </div>
+                    {{ form.email }}
+                </div>
+
+                <div class="field-row two">
+                    <div class="field{% if form.password.errors %} has-error{% endif %}">
+                        <div class="label-row">
+                            {{ form.password.label_tag }}
+                            {% if form.password.errors %}
+                                <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.password.errors|striptags }}">!</span>
+                            {% endif %}
+                        </div>
+                        {{ form.password }}
+                    </div>
+                    <div class="field{% if form.verify_password.errors %} has-error{% endif %}">
+                        <div class="label-row">
+                            {{ form.verify_password.label_tag }}
+                            {% if form.verify_password.errors %}
+                                <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.verify_password.errors|striptags }}">!</span>
+                            {% endif %}
+                        </div>
+                        {{ form.verify_password }}
+                    </div>
+                </div>
+
+                <div class="field-row code-row">
+                    <div class="field{% if form.verify_code.errors %} has-error{% endif %}">
+                        <div class="label-row">
+                            {{ form.verify_code.label_tag }}
+                            {% if form.verify_code.errors %}
+                                <span class="error-indicator" tabindex="0" aria-label="Field error" data-tooltip="{{ form.verify_code.errors|striptags }}">!</span>
+                            {% endif %}
+                        </div>
+                        {{ form.verify_code }}
+                        {% if form.verify_code.help_text %}
+                            <p class="help" id="{{ form.verify_code.auto_id }}_helptext">
+                                {{ form.verify_code.help_text|safe }}
+                            </p>
+                        {% endif %}
+                    </div>
+                    <button type="submit" name="send_code" class="btn secondary">Send code</button>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" name="submit" class="btn primary">Create account</button>
+                </div>
+            </form>
+
+            <div class="signup-footer">
+                Already have an account? <a href="/login">Log in</a>
+            </div>
+        </div>
+    </div>
 {% endblock content %}
