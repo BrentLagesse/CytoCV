@@ -13,6 +13,15 @@ from django_tables2.export.export import TableExport
 
 
 def display_cell(request, uuids):
+    """Render cell display data for one or more uploaded image UUIDs.
+
+    Args:
+        request: Incoming HTTP request.
+        uuids: Comma-separated UUIDs for images to display.
+
+    Returns:
+        An HTML response with image previews and statistics, or an error.
+    """
     # Split the comma-separated UUIDs into a list
     uuid_list = uuids.split(',')
 

@@ -18,7 +18,12 @@ from .cache import get_cache_image
 
 @login_required
 def profile_view(request: HttpRequest) -> HttpResponse:
-    """Render the profile page with user stats and latest analysis."""
+    """Render the profile page with user stats and latest analysis.
+
+    Returns:
+        An HTML response containing storage usage, recent uploads,
+        and cached analysis when available.
+    """
     first_name = request.user.first_name
     last_name = request.user.last_name
     email = request.user.email
@@ -30,6 +35,7 @@ def profile_view(request: HttpRequest) -> HttpResponse:
 
     user_id = request.user.id
     images_saved = []
+    # Collect recent segmented images for the user's sidebar.
     for image in SegmentedImage.objects.filter(user=user_id).order_by("-uploaded_date"):
         image_id = image.UUID
         image_name = UploadedImage.objects.get(uuid=image_id).name
@@ -129,6 +135,5 @@ def profile_view(request: HttpRequest) -> HttpResponse:
             "files_data": json_files_data,
         },
     )
-
 
 

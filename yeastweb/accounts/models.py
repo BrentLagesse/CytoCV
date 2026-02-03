@@ -66,6 +66,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """User model with storage and processing quota tracking."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Email is the unique identifier for authentication.
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
