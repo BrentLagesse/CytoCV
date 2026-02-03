@@ -56,6 +56,7 @@ def _get_state(key: str, now: int, window_seconds: int, mode: str) -> dict:
         state["attempts"] = _prune_attempts(attempts, now, window_seconds)
         return state
 
+    # Lockout mode: track counts and backoff schedule.
     last_attempt = int(state.get("last_attempt", 0))
     locked_until = int(state.get("locked_until", 0))
 
@@ -108,6 +109,7 @@ def check_rate_limit(
             cache.set(key, state, timeout=_ttl(window_seconds))
             continue
 
+        # Lockout mode: enforce locked_until and return the maximum wait.
         locked_until = int(state.get("locked_until", 0))
         if locked_until > now:
             limited = True
@@ -135,6 +137,7 @@ def register_failure(
             cache.set(key, state, timeout=_ttl(window_seconds))
             continue
 
+        # Lockout mode: increment count and apply escalation when necessary.
         if state.get("locked_until", 0) > now:
             continue
 
