@@ -6,6 +6,6 @@ from django.apps import AppConfig
 
 
 class AccountsConfig(AppConfig):
-    """Accounts app configuration and startup hooks."""
+    """Accounts app configuration."""
 
     name = "accounts"

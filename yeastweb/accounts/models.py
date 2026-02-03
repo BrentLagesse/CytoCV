@@ -17,7 +17,19 @@ class CustomUserManager(BaseUserManager):
     use_in_migrations = True
 
     def _create_user(self, email: str, password: str | None, **extra_fields):
-        """Create and save a user with the given email and password."""
+        """Create and save a user with the given email and password.
+
+        Args:
+            email: User email address (required).
+            password: Raw password to hash, or None to set an unusable password.
+            **extra_fields: Additional model fields.
+
+        Returns:
+            The created user instance.
+
+        Raises:
+            ValueError: If the email is missing.
+        """
         if not email:
             raise ValueError("An email address is required.")
         email = self.normalize_email(email)
@@ -68,9 +80,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
+    # Use email as the unique identifier for authentication.
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS: list[str] = []
 
     def __str__(self) -> str:
+        """Return the primary identifier for display."""
         return self.email
-
