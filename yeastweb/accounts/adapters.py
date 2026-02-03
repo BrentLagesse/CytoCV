@@ -25,6 +25,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         if not email:
             return
 
+        # Only link accounts when the provider asserts the email is verified.
         verified = any(
             addr.email and addr.verified and addr.email.lower() == email
             for addr in sociallogin.email_addresses
@@ -32,6 +33,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         if not verified:
             return
 
+        # Match a local account by email to avoid duplicate signups.
         user_model = get_user_model()
         try:
             user = user_model.objects.get(email__iexact=email)
@@ -45,6 +47,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         email = (sociallogin.user.email or "").strip()
         if not email:
             return False
+        # Require a verified address to avoid creating accounts with untrusted emails.
         return any(addr.verified for addr in sociallogin.email_addresses)
     def on_authentication_error(
         self,
