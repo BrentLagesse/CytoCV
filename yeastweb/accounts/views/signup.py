@@ -16,7 +16,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 
-VERIFY_CODE_TTL_SECONDS = 10 * 60
+VERIFY_CODE_TTL_SECONDS = 30 * 60
 VERIFY_CODE_MAX_ATTEMPTS = 5
 VERIFY_CODE_RESEND_SECONDS = 10 if settings.DEBUG else 60
 
@@ -205,6 +205,29 @@ def _summarize_password_errors(messages: list[str]) -> str:
     return summary or "Password is not strong enough."
 
 
+def _build_verification_email(*, code: str, minutes_valid: int, subject_prefix: str) -> tuple[str, str]:
+    """Build a verification email subject/body pair.
+
+    Args:
+        code: Verification code to include.
+        minutes_valid: Number of minutes the code remains valid.
+        subject_prefix: Prefix for the subject line.
+
+    Returns:
+        Tuple of (subject, body).
+    """
+    subject = f"{subject_prefix} verification code: {code}"
+    body = (
+        "Hello,\n"
+        f"Your verification code is: {code}\n\n"
+        f"The verification code is valid for {minutes_valid} minutes. "
+        "Please complete the verification as soon as possible.\n\n"
+        "Kind regards,\n"
+        "YeastWeb Team"
+    )
+    return subject, body
+
+
 def signup(request: HttpRequest) -> HttpResponse:
     """Handle the multi-step signup flow.
 
@@ -345,10 +368,10 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_verify_code()
-            message = (
-                f"Your verification code is {verify_code}.\n"
-                f"This code expires in {VERIFY_CODE_TTL_SECONDS // 60} minutes.\n"
-                "If you did not request this email, you can ignore it."
+            subject, message = _build_verification_email(
+                code=verify_code,
+                minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
+                subject_prefix="YeastWeb",
             )
 
             from_email = settings.EMAIL_HOST_USER
@@ -357,7 +380,7 @@ def signup(request: HttpRequest) -> HttpResponse:
 
             try:
                 email_message = EmailMessage(
-                    "Yeast Analysis Tools verification code",
+                    subject,
                     message,
                     from_email,
                     [values["email"]],
@@ -397,10 +420,10 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_verify_code()
-            message = (
-                f"Your verification code is {verify_code}.\n"
-                f"This code expires in {VERIFY_CODE_TTL_SECONDS // 60} minutes.\n"
-                "If you did not request this email, you can ignore it."
+            subject, message = _build_verification_email(
+                code=verify_code,
+                minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
+                subject_prefix="YeastWeb",
             )
 
             from_email = settings.EMAIL_HOST_USER
@@ -409,7 +432,7 @@ def signup(request: HttpRequest) -> HttpResponse:
 
             try:
                 email_message = EmailMessage(
-                    "Yeast Analysis Tools verification code",
+                    subject,
                     message,
                     from_email,
                     [values["email"]],
