@@ -22,10 +22,12 @@ VERIFY_CODE_RESEND_SECONDS = 10 if settings.DEBUG else 60
 
 
 def _generate_verify_code() -> str:
+    """Return a cryptographically generated 6-digit verification code."""
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def _clear_verify_session(request: HttpRequest) -> None:
+    """Remove verification-code-related session state."""
     for key in (
         "verify_code",
         "verify_code_sent_at",
@@ -36,6 +38,7 @@ def _clear_verify_session(request: HttpRequest) -> None:
 
 
 def _expire_verify_code(request: HttpRequest) -> None:
+    """Clear a stale verification code and its attempt counter."""
     for key in ("verify_code", "verify_code_attempts"):
         request.session.pop(key, None)
 
@@ -58,6 +61,7 @@ def _render_signup(
     clear_confirm: bool = False,
     confirm_outline: bool = False,
 ) -> HttpResponse:
+    """Render the signup template with shared context."""
     context = {
         "step": step,
         "step_total": step_total,
@@ -78,10 +82,12 @@ def _render_signup(
 
 
 def _add_error(errors: dict[str, list[str]], field: str, message: str) -> None:
+    """Append a field-level error message."""
     errors.setdefault(field, []).append(message)
 
 
 def _is_code_active(request: HttpRequest) -> bool:
+    """Return True when a verification code exists and is not expired."""
     stored_code = request.session.get("verify_code")
     sent_at = request.session.get("verify_code_sent_at")
     if not stored_code or not sent_at:
@@ -94,6 +100,7 @@ def _is_code_active(request: HttpRequest) -> bool:
 
 
 def _clear_signup_session(request: HttpRequest) -> None:
+    """Clear all signup-related session state."""
     for key in (
         "signup_step",
         "signup_first_name",
@@ -228,6 +235,7 @@ def signup(request: HttpRequest) -> HttpResponse:
     clear_confirm = False
     confirm_outline = False
 
+    # Normalize computed state derived from the session.
     _is_code_active(request)
     code_sent = _code_sent_flag(request)
     code_verified = bool(session.get("signup_code_verified", False))
@@ -269,6 +277,7 @@ def signup(request: HttpRequest) -> HttpResponse:
         )
 
     if request.method == "POST":
+        # Navigation controls do not perform validation.
         if "back_name" in request.POST:
             session["signup_step"] = 1
             step = 1
@@ -304,6 +313,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             return render_current(code_sent=_code_sent_flag(request))
 
         if "send_code" in request.POST:
+            # Step 2: validate email, then send a new verification code.
             values["email"] = _normalize_email(request.POST.get("email") or "").lower()
             session["signup_email"] = values["email"]
             session.pop("signup_code_verified", None)
@@ -375,6 +385,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             return render_current()
 
         if "resend_code" in request.POST:
+            # Step 3: resend generates a new code and invalidates the old one.
             values["email"] = session.get("signup_email", values["email"])
             if not values["email"]:
                 session["signup_step"] = 2
@@ -426,6 +437,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             return render_current()
 
         if "verify_code_submit" in request.POST:
+            # Step 3: validate and verify the submitted code.
             if code_locked:
                 _add_error(errors, "verify_code", "Too many attempts. Resend a new verification code.")
                 step = 3
@@ -476,6 +488,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             return render_current()
 
         if "create_account" in request.POST:
+            # Step 4: validate passwords and create the user account.
             if not code_verified:
                 page_error = "Verify your email before creating an account."
                 session["signup_step"] = 3
