@@ -759,7 +759,7 @@
 
     function setupNavExitGuard() {
         const navLinks = document.querySelectorAll(
-            '.navbar a[href="/"], .navbar a[href="/login"], .navbar a[href="/signup"], .navbar a[href="/profile"]'
+            '.navbar a[href="/"], .navbar a[href="/login"], .navbar a[href="/signup"], .navbar a[href="/signup?fresh=1"], .navbar a[href="/profile"]'
         );
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');

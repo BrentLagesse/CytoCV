@@ -225,7 +225,11 @@
                     <a href="/logout/" id="logoutLink">Log Out</a>
                 {% else %}
                     <a href="/login">Log In</a>
-                    <a href="/signup">Sign Up</a>
+                    {% if request.path == "/signup/" %}
+                        <a href="/signup">Sign Up</a>
+                    {% else %}
+                        <a href="/signup?fresh=1">Sign Up</a>
+                    {% endif %}
                 {% endif %}
             </div>
         </nav>
