@@ -19,7 +19,6 @@ from .cache import get_cache_image
 @login_required
 def profile_view(request: HttpRequest) -> HttpResponse:
     """Render the profile page with user stats and latest analysis."""
-    username = request.user.username
     first_name = request.user.first_name
     last_name = request.user.last_name
     email = request.user.email
@@ -52,7 +51,6 @@ def profile_view(request: HttpRequest) -> HttpResponse:
             request,
             "profile.html",
             {
-                "username": username,
                 "first_name": first_name,
                 "last_name": last_name,
                 "email": email,
@@ -120,7 +118,6 @@ def profile_view(request: HttpRequest) -> HttpResponse:
         request,
         "profile.html",
         {
-            "username": username,
             "first_name": first_name,
             "last_name": last_name,
             "email": email,
@@ -132,7 +129,6 @@ def profile_view(request: HttpRequest) -> HttpResponse:
             "files_data": json_files_data,
         },
     )
-
 
 
 

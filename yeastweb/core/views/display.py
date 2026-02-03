@@ -68,7 +68,7 @@ def display_cell(request, uuids):
 
             if ((cell_image.user_id != request.user.id and request.user.id) or  # this is not your image OR
                     (not request.user.id and cell_image.user_id != get_user_model().objects.get(
-                        username='guest').id)):  # you viewing your guest image
+                        email='guest@local.invalid').id)):  # you viewing your guest image
                 print(cell_image.user_id)
                 print(request.user.id)
                 return HttpResponse('Unauthorized', status=401)

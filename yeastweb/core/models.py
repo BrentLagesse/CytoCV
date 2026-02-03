@@ -33,7 +33,7 @@ class UploadedImage(models.Model):
 
 def get_guest_user() -> int:
     """Return the guest user id for unauthenticated runs."""
-    return get_user_model().objects.get(username="guest").id
+    return get_user_model().objects.get(email="guest@local.invalid").id
 
 
 def user_directory_path(instance: "SegmentedImage", filename: str) -> str:

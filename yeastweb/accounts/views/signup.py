@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
@@ -327,9 +327,6 @@ def signup(request: HttpRequest) -> HttpResponse:
                     return
                 if user_model.objects.filter(email__iexact=email).exists():
                     _add_error(errors, "email", "That email is already in use. Sign in instead.")
-                    return
-                if user_model.objects.filter(username__iexact=email).exists():
-                    _add_error(errors, "email", "That email is already in use. Sign in instead.")
 
             if not values["email"]:
                 _add_error(errors, "email", "Enter a valid email address")
@@ -503,7 +500,6 @@ def signup(request: HttpRequest) -> HttpResponse:
                 password_errors.append("Enter a password")
             else:
                 dummy = user_model(
-                    username=values["email"],
                     email=values["email"],
                     first_name=values["first_name"],
                     last_name=values["last_name"],
@@ -551,7 +547,6 @@ def signup(request: HttpRequest) -> HttpResponse:
 
             try:
                 user = user_model(
-                    username=values["email"],
                     email=values["email"],
                     first_name=values["first_name"],
                     last_name=values["last_name"],
@@ -568,7 +563,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 step = 4
                 return render_current()
 
+            login(request, user, backend="accounts.backends.EmailBackend")
             _clear_signup_session(request)
-            return redirect("login")
+            return redirect("homepage")
 
     return render_current()

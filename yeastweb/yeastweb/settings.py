@@ -19,8 +19,8 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 AUTHENTICATION_BACKENDS = [
-    # Admin username auth (works with allauth enabled)
-    'django.contrib.auth.backends.ModelBackend',
+    # Email-based authentication
+    'accounts.backends.EmailBackend',
 
     # Allauth auth methods (email/social)
     'allauth.account.auth_backends.AuthenticationBackend',
@@ -28,6 +28,8 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_QUERY_EMAIL = True
 
 # Apps
 INSTALLED_APPS = [
@@ -174,6 +176,10 @@ AUTH_ADFS = {
 }
 
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 
 LOGIN_REDIRECT_URL = "profile"
 

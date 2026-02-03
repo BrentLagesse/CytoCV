@@ -15,12 +15,11 @@ from django.forms import models
 
 
 class SignupForm(models.ModelForm):
-    """Signup form with username, email, and password validation.
+    """Signup form with email and password validation.
 
     This form centralizes validation so all checks run server-side, even if
     the UI performs client-side hints. Do not rely on client validation alone.
     """
-    username = forms.CharField(widget=forms.TextInput(attrs={"autocomplete": "username"}))
     password = forms.CharField(widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
     verify_password = forms.CharField(widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
     email = forms.EmailField(
@@ -46,16 +45,7 @@ class SignupForm(models.ModelForm):
 
     class Meta:
         model = get_user_model()
-        fields = ["username", "email", "first_name", "last_name", "password", "verify_password"]
-
-    def clean_username(self) -> str:
-        """Ensure the username is unique (case-sensitive by default)."""
-        UserModel = get_user_model()
-        username = self.cleaned_data.get('username')
-        # Validate uniqueness to prevent duplicate accounts.
-        if UserModel.objects.filter(username=username).exists():
-            raise forms.ValidationError("Username already in use.")
-        return username
+        fields = ["email", "first_name", "last_name", "password", "verify_password"]
 
     def clean_email(self) -> str:
         """Ensure the email is unique."""
@@ -67,13 +57,13 @@ class SignupForm(models.ModelForm):
         return email
 
     def clean_password(self) -> str:
-        """Validate password strength against the username."""
+        """Validate password strength against the email address."""
         UserModel = get_user_model()
         password = self.cleaned_data.get('password')
-        username = self.cleaned_data.get('username')
+        email = self.cleaned_data.get('email')
 
         # Use a lightweight user instance for password validation context.
-        dummy = UserModel(username=username, password=password)
+        dummy = UserModel(email=email, password=password)
 
         try:
             validate_password(password, user=dummy)

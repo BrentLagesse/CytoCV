@@ -24,12 +24,13 @@ def get_client_ip(request: HttpRequest) -> str:
     return request.META.get("REMOTE_ADDR", "") or "unknown"
 
 
-def build_rate_limit_keys(ip: str, username: str) -> list[str]:
+def build_rate_limit_keys(ip: str, identifier: str) -> list[str]:
     """Build cache keys for IP, user, and IP+user throttling."""
     keys = [f"rl:login:ip:{ip}"]
-    if username:
-        keys.append(f"rl:login:user:{username.lower()}")
-        keys.append(f"rl:login:ip_user:{ip}:{username.lower()}")
+    if identifier:
+        lower_id = identifier.lower()
+        keys.append(f"rl:login:user:{lower_id}")
+        keys.append(f"rl:login:ip_user:{ip}:{lower_id}")
     return keys
 
 
