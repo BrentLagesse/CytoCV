@@ -320,6 +320,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             session.pop("verify_code_locked", None)
 
             def validate_email_address(email: str) -> None:
+                """Validate format and uniqueness for the email field."""
                 try:
                     EmailValidator()(email)
                 except ValidationError:

@@ -51,9 +51,11 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         """Redirect back to the login page."""
         return redirect("login")
 
+    # Resolve the best-guess client IP for rate limiting.
     ip = get_client_ip(request)
 
     if request.method == "POST":
+        # Normalize user input to keep rate-limit keys and auth consistent.
         email = (request.POST.get("email") or "").strip()
         password = request.POST.get("password") or ""
         keys = build_rate_limit_keys(ip, email)
@@ -66,6 +68,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
             if limited:
                 return redirect_login()
 
+        # Authenticate against the email-based backend.
         user = authenticate(request, email=email, password=password)
         if user is not None:
             if rate_limit_enabled:
