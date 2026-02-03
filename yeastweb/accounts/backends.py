@@ -18,6 +18,17 @@ class EmailBackend(ModelBackend):
         password: str | None = None,
         **kwargs: Any,
     ):
+        """Return a user when the email/password pair is valid.
+
+        Args:
+            request: Incoming HTTP request (unused by this backend).
+            email: Email address to authenticate against.
+            password: Raw password to verify.
+            **kwargs: Additional backend arguments (e.g., USERNAME_FIELD).
+
+        Returns:
+            The authenticated user, or None if credentials are invalid.
+        """
         user_model = get_user_model()
         identifier = email
         if identifier is None:
