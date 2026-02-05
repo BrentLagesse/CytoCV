@@ -8,6 +8,7 @@
         :root {
             --app-font: 'Space Grotesk', 'Segoe UI', sans-serif;
             --page-bg: #333;
+            --page-bg-gradient: radial-gradient(circle at top, rgba(0, 123, 255, 0.08), transparent 55%);
             --card-bg: #222;
             --panel-bg: #262626;
             --panel-border: #3a3a3a;
@@ -27,6 +28,9 @@
             min-height: 100%;
             font-family: var(--app-font);
             background-color: var(--page-bg);
+            background-image: var(--page-bg-gradient);
+            background-repeat: no-repeat;
+            background-size: cover;
             color: var(--text);
             display: block;
         }
