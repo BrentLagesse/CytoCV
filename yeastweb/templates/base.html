@@ -91,6 +91,11 @@
             padding-right: 36px;
             pointer-events: auto;
         }
+        .message.success {
+            background: rgba(34, 197, 94, 0.16);
+            border: 1px solid rgba(34, 197, 94, 0.45);
+            color: #c3f1d5;
+        }
         .message-close {
             position: absolute;
             top: 6px;
@@ -105,6 +110,13 @@
             border-radius: 6px;
         }
         .message-close:hover { background: #5a2a31; }
+        .message.success .message-close {
+            background: rgba(34, 197, 94, 0.16);
+            color: #c3f1d5;
+        }
+        .message.success .message-close:hover {
+            background: rgba(34, 197, 94, 0.28);
+        }
 
         .soft-fade-in {
             animation: softFadeUp 0.22s ease-out both;
@@ -225,7 +237,11 @@
                     <a href="/logout/" id="logoutLink">Log Out</a>
                 {% else %}
                     <a href="/login">Log In</a>
-                    <a href="/signup">Sign Up</a>
+                    {% if request.path == "/signup/" %}
+                        <a href="/signup">Sign Up</a>
+                    {% else %}
+                        <a href="/signup?fresh=1">Sign Up</a>
+                    {% endif %}
                 {% endif %}
             </div>
         </nav>

@@ -51,13 +51,15 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         """Redirect back to the login page."""
         return redirect("login")
 
+    # Resolve the best-guess client IP for rate limiting.
     ip = get_client_ip(request)
 
     if request.method == "POST":
-        username = request.POST.get("username") or ""
+        # Normalize user input to keep rate-limit keys and auth consistent.
+        email = (request.POST.get("email") or "").strip()
         password = request.POST.get("password") or ""
-        keys = build_rate_limit_keys(ip, username)
-        request.session["login_last_username"] = username
+        keys = build_rate_limit_keys(ip, email)
+        request.session["login_last_email"] = email
 
         if rate_limit_enabled:
             limited, retry_after, _ = check_rate_limit(
@@ -66,7 +68,8 @@ def auth_login(request: HttpRequest) -> HttpResponse:
             if limited:
                 return redirect_login()
 
-        user = authenticate(request, username=username, password=password)
+        # Authenticate against the email-based backend.
+        user = authenticate(request, email=email, password=password)
         if user is not None:
             if rate_limit_enabled:
                 reset_limits(keys)
@@ -89,8 +92,8 @@ def auth_login(request: HttpRequest) -> HttpResponse:
 
     login_failed = bool(request.session.pop("login_failed", False))
     if rate_limit_enabled:
-        last_username = request.session.get("login_last_username", "")
-        keys = build_rate_limit_keys(ip, last_username)
+        last_email = request.session.get("login_last_email", "")
+        keys = build_rate_limit_keys(ip, last_email)
         limited, retry_after, _ = check_rate_limit(
             keys, max_attempts, window_seconds, lockout_schedule, mode
         )

@@ -19,8 +19,8 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 AUTHENTICATION_BACKENDS = [
-    # Admin username auth (works with allauth enabled)
-    'django.contrib.auth.backends.ModelBackend',
+    # Email-based authentication
+    'accounts.backends.EmailBackend',
 
     # Allauth auth methods (email/social)
     'allauth.account.auth_backends.AuthenticationBackend',
@@ -28,6 +28,11 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
+# Allow social providers to auto-create/link accounts when a verified email is present.
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_QUERY_EMAIL = True
 
 # Apps
 INSTALLED_APPS = [
@@ -173,7 +178,12 @@ AUTH_ADFS = {
     'RELYING_PARTY_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
 }
 
+# Allauth account configuration for email-only authentication.
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 
 LOGIN_REDIRECT_URL = "profile"
 
@@ -198,11 +208,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'yeastanalysistool@gmail.com'
-EMAIL_HOST_PASSWORD = 'drjx oiir ejnx lwdn' # TODO: Change before production
+EMAIL_HOST = os.getenv("YEASTWEB_EMAIL_HOST", "smtp.gmail.com")
+EMAIL_HOST_USER = os.getenv("YEASTWEB_EMAIL_HOST_USER", "yeastanalysistool@gmail.com")
+EMAIL_HOST_PASSWORD = os.getenv("YEASTWEB_EMAIL_HOST_PASSWORD", "drjx oiir ejnx lwdn")  # TODO: Change before production
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = os.getenv("YEASTWEB_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
+EMAIL_REPLY_TO = os.getenv("YEASTWEB_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 
 # Content Security Policy (CSP)
 CSP_DEFAULT_SRC = ("'self'",)

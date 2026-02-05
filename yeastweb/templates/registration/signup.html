@@ -1,142 +1,689 @@
-<!-- Navigation bar -->
 {% extends 'base.html' %}
-<!-- Template specific content -->
-{% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Sign Up</title>
-        <style>
+
+{% block head %}
+    <style>
         body {
-            font-family: var(--app-font);
             background-color: var(--page-bg);
             color: var(--text);
-            margin: 0;
-            padding: calc(var(--nav-height) + 24px) 16px 32px;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
-        .auth-card {
-            width: min(520px, 96vw);
+        .signup-page {
+            min-height: calc(100vh - var(--nav-height));
+            padding: calc(var(--nav-height) + 32px) 16px 40px;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle at top, rgba(0, 123, 255, 0.08), transparent 55%),
+                var(--page-bg);
+        }
+        .signup-card {
+            width: min(720px, 96vw);
             background: var(--card-bg);
             border: 1px solid var(--panel-border);
-            border-radius: 14px;
-            padding: 26px;
-            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+            border-radius: 18px;
+            padding: 30px 34px;
+            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
             display: grid;
-            gap: 16px;
+            gap: 20px;
+        }
+        .signup-header {
+            display: grid;
+            gap: 8px;
+        }
+        .step-indicator {
+            font-size: 12px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--muted);
         }
         h1 {
             margin: 0;
-            font-size: 26px;
-            text-align: left;
+            font-size: 28px;
+            color: var(--text);
         }
         .subtitle {
             margin: 0;
             color: var(--muted);
             font-size: 14px;
         }
-        form {
-            display: grid;
-            gap: 12px;
+        .page-banner {
+            background: #3b1a1f;
+            border: 1px solid var(--danger);
+            color: #ffd6d6;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            animation: bannerDrop 0.2s ease-out both;
         }
-        .fieldWrapper {
+        .notice-banner {
+            background: rgba(34, 197, 94, 0.16);
+            border: 1px solid rgba(34, 197, 94, 0.45);
+            color: #c3f1d5;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            animation: messageDrop 0.2s ease-out both;
+        }
+        .notice-toast {
+            position: fixed;
+            top: calc(var(--nav-height) + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(720px, calc(100% - 32px));
+            z-index: 1500;
+        }
+        @keyframes bannerDrop {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .signup-form {
+            display: grid;
+            gap: 16px;
+        }
+        .field-row {
+            display: grid;
+            gap: 16px;
+        }
+        .field-row.two {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .field {
             display: grid;
             gap: 6px;
-            text-align: left;
+            position: relative;
+            width: 100%;
+        }
+        .field-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            position: relative;
+            min-height: 18px;
         }
         label {
-            font-size: 13px;
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
             color: var(--muted);
+            display: inline-block;
+            padding-right: 0;
+        }
+        .required-star {
+            color: #f28b82;
+            margin-left: 4px;
+        }
+        .required-note {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .field-error {
+            margin: 0;
+            color: #f28b82;
+            font-size: 12px;
+            text-align: right;
+            position: static;
+            margin-left: auto;
+            max-width: 320px;
+            line-height: 1.2;
+            pointer-events: none;
         }
         input {
             width: 100%;
+            display: block;
             background: #1f1f1f;
             border: 1px solid #3a3a3a;
-            border-radius: 8px;
-            padding: 10px 12px;
+            border-radius: 10px;
+            padding: 12px 14px;
             color: var(--text);
             font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            height: 44px;
         }
         input:focus {
             outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
         }
-        .help {
-            margin: 0;
-            font-size: 12px;
+        .field.has-error input {
+            border-color: #ff4d4f;
+            box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.25);
+        }
+        .field.has-error input:focus {
+            border-color: #ff4d4f;
+            box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.3);
+        }
+        .field.has-error {
+            animation: fieldShake 0.18s ease-in-out 2;
+        }
+        @keyframes fieldShake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            50% { transform: translateX(2px); }
+            75% { transform: translateX(-2px); }
+            100% { transform: translateX(0); }
+        }
+        input[readonly] {
+            color: var(--muted);
+            border-color: #2d2d2d;
+        }
+        input:disabled {
+            background: #3b1a1f;
+            border-color: #ff4d4f;
+            color: #ffd6d6;
+            opacity: 0.9;
+        }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+            -webkit-text-fill-color: var(--text);
+            box-shadow: 0 0 0px 1000px #1f1f1f inset;
+            caret-color: var(--text);
+            transition: background-color 9999s ease-in-out 0s;
+        }
+        input:autofill {
+            box-shadow: 0 0 0px 1000px #1f1f1f inset;
+            -webkit-text-fill-color: var(--text);
+            caret-color: var(--text);
+        }
+        .email-display {
+            font-size: 14px;
             color: var(--muted);
         }
-        .errorlist {
-            list-style: none;
-            padding: 8px 10px;
-            margin: 6px 0 0;
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            border-radius: 6px;
-            color: #ffd6d6;
+        .email-display strong {
+            color: var(--text);
+        }
+        .resend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .resend-link {
+            background: transparent;
+            border: none;
+            padding: 0;
+            color: var(--accent);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .resend-link:disabled {
+            color: var(--muted);
+            cursor: not-allowed;
+        }
+        .resend-timer {
+            color: var(--muted);
             font-size: 12px;
         }
-        .actions {
+        .form-footer {
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 4px;
         }
-        button {
-            background-color: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            font-size: 14px;
-        }
-        button:hover { background-color: var(--accent-dark); }
-        .error-text {
-            color: #ffd6d6;
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin: 0;
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
             font-size: 13px;
         }
+        .footer-left a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .footer-left a:hover {
+            text-decoration: underline;
+        }
+        .btn {
+            border: none;
+            border-radius: 999px;
+            padding: 12px 18px;
+            padding-left: 42px;
+            padding-right: 42px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .btn .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #ffffff;
+            border-right-color: #ffffff;
+            border-radius: 50%;
+            display: inline-block;
+            visibility: hidden;
+            animation: spin 0.9s linear infinite;
+            position: absolute;
+            left: 14px;
+        }
+        .btn.loading .btn-spinner {
+            visibility: visible;
+        }
+        .btn.loading .btn-label {
+            opacity: 0.8;
+        }
+        .btn.primary {
+            background: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+        }
+        .btn.primary:hover {
+            background: var(--accent-dark);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
+        }
+        .btn.secondary {
+            background: #2a2a2a;
+            color: var(--text);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+        }
+        .btn.secondary:hover {
+            background: #343434;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
+        }
+        .btn:disabled,
+        .resend-link:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 640px) {
+            .signup-card {
+                padding: 24px 20px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            .form-footer {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .form-footer .footer-left {
+                order: 2;
+            }
+        }
     </style>
-</head>
-<body>
-    <div class="auth-card soft-fade-in">
-        <div>
-            <h1>Sign Up</h1>
-            <p class="subtitle">Create your account and verify with a one-time code.</p>
-        </div>
-        <form method="post">
-            {% csrf_token %}
-            {% for field in form %}
-                <div class="fieldWrapper">
-                    {{ field.label_tag }} {{ field }}
-                    {% if field.help_text %}
-                      <p class="help" id="{{ field.auto_id }}_helptext">
-                        {{ field.help_text|safe }}
-                      </p>
-                    {% endif %}
-                    {{ field.errors }}
-                </div>
-            {% endfor %}
-            <div class="actions">
-                <button type="submit" name="send_code">Send Code</button>
-                <button type="submit" name="submit">Submit</button>
+{% endblock head %}
+
+{% block content %}
+    <div class="signup-page">
+        <div class="signup-card soft-fade-in">
+            <div class="signup-header">
+                <div class="step-indicator">Step {{ step }} of {{ step_total }}</div>
+                {% if step == 1 %}
+                    <h1>Tell us your name</h1>
+                    <p class="subtitle">This helps personalize your account.</p>
+                {% elif step == 2 %}
+                    <h1>Enter your email</h1>
+                    <p class="subtitle">We will send a verification code.</p>
+                {% elif step == 3 %}
+                    <h1>Verify your email</h1>
+                    <p class="subtitle">
+                        Enter the verification code we sent to {{ values.email }}.
+                    </p>
+                {% else %}
+                    <h1>Create a password</h1>
+                    <p class="subtitle">Finish creating your account.</p>
+                {% endif %}
             </div>
-        </form>
-        {% if error %}
-            <p class="error-text">{{ error }}</p>
-        {% endif %}
+
+            {% if page_error %}
+                <div class="page-banner">{{ page_error }}</div>
+            {% endif %}
+
+            <form
+                method="post"
+                class="signup-form"
+                novalidate
+                data-clear-password="{{ clear_password|yesno:'1,0' }}"
+                data-clear-confirm="{{ clear_confirm|yesno:'1,0' }}"
+            >
+                {% csrf_token %}
+                {% if step == 1 %}
+                    <div class="field-row">
+                        <div class="field{% if errors.first_name %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="first_name">First name<span class="required-star">*</span></label>
+                                {% if errors.first_name %}
+                                    <span class="field-error" role="alert">{{ errors.first_name.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="text"
+                                id="first_name"
+                                name="first_name"
+                                autocomplete="given-name"
+                                value="{{ values.first_name|default:'' }}"
+                                aria-required="true"
+                                {% if errors.first_name %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                        <div class="field{% if errors.last_name %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="last_name">Last name<span class="required-star">*</span></label>
+                                {% if errors.last_name %}
+                                    <span class="field-error" role="alert">{{ errors.last_name.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="text"
+                                id="last_name"
+                                name="last_name"
+                                autocomplete="family-name"
+                                value="{{ values.last_name|default:'' }}"
+                                aria-required="true"
+                                {% if errors.last_name %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                    </div>
+                    <p class="required-note"><span class="required-star">*</span> Required</p>
+                    <div class="form-footer">
+                        <div class="footer-left">
+                            Already have an account? <a href="/login">Sign in</a>
+                        </div>
+                        <div class="footer-right">
+                            <button type="submit" name="next_step" class="btn primary">
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                                <span class="btn-label">Next</span>
+                            </button>
+                        </div>
+                    </div>
+                {% elif step == 2 %}
+                    <div class="field{% if errors.email %} has-error{% endif %}">
+                        <div class="field-header">
+                            <label for="email">Email<span class="required-star">*</span></label>
+                            {% if errors.email %}
+                                <span class="field-error" role="alert">{{ errors.email.0 }}</span>
+                            {% endif %}
+                        </div>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            autocomplete="email"
+                            value="{{ values.email|default:'' }}"
+                            aria-required="true"
+                            {% if errors.email %}aria-invalid="true"{% endif %}
+                        >
+                    </div>
+                    <p class="required-note"><span class="required-star">*</span> Required</p>
+                    <div class="form-footer">
+                        <div class="footer-left">
+                            <button type="submit" name="back_name" class="btn secondary">Back</button>
+                        </div>
+                        <div class="footer-right">
+                            <button type="submit" name="send_code" class="btn primary">
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                                <span class="btn-label">Send code</span>
+                            </button>
+                        </div>
+                    </div>
+                {% elif step == 3 %}
+                    <div class="email-display">
+                        Verification code sent to <strong>{{ values.email }}</strong> from <strong>{{ sender_email }}</strong>
+                    </div>
+                    <div class="field{% if errors.verify_code %} has-error{% endif %}">
+                        <div class="field-header">
+                            <label for="verify_code">Verification code<span class="required-star">*</span></label>
+                            {% if errors.verify_code %}
+                                <span class="field-error" role="alert">{{ errors.verify_code.0 }}</span>
+                            {% endif %}
+                        </div>
+                        <input
+                            type="text"
+                            id="verify_code"
+                            name="verify_code"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            pattern="[0-9]{6}"
+                            maxlength="6"
+                            value="{{ values.verify_code|default:'' }}"
+                            aria-required="true"
+                            {% if errors.verify_code %}aria-invalid="true"{% endif %}
+                            {% if code_locked %}disabled{% endif %}
+                        >
+                    </div>
+                    <div class="resend-row">
+                        <button
+                            type="submit"
+                            name="resend_code"
+                            class="resend-link"
+                            id="resendButton"
+                            data-resend="{{ resend_available_in|default:0 }}"
+                            {% if resend_available_in %}disabled{% endif %}
+                        >
+                            Resend code
+                        </button>
+                        <span class="resend-timer" id="resendTimer"></span>
+                    </div>
+                    <div class="form-footer">
+                        <div class="footer-left">
+                            <button type="submit" name="back_email" class="btn secondary">Back</button>
+                        </div>
+                        <div class="footer-right">
+                            <button type="submit" name="verify_code_submit" id="verifyButton" class="btn primary" {% if code_locked %}disabled{% endif %}>
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                                <span class="btn-label">{% if code_verified %}Continue{% else %}Verify code{% endif %}</span>
+                            </button>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="field-row">
+                        <div class="field{% if errors.password %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="password">Password<span class="required-star">*</span></label>
+                                {% if errors.password %}
+                                    <span class="field-error" role="alert">{{ errors.password.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                autocomplete="new-password"
+                                aria-required="true"
+                                {% if errors.password %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                        <div class="field{% if errors.verify_password or confirm_outline %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="verify_password">Confirm password<span class="required-star">*</span></label>
+                                {% if errors.verify_password %}
+                                    <span class="field-error" role="alert">{{ errors.verify_password.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="password"
+                                id="verify_password"
+                                name="verify_password"
+                                autocomplete="new-password"
+                                aria-required="true"
+                                {% if errors.verify_password %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                    </div>
+                    <p class="required-note"><span class="required-star">*</span> Required</p>
+                    <div class="form-footer">
+                        <div class="footer-left">
+                            <button type="submit" name="back_code" class="btn secondary">Back</button>
+                        </div>
+                        <div class="footer-right">
+                            <button type="submit" name="create_account" class="btn primary">
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                                <span class="btn-label">Create account</span>
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
     </div>
 
-</body>
-</html>
+    {% if code_notice %}
+        <div class="notice-toast">
+            <div class="notice-banner">{{ code_notice }}</div>
+        </div>
+    {% endif %}
+
+    <script>
+        (() => {
+            const initResendTimer = (root) => {
+                const resendButton = root.querySelector('#resendButton');
+                const timer = root.querySelector('#resendTimer');
+                const codeInput = root.querySelector('#verify_code');
+                const verifyButton = root.querySelector('#verifyButton');
+                if (!resendButton || !timer) return;
+                let remaining = parseInt(resendButton.dataset.resend || '0', 10);
+                if (!Number.isFinite(remaining)) {
+                    remaining = 0;
+                }
+                const update = () => {
+                    if (remaining > 0) {
+                        resendButton.disabled = true;
+                        timer.textContent = `(${remaining}s)`;
+                    } else {
+                        resendButton.disabled = false;
+                        timer.textContent = '';
+                    }
+                };
+                update();
+                if (remaining > 0) {
+                    const interval = setInterval(() => {
+                        remaining = Math.max(0, remaining - 1);
+                        update();
+                        if (remaining <= 0) {
+                            clearInterval(interval);
+                        }
+                    }, 1000);
+                }
+                if (codeInput && verifyButton) {
+                    codeInput.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            verifyButton.click();
+                        }
+                    });
+                }
+            };
+
+            const syncNoticeToast = (doc) => {
+                const newToast = doc.querySelector('.notice-toast');
+                const currentToast = document.querySelector('.notice-toast');
+                if (newToast) {
+                    if (currentToast) {
+                        currentToast.replaceWith(newToast);
+                    } else {
+                        document.body.appendChild(newToast);
+                    }
+                } else if (currentToast) {
+                    currentToast.remove();
+                }
+            };
+
+            const restorePasswords = (card, preserved) => {
+                const form = card.querySelector('.signup-form');
+                if (!form) return;
+                const clearPassword = form.dataset.clearPassword === '1';
+                const clearConfirm = form.dataset.clearConfirm === '1';
+                const passwordInput = form.querySelector('#password');
+                const confirmInput = form.querySelector('#verify_password');
+                if (passwordInput && !clearPassword) {
+                    passwordInput.value = preserved.password || '';
+                }
+                if (confirmInput) {
+                    confirmInput.value = clearConfirm ? '' : (preserved.confirm || '');
+                }
+            };
+
+            const initAjaxForm = (root) => {
+                const form = root.querySelector('.signup-form');
+                if (!form || form.dataset.bound === '1') return;
+                form.dataset.bound = '1';
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    if (form.dataset.submitting === '1') {
+                        return;
+                    }
+                    form.dataset.submitting = '1';
+                    const currentCard = document.querySelector('.signup-card');
+                    if (!currentCard) {
+                        form.submit();
+                        return;
+                    }
+                    const preserved = {
+                        password: document.getElementById('password')?.value || '',
+                        confirm: document.getElementById('verify_password')?.value || '',
+                    };
+                    const submitter = event.submitter || document.activeElement;
+                    const formData = new FormData(form);
+                    if (submitter && submitter.name) {
+                        formData.set(submitter.name, submitter.value || '1');
+                    }
+                    if (submitter && typeof submitter.disabled === 'boolean') {
+                        submitter.disabled = true;
+                    }
+                    if (submitter && submitter.classList && submitter.classList.contains('btn')) {
+                        submitter.classList.add('loading');
+                        submitter.setAttribute('aria-busy', 'true');
+                    }
+                    try {
+                        const response = await fetch(form.action || window.location.href, {
+                            method: 'POST',
+                            body: formData,
+                            credentials: 'same-origin',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                            return;
+                        }
+                        const html = await response.text();
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const newCard = doc.querySelector('.signup-card');
+                        if (!newCard) {
+                            window.location.reload();
+                            return;
+                        }
+                        currentCard.replaceWith(newCard);
+                        syncNoticeToast(doc);
+                        initSignupFlow(document);
+                        restorePasswords(newCard, preserved);
+                    } catch (error) {
+                        form.submit();
+                    } finally {
+                        form.dataset.submitting = '0';
+                        if (submitter && typeof submitter.disabled === 'boolean') {
+                            submitter.disabled = false;
+                        }
+                        if (submitter && submitter.classList && submitter.classList.contains('btn')) {
+                            submitter.classList.remove('loading');
+                            submitter.removeAttribute('aria-busy');
+                        }
+                    }
+                });
+            };
+
+            const initSignupFlow = (root) => {
+                initResendTimer(root);
+                initAjaxForm(root);
+            };
+
+            window.initSignupFlow = initSignupFlow;
+            document.addEventListener('DOMContentLoaded', () => initSignupFlow(document));
+        })();
+    </script>
 {% endblock content %}

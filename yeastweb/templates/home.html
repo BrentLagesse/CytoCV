@@ -192,7 +192,7 @@
             {% if user.is_authenticated %}
                 <a href="/profile" class="cta-button">Profile</a>
             {% else %}
-                <a href="/signup" class="cta-button">Sign Up</a>
+                <a href="/signup?fresh=1" class="cta-button">Sign Up</a>
             {% endif %}
             <a href="/image/upload/" id="uploadImageButton" class="cta-button">Experiment</a>
         </div>
