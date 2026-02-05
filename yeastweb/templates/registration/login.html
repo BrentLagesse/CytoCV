@@ -94,6 +94,20 @@
             gap: 14px;
         }
 
+        .login-footer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .login-footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .login-footer a:hover { text-decoration: underline; }
+
         .field {
             display: grid;
             gap: 6px;
@@ -403,6 +417,9 @@
                         <span class="btn-label">Log In</span>
                     </button>
                 </form>
+                <div class="login-footer">
+                    Don’t have an account? <a href="/signup?fresh=1">Sign up</a>
+                </div>
             </div>
 
             <div class="panel">

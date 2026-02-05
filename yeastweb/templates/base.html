@@ -30,6 +30,9 @@
             --border-muted: #444;
             --scrollbar-thumb: #333;
             --scrollbar-thumb-hover: #444;
+            --btn-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+            --btn-shadow-hover: 0 10px 22px rgba(0, 0, 0, 0.38);
+            --btn-hover-filter: brightness(0.92);
             --text: #f5f5f5;
             --muted: #b9b9b9;
             --accent: #007bff;
@@ -51,6 +54,65 @@
             background-size: cover;
             color: var(--text);
             display: block;
+        }
+
+        :where(
+            button,
+            .btn,
+            .button,
+            .primary-btn,
+            .oauth-btn,
+            .upload-btn,
+            .submit-btn,
+            .file-navigation-button,
+            .logout-btn,
+            .nav-exit-btn,
+            .reset-btn,
+            .cta-button,
+            .export_btn,
+            .action-btn
+        ) {
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, color 0.2s ease;
+            box-shadow: var(--btn-shadow);
+        }
+
+        :where(
+            button,
+            .btn,
+            .button,
+            .primary-btn,
+            .oauth-btn,
+            .upload-btn,
+            .submit-btn,
+            .file-navigation-button,
+            .logout-btn,
+            .nav-exit-btn,
+            .reset-btn,
+            .cta-button,
+            .export_btn,
+            .action-btn
+        ):not(:disabled):not(.is-disabled):not(.disabled):hover {
+            filter: var(--btn-hover-filter);
+            box-shadow: var(--btn-shadow-hover);
+        }
+
+        :where(
+            .toggle-btn,
+            .settings-btn,
+            .message,
+            .message *,
+            .message-container,
+            .message-container *,
+            .notice-banner,
+            .notice-banner *,
+            .message.success,
+            .message.success *,
+            .message.error,
+            .message.error *
+        ) {
+            box-shadow: none !important;
+            filter: none !important;
+            transition: none !important;
         }
 
         .navbar {
