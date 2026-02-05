@@ -137,8 +137,8 @@
         input {
             width: 100%;
             display: block;
-            background: #1f1f1f;
-            border: 1px solid #3a3a3a;
+            background: var(--surface-muted-alt);
+            border: 1px solid var(--panel-border);
             border-radius: 10px;
             padding: 12px 14px;
             color: var(--text);
@@ -171,7 +171,7 @@
         }
         input[readonly] {
             color: var(--muted);
-            border-color: #2d2d2d;
+            border-color: var(--border-subtle);
         }
         input:disabled {
             background: #3b1a1f;
@@ -183,12 +183,12 @@
         input:-webkit-autofill:hover,
         input:-webkit-autofill:focus {
             -webkit-text-fill-color: var(--text);
-            box-shadow: 0 0 0px 1000px #1f1f1f inset;
+            box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
             caret-color: var(--text);
             transition: background-color 9999s ease-in-out 0s;
         }
         input:autofill {
-            box-shadow: 0 0 0px 1000px #1f1f1f inset;
+            box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
             -webkit-text-fill-color: var(--text);
             caret-color: var(--text);
         }
@@ -286,13 +286,13 @@
             box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
         }
         .btn.secondary {
-            background: #2a2a2a;
+            background: var(--surface-muted-alt);
             color: var(--text);
             border: 1px solid var(--panel-border);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
         }
         .btn.secondary:hover {
-            background: #343434;
+            background: var(--surface-hover-strong);
             box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
         }
         .btn:disabled,

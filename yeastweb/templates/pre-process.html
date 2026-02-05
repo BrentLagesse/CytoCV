@@ -111,7 +111,7 @@
       .channel-chip.dapi { background-color: blue; }
       .channel-chip.mcherry { background-color: red; }
       .channel-chip.gfp { background-color: green; }
-      .channel-chip.dic:hover { background-color: #3a3a3a; }
+      .channel-chip.dic:hover { background-color: var(--panel-border); }
       .channel-chip.dapi:hover { background-color: #4d4dff; }
       .channel-chip.mcherry:hover { background-color: #ff6b6b; }
       .channel-chip.gfp:hover { background-color: #3bbf3b; }
@@ -156,17 +156,17 @@
       .sidebar.collapsed .sidebar-content { display: none; }
 
       /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
-      .sidebar:hover { background-color: #222; }
+      .sidebar:hover { background-color: var(--card-bg); }
 
       /* Only lighten when collapsed AND hovered */
-      .sidebar.collapsed:hover { background-color: #2f2f2f; }
+      .sidebar.collapsed:hover { background-color: var(--surface-hover); }
 
       /* Sidebar header */
       .sidebar-header {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #1f1f1f;
+        background-color: var(--surface-input);
         border-radius: 12px;
         margin: 10px 12px;
         padding: 10px;
@@ -207,9 +207,9 @@
       .file-item {
         margin: 8px 12px;
         padding: 12px;
-        background-color: #2b2b2b;
+        background-color: var(--surface-muted);
         border-radius: 12px;
-        border: 1px solid #3a3a3a;
+        border: 1px solid var(--panel-border);
         cursor: pointer;
         transition: background-color 0.2s;
         font-size: 14px;
@@ -221,8 +221,8 @@
       /* Channel pills */
       .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
       .channel-chip {
-        background-color: #3a3a3a; color: #fff;
-        border: 1px solid #454545;
+        background-color: var(--panel-border); color: #fff;
+        border: 1px solid var(--border-contrast);
         padding: 6px 0; border-radius: 6px; cursor: grab; user-select: none;
         flex: 1; box-sizing: border-box; text-align: center;
       }
@@ -237,11 +237,11 @@
         height: 10px;               /* horizontal bar height (Chromium/Edge/WebKit) */
       }
       .channel-bar::-webkit-scrollbar-thumb {
-        background: #444;           /* draggable thumb */
+        background: var(--scrollbar-thumb);           /* draggable thumb */
         border-radius: 8px;
       }
       .channel-bar::-webkit-scrollbar-track {
-        background: #222;           /* track color to match sidebar */
+        background: var(--card-bg);           /* track color to match sidebar */
       }
       .channel-bar::-webkit-scrollbar-button {
         display: none;              /* hide tiny arrow buttons */
@@ -272,7 +272,7 @@
         margin-bottom: 20px;
       }
 
-      img { border: 1px solid #2b2b2b; border-radius: 10px; background: #1b1b1b; }
+      img { border: 1px solid var(--surface-muted); border-radius: 10px; background: var(--surface-media); }
 
       .navigation { display: flex; justify-content: center; margin-top: 20px; }
 
@@ -377,8 +377,8 @@
         gap: 10px;
         padding: 8px 10px;
         border-radius: 8px;
-        background: #242424;
-        border: 1px solid #343434;
+        background: var(--surface-rail);
+        border: 1px solid var(--panel-border);
         color: #fff;
       }
       .analysis-toggle + .analysis-toggle {
@@ -386,14 +386,14 @@
       }
       .analysis-divider {
         height: 1px;
-        background: #2f2f2f;
+        background: var(--surface-hover);
         margin: 6px 4px;
       }
       .analysis-toggle input[type="number"] {
         font-family: var(--app-font);
         /* margin-left: auto; */
-        border: 1px solid #343434;
-        background: #2f2f2f;
+        border: 1px solid var(--panel-border);
+        background: var(--surface-input);
         color: #fff;
         order: 2;
       }
@@ -406,7 +406,7 @@
         position: relative;
         width: 38px;
         height: 20px;
-        background: #555;
+        background: var(--surface-toggle-off);
         border-radius: 999px;
         transition: background-color 0.2s ease;
         flex: 0 0 auto;
@@ -488,11 +488,11 @@
       }
       .nav-exit-btn.loading .spinner { display: inline-block; }
       .nav-exit-btn.confirm {
-        background: #2a2a2a;
+        background: var(--surface-muted-alt);
         color: #fff;
-        border: 1px solid #3a3a3a;
+        border: 1px solid var(--panel-border);
       }
-      .nav-exit-btn.confirm:hover { background: #343434; }
+      .nav-exit-btn.confirm:hover { background: var(--surface-hover-strong); }
       .nav-exit-btn.cancel {
         background: var(--accent);
         color: #fff;
@@ -501,13 +501,13 @@
 
       /* Chrome / Edge / Safari */
       .sidebar-content::-webkit-scrollbar-track {
-        background: #222 !important;
+        background: var(--card-bg) !important;
       }
 
       /* Firefox */
       .sidebar-content {
         /* first = thumb, second = track */
-        scrollbar-color: #333 #222;
+        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
       }
 
       /* NEW: force scrollbar to always show */
@@ -521,7 +521,7 @@
         width: 12px;                         /* visible width */
       }
       .sidebar-content::-webkit-scrollbar-thumb {
-        background: #444;                     /* actual draggable part */
+        background: var(--scrollbar-thumb);                     /* actual draggable part */
         border-radius: 8px;
       }
       .sidebar-content::-webkit-scrollbar-button {

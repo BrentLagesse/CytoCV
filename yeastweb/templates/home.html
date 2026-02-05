@@ -80,8 +80,8 @@
         }
         .overview-list li,
         .upload-list li {
-            background-color: #1f1f1f;
-            border: 1px solid #2f2f2f;
+            background-color: var(--surface-muted);
+            border: 1px solid var(--panel-border);
             border-radius: 12px;
             padding: 12px;
             display: grid;
@@ -95,7 +95,7 @@
             display: block;
             margin-top: 6px;
             border-radius: 8px;
-            border: 1px solid #2b2b2b;
+            border: 1px solid var(--panel-border);
         }
         .cta-card {
             justify-content: center;
@@ -137,8 +137,8 @@
         .text-link:hover { text-decoration: underline; }
         .splitter {
             width: var(--divider-width);
-            background: #1f1f1f;
-            border: 1px solid #2f2f2f;
+            background: var(--surface-muted-alt);
+            border: 1px solid var(--panel-border);
             border-radius: 999px;
             cursor: col-resize;
             display: flex;
@@ -150,13 +150,13 @@
             content: "";
             width: 2px;
             height: 48px;
-            background: #3a3a3a;
+            background: var(--panel-border);
             border-radius: 999px;
         }
         .splitter.dragging,
         .splitter:hover {
-            background: #2a2a2a;
-            border-color: #3a3a3a;
+            background: var(--surface-hover);
+            border-color: var(--panel-border);
         }
         @media (max-width: 900px) {
             .home-layout {

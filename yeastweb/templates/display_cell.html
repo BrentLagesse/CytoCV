@@ -9,7 +9,7 @@
         .channel-chip.dapi { background-color: blue; }
         .channel-chip.mcherry { background-color: red; }
         .channel-chip.gfp { background-color: green; }
-        .channel-chip.dic:hover { background-color: #3a3a3a; }
+        .channel-chip.dic:hover { background-color: var(--panel-border); }
         .channel-chip.dapi:hover { background-color: #4d4dff; }
         .channel-chip.mcherry:hover { background-color: #ff6b6b; }
         .channel-chip.gfp:hover { background-color: #3bbf3b; }
@@ -54,17 +54,17 @@
         .sidebar.collapsed .sidebar-content { display: none; }
 
         /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
-        .sidebar:hover { background-color: #222; }
+        .sidebar:hover { background-color: var(--card-bg); }
 
         /* Only lighten when collapsed AND hovered */
-        .sidebar.collapsed:hover { background-color: #2f2f2f; }
+        .sidebar.collapsed:hover { background-color: var(--surface-hover); }
 
         /* Sidebar header */
         .sidebar-header {
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #1f1f1f;
+            background-color: var(--surface-input);
             border-radius: 12px;
             margin: 10px 12px;
             padding: 10px;
@@ -101,9 +101,9 @@
         .file-item {
             margin: 8px 12px;
             padding: 12px;
-            background-color: #2b2b2b;
+            background-color: var(--surface-muted);
             border-radius: 12px;
-            border: 1px solid #3a3a3a;
+            border: 1px solid var(--panel-border);
             cursor: pointer;
             transition: background-color 0.2s;
             font-size: 14px;
@@ -115,8 +115,8 @@
         /* Channel pills */
         .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
         .channel-chip {
-            background-color: #3a3a3a; color: #fff;
-            border: 1px solid #454545;
+            background-color: var(--panel-border); color: #fff;
+            border: 1px solid var(--border-contrast);
             padding: 6px 0; border-radius: 6px; cursor: grab; user-select: none;
             flex: 1; box-sizing: border-box; text-align: center;
         }
@@ -153,7 +153,7 @@
         /* Adjust heading margin so it’s closer to the top */
         h2#imageTitle { margin: 5px 0 10px 0; }
 
-        .main-image { width: 500px; height: 500px; border: 1px solid #2b2b2b; border-radius: 12px; background: #1b1b1b; }
+        .main-image { width: 500px; height: 500px; border: 1px solid var(--surface-muted); border-radius: 12px; background: var(--surface-media); }
 
         .file-navigation-button {
             padding: 10px 18px; font-size: 14px; background-color: #007bff; color: #fff;
@@ -172,7 +172,7 @@
             height: 100%; flex-shrink: 0; padding-top: 120px;
         }
         .cell-column { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-        .cell-image { width: 200px; height: 200px; object-fit: contain; border: 1px solid #2b2b2b; border-radius: 10px; background: #1b1b1b; }
+        .cell-image { width: 200px; height: 200px; object-fit: contain; border: 1px solid var(--surface-muted); border-radius: 10px; background: var(--surface-media); }
 
         .cell-label {
             width: 200px; height: 30px; display: flex; color: white; align-items: center; justify-content: center;
@@ -183,7 +183,7 @@
         .dapi { background-color: blue; }
         .mcherry { background-color: red; }
         .gfp { background-color: green; }
-        .cell-label.dic:hover { background-color: #3a3a3a; }
+        .cell-label.dic:hover { background-color: var(--panel-border); }
         .cell-label.dapi:hover { background-color: #4d4dff; }
         .cell-label.mcherry:hover { background-color: #ff6b6b; }
         .cell-label.gfp:hover { background-color: #3bbf3b; }
@@ -210,35 +210,35 @@
 
         /* Table container */
         .celltable {
-            width: 100%; max-width: 1000px; background-color: #222; border-radius: 14px; overflow: hidden;
+            width: 100%; max-width: 1000px; background-color: var(--card-bg); border-radius: 14px; overflow: hidden;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); margin-top: 20px;
         }
 
         /* Table itself */
         .celltable table {
             width: 100%; border-collapse: separate; border-spacing: 0;
-            background-color: #222; color: #fff; font-family: Arial, sans-serif; font-size: 14px;
+            background-color: var(--card-bg); color: #fff; font-family: Arial, sans-serif; font-size: 14px;
         }
 
         /* Table header */
-        .celltable thead { background-color: #333; }
+        .celltable thead { background-color: var(--surface-header); }
         .celltable th {
-            padding: 15px 12px; text-align: left; font-weight: bold; color: #fff; background-color: #333;
+            padding: 15px 12px; text-align: left; font-weight: bold; color: #fff; background-color: var(--surface-header);
             border-bottom: 2px solid #007bff; position: relative;
         }
         .celltable th:first-child { border-top-left-radius: 10px; }
         .celltable th:last-child { border-top-right-radius: 10px; }
 
         /* Table body */
-        .celltable tbody { background-color: #222; }
-        .celltable td { padding: 12px; border-bottom: 1px solid #444; transition: background-color 0.2s; }
+        .celltable tbody { background-color: var(--card-bg); }
+        .celltable td { padding: 12px; border-bottom: 1px solid var(--border-muted); transition: background-color 0.2s; }
 
         /* Row striping for better readability */
-        .celltable tbody tr:nth-child(even) { background-color: #2a2a2a; }
-        .celltable tbody tr:nth-child(odd) { background-color: #222; }
+        .celltable tbody tr:nth-child(even) { background-color: var(--surface-muted-alt); }
+        .celltable tbody tr:nth-child(odd) { background-color: var(--card-bg); }
 
         /* Row hover effect */
-        .celltable tbody tr:hover { background-color: #2f2f2f; cursor: pointer; }
+        .celltable tbody tr:hover { background-color: var(--surface-hover); cursor: pointer; }
 
         /* Active/selected row */
         .celltable tbody tr.selected { background-color: #1a4a6b; }
@@ -265,7 +265,7 @@
         .celltable .no-data { text-align: center; padding: 30px; color: #888; font-style: italic; }
 
         .popup {
-            position: absolute; display: none; background-color: #222; border-radius: 4px; padding: 5px;
+            position: absolute; display: none; background-color: var(--card-bg); border-radius: 4px; padding: 5px;
             font-family: var(--app-font); align-items: center; justify-content: space-around;
         }
         .popup a { padding: 5px; font-size: 15px; margin-bottom:20px; }
@@ -280,7 +280,7 @@
 
         /* Chrome / Edge / Safari */
         .sidebar-content::-webkit-scrollbar-track {
-        background: #222 !important;
+        background: var(--card-bg) !important;
         }
 
 
@@ -303,7 +303,7 @@
         /* Firefox */
         .sidebar-content {
         /* first = thumb, second = track */
-        scrollbar-color: #333 #222;
+        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
         }
     </style>
 

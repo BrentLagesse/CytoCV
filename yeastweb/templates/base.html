@@ -7,11 +7,28 @@
 
         :root {
             --app-font: 'Space Grotesk', 'Segoe UI', sans-serif;
-            --page-bg: #333;
+            --page-bg: #1b1b1b;
             --page-bg-gradient: radial-gradient(circle at top, rgba(0, 123, 255, 0.08), transparent 55%);
-            --card-bg: #222;
-            --panel-bg: #262626;
+            --card-bg: var(--surface-nav);
+            --panel-bg: var(--surface-nav);
             --panel-border: #3a3a3a;
+            --surface-nav: #1f1f1f;
+            --surface-input: #1f1f1f;
+            --surface-muted: #2b2b2b;
+            --surface-muted-alt: #2a2a2a;
+            --surface-hover: #2f2f2f;
+            --surface-hover-strong: #343434;
+            --surface-header: var(--page-bg);
+            --surface-rail: #242424;
+            --surface-rail-alt: #202020;
+            --surface-toggle-off: #555;
+            --surface-media: #1b1b1b;
+            --border-subtle: #2f2f2f;
+            --border-strong: #4a4a4a;
+            --border-contrast: #454545;
+            --border-muted: #444;
+            --scrollbar-thumb: #333;
+            --scrollbar-thumb-hover: #444;
             --text: #f5f5f5;
             --muted: #b9b9b9;
             --accent: #007bff;
@@ -45,8 +62,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: #1f1f1f;
-            border-bottom: 1px solid #2a2a2a;
+            background-color: var(--surface-nav);
+            border-bottom: 1px solid var(--border-subtle);
             padding: 0 24px;
         }
         .nav-left,
@@ -68,7 +85,7 @@
             align-items: center;
         }
         .navbar a:hover {
-            background-color: #2f2f2f;
+            background-color: var(--surface-hover);
             color: #fff;
         }
 
@@ -216,11 +233,11 @@
         }
         .logout-btn.loading .spinner { display: inline-block; }
         .logout-btn.confirm {
-            background: #2a2a2a;
+            background: var(--surface-muted-alt);
             color: #fff;
-            border: 1px solid #3a3a3a;
+            border: 1px solid var(--panel-border);
         }
-        .logout-btn.confirm:hover { background: #343434; }
+        .logout-btn.confirm:hover { background: var(--surface-hover-strong); }
         .logout-btn.cancel {
             background: var(--accent);
             color: #fff;
