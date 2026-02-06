@@ -6,7 +6,7 @@ from yeastweb.settings import MEDIA_URL
 import json
 from django.contrib.auth import get_user_model
 import os
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from core.config import get_channel_config_for_uuid
 from django_tables2.config import RequestConfig
 from django_tables2.export.export import TableExport
@@ -146,4 +146,45 @@ def display_cell(request, uuids):
         'files_data': json_files_data,  # Pass all file data to the template
         'file_list': file_list,  # Pass sidebar file list data to the template
         'cell_table': cell_table,
+    })
+
+
+def main_image_channel(request, uuid):
+    """Return the main image URL for a given channel without a full page reload."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    channel = (request.GET.get('channel') or '').strip().lower()
+    channel_map = {
+        'mcherry': 0,
+        'gfp': 1,
+        'dapi': 2,
+        'dic': 3,
+    }
+    if channel not in channel_map:
+        return JsonResponse({'error': 'Unknown channel'}, status=400)
+
+    try:
+        uploaded_image = UploadedImage.objects.get(uuid=uuid)
+    except UploadedImage.DoesNotExist:
+        return JsonResponse({'error': 'Uploaded image not found'}, status=404)
+
+    try:
+        cell_image = SegmentedImage.objects.get(UUID=uuid)
+    except SegmentedImage.DoesNotExist:
+        return JsonResponse({'error': 'Segmented image not found'}, status=404)
+
+    if ((cell_image.user_id != request.user.id and request.user.id) or
+            (not request.user.id and cell_image.user_id != get_user_model().objects.get(
+                email='guest@local.invalid').id)):
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    image_name_stem = Path(uploaded_image.name).stem
+    image_index = channel_map[channel]
+    image_file_name = f"{image_name_stem}_frame_{image_index}"
+    full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+
+    return JsonResponse({
+        'image_url': full_outlined,
+        'channel': channel,
     })

@@ -37,6 +37,7 @@ urlpatterns = [
     path('image/<str:uuids>/convert/', convert_to_image.convert_to_image),
     path('image/<str:uuids>/segment/', segment_image.segment_image),
     path('image/<str:uuids>/display/', display.display_cell, name='display'),  # Accepting multiple UUIDs as a comma-separated string
+    path('image/<str:uuid>/main-channel/', display.main_image_channel, name='main_image_channel'),
     path('api/update-channel-order/<str:uuid>/', update_channel_order, name='update_channel_order'),
     path('api/progress/<str:uuids>/', get_progress, name='analysis_progress'),
     path('api/progress/<str:key>/set/', set_progress, name='set_progress'),
