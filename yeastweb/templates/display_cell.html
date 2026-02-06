@@ -179,6 +179,15 @@
             text-align: center; font-weight: 600; margin-bottom: 6px; border: none; border-radius: 6px;
         }
         .cell-label:hover { color: #fff; }
+        .cell-label.active {
+            position: relative;
+            outline: 4px solid transparent;
+            outline-offset: 2px;
+        }
+        .cell-label.dic.active { outline-color: #5a5a5a; }
+        .cell-label.dapi.active { outline-color: #1d3ccf; }
+        .cell-label.mcherry.active { outline-color: #a72b2b; }
+        .cell-label.gfp.active { outline-color: #0f7a41; }
         .dic { background-color: black; }
         .dapi { background-color: blue; }
         .mcherry { background-color: red; }
@@ -355,7 +364,7 @@
                     <div class="cell-column">
                         <form method="post" id="dic_form">
                             {% csrf_token %}
-                            <button name="dic" class="cell-label dic">DIC</button>
+                            <button name="dic" class="cell-label dic" data-channel="dic" type="button">DIC</button>
                         </form>
                         <img id="cellImage1" class="cell-image" src="">
                         <img id="cellImage1_2" class="cell-image" src="">
@@ -363,7 +372,7 @@
                     <div class="cell-column">
                         <form method="post" id="dapi_form">
                             {% csrf_token %}
-                            <button name="dapi" class="cell-label dapi">DAPI</button>
+                            <button name="dapi" class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
                         </form>
                         <img id="cellImage2" class="cell-image" src="">
                         <img id="cellImage2_2" class="cell-image" src="">
@@ -376,7 +385,7 @@
                     <div class="cell-column">
                         <form method="post" id="mCherry_form">
                             {% csrf_token %}
-                            <button name="mCherry" class="cell-label mcherry">mCherry</button>
+                            <button name="mCherry" class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
                         </form>
                         <img id="cellImage3" class="cell-image" src="">
                         <img id="cellImage3_2" class="cell-image" src="">
@@ -392,7 +401,7 @@
                     <div class="cell-column">
                         <form method="post" id="gfp_form">
                             {% csrf_token %}
-                            <button name="gfp" class="cell-label gfp" type="submit">GFP</button>
+                            <button name="gfp" class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
                         </form>
                         <img id="cellImage4" class="cell-image" src="">
                         <img id="cellImage4_2" class="cell-image" src="">
@@ -441,6 +450,8 @@
         let currentCellNumber = 1;
         let maxCells;
         const channels = ["dapi", "mCherry", "gfp", "dic"];
+        let activeChannelRequest = 0;
+        const channelIndexMap = { 0: 'mcherry', 1: 'gfp', 2: 'dapi', 3: 'dic' };
 
         window.onload = function () {
             loadFile(currentFileIndex);
@@ -459,6 +470,98 @@
             currentCellNumber = 1;
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
             updateSidebarActive();
+            const inferred = inferChannelFromMainImage(fileData.MainImagePath);
+            if (inferred) {
+                setActiveChannel(inferred);
+            }
+        }
+
+        function ensureChannelMessageContainer() {
+            let container = document.querySelector('.message-container.channel-switch');
+            if (container) return container;
+            container = document.createElement('div');
+            container.className = 'message-container channel-switch';
+            container.style.top = 'calc(var(--nav-height) + 8px)';
+            container.style.left = '50%';
+            container.style.transform = 'translateX(-50%)';
+            container.style.width = 'min(720px, calc(100% - 32px))';
+            container.style.margin = '0';
+            container.style.zIndex = '1500';
+            container.style.pointerEvents = 'none';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        function showChannelError(message) {
+            const container = ensureChannelMessageContainer();
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.style.pointerEvents = 'auto';
+            msg.textContent = message;
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'message-close';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.innerHTML = '&times;';
+            close.addEventListener('click', () => msg.remove());
+            msg.appendChild(close);
+            container.appendChild(msg);
+            setTimeout(() => msg.remove(), 8000);
+        }
+
+        function preloadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('Image failed to load'));
+                img.src = url;
+            });
+        }
+
+        async function switchMainChannel(channel) {
+            const mainImage = document.getElementById('mainImage');
+            if (!mainImage) return;
+            const fileUUID = fileUUIDs[currentFileIndex];
+            if (!fileUUID) return;
+            const requestId = ++activeChannelRequest;
+            try {
+                const response = await fetch(`/image/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    throw new Error(`Channel request failed (${response.status})`);
+                }
+                const data = await response.json();
+                if (!data || !data.image_url) {
+                    throw new Error('Missing image URL');
+                }
+                await preloadImage(data.image_url);
+                if (requestId !== activeChannelRequest) {
+                    return;
+                }
+                mainImage.src = data.image_url;
+                setActiveChannel(channel);
+            } catch (error) {
+                if (error && error.name === 'AbortError') return;
+                showChannelError('Unable to load that channel image. Please try again.');
+            }
+        }
+
+        function inferChannelFromMainImage(src) {
+            if (!src) return null;
+            const match = src.match(/_frame_(\d+)\.png/i);
+            if (!match) return null;
+            const index = Number(match[1]);
+            return channelIndexMap[index] || null;
+        }
+
+        function setActiveChannel(channel) {
+            channelButtons.forEach((btn) => {
+                const isActive = btn.dataset.channel === channel;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
         }
 
         function updateCellImages(cellPairImages, statistics) {
@@ -520,6 +623,7 @@
         const sidebar = document.getElementById('sidebar');
         const toggleBtn = document.getElementById('toggleSidebarBtn');
         const fileItems = document.querySelectorAll('.file-item');
+        const channelButtons = document.querySelectorAll('.cell-label[data-channel]');
 
         // Highlight active
         function updateSidebarActive() {
@@ -549,6 +653,16 @@
             if (sidebar.classList.contains('collapsed')) {
                 sidebar.classList.remove('collapsed');
             }
+        });
+
+        // Main channel switching (async, no page reload)
+        channelButtons.forEach((btn) => {
+            btn.addEventListener('click', (event) => {
+                event.preventDefault();
+                const channel = btn.dataset.channel;
+                if (!channel) return;
+                switchMainChannel(channel);
+            });
         });
     </script>
 
