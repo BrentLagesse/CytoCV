@@ -333,17 +333,14 @@
                     // Function to update the images and statistics for the current cell
                     function updateCellImages(cellPairImages, statistics) {
                         const imageUrls = cellPairImages[currentCellNumber];
-                        // TODO: The solution for no outlines below is messy and could be improved
-                        const noOutline = (imageUrls[0].substring(0, imageUrls[0].length - 4) + "-no_outline.png");
-                        const reduceLength = noOutline.length - 17 - currentCellNumber.toString().length;
                         document.getElementById("cellImage1").src = imageUrls[0];
-                        document.getElementById("cellImage1_2").src = noOutline;
-                        document.getElementById("cellImage2").src = imageUrls[1];
-                        document.getElementById("cellImage2_2").src = noOutline.substring(0, reduceLength) + "2" + noOutline.substring(reduceLength + 1, noOutline.length);
-                        document.getElementById("cellImage3").src = imageUrls[2];
-                        document.getElementById("cellImage3_2").src = noOutline.substring(0, reduceLength) + "0" + noOutline.substring(reduceLength + 1, noOutline.length);
-                        document.getElementById("cellImage4").src = imageUrls[3];
-                        document.getElementById("cellImage4_2").src = noOutline.substring(0, reduceLength) + "1" + noOutline.substring(reduceLength + 1, noOutline.length);
+                        document.getElementById("cellImage1_2").src = imageUrls[1];
+                        document.getElementById("cellImage2").src = imageUrls[2];
+                        document.getElementById("cellImage2_2").src = imageUrls[3];
+                        document.getElementById("cellImage3").src = imageUrls[4];
+                        document.getElementById("cellImage3_2").src = imageUrls[5];
+                        document.getElementById("cellImage4").src = imageUrls[6];
+                        document.getElementById("cellImage4_2").src = imageUrls[7];
                         document.getElementById("cellID").textContent = currentCellNumber;
 
                         // Update the statistics for the current cell
