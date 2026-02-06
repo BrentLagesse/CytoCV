@@ -26,6 +26,10 @@ class GFPDot(Analysis):
         
         # Point is not between the other two if either condition is true 
         return not (dot < 0 or dot > squared_dist)
+    
+    # Check if green signals should be considered as a single one
+    def is_close(self, green_center_1, green_center_2):
+        return math.dist(green_center_1, green_center_2) <= 8
 
 
     def calculate_statistics(self, best_contours, contours_data, red_image, green_image, mcherry_line_width_input, gfp_distance=37):
@@ -55,6 +59,24 @@ class GFPDot(Analysis):
                 # Get green signals
                 contours_gfp = contours_data['contours_gfp']
                 green_centers = get_contour_center(contours_gfp)
+
+                # Check for no contours
+                if not green_centers:
+                    self.cp.category_GFP_dot = 4
+                    self.cp.biorientation = 0
+                    return
+
+                # "Merge" green signals that are too close
+                filtered_centers = {0: green_centers[0]}
+                if len(green_centers) > 1:
+                    for i in range(1, len(green_centers)):
+                        close = False
+                        for j in range(len(filtered_centers)):
+                            if self.is_close(filtered_centers[j], green_centers[i]):
+                                close = True
+                        if not close:
+                            filtered_centers[i] = green_centers[i]
+                green_centers = filtered_centers
                 
                 # Check whether distance is greater than 4 micrometers (37 pixels)
                 # TODO: Is the return value actually pixels?
@@ -83,8 +105,6 @@ class GFPDot(Analysis):
                     for green_center in green_centers.values():
                         if self.point_is_between(green_center, centers[0], centers[1], 50):
                             num_between += 1
-
-                    # TODO: Add checks to ensure that the correct number of centers are counted (e.g. merge centers that are too close)
 
                     # Set biorientation status
                     if num_between == 1:

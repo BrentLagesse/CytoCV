@@ -24,7 +24,6 @@ def find_contours(images:GrayImage):
     # ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
     #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
 
-    # TODO: No contours for second GFP image cell 14 are caused by the gray_mcherry threshold missing the dull signals
     thresh_mcherry = cv2.Canny(images.get_image('gray_mcherry_3'), 50, 150)
     thresh = cv2.Canny(images.get_image('gray_mcherry'), 50, 150)
 
