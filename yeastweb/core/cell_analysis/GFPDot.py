@@ -89,7 +89,7 @@ class GFPDot(Analysis):
 
                             # Check how many green signals are within a circle of 20-30 pixels in diameter 
                             if math.dist(centers[i], green_center) <= prox_radius:       # TODO: 20-30?
-                                num_signals[i] += 1 # TODO: This is sometimes wrong because of GFP contours being counted twice sometimes
+                                num_signals[i] += 1 
 
                     # TODO: Because of above issue, using >= instead of == below; should fix this issue in contour_operations.py find_contours
                     if num_signals[0] >= 1 and num_signals[1] >= 1:    # 1 green dot with each of the 2 red dots

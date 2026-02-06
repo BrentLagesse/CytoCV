@@ -41,8 +41,8 @@ def find_contours(images:GrayImage):
     #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
     
     # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong brightness of cell
-    thresh_dapi_3 = cv2.Canny(images.get_image('gray_dapi_3'), 60, 75)
-    thresh_dapi = cv2.Canny(images.get_image('gray_dapi'), 60, 75)
+    thresh_dapi_3 = cv2.Canny(images.get_image('gray_dapi_3'), 60, 70)
+    thresh_dapi = cv2.Canny(images.get_image('gray_dapi'), 60, 70)
 
     # TODO: Best kernel for closing so far, but better probably exists
     kernel = np.ones((3,3), np.uint8)
@@ -61,9 +61,11 @@ def find_contours(images:GrayImage):
 
     #cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
 
-    contours, h = cv2.findContours(thresh, 1, 2)
-    contours_mcherry, _ = cv2.findContours(thresh_mcherry, 1, 2) # return list of contours
+    contours, h = cv2.findContours(thresh, cv2.RETR_LIST, 2)
+    contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_LIST, 2) # return list of contours
 
+    # contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_LIST, 2)
+    # contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, cv2.RETR_LIST, 2) # return list of contours
     contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_EXTERNAL, 2)
     contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, cv2.RETR_EXTERNAL, 2) # return list of contours
 
@@ -72,7 +74,7 @@ def find_contours(images:GrayImage):
     #     print(cv2.contourArea(cnt))
     contours_dapi_3 = [cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt)>100 and cv2.contourArea(cnt)<1000]
 
-    contours_gfp, _ = cv2.findContours(thresh_gfp,1,2)
+    contours_gfp, _ = cv2.findContours(thresh_gfp,cv2.RETR_LIST,2)
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly
