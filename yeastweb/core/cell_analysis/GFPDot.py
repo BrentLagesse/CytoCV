@@ -84,6 +84,8 @@ class GFPDot(Analysis):
                         if self.point_is_between(green_center, centers[0], centers[1], 50):
                             num_between += 1
 
+                    # TODO: Add checks to ensure that the correct number of centers are counted (e.g. merge centers that are too close)
+
                     # Set biorientation status
                     if num_between == 1:
                         self.cp.biorientation = 1

@@ -28,6 +28,13 @@ def find_contours(images:GrayImage):
     thresh_mcherry = cv2.Canny(images.get_image('gray_mcherry_3'), 50, 150)
     thresh = cv2.Canny(images.get_image('gray_mcherry'), 50, 150)
 
+    # Try again with less restrictive thresholding if nothing was found
+    if np.max(thresh) == 0:
+        ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
+                                            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+        ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
+                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+
     # finding threshold
     # ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,
     #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
