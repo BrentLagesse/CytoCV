@@ -26,6 +26,10 @@ class GFPDot(Analysis):
         
         # Point is not between the other two if either condition is true 
         return not (dot < 0 or dot > squared_dist)
+    
+    # Check if green signals should be considered as a single one
+    def is_close(self, green_center_1, green_center_2):
+        return math.dist(green_center_1, green_center_2) <= 8
 
 
     def calculate_statistics(self, best_contours, contours_data, red_image, green_image, mcherry_line_width_input, gfp_distance=37):
@@ -55,6 +59,24 @@ class GFPDot(Analysis):
                 # Get green signals
                 contours_gfp = contours_data['contours_gfp']
                 green_centers = get_contour_center(contours_gfp)
+
+                # Check for no contours
+                if not green_centers:
+                    self.cp.category_GFP_dot = 4
+                    self.cp.biorientation = 0
+                    return
+
+                # "Merge" green signals that are too close
+                filtered_centers = {0: green_centers[0]}
+                if len(green_centers) > 1:
+                    for i in range(1, len(green_centers)):
+                        close = False
+                        for j in range(len(filtered_centers)):
+                            if self.is_close(filtered_centers[j], green_centers[i]):
+                                close = True
+                        if not close:
+                            filtered_centers[i] = green_centers[i]
+                green_centers = filtered_centers
                 
                 # Check whether distance is greater than 4 micrometers (37 pixels)
                 # TODO: Is the return value actually pixels?
@@ -67,7 +89,7 @@ class GFPDot(Analysis):
 
                             # Check how many green signals are within a circle of 20-30 pixels in diameter 
                             if math.dist(centers[i], green_center) <= prox_radius:       # TODO: 20-30?
-                                num_signals[i] += 1 # TODO: This is sometimes wrong because of GFP contours being counted twice sometimes
+                                num_signals[i] += 1 
 
                     # TODO: Because of above issue, using >= instead of == below; should fix this issue in contour_operations.py find_contours
                     if num_signals[0] >= 1 and num_signals[1] >= 1:    # 1 green dot with each of the 2 red dots
