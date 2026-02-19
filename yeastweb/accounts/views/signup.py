@@ -205,20 +205,28 @@ def _summarize_password_errors(messages: list[str]) -> str:
     return summary or "Password is not strong enough."
 
 
-def _build_verification_email(*, code: str, minutes_valid: int, subject_prefix: str) -> tuple[str, str]:
+def _build_verification_email(
+    *,
+    code: str,
+    minutes_valid: int,
+    subject_prefix: str,
+    recipient_name: str | None = None,
+) -> tuple[str, str]:
     """Build a verification email subject/body pair.
 
     Args:
         code: Verification code to include.
         minutes_valid: Number of minutes the code remains valid.
         subject_prefix: Prefix for the subject line.
+        recipient_name: Optional first name for a personalized greeting.
 
     Returns:
         Tuple of (subject, body).
     """
+    safe_name = (recipient_name or "").strip()
+    greeting = f"Hello {safe_name},\n\n" if safe_name else "Hello,\n\n"
     subject = f"{subject_prefix} verification code: {code}"
-    body = (
-        "Hello,\n"
+    body = greeting + (
         f"Your verification code is: {code}\n\n"
         f"The verification code is valid for {minutes_valid} minutes. "
         "Please complete the verification as soon as possible.\n\n"
@@ -372,6 +380,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 code=verify_code,
                 minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
                 subject_prefix="YeastWeb",
+                recipient_name=values.get("first_name", ""),
             )
 
             from_email = settings.EMAIL_HOST_USER
@@ -424,6 +433,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 code=verify_code,
                 minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
                 subject_prefix="YeastWeb",
+                recipient_name=values.get("first_name", ""),
             )
 
             from_email = settings.EMAIL_HOST_USER

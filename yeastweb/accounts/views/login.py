@@ -145,11 +145,17 @@ def _summarize_password_errors(messages: list[str]) -> str:
     return summary or "Password is not strong enough."
 
 
-def _build_recovery_email(*, code: str, minutes_valid: int) -> tuple[str, str]:
+def _build_recovery_email(
+    *,
+    code: str,
+    minutes_valid: int,
+    recipient_name: str | None = None,
+) -> tuple[str, str]:
     """Build the password recovery email subject/body pair."""
+    safe_name = (recipient_name or "").strip()
+    greeting = f"Hello {safe_name},\n\n" if safe_name else "Hello,\n\n"
     subject = f"YeastWeb password reset verification code: {code}"
-    body = (
-        "Hello,\n"
+    body = greeting + (
         f"Your password reset verification code is: {code}\n\n"
         f"The verification code is valid for {minutes_valid} minutes. "
         "Please complete password recovery as soon as possible.\n\n"
@@ -271,9 +277,16 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
 
     def send_code_email(email: str, code: str) -> bool:
         """Send a password recovery code email."""
+        recipient_name = (
+            user_model.objects.filter(email__iexact=email)
+            .values_list("first_name", flat=True)
+            .first()
+            or ""
+        )
         subject, message = _build_recovery_email(
             code=code,
             minutes_valid=RECOVERY_CODE_TTL_SECONDS // 60,
+            recipient_name=recipient_name,
         )
         from_email = settings.EMAIL_HOST_USER
         reply_to = getattr(settings, "EMAIL_REPLY_TO", None)
