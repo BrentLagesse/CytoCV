@@ -45,11 +45,11 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="signin", permanent=False, query_string=True),
         name="login",
     ),
-    path('signin/oauth/', include('allauth.urls')),
+    path('login/oauth', include('allauth.urls')),
     re_path(
-        r'^login/oauth/?(?P<path>.*)$',
+        r'^signin/oauth/?(?P<path>.*)$',
         RedirectView.as_view(
-            url="/signin/oauth/%(path)s",
+            url="/login/oauth%(path)s",
             permanent=False,
             query_string=True,
         ),

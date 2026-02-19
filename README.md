@@ -300,7 +300,7 @@ Caching can reuse artifacts when `use_cache=True`.
   - `/image/preprocess/<uuids>/`  
   - `/image/<uuids>/segment/`  
   - `/image/<uuids>/display/`
-- **Auth**: `/login/`, `/signup/`, OAuth (Google/Microsoft) if configured.  
+- **Auth**: `/signin/`, `/signup/`, OAuth (Google/Microsoft) if configured.  
 - Internal JSON endpoints are CSRF-protected. No versioned public REST API.
 
 
