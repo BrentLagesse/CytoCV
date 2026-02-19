@@ -516,6 +516,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             login(request, user, backend="accounts.backends.EmailBackend")
+            messages.success(request, f"Successfully signed in as {user.email}.")
             _clear_recovery_session(request)
             return redirect("profile")
 
@@ -581,6 +582,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
             if rate_limit_enabled:
                 reset_limits(keys)
             login(request, user)
+            messages.success(request, f"Successfully signed in as {user.email}.")
             return redirect("profile")
 
         if rate_limit_enabled:
