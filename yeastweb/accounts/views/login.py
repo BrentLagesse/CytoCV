@@ -504,10 +504,18 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             if not password:
                 _add_error(errors, "password", "Enter a password")
             else:
+                if user.check_password(password):
+                    _add_error(
+                        errors,
+                        "password",
+                        "New password must be different from your current password.",
+                    )
                 try:
-                    validate_password(password, user=user)
+                    if not errors.get("password"):
+                        validate_password(password, user=user)
                 except ValidationError as exc:
                     _add_error(errors, "password", _summarize_password_errors(exc.messages))
+                if errors.get("password"):
                     confirm_outline = True
 
             if not errors.get("password"):
