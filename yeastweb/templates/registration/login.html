@@ -110,11 +110,38 @@
         border-color: #ff4d4f;
         box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.25);
     }
+    .field.has-error input:focus {
+        border-color: #ff4d4f;
+        box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.3);
+    }
+    .field.has-error {
+        animation: fieldShake 0.18s ease-in-out 2;
+    }
+    @keyframes fieldShake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-2px); }
+        50% { transform: translateX(2px); }
+        75% { transform: translateX(-2px); }
+        100% { transform: translateX(0); }
+    }
     input:disabled {
         background: #3b1a1f;
         border-color: #ff4d4f;
         color: #ffd6d6;
         opacity: 0.9;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--text);
+        box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
+        caret-color: var(--text);
+        transition: background-color 9999s ease-in-out 0s;
+    }
+    input:autofill {
+        box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
+        -webkit-text-fill-color: var(--text);
+        caret-color: var(--text);
     }
     .btn, .primary-btn {
         border: none;
@@ -569,7 +596,7 @@
 
                 <div class="section">
                     <div class="title">Credentials</div>
-                    <form method="post" class="form login-form">
+                    <form method="post" class="form login-form" novalidate>
                         {% csrf_token %}
                         <div class="field">
                             <label for="user_email">Email</label>
