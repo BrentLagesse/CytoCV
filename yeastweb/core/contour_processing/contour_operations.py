@@ -1,60 +1,131 @@
 import cv2, math
 import numpy as np
-from core.contour_processing import get_largest
 from core.image_processing import GrayImage
+from .contour_helper import get_largest
 import scipy.ndimage as ndi
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 
-def find_contours(images:GrayImage):
+MCHERRY_DOT_METHOD_CURRENT = "current"
+MCHERRY_DOT_METHOD_LEGACY = "legacy"
+_MCHERRY_DOT_METHODS = {
+    MCHERRY_DOT_METHOD_CURRENT,
+    MCHERRY_DOT_METHOD_LEGACY,
+}
+
+
+def normalize_mcherry_dot_method(method):
+    """Normalize user-provided mCherry dot method values."""
+    if not method:
+        return MCHERRY_DOT_METHOD_CURRENT
+    normalized = str(method).strip().lower()
+    if normalized in _MCHERRY_DOT_METHODS:
+        return normalized
+    return MCHERRY_DOT_METHOD_CURRENT
+
+
+def _extract_dot_contours(mask):
+    """Extract candidate mCherry dot contours from a binary mask."""
+    dot_contours, _ = cv2.findContours(mask, cv2.RETR_LIST, 2)
+    return [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]
+
+
+def _legacy_otsu_threshold(image):
+    """Legacy threshold call used by the original code path."""
+    _, thresh = cv2.threshold(
+        image,
+        0,
+        1,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+    )
+    return thresh
+
+
+def _legacy_otsu_threshold_with_bias(image, otsu_bias=0.0):
+    """Apply Otsu then shift threshold to tune sensitivity (legacy GFP only)."""
+    bias = float(otsu_bias or 0.0)
+    otsu_threshold, _ = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    adjusted_threshold = int(np.clip(otsu_threshold - bias, 0, 255))
+    _, thresh = cv2.threshold(image, adjusted_threshold, 1, cv2.THRESH_BINARY)
+    return thresh, float(otsu_threshold), float(adjusted_threshold)
+
+
+def _find_mcherry_contours_current(images: GrayImage):
+    """Current mCherry dot detection based on edge-style contour extraction."""
+    _, bright_thresh = cv2.threshold(
+        images.get_image("gray_mcherry_3"),
+        0.65,
+        1,
+        cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+    )
+    dot_contours = _extract_dot_contours(bright_thresh)
+
+    thresh_mcherry = cv2.Canny(images.get_image("gray_mcherry_3"), 50, 150)
+    thresh = cv2.Canny(images.get_image("gray_mcherry"), 50, 150)
+
+    # Fallback to Otsu when Canny finds no edges.
+    if np.max(thresh) == 0:
+        _, thresh_mcherry = cv2.threshold(
+            images.get_image("gray_mcherry_3"),
+            0,
+            1,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+        )
+        _, thresh = cv2.threshold(
+            images.get_image("gray_mcherry"),
+            0,
+            1,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+        )
+
+    return dot_contours, thresh, thresh_mcherry
+
+
+def _find_mcherry_contours_legacy(images: GrayImage):
+    """Legacy mCherry dot detection based on Otsu thresholding."""
+    thresh_mcherry = _legacy_otsu_threshold(images.get_image("gray_mcherry_3"))
+    thresh = _legacy_otsu_threshold(images.get_image("gray_mcherry"))
+    dot_contours = _extract_dot_contours(thresh_mcherry)
+    return dot_contours, thresh, thresh_mcherry
+
+
+def find_contours(
+    images: GrayImage,
+    mcherry_dot_method=MCHERRY_DOT_METHOD_CURRENT,
+    legacy_gfp_otsu_bias=0.0,
+):
     """
     This function finds contours in an image and returns them as a numpy array.
     :param images: Gray scale image list
     :return: Dictionary of contours, best contours
     """
-    _,bright_thresh = cv2.threshold(images.get_image('gray_mcherry_3'),0.65,1,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    # bright_thresh = cv2.Canny(images.get_image('gray_mcherry_3'), 50, 150)
-    # bright_thresh = cv2.Canny(images.get_image('GFP'), 50, 150)
-    dot_contours, _ = cv2.findContours(bright_thresh,1,2)
-    dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt)<100] # remove the one that border image
+    method = normalize_mcherry_dot_method(mcherry_dot_method)
+    legacy_gfp_otsu_threshold = None
+    legacy_gfp_adjusted_threshold = None
+    legacy_gfp_otsu_bias = float(legacy_gfp_otsu_bias or 0.0)
+    if method == MCHERRY_DOT_METHOD_LEGACY:
+        dot_contours, thresh, thresh_mcherry = _find_mcherry_contours_legacy(images)
+        thresh_dapi_3 = _legacy_otsu_threshold(images.get_image('gray_dapi_3'))
+        thresh_dapi = _legacy_otsu_threshold(images.get_image('gray_dapi'))
+        (
+            thresh_gfp,
+            legacy_gfp_otsu_threshold,
+            legacy_gfp_adjusted_threshold,
+        ) = _legacy_otsu_threshold_with_bias(images.get_image('GFP'), legacy_gfp_otsu_bias)
+    else:
+        dot_contours, thresh, thresh_mcherry = _find_mcherry_contours_current(images)
+        # TODO thresholds need work and the canny edges need to be closed when they aren't.
+        thresh_dapi_3 = cv2.Canny(images.get_image('gray_dapi_3'), 60, 70)
+        thresh_dapi = cv2.Canny(images.get_image('gray_dapi'), 60, 70)
 
-    # finding threshold
-    # ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
-    #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    # ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
-    #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+        # TODO: Best kernel for closing so far, but better probably exists
+        kernel = np.ones((3,3), np.uint8)
+        thresh_dapi_3 = cv2.morphologyEx(thresh_dapi_3, cv2.MORPH_CLOSE, kernel)
+        thresh_dapi = cv2.morphologyEx(thresh_dapi, cv2.MORPH_CLOSE, kernel)
 
-    thresh_mcherry = cv2.Canny(images.get_image('gray_mcherry_3'), 50, 150)
-    thresh = cv2.Canny(images.get_image('gray_mcherry'), 50, 150)
-
-    # Try again with less restrictive thresholding if nothing was found
-    if np.max(thresh) == 0:
-        ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
-                                            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-        ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
-                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-
-    # finding threshold
-    # ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,
-    #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    # ret_dapi, thresh_dapi = cv2.threshold(images.get_image('gray_dapi'), 0, 1,
-    #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    
-    # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong brightness of cell
-    thresh_dapi_3 = cv2.Canny(images.get_image('gray_dapi_3'), 60, 70)
-    thresh_dapi = cv2.Canny(images.get_image('gray_dapi'), 60, 70)
-
-    # TODO: Best kernel for closing so far, but better probably exists
-    kernel = np.ones((3,3), np.uint8)
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    thresh_dapi_3 = cv2.morphologyEx(thresh_dapi_3, cv2.MORPH_CLOSE, kernel)
-    thresh_dapi = cv2.morphologyEx(thresh_dapi, cv2.MORPH_CLOSE, kernel)
-
-    # TODO: verify that this works
-    thresh_gfp = cv2.Canny(images.get_image('GFP'), 50, 150)
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
-    thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
+        thresh_gfp = cv2.Canny(images.get_image('GFP'), 50, 150)
+        kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+        thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
 
     #cell_int_ret, cell_int_thresh = cv2.threshold(images.get_image('GFP'), 0, 1,
     #                            cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
@@ -62,19 +133,20 @@ def find_contours(images:GrayImage):
     #cell_int_cont, cell_int_h = cv2.findContours(cell_int_thresh, 1, 2)
 
     contours, h = cv2.findContours(thresh, cv2.RETR_LIST, 2)
-    contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_LIST, 2) # return list of contours
+    contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_LIST, 2)
 
-    # contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_LIST, 2)
-    # contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, cv2.RETR_LIST, 2) # return list of contours
-    contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_EXTERNAL, 2)
-    contours_dapi_3,_ = cv2.findContours(thresh_dapi_3, cv2.RETR_EXTERNAL, 2) # return list of contours
-
-    # for cnt in contours_dapi_3:
-    #     print("Contour area:")
-    #     print(cv2.contourArea(cnt))
-    contours_dapi_3 = [cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt)>100 and cv2.contourArea(cnt)<1000]
-
-    contours_gfp, _ = cv2.findContours(thresh_gfp,cv2.RETR_LIST,2)
+    if method == MCHERRY_DOT_METHOD_LEGACY:
+        # Legacy behavior used list-style contour retrieval.
+        contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_LIST, 2)
+        contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, cv2.RETR_LIST, 2)
+        contours_gfp, _ = cv2.findContours(thresh_gfp, cv2.RETR_LIST, 2)
+    else:
+        contours_dapi, h = cv2.findContours(thresh_dapi, cv2.RETR_EXTERNAL, 2)
+        contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, cv2.RETR_EXTERNAL, 2)
+        contours_dapi_3 = [
+            cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt) > 100 and cv2.contourArea(cnt) < 1000
+        ]
+        contours_gfp, _ = cv2.findContours(thresh_gfp,cv2.RETR_LIST,2)
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly
@@ -94,6 +166,10 @@ def find_contours(images:GrayImage):
     bestContours_dapi = get_largest(contours_dapi)
     bestContours_dapi_3 = get_largest(contours_dapi_3) if contours_dapi_3 else []
 
+    if method == MCHERRY_DOT_METHOD_LEGACY and bestContours_mcherry:
+        # Match the original code path: use the largest two mCherry contours for dot metrics.
+        dot_contours = [contours_mcherry[i] for i in bestContours_mcherry if i < len(contours_mcherry)]
+
     return {
         'bestContours': bestContours,
         'bestContours_mcherry': bestContours_mcherry,
@@ -105,6 +181,10 @@ def find_contours(images:GrayImage):
         'bestContours_dapi_3': bestContours_dapi_3,
         'dot_contours': dot_contours,
         'contours_gfp': contours_gfp,
+        'mcherry_dot_method': method,
+        'legacy_gfp_otsu_bias': legacy_gfp_otsu_bias,
+        'legacy_gfp_otsu_threshold': legacy_gfp_otsu_threshold,
+        'legacy_gfp_adjusted_threshold': legacy_gfp_adjusted_threshold,
     }
 
 def merge_contour(bestContours, contours):

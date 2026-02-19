@@ -392,6 +392,8 @@
                         <div class="info-box">
                             <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
                             <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                            <div class="tight-info">mCherry Dot Method: <span id="mCherryDotMethodUsed"></span></div>
+                            <div class="tight-info">Legacy GFP Threshold: <span id="legacyGfpThresholdUsed"></span></div>
                             <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
                             <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
                             <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
@@ -564,6 +566,29 @@
             });
         }
 
+        function formatMcherryDotMethod(method) {
+            if (method === "legacy") {
+                return "Legacy (Otsu)";
+            }
+            return "Current (Canny)";
+        }
+
+        function formatLegacyGfpThreshold(cellStats) {
+            if (!cellStats || cellStats.mcherry_dot_method !== "legacy") {
+                return "N/A";
+            }
+            const bias = Number(cellStats.legacy_gfp_otsu_bias ?? 0);
+            const otsu = Number(cellStats.legacy_gfp_otsu_threshold);
+            const adjusted = Number(cellStats.legacy_gfp_adjusted_threshold);
+
+            const hasOtsu = Number.isFinite(otsu);
+            const hasAdjusted = Number.isFinite(adjusted);
+            if (!hasOtsu || !hasAdjusted) {
+                return `bias ${bias.toFixed(1)}`;
+            }
+            return `${adjusted.toFixed(1)} (Otsu ${otsu.toFixed(1)}, bias ${bias.toFixed(1)})`;
+        }
+
         function updateCellImages(cellPairImages, statistics) {
             const imageUrls = cellPairImages[currentCellNumber];
             document.getElementById("cellImage1").src = imageUrls[0];
@@ -581,6 +606,10 @@
             const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
             document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
             document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
+            document.getElementById("mCherryDotMethodUsed").textContent = cellStats
+                ? formatMcherryDotMethod(cellStats.mcherry_dot_method)
+                : "N/A";
+            document.getElementById("legacyGfpThresholdUsed").textContent = formatLegacyGfpThreshold(cellStats);
             document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
             document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
             document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";

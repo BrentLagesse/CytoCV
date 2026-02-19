@@ -21,12 +21,47 @@ from .utils import (
 )
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.cell_analysis import Analysis
+from core.contour_processing import (
+    MCHERRY_DOT_METHOD_CURRENT,
+    normalize_mcherry_dot_method,
+)
+from core.config import DEFAULT_PROCESS_CONFIG
 
 from yeastweb.settings import MEDIA_ROOT, BASE_DIR
 from pathlib import Path
 import json
 import re
 import hashlib
+
+LEGACY_GFP_MIN_AREA_DEFAULT = float(DEFAULT_PROCESS_CONFIG.get("legacy_gfp_min_area", 14.0))
+LEGACY_GFP_MAX_COUNT_DEFAULT = int(DEFAULT_PROCESS_CONFIG.get("legacy_gfp_max_count", 8))
+LEGACY_GFP_OTSU_BIAS_DEFAULT = float(DEFAULT_PROCESS_CONFIG.get("legacy_gfp_otsu_bias", 0.0))
+
+
+def _parse_float(value, default, minimum=None, maximum=None):
+    """Parse a float input with optional clamping."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        parsed = float(default)
+    if minimum is not None:
+        parsed = max(minimum, parsed)
+    if maximum is not None:
+        parsed = min(maximum, parsed)
+    return parsed
+
+
+def _parse_int(value, default, minimum=None, maximum=None):
+    """Parse an integer input with optional clamping."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = int(default)
+    if minimum is not None:
+        parsed = max(minimum, parsed)
+    if maximum is not None:
+        parsed = min(maximum, parsed)
+    return parsed
 
 
 
@@ -127,12 +162,55 @@ def pre_process_step(request, uuids):
     if request.method == "POST":
         clear_cancelled(uuids)
         selected_analysis = request.POST.getlist('selected_analysis')
-        gfp_distance = request.POST['distance']
+        gfp_distance = request.POST.get('distance', 37)
+        mcherry_dot_method = normalize_mcherry_dot_method(
+            request.POST.get('mCherry_dot_method', MCHERRY_DOT_METHOD_CURRENT)
+        )
+        legacy_gfp_min_area_default = _parse_float(
+            request.session.get('legacy_gfp_min_area', LEGACY_GFP_MIN_AREA_DEFAULT),
+            LEGACY_GFP_MIN_AREA_DEFAULT,
+            minimum=0.0,
+            maximum=500.0,
+        )
+        legacy_gfp_max_count_default = _parse_int(
+            request.session.get('legacy_gfp_max_count', LEGACY_GFP_MAX_COUNT_DEFAULT),
+            LEGACY_GFP_MAX_COUNT_DEFAULT,
+            minimum=1,
+            maximum=100,
+        )
+        legacy_gfp_otsu_bias_default = _parse_float(
+            request.session.get('legacy_gfp_otsu_bias', LEGACY_GFP_OTSU_BIAS_DEFAULT),
+            LEGACY_GFP_OTSU_BIAS_DEFAULT,
+            minimum=-80.0,
+            maximum=80.0,
+        )
+        legacy_gfp_min_area = _parse_float(
+            request.POST.get('legacy_gfp_min_area', legacy_gfp_min_area_default),
+            legacy_gfp_min_area_default,
+            minimum=0.0,
+            maximum=500.0,
+        )
+        legacy_gfp_max_count = _parse_int(
+            request.POST.get('legacy_gfp_max_count', legacy_gfp_max_count_default),
+            legacy_gfp_max_count_default,
+            minimum=1,
+            maximum=100,
+        )
+        legacy_gfp_otsu_bias = _parse_float(
+            request.POST.get('legacy_gfp_otsu_bias', legacy_gfp_otsu_bias_default),
+            legacy_gfp_otsu_bias_default,
+            minimum=-80.0,
+            maximum=80.0,
+        )
         print("selected_analysis")
         print(selected_analysis)
 
         request.session['selected_analysis'] = selected_analysis  # save selected analysis to session
         request.session['distance'] = gfp_distance
+        request.session['mCherry_dot_method'] = mcherry_dot_method
+        request.session['legacy_gfp_min_area'] = legacy_gfp_min_area
+        request.session['legacy_gfp_max_count'] = legacy_gfp_max_count
+        request.session['legacy_gfp_otsu_bias'] = legacy_gfp_otsu_bias
 
         # Track when we first enter phases to mark progress once
         preprocess_marked = False
@@ -196,6 +274,28 @@ def pre_process_step(request, uuids):
             'current_file_index': current_file_index,
         })
 
+    selected_mcherry_dot_method = normalize_mcherry_dot_method(
+        request.session.get('mCherry_dot_method', MCHERRY_DOT_METHOD_CURRENT)
+    )
+    selected_legacy_gfp_min_area = _parse_float(
+        request.session.get('legacy_gfp_min_area', LEGACY_GFP_MIN_AREA_DEFAULT),
+        LEGACY_GFP_MIN_AREA_DEFAULT,
+        minimum=0.0,
+        maximum=500.0,
+    )
+    selected_legacy_gfp_max_count = _parse_int(
+        request.session.get('legacy_gfp_max_count', LEGACY_GFP_MAX_COUNT_DEFAULT),
+        LEGACY_GFP_MAX_COUNT_DEFAULT,
+        minimum=1,
+        maximum=100,
+    )
+    selected_legacy_gfp_otsu_bias = _parse_float(
+        request.session.get('legacy_gfp_otsu_bias', LEGACY_GFP_OTSU_BIAS_DEFAULT),
+        LEGACY_GFP_OTSU_BIAS_DEFAULT,
+        minimum=-80.0,
+        maximum=80.0,
+    )
+
     # Normal render
     return TemplateResponse(request, "pre-process.html", {
         'images': preview_images,
@@ -205,6 +305,10 @@ def pre_process_step(request, uuids):
         'uuids': uuids,
         'file_list': file_list,
         'analyses' : analyses_list,
+        'mcherry_dot_method': selected_mcherry_dot_method,
+        'legacy_gfp_min_area': selected_legacy_gfp_min_area,
+        'legacy_gfp_max_count': selected_legacy_gfp_max_count,
+        'legacy_gfp_otsu_bias': selected_legacy_gfp_otsu_bias,
     })
 
 @require_POST

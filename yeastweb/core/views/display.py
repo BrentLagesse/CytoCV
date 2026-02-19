@@ -12,6 +12,18 @@ from django_tables2.config import RequestConfig
 from django_tables2.export.export import TableExport
 
 
+def _read_mcherry_dot_method(cell_stat: CellStatistics) -> str:
+    """Return the mCherry dot method used for this cell's analysis."""
+    properties = cell_stat.properties if isinstance(cell_stat.properties, dict) else {}
+    return properties.get("mcherry_dot_method", "current")
+
+
+def _read_property(cell_stat: CellStatistics, key: str, default=None):
+    """Read a value from CellStatistics.properties safely."""
+    properties = cell_stat.properties if isinstance(cell_stat.properties, dict) else {}
+    return properties.get(key, default)
+
+
 def display_cell(request, uuids):
     """Render cell display data for one or more uploaded image UUIDs.
 
@@ -107,6 +119,10 @@ def display_cell(request, uuids):
                     statistics[str(i)] = {
                         'distance': cell_stat.distance,
                         'line_gfp_intensity': cell_stat.line_gfp_intensity,
+                        'mcherry_dot_method': _read_mcherry_dot_method(cell_stat),
+                        'legacy_gfp_otsu_bias': _read_property(cell_stat, 'legacy_gfp_otsu_bias'),
+                        'legacy_gfp_otsu_threshold': _read_property(cell_stat, 'legacy_gfp_otsu_threshold'),
+                        'legacy_gfp_adjusted_threshold': _read_property(cell_stat, 'legacy_gfp_adjusted_threshold'),
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
                         'green_red_intensity_1': cell_stat.green_red_intensity_1,

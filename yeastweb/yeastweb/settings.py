@@ -276,5 +276,9 @@ DEFAULT_SEGMENT_CONFIG = {
     "kernel_size": 5,
     "kernel_deviation": 1,
     "mCherry_line_width": 1,
+    "mCherry_dot_method": "current",
+    "legacy_gfp_otsu_bias": 0.0,
+    "legacy_gfp_min_area": 14.0,
+    "legacy_gfp_max_count": 8,
     "arrested": "Metaphase Arrested",
 }

@@ -14,8 +14,15 @@ class NucleusIntensity(Analysis):
         gray_GFP = self.preprocessed_images.get_image('GFP')
         gray_GFP_no_bg = self.preprocessed_images.get_image('GFP_no_bg')
 
+        # Legacy-compatible behavior: prefer explicitly provided nucleus contour.
+        nucleus_contour = best_contours.get('NUCLEUS')
+        if nucleus_contour is None:
+            nucleus_contour = best_contours.get('DAPI')
+        if nucleus_contour is None:
+            return
+
         mask_contour = np.zeros(gray_GFP.shape, np.uint8)
-        cv2.fillPoly(mask_contour, [best_contours['DAPI']], 255)
+        cv2.fillPoly(mask_contour, [nucleus_contour], 255)
         pts_contour = np.transpose(np.nonzero(mask_contour))
 
         # Build the expected outline filename:
@@ -55,5 +62,4 @@ class NucleusIntensity(Analysis):
         self.cp.cellular_intensity_sum = float(cell_intensity_sum)
 
         self.cp.cytoplasmic_intensity = float(cell_intensity_sum) - float(intensity_sum)
-
 

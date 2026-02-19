@@ -401,6 +401,23 @@
         margin-left:auto;
         order: 1;
       }
+      .analysis-method-hint {
+        margin: 0 8px 2px;
+        font-size: 12px;
+        color: #cfd5dc;
+        text-align: left;
+      }
+      #legacyGfpThresholdContainer {
+        display: none;
+        margin-top: 2px;
+      }
+      #legacyGfpThresholdContainer.visible {
+        display: block;
+      }
+      .analysis-suboption {
+        margin-left: 12px;
+        width: calc(100% - 12px);
+      }
       .analysis-toggle input[type="checkbox"] { display: none; }
       .analysis-switch {
         position: relative;
@@ -570,7 +587,7 @@
       <div class="main-content">
         <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
         <div class="analysis">
-          <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
+          <form action="" method="post" enctype="multipart/form-data" id="preprocessForm" data-mcherry-dot-method="{{ mcherry_dot_method|default:'current' }}" data-legacy-gfp-min-area="{{ legacy_gfp_min_area|default:'14.0' }}" data-legacy-gfp-max-count="{{ legacy_gfp_max_count|default:'8' }}" data-legacy-gfp-otsu-bias="{{ legacy_gfp_otsu_bias|default:'0.0' }}">
             {% csrf_token %}
             <div class="analysis-actions">
               <button type="submit" class="button analyze" id="startAnalysisButton">
@@ -605,6 +622,29 @@
                   {% endif %}
                 </label>
                 {% endfor %}
+                <div class="analysis-divider"></div>
+                <label class="analysis-toggle" id="mcherryMethodRow">
+                  <span id="mCherryMethodLabel">mCherry dots: Current (Canny)</span>
+                  <input type="checkbox" id="mCherryMethodToggle" {% if mcherry_dot_method == 'legacy' %}checked{% endif %}>
+                  <span class="analysis-switch"></span>
+                </label>
+                <input type="hidden" name="mCherry_dot_method" id="mCherryMethodValue" value="{{ mcherry_dot_method|default:'current' }}">
+                <div class="analysis-method-hint">Toggle on to use legacy Otsu thresholding for mCherry dot detection.</div>
+                <div id="legacyGfpThresholdContainer">
+                  <label class="analysis-toggle analysis-suboption">
+                    <span>Legacy GFP intensity bias</span>
+                    <input class="num-entry" type="number" name="legacy_gfp_otsu_bias" id="legacyGfpOtsuBias" min="-80" max="80" step="1" value="{{ legacy_gfp_otsu_bias|default:'0.0' }}">
+                  </label>
+                  <label class="analysis-toggle analysis-suboption">
+                    <span>Legacy GFP min area (px^2)</span>
+                    <input class="num-entry" type="number" name="legacy_gfp_min_area" id="legacyGfpMinArea" min="0" max="500" step="0.5" value="{{ legacy_gfp_min_area|default:'14.0' }}">
+                  </label>
+                  <label class="analysis-toggle analysis-suboption">
+                    <span>Legacy GFP max contours</span>
+                    <input class="num-entry" type="number" name="legacy_gfp_max_count" id="legacyGfpMaxCount" min="1" max="100" step="1" value="{{ legacy_gfp_max_count|default:'8' }}">
+                  </label>
+                  <div class="analysis-method-hint">These controls apply only when mCherry dots is set to Legacy (Otsu). Higher intensity bias includes fainter GFP pixels.</div>
+                </div>
               </div>
             </div>
           </form>
@@ -904,10 +944,22 @@
 
       const selectionKey = "yeastweb.selected_analyses";
       const initializedKey = "yeastweb.selected_analyses_initialized";
+      const methodStorageKey = "yeastweb.mcherry_dot_method";
+      const legacyGfpOtsuBiasStorageKey = "yeastweb.legacy_gfp_otsu_bias";
+      const legacyGfpMinAreaStorageKey = "yeastweb.legacy_gfp_min_area";
+      const legacyGfpMaxCountStorageKey = "yeastweb.legacy_gfp_max_count";
       const selectAllToggle = document.getElementById("analysisSelectAll");
       const analysisToggles = Array.from(
         document.querySelectorAll('input[name="selected_analysis"]')
       );
+      const preprocessForm = document.getElementById("preprocessForm");
+      const mCherryMethodToggle = document.getElementById("mCherryMethodToggle");
+      const mCherryMethodValue = document.getElementById("mCherryMethodValue");
+      const mCherryMethodLabel = document.getElementById("mCherryMethodLabel");
+      const legacyGfpThresholdContainer = document.getElementById("legacyGfpThresholdContainer");
+      const legacyGfpOtsuBiasInput = document.getElementById("legacyGfpOtsuBias");
+      const legacyGfpMinAreaInput = document.getElementById("legacyGfpMinArea");
+      const legacyGfpMaxCountInput = document.getElementById("legacyGfpMaxCount");
 
       const syncSelectAll = () => {
         if (!selectAllToggle) return;
@@ -963,6 +1015,177 @@
         toggle.addEventListener("change", persistSelection);
       });
       loadSelection();
+
+      const parseFloatSetting = (value, fallback, min, max) => {
+        const parsed = Number.parseFloat(value);
+        if (!Number.isFinite(parsed)) return fallback;
+        return Math.min(Math.max(parsed, min), max);
+      };
+
+      const parseIntSetting = (value, fallback, min, max) => {
+        const parsed = Number.parseInt(value, 10);
+        if (!Number.isFinite(parsed)) return fallback;
+        return Math.min(Math.max(parsed, min), max);
+      };
+
+      const getDefaultLegacyGfpMinArea = () =>
+        parseFloatSetting(
+          preprocessForm ? preprocessForm.dataset.legacyGfpMinArea : "",
+          14.0,
+          0.0,
+          500.0
+        );
+
+      const getDefaultLegacyGfpMaxCount = () =>
+        parseIntSetting(
+          preprocessForm ? preprocessForm.dataset.legacyGfpMaxCount : "",
+          8,
+          1,
+          100
+        );
+
+      const getDefaultLegacyGfpOtsuBias = () =>
+        parseFloatSetting(
+          preprocessForm ? preprocessForm.dataset.legacyGfpOtsuBias : "",
+          0.0,
+          -80.0,
+          80.0
+        );
+
+      const parseMcherryMethod = (value) => {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (normalized === "legacy" || normalized === "current") {
+          return normalized;
+        }
+        return null;
+      };
+
+      const applyMcherryMethod = (value) => {
+        const method = parseMcherryMethod(value) || "current";
+        const isLegacy = method === "legacy";
+        if (mCherryMethodToggle) {
+          mCherryMethodToggle.checked = isLegacy;
+        }
+        if (mCherryMethodValue) {
+          mCherryMethodValue.value = method;
+        }
+        if (mCherryMethodLabel) {
+          mCherryMethodLabel.textContent = isLegacy
+            ? "mCherry dots: Legacy (Otsu)"
+            : "mCherry dots: Current (Canny)";
+        }
+        if (legacyGfpThresholdContainer) {
+          legacyGfpThresholdContainer.classList.toggle("visible", isLegacy);
+        }
+        if (legacyGfpOtsuBiasInput) {
+          legacyGfpOtsuBiasInput.disabled = !isLegacy;
+        }
+        if (legacyGfpMinAreaInput) {
+          legacyGfpMinAreaInput.disabled = !isLegacy;
+        }
+        if (legacyGfpMaxCountInput) {
+          legacyGfpMaxCountInput.disabled = !isLegacy;
+        }
+      };
+
+      const persistMcherryMethod = () => {
+        if (!mCherryMethodValue) return;
+        localStorage.setItem(methodStorageKey, mCherryMethodValue.value);
+      };
+
+      const persistLegacyGfpSettings = () => {
+        if (legacyGfpOtsuBiasInput) {
+          const otsuBiasValue = parseFloatSetting(
+            legacyGfpOtsuBiasInput.value,
+            getDefaultLegacyGfpOtsuBias(),
+            -80.0,
+            80.0
+          );
+          legacyGfpOtsuBiasInput.value = String(Math.round(otsuBiasValue));
+          localStorage.setItem(legacyGfpOtsuBiasStorageKey, String(otsuBiasValue));
+        }
+        if (legacyGfpMinAreaInput) {
+          const minAreaValue = parseFloatSetting(
+            legacyGfpMinAreaInput.value,
+            getDefaultLegacyGfpMinArea(),
+            0.0,
+            500.0
+          );
+          legacyGfpMinAreaInput.value = minAreaValue.toFixed(1);
+          localStorage.setItem(legacyGfpMinAreaStorageKey, String(minAreaValue));
+        }
+        if (legacyGfpMaxCountInput) {
+          const maxCountValue = parseIntSetting(
+            legacyGfpMaxCountInput.value,
+            getDefaultLegacyGfpMaxCount(),
+            1,
+            100
+          );
+          legacyGfpMaxCountInput.value = String(maxCountValue);
+          localStorage.setItem(legacyGfpMaxCountStorageKey, String(maxCountValue));
+        }
+      };
+
+      const loadLegacyGfpSettings = () => {
+        if (legacyGfpOtsuBiasInput) {
+          const stored = localStorage.getItem(legacyGfpOtsuBiasStorageKey);
+          const otsuBiasValue = parseFloatSetting(
+            stored,
+            getDefaultLegacyGfpOtsuBias(),
+            -80.0,
+            80.0
+          );
+          legacyGfpOtsuBiasInput.value = String(Math.round(otsuBiasValue));
+        }
+        if (legacyGfpMinAreaInput) {
+          const stored = localStorage.getItem(legacyGfpMinAreaStorageKey);
+          const minAreaValue = parseFloatSetting(
+            stored,
+            getDefaultLegacyGfpMinArea(),
+            0.0,
+            500.0
+          );
+          legacyGfpMinAreaInput.value = minAreaValue.toFixed(1);
+        }
+        if (legacyGfpMaxCountInput) {
+          const stored = localStorage.getItem(legacyGfpMaxCountStorageKey);
+          const maxCountValue = parseIntSetting(
+            stored,
+            getDefaultLegacyGfpMaxCount(),
+            1,
+            100
+          );
+          legacyGfpMaxCountInput.value = String(maxCountValue);
+        }
+      };
+
+      const loadMcherryMethod = () => {
+        const storedMethod = parseMcherryMethod(localStorage.getItem(methodStorageKey));
+        const defaultMethod = parseMcherryMethod(
+          preprocessForm ? preprocessForm.dataset.mcherryDotMethod : ""
+        );
+        applyMcherryMethod(storedMethod || defaultMethod || "current");
+        persistMcherryMethod();
+      };
+
+      if (mCherryMethodToggle) {
+        mCherryMethodToggle.addEventListener("change", () => {
+          applyMcherryMethod(mCherryMethodToggle.checked ? "legacy" : "current");
+          persistMcherryMethod();
+        });
+      }
+      if (legacyGfpOtsuBiasInput) {
+        legacyGfpOtsuBiasInput.addEventListener("change", persistLegacyGfpSettings);
+      }
+      if (legacyGfpMinAreaInput) {
+        legacyGfpMinAreaInput.addEventListener("change", persistLegacyGfpSettings);
+      }
+      if (legacyGfpMaxCountInput) {
+        legacyGfpMaxCountInput.addEventListener("change", persistLegacyGfpSettings);
+      }
+      loadLegacyGfpSettings();
+      persistLegacyGfpSettings();
+      loadMcherryMethod();
 
       // Next / Prev buttons
       document.getElementById("nextButton").addEventListener("click", () => {
