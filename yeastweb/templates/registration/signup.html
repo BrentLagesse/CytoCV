@@ -205,20 +205,29 @@
             gap: 8px;
         }
         .resend-link {
-            background: transparent;
+            background: transparent !important;
             border: none;
             padding: 0;
             color: var(--accent);
             font-size: 13px;
             cursor: pointer;
-            box-shadow: none;
-            filter: none;
+            box-shadow: none !important;
+            filter: none !important;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            transition: color 0.2s ease, text-shadow 0.2s ease;
         }
         .resend-link:hover,
-        .resend-link:focus,
+        .resend-link:focus-visible,
         .resend-link:active {
-            box-shadow: none;
-            filter: none;
+            box-shadow: none !important;
+            filter: none !important;
+            background: transparent !important;
+        }
+        .resend-link:hover,
+        .resend-link:focus-visible {
+            text-shadow: 0 0 8px rgba(0, 123, 255, 0.45);
         }
         .resend-link:disabled {
             color: var(--muted);
