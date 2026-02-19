@@ -350,7 +350,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                     _add_error(errors, "email", "Enter a valid email address")
                     return
                 if user_model.objects.filter(email__iexact=email).exists():
-                    _add_error(errors, "email", "That email is already in use. Sign in instead.")
+                    _add_error(errors, "email", "That email is already in use. Sign In instead.")
 
             if not values["email"]:
                 _add_error(errors, "email", "Enter a valid email address")
@@ -564,7 +564,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             if user_model.objects.filter(email__iexact=values["email"]).exists():
-                _add_error(errors, "email", "That email is already in use. Sign in instead.")
+                _add_error(errors, "email", "That email is already in use. Sign In instead.")
                 step = 2
                 session["signup_step"] = 2
                 return render_current()
@@ -578,7 +578,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 user.set_password(password)
                 user.save()
             except IntegrityError:
-                _add_error(errors, "email", "That email is already in use. Sign in instead.")
+                _add_error(errors, "email", "That email is already in use. Sign In instead.")
                 step = 2
                 session["signup_step"] = 2
                 return render_current()

@@ -8,7 +8,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Sign In</title>
     <style>
         * {
             box-sizing: border-box;
@@ -389,14 +389,14 @@
     <div class="page">
         {% if rate_limit_active %}
             <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
-                Too many login attempts. Try again in <span id="rateLimitCountdown"></span>.
+                Too many sign-in attempts. Try again in <span id="rateLimitCountdown"></span>.
                 <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
             </div>
         {% endif %}
         <div class="login-card soft-fade-in">
             <div class="card-header">
                 <div class="step-indicator">Yeast Web</div>
-                <h1>Sign in</h1>
+                <h1>Sign In</h1>
                 <p class="subtitle">Access your analysis workspace and continue where you left off.</p>
             </div>
 
@@ -414,11 +414,11 @@
                     </div>
                     <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
                         <span class="spinner" aria-hidden="true"></span>
-                        <span class="btn-label">Log In</span>
+                        <span class="btn-label">Sign In</span>
                     </button>
                 </form>
                 <div class="login-footer">
-                    Don’t have an account? <a href="/signup?fresh=1">Sign up</a>
+                    Don’t have an account? <a href="{% url 'signup' %}?fresh=1">Sign up</a>
                 </div>
             </div>
 

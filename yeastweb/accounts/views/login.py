@@ -48,8 +48,8 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         )
 
     def redirect_login() -> HttpResponse:
-        """Redirect back to the login page."""
-        return redirect("login")
+        """Redirect back to the sign-in page."""
+        return redirect("signin")
 
     # Resolve the best-guess client IP for rate limiting.
     ip = get_client_ip(request)
