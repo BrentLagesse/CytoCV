@@ -15,19 +15,45 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
-from core.views import upload_images, homepage, pre_process_step, convert_to_image, segment_image, display
-from accounts.views import profile_view, auth_login, auth_logout, signup
+from django.urls import include, path, re_path
+from django.views.generic import RedirectView
+
+from accounts.views import auth_login, auth_logout, profile_view, signup
+from core.views import (
+    convert_to_image,
+    display,
+    homepage,
+    pre_process_step,
+    segment_image,
+    upload_images,
+)
+from core.views.pre_process_step import (
+    cancel_progress,
+    get_progress,
+    set_progress,
+    update_channel_order,
+)
 from django.conf import settings
-from django.conf.urls.static import static  
-from django.urls import path
-from core.views.pre_process_step import update_channel_order, get_progress, set_progress, cancel_progress
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', homepage, name="homepage"),
-    path('login/',auth_login, name="login"),
-    path('login/oauth',include('allauth.urls'), name="oauth_login"),
+    path('signin/', auth_login, name="signin"),
+    path(
+        'login/',
+        RedirectView.as_view(pattern_name="signin", permanent=False, query_string=True),
+        name="login",
+    ),
+    path('login/oauth', include('allauth.urls')),
+    re_path(
+        r'^signin/oauth/?(?P<path>.*)$',
+        RedirectView.as_view(
+            url="/login/oauth%(path)s",
+            permanent=False,
+            query_string=True,
+        ),
+    ),
     path('logout/',auth_logout, name="logout"),
     path('signup/',signup, name="signup"),
     path('profile/',profile_view ,name="profile"),

@@ -1,468 +1,674 @@
-<!-- Navigation bar -->
 {% extends 'base.html' %}
-<!-- Template specific content -->
-{% block content %}
 {% load socialaccount %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
 
-        body {
-            font-family: var(--app-font);
-            background-color: var(--page-bg);
-            color: var(--text);
-            margin: 0;
-            min-height: 100vh;
-            padding: 0;
+{% block head %}
+<style>
+    .login-page {
+        min-height: calc(100vh - var(--nav-height));
+        padding: calc(var(--nav-height) + 32px) 16px 40px;
+        display: grid;
+        place-items: center;
+        background: var(--page-bg-gradient), var(--page-bg);
+    }
+    .page {
+        width: min(720px, 96vw);
+        display: grid;
+        gap: 20px;
+    }
+    .card {
+        width: 100%;
+        background: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 18px;
+        padding: 30px 34px;
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
+        display: grid;
+        gap: 18px;
+    }
+    .section {
+        background: var(--surface-mid);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        display: grid;
+        gap: 14px;
+    }
+    .step-indicator {
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    h1 {
+        margin: 0;
+        font-size: 28px;
+        color: var(--text);
+    }
+    .subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .title {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--muted);
+    }
+    .form {
+        display: grid;
+        gap: 14px;
+    }
+    .field {
+        display: grid;
+        gap: 6px;
+    }
+    .field-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 18px;
+    }
+    label {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .required-star {
+        color: #f28b82;
+        margin-left: 4px;
+    }
+    .required-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+    }
+    .field-error {
+        margin: 0;
+        color: #f28b82;
+        font-size: 12px;
+        text-align: right;
+    }
+    input {
+        width: 100%;
+        background: var(--surface-muted-alt);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        color: var(--text);
+        font-size: 14px;
+        height: 44px;
+    }
+    input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+    }
+    .field.has-error input {
+        border-color: #ff4d4f;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.25);
+    }
+    .field.has-error input:focus {
+        border-color: #ff4d4f;
+        box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.3);
+    }
+    .field.has-error {
+        animation: fieldShake 0.18s ease-in-out 2;
+    }
+    @keyframes fieldShake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-2px); }
+        50% { transform: translateX(2px); }
+        75% { transform: translateX(-2px); }
+        100% { transform: translateX(0); }
+    }
+    input:disabled {
+        background: #3b1a1f;
+        border-color: #ff4d4f;
+        color: #ffd6d6;
+        opacity: 0.9;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--text);
+        box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
+        caret-color: var(--text);
+        transition: background-color 9999s ease-in-out 0s;
+    }
+    input:autofill {
+        box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
+        -webkit-text-fill-color: var(--text);
+        caret-color: var(--text);
+    }
+    .btn, .primary-btn {
+        border: none;
+        border-radius: 999px;
+        padding: 12px 42px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
+    }
+    .btn.primary, .primary-btn {
+        background: var(--accent);
+        color: #fff;
+    }
+    .btn.primary:hover, .primary-btn:hover {
+        background: var(--accent-dark);
+    }
+    .btn.secondary {
+        background: var(--surface-muted-alt);
+        color: var(--text);
+        border: 1px solid var(--panel-border);
+    }
+    .btn.secondary:hover {
+        background: var(--surface-hover-strong);
+    }
+    .btn:disabled, .primary-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .btn-spinner, .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #ffffff;
+        border-right-color: #ffffff;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+        display: none;
+    }
+    .loading .btn-spinner, .loading .spinner {
+        display: inline-block;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .form-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 4px;
+    }
+    .resend-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .resend-link {
+        background: transparent !important;
+        border: none;
+        padding: 0;
+        color: var(--accent);
+        font-size: 13px;
+        cursor: pointer;
+        box-shadow: none !important;
+        filter: none !important;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        transition: color 0.2s ease, text-shadow 0.2s ease;
+    }
+    .resend-link:hover,
+    .resend-link:focus-visible,
+    .resend-link:active {
+        box-shadow: none !important;
+        filter: none !important;
+        background: transparent !important;
+    }
+    .resend-link:hover,
+    .resend-link:focus-visible {
+        text-shadow: 0 0 8px rgba(0, 123, 255, 0.45);
+    }
+    .resend-link:disabled {
+        color: var(--muted);
+        cursor: not-allowed;
+    }
+    .resend-timer {
+        color: var(--muted);
+        font-size: 12px;
+    }
+    .login-footer {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+    .login-footer a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .login-footer a:hover {
+        text-decoration: underline;
+    }
+    .footer-separator {
+        color: var(--muted);
+        opacity: 0.75;
+    }
+    .oauth-grid {
+        display: grid;
+        gap: 10px;
+    }
+    .oauth-grid form {
+        margin: 0;
+    }
+    .oauth-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        color: #f5f5f5;
+        background: var(--surface-muted-alt);
+        font-size: 14px;
+        width: 100%;
+        cursor: pointer;
+    }
+    .oauth-btn:hover {
+        background: var(--surface-hover-strong);
+    }
+    .oauth-btn:disabled {
+        cursor: not-allowed;
+    }
+    .oauth-icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .oauth-icon svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+    }
+    .rate-limit-banner,
+    .page-banner,
+    .oauth-error-toast {
+        background: #3b1a1f;
+        border: 1px solid var(--danger);
+        color: #ffd6d6;
+    }
+    .rate-limit-banner {
+        padding: 10px 12px 10px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        position: fixed;
+        top: calc(var(--nav-height) + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(720px, calc(100% - 32px));
+        z-index: 1500;
+    }
+    .message-close {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        background: #3b1a1f;
+        border: none;
+        color: inherit;
+        font-size: 18px;
+        cursor: pointer;
+        line-height: 1;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+    .message-close:hover {
+        background: #5a2a31;
+    }
+    .page-banner {
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 13px;
+    }
+    .notice-toast {
+        position: fixed;
+        top: calc(var(--nav-height) + 12px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(720px, calc(100% - 32px));
+        z-index: 1500;
+    }
+    .notice-banner {
+        background: rgba(34, 197, 94, 0.16);
+        border: 1px solid rgba(34, 197, 94, 0.45);
+        color: #c3f1d5;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 13px;
+    }
+    .oauth-error-toast {
+        position: fixed;
+        top: calc(var(--nav-height) + 16px);
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 14px 36px 14px 20px;
+        border-radius: 10px;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        z-index: 1500;
+        font-size: 14px;
+        width: min(720px, calc(100% - 32px));
+    }
+    .oauth-error-toast span {
+        flex: 1;
+    }
+    .oauth-error-close {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        background: #3b1a1f;
+        border: none;
+        color: inherit;
+        font-size: 18px;
+        cursor: pointer;
+        line-height: 1;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+    .oauth-error-close:hover {
+        background: #5a2a31;
+    }
+    .email-display,
+    .password-hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .email-display strong {
+        color: var(--text);
+    }
+    .shake {
+        animation: shake 0.18s ease-in-out 2;
+    }
+    @keyframes shake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-1px); }
+        50% { transform: translateX(1px); }
+        75% { transform: translateX(-1px); }
+        100% { transform: translateX(0); }
+    }
+    @media (max-width: 640px) {
+        .card {
+            padding: 24px 20px;
         }
-
-        .login-page {
-            min-height: calc(100vh - var(--nav-height));
-            padding: calc(var(--nav-height) + 32px) 16px 40px;
-            display: grid;
-            place-items: center;
-            background:
-                var(--page-bg-gradient),
-                var(--page-bg);
-        }
-
-        .page {
-            width: min(720px, 96vw);
-            display: grid;
-            gap: 20px;
-        }
-
-        .login-card {
-            width: 100%;
-            background: var(--card-bg);
-            border: 1px solid var(--panel-border);
-            border-radius: 18px;
-            padding: 30px 34px;
-            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
-            display: grid;
-            gap: 20px;
-        }
-
-        .card-header {
-            display: grid;
-            gap: 8px;
-        }
-
-        .step-indicator {
-            font-size: 12px;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-            color: var(--muted);
-        }
-
         h1 {
-            margin: 0;
-            font-size: 28px;
+            font-size: 24px;
         }
+        .form-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .form-footer .right {
+            justify-content: flex-end;
+        }
+    }
+</style>
+{% endblock head %}
 
-        .subtitle {
-            margin: 0;
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .panel {
-            background: var(--surface-mid);
-            border: 1px solid var(--panel-border);
-            border-radius: 14px;
-            padding: 18px 20px;
-            display: grid;
-            gap: 16px;
-        }
-
-        .panel-title {
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.22em;
-            color: var(--muted);
-        }
-
-        .login-form {
-            display: grid;
-            gap: 14px;
-        }
-
-        .login-footer {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--muted);
-            font-size: 13px;
-        }
-        .login-footer a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 600;
-        }
-        .login-footer a:hover { text-decoration: underline; }
-
-        .field {
-            display: grid;
-            gap: 6px;
-        }
-
-        label {
-            font-size: 12px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--muted);
-        }
-
-        input {
-            width: 100%;
-            background: var(--surface-muted-alt);
-            border: 1px solid var(--panel-border);
-            border-radius: 10px;
-            padding: 12px 14px;
-            color: var(--text);
-            font-size: 14px;
-            height: 44px;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
-        }
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus {
-            -webkit-text-fill-color: var(--text);
-            box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
-            caret-color: var(--text);
-            transition: background-color 9999s ease-in-out 0s;
-        }
-        input:autofill {
-            box-shadow: 0 0 0px 1000px var(--surface-muted-alt) inset;
-            -webkit-text-fill-color: var(--text);
-            caret-color: var(--text);
-        }
-
-        .primary-btn {
-            background-color: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 999px;
-            padding: 12px 18px;
-            padding-left: 42px;
-            padding-right: 42px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
-        }
-
-        .primary-btn:hover {
-            background-color: var(--accent-dark);
-            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
-        }
-        .primary-btn:disabled {
-            background-color: var(--accent-dark);
-            cursor: not-allowed;
-        }
-
-        .primary-btn .spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            border-top-color: #fff;
-            border-right-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.9s linear infinite;
-            display: none;
-        }
-
-        .primary-btn.loading .spinner {
-            display: inline-block;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .oauth-grid {
-            display: grid;
-            gap: 10px;
-        }
-        .oauth-grid form {
-            margin: 0;
-            width: 100%;
-        }
-
-        .oauth-grid form {
-            margin: 0;
-        }
-
-        .oauth-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 12px;
-            border-radius: 999px;
-            border: 1px solid var(--panel-border);
-            color: #f5f5f5;
-            background: var(--surface-muted-alt);
-            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-            font-size: 14px;
-            width: 100%;
-            text-decoration: none;
-            cursor: pointer;
-            font-family: inherit;
-            line-height: 1.2;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
-        }
-
-        .oauth-btn:hover {
-            background: var(--surface-hover-strong);
-            border-color: var(--panel-border);
-            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
-        }
-        .oauth-btn:disabled {
-            background: var(--surface-muted-alt);
-            border-color: var(--panel-border);
-            cursor: not-allowed;
-        }
-        .rate-limited .oauth-btn {
-            background: var(--surface-muted-alt);
-            border-color: var(--panel-border);
-        }
-        .rate-limited .oauth-btn,
-        .rate-limited .primary-btn {
-            pointer-events: none;
-        }
-
-        .oauth-btn.is-disabled {
-            background: var(--surface-muted-alt);
-            border-color: var(--panel-border);
-            color: #bdbdbd;
-            pointer-events: none;
-            cursor: not-allowed;
-        }
-
-        .oauth-icon {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            border: none;
-        }
-        .oauth-icon svg {
-            width: 16px;
-            height: 16px;
-            display: block;
-        }
-
-        .error-box {
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            color: #ffd6d6;
-            padding: 10px 12px;
-            border-radius: 8px;
-            font-size: 13px;
-        }
-        .oauth-error-toast {
-            position: fixed;
-            top: calc(var(--nav-height) + 16px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            color: #ffd6d6;
-            padding: 14px 36px 14px 20px;
-            border-radius: 10px;
-            display: flex;
-            align-items: flex-start;
-            gap: 14px;
-            box-shadow: 0 12px 22px rgba(0, 0, 0, 0.35);
-            z-index: 1500;
-            font-size: 14px;
-            width: min(720px, calc(100% - 32px));
-            line-height: 1.4;
-            text-align: left;
-        }
-        .oauth-error-toast span { flex: 1; }
-        .oauth-error-close {
-            position: absolute;
-            top: 6px;
-            right: 10px;
-            background: #3b1a1f;
-            border: none;
-            color: inherit;
-            font-size: 18px;
-            cursor: pointer;
-            line-height: 1;
-            padding: 2px 8px;
-            border-radius: 6px;
-        }
-        .oauth-error-close:hover { background: #5a2a31; }
-        .shake {
-            animation: shake 0.18s ease-in-out 2;
-        }
-        @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-1px); }
-            50% { transform: translateX(1px); }
-            75% { transform: translateX(-1px); }
-            100% { transform: translateX(0); }
-        }
-
-        .message-container {
-            position: fixed;
-            top: calc(var(--nav-height) + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(720px, calc(100% - 32px));
-            margin: 0;
-            z-index: 1500;
-            pointer-events: none;
-        }
-
-        .message-container .message {
-            pointer-events: auto;
-        }
-
-        .rate-limit-banner {
-            background: #3b1a1f;
-            border: 1px solid var(--danger);
-            color: #ffd6d6;
-            padding: 10px 12px;
-            padding-right: 36px;
-            border-radius: 8px;
-            font-size: 14px;
-            position: fixed;
-            top: calc(var(--nav-height) + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(720px, calc(100% - 32px));
-            z-index: 1500;
-        }
-        .rate-limit-banner .message-close {
-            position: absolute;
-            top: 6px;
-            right: 10px;
-            background: #3b1a1f;
-            border: none;
-            color: inherit;
-            font-size: 18px;
-            cursor: pointer;
-            line-height: 1;
-            padding: 2px 8px;
-            border-radius: 6px;
-        }
-        .rate-limit-banner .message-close:hover { background: #5a2a31; }
-
-        @media (max-width: 640px) {
-            .login-card {
-                padding: 24px 20px;
-            }
-            h1 {
-                font-size: 24px;
-            }
-        }
-    </style>
-</head>
-<body{% if rate_limit_active %} class="rate-limited"{% endif %}>
-    <div class="login-page">
+{% block content %}
+<div class="login-page">
     <div class="page">
-        {% if rate_limit_active %}
-            <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
-                Too many login attempts. Try again in <span id="rateLimitCountdown"></span>.
-                <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
+        {% if recovery_mode %}
+            <div class="card soft-fade-in">
+                <div>
+                    <div class="step-indicator">Step {{ recovery_step }} of {{ recovery_step_total }}</div>
+                    {% if recovery_step == 1 %}
+                        <h1>Reset your password</h1>
+                        <p class="subtitle">Enter your account email to receive a verification code.</p>
+                    {% elif recovery_step == 2 %}
+                        <h1>Verify your email</h1>
+                        <p class="subtitle">Enter the verification code to continue.</p>
+                    {% else %}
+                        <h1>Create a new password</h1>
+                        <p class="subtitle">Set your new password and sign in automatically.</p>
+                    {% endif %}
+                </div>
+
+                <form method="post" action="{% url 'signin' %}?recover=1" class="form recovery-form" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="flow" value="recovery">
+
+                    {% if recovery_step == 1 %}
+                        <div class="field{% if recovery_errors.email %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="recovery_email">Email<span class="required-star">*</span></label>
+                                {% if recovery_errors.email %}
+                                    <span class="field-error" role="alert">{{ recovery_errors.email.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="email"
+                                id="recovery_email"
+                                name="email"
+                                autocomplete="email"
+                                value="{{ recovery_values.email|default:'' }}"
+                                aria-required="true"
+                                {% if recovery_errors.email %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                        <p class="required-note"><span class="required-star">*</span> Required</p>
+                        <div class="form-footer">
+                            <div>
+                                <button type="submit" name="cancel_recovery" class="btn secondary">Back</button>
+                            </div>
+                            <div class="right">
+                                <button type="submit" name="send_code" class="btn primary" data-spinner="1">
+                                    <span class="btn-spinner" aria-hidden="true"></span>
+                                    <span class="btn-label">Send code</span>
+                                </button>
+                            </div>
+                        </div>
+                    {% elif recovery_step == 2 %}
+                        <p class="email-display">
+                            Verification code sent to <strong>{{ recovery_values.email }}</strong>{% if recovery_sender_email %} from <strong>{{ recovery_sender_email }}</strong>{% endif %}.
+                        </p>
+                        <div class="field{% if recovery_errors.verify_code %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="recovery_verify_code">Verification code<span class="required-star">*</span></label>
+                                {% if recovery_errors.verify_code %}
+                                    <span class="field-error" role="alert">{{ recovery_errors.verify_code.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="text"
+                                id="recovery_verify_code"
+                                name="verify_code"
+                                inputmode="numeric"
+                                autocomplete="one-time-code"
+                                pattern="[0-9]{6}"
+                                maxlength="6"
+                                value="{{ recovery_values.verify_code|default:'' }}"
+                                aria-required="true"
+                                {% if recovery_errors.verify_code %}aria-invalid="true"{% endif %}
+                                {% if recovery_code_locked %}disabled{% endif %}
+                            >
+                        </div>
+                        <div class="resend-row">
+                            <button
+                                type="submit"
+                                name="resend_code"
+                                class="resend-link"
+                                id="recoveryResendButton"
+                                data-resend="{{ recovery_resend_available_in|default:0 }}"
+                                {% if recovery_resend_available_in %}disabled{% endif %}
+                            >
+                                Resend code
+                            </button>
+                            <span class="resend-timer" id="recoveryResendTimer"></span>
+                        </div>
+                        <div class="form-footer">
+                            <div>
+                                <button type="submit" name="back_email" class="btn secondary">Back</button>
+                            </div>
+                            <div class="right">
+                                <button
+                                    type="submit"
+                                    name="verify_code_submit"
+                                    id="recoveryVerifyButton"
+                                    class="btn primary"
+                                    data-spinner="1"
+                                    {% if recovery_code_locked %}disabled{% endif %}
+                                >
+                                    <span class="btn-spinner" aria-hidden="true"></span>
+                                    <span class="btn-label">{% if recovery_code_verified %}Continue{% else %}Verify code{% endif %}</span>
+                                </button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="field{% if recovery_errors.password %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="recovery_password">Password<span class="required-star">*</span></label>
+                                {% if recovery_errors.password %}
+                                    <span class="field-error" role="alert">{{ recovery_errors.password.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="password"
+                                id="recovery_password"
+                                name="password"
+                                autocomplete="new-password"
+                                aria-required="true"
+                                {% if recovery_errors.password %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                        <div class="field{% if recovery_errors.verify_password or recovery_confirm_outline %} has-error{% endif %}">
+                            <div class="field-header">
+                                <label for="recovery_verify_password">Confirm password<span class="required-star">*</span></label>
+                                {% if recovery_errors.verify_password %}
+                                    <span class="field-error" role="alert">{{ recovery_errors.verify_password.0 }}</span>
+                                {% endif %}
+                            </div>
+                            <input
+                                type="password"
+                                id="recovery_verify_password"
+                                name="verify_password"
+                                autocomplete="new-password"
+                                aria-required="true"
+                                {% if recovery_errors.verify_password %}aria-invalid="true"{% endif %}
+                            >
+                        </div>
+                        <p class="password-hint">Use at least 8 characters and avoid common or numeric-only passwords.</p>
+                        <p class="required-note"><span class="required-star">*</span> Required</p>
+                        <div class="form-footer">
+                            <div>
+                                <button type="submit" name="back_code" class="btn secondary">Back</button>
+                            </div>
+                            <div class="right">
+                                <button type="submit" name="reset_password" class="btn primary" data-spinner="1">
+                                    <span class="btn-spinner" aria-hidden="true"></span>
+                                    <span class="btn-label">Reset password</span>
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </form>
+            </div>
+        {% else %}
+            {% if rate_limit_active %}
+                <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
+                    Too many sign-in attempts. Try again in <span id="rateLimitCountdown"></span>.
+                    <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
+                </div>
+            {% endif %}
+
+            <div class="card soft-fade-in">
+                <div>
+                    <div class="step-indicator">Yeast Web</div>
+                    <h1>Sign In</h1>
+                    <p class="subtitle">Access your analysis workspace and continue where you left off.</p>
+                </div>
+
+                <div class="section">
+                    <div class="title">Credentials</div>
+                    <form method="post" class="form login-form" novalidate>
+                        {% csrf_token %}
+                        <div class="field">
+                            <label for="user_email">Email</label>
+                            <input type="email" id="user_email" name="email" placeholder="Enter your email" autocomplete="email">
+                        </div>
+                        <div class="field">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
+                        </div>
+                        <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
+                            <span class="spinner" aria-hidden="true"></span>
+                            <span class="btn-label">Sign In</span>
+                        </button>
+                    </form>
+                    <div class="login-footer">
+                        <span>Forgot your password? <a href="{% url 'signin' %}?recover=1&fresh=1">Reset password</a></span>
+                        <span class="footer-separator" aria-hidden="true">|</span>
+                        <span>Don't have an account? <a href="{% url 'signup' %}?fresh=1">Sign up</a></span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="title">Single sign-on</div>
+                    <div class="oauth-grid">
+                        <form method="post" action="{% provider_login_url 'google' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
+                                <span class="oauth-icon google" aria-hidden="true">
+                                    <svg viewBox="0 0 48 48" role="img">
+                                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.22 9.24 3.22l6.89-6.89C35.75 2.19 30.15 0 24 0 14.64 0 6.61 5.38 2.69 13.22l7.98 6.19C12.64 12.27 17.94 9.5 24 9.5z"/>
+                                        <path fill="#4285F4" d="M46.08 24.55c0-1.64-.15-3.22-.43-4.74H24v9h12.47c-.54 2.85-2.17 5.27-4.64 6.89l7.1 5.52c4.14-3.81 6.15-9.41 6.15-16.67z"/>
+                                        <path fill="#FBBC05" d="M10.67 28.41c-.6-1.8-.94-3.72-.94-5.7 0-1.98.34-3.9.94-5.7l-7.98-6.19C1.13 14.65 0 18.72 0 22.71c0 3.99 1.13 8.06 2.69 11.89l7.98-6.19z"/>
+                                        <path fill="#34A853" d="M24 45.5c6.15 0 11.3-2.04 15.07-5.54l-7.1-5.52c-1.98 1.33-4.51 2.12-7.97 2.12-6.06 0-11.36-2.77-13.33-6.81l-7.98 6.19C6.61 42.62 14.64 48 24 48z"/>
+                                    </svg>
+                                </span>
+                                Continue with Google
+                            </button>
+                        </form>
+                        <form method="post" action="{% provider_login_url 'microsoft' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
+                                <span class="oauth-icon microsoft" aria-hidden="true">
+                                    <svg viewBox="0 0 23 23" role="img">
+                                        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                        <rect x="13" y="1" width="9" height="9" fill="#7FBA00"/>
+                                        <rect x="1" y="13" width="9" height="9" fill="#00A4EF"/>
+                                        <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
+                                    </svg>
+                                </span>
+                                Continue with Microsoft
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
         {% endif %}
-        <div class="login-card soft-fade-in">
-            <div class="card-header">
-                <div class="step-indicator">Yeast Web</div>
-                <h1>Sign in</h1>
-                <p class="subtitle">Access your analysis workspace and continue where you left off.</p>
-            </div>
-
-            <div class="panel">
-                <div class="panel-title">Credentials</div>
-                <form method="post" class="login-form">
-                    {% csrf_token %}
-                    <div class="field">
-                        <label for="user_email">Email</label>
-                        <input type="email" id="user_email" name="email" placeholder="Enter your email" autocomplete="email">
-                    </div>
-                    <div class="field">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
-                    </div>
-                    <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
-                        <span class="spinner" aria-hidden="true"></span>
-                        <span class="btn-label">Log In</span>
-                    </button>
-                </form>
-                <div class="login-footer">
-                    Don’t have an account? <a href="/signup?fresh=1">Sign up</a>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-title">Single sign-on</div>
-                <div class="oauth-grid">
-                    <form method="post" action="{% provider_login_url 'google' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
-                            <span class="oauth-icon google" aria-hidden="true">
-                                <svg viewBox="0 0 48 48" role="img">
-                                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.22 9.24 3.22l6.89-6.89C35.75 2.19 30.15 0 24 0 14.64 0 6.61 5.38 2.69 13.22l7.98 6.19C12.64 12.27 17.94 9.5 24 9.5z"/>
-                                    <path fill="#4285F4" d="M46.08 24.55c0-1.64-.15-3.22-.43-4.74H24v9h12.47c-.54 2.85-2.17 5.27-4.64 6.89l7.1 5.52c4.14-3.81 6.15-9.41 6.15-16.67z"/>
-                                    <path fill="#FBBC05" d="M10.67 28.41c-.6-1.8-.94-3.72-.94-5.7 0-1.98.34-3.9.94-5.7l-7.98-6.19C1.13 14.65 0 18.72 0 22.71c0 3.99 1.13 8.06 2.69 11.89l7.98-6.19z"/>
-                                    <path fill="#34A853" d="M24 45.5c6.15 0 11.3-2.04 15.07-5.54l-7.1-5.52c-1.98 1.33-4.51 2.12-7.97 2.12-6.06 0-11.36-2.77-13.33-6.81l-7.98 6.19C6.61 42.62 14.64 48 24 48z"/>
-                                </svg>
-                            </span>
-                            Continue with Google
-                        </button>
-                    </form>
-                    <form method="post" action="{% provider_login_url 'microsoft' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
-                            <span class="oauth-icon microsoft" aria-hidden="true">
-                                <svg viewBox="0 0 23 23" role="img">
-                                    <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-                                    <rect x="13" y="1" width="9" height="9" fill="#7FBA00"/>
-                                    <rect x="1" y="13" width="9" height="9" fill="#00A4EF"/>
-                                    <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
-                                </svg>
-                            </span>
-                            Continue with Microsoft
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-        </div>
     </div>
+</div>
+
+{% if recovery_mode and recovery_code_notice %}
+    <div class="notice-toast">
+        <div class="notice-banner">{{ recovery_code_notice }}</div>
     </div>
-    {% if rate_limit_active %}
-    <div id="rateLimitMeta" data-remaining="{{ rate_limit_retry_after|default:0 }}"></div>
-    {% endif %}
-    {% if request.GET.oauth_error %}
+{% endif %}
+
+{% if recovery_mode and recovery_page_error %}
+    <div class="message-container">
+        <div class="message error" role="alert">{{ recovery_page_error }}</div>
+    </div>
+{% endif %}
+
+{% if not recovery_mode and request.GET.oauth_error %}
     <div class="oauth-error-toast" id="oauthErrorToast">
         <span>
             {% if request.GET.provider %}
@@ -473,94 +679,140 @@
         </span>
         <button type="button" class="oauth-error-close" id="oauthErrorClose" aria-label="Close">&times;</button>
     </div>
-    <script>
-        (() => {
-            const toast = document.getElementById('oauthErrorToast');
-            const close = document.getElementById('oauthErrorClose');
-            if (!toast || !close) return;
-            close.addEventListener('click', () => toast.remove());
-            setTimeout(() => toast.remove(), 7000);
-        })();
-    </script>
-    {% endif %}
-    {% if rate_limit_active %}
-    <script>
-        (() => {
-            const meta = document.getElementById('rateLimitMeta');
-            const countdownEl = document.getElementById('rateLimitCountdown');
-            const banner = document.getElementById('rateLimitBanner');
-            const bannerClose = document.getElementById('rateLimitClose');
-            if (!meta) return;
-            const messageContainer = document.querySelector('.message-container');
-            if (messageContainer) {
-                messageContainer
-                    .querySelectorAll('.message.rate-limit')
-                    .forEach((msgEl) => msgEl.remove());
+{% endif %}
+
+{% if not recovery_mode and rate_limit_active %}
+    <div id="rateLimitMeta" data-remaining="{{ rate_limit_retry_after|default:0 }}"></div>
+{% endif %}
+
+{% if not recovery_mode and request.GET.oauth_error %}
+<script>
+    (() => {
+        const toast = document.getElementById('oauthErrorToast');
+        const close = document.getElementById('oauthErrorClose');
+        if (!toast || !close) return;
+        close.addEventListener('click', () => toast.remove());
+        setTimeout(() => toast.remove(), 7000);
+    })();
+</script>
+{% endif %}
+
+{% if not recovery_mode and rate_limit_active %}
+<script>
+    (() => {
+        const meta = document.getElementById('rateLimitMeta');
+        const countdownEl = document.getElementById('rateLimitCountdown');
+        const banner = document.getElementById('rateLimitBanner');
+        const bannerClose = document.getElementById('rateLimitClose');
+        if (!meta) return;
+        let remaining = parseInt(meta.dataset.remaining || '0', 10);
+        if (!Number.isFinite(remaining) || remaining < 0) remaining = 0;
+        const updateText = () => {
+            const mins = Math.max(0, Math.floor(remaining / 60));
+            const seconds = Math.max(0, remaining % 60);
+            if (countdownEl) countdownEl.textContent = mins > 0 ? `${mins}m ${seconds}s` : `${seconds}s`;
+        };
+        updateText();
+        const timer = setInterval(() => {
+            remaining = Math.max(0, remaining - 1);
+            updateText();
+            if (remaining <= 0) {
+                clearInterval(timer);
+                window.location.reload();
             }
-            let remaining = parseInt(meta.dataset.remaining || '0', 10);
-            if (!Number.isFinite(remaining) || remaining < 0) {
-                remaining = 0;
-            }
-            const dismissKey = 'rateLimitDismissedUntil';
-            const dismissedUntil = parseInt(sessionStorage.getItem(dismissKey) || '0', 10);
-            if (banner && dismissedUntil && dismissedUntil > Date.now()) {
-                banner.remove();
-            }
-            const updateText = () => {
-                const mins = Math.max(0, Math.floor(remaining / 60));
-                const seconds = Math.max(0, remaining % 60);
-                if (countdownEl) {
-                    countdownEl.textContent = mins > 0 ? `${mins}m ${seconds}s` : `${seconds}s`;
+        }, 1000);
+        if (banner && bannerClose) {
+            bannerClose.addEventListener('click', () => banner.remove());
+        }
+    })();
+</script>
+{% endif %}
+
+{% if not recovery_mode and login_failed %}
+<script>
+    (() => {
+        const btn = document.getElementById('loginSubmit');
+        if (!btn) return;
+        btn.classList.remove('shake');
+        void btn.offsetWidth;
+        btn.classList.add('shake');
+    })();
+</script>
+{% endif %}
+
+{% if recovery_mode %}
+<script>
+    (() => {
+        const form = document.querySelector('.recovery-form');
+        if (!form) return;
+
+        const resendButton = document.getElementById('recoveryResendButton');
+        const timer = document.getElementById('recoveryResendTimer');
+        const codeInput = document.getElementById('recovery_verify_code');
+        const verifyButton = document.getElementById('recoveryVerifyButton');
+
+        if (resendButton && timer) {
+            let remaining = parseInt(resendButton.dataset.resend || '0', 10);
+            if (!Number.isFinite(remaining)) remaining = 0;
+            const update = () => {
+                if (remaining > 0) {
+                    resendButton.disabled = true;
+                    timer.textContent = `(${remaining}s)`;
+                } else {
+                    resendButton.disabled = false;
+                    timer.textContent = '';
                 }
             };
-            updateText();
-            const timer = setInterval(() => {
-                remaining = Math.max(0, remaining - 1);
-                updateText();
-                if (remaining <= 0) {
-                    clearInterval(timer);
-                    sessionStorage.removeItem(dismissKey);
-                    window.location.reload();
-                }
-            }, 1000);
-            if (banner && bannerClose) {
-                bannerClose.addEventListener('click', () => {
-                    const dismissUntil = Date.now() + Math.max(remaining, 1) * 1000;
-                    sessionStorage.setItem(dismissKey, String(dismissUntil));
-                    banner.remove();
-                });
+            update();
+            if (remaining > 0) {
+                const interval = setInterval(() => {
+                    remaining = Math.max(0, remaining - 1);
+                    update();
+                    if (remaining <= 0) clearInterval(interval);
+                }, 1000);
             }
-        })();
-    </script>
-    {% endif %}
-    {% if login_failed %}
-    <script>
-        (() => {
-            const btn = document.getElementById('loginSubmit');
-            if (!btn) return;
-            btn.classList.remove('shake');
-            void btn.offsetWidth;
-            btn.classList.add('shake');
-        })();
-    </script>
-    {% endif %}
-    <script>
-        (() => {
-            const form = document.querySelector('.login-form');
-            const submit = document.getElementById('loginSubmit');
-            if (!form || !submit) return;
-            let submitted = false;
-            form.addEventListener('submit', (event) => {
-                if (submitted) {
+        }
+
+        if (codeInput && verifyButton) {
+            codeInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
                     event.preventDefault();
-                    return;
+                    verifyButton.click();
                 }
-                submitted = true;
-                submit.disabled = true;
-                submit.classList.add('loading');
             });
-        })();
-    </script>
-</body>
-</html>
+        }
+
+        form.addEventListener('submit', (event) => {
+            if (form.dataset.submitting === '1') {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = '1';
+            const submitter = event.submitter;
+            if (!submitter) return;
+            if (submitter.dataset.spinner === '1') {
+                submitter.classList.add('loading');
+            }
+        });
+    })();
+</script>
+{% else %}
+<script>
+    (() => {
+        const form = document.querySelector('.login-form');
+        const submit = document.getElementById('loginSubmit');
+        if (!form || !submit) return;
+        let submitted = false;
+        form.addEventListener('submit', (event) => {
+            if (submitted) {
+                event.preventDefault();
+                return;
+            }
+            submitted = true;
+            submit.disabled = true;
+            submit.classList.add('loading');
+        });
+    })();
+</script>
+{% endif %}
 {% endblock content %}

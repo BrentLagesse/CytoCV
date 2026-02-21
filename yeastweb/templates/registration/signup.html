@@ -205,12 +205,29 @@
             gap: 8px;
         }
         .resend-link {
-            background: transparent;
+            background: transparent !important;
             border: none;
             padding: 0;
             color: var(--accent);
             font-size: 13px;
             cursor: pointer;
+            box-shadow: none !important;
+            filter: none !important;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            transition: color 0.2s ease, text-shadow 0.2s ease;
+        }
+        .resend-link:hover,
+        .resend-link:focus-visible,
+        .resend-link:active {
+            box-shadow: none !important;
+            filter: none !important;
+            background: transparent !important;
+        }
+        .resend-link:hover,
+        .resend-link:focus-visible {
+            text-shadow: 0 0 8px rgba(0, 123, 255, 0.45);
         }
         .resend-link:disabled {
             color: var(--muted);
@@ -393,7 +410,7 @@
                     <p class="required-note"><span class="required-star">*</span> Required</p>
                     <div class="form-footer">
                         <div class="footer-left">
-                            Already have an account? <a href="/login">Sign in</a>
+                            Already have an account? <a href="{% url 'signin' %}">Sign In</a>
                         </div>
                         <div class="footer-right">
                             <button type="submit" name="next_step" class="btn primary">
