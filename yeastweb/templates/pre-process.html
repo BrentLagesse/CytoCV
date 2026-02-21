@@ -583,11 +583,7 @@
 
         <div class="image-container" id="imageContainer">
           {% for image in images %}
-            {% if forloop.first %}
-              <img src="{{ image.file_location.url }}" width="500" height="500" />
-            {% else %}
-              <img src="{{ image.file_location.url }}" width="300" height="300" />
-            {% endif %}
+            <img src="{{ image.file_location.url }}" width="300" height="300" />
           {% endfor %}
         </div>
 
@@ -945,8 +941,8 @@
             data.images.forEach((img, i) => {
               const el = document.createElement("img");
               el.src = img.file_location.url;
-              if (i === 0) { el.width = 500; el.height = 500; }
-              else { el.width = 300; el.height = 300; }
+              el.width = 300;
+              el.height = 300;
               container.appendChild(el);
             });
             document.getElementById("fileName").textContent = data.file_name;
