@@ -175,13 +175,11 @@
             color: white;
             border: none;
             padding: 9px 14px;
-            margin-top: 14px;
             border-radius: 10px;
             cursor: pointer;
             transition: background-color 0.3s ease;
-            width: min(190px, 100%);
+            width: min(190px, 45%);
             min-height: 40px;
-            align-self: flex-end;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -214,6 +212,33 @@
         .submit-btn.loading .spinner {
             visibility: visible;
             opacity: 1;
+        }
+        .form-action-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 14px;
+        }
+        .upload-page-back-btn {
+            background: var(--surface-muted-alt);
+            color: var(--text);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            min-height: 38px;
+            width: min(110px, 34%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            cursor: pointer;
+        }
+        .upload-page-back-btn:hover {
+            background: var(--surface-hover-strong);
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -943,11 +968,14 @@
             </label>
         </div>
 
-        <!-- Submit button with spinner + text -->
-        <button type="submit" class="submit-btn" id="uploadSubmit">
-            <span class="spinner" aria-hidden="true"></span>
-            <span class="btn-text">Preprocess Files</span>
-        </button>
+        <div class="form-action-row">
+            <button type="button" class="upload-page-back-btn" id="pageBackButton" aria-label="Go back">Back</button>
+            <!-- Submit button with spinner + text -->
+            <button type="submit" class="submit-btn" id="uploadSubmit">
+                <span class="spinner" aria-hidden="true"></span>
+                <span class="btn-text">Preprocess Files</span>
+            </button>
+        </div>
     </div>
 </form>
 
@@ -1825,6 +1853,7 @@
         const navLinks = document.querySelectorAll(
             '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile"]'
         );
+        const pageBackButton = document.getElementById('pageBackButton');
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');
         const confirm = document.getElementById('navExitConfirm');
@@ -1853,6 +1882,16 @@
         };
 
         navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
+        if (pageBackButton) {
+            pageBackButton.addEventListener('click', (event) => {
+                if (!selectedFiles || selectedFiles.size === 0) {
+                    window.location.href = '/';
+                    return;
+                }
+                event.preventDefault();
+                openModal('/');
+            });
+        }
 
         cancel.addEventListener('click', closeModal);
         confirm.addEventListener('click', () => {
@@ -2010,7 +2049,7 @@
             const btnText = submitBtn.querySelector('.btn-text');
 
             const controls = document.querySelectorAll(
-                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
+                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .upload-page-back-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
             );
             controls.forEach((el) => {
                 el.disabled = true;
