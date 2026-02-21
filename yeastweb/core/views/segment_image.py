@@ -71,6 +71,7 @@ from core.contour_processing import (
     merge_contour,
 )
 from core.cell_analysis import Analysis
+from core.stats_plugins import build_requirement_summary
 
 # Configure logging
 logging.basicConfig(
@@ -129,71 +130,86 @@ def import_analyses(path:str, selected_analysis:list) -> list:
 
 def get_stats(cp, conf, selected_analysis, gfp_distance):
     # loading configuration
-    kernel_size_input, mcherry_line_width_input,kernel_deviation_input, choice_var = set_options(conf)
+    kernel_size_input, mcherry_line_width_input, kernel_deviation_input, _ = set_options(conf)
 
-    images = load_image(cp,output_dir)
-    # gray scale conversion and blurring
+    requirement_summary = build_requirement_summary(selected_analysis)
+    stats_required_channels = {
+        channel for channel in requirement_summary["required_channels"] if channel in {"mCherry", "GFP", "DAPI"}
+    }
+    # Always try to load all analysis channels if present so debug images remain available.
+    channels_to_load = {"mCherry", "GFP", "DAPI", "DIC"} | stats_required_channels
+    images = load_image(cp, output_dir, required_channels=channels_to_load)
+
+    available_image_keys = [key for key in ("mCherry", "GFP", "DAPI", "DIC") if key in images]
+    if not available_image_keys:
+        blank = np.zeros((64, 64, 3), dtype=np.uint8)
+        return Image.fromarray(blank), Image.fromarray(blank), Image.fromarray(blank)
+
+    reference = images[available_image_keys[0]]
+
+    def _canvas_for(channel_key: str) -> np.ndarray:
+        base = images.get(channel_key, reference)
+        return ensure_3channel_bgr(np.array(base, copy=True))
+
+    edit_mCherry_img = _canvas_for("mCherry")
+    edit_GFP_img = _canvas_for("GFP")
+    edit_DAPI_img = _canvas_for("DAPI")
+
+    if not selected_analysis:
+        # No selected statistics: keep defaults and return plain debug frames.
+        edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
+        edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
+        edit_DAPI_img_rgb = cv2.cvtColor(edit_DAPI_img, cv2.COLOR_BGR2RGB)
+        return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb), Image.fromarray(edit_DAPI_img_rgb)
+
     preprocessed_images = preprocess_image_to_gray(images, kernel_deviation_input, kernel_size_input)
-
     contours_data = find_contours(preprocessed_images)
 
-    if len(contours_data['bestContours']) == 0:
-        print("we didn't find any contours")
-        return images['im_mCherry'], images['im_GFP'], images['im_DAPI']  # returns original images if no contours found
-    if not contours_data['bestContours_dapi'] or not contours_data['contours_dapi']:
-        print("we didn't find any DAPI contours")
-        return images['im_mCherry'], images['im_GFP'], images['im_DAPI']
+    best_contour_data = {}
+    best_contour_dapi = None
+    if contours_data.get("bestContours_dapi") and contours_data.get("contours_dapi"):
+        best_index = contours_data["bestContours_dapi"][0]
+        if len(contours_data["contours_dapi"]) > best_index:
+            best_contour_dapi = contours_data["contours_dapi"][best_index]
+            best_contour_data["DAPI"] = best_contour_dapi
+            cp.blue_contour_size = cv2.contourArea(best_contour_dapi)
+    else:
+        cp.blue_contour_size = 0.0
 
-    # Open the debug images using the legacy getters
-    edit_im = Image.open(output_dir + '/segmented/' + cp.get_image('mCherry',use_id=True))
-    edit_im_GFP = Image.open(output_dir + '/segmented/' + cp.get_image('GFP',use_id=True))
-    edit_im_DAPI = Image.open(output_dir + '/segmented/' + cp.get_image('DAPI',use_id=True))
+    for i, contour in enumerate(contours_data.get("dot_contours", [])):
+        area = cv2.contourArea(contour)
+        setattr(cp, f"red_contour_{i+1}_size", area)
 
-    edit_mCherry_img = np.array(edit_im)
-    edit_GFP_img = np.array(edit_im_GFP)
-    edit_DAPI_img = np.array(edit_im_DAPI)
+    if contours_data.get("dot_contours"):
+        cv2.drawContours(edit_mCherry_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
+        cv2.drawContours(edit_GFP_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
+        cv2.drawContours(edit_DAPI_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
 
-    # Force the arrays to 3-channel BGR
-    edit_mCherry_img = ensure_3channel_bgr(edit_mCherry_img)
-    edit_GFP_img = ensure_3channel_bgr(edit_GFP_img)
-    edit_DAPI_img = ensure_3channel_bgr(edit_DAPI_img)
+    if best_contour_dapi is not None:
+        cv2.drawContours(edit_GFP_img, [best_contour_dapi], 0, (255, 0, 0), 1)
+        cv2.drawContours(edit_DAPI_img, [best_contour_dapi], 0, (255, 0, 0), 1)
 
-    best_contour_dapi = contours_data['contours_dapi'][contours_data['bestContours_dapi'][0]]
-    best_contour_data = {
-        "DAPI": best_contour_dapi,
-    }
-
-    for i in range(0,len(contours_data['dot_contours'])):
-        area = cv2.contourArea(contours_data['dot_contours'][i])
-        setattr(cp, f'red_contour_{i+1}_size', area)
-    # for i in range(0,len(contours_data['contours_mcherry'])):
-    #     area = cv2.contourArea(contours_data['contours_mcherry'][i])
-    #     setattr(cp, f'red_contour_{i+1}_size', area)
-
-    cp.blue_contour_size = cv2.contourArea(best_contour_dapi)
-
-    # Use white contour for both images (mCherry and GFP)
-    cv2.drawContours(edit_mCherry_img, contours_data['dot_contours'], -1, (0, 0, 255),1)
-
-    cv2.drawContours(edit_GFP_img, contours_data['dot_contours'], -1, (0, 0, 255),1)
-    cv2.drawContours(edit_GFP_img, [best_contour_dapi], 0, (255, 0, 0), 1)
-
-    cv2.drawContours(edit_DAPI_img, contours_data['dot_contours'],-1, (0, 0, 255), 1)
-    cv2.drawContours(edit_DAPI_img, [best_contour_dapi],0, (255, 0, 0), 1)
-
-
-    # Drawing GFP
-    cv2.drawContours(edit_mCherry_img, contours_data['contours_gfp'], -1, (0, 255, 0),1)
-
-    cv2.drawContours(edit_GFP_img, contours_data['contours_gfp'], -1, (0, 255, 0),1)
-
-    cv2.drawContours(edit_DAPI_img, contours_data['contours_gfp'],-1, (0, 255, 0), 1)
+    if contours_data.get("contours_gfp"):
+        cv2.drawContours(edit_mCherry_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
+        cv2.drawContours(edit_GFP_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
+        cv2.drawContours(edit_DAPI_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
 
     import_path = BASE_DIR / 'core/cell_analysis'
     analyses = import_analyses(import_path, selected_analysis)
+    dapi_contour_required_plugins = {"NucleusIntensity", "DAPI_NucleusIntensity"}
     for analysis in analyses:
-        analysis.setting_up(cp,preprocessed_images,output_dir)
-        analysis.calculate_statistics(best_contour_data, contours_data, edit_mCherry_img, edit_GFP_img, mcherry_line_width_input, gfp_distance)
+        analysis_name = analysis.__class__.__name__
+        if analysis_name in dapi_contour_required_plugins and "DAPI" not in best_contour_data:
+            continue
+        analysis.setting_up(cp, preprocessed_images, output_dir)
+        analysis.calculate_statistics(
+            best_contour_data,
+            contours_data,
+            edit_mCherry_img,
+            edit_GFP_img,
+            mcherry_line_width_input,
+            gfp_distance,
+        )
 
     # Convert BGR back to RGB so PIL shows correct colors
     edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
@@ -256,7 +272,12 @@ def segment_image(request, uuids):
         # Load the original raw image and rescale its intensity values
         DV_path = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/' + DV_Name + '.dv'
         f = DVFile(DV_path)
-        im = f.asarray()
+        try:
+            im = f.asarray()
+        finally:
+            f.close()
+        if im.ndim == 2:
+            im = np.expand_dims(im, axis=0)
 
         cell_stats = {}
 
@@ -347,9 +368,12 @@ def segment_image(request, uuids):
 
                 # Which file are we trying to find here?
                 f = DVFile(DV_path)
-                channel_config = get_channel_config_for_uuid(uuid)
-                mcherry_index = channel_config.get("mCherry")
-                mcherry_image = f.asarray()[mcherry_index]
+                try:
+                    channel_config = get_channel_config_for_uuid(uuid)
+                    mcherry_index = channel_config.get("mCherry")
+                    mcherry_image = f.asarray()[mcherry_index]
+                finally:
+                    f.close()
 
                 # mcherry_image = skimage.exposure.rescale_intensity(mcherry_np.float32(image), out_range=(0, 1))
                 mcherry_image = np.round(mcherry_image * 255).astype(np.uint8)
@@ -525,7 +549,12 @@ def segment_image(request, uuids):
         #    continue
         #image = np.array(Image.open(to_open))
         f = DVFile(DV_path)
-        im = f.asarray()
+        try:
+            im = f.asarray()
+        finally:
+            f.close()
+        if im.ndim == 2:
+            im = np.expand_dims(im, axis=0)
 
         for frame_idx in range(im.shape[0]):
             # begin drawing the cell contours all over 4 DV images
@@ -606,7 +635,15 @@ def segment_image(request, uuids):
         
         os.makedirs(segmented_directory, exist_ok=True)
         f = DVFile(DV_path)
-        for image_num in range(4):
+        try:
+            image_stack = f.asarray()
+        finally:
+            f.close()
+
+        if image_stack.ndim == 2:
+            image_stack = np.expand_dims(image_stack, axis=0)
+
+        for image_num in range(image_stack.shape[0]):
             if cancelled():
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
@@ -622,7 +659,7 @@ def segment_image(request, uuids):
             #
             # if os.path.isdir(full_path):
             #     continue
-            image = np.array(f.asarray()[image_num])
+            image = np.array(image_stack[image_num])
             image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
             image = np.round(image * 255).astype(np.uint8)
 

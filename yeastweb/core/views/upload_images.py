@@ -1,6 +1,4 @@
-from django.http import HttpResponse
 from django.shortcuts import render, redirect
-from django.urls import reverse_lazy
 from core.forms import UploadImageForm
 from core.models import UploadedImage, DVLayerTifPreview
 from .utils import tif_to_jpg, write_progress
@@ -9,10 +7,9 @@ from yeastweb.settings import MEDIA_ROOT
 from .variables import PRE_PROCESS_FOLDER_NAME
 from mrc import DVFile
 from PIL import Image
-import uuid, os
+import uuid
 import numpy as np
 import skimage.exposure
-from django.http import HttpResponseNotAllowed
 import json
 from django.contrib import messages
 from django.http import JsonResponse
@@ -21,6 +18,12 @@ from ..metadata_processing.error_handling import (
     DVValidationOptions,
     build_dv_error_messages,
     validate_dv_file,
+)
+from ..stats_plugins import (
+    CHANNEL_ORDER,
+    build_plugin_ui_payload,
+    build_requirement_summary,
+    normalize_selected_plugins,
 )
 
 
@@ -32,6 +35,36 @@ def _parse_bool(value, default=False):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_channels(raw_values) -> set[str]:
+    """Parse channel values from either list or comma-delimited payload."""
+
+    if raw_values is None:
+        return set()
+    if isinstance(raw_values, str):
+        values = [part.strip() for part in raw_values.split(",")]
+    else:
+        values = []
+        for item in raw_values:
+            if not isinstance(item, str):
+                continue
+            values.extend(part.strip() for part in item.split(","))
+    allowed = set(CHANNEL_ORDER)
+    return {value for value in values if value in allowed}
+
+
+def _upload_view_context(*, form, progress_key, error=None):
+    """Build template context for the upload page."""
+
+    context = {
+        "form": form,
+        "progress_key": progress_key,
+        "stats_plugin_payload_json": json.dumps(build_plugin_ui_payload()),
+    }
+    if error:
+        context["error"] = error
+    return context
 
 
 def upload_images(request):
@@ -53,15 +86,50 @@ def upload_images(request):
         
         if not files:
             print("No files received")
-            return render(request, 'form/uploadImage.html', {'error': 'No files received.'})
+            return render(
+                request,
+                'form/uploadImage.html',
+                _upload_view_context(form=UploadImageForm(), progress_key=progress_key, error='No files received.'),
+            )
 
         print(f"Files received: {[file.name for file in files]}")
 
-        enforce_layer_count = _parse_bool(request.POST.get("enforce_layer_count"), default=True)
-        enforce_wavelengths = _parse_bool(request.POST.get("enforce_wavelengths"), default=True)
+        selected_analysis = normalize_selected_plugins(request.POST.getlist("selected_analysis"))
+        requirement_summary = build_requirement_summary(selected_analysis)
+
+        gfp_distance_raw = request.POST.get("distance", "37")
+        try:
+            gfp_distance = int(gfp_distance_raw)
+        except (TypeError, ValueError):
+            gfp_distance = 37
+        if gfp_distance < 0:
+            gfp_distance = 37
+
+        # Persist user analysis choices now so preprocess step no longer owns selection.
+        request.session["selected_analysis"] = requirement_summary["selected_plugins"]
+        request.session["distance"] = gfp_distance
+
+        module_enabled = _parse_bool(request.POST.get("yeast_analysis_enabled"), default=False)
+        enforce_layer_count = module_enabled and _parse_bool(
+            request.POST.get("enforce_layer_count"),
+            default=False,
+        )
+        enforce_wavelengths = module_enabled and _parse_bool(
+            request.POST.get("enforce_wavelengths"),
+            default=False,
+        )
+
+        # Optional per-channel toggles from advanced settings. Stats-required channels
+        # are always enforced server-side regardless of these optional toggles.
+        extra_required_channels = _parse_channels(request.POST.getlist("extra_required_channels"))
+        required_channels = set(requirement_summary["required_channels"])
+        if module_enabled:
+            required_channels.update(extra_required_channels)
+
         validation_options = DVValidationOptions(
             enforce_layer_count=enforce_layer_count,
             enforce_wavelengths=enforce_wavelengths,
+            required_channels=required_channels,
         )
 
         # Store all UUIDs of the processed images
@@ -146,7 +214,11 @@ def upload_images(request):
         return redirect(preprocess_url)
     else:
         form = UploadImageForm()
-    return render(request, 'form/uploadImage.html', {'form': form, 'progress_key': progress_key})
+    return render(
+        request,
+        'form/uploadImage.html',
+        _upload_view_context(form=form, progress_key=progress_key),
+    )
 
 def generate_tif_preview_images(dv_path :Path, save_path :Path, uploaded_image : UploadedImage, n_layers : int ):
     """

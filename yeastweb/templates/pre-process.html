@@ -577,35 +577,6 @@
                 <span class="spinner" aria-hidden="true"></span>
                 <span class="btn-text">Start Analysis</span>
               </button>
-              <button type="button" class="button secondary" id="openAnalysisModal" aria-haspopup="true" aria-expanded="false">
-                Select Statistics
-              </button>
-            </div>
-            <div class="analysis-popover" id="analysisPopover" aria-hidden="true">
-              <div class="analysis-popover-header">
-                <span class="analysis-popover-title" id="analysisModalTitle">Statistics</span>
-                <button type="button" class="analysis-close" id="analysisModalClose" aria-label="Close statistics">
-                  X
-                </button>
-              </div>
-              <div class="analysis-popover-body">
-                <label class="analysis-toggle" id="analysisSelectAllRow">
-                  <span>Select all</span>
-                  <input type="checkbox" id="analysisSelectAll">
-                  <span class="analysis-switch"></span>
-                </label>
-                <div class="analysis-divider"></div>
-                {% for analysis in analyses %}
-                <label class="analysis-toggle">
-                  <span>{{ analysis }}</span>                  
-                  <input type="checkbox" name="selected_analysis" value="{{ analysis }}" />
-                  <span class="analysis-switch"></span>
-                  {% if analysis == 'GFPDot' %}
-                    <span class="field-label">Min. distance (px):</span><input class="num-entry" type="number" name="distance" id="distance" />
-                  {% endif %}
-                </label>
-                {% endfor %}
-              </div>
             </div>
           </form>
         </div>
@@ -835,134 +806,8 @@
         }
       });
 
-      const analysisButton = document.getElementById("openAnalysisModal");
-      const analysisPopover = document.getElementById("analysisPopover");
-      const analysisClose = document.getElementById("analysisModalClose");
-
-      const positionAnalysisPopover = () => {
-        if (!analysisButton || !analysisPopover) return;
-        const rect = analysisButton.getBoundingClientRect();
-        const popoverWidth = analysisPopover.offsetWidth;
-        const popoverHeight = analysisPopover.offsetHeight;
-        const gutter = 12;
-        let left = rect.right - popoverWidth;
-        left = Math.max(gutter, Math.min(left, window.innerWidth - popoverWidth - gutter));
-        let top = rect.bottom + 8;
-        top = Math.max(gutter, Math.min(top, window.innerHeight - popoverHeight - gutter));
-        analysisPopover.style.left = `${left}px`;
-        analysisPopover.style.top = `${top}px`;
-      };
-      const openAnalysisPopover = () => {
-        if (!analysisButton || !analysisPopover) return;
-        analysisPopover.classList.add("open");
-        analysisPopover.setAttribute("aria-hidden", "false");
-        analysisButton.setAttribute("aria-expanded", "true");
-        requestAnimationFrame(positionAnalysisPopover);
-      };
-      const closeAnalysisPopover = () => {
-        if (!analysisButton || !analysisPopover) return;
-        analysisPopover.classList.remove("open");
-        analysisPopover.setAttribute("aria-hidden", "true");
-        analysisButton.setAttribute("aria-expanded", "false");
-      };
-
-      if (analysisButton) {
-        analysisButton.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (analysisPopover && analysisPopover.classList.contains("open")) {
-            closeAnalysisPopover();
-          } else {
-            openAnalysisPopover();
-          }
-        });
-      }
-      if (analysisClose) {
-        analysisClose.addEventListener("click", (event) => {
-          event.preventDefault();
-          closeAnalysisPopover();
-        });
-      }
-      if (analysisPopover) {
-        analysisPopover.addEventListener("click", (event) => {
-          event.stopPropagation();
-        });
-      }
-      document.addEventListener("click", () => {
-        closeAnalysisPopover();
-      });
-      window.addEventListener("resize", () => {
-        if (analysisPopover && analysisPopover.classList.contains("open")) {
-          positionAnalysisPopover();
-        }
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          closeAnalysisPopover();
-        }
-      });
-
-      const selectionKey = "yeastweb.selected_analyses";
-      const initializedKey = "yeastweb.selected_analyses_initialized";
-      const selectAllToggle = document.getElementById("analysisSelectAll");
-      const analysisToggles = Array.from(
-        document.querySelectorAll('input[name="selected_analysis"]')
-      );
-
-      const syncSelectAll = () => {
-        if (!selectAllToggle) return;
-        const allChecked =
-          analysisToggles.length > 0 &&
-          analysisToggles.every((toggle) => toggle.checked);
-        selectAllToggle.checked = allChecked;
-      };
-
-      const persistSelection = () => {
-        const selected = analysisToggles
-          .filter((toggle) => toggle.checked)
-          .map((toggle) => toggle.value);
-        localStorage.setItem(selectionKey, JSON.stringify(selected));
-        localStorage.setItem(initializedKey, "1");
-        syncSelectAll();
-      };
-
-      const loadSelection = () => {
-        const initialized = localStorage.getItem(initializedKey) === "1";
-        let stored = [];
-        try {
-          stored = JSON.parse(localStorage.getItem(selectionKey) || "[]");
-        } catch (e) {
-          stored = [];
-        }
-        if (!initialized) {
-          analysisToggles.forEach((toggle) => {
-            toggle.checked = true;
-          });
-          persistSelection();
-          return;
-        }
-        if (!Array.isArray(stored)) {
-          stored = [];
-        }
-        analysisToggles.forEach((toggle) => {
-          toggle.checked = stored.includes(toggle.value);
-        });
-        syncSelectAll();
-      };
-
-      if (selectAllToggle) {
-        selectAllToggle.addEventListener("change", () => {
-          const target = selectAllToggle.checked;
-          analysisToggles.forEach((toggle) => {
-            toggle.checked = target;
-          });
-          persistSelection();
-        });
-      }
-      analysisToggles.forEach((toggle) => {
-        toggle.addEventListener("change", persistSelection);
-      });
-      loadSelection();
+      const analysisButton = null;
+      const analysisPopover = null;
 
       // Next / Prev buttons
       document.getElementById("nextButton").addEventListener("click", () => {
@@ -1039,8 +884,8 @@
                 } else if (data.phase === "Detecting Cells") {
                   textEl.textContent = data.phase;
                 } else if (data.phase === "Calculating Statistics") {
-                  // Only show statistics phase if user selected at least one analysis
-                  const hasStats = !!document.querySelector('input[name="selected_analysis"]:checked');
+                  // Only show statistics phase if user selected at least one analysis at upload step.
+                  const hasStats = {{ has_selected_stats|yesno:"true,false" }};
                   if (hasStats) textEl.textContent = data.phase;
                 }
               }

@@ -6,6 +6,7 @@ import skimage.filters
 from mrc import DVFile
 from yeastweb.settings import MEDIA_ROOT
 from core.models import UploadedImage
+from core.config import get_channel_config_for_uuid
 from pathlib import Path
 from core.views.variables import PRE_PROCESS_FOLDER_NAME
 #Original header
@@ -35,8 +36,23 @@ def preprocess_images(
     #converts windows file path to linux path and joins 
     image_path = Path(MEDIA_ROOT, str(uploaded_image.file_location)) #.replace("/", "\\")
     f = DVFile(image_path)
+    try:
+        image_stack = f.asarray()
+    finally:
+        f.close()
+
     # gets raw image from uploaded dv file
-    image = f.asarray()[3]
+    channel_config = get_channel_config_for_uuid(str(uuid))
+    dic_index = channel_config.get("DIC", 3)
+    if image_stack.ndim == 2:
+        image = image_stack
+    elif image_stack.ndim == 3:
+        if dic_index >= image_stack.shape[0]:
+            # Fall back to first layer when metadata index is out of bounds.
+            dic_index = 0
+        image = image_stack[dic_index]
+    else:
+        return None, None
     # fileSize = os.path.getsize(uploaded_image.file_location)
     # if fileSize > 8230000:
         #File is a live cell imaging that has more than 4 images
