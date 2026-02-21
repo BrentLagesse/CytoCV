@@ -372,6 +372,81 @@
             color: #fff;
         }
         .reset-btn.cancel:hover { background: #0056b3; }
+        .folder-issue-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1650;
+        }
+        .folder-issue-modal {
+            width: min(460px, 92vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 22px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .folder-issue-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .folder-issue-body {
+            font-size: 14px;
+            color: #d7d7d7;
+            line-height: 1.35;
+        }
+        .folder-issue-list {
+            margin: 0;
+            padding-left: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 13px;
+            color: #cfcfcf;
+        }
+        .folder-issue-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 2px;
+        }
+        .folder-issue-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 100px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .folder-issue-btn.no {
+            background: var(--surface-muted-alt);
+            color: #fff;
+            border: 1px solid var(--panel-border);
+        }
+        .folder-issue-btn.no:hover {
+            background: var(--surface-hover-strong);
+        }
+        .folder-issue-btn.yes {
+            background: #007bff;
+            color: #fff;
+        }
+        .folder-issue-btn.yes:hover {
+            background: #0056b3;
+        }
+        .folder-issue-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
         .nav-exit-backdrop {
             position: fixed;
             inset: 0;
@@ -933,6 +1008,18 @@
             <div class="reset-modal-actions">
                 <button type="button" class="reset-btn cancel" id="resetCancel">No</button>
                 <button type="button" class="reset-btn confirm" id="resetConfirm">Yes</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="folder-issue-backdrop" id="folderIssueBackdrop" aria-hidden="true">
+        <div class="folder-issue-modal" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
+            <div class="folder-issue-title" id="folderIssueTitle">Folder Upload Issues</div>
+            <div class="folder-issue-body" id="folderIssueBody"></div>
+            <ul class="folder-issue-list" id="folderIssueList"></ul>
+            <div class="folder-issue-actions">
+                <button type="button" class="folder-issue-btn no" id="folderIssueNo">No</button>
+                <button type="button" class="folder-issue-btn yes" id="folderIssueYes">Yes</button>
             </div>
         </div>
     </div>
@@ -2002,10 +2089,94 @@
         });
     }
 
-    function handleFileSelection(event) {
+    function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
+        const backdrop = document.getElementById('folderIssueBackdrop');
+        const body = document.getElementById('folderIssueBody');
+        const list = document.getElementById('folderIssueList');
+        const noBtn = document.getElementById('folderIssueNo');
+        const yesBtn = document.getElementById('folderIssueYes');
+
+        if (!backdrop || !body || !list || !noBtn || !yesBtn) {
+            return Promise.resolve(true);
+        }
+
+        const duplicateCount = Array.isArray(duplicateFiles) ? duplicateFiles.length : 0;
+        const invalidCount = Array.isArray(invalidFiles) ? invalidFiles.length : 0;
+
+        if (validCount > 0) {
+            const plural = validCount === 1 ? '' : 's';
+            body.textContent = `Some files in this folder cannot be added. Add ${validCount} valid .dv file${plural} to the queue?`;
+        } else {
+            body.textContent = 'No valid new .dv files are available to add from this folder.';
+        }
+
+        list.innerHTML = '';
+        if (duplicateCount > 0) {
+            const plural = duplicateCount === 1 ? '' : 's';
+            const item = document.createElement('li');
+            item.textContent = `${duplicateCount} duplicate .dv file${plural} already in queue`;
+            list.appendChild(item);
+        }
+        if (invalidCount > 0) {
+            const item = document.createElement('li');
+            item.textContent = invalidCount === 1
+                ? '1 file is not .dv'
+                : `${invalidCount} files are not .dv`;
+            list.appendChild(item);
+        }
+
+        yesBtn.disabled = validCount <= 0;
+        backdrop.style.display = 'flex';
+        backdrop.setAttribute('aria-hidden', 'false');
+
+        return new Promise((resolve) => {
+            let settled = false;
+
+            const close = (accepted) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                backdrop.style.display = 'none';
+                backdrop.setAttribute('aria-hidden', 'true');
+                resolve(accepted);
+            };
+
+            const onNo = () => close(false);
+            const onYes = () => {
+                if (yesBtn.disabled) return;
+                close(true);
+            };
+            const onBackdrop = (evt) => {
+                if (evt.target === backdrop) {
+                    close(false);
+                }
+            };
+            const onKeydown = (evt) => {
+                if (evt.key === 'Escape') {
+                    close(false);
+                }
+            };
+
+            const cleanup = () => {
+                noBtn.removeEventListener('click', onNo);
+                yesBtn.removeEventListener('click', onYes);
+                backdrop.removeEventListener('click', onBackdrop);
+                document.removeEventListener('keydown', onKeydown);
+            };
+
+            noBtn.addEventListener('click', onNo);
+            yesBtn.addEventListener('click', onYes);
+            backdrop.addEventListener('click', onBackdrop);
+            document.addEventListener('keydown', onKeydown);
+        });
+    }
+
+    async function handleFileSelection(event) {
         const files = Array.from(event.target.files);
+        const isFolderSelection = event.target && event.target.id === 'folderInput';
         const duplicateFiles = [];
         const invalidFiles = [];
+        const filesToAdd = [];
 
         files.forEach(file => {
             const fileName = file.name;
@@ -2018,35 +2189,53 @@
             if (selectedFiles.has(fileName)) {
                 duplicateFiles.push(fileName);
             } else {
-                selectedFiles.set(fileName, file);
+                filesToAdd.push([fileName, file]);
             }
         });
 
-        const queueIssues = [];
-        if (invalidFiles.length > 0) {
-            queueIssues.push(
-                `Invalid files detected (only .dv files are allowed): ${formatFileListForError(invalidFiles)}`
-            );
-        }
-        if (duplicateFiles.length > 0) {
-            const uniqueDuplicates = [...new Set(duplicateFiles)];
-            const duplicatePreviewLimit = 10;
-            const duplicatePreview = uniqueDuplicates.slice(0, duplicatePreviewLimit);
-            const remainingDuplicates = uniqueDuplicates.length - duplicatePreview.length;
-
-            if (queueIssues.length > 0) {
-                queueIssues.push('');
-            }
-            queueIssues.push('Duplicate files detected and skipped:');
-            duplicatePreview.forEach((name) => {
-                queueIssues.push(`- ${name}`);
+        if (isFolderSelection && (invalidFiles.length > 0 || duplicateFiles.length > 0)) {
+            const shouldAdd = await openFolderIssueModal({
+                validCount: filesToAdd.length,
+                duplicateFiles,
+                invalidFiles,
             });
-            if (remainingDuplicates > 0) {
-                queueIssues.push(`- (+${remainingDuplicates} more)`);
+            if (!shouldAdd) {
+                event.target.value = '';
+                return;
             }
         }
-        if (queueIssues.length > 0) {
-            showErrors(queueIssues);
+
+        filesToAdd.forEach(([fileName, file]) => {
+            selectedFiles.set(fileName, file);
+        });
+
+        if (!isFolderSelection) {
+            const queueIssues = [];
+            if (invalidFiles.length > 0) {
+                queueIssues.push(
+                    `Invalid files detected (only .dv files are allowed): ${formatFileListForError(invalidFiles)}`
+                );
+            }
+            if (duplicateFiles.length > 0) {
+                const uniqueDuplicates = [...new Set(duplicateFiles)];
+                const duplicatePreviewLimit = 10;
+                const duplicatePreview = uniqueDuplicates.slice(0, duplicatePreviewLimit);
+                const remainingDuplicates = uniqueDuplicates.length - duplicatePreview.length;
+
+                if (queueIssues.length > 0) {
+                    queueIssues.push('');
+                }
+                queueIssues.push('Duplicate files detected and skipped:');
+                duplicatePreview.forEach((name) => {
+                    queueIssues.push(`- ${name}`);
+                });
+                if (remainingDuplicates > 0) {
+                    queueIssues.push(`- (+${remainingDuplicates} more)`);
+                }
+            }
+            if (queueIssues.length > 0) {
+                showErrors(queueIssues);
+            }
         }
 
         displayFileQueue();
@@ -2089,7 +2278,7 @@
             const btnText = submitBtn.querySelector('.btn-text');
 
             const controls = document.querySelectorAll(
-                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .upload-page-back-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
+                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
             );
             controls.forEach((el) => {
                 el.disabled = true;
