@@ -21,4 +21,4 @@ class GrayImage:
         self._image_storage = images
 
     def get_image(self, key):
-        return self._image_storage[key]
+        return self._image_storage.get(key)

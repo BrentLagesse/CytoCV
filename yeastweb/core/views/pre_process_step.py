@@ -82,10 +82,6 @@ def pre_process_step(request, uuids):
     POST: Run preprocess + inference on every UUID, then redirect.
     """
 
-    path = BASE_DIR / 'core/cell_analysis'
-    analyses_list = load_analyses(path)
-    print(analyses_list)
-
     uuid_list = uuids.split(',')
     total_files = len(uuid_list)
 
@@ -126,12 +122,18 @@ def pre_process_step(request, uuids):
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
         clear_cancelled(uuids)
-        selected_analysis = request.POST.getlist('selected_analysis')
-        gfp_distance = request.POST['distance']
-        print("selected_analysis")
-        print(selected_analysis)
+        # Selection is primarily set during upload step. Keep POST fallback for
+        # backward compatibility with older clients.
+        selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
+        gfp_distance_raw = request.POST.get('distance', request.session.get('distance', 37))
+        try:
+            gfp_distance = int(gfp_distance_raw)
+        except (TypeError, ValueError):
+            gfp_distance = 37
+        if gfp_distance < 0:
+            gfp_distance = 37
 
-        request.session['selected_analysis'] = selected_analysis  # save selected analysis to session
+        request.session['selected_analysis'] = selected_analysis
         request.session['distance'] = gfp_distance
 
         # Track when we first enter phases to mark progress once
@@ -204,7 +206,7 @@ def pre_process_step(request, uuids):
         'total_files': total_files,
         'uuids': uuids,
         'file_list': file_list,
-        'analyses' : analyses_list,
+        'has_selected_stats': bool(request.session.get('selected_analysis', [])),
     })
 
 @require_POST

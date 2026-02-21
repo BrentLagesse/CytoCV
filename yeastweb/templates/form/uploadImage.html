@@ -174,20 +174,25 @@
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 14px 20px;
-            margin-top: 20px;
+            padding: 9px 14px;
             border-radius: 10px;
             cursor: pointer;
             transition: background-color 0.3s ease;
-            width: 100%;
+            width: min(190px, 45%);
+            min-height: 40px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
             font-weight: 600;
             letter-spacing: 0.2px;
+            position: relative;
         }
         .submit-btn:hover { background-color: #0056b3; }
+        .submit-btn .btn-text {
+            width: 100%;
+            text-align: center;
+            line-height: 1.2;
+        }
 
         /* Spinner inside submit button */
         .submit-btn .spinner {
@@ -198,61 +203,118 @@
             border-right-color: #fff;
             border-radius: 50%;
             animation: spin 0.9s linear infinite;
-            display: none;
+            position: absolute;
+            left: calc(50% - 78px);
+            top: calc(50% - 8px);
+            visibility: hidden;
+            opacity: 0;
         }
-        .submit-btn.loading .spinner { display: inline-block; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .form-toolbar {
+        .submit-btn.loading .spinner {
+            visibility: visible;
+            opacity: 1;
+        }
+        .form-action-row {
             width: 100%;
             display: flex;
-            justify-content: flex-end;
             align-items: center;
-            padding: 0;
-            margin: -16px -22px 8px 0;
-            background: transparent;
-            border-bottom: none;
-            border-radius: 0;
-            gap: 6px;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 14px;
         }
-        .settings-btn {
-            background-color: transparent;
-            color: #b6b6b6;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            padding: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
+        .upload-page-back-btn {
+            background: var(--surface-muted-alt);
+            color: var(--text);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            min-height: 38px;
+            width: min(110px, 34%);
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            cursor: pointer;
+        }
+        .upload-page-back-btn:hover {
+            background: var(--surface-hover-strong);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .form-toolbar {
+            width: calc(100% + 44px);
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 6px;
+            margin: -22px -22px 8px -22px;
+            padding: 6px 10px 6px 22px;
+            box-sizing: border-box;
+            border-bottom: 1px solid var(--panel-border);
+            background: transparent;
+        }
+        .settings-btn {
+            background-color: var(--surface-nav);
+            color: var(--text);
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
         }
         .settings-btn svg {
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
             display: block;
         }
         .settings-btn:hover {
-            background-color: var(--surface-muted);
-            border-color: var(--panel-border);
+            background-color: var(--surface-hover);
+            color: #fff;
         }
         .settings-modal-backdrop {
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(2px);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 1500;
         }
+        .settings-modal-backdrop.modal-enter {
+            animation: none;
+        }
+        .settings-modal-backdrop.modal-exit {
+            animation: none;
+            pointer-events: none;
+        }
         .settings-modal {
-            width: min(600px, 94vw);
+            width: min(700px, 95vw);
             background: var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 26px;
+            height: min(70vh, 620px);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        }
+        .settings-modal.modal-enter {
+            animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .settings-modal.modal-exit {
+            animation: settingsModalOut 120ms ease-in both;
+            pointer-events: none;
         }
         .reset-modal-backdrop {
             position: fixed;
@@ -310,6 +372,81 @@
             color: #fff;
         }
         .reset-btn.cancel:hover { background: #0056b3; }
+        .folder-issue-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1650;
+        }
+        .folder-issue-modal {
+            width: min(460px, 92vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 22px;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .folder-issue-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .folder-issue-body {
+            font-size: 14px;
+            color: #d7d7d7;
+            line-height: 1.35;
+        }
+        .folder-issue-list {
+            margin: 0;
+            padding-left: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 13px;
+            color: #cfcfcf;
+        }
+        .folder-issue-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 2px;
+        }
+        .folder-issue-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 100px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .folder-issue-btn.no {
+            background: var(--surface-muted-alt);
+            color: #fff;
+            border: 1px solid var(--panel-border);
+        }
+        .folder-issue-btn.no:hover {
+            background: var(--surface-hover-strong);
+        }
+        .folder-issue-btn.yes {
+            background: #007bff;
+            color: #fff;
+        }
+        .folder-issue-btn.yes:hover {
+            background: #0056b3;
+        }
+        .folder-issue-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
         .nav-exit-backdrop {
             position: fixed;
             inset: 0;
@@ -379,16 +516,316 @@
             font-weight: 600;
         }
         .settings-close {
-            background: transparent;
-            border: none;
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            border: 0 !important;
             color: #fff;
-            font-size: 18px;
+            font-size: 22px;
+            font-weight: 700;
+            font-family: Arial, Helvetica, sans-serif;
+            letter-spacing: 0;
             cursor: pointer;
+            padding: 0 2px;
+            line-height: 1;
+            display: block;
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            appearance: none;
+            -webkit-appearance: none;
+            box-shadow: none !important;
+            filter: none !important;
+            transition: text-shadow 0.2s ease, filter 0.2s ease, transform 0.2s ease, color 0.2s ease;
+        }
+        .settings-close:hover,
+        .settings-close:focus,
+        .settings-close:active,
+        .settings-close:focus-visible {
+            background: transparent !important;
+            background-color: transparent !important;
+            box-shadow: none !important;
+            filter: drop-shadow(0 5px 14px rgba(0, 0, 0, 0.9)) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.66));
+            transform: translateY(-1px);
+            text-shadow: 0 4px 14px rgba(0, 0, 0, 0.92), 0 0 12px rgba(255, 255, 255, 0.34);
+            outline: none;
         }
         .settings-body {
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+        .settings-view {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .settings-view[hidden] {
+            display: none !important;
+        }
+        .settings-view.anim-enter-forward {
+            animation: settingsViewEnterForward 150ms ease-out both;
+        }
+        .settings-view.anim-enter-backward {
+            animation: settingsViewEnterBackward 150ms ease-out both;
+        }
+        .settings-view.anim-exit-forward {
+            animation: settingsViewExitForward 120ms ease-in both;
+            pointer-events: none;
+        }
+        .settings-view.anim-exit-backward {
+            animation: settingsViewExitBackward 120ms ease-in both;
+            pointer-events: none;
+        }
+        @keyframes settingsViewEnterForward {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes settingsViewEnterBackward {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes settingsViewExitForward {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(-8px); }
+        }
+        @keyframes settingsViewExitBackward {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(8px); }
+        }
+        @keyframes settingsBackdropIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes settingsBackdropOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        @keyframes settingsModalIn {
+            from { opacity: 1; transform: translateY(8px) scale(0.992); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes settingsModalOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 1; transform: translateY(5px) scale(0.994); }
+        }
+        .stats-view-header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 12px;
+        }
+        .stats-view-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: auto;
+            padding-top: 8px;
+        }
+        .stats-view-title {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+        .advanced-btn {
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: var(--surface-muted);
+            color: #fff;
+            font-size: 12px;
+            padding: 7px 10px;
+            cursor: pointer;
+        }
+        .advanced-btn:hover {
+            background: var(--surface-hover-strong);
+        }
+        .stats-divider {
+            height: 1px;
+            background: var(--panel-border);
+            margin: 4px 0;
+        }
+        .required-channel-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .required-channel-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: var(--surface-rail);
+            opacity: 0.55;
+            transition: opacity 0.15s ease, border-color 0.15s ease;
+        }
+        .required-channel-row.required {
+            opacity: 1;
+            border-color: #2f8f4e;
+        }
+        .required-channel-name {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .required-channel-state {
+            font-size: 11px;
+            color: #c5c5c5;
+            margin-left: auto;
+        }
+        .stats-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: min(42vh, 320px);
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .stats-list::-webkit-scrollbar { width: 10px; }
+        .stats-list::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+        }
+        .stats-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--surface-rail);
+            border: 1px solid var(--panel-border);
+            position: relative;
+        }
+        .stats-toggle-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .stats-toggle-title {
+            font-size: 14px;
+        }
+        .stats-toggle-meta {
+            font-size: 11px;
+            color: #bababa;
+            white-space: nowrap;
+        }
+        .stats-toggle-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+            flex: 0 0 auto;
+        }
+        .stats-distance-inline {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+        .stats-distance-inline.visible {
+            display: inline-flex;
+        }
+        .stats-distance-inline label {
+            font-size: 11px;
+            color: #cfcfcf;
+            white-space: nowrap;
+        }
+        .stats-distance-inline input[type="number"] {
+            width: 68px;
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            background: var(--surface-input);
+            color: #fff;
+            padding: 4px 6px;
+            font-family: var(--app-font);
+        }
+        .info-dot {
+            border: 1px solid var(--panel-border);
+            border-radius: 999px;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #d9d9d9;
+            background: var(--surface-muted);
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            flex: 0 0 auto;
+            font-family: var(--app-font);
+        }
+        .info-dot:hover {
+            background: var(--surface-hover-strong);
+        }
+        .info-dot:focus-visible {
+            outline: 1px solid #2f8f4e;
+            outline-offset: 1px;
+        }
+        .info-tooltip {
+            position: fixed;
+            z-index: 4000;
+            max-width: min(320px, calc(100vw - 24px));
+            padding: 8px 10px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: rgba(14, 16, 20, 0.98);
+            color: #e9e9e9;
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: pre-line;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+        .info-tooltip[hidden] {
+            display: none !important;
+        }
+        .advanced-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            margin-top: auto;
+            padding-top: 8px;
+        }
+        .back-btn {
+            border: 1px solid var(--panel-border);
+            background: var(--surface-muted);
+            color: #fff;
+            border-radius: 8px;
+            padding: 7px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .back-btn:hover {
+            background: var(--surface-hover-strong);
+        }
+        .advanced-channel-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toggle-row.locked {
+            opacity: 0.75;
+            border-color: #2f8f4e;
+            background: rgba(47, 143, 78, 0.15);
+        }
+        .toggle-row.locked .slider {
+            background-color: #2f8f4e;
+        }
+        .toggle-row.locked .toggle-hint {
+            color: #9fcfaf;
         }
         .toggle-row {
             display: flex;
@@ -458,6 +895,28 @@
         .switch input:checked + .slider:before {
             transform: translateX(20px);
         }
+        @media (max-width: 640px) {
+            .settings-modal {
+                width: min(94vw, 94vw);
+                padding: 18px;
+                height: 88vh;
+            }
+            .required-channel-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .settings-modal-backdrop.modal-enter,
+            .settings-modal-backdrop.modal-exit,
+            .settings-modal.modal-enter,
+            .settings-modal.modal-exit,
+            .settings-view.anim-enter-forward,
+            .settings-view.anim-enter-backward,
+            .settings-view.anim-exit-forward,
+            .settings-view.anim-exit-backward {
+                animation: none !important;
+            }
+        }
         a {
             background-color: #007bff; /* Full blue background */
             color: #fff; /* White text */
@@ -480,42 +939,60 @@
     <div class="settings-modal-backdrop" id="settingsBackdrop" aria-hidden="true">
         <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
             <div class="settings-modal-header">
-                <span class="settings-modal-title" id="settingsTitle">Analysis Settings</span>
-                <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">X</button>
+                <span class="settings-modal-title" id="settingsTitle">Statistics Plugins</span>
+                <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">x</button>
             </div>
-            <div class="settings-body">
-            <div class="toggle-row" id="moduleToggleRow">
-                <div class="toggle-text">
-                    <span class="toggle-label">Enable Yeast Analysis</span>
-                    <span class="toggle-hint">Enable metadata checks before preprocessing.</span>
+            <div class="settings-view" id="statsPrimaryView">
+                <div class="stats-view-header">
+                    <span class="stats-view-title">Required Wavelengths</span>
                 </div>
-                <label class="switch">
-                    <input type="checkbox" id="yeastAnalysisEnabled" checked>
-                    <span class="slider"></span>
-                </label>
+                <div class="required-channel-grid" id="requiredChannelGrid"></div>
+                <div class="stats-divider"></div>
+                <div class="stats-view-title">Statistics</div>
+                <div class="stats-list" id="statsList"></div>
+                <div class="stats-view-footer">
+                    <button type="button" class="advanced-btn" id="openAdvancedSettings">Advanced Settings</button>
+                </div>
             </div>
-            <div class="toggle-subgroup">
-                <div class="toggle-row subtoggle" id="layerCheckRow">
-                    <div class="toggle-text">
-                        <span class="toggle-label">Enforce 4-image DV files</span>
-                        <span class="toggle-hint">Require exactly four layers before preprocessing.</span>
+            <div class="settings-view" id="statsAdvancedView" hidden>
+                <div class="settings-body">
+                    <div class="toggle-row" id="moduleToggleRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label">Enable Optional Metadata Checks</span>
+                            <span class="toggle-hint">Required checks from selected stats are always enforced.</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="yeastAnalysisEnabled">
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="enforceLayerCount" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="toggle-row subtoggle" id="wavelengthCheckRow">
-                    <div class="toggle-text">
-                        <span class="toggle-label">Enforce required wavelengths</span>
-                        <span class="toggle-hint">Require DIC, DAPI, mCherry, and GFP.</span>
+                    <div class="toggle-subgroup">
+                        <div class="toggle-row subtoggle" id="layerCheckRow">
+                            <div class="toggle-text">
+                                <span class="toggle-label">Enforce 4-image DV files</span>
+                                <span class="toggle-hint">Require exactly four layers before preprocessing.</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="enforceLayerCount">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row subtoggle" id="wavelengthCheckRow">
+                            <div class="toggle-text">
+                                <span class="toggle-label">Require all wavelengths</span>
+                                <span class="toggle-hint">Require DIC, DAPI, mCherry, and GFP even if not needed by selected stats.</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="enforceWavelengths">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="advanced-channel-group" id="advancedChannelGroup"></div>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="enforceWavelengths" checked>
-                        <span class="slider"></span>
-                    </label>
                 </div>
-            </div>
+                <div class="advanced-header">
+                    <button type="button" class="back-btn" id="advancedBackButton" aria-label="Back to stats settings">Back</button>
+                </div>
             </div>
         </div>
     </div>
@@ -535,19 +1012,34 @@
         </div>
     </div>
 
+    <div class="folder-issue-backdrop" id="folderIssueBackdrop" aria-hidden="true">
+        <div class="folder-issue-modal" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
+            <div class="folder-issue-title" id="folderIssueTitle">Folder Upload Issues</div>
+            <div class="folder-issue-body" id="folderIssueBody"></div>
+            <ul class="folder-issue-list" id="folderIssueList"></ul>
+            <div class="folder-issue-actions">
+                <button type="button" class="folder-issue-btn no" id="folderIssueNo">No</button>
+                <button type="button" class="folder-issue-btn yes" id="folderIssueYes">Yes</button>
+            </div>
+        </div>
+    </div>
+
     <div class="upload-shell soft-fade-in">
         <div class="form-toolbar">
             <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear selected files" title="Clear selected files">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 20 12h-1.5a6.5 6.5 0 1 1-1.9-4.6L14.5 9.5H20V4l-2.35 2.35Z"/>
                 </svg>
+                <span>Clear Queue</span>
             </button>
-            <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Settings" title="Settings">
+            <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics plugins" title="Statistics plugins">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
                 </svg>
+                <span>Statistics Plugins</span>
             </button>
         </div>
+
         <!-- Display list of selected files -->
         <div id="fileList"></div>
 
@@ -563,13 +1055,18 @@
             </label>
         </div>
 
-        <!-- Submit button with spinner + text -->
-        <button type="submit" class="submit-btn" id="uploadSubmit">
-            <span class="spinner" aria-hidden="true"></span>
-            <span class="btn-text">Preprocess Files</span>
-        </button>
+        <div class="form-action-row">
+            <button type="button" class="upload-page-back-btn" id="pageBackButton" aria-label="Go back">Back</button>
+            <!-- Submit button with spinner + text -->
+            <button type="submit" class="submit-btn" id="uploadSubmit">
+                <span class="spinner" aria-hidden="true"></span>
+                <span class="btn-text">Preprocess Files</span>
+            </button>
+        </div>
     </div>
 </form>
+
+<script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 
 <div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -584,13 +1081,74 @@
     </div>
 </div>
 
+<div id="statsInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
+
 <script>
     const selectedFiles = new Map();
+    const pluginPayloadElement = document.getElementById('statsPluginPayload');
+    let statsPayload = {};
+    try {
+        const payloadRaw = pluginPayloadElement ? pluginPayloadElement.textContent : '{}';
+        statsPayload = JSON.parse(payloadRaw || '{}');
+    } catch (err) {
+        statsPayload = {};
+    }
+
+    const statsPlugins = Array.isArray(statsPayload.plugins) ? statsPayload.plugins : [];
+    const channelOrder = Array.isArray(statsPayload.channel_order) && statsPayload.channel_order.length
+        ? statsPayload.channel_order
+        : ['DIC', 'DAPI', 'mCherry', 'GFP'];
+    const alwaysRequiredChannels = new Set(
+        Array.isArray(statsPayload.always_required_channels) && statsPayload.always_required_channels.length
+            ? statsPayload.always_required_channels
+            : ['DIC']
+    );
+    const channelInfo = statsPayload.channel_info || {};
+    const pluginMap = new Map(statsPlugins.map((plugin) => [plugin.id, plugin]));
+
+    const selectionKey = 'yeastweb.selected_analyses.v2';
+    const initializedKey = 'yeastweb.selected_analyses_initialized.v2';
+    const distanceKey = 'yeastweb.gfp_distance';
+    const advancedKey = 'yeastweb.advanced_validation.v2';
+
+    const statsState = {
+        selectedPlugins: new Set(),
+        moduleEnabled: false,
+        enforceLayerCount: false,
+        enforceAllWavelengths: false,
+        manualRequiredChannels: new Set(),
+        gfpDistance: 37,
+    };
+
+    const statToggleElements = new Map();
+    const channelToggleElements = new Map();
+    const channelRowElements = new Map();
+    let gfpDistanceInput = null;
+    let gfpDistanceRow = null;
+    let infoTooltipElement = null;
+    let activeInfoAnchor = null;
 
     document.addEventListener('DOMContentLoaded', () => {
-        setupValidationToggles();
+        infoTooltipElement = document.getElementById('statsInfoTooltip');
+        initializeStatsSettings();
         setupSettingsModal();
         setupNavExitGuard();
+        setupResetModal();
+        setupFileInputs();
+        setupUploadSubmit();
+        window.addEventListener('scroll', refreshInfoTooltipPosition, true);
+        window.addEventListener('resize', refreshInfoTooltipPosition);
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element) || !target.classList.contains('info-dot')) {
+                hideInfoTooltip();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideInfoTooltip();
+            }
+        });
         const raw = sessionStorage.getItem('dvErrors');
         if (!raw) return;
         let lines = [];
@@ -630,8 +1188,10 @@
         const key = lines.filter((line) => line).join('\n').trim() || 'dv-errors';
         const existing = Array.from(
             container.querySelectorAll('.message.dv-error')
-        ).some((msg) => msg.dataset.key === key);
-        if (existing) return;
+        ).find((msg) => msg.dataset.key === key);
+        if (existing) {
+            existing.remove();
+        }
 
         const formattedLines = lines.map((line) => {
             if (!line) {
@@ -686,53 +1246,681 @@
         close.addEventListener('click', () => message.remove());
         message.appendChild(close);
         container.prepend(message);
+        const maxVisibleMessages = 1;
+        const activeMessages = Array.from(container.querySelectorAll('.message.dv-error'));
+        if (activeMessages.length > maxVisibleMessages) {
+            activeMessages.slice(maxVisibleMessages).forEach((oldMessage) => oldMessage.remove());
+        }
         setTimeout(() => message.remove(), 60000);
     }
 
-    function setupValidationToggles() {
+    function formatFileListForError(names, maxItems = 10) {
+        if (!Array.isArray(names) || names.length === 0) return '';
+        const unique = [...new Set(names)];
+        const shown = unique.slice(0, maxItems);
+        const remainder = unique.length - shown.length;
+        const shownText = shown.join(', ');
+        if (remainder > 0) {
+            return `${shownText} (+${remainder} more)`;
+        }
+        return shownText;
+    }
+
+    function normalizeInfoText(value) {
+        if (typeof value !== 'string') return '';
+        const lines = value.split('\n').map((line) => line.trim());
+
+        // Keep intentional blank lines between sections, but trim outer padding.
+        while (lines.length && lines[0] === '') {
+            lines.shift();
+        }
+        while (lines.length && lines[lines.length - 1] === '') {
+            lines.pop();
+        }
+
+        // Collapse large blank runs to a single empty line for consistent spacing.
+        const compact = [];
+        let previousWasBlank = false;
+        lines.forEach((line) => {
+            if (line === '') {
+                if (!previousWasBlank) {
+                    compact.push('');
+                }
+                previousWasBlank = true;
+                return;
+            }
+            compact.push(line);
+            previousWasBlank = false;
+        });
+
+        return compact.join('\n');
+    }
+
+    function hideInfoTooltip() {
+        activeInfoAnchor = null;
+        if (!infoTooltipElement) return;
+        infoTooltipElement.hidden = true;
+        infoTooltipElement.textContent = '';
+    }
+
+    function positionInfoTooltip(anchor) {
+        if (!infoTooltipElement || !anchor) return;
+        const rect = anchor.getBoundingClientRect();
+        const margin = 10;
+        const gap = 8;
+
+        infoTooltipElement.style.left = '0px';
+        infoTooltipElement.style.top = '0px';
+        const width = infoTooltipElement.offsetWidth;
+        const height = infoTooltipElement.offsetHeight;
+
+        let left = rect.left + (rect.width / 2) - (width / 2);
+        left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+        let top = rect.top - height - gap;
+        if (top < margin) {
+            top = rect.bottom + gap;
+        }
+        if (top + height > window.innerHeight - margin) {
+            top = Math.max(margin, window.innerHeight - height - margin);
+        }
+
+        infoTooltipElement.style.left = `${Math.round(left)}px`;
+        infoTooltipElement.style.top = `${Math.round(top)}px`;
+    }
+
+    function refreshInfoTooltipPosition() {
+        if (!activeInfoAnchor || !infoTooltipElement || infoTooltipElement.hidden) return;
+        positionInfoTooltip(activeInfoAnchor);
+    }
+
+    function showInfoTooltip(anchor) {
+        if (!anchor || !infoTooltipElement) return;
+        const text = normalizeInfoText(anchor.dataset.infoText || '');
+        if (!text) {
+            hideInfoTooltip();
+            return;
+        }
+        activeInfoAnchor = anchor;
+        infoTooltipElement.textContent = text;
+        infoTooltipElement.hidden = false;
+        positionInfoTooltip(anchor);
+    }
+
+    function buildInfoDot(text) {
+        const info = document.createElement('button');
+        info.type = 'button';
+        info.className = 'info-dot';
+        info.textContent = 'i';
+
+        const normalized = normalizeInfoText(text);
+        if (normalized) {
+            info.dataset.infoText = normalized;
+            info.setAttribute('aria-label', normalized);
+        } else {
+            info.setAttribute('aria-label', 'Information');
+        }
+
+        info.addEventListener('mouseenter', () => showInfoTooltip(info));
+        info.addEventListener('focus', () => showInfoTooltip(info));
+        info.addEventListener('mouseleave', hideInfoTooltip);
+        info.addEventListener('blur', hideInfoTooltip);
+        info.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (activeInfoAnchor === info && infoTooltipElement && !infoTooltipElement.hidden) {
+                hideInfoTooltip();
+                return;
+            }
+            showInfoTooltip(info);
+        });
+
+        return info;
+    }
+
+    function initializeStatsSettings() {
+        renderRequiredChannels();
+        renderStatsToggles();
+        renderAdvancedChannelToggles();
+        loadStoredSelections();
+        loadStoredAdvancedSettings();
+        loadStoredDistance();
+        syncStatsUI();
+    }
+
+    function renderRequiredChannels() {
+        const grid = document.getElementById('requiredChannelGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        channelOrder.forEach((channel) => {
+            const row = document.createElement('div');
+            row.className = 'required-channel-row';
+            row.dataset.channel = channel;
+
+            const name = document.createElement('span');
+            name.className = 'required-channel-name';
+            name.textContent = channel;
+            row.appendChild(name);
+
+            const info = buildInfoDot(channelInfo[channel] || `${channel} wavelength channel`);
+            row.appendChild(info);
+
+            const state = document.createElement('span');
+            state.className = 'required-channel-state';
+            state.dataset.stateFor = channel;
+            state.textContent = 'Optional';
+            row.appendChild(state);
+
+            grid.appendChild(row);
+        });
+    }
+
+    function renderStatsToggles() {
+        const list = document.getElementById('statsList');
+        if (!list) return;
+        list.innerHTML = '';
+        statToggleElements.clear();
+        gfpDistanceInput = null;
+        gfpDistanceRow = null;
+
+        statsPlugins.forEach((plugin) => {
+            const row = document.createElement('div');
+            row.className = 'stats-toggle-row';
+
+            const left = document.createElement('div');
+            left.className = 'stats-toggle-left';
+            const title = document.createElement('span');
+            title.className = 'stats-toggle-title';
+            title.textContent = plugin.label || plugin.id;
+            left.appendChild(title);
+
+            const req = Array.isArray(plugin.required_channels) ? plugin.required_channels.join(', ') : '';
+            const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired wavelengths: ${req}` : ''}`);
+            left.appendChild(info);
+            row.appendChild(left);
+
+            const right = document.createElement('div');
+            right.className = 'stats-toggle-right';
+
+            const meta = document.createElement('span');
+            meta.className = 'stats-toggle-meta';
+            meta.textContent = req ? req : 'No extra wavelengths';
+            right.appendChild(meta);
+
+            const switchLabel = document.createElement('label');
+            switchLabel.className = 'switch';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.dataset.pluginId = plugin.id;
+            const slider = document.createElement('span');
+            slider.className = 'slider';
+            switchLabel.appendChild(input);
+            switchLabel.appendChild(slider);
+            right.appendChild(switchLabel);
+            row.appendChild(right);
+            list.appendChild(row);
+            statToggleElements.set(plugin.id, input);
+
+            input.addEventListener('change', () => {
+                const pluginId = input.dataset.pluginId;
+                if (!pluginId) return;
+                if (input.checked) {
+                    statsState.selectedPlugins.add(pluginId);
+                    applyPluginDependencies(pluginId);
+                } else if (isPluginRequiredBySelection(pluginId)) {
+                    input.checked = true;
+                    return;
+                } else {
+                    statsState.selectedPlugins.delete(pluginId);
+                }
+                persistSelectedPlugins();
+                syncStatsUI();
+            });
+
+            if (plugin.id === 'GFPDot') {
+                const distanceRow = document.createElement('div');
+                distanceRow.className = 'stats-distance-inline';
+
+                const distanceLabel = document.createElement('label');
+                distanceLabel.setAttribute('for', 'gfpDistanceInput');
+                distanceLabel.textContent = 'Min distance (px):';
+                distanceRow.appendChild(distanceLabel);
+
+                const distanceInput = document.createElement('input');
+                distanceInput.type = 'number';
+                distanceInput.id = 'gfpDistanceInput';
+                distanceInput.min = '0';
+                distanceInput.value = '37';
+                distanceInput.addEventListener('change', () => {
+                    const parsed = parseInt(distanceInput.value, 10);
+                    statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
+                    distanceInput.value = String(statsState.gfpDistance);
+                    localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+                });
+                distanceRow.appendChild(distanceInput);
+                row.appendChild(distanceRow);
+                gfpDistanceRow = distanceRow;
+                gfpDistanceInput = distanceInput;
+            }
+        });
+    }
+
+    function renderAdvancedChannelToggles() {
+        const container = document.getElementById('advancedChannelGroup');
+        if (!container) return;
+        container.innerHTML = '';
+        channelToggleElements.clear();
+        channelRowElements.clear();
+
+        channelOrder.forEach((channel) => {
+            const row = document.createElement('div');
+            row.className = 'toggle-row subtoggle';
+            row.id = `channelCheckRow_${channel}`;
+
+            const text = document.createElement('div');
+            text.className = 'toggle-text';
+            const label = document.createElement('span');
+            label.className = 'toggle-label';
+            label.textContent = `Require ${channel} wavelength`;
+            text.appendChild(label);
+            const hint = document.createElement('span');
+            hint.className = 'toggle-hint';
+            hint.id = `channelHint_${channel}`;
+            hint.textContent = channelInfo[channel] || `${channel} wavelength channel`;
+            text.appendChild(hint);
+            row.appendChild(text);
+
+            const switchLabel = document.createElement('label');
+            switchLabel.className = 'switch';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.id = `enforceChannel_${channel}`;
+            const slider = document.createElement('span');
+            slider.className = 'slider';
+            switchLabel.appendChild(input);
+            switchLabel.appendChild(slider);
+            row.appendChild(switchLabel);
+            container.appendChild(row);
+
+            input.addEventListener('change', () => {
+                if (input.checked) {
+                    statsState.manualRequiredChannels.add(channel);
+                } else {
+                    statsState.manualRequiredChannels.delete(channel);
+                }
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+
+            channelToggleElements.set(channel, input);
+            channelRowElements.set(channel, row);
+        });
+
+        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const layerToggle = document.getElementById('enforceLayerCount');
+        const wavelengthToggle = document.getElementById('enforceWavelengths');
+        if (moduleToggle) {
+            moduleToggle.addEventListener('change', () => {
+                statsState.moduleEnabled = moduleToggle.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+        if (layerToggle) {
+            layerToggle.addEventListener('change', () => {
+                statsState.enforceLayerCount = layerToggle.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+        if (wavelengthToggle) {
+            wavelengthToggle.addEventListener('change', () => {
+                statsState.enforceAllWavelengths = wavelengthToggle.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+    }
+
+    function loadStoredSelections() {
+        const initialized = localStorage.getItem(initializedKey) === '1';
+        let stored = [];
+        try {
+            stored = JSON.parse(localStorage.getItem(selectionKey) || '[]');
+        } catch (err) {
+            stored = [];
+        }
+        if (!Array.isArray(stored)) {
+            stored = [];
+        }
+
+        if (!initialized) {
+            // First-run default: no statistics selected.
+            persistSelectedPlugins();
+        } else {
+            stored.forEach((pluginId) => {
+                if (pluginMap.has(pluginId)) {
+                    statsState.selectedPlugins.add(pluginId);
+                }
+            });
+        }
+
+        [...statsState.selectedPlugins].forEach((pluginId) => applyPluginDependencies(pluginId));
+    }
+
+    function loadStoredAdvancedSettings() {
+        let stored = {};
+        try {
+            stored = JSON.parse(localStorage.getItem(advancedKey) || '{}');
+        } catch (err) {
+            stored = {};
+        }
+
+        statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
+        statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
+        statsState.enforceAllWavelengths = typeof stored.enforceAllWavelengths === 'boolean' ? stored.enforceAllWavelengths : false;
+        statsState.manualRequiredChannels = new Set(
+            Array.isArray(stored.manualRequiredChannels)
+                ? stored.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
+                : []
+        );
+    }
+
+    function loadStoredDistance() {
+        const raw = localStorage.getItem(distanceKey);
+        const parsed = parseInt(raw || '37', 10);
+        statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
+    }
+
+    function persistSelectedPlugins() {
+        localStorage.setItem(selectionKey, JSON.stringify([...statsState.selectedPlugins]));
+        localStorage.setItem(initializedKey, '1');
+    }
+
+    function persistAdvancedSettings() {
+        localStorage.setItem(advancedKey, JSON.stringify({
+            moduleEnabled: !!statsState.moduleEnabled,
+            enforceLayerCount: !!statsState.enforceLayerCount,
+            enforceAllWavelengths: !!statsState.enforceAllWavelengths,
+            manualRequiredChannels: [...statsState.manualRequiredChannels],
+        }));
+    }
+
+    function isPluginRequiredBySelection(pluginId) {
+        for (const selectedId of statsState.selectedPlugins) {
+            if (selectedId === pluginId) continue;
+            const selectedPlugin = pluginMap.get(selectedId);
+            if (!selectedPlugin || !Array.isArray(selectedPlugin.required_plugins)) continue;
+            if (selectedPlugin.required_plugins.includes(pluginId)) return true;
+        }
+        return false;
+    }
+
+    function applyPluginDependencies(pluginId) {
+        const plugin = pluginMap.get(pluginId);
+        if (!plugin || !Array.isArray(plugin.required_plugins)) return;
+        plugin.required_plugins.forEach((dependencyId) => {
+            if (!pluginMap.has(dependencyId)) return;
+            statsState.selectedPlugins.add(dependencyId);
+            applyPluginDependencies(dependencyId);
+        });
+    }
+
+    function getStatsRequiredChannels() {
+        const required = new Set(alwaysRequiredChannels);
+        statsState.selectedPlugins.forEach((pluginId) => {
+            const plugin = pluginMap.get(pluginId);
+            if (!plugin || !Array.isArray(plugin.required_channels)) return;
+            plugin.required_channels.forEach((channel) => required.add(channel));
+        });
+        return required;
+    }
+
+    function syncStatsUI() {
+        const statsRequired = getStatsRequiredChannels();
         const moduleToggle = document.getElementById('yeastAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
         const layerRow = document.getElementById('layerCheckRow');
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
 
-        if (!moduleToggle || !layerToggle || !wavelengthToggle || !layerRow || !wavelengthRow) {
-            return;
+        statToggleElements.forEach((toggle, pluginId) => {
+            toggle.checked = statsState.selectedPlugins.has(pluginId);
+            toggle.disabled = isPluginRequiredBySelection(pluginId);
+        });
+
+        if (gfpDistanceInput) {
+            gfpDistanceInput.value = String(statsState.gfpDistance);
+        }
+        if (gfpDistanceRow) {
+            gfpDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('GFPDot'));
         }
 
-        const sync = () => {
-            const moduleEnabled = moduleToggle.checked;
-            layerToggle.disabled = !moduleEnabled;
-            layerRow.classList.toggle('disabled', !moduleEnabled);
+        if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
+        if (layerToggle) layerToggle.checked = !!statsState.enforceLayerCount;
+        if (wavelengthToggle) wavelengthToggle.checked = !!statsState.enforceAllWavelengths;
 
-            const layerEnabled = moduleEnabled && layerToggle.checked;
-            wavelengthToggle.disabled = !layerEnabled;
-            wavelengthRow.classList.toggle('disabled', !layerEnabled);
-        };
+        if (layerToggle && layerRow) {
+            layerToggle.disabled = !statsState.moduleEnabled;
+            layerRow.classList.toggle('disabled', !statsState.moduleEnabled);
+            layerRow.classList.remove('locked');
+        }
 
-        moduleToggle.addEventListener('change', sync);
-        layerToggle.addEventListener('change', sync);
-        sync();
+        const allChannelsRequiredByStats = channelOrder.every((channel) => statsRequired.has(channel));
+        if (wavelengthToggle && wavelengthRow) {
+            if (allChannelsRequiredByStats) {
+                statsState.enforceAllWavelengths = true;
+                wavelengthToggle.checked = true;
+            }
+            wavelengthToggle.disabled = allChannelsRequiredByStats || !statsState.moduleEnabled;
+            wavelengthRow.classList.toggle('disabled', !statsState.moduleEnabled && !allChannelsRequiredByStats);
+            wavelengthRow.classList.toggle('locked', allChannelsRequiredByStats);
+        }
+
+        channelOrder.forEach((channel) => {
+            const toggle = channelToggleElements.get(channel);
+            const row = channelRowElements.get(channel);
+            const hint = document.getElementById(`channelHint_${channel}`);
+            if (!toggle || !row) return;
+
+            const requiredByStats = statsRequired.has(channel);
+            const requiredByAllToggle = statsState.moduleEnabled && statsState.enforceAllWavelengths;
+
+            if (requiredByStats) {
+                toggle.checked = true;
+                toggle.disabled = true;
+                statsState.manualRequiredChannels.delete(channel);
+                row.classList.add('locked');
+                row.classList.remove('disabled');
+                if (hint) {
+                    hint.textContent = alwaysRequiredChannels.has(channel)
+                        ? 'Always required for segmentation/CNN.'
+                        : 'Required by selected statistic(s).';
+                }
+            } else if (requiredByAllToggle) {
+                toggle.checked = true;
+                toggle.disabled = true;
+                row.classList.remove('locked');
+                row.classList.add('disabled');
+                if (hint) {
+                    hint.textContent = 'Required because "Require all wavelengths" is enabled.';
+                }
+            } else {
+                toggle.checked = statsState.manualRequiredChannels.has(channel);
+                toggle.disabled = !statsState.moduleEnabled;
+                row.classList.toggle('disabled', !statsState.moduleEnabled);
+                row.classList.remove('locked');
+                if (hint) {
+                    hint.textContent = toggle.checked
+                        ? 'Optional advanced enforcement is enabled.'
+                        : (channelInfo[channel] || `${channel} wavelength channel`);
+                }
+            }
+
+            const requiredCell = document.querySelector(`.required-channel-row[data-channel="${channel}"]`);
+            const stateEl = document.querySelector(`.required-channel-state[data-state-for="${channel}"]`);
+            const requiredForValidation = requiredByStats || (statsState.moduleEnabled && (requiredByAllToggle || statsState.manualRequiredChannels.has(channel)));
+            if (requiredCell) {
+                requiredCell.classList.toggle('required', requiredForValidation);
+            }
+            if (stateEl) {
+                if (alwaysRequiredChannels.has(channel)) {
+                    stateEl.textContent = 'Always required';
+                } else if (requiredByStats) {
+                    stateEl.textContent = 'Required by stats';
+                } else if (statsState.moduleEnabled && requiredByAllToggle) {
+                    stateEl.textContent = 'Required by all-wavelengths';
+                } else if (statsState.moduleEnabled && statsState.manualRequiredChannels.has(channel)) {
+                    stateEl.textContent = 'Required (advanced)';
+                } else {
+                    stateEl.textContent = 'Optional';
+                }
+            }
+        });
     }
 
     function setupSettingsModal() {
         const settingsButton = document.getElementById('settingsButton');
         const backdrop = document.getElementById('settingsBackdrop');
         const closeButton = document.getElementById('settingsClose');
+        const openAdvanced = document.getElementById('openAdvancedSettings');
+        const backButton = document.getElementById('advancedBackButton');
+        const primaryView = document.getElementById('statsPrimaryView');
+        const advancedView = document.getElementById('statsAdvancedView');
+        const modalPanel = backdrop ? backdrop.querySelector('.settings-modal') : null;
 
-        if (!settingsButton || !backdrop || !closeButton) {
+        if (!settingsButton || !backdrop || !closeButton || !primaryView || !advancedView) {
             return;
         }
 
+        const ENTER_MS = 150;
+        const EXIT_MS = 120;
+        const MODAL_ENTER_MS = 170;
+        const MODAL_EXIT_MS = 120;
+        const prefersReducedMotion = !!(
+            window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        );
+        const viewAnimClasses = [
+            'anim-enter-forward',
+            'anim-enter-backward',
+            'anim-exit-forward',
+            'anim-exit-backward',
+        ];
+        let viewSwitchTimer = null;
+        let modalEnterTimer = null;
+        let modalCloseTimer = null;
+
+        const clearViewAnim = (view) => {
+            if (!view) return;
+            viewAnimClasses.forEach((cls) => view.classList.remove(cls));
+        };
+        const clearAllViewAnim = () => {
+            clearViewAnim(primaryView);
+            clearViewAnim(advancedView);
+        };
+        const clearSwitchTimer = () => {
+            if (viewSwitchTimer !== null) {
+                window.clearTimeout(viewSwitchTimer);
+                viewSwitchTimer = null;
+            }
+        };
+        const clearModalTimer = () => {
+            if (modalEnterTimer !== null) {
+                window.clearTimeout(modalEnterTimer);
+                modalEnterTimer = null;
+            }
+            if (modalCloseTimer !== null) {
+                window.clearTimeout(modalCloseTimer);
+                modalCloseTimer = null;
+            }
+        };
+        const clearModalAnim = () => {
+            backdrop.classList.remove('modal-enter', 'modal-exit');
+            if (modalPanel) {
+                modalPanel.classList.remove('modal-enter', 'modal-exit');
+            }
+        };
+
+        const switchToView = (target, animate = false) => {
+            hideInfoTooltip();
+            const toView = target === 'primary' ? primaryView : advancedView;
+            const fromView = target === 'primary' ? advancedView : primaryView;
+
+            if (!toView.hidden && fromView.hidden) return;
+
+            clearSwitchTimer();
+            clearAllViewAnim();
+
+            if (!animate || prefersReducedMotion || fromView.hidden) {
+                fromView.hidden = true;
+                toView.hidden = false;
+                return;
+            }
+
+            fromView.hidden = false;
+            toView.hidden = true;
+            fromView.classList.add(target === 'primary' ? 'anim-exit-backward' : 'anim-exit-forward');
+
+            viewSwitchTimer = window.setTimeout(() => {
+                clearViewAnim(fromView);
+                fromView.hidden = true;
+                toView.hidden = false;
+                void toView.offsetWidth;
+                toView.classList.add(target === 'primary' ? 'anim-enter-backward' : 'anim-enter-forward');
+
+                viewSwitchTimer = window.setTimeout(() => {
+                    clearViewAnim(toView);
+                    viewSwitchTimer = null;
+                }, ENTER_MS);
+            }, EXIT_MS);
+        };
+
+        const showPrimary = (animate = false) => switchToView('primary', animate);
+        const showAdvanced = (animate = false) => switchToView('advanced', animate);
+
         const openModal = () => {
+            clearModalTimer();
+            clearModalAnim();
+            showPrimary(false);
+            syncStatsUI();
             backdrop.style.display = 'flex';
             backdrop.setAttribute('aria-hidden', 'false');
             settingsButton.setAttribute('aria-expanded', 'true');
+            if (!prefersReducedMotion) {
+                void backdrop.offsetWidth;
+                backdrop.classList.add('modal-enter');
+                if (modalPanel) {
+                    modalPanel.classList.add('modal-enter');
+                }
+                modalEnterTimer = window.setTimeout(() => {
+                    clearModalAnim();
+                    modalEnterTimer = null;
+                }, MODAL_ENTER_MS);
+            }
         };
         const closeModal = () => {
-            backdrop.style.display = 'none';
+            hideInfoTooltip();
+            clearSwitchTimer();
+            clearAllViewAnim();
             backdrop.setAttribute('aria-hidden', 'true');
             settingsButton.setAttribute('aria-expanded', 'false');
+
+            clearModalTimer();
+            if (prefersReducedMotion || backdrop.style.display !== 'flex') {
+                clearModalAnim();
+                backdrop.style.display = 'none';
+                return;
+            }
+
+            clearModalAnim();
+            backdrop.classList.add('modal-exit');
+            if (modalPanel) {
+                modalPanel.classList.add('modal-exit');
+            }
+            modalCloseTimer = window.setTimeout(() => {
+                clearModalAnim();
+                backdrop.style.display = 'none';
+                modalCloseTimer = null;
+            }, MODAL_EXIT_MS);
         };
 
         settingsButton.addEventListener('click', (event) => {
@@ -743,6 +1931,18 @@
             event.stopPropagation();
             closeModal();
         });
+        if (openAdvanced) {
+            openAdvanced.addEventListener('click', (event) => {
+                event.preventDefault();
+                showAdvanced(true);
+            });
+        }
+        if (backButton) {
+            backButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                showPrimary(true);
+            });
+        }
         backdrop.addEventListener('click', (event) => {
             if (event.target === backdrop) {
                 closeModal();
@@ -759,6 +1959,7 @@
         const navLinks = document.querySelectorAll(
             '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile"]'
         );
+        const pageBackButton = document.getElementById('pageBackButton');
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');
         const confirm = document.getElementById('navExitConfirm');
@@ -787,6 +1988,16 @@
         };
 
         navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
+        if (pageBackButton) {
+            pageBackButton.addEventListener('click', (event) => {
+                if (!selectedFiles || selectedFiles.size === 0) {
+                    window.location.href = '/';
+                    return;
+                }
+                event.preventDefault();
+                openModal('/');
+            });
+        }
 
         cancel.addEventListener('click', closeModal);
         confirm.addEventListener('click', () => {
@@ -806,51 +2017,52 @@
         });
     }
 
+    function setupResetModal() {
+        const clearQueueButton = document.getElementById('clearQueueButton');
+        const resetBackdrop = document.getElementById('resetBackdrop');
+        const resetConfirm = document.getElementById('resetConfirm');
+        const resetCancel = document.getElementById('resetCancel');
 
-    const clearQueueButton = document.getElementById('clearQueueButton');
-    const resetBackdrop = document.getElementById('resetBackdrop');
-    const resetConfirm = document.getElementById('resetConfirm');
-    const resetCancel = document.getElementById('resetCancel');
+        const openResetModal = () => {
+            if (!resetBackdrop) return;
+            resetBackdrop.style.display = 'flex';
+            resetBackdrop.setAttribute('aria-hidden', 'false');
+        };
+        const closeResetModal = () => {
+            if (!resetBackdrop) return;
+            resetBackdrop.style.display = 'none';
+            resetBackdrop.setAttribute('aria-hidden', 'true');
+        };
 
-    const openResetModal = () => {
-        if (!resetBackdrop) return;
-        resetBackdrop.style.display = 'flex';
-        resetBackdrop.setAttribute('aria-hidden', 'false');
-    };
-    const closeResetModal = () => {
-        if (!resetBackdrop) return;
-        resetBackdrop.style.display = 'none';
-        resetBackdrop.setAttribute('aria-hidden', 'true');
-    };
-
-    if (clearQueueButton) {
-        clearQueueButton.addEventListener('click', () => {
-            if (selectedFiles.size === 0) return;
-            openResetModal();
-        });
-    }
-    if (resetConfirm) {
-        resetConfirm.addEventListener('click', () => {
-            selectedFiles.clear();
-            displayFileQueue();
-            closeResetModal();
-        });
-    }
-    if (resetCancel) {
-        resetCancel.addEventListener('click', closeResetModal);
-    }
-    if (resetBackdrop) {
-        resetBackdrop.addEventListener('click', (event) => {
-            if (event.target === resetBackdrop) {
+        if (clearQueueButton) {
+            clearQueueButton.addEventListener('click', () => {
+                if (selectedFiles.size === 0) return;
+                openResetModal();
+            });
+        }
+        if (resetConfirm) {
+            resetConfirm.addEventListener('click', () => {
+                selectedFiles.clear();
+                displayFileQueue();
+                closeResetModal();
+            });
+        }
+        if (resetCancel) {
+            resetCancel.addEventListener('click', closeResetModal);
+        }
+        if (resetBackdrop) {
+            resetBackdrop.addEventListener('click', (event) => {
+                if (event.target === resetBackdrop) {
+                    closeResetModal();
+                }
+            });
+        }
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
                 closeResetModal();
             }
         });
     }
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            closeResetModal();
-        }
-    });
 
     function displayFileQueue() {
         const fileList = document.getElementById('fileList');
@@ -877,10 +2089,94 @@
         });
     }
 
-    function handleFileSelection(event) {
+    function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
+        const backdrop = document.getElementById('folderIssueBackdrop');
+        const body = document.getElementById('folderIssueBody');
+        const list = document.getElementById('folderIssueList');
+        const noBtn = document.getElementById('folderIssueNo');
+        const yesBtn = document.getElementById('folderIssueYes');
+
+        if (!backdrop || !body || !list || !noBtn || !yesBtn) {
+            return Promise.resolve(true);
+        }
+
+        const duplicateCount = Array.isArray(duplicateFiles) ? duplicateFiles.length : 0;
+        const invalidCount = Array.isArray(invalidFiles) ? invalidFiles.length : 0;
+
+        if (validCount > 0) {
+            const plural = validCount === 1 ? '' : 's';
+            body.textContent = `Some files in this folder cannot be added. Add ${validCount} valid .dv file${plural} to the queue?`;
+        } else {
+            body.textContent = 'No valid new .dv files are available to add from this folder.';
+        }
+
+        list.innerHTML = '';
+        if (duplicateCount > 0) {
+            const plural = duplicateCount === 1 ? '' : 's';
+            const item = document.createElement('li');
+            item.textContent = `${duplicateCount} duplicate .dv file${plural} already in queue`;
+            list.appendChild(item);
+        }
+        if (invalidCount > 0) {
+            const item = document.createElement('li');
+            item.textContent = invalidCount === 1
+                ? '1 file is not .dv'
+                : `${invalidCount} files are not .dv`;
+            list.appendChild(item);
+        }
+
+        yesBtn.disabled = validCount <= 0;
+        backdrop.style.display = 'flex';
+        backdrop.setAttribute('aria-hidden', 'false');
+
+        return new Promise((resolve) => {
+            let settled = false;
+
+            const close = (accepted) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                backdrop.style.display = 'none';
+                backdrop.setAttribute('aria-hidden', 'true');
+                resolve(accepted);
+            };
+
+            const onNo = () => close(false);
+            const onYes = () => {
+                if (yesBtn.disabled) return;
+                close(true);
+            };
+            const onBackdrop = (evt) => {
+                if (evt.target === backdrop) {
+                    close(false);
+                }
+            };
+            const onKeydown = (evt) => {
+                if (evt.key === 'Escape') {
+                    close(false);
+                }
+            };
+
+            const cleanup = () => {
+                noBtn.removeEventListener('click', onNo);
+                yesBtn.removeEventListener('click', onYes);
+                backdrop.removeEventListener('click', onBackdrop);
+                document.removeEventListener('keydown', onKeydown);
+            };
+
+            noBtn.addEventListener('click', onNo);
+            yesBtn.addEventListener('click', onYes);
+            backdrop.addEventListener('click', onBackdrop);
+            document.addEventListener('keydown', onKeydown);
+        });
+    }
+
+    async function handleFileSelection(event) {
         const files = Array.from(event.target.files);
+        const isFolderSelection = event.target && event.target.id === 'folderInput';
         const duplicateFiles = [];
         const invalidFiles = [];
+        const filesToAdd = [];
 
         files.forEach(file => {
             const fileName = file.name;
@@ -893,16 +2189,53 @@
             if (selectedFiles.has(fileName)) {
                 duplicateFiles.push(fileName);
             } else {
-                selectedFiles.set(fileName, file);
+                filesToAdd.push([fileName, file]);
             }
         });
 
-        if (invalidFiles.length > 0) {
-            alert(`Invalid files detected (only .dv files are allowed): ${invalidFiles.join(', ')}`);
+        if (isFolderSelection && (invalidFiles.length > 0 || duplicateFiles.length > 0)) {
+            const shouldAdd = await openFolderIssueModal({
+                validCount: filesToAdd.length,
+                duplicateFiles,
+                invalidFiles,
+            });
+            if (!shouldAdd) {
+                event.target.value = '';
+                return;
+            }
         }
 
-        if (duplicateFiles.length > 0) {
-            alert(`Duplicate files detected: ${duplicateFiles.join(', ')}`);
+        filesToAdd.forEach(([fileName, file]) => {
+            selectedFiles.set(fileName, file);
+        });
+
+        if (!isFolderSelection) {
+            const queueIssues = [];
+            if (invalidFiles.length > 0) {
+                queueIssues.push(
+                    `Invalid files detected (only .dv files are allowed): ${formatFileListForError(invalidFiles)}`
+                );
+            }
+            if (duplicateFiles.length > 0) {
+                const uniqueDuplicates = [...new Set(duplicateFiles)];
+                const duplicatePreviewLimit = 10;
+                const duplicatePreview = uniqueDuplicates.slice(0, duplicatePreviewLimit);
+                const remainingDuplicates = uniqueDuplicates.length - duplicatePreview.length;
+
+                if (queueIssues.length > 0) {
+                    queueIssues.push('');
+                }
+                queueIssues.push('Duplicate files detected and skipped:');
+                duplicatePreview.forEach((name) => {
+                    queueIssues.push(`- ${name}`);
+                });
+                if (remainingDuplicates > 0) {
+                    queueIssues.push(`- (+${remainingDuplicates} more)`);
+                }
+            }
+            if (queueIssues.length > 0) {
+                showErrors(queueIssues);
+            }
         }
 
         displayFileQueue();
@@ -911,144 +2244,172 @@
         event.target.value = '';
     }
 
+    function setupFileInputs() {
+        const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+        if (fileInput) fileInput.addEventListener('change', handleFileSelection);
+        if (folderInput) folderInput.addEventListener('change', handleFileSelection);
+    }
 
-    document.getElementById('fileInput').addEventListener('change', handleFileSelection);
-    document.getElementById('folderInput').addEventListener('change', handleFileSelection);
+    function setupUploadSubmit() {
+        const uploadForm = document.getElementById('uploadForm');
+        if (!uploadForm) return;
 
-    document.getElementById('uploadForm').addEventListener('submit', function (event) {
-        event.preventDefault();
+        uploadForm.addEventListener('submit', function (event) {
+            event.preventDefault();
 
-        // Check if any files are selected
-        if (selectedFiles.size === 0) {
-            alert('No files selected! Please upload at least one file before preprocessing.');
-            return; // Stop submission
-        }
-
-        const submitBtn = document.getElementById('uploadSubmit');
-        const btnText = submitBtn.querySelector('.btn-text');
-
-        // Disable all buttons and inputs
-        const controls = document.querySelectorAll(
-            '.upload-btn, .submit-btn, .settings-btn, .settings-close, input[type="file"], input[type="checkbox"], .remove-btn'
-        );
-        controls.forEach((el) => {
-            el.disabled = true;
-            el.style.pointerEvents = 'none';
-            el.style.cursor = 'not-allowed';
-        });
-        submitBtn.classList.add('loading');
-        submitBtn.style.backgroundColor = '#0056b3';
-        btnText.textContent = 'Preprocessing Images';
-
-        // Reset server-side phase immediately so polling doesn't read stale values
-        (async () => {
-            try {
-                const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-                const csrfToken = csrfEl?.value;
-                if (!csrfToken) {
-                    console.warn('CSRF token not found; skipping progress reset.');
-                    return;
-                }
-                const setUrl = new URL(`/api/progress/${encodeURIComponent("{{ progress_key|escapejs }}")}/set/`, window.location.origin);
-                await fetch(setUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken,
-                    },
-                    body: JSON.stringify({ phase: 'Preprocessing Images' }),
-                    credentials: 'same-origin',
-                });
-            } catch (e) { /* ignore */ }
-        })();
-
-        // Start progress polling
-        const progressKey = "{{ progress_key|escapejs }}";
-        let pollTimer = null;
-        const startPolling = () => {
-            const poll = async () => {
-                try {
-                    const pollUrl = new URL(`/api/progress/${encodeURIComponent(progressKey)}/`, window.location.origin);
-                    const resp = await fetch(pollUrl, { cache: 'no-store' });
-                    if (!resp.ok) return;
-                    const data = await resp.json();
-                    if (data && data.phase) {
-                        if (data.phase === 'Preprocessing Images') {
-                            btnText.textContent = data.phase;
-                        }
-                    }
-                } catch (e) { /* swallow */ }
-            };
-            pollTimer = setInterval(poll, 1000);
-            poll();
-        };
-        startPolling();
-
-        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
-        const layerToggle = document.getElementById('enforceLayerCount');
-        const wavelengthToggle = document.getElementById('enforceWavelengths');
-        const moduleEnabled = moduleToggle ? moduleToggle.checked : true;
-        const layerEnabled = moduleEnabled && (layerToggle ? layerToggle.checked : true);
-        const wavelengthEnabled = layerEnabled && (wavelengthToggle ? wavelengthToggle.checked : true);
-
-        // Build form data from queued files
-        const formData = new FormData();
-        selectedFiles.forEach(file => formData.append('files', file));
-        formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
-        formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
-
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        const uploadController = new AbortController();
-        const uploadTimeoutMs = 300000;
-        const uploadTimeout = setTimeout(() => uploadController.abort(), uploadTimeoutMs);
-
-        fetch(this.action, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData,
-            signal: uploadController.signal,
-        })
-        .then(res => res.json().then(data => {
-            if (pollTimer) clearInterval(pollTimer);
-            clearTimeout(uploadTimeout);
-            // Case A: errors but no redirect => save & reload current page
-            if (data.errors && !data.redirect) {
-                sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
-                window.location.reload();
+            if (selectedFiles.size === 0) {
+                showErrors([
+                    'No files selected. Please upload at least one .dv file before preprocessing.',
+                ]);
                 return;
             }
-            // Case B: redirect (with or without errors) => save errors and jump
-            if (data.redirect) {
-                if (data.errors) {
-                    sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
-                }
-                window.location.href = data.redirect;
+
+            persistSelectedPlugins();
+            persistAdvancedSettings();
+            if (gfpDistanceInput) {
+                const parsed = parseInt(gfpDistanceInput.value, 10);
+                statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
+                gfpDistanceInput.value = String(statsState.gfpDistance);
+                localStorage.setItem(distanceKey, String(statsState.gfpDistance));
             }
-        }))
-        .catch(err => {
-            if (pollTimer) clearInterval(pollTimer);
-            clearTimeout(uploadTimeout);
-            console.error(err);
-            if (err && err.name === 'AbortError') {
-                showErrors([
-                    'Upload timed out. Please check file validity or try again.',
-                ]);
-            } else {
-                alert('Error during upload.');
-            }
-            // Re-enable minimally
-            submitBtn.classList.remove('loading');
-            controls.forEach((el) => { el.disabled = false; el.style.pointerEvents = ''; el.style.cursor = ''; });
+
+            const submitBtn = document.getElementById('uploadSubmit');
+            const btnText = submitBtn.querySelector('.btn-text');
+
+            const controls = document.querySelectorAll(
+                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
+            );
+            controls.forEach((el) => {
+                el.disabled = true;
+                el.style.pointerEvents = 'none';
+                el.style.cursor = 'not-allowed';
+            });
+            submitBtn.classList.add('loading');
+            submitBtn.style.backgroundColor = '#0056b3';
             btnText.textContent = 'Preprocess Files';
+
+            const settingsBackdrop = document.getElementById('settingsBackdrop');
+            if (settingsBackdrop) {
+                hideInfoTooltip();
+                settingsBackdrop.classList.remove('modal-enter', 'modal-exit');
+                const settingsPanel = settingsBackdrop.querySelector('.settings-modal');
+                if (settingsPanel) {
+                    settingsPanel.classList.remove('modal-enter', 'modal-exit');
+                }
+                settingsBackdrop.style.display = 'none';
+                settingsBackdrop.setAttribute('aria-hidden', 'true');
+            }
+
+            (async () => {
+                try {
+                    const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+                    const csrfToken = csrfEl?.value;
+                    if (!csrfToken) {
+                        return;
+                    }
+                    const setUrl = new URL(`/api/progress/${encodeURIComponent("{{ progress_key|escapejs }}")}/set/`, window.location.origin);
+                    await fetch(setUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken,
+                        },
+                        body: JSON.stringify({ phase: 'Preprocessing Images' }),
+                        credentials: 'same-origin',
+                    });
+                } catch (e) { /* ignore */ }
+            })();
+
+            const progressKey = "{{ progress_key|escapejs }}";
+            let pollTimer = null;
+            const startPolling = () => {
+                const poll = async () => {
+                    try {
+                        const pollUrl = new URL(`/api/progress/${encodeURIComponent(progressKey)}/`, window.location.origin);
+                        const resp = await fetch(pollUrl, { cache: 'no-store' });
+                        if (!resp.ok) return;
+                        await resp.json();
+                    } catch (e) { /* ignore */ }
+                };
+                pollTimer = setInterval(poll, 1000);
+                poll();
+            };
+            startPolling();
+
+            const moduleEnabled = !!statsState.moduleEnabled;
+            const layerEnabled = moduleEnabled && !!statsState.enforceLayerCount;
+            const wavelengthEnabled = moduleEnabled && !!statsState.enforceAllWavelengths;
+            const statsRequired = getStatsRequiredChannels();
+            const extraRequiredChannels = moduleEnabled
+                ? [...statsState.manualRequiredChannels].filter((channel) => !statsRequired.has(channel))
+                : [];
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => formData.append('files', file));
+            formData.append('yeast_analysis_enabled', moduleEnabled ? '1' : '0');
+            formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
+            formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
+            extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
+            [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
+            formData.append('distance', String(statsState.gfpDistance));
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const uploadController = new AbortController();
+            const uploadTimeoutMs = 300000;
+            const uploadTimeout = setTimeout(() => uploadController.abort(), uploadTimeoutMs);
+
+            fetch(this.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData,
+                signal: uploadController.signal,
+            })
+            .then(res => res.json().then(data => {
+                if (pollTimer) clearInterval(pollTimer);
+                clearTimeout(uploadTimeout);
+                if (data.errors && !data.redirect) {
+                    sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
+                    window.location.reload();
+                    return;
+                }
+                if (data.redirect) {
+                    if (data.errors) {
+                        sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
+                    }
+                    window.location.href = data.redirect;
+                }
+            }))
+            .catch(err => {
+                if (pollTimer) clearInterval(pollTimer);
+                clearTimeout(uploadTimeout);
+                console.error(err);
+                if (err && err.name === 'AbortError') {
+                    showErrors([
+                        'Upload timed out. Please check file validity or try again.',
+                    ]);
+                } else {
+                    showErrors([
+                        'Upload failed. Please try again.',
+                    ]);
+                }
+                submitBtn.classList.remove('loading');
+                controls.forEach((el) => {
+                    el.disabled = false;
+                    el.style.pointerEvents = '';
+                    el.style.cursor = '';
+                });
+                btnText.textContent = 'Preprocess Files';
+            });
         });
-    });
+    }
 
 </script>
 
 </body>
 </html>
 {% endblock content %}
+
