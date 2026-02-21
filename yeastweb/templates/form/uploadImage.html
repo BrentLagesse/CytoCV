@@ -1101,8 +1101,10 @@
         const key = lines.filter((line) => line).join('\n').trim() || 'dv-errors';
         const existing = Array.from(
             container.querySelectorAll('.message.dv-error')
-        ).some((msg) => msg.dataset.key === key);
-        if (existing) return;
+        ).find((msg) => msg.dataset.key === key);
+        if (existing) {
+            existing.remove();
+        }
 
         const formattedLines = lines.map((line) => {
             if (!line) {
@@ -1157,7 +1159,24 @@
         close.addEventListener('click', () => message.remove());
         message.appendChild(close);
         container.prepend(message);
+        const maxVisibleMessages = 1;
+        const activeMessages = Array.from(container.querySelectorAll('.message.dv-error'));
+        if (activeMessages.length > maxVisibleMessages) {
+            activeMessages.slice(maxVisibleMessages).forEach((oldMessage) => oldMessage.remove());
+        }
         setTimeout(() => message.remove(), 60000);
+    }
+
+    function formatFileListForError(names, maxItems = 10) {
+        if (!Array.isArray(names) || names.length === 0) return '';
+        const unique = [...new Set(names)];
+        const shown = unique.slice(0, maxItems);
+        const remainder = unique.length - shown.length;
+        const shownText = shown.join(', ');
+        if (remainder > 0) {
+            return `${shownText} (+${remainder} more)`;
+        }
+        return shownText;
     }
 
     function normalizeInfoText(value) {
@@ -2003,12 +2022,31 @@
             }
         });
 
+        const queueIssues = [];
         if (invalidFiles.length > 0) {
-            alert(`Invalid files detected (only .dv files are allowed): ${invalidFiles.join(', ')}`);
+            queueIssues.push(
+                `Invalid files detected (only .dv files are allowed): ${formatFileListForError(invalidFiles)}`
+            );
         }
-
         if (duplicateFiles.length > 0) {
-            alert(`Duplicate files detected: ${duplicateFiles.join(', ')}`);
+            const uniqueDuplicates = [...new Set(duplicateFiles)];
+            const duplicatePreviewLimit = 10;
+            const duplicatePreview = uniqueDuplicates.slice(0, duplicatePreviewLimit);
+            const remainingDuplicates = uniqueDuplicates.length - duplicatePreview.length;
+
+            if (queueIssues.length > 0) {
+                queueIssues.push('');
+            }
+            queueIssues.push('Duplicate files detected and skipped:');
+            duplicatePreview.forEach((name) => {
+                queueIssues.push(`- ${name}`);
+            });
+            if (remainingDuplicates > 0) {
+                queueIssues.push(`- (+${remainingDuplicates} more)`);
+            }
+        }
+        if (queueIssues.length > 0) {
+            showErrors(queueIssues);
         }
 
         displayFileQueue();
@@ -2032,7 +2070,9 @@
             event.preventDefault();
 
             if (selectedFiles.size === 0) {
-                alert('No files selected! Please upload at least one file before preprocessing.');
+                showErrors([
+                    'No files selected. Please upload at least one .dv file before preprocessing.',
+                ]);
                 return;
             }
 
@@ -2163,7 +2203,9 @@
                         'Upload timed out. Please check file validity or try again.',
                     ]);
                 } else {
-                    alert('Error during upload.');
+                    showErrors([
+                        'Upload failed. Please try again.',
+                    ]);
                 }
                 submitBtn.classList.remove('loading');
                 controls.forEach((el) => {
