@@ -121,15 +121,40 @@
             background-color: var(--accent);
             color: #fff;
             text-decoration: none;
-            padding: 12px 18px;
+            padding: 14px 24px;
             border-radius: 10px;
             transition: background-color 0.3s ease;
             font-weight: 600;
             letter-spacing: 0.2px;
-            min-width: 140px;
+            min-width: 176px;
+            min-height: 48px;
             text-align: center;
+            font-size: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
         }
         .cta-button:hover { background-color: var(--accent-dark); }
+        .cta-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-top-color: #fff;
+            border-right-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            position: absolute;
+            left: 14px;
+            top: calc(50% - 7px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .cta-button.loading .cta-spinner {
+            opacity: 1;
+            visibility: visible;
+        }
         .text-link {
             color: var(--accent);
             text-decoration: none;
@@ -166,6 +191,9 @@
             }
             .splitter { display: none; }
         }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -195,7 +223,10 @@
             {% else %}
                 <a href="{% url 'signup' %}?fresh=1" class="cta-button">Sign up</a>
             {% endif %}
-            <a href="/image/upload/" id="uploadImageButton" class="cta-button">Experiment</a>
+            <a href="/image/upload/" id="uploadImageButton" class="cta-button">
+                <span class="cta-spinner" aria-hidden="true"></span>
+                <span class="cta-label">Experiment</span>
+            </a>
         </div>
         {% if not user.is_authenticated %}
             <p>Already have an account? <a href="{% url 'signin' %}" class="text-link">Sign In</a></p>
@@ -208,10 +239,10 @@
     const uploadImageButton = document.getElementById('uploadImageButton');
     if (uploadImageButton) {
         uploadImageButton.addEventListener('click', function () {
-            // Change button text to "Loading..."
-            uploadImageButton.textContent = "Loading...";
+            uploadImageButton.classList.add('loading');
             uploadImageButton.style.pointerEvents = 'none'; // Disable pointer interactions
             uploadImageButton.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
+            uploadImageButton.setAttribute('aria-busy', 'true');
         });
     }
 
