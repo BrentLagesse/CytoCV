@@ -456,6 +456,20 @@
             justify-content: center;
             z-index: 1700;
         }
+        .popup-backdrop.modal-enter {
+            animation: settingsBackdropIn 150ms ease-out both;
+        }
+        .popup-backdrop.modal-exit {
+            animation: settingsBackdropOut 120ms ease-in both;
+            pointer-events: none;
+        }
+        .popup-surface.modal-enter {
+            animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .popup-surface.modal-exit {
+            animation: settingsModalOut 120ms ease-in both;
+            pointer-events: none;
+        }
         .nav-exit-modal {
             width: min(440px, 92vw);
             background: var(--card-bg);
@@ -523,7 +537,7 @@
             color: #fff;
             font-size: 22px;
             font-weight: 700;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: var(--app-font);
             letter-spacing: 0;
             cursor: pointer;
             padding: 0 2px;
@@ -910,6 +924,10 @@
             .settings-modal-backdrop.modal-exit,
             .settings-modal.modal-enter,
             .settings-modal.modal-exit,
+            .popup-backdrop.modal-enter,
+            .popup-backdrop.modal-exit,
+            .popup-surface.modal-enter,
+            .popup-surface.modal-exit,
             .settings-view.anim-enter-forward,
             .settings-view.anim-enter-backward,
             .settings-view.anim-exit-forward,
@@ -997,8 +1015,8 @@
         </div>
     </div>
 
-    <div class="reset-modal-backdrop" id="resetBackdrop" aria-hidden="true">
-        <div class="reset-modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+    <div class="reset-modal-backdrop popup-backdrop" id="resetBackdrop" aria-hidden="true">
+        <div class="reset-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
             <div class="reset-modal-header">
                 <span class="reset-modal-title" id="resetTitle">Reset Uploaded Files</span>
             </div>
@@ -1012,8 +1030,8 @@
         </div>
     </div>
 
-    <div class="folder-issue-backdrop" id="folderIssueBackdrop" aria-hidden="true">
-        <div class="folder-issue-modal" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
+    <div class="folder-issue-backdrop popup-backdrop" id="folderIssueBackdrop" aria-hidden="true">
+        <div class="folder-issue-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
             <div class="folder-issue-title" id="folderIssueTitle">Folder Upload Issues</div>
             <div class="folder-issue-body" id="folderIssueBody"></div>
             <ul class="folder-issue-list" id="folderIssueList"></ul>
@@ -1067,9 +1085,10 @@
 </form>
 
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
+<script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 
-<div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
-    <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
+<div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
         <div class="nav-exit-title" id="navExitTitle">Leave experiment?</div>
         <div class="nav-exit-body">
             You have files queued for preprocessing. Are you sure you want to leave this page?
@@ -1081,11 +1100,37 @@
     </div>
 </div>
 
+<div class="nav-exit-backdrop popup-backdrop" id="statsUnsavedBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="statsUnsavedTitle">
+        <div class="nav-exit-title" id="statsUnsavedTitle">Keep stats plugin changes?</div>
+        <div class="nav-exit-body">
+            You changed stats plugin settings. Do you want to keep these new changes?
+        </div>
+        <div class="nav-exit-actions">
+            <button type="button" class="nav-exit-btn confirm" id="statsUnsavedKeepOld">Keep Old Settings</button>
+            <button type="button" class="nav-exit-btn cancel" id="statsUnsavedKeepNew">Keep New Changes</button>
+        </div>
+    </div>
+</div>
+
 <div id="statsInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
 <script>
     const selectedFiles = new Map();
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
+    const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
+    let restoredQueueItems = [];
+    try {
+        const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
+        const restoredParsed = JSON.parse(restoredRaw || '[]');
+        if (Array.isArray(restoredParsed)) {
+            restoredQueueItems = restoredParsed
+                .filter((item) => item && typeof item.uuid === 'string' && typeof item.name === 'string')
+                .map((item) => ({ uuid: item.uuid, name: item.name }));
+        }
+    } catch (err) {
+        restoredQueueItems = [];
+    }
     let statsPayload = {};
     try {
         const payloadRaw = pluginPayloadElement ? pluginPayloadElement.textContent : '{}';
@@ -1128,6 +1173,74 @@
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
 
+    function getQueuedCount() {
+        return selectedFiles.size + restoredQueueItems.length;
+    }
+
+    function getQueuedNameSet() {
+        const names = new Set(selectedFiles.keys());
+        restoredQueueItems.forEach((item) => {
+            if (item && typeof item.name === 'string') {
+                names.add(item.name);
+            }
+        });
+        return names;
+    }
+    const POPUP_ENTER_MS = 170;
+    const POPUP_EXIT_MS = 120;
+    const prefersReducedMotionGlobal = !!(
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+
+    function clearPopupAnim(backdrop, panel) {
+        if (backdrop) {
+            backdrop.classList.remove('modal-enter', 'modal-exit');
+        }
+        if (panel) {
+            panel.classList.remove('modal-enter', 'modal-exit');
+        }
+    }
+
+    function openPopupModal(backdrop, panel) {
+        if (!backdrop) return;
+        clearPopupAnim(backdrop, panel);
+        backdrop.style.display = 'flex';
+        backdrop.setAttribute('aria-hidden', 'false');
+        if (!prefersReducedMotionGlobal) {
+            void backdrop.offsetWidth;
+            backdrop.classList.add('modal-enter');
+            if (panel) {
+                panel.classList.add('modal-enter');
+            }
+            window.setTimeout(() => clearPopupAnim(backdrop, panel), POPUP_ENTER_MS);
+        }
+    }
+
+    function closePopupModal(backdrop, panel, onAfterClose = null) {
+        if (!backdrop) {
+            if (typeof onAfterClose === 'function') onAfterClose();
+            return;
+        }
+        if (prefersReducedMotionGlobal || backdrop.style.display !== 'flex') {
+            clearPopupAnim(backdrop, panel);
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
+            if (typeof onAfterClose === 'function') onAfterClose();
+            return;
+        }
+        clearPopupAnim(backdrop, panel);
+        backdrop.classList.add('modal-exit');
+        if (panel) {
+            panel.classList.add('modal-exit');
+        }
+        backdrop.setAttribute('aria-hidden', 'true');
+        window.setTimeout(() => {
+            clearPopupAnim(backdrop, panel);
+            backdrop.style.display = 'none';
+            if (typeof onAfterClose === 'function') onAfterClose();
+        }, POPUP_EXIT_MS);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         infoTooltipElement = document.getElementById('statsInfoTooltip');
         initializeStatsSettings();
@@ -1136,6 +1249,7 @@
         setupResetModal();
         setupFileInputs();
         setupUploadSubmit();
+        displayFileQueue();
         window.addEventListener('scroll', refreshInfoTooltipPosition, true);
         window.addEventListener('resize', refreshInfoTooltipPosition);
         document.addEventListener('click', (event) => {
@@ -1787,6 +1901,10 @@
         const primaryView = document.getElementById('statsPrimaryView');
         const advancedView = document.getElementById('statsAdvancedView');
         const modalPanel = backdrop ? backdrop.querySelector('.settings-modal') : null;
+        const unsavedBackdrop = document.getElementById('statsUnsavedBackdrop');
+        const keepOldButton = document.getElementById('statsUnsavedKeepOld');
+        const keepNewButton = document.getElementById('statsUnsavedKeepNew');
+        const unsavedPanel = unsavedBackdrop ? unsavedBackdrop.querySelector('.nav-exit-modal') : null;
 
         if (!settingsButton || !backdrop || !closeButton || !primaryView || !advancedView) {
             return;
@@ -1808,6 +1926,44 @@
         let viewSwitchTimer = null;
         let modalEnterTimer = null;
         let modalCloseTimer = null;
+        let modalOpenSnapshot = null;
+
+        const captureStatsSnapshot = () => ({
+            selectedPlugins: [...statsState.selectedPlugins].sort(),
+            moduleEnabled: !!statsState.moduleEnabled,
+            enforceLayerCount: !!statsState.enforceLayerCount,
+            enforceAllWavelengths: !!statsState.enforceAllWavelengths,
+            manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
+            gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
+        });
+        const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
+        const hasModalChanges = () => {
+            if (!modalOpenSnapshot) return false;
+            return snapshotToKey(captureStatsSnapshot()) !== snapshotToKey(modalOpenSnapshot);
+        };
+        const restoreStatsSnapshot = (snapshot) => {
+            if (!snapshot) return;
+            statsState.selectedPlugins = new Set(
+                Array.isArray(snapshot.selectedPlugins)
+                    ? snapshot.selectedPlugins.filter((pluginId) => pluginMap.has(pluginId))
+                    : []
+            );
+            [...statsState.selectedPlugins].forEach((pluginId) => applyPluginDependencies(pluginId));
+            statsState.moduleEnabled = !!snapshot.moduleEnabled;
+            statsState.enforceLayerCount = !!snapshot.enforceLayerCount;
+            statsState.enforceAllWavelengths = !!snapshot.enforceAllWavelengths;
+            statsState.manualRequiredChannels = new Set(
+                Array.isArray(snapshot.manualRequiredChannels)
+                    ? snapshot.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
+                    : []
+            );
+            const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
+            statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
+            persistSelectedPlugins();
+            persistAdvancedSettings();
+            localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+            syncStatsUI();
+        };
 
         const clearViewAnim = (view) => {
             if (!view) return;
@@ -1838,6 +1994,45 @@
             if (modalPanel) {
                 modalPanel.classList.remove('modal-enter', 'modal-exit');
             }
+        };
+        const promptUnsavedStatsDecision = () => {
+            if (!unsavedBackdrop || !keepOldButton || !keepNewButton) {
+                return Promise.resolve(true);
+            }
+            openPopupModal(unsavedBackdrop, unsavedPanel);
+
+            return new Promise((resolve) => {
+                let settled = false;
+                const closePrompt = (decision) => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+                    closePopupModal(unsavedBackdrop, unsavedPanel, () => resolve(decision));
+                };
+                const onKeepOld = () => closePrompt(false);
+                const onKeepNew = () => closePrompt(true);
+                const onBackdrop = (event) => {
+                    if (event.target === unsavedBackdrop) {
+                        closePrompt(null);
+                    }
+                };
+                const onKeydown = (event) => {
+                    if (event.key === 'Escape') {
+                        closePrompt(null);
+                    }
+                };
+                const cleanup = () => {
+                    keepOldButton.removeEventListener('click', onKeepOld);
+                    keepNewButton.removeEventListener('click', onKeepNew);
+                    unsavedBackdrop.removeEventListener('click', onBackdrop);
+                    document.removeEventListener('keydown', onKeydown);
+                };
+
+                keepOldButton.addEventListener('click', onKeepOld);
+                keepNewButton.addEventListener('click', onKeepNew);
+                unsavedBackdrop.addEventListener('click', onBackdrop);
+                document.addEventListener('keydown', onKeydown);
+            });
         };
 
         const switchToView = (target, animate = false) => {
@@ -1882,6 +2077,7 @@
             clearModalAnim();
             showPrimary(false);
             syncStatsUI();
+            modalOpenSnapshot = captureStatsSnapshot();
             backdrop.style.display = 'flex';
             backdrop.setAttribute('aria-hidden', 'false');
             settingsButton.setAttribute('aria-expanded', 'true');
@@ -1922,6 +2118,23 @@
                 modalCloseTimer = null;
             }, MODAL_EXIT_MS);
         };
+        const attemptCloseModal = async () => {
+            if (backdrop.style.display !== 'flex') {
+                return;
+            }
+            if (!hasModalChanges()) {
+                closeModal();
+                return;
+            }
+            const keepChanges = await promptUnsavedStatsDecision();
+            if (keepChanges === null) {
+                return;
+            }
+            if (!keepChanges) {
+                restoreStatsSnapshot(modalOpenSnapshot);
+            }
+            closeModal();
+        };
 
         settingsButton.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -1929,7 +2142,7 @@
         });
         closeButton.addEventListener('click', (event) => {
             event.stopPropagation();
-            closeModal();
+            attemptCloseModal();
         });
         if (openAdvanced) {
             openAdvanced.addEventListener('click', (event) => {
@@ -1945,12 +2158,12 @@
         }
         backdrop.addEventListener('click', (event) => {
             if (event.target === backdrop) {
-                closeModal();
+                attemptCloseModal();
             }
         });
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                closeModal();
+            if (event.key === 'Escape' && backdrop.style.display === 'flex') {
+                attemptCloseModal();
             }
         });
     }
@@ -1963,6 +2176,7 @@
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');
         const confirm = document.getElementById('navExitConfirm');
+        const panel = backdrop ? backdrop.querySelector('.nav-exit-modal') : null;
 
         if (!backdrop || !cancel || !confirm) {
             return;
@@ -1971,16 +2185,15 @@
         let pendingHref = null;
         const openModal = (href) => {
             pendingHref = href;
-            backdrop.style.display = 'flex';
-            backdrop.setAttribute('aria-hidden', 'false');
+            openPopupModal(backdrop, panel);
         };
         const closeModal = () => {
-            pendingHref = null;
-            backdrop.style.display = 'none';
-            backdrop.setAttribute('aria-hidden', 'true');
+            closePopupModal(backdrop, panel, () => {
+                pendingHref = null;
+            });
         };
         const handleNavClick = (event) => {
-            if (!selectedFiles || selectedFiles.size === 0) {
+            if (getQueuedCount() === 0) {
                 return;
             }
             event.preventDefault();
@@ -1990,7 +2203,7 @@
         navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
         if (pageBackButton) {
             pageBackButton.addEventListener('click', (event) => {
-                if (!selectedFiles || selectedFiles.size === 0) {
+                if (getQueuedCount() === 0) {
                     window.location.href = '/';
                     return;
                 }
@@ -2022,27 +2235,27 @@
         const resetBackdrop = document.getElementById('resetBackdrop');
         const resetConfirm = document.getElementById('resetConfirm');
         const resetCancel = document.getElementById('resetCancel');
+        const resetPanel = resetBackdrop ? resetBackdrop.querySelector('.reset-modal') : null;
 
         const openResetModal = () => {
             if (!resetBackdrop) return;
-            resetBackdrop.style.display = 'flex';
-            resetBackdrop.setAttribute('aria-hidden', 'false');
+            openPopupModal(resetBackdrop, resetPanel);
         };
         const closeResetModal = () => {
             if (!resetBackdrop) return;
-            resetBackdrop.style.display = 'none';
-            resetBackdrop.setAttribute('aria-hidden', 'true');
+            closePopupModal(resetBackdrop, resetPanel);
         };
 
         if (clearQueueButton) {
             clearQueueButton.addEventListener('click', () => {
-                if (selectedFiles.size === 0) return;
+                if (getQueuedCount() === 0) return;
                 openResetModal();
             });
         }
         if (resetConfirm) {
             resetConfirm.addEventListener('click', () => {
                 selectedFiles.clear();
+                restoredQueueItems = [];
                 displayFileQueue();
                 closeResetModal();
             });
@@ -2068,6 +2281,26 @@
         const fileList = document.getElementById('fileList');
         fileList.innerHTML = '';
 
+        restoredQueueItems.forEach((item) => {
+            const listItem = document.createElement('div');
+            listItem.className = 'file-item';
+
+            const fileNameSpan = document.createElement('span');
+            fileNameSpan.textContent = item.name;
+
+            const removeButton = document.createElement('button');
+            removeButton.textContent = 'X';
+            removeButton.className = 'remove-btn';
+            removeButton.onclick = () => {
+                restoredQueueItems = restoredQueueItems.filter((queued) => queued.uuid !== item.uuid);
+                displayFileQueue();
+            };
+
+            listItem.appendChild(fileNameSpan);
+            listItem.appendChild(removeButton);
+            fileList.appendChild(listItem);
+        });
+
         selectedFiles.forEach((file, fileName) => {
             const listItem = document.createElement('div');
             listItem.className = 'file-item';
@@ -2091,6 +2324,7 @@
 
     function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
         const backdrop = document.getElementById('folderIssueBackdrop');
+        const panel = backdrop ? backdrop.querySelector('.folder-issue-modal') : null;
         const body = document.getElementById('folderIssueBody');
         const list = document.getElementById('folderIssueList');
         const noBtn = document.getElementById('folderIssueNo');
@@ -2126,8 +2360,7 @@
         }
 
         yesBtn.disabled = validCount <= 0;
-        backdrop.style.display = 'flex';
-        backdrop.setAttribute('aria-hidden', 'false');
+        openPopupModal(backdrop, panel);
 
         return new Promise((resolve) => {
             let settled = false;
@@ -2136,9 +2369,7 @@
                 if (settled) return;
                 settled = true;
                 cleanup();
-                backdrop.style.display = 'none';
-                backdrop.setAttribute('aria-hidden', 'true');
-                resolve(accepted);
+                closePopupModal(backdrop, panel, () => resolve(accepted));
             };
 
             const onNo = () => close(false);
@@ -2177,6 +2408,7 @@
         const duplicateFiles = [];
         const invalidFiles = [];
         const filesToAdd = [];
+        const queuedNames = getQueuedNameSet();
 
         files.forEach(file => {
             const fileName = file.name;
@@ -2186,10 +2418,11 @@
                 return;
             }
 
-            if (selectedFiles.has(fileName)) {
+            if (queuedNames.has(fileName)) {
                 duplicateFiles.push(fileName);
             } else {
                 filesToAdd.push([fileName, file]);
+                queuedNames.add(fileName);
             }
         });
 
@@ -2258,7 +2491,7 @@
         uploadForm.addEventListener('submit', function (event) {
             event.preventDefault();
 
-            if (selectedFiles.size === 0) {
+            if (getQueuedCount() === 0) {
                 showErrors([
                     'No files selected. Please upload at least one .dv file before preprocessing.',
                 ]);
@@ -2347,6 +2580,7 @@
 
             const formData = new FormData();
             selectedFiles.forEach(file => formData.append('files', file));
+            restoredQueueItems.forEach((item) => formData.append('existing_uuids', item.uuid));
             formData.append('yeast_analysis_enabled', moduleEnabled ? '1' : '0');
             formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');

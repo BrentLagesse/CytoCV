@@ -16,6 +16,7 @@ from django.http import JsonResponse
 from ..metadata_processing.dv_channel_parser import extract_channel_config
 from ..metadata_processing.error_handling import (
     DVValidationOptions,
+    DVValidationResult,
     build_dv_error_messages,
     validate_dv_file,
 )
@@ -25,6 +26,7 @@ from ..stats_plugins import (
     build_requirement_summary,
     normalize_selected_plugins,
 )
+import uuid as uuid_lib
 
 
 def _parse_bool(value, default=False):
@@ -54,13 +56,44 @@ def _parse_channels(raw_values) -> set[str]:
     return {value for value in values if value in allowed}
 
 
-def _upload_view_context(*, form, progress_key, error=None):
+def _parse_restore_uuids(raw_values) -> list[str]:
+    """Parse UUID values from list or comma-delimited payload preserving order."""
+
+    if raw_values is None:
+        return []
+    if isinstance(raw_values, str):
+        values = [part.strip() for part in raw_values.split(",")]
+    else:
+        values = []
+        for item in raw_values:
+            if not isinstance(item, str):
+                continue
+            values.extend(part.strip() for part in item.split(","))
+
+    parsed: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not value:
+            continue
+        try:
+            normalized = str(uuid_lib.UUID(value))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        parsed.append(normalized)
+    return parsed
+
+
+def _upload_view_context(*, form, progress_key, error=None, restored_queue_items=None):
     """Build template context for the upload page."""
 
     context = {
         "form": form,
         "progress_key": progress_key,
         "stats_plugin_payload_json": json.dumps(build_plugin_ui_payload()),
+        "restored_queue_payload_json": json.dumps(restored_queue_items or []),
     }
     if error:
         context["error"] = error
@@ -83,13 +116,18 @@ def upload_images(request):
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         files = request.FILES.getlist('files')
-        
-        if not files:
+        existing_uuids = _parse_restore_uuids(request.POST.getlist("existing_uuids"))
+
+        if not files and not existing_uuids:
             print("No files received")
             return render(
                 request,
                 'form/uploadImage.html',
-                _upload_view_context(form=UploadImageForm(), progress_key=progress_key, error='No files received.'),
+                _upload_view_context(
+                    form=UploadImageForm(),
+                    progress_key=progress_key,
+                    error='No files received.',
+                ),
             )
 
         print(f"Files received: {[file.name for file in files]}")
@@ -134,10 +172,36 @@ def upload_images(request):
 
         # Store all UUIDs of the processed images
         image_uuids = []
-
-        # Iterate through each file and assign a unique UUID
-        preprocess_marked = False
         validation_failures = []
+
+        # Validate any restored queue UUIDs first to preserve order.
+        for existing_uuid in existing_uuids:
+            try:
+                existing_image = UploadedImage.objects.get(uuid=existing_uuid)
+            except UploadedImage.DoesNotExist:
+                validation_failures.append(
+                    (
+                        existing_uuid,
+                        DVValidationResult(
+                            is_valid=False,
+                            layer_count=None,
+                            missing_channels=set(),
+                            required_channels=set(required_channels),
+                            error_message="no longer available in the upload queue",
+                        ),
+                    )
+                )
+                continue
+
+            existing_dv_path = Path(MEDIA_ROOT) / str(existing_image.file_location)
+            validation_result = validate_dv_file(existing_dv_path, validation_options)
+            if not validation_result.is_valid:
+                validation_failures.append((existing_image.name, validation_result))
+                continue
+            image_uuids.append(str(existing_uuid))
+
+        # Iterate through each newly uploaded file and assign a unique UUID
+        preprocess_marked = False
         for image_location in files:
             name = image_location.name
             name = Path(name).stem
@@ -159,7 +223,7 @@ def upload_images(request):
                 continue
 
             # only valid files make it into the queue
-            image_uuids.append(image_uuid)
+            image_uuids.append(str(image_uuid))
 
             # Create a directory for each image based on its UUID
             output_dir = Path(MEDIA_ROOT, str(image_uuid))
@@ -214,10 +278,31 @@ def upload_images(request):
         return redirect(preprocess_url)
     else:
         form = UploadImageForm()
+        restore_param = request.GET.get("restore", "")
+        restore_uuids = _parse_restore_uuids(restore_param)
+        restored_map = {
+            str(item.uuid): item
+            for item in UploadedImage.objects.filter(uuid__in=restore_uuids)
+        }
+        restored_queue_items = []
+        for uid in restore_uuids:
+            item = restored_map.get(uid)
+            if not item:
+                continue
+            restored_queue_items.append(
+                {
+                    "uuid": uid,
+                    "name": item.name,
+                }
+            )
     return render(
         request,
         'form/uploadImage.html',
-        _upload_view_context(form=form, progress_key=progress_key),
+        _upload_view_context(
+            form=form,
+            progress_key=progress_key,
+            restored_queue_items=restored_queue_items if request.method != "POST" else None,
+        ),
     )
 
 def generate_tif_preview_images(dv_path :Path, save_path :Path, uploaded_image : UploadedImage, n_layers : int ):
