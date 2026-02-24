@@ -468,7 +468,7 @@
                                 <button type="submit" name="cancel_recovery" class="btn secondary">Back</button>
                             </div>
                             <div class="right">
-                                <button type="submit" name="send_code" class="btn primary" data-spinner="1">
+                                <button type="submit" name="send_code" class="btn primary primary-action" data-spinner="1">
                                     <span class="btn-spinner" aria-hidden="true"></span>
                                     <span class="btn-label">Send code</span>
                                 </button>
@@ -517,14 +517,14 @@
                                 <button type="submit" name="back_email" class="btn secondary">Back</button>
                             </div>
                             <div class="right">
-                                <button
-                                    type="submit"
-                                    name="verify_code_submit"
-                                    id="recoveryVerifyButton"
-                                    class="btn primary"
-                                    data-spinner="1"
-                                    {% if recovery_code_locked %}disabled{% endif %}
-                                >
+                                    <button
+                                        type="submit"
+                                        name="verify_code_submit"
+                                        id="recoveryVerifyButton"
+                                        class="btn primary primary-action"
+                                        data-spinner="1"
+                                        {% if recovery_code_locked %}disabled{% endif %}
+                                    >
                                     <span class="btn-spinner" aria-hidden="true"></span>
                                     <span class="btn-label">{% if recovery_code_verified %}Continue{% else %}Verify code{% endif %}</span>
                                 </button>
@@ -570,7 +570,7 @@
                                 <button type="submit" name="back_code" class="btn secondary">Back</button>
                             </div>
                             <div class="right">
-                                <button type="submit" name="reset_password" class="btn primary" data-spinner="1">
+                                <button type="submit" name="reset_password" class="btn primary primary-action" data-spinner="1">
                                     <span class="btn-spinner" aria-hidden="true"></span>
                                     <span class="btn-label">Reset password</span>
                                 </button>
@@ -781,6 +781,17 @@
                 }
             });
         }
+
+        form.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.isComposing) return;
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (target.tagName === 'TEXTAREA') return;
+            const primary = form.querySelector('.primary-action:not([disabled])');
+            if (!primary || target === primary) return;
+            event.preventDefault();
+            primary.click();
+        });
 
         form.addEventListener('submit', (event) => {
             if (form.dataset.submitting === '1') {
