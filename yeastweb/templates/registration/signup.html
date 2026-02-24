@@ -413,7 +413,7 @@
                             Already have an account? <a href="{% url 'signin' %}">Sign In</a>
                         </div>
                         <div class="footer-right">
-                            <button type="submit" name="next_step" class="btn primary">
+                            <button type="submit" name="next_step" class="btn primary primary-action">
                                 <span class="btn-spinner" aria-hidden="true"></span>
                                 <span class="btn-label">Next</span>
                             </button>
@@ -443,7 +443,7 @@
                             <button type="submit" name="back_name" class="btn secondary">Back</button>
                         </div>
                         <div class="footer-right">
-                            <button type="submit" name="send_code" class="btn primary">
+                            <button type="submit" name="send_code" class="btn primary primary-action">
                                 <span class="btn-spinner" aria-hidden="true"></span>
                                 <span class="btn-label">Send code</span>
                             </button>
@@ -492,7 +492,7 @@
                             <button type="submit" name="back_email" class="btn secondary">Back</button>
                         </div>
                         <div class="footer-right">
-                            <button type="submit" name="verify_code_submit" id="verifyButton" class="btn primary" {% if code_locked %}disabled{% endif %}>
+                            <button type="submit" name="verify_code_submit" id="verifyButton" class="btn primary primary-action" {% if code_locked %}disabled{% endif %}>
                                 <span class="btn-spinner" aria-hidden="true"></span>
                                 <span class="btn-label">{% if code_verified %}Continue{% else %}Verify code{% endif %}</span>
                             </button>
@@ -539,7 +539,7 @@
                             <button type="submit" name="back_code" class="btn secondary">Back</button>
                         </div>
                         <div class="footer-right">
-                            <button type="submit" name="create_account" class="btn primary">
+                            <button type="submit" name="create_account" class="btn primary primary-action">
                                 <span class="btn-spinner" aria-hidden="true"></span>
                                 <span class="btn-label">Create account</span>
                             </button>
@@ -630,6 +630,16 @@
                 const form = root.querySelector('.signup-form');
                 if (!form || form.dataset.bound === '1') return;
                 form.dataset.bound = '1';
+                form.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' || event.isComposing) return;
+                    const target = event.target;
+                    if (!(target instanceof HTMLElement)) return;
+                    if (target.tagName === 'TEXTAREA') return;
+                    const primary = form.querySelector('.primary-action:not([disabled])');
+                    if (!primary || target === primary) return;
+                    event.preventDefault();
+                    primary.click();
+                });
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
                     if (form.dataset.submitting === '1') {
