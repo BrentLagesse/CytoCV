@@ -393,6 +393,17 @@
     .email-display strong {
         color: var(--text);
     }
+    .recaptcha-wrap {
+        margin-top: 8px;
+        display: grid;
+        gap: 6px;
+        justify-items: start;
+    }
+    .recaptcha-error {
+        margin: 0;
+        color: #f28b82;
+        font-size: 12px;
+    }
     .shake {
         animation: shake 0.18s ease-in-out 2;
     }
@@ -419,6 +430,9 @@
         }
     }
 </style>
+{% if recaptcha_enabled %}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endif %}
 {% endblock head %}
 
 {% block content %}
@@ -577,6 +591,14 @@
                             </div>
                         </div>
                     {% endif %}
+                    {% if recaptcha_enabled %}
+                        <div class="recaptcha-wrap">
+                            <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                            {% if recaptcha_error %}
+                                <p class="recaptcha-error" role="alert">{{ recaptcha_error }}</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 </form>
             </div>
         {% else %}
@@ -596,6 +618,9 @@
 
                 <div class="section">
                     <div class="title">Credentials</div>
+                    {% if login_page_error %}
+                        <div class="page-banner" role="alert">{{ login_page_error }}</div>
+                    {% endif %}
                     <form method="post" class="form login-form" novalidate>
                         {% csrf_token %}
                         <div class="field">
@@ -606,6 +631,14 @@
                             <label for="password">Password</label>
                             <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
                         </div>
+                        {% if recaptcha_enabled %}
+                            <div class="recaptcha-wrap">
+                                <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                                {% if recaptcha_error %}
+                                    <p class="recaptcha-error" role="alert">{{ recaptcha_error }}</p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
                         <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
                             <span class="spinner" aria-hidden="true"></span>
                             <span class="btn-label">Sign In</span>

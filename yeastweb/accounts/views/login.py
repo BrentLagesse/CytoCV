@@ -17,6 +17,7 @@ from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import (
     build_rate_limit_keys,
     check_rate_limit,
@@ -181,6 +182,7 @@ def _render_recovery(
     code_locked: bool = False,
     sender_email: str | None = None,
     confirm_outline: bool = False,
+    recaptcha_error: str | None = None,
 ) -> TemplateResponse:
     """Render the sign-in template in password recovery mode."""
     return TemplateResponse(
@@ -200,6 +202,9 @@ def _render_recovery(
             "recovery_code_locked": code_locked,
             "recovery_sender_email": sender_email,
             "recovery_confirm_outline": confirm_outline,
+            "recaptcha_enabled": recaptcha_enabled(),
+            "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+            "recaptcha_error": recaptcha_error,
             "rate_limit_active": False,
             "rate_limit_retry_after": 0,
             "login_failed": False,
@@ -235,6 +240,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
     page_error = None
     code_notice = None
     confirm_outline = False
+    recaptcha_error = None
 
     # Normalize computed state derived from the session.
     _is_recovery_code_active(request)
@@ -273,6 +279,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             code_locked=overrides.get("code_locked", code_locked),
             sender_email=overrides.get("sender_email", sender_email),
             confirm_outline=overrides.get("confirm_outline", confirm_outline),
+            recaptcha_error=overrides.get("recaptcha_error", recaptcha_error),
         )
 
     def send_code_email(email: str, code: str) -> bool:
@@ -321,6 +328,12 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             return render_current()
 
         if "send_code" in request.POST:
+            if recaptcha_enabled():
+                token = request.POST.get("g-recaptcha-response", "")
+                if not verify_recaptcha_response(token, get_client_ip(request)):
+                    recaptcha_error = "Please complete the reCAPTCHA challenge."
+                    step = 1
+                    return render_current()
             # Step 1: validate email, then send a verification code.
             values["email"] = _normalize_email(request.POST.get("email") or "")
             session["recovery_email"] = values["email"]
@@ -563,6 +576,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         rate_limit_active: bool = False,
         retry_after: int = 0,
         login_failed: bool = False,
+        login_page_error: str | None = None,
     ) -> TemplateResponse:
         """Render the sign-in page with rate-limit context."""
         return TemplateResponse(
@@ -573,6 +587,9 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 "rate_limit_active": rate_limit_active,
                 "rate_limit_retry_after": retry_after,
                 "login_failed": login_failed,
+                "login_page_error": login_page_error,
+                "recaptcha_enabled": recaptcha_enabled(),
+                "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
             },
         )
 
@@ -587,6 +604,17 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         # Normalize user input to keep rate-limit keys and auth consistent.
         email = (request.POST.get("email") or "").strip()
         password = request.POST.get("password") or ""
+
+        if recaptcha_enabled():
+            token = request.POST.get("g-recaptcha-response", "")
+            if not verify_recaptcha_response(token, ip):
+                return render_login(
+                    rate_limit_active=False,
+                    retry_after=0,
+                    login_failed=False,
+                    login_page_error="Please complete the reCAPTCHA challenge.",
+                )
+
         keys = build_rate_limit_keys(ip, email)
         request.session["login_last_email"] = email
 

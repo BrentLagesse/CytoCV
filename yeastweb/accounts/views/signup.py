@@ -16,6 +16,9 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 
+from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
+from core.security.rate_limit import get_client_ip
+
 VERIFY_CODE_TTL_SECONDS = 30 * 60
 VERIFY_CODE_MAX_ATTEMPTS = 5
 VERIFY_CODE_RESEND_SECONDS = 10 if settings.DEBUG else 60
@@ -60,6 +63,7 @@ def _render_signup(
     clear_password: bool = False,
     clear_confirm: bool = False,
     confirm_outline: bool = False,
+    recaptcha_error: str | None = None,
 ) -> HttpResponse:
     """Render the signup template with shared context."""
     context = {
@@ -77,6 +81,9 @@ def _render_signup(
         "clear_password": clear_password,
         "clear_confirm": clear_confirm,
         "confirm_outline": confirm_outline,
+        "recaptcha_enabled": recaptcha_enabled(),
+        "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+        "recaptcha_error": recaptcha_error,
     }
     return TemplateResponse(request, "registration/signup.html", context)
 
@@ -265,6 +272,7 @@ def signup(request: HttpRequest) -> HttpResponse:
     clear_password = False
     clear_confirm = False
     confirm_outline = False
+    recaptcha_error = None
 
     # Normalize computed state derived from the session.
     _is_code_active(request)
@@ -305,6 +313,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             clear_password=overrides.get("clear_password", clear_password),
             clear_confirm=overrides.get("clear_confirm", clear_confirm),
             confirm_outline=overrides.get("confirm_outline", confirm_outline),
+            recaptcha_error=overrides.get("recaptcha_error", recaptcha_error),
         )
 
     if request.method == "POST":
@@ -344,6 +353,12 @@ def signup(request: HttpRequest) -> HttpResponse:
             return render_current(code_sent=_code_sent_flag(request))
 
         if "send_code" in request.POST:
+            if recaptcha_enabled():
+                token = request.POST.get("g-recaptcha-response", "")
+                if not verify_recaptcha_response(token, get_client_ip(request)):
+                    recaptcha_error = "Please complete the reCAPTCHA challenge."
+                    step = 2
+                    return render_current()
             # Step 2: validate email, then send a new verification code.
             values["email"] = _normalize_email(request.POST.get("email") or "").lower()
             session["signup_email"] = values["email"]
@@ -519,6 +534,12 @@ def signup(request: HttpRequest) -> HttpResponse:
             return render_current()
 
         if "create_account" in request.POST:
+            if recaptcha_enabled():
+                token = request.POST.get("g-recaptcha-response", "")
+                if not verify_recaptcha_response(token, get_client_ip(request)):
+                    recaptcha_error = "Please complete the reCAPTCHA challenge."
+                    step = 4
+                    return render_current()
             # Step 4: validate passwords and create the user account.
             if not code_verified:
                 page_error = "Verify your email before creating an account."

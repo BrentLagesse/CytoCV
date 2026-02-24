@@ -318,6 +318,17 @@
             cursor: not-allowed;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .recaptcha-wrap {
+            margin-top: 4px;
+            display: grid;
+            gap: 6px;
+            justify-items: start;
+        }
+        .recaptcha-error {
+            margin: 0;
+            color: #f28b82;
+            font-size: 12px;
+        }
         @media (max-width: 640px) {
             .signup-card {
                 padding: 24px 20px;
@@ -334,6 +345,9 @@
             }
         }
     </style>
+    {% if recaptcha_enabled %}
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    {% endif %}
 {% endblock head %}
 
 {% block content %}
@@ -546,6 +560,14 @@
                         </div>
                     </div>
                 {% endif %}
+                {% if recaptcha_enabled %}
+                    <div class="recaptcha-wrap">
+                        <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                        {% if recaptcha_error %}
+                            <p class="recaptcha-error" role="alert">{{ recaptcha_error }}</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </form>
         </div>
     </div>
@@ -705,6 +727,19 @@
             };
 
             const initSignupFlow = (root) => {
+                if (window.grecaptcha && typeof window.grecaptcha.render === 'function') {
+                    root.querySelectorAll('.g-recaptcha').forEach((el) => {
+                        if (!(el instanceof HTMLElement)) return;
+                        if (el.dataset.rendered === '1') return;
+                        if (!el.dataset.sitekey) return;
+                        if (el.childElementCount > 0) {
+                            el.dataset.rendered = '1';
+                            return;
+                        }
+                        window.grecaptcha.render(el, { sitekey: el.dataset.sitekey });
+                        el.dataset.rendered = '1';
+                    });
+                }
                 initResendTimer(root);
                 initAjaxForm(root);
             };

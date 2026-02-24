@@ -1,10 +1,33 @@
-"""Django settings for Yeast-Web."""
+﻿"""Django settings for Yeast-Web."""
 
 from pathlib import Path
 import os
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_env_file(path: Path) -> None:
+    """Load simple KEY=VALUE pairs from a .env file without overriding os.environ."""
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or key in os.environ:
+            continue
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+_load_env_file(BASE_DIR / ".env")
 
 # Media storage
 MEDIA_URL = "/media/"
@@ -217,13 +240,33 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("YEASTWEB_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
 EMAIL_REPLY_TO = os.getenv("YEASTWEB_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 
+# Google reCAPTCHA
+RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"
+RECAPTCHA_SITE_KEY = os.getenv("CYTOCV_RECAPTCHA_SITE_KEY", "")
+RECAPTCHA_SECRET_KEY = os.getenv("CYTOCV_RECAPTCHA_SECRET_KEY", "")
+RECAPTCHA_VERIFY_URL = os.getenv(
+    "CYTOCV_RECAPTCHA_VERIFY_URL",
+    "https://www.google.com/recaptcha/api/siteverify",
+)
+
 # Content Security Policy (CSP)
 CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net")
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "https://cdn.jsdelivr.net",
+    "https://www.google.com/recaptcha/",
+    "https://www.gstatic.com/recaptcha/",
+)
 CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com")
 CSP_IMG_SRC = ("'self'", "data:", "blob:")
 CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")
-CSP_CONNECT_SRC = ("'self'",)
+CSP_CONNECT_SRC = ("'self'", "https://www.google.com/recaptcha/")
+CSP_FRAME_SRC = (
+    "'self'",
+    "https://www.google.com/recaptcha/",
+    "https://recaptcha.google.com/recaptcha/",
+)
 CSP_FRAME_ANCESTORS = ("'none'",)
 CSP_BASE_URI = ("'self'",)
 CSP_FORM_ACTION = ("'self'", "https://accounts.google.com", "https://login.microsoftonline.com")
