@@ -456,6 +456,20 @@
             justify-content: center;
             z-index: 1700;
         }
+        .popup-backdrop.modal-enter {
+            animation: settingsBackdropIn 150ms ease-out both;
+        }
+        .popup-backdrop.modal-exit {
+            animation: settingsBackdropOut 120ms ease-in both;
+            pointer-events: none;
+        }
+        .popup-surface.modal-enter {
+            animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .popup-surface.modal-exit {
+            animation: settingsModalOut 120ms ease-in both;
+            pointer-events: none;
+        }
         .nav-exit-modal {
             width: min(440px, 92vw);
             background: var(--card-bg);
@@ -910,6 +924,10 @@
             .settings-modal-backdrop.modal-exit,
             .settings-modal.modal-enter,
             .settings-modal.modal-exit,
+            .popup-backdrop.modal-enter,
+            .popup-backdrop.modal-exit,
+            .popup-surface.modal-enter,
+            .popup-surface.modal-exit,
             .settings-view.anim-enter-forward,
             .settings-view.anim-enter-backward,
             .settings-view.anim-exit-forward,
@@ -997,8 +1015,8 @@
         </div>
     </div>
 
-    <div class="reset-modal-backdrop" id="resetBackdrop" aria-hidden="true">
-        <div class="reset-modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+    <div class="reset-modal-backdrop popup-backdrop" id="resetBackdrop" aria-hidden="true">
+        <div class="reset-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
             <div class="reset-modal-header">
                 <span class="reset-modal-title" id="resetTitle">Reset Uploaded Files</span>
             </div>
@@ -1012,8 +1030,8 @@
         </div>
     </div>
 
-    <div class="folder-issue-backdrop" id="folderIssueBackdrop" aria-hidden="true">
-        <div class="folder-issue-modal" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
+    <div class="folder-issue-backdrop popup-backdrop" id="folderIssueBackdrop" aria-hidden="true">
+        <div class="folder-issue-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
             <div class="folder-issue-title" id="folderIssueTitle">Folder Upload Issues</div>
             <div class="folder-issue-body" id="folderIssueBody"></div>
             <ul class="folder-issue-list" id="folderIssueList"></ul>
@@ -1069,8 +1087,8 @@
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 
-<div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
-    <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
+<div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
         <div class="nav-exit-title" id="navExitTitle">Leave experiment?</div>
         <div class="nav-exit-body">
             You have files queued for preprocessing. Are you sure you want to leave this page?
@@ -1082,8 +1100,8 @@
     </div>
 </div>
 
-<div class="nav-exit-backdrop" id="statsUnsavedBackdrop" aria-hidden="true">
-    <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="statsUnsavedTitle">
+<div class="nav-exit-backdrop popup-backdrop" id="statsUnsavedBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="statsUnsavedTitle">
         <div class="nav-exit-title" id="statsUnsavedTitle">Keep stats plugin changes?</div>
         <div class="nav-exit-body">
             You changed stats plugin settings. Do you want to keep these new changes?
@@ -1167,6 +1185,60 @@
             }
         });
         return names;
+    }
+    const POPUP_ENTER_MS = 170;
+    const POPUP_EXIT_MS = 120;
+    const prefersReducedMotionGlobal = !!(
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+
+    function clearPopupAnim(backdrop, panel) {
+        if (backdrop) {
+            backdrop.classList.remove('modal-enter', 'modal-exit');
+        }
+        if (panel) {
+            panel.classList.remove('modal-enter', 'modal-exit');
+        }
+    }
+
+    function openPopupModal(backdrop, panel) {
+        if (!backdrop) return;
+        clearPopupAnim(backdrop, panel);
+        backdrop.style.display = 'flex';
+        backdrop.setAttribute('aria-hidden', 'false');
+        if (!prefersReducedMotionGlobal) {
+            void backdrop.offsetWidth;
+            backdrop.classList.add('modal-enter');
+            if (panel) {
+                panel.classList.add('modal-enter');
+            }
+            window.setTimeout(() => clearPopupAnim(backdrop, panel), POPUP_ENTER_MS);
+        }
+    }
+
+    function closePopupModal(backdrop, panel, onAfterClose = null) {
+        if (!backdrop) {
+            if (typeof onAfterClose === 'function') onAfterClose();
+            return;
+        }
+        if (prefersReducedMotionGlobal || backdrop.style.display !== 'flex') {
+            clearPopupAnim(backdrop, panel);
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
+            if (typeof onAfterClose === 'function') onAfterClose();
+            return;
+        }
+        clearPopupAnim(backdrop, panel);
+        backdrop.classList.add('modal-exit');
+        if (panel) {
+            panel.classList.add('modal-exit');
+        }
+        backdrop.setAttribute('aria-hidden', 'true');
+        window.setTimeout(() => {
+            clearPopupAnim(backdrop, panel);
+            backdrop.style.display = 'none';
+            if (typeof onAfterClose === 'function') onAfterClose();
+        }, POPUP_EXIT_MS);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -1832,6 +1904,7 @@
         const unsavedBackdrop = document.getElementById('statsUnsavedBackdrop');
         const keepOldButton = document.getElementById('statsUnsavedKeepOld');
         const keepNewButton = document.getElementById('statsUnsavedKeepNew');
+        const unsavedPanel = unsavedBackdrop ? unsavedBackdrop.querySelector('.nav-exit-modal') : null;
 
         if (!settingsButton || !backdrop || !closeButton || !primaryView || !advancedView) {
             return;
@@ -1926,8 +1999,7 @@
             if (!unsavedBackdrop || !keepOldButton || !keepNewButton) {
                 return Promise.resolve(true);
             }
-            unsavedBackdrop.style.display = 'flex';
-            unsavedBackdrop.setAttribute('aria-hidden', 'false');
+            openPopupModal(unsavedBackdrop, unsavedPanel);
 
             return new Promise((resolve) => {
                 let settled = false;
@@ -1935,9 +2007,7 @@
                     if (settled) return;
                     settled = true;
                     cleanup();
-                    unsavedBackdrop.style.display = 'none';
-                    unsavedBackdrop.setAttribute('aria-hidden', 'true');
-                    resolve(decision);
+                    closePopupModal(unsavedBackdrop, unsavedPanel, () => resolve(decision));
                 };
                 const onKeepOld = () => closePrompt(false);
                 const onKeepNew = () => closePrompt(true);
@@ -2106,6 +2176,7 @@
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');
         const confirm = document.getElementById('navExitConfirm');
+        const panel = backdrop ? backdrop.querySelector('.nav-exit-modal') : null;
 
         if (!backdrop || !cancel || !confirm) {
             return;
@@ -2114,13 +2185,12 @@
         let pendingHref = null;
         const openModal = (href) => {
             pendingHref = href;
-            backdrop.style.display = 'flex';
-            backdrop.setAttribute('aria-hidden', 'false');
+            openPopupModal(backdrop, panel);
         };
         const closeModal = () => {
-            pendingHref = null;
-            backdrop.style.display = 'none';
-            backdrop.setAttribute('aria-hidden', 'true');
+            closePopupModal(backdrop, panel, () => {
+                pendingHref = null;
+            });
         };
         const handleNavClick = (event) => {
             if (getQueuedCount() === 0) {
@@ -2165,16 +2235,15 @@
         const resetBackdrop = document.getElementById('resetBackdrop');
         const resetConfirm = document.getElementById('resetConfirm');
         const resetCancel = document.getElementById('resetCancel');
+        const resetPanel = resetBackdrop ? resetBackdrop.querySelector('.reset-modal') : null;
 
         const openResetModal = () => {
             if (!resetBackdrop) return;
-            resetBackdrop.style.display = 'flex';
-            resetBackdrop.setAttribute('aria-hidden', 'false');
+            openPopupModal(resetBackdrop, resetPanel);
         };
         const closeResetModal = () => {
             if (!resetBackdrop) return;
-            resetBackdrop.style.display = 'none';
-            resetBackdrop.setAttribute('aria-hidden', 'true');
+            closePopupModal(resetBackdrop, resetPanel);
         };
 
         if (clearQueueButton) {
@@ -2255,6 +2324,7 @@
 
     function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
         const backdrop = document.getElementById('folderIssueBackdrop');
+        const panel = backdrop ? backdrop.querySelector('.folder-issue-modal') : null;
         const body = document.getElementById('folderIssueBody');
         const list = document.getElementById('folderIssueList');
         const noBtn = document.getElementById('folderIssueNo');
@@ -2290,8 +2360,7 @@
         }
 
         yesBtn.disabled = validCount <= 0;
-        backdrop.style.display = 'flex';
-        backdrop.setAttribute('aria-hidden', 'false');
+        openPopupModal(backdrop, panel);
 
         return new Promise((resolve) => {
             let settled = false;
@@ -2300,9 +2369,7 @@
                 if (settled) return;
                 settled = true;
                 cleanup();
-                backdrop.style.display = 'none';
-                backdrop.setAttribute('aria-hidden', 'true');
-                resolve(accepted);
+                closePopupModal(backdrop, panel, () => resolve(accepted));
             };
 
             const onNo = () => close(false);
