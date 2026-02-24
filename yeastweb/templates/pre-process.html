@@ -452,6 +452,13 @@
         justify-content: center;
         z-index: 2300;
       }
+      .nav-exit-backdrop.modal-enter {
+        animation: settingsBackdropIn 150ms ease-out both;
+      }
+      .nav-exit-backdrop.modal-exit {
+        animation: settingsBackdropOut 120ms ease-in both;
+        pointer-events: none;
+      }
       .nav-exit-modal {
         width: min(440px, 92vw);
         background: var(--card-bg);
@@ -460,6 +467,13 @@
         padding: 24px;
         box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
         text-align: left;
+      }
+      .nav-exit-modal.modal-enter {
+        animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      .nav-exit-modal.modal-exit {
+        animation: settingsModalOut 120ms ease-in both;
+        pointer-events: none;
       }
       .nav-exit-title {
         font-size: 16px;
@@ -512,6 +526,22 @@
         color: #fff;
       }
       .nav-exit-btn.cancel:hover { background: var(--accent-dark); }
+      @keyframes settingsBackdropIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes settingsBackdropOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+      @keyframes settingsModalIn {
+        from { opacity: 0; transform: translateY(8px) scale(0.985); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes settingsModalOut {
+        from { opacity: 1; transform: translateY(0) scale(1); }
+        to { opacity: 0; transform: translateY(6px) scale(0.99); }
+      }
 
       /* Chrome / Edge / Safari */
       .sidebar-content::-webkit-scrollbar-track {
@@ -737,6 +767,19 @@
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');
         const confirm = document.getElementById('navExitConfirm');
+        const panel = backdrop ? backdrop.querySelector('.nav-exit-modal') : null;
+        const MODAL_ENTER_MS = 170;
+        const MODAL_EXIT_MS = 120;
+        const prefersReducedMotion = !!(
+          window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        );
+        const clearModalAnim = () => {
+          if (!backdrop) return;
+          backdrop.classList.remove('modal-enter', 'modal-exit');
+          if (panel) {
+            panel.classList.remove('modal-enter', 'modal-exit');
+          }
+        };
 
         if (!backdrop || !cancel || !confirm) {
           return;
@@ -760,13 +803,36 @@
             if (titleEl) titleEl.textContent = defaultTitle;
             if (bodyEl) bodyEl.textContent = defaultBody;
           }
+          clearModalAnim();
           backdrop.style.display = 'flex';
           backdrop.setAttribute('aria-hidden', 'false');
+          if (!prefersReducedMotion) {
+            void backdrop.offsetWidth;
+            backdrop.classList.add('modal-enter');
+            if (panel) {
+              panel.classList.add('modal-enter');
+            }
+            window.setTimeout(clearModalAnim, MODAL_ENTER_MS);
+          }
         };
         const closeModal = () => {
           pendingHref = null;
-          backdrop.style.display = 'none';
+          if (prefersReducedMotion || backdrop.style.display !== 'flex') {
+            clearModalAnim();
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
+            return;
+          }
+          clearModalAnim();
+          backdrop.classList.add('modal-exit');
+          if (panel) {
+            panel.classList.add('modal-exit');
+          }
           backdrop.setAttribute('aria-hidden', 'true');
+          window.setTimeout(() => {
+            clearModalAnim();
+            backdrop.style.display = 'none';
+          }, MODAL_EXIT_MS);
         };
         const handleNavClick = (event) => {
           if (!Number.isFinite(totalFiles) || totalFiles <= 0) {
