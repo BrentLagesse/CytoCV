@@ -200,6 +200,39 @@
         .info-box { font-size: 14px; text-align: center; margin-top: 2px; }
         .tight-info { line-height: 1.2; margin: 0; }
 
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 22px;
+            flex: 0 0 auto;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background-color: var(--surface-toggle-off);
+            border-radius: 999px;
+            transition: background-color 0.2s ease;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            top: 2px;
+            background-color: #f2f2f2;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+        }
+        .switch input:checked + .slider {
+            background-color: #2f8f4e;
+        }
+        .switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
         .navigation-buttons { margin-top: 5px; display: flex; justify-content: space-between; width: 300px; }
         .navigation-buttons button {
             padding: 10px 16px; font-size: 14px; background-color: #007bff; color: #fff;
@@ -367,7 +400,14 @@
                             <button name="dic" class="cell-label dic" data-channel="dic" type="button">DIC</button>
                         </form>
                         <img id="cellImage1" class="cell-image" src="">
-                        <img id="cellImage1_2" class="cell-image" src="">
+                        <div class="info-box">
+                            Toggle contours <br>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleContours" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <!-- <img id="cellImage1_2" class="cell-image" src=""> -->
                     </div>
                     <div class="cell-column">
                         <form method="post" id="dapi_form">
@@ -375,7 +415,7 @@
                             <button name="dapi" class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
                         </form>
                         <img id="cellImage2" class="cell-image" src="">
-                        <img id="cellImage2_2" class="cell-image" src="">
+                        <!-- <img id="cellImage2_2" class="cell-image" src=""> -->
                         <div class="info-box">
                             <div class="tight-info">Nucleus intensity from DAPI: <span id="nucleusIntensitySum_DAPI"></span></div>
                             <div class="tight-info">Total cellular intensity from DAPI: <span id="cellularIntensitySum_DAPI"></span></div>
@@ -388,7 +428,7 @@
                             <button name="mCherry" class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
                         </form>
                         <img id="cellImage3" class="cell-image" src="">
-                        <img id="cellImage3_2" class="cell-image" src="">
+                        <!-- <img id="cellImage3_2" class="cell-image" src=""> -->
                         <div class="info-box">
                             <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
                             <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
@@ -404,7 +444,7 @@
                             <button name="gfp" class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
                         </form>
                         <img id="cellImage4" class="cell-image" src="">
-                        <img id="cellImage4_2" class="cell-image" src="">
+                        <!-- <img id="cellImage4_2" class="cell-image" src=""> -->
                         <div class="info-box">
                             <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
                             <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
@@ -455,6 +495,7 @@
 
         window.onload = function () {
             loadFile(currentFileIndex);
+            toggleContourOverlays();
         };
 
         function loadFile(fileIndex) {
@@ -567,13 +608,13 @@
         function updateCellImages(cellPairImages, statistics) {
             const imageUrls = cellPairImages[currentCellNumber];
             document.getElementById("cellImage1").src = imageUrls[0];
-            document.getElementById("cellImage1_2").src = imageUrls[1];
+            // document.getElementById("cellImage1_2").src = imageUrls[1];
             document.getElementById("cellImage2").src = imageUrls[2];
-            document.getElementById("cellImage2_2").src = imageUrls[3];
+            // document.getElementById("cellImage2_2").src = imageUrls[3];
             document.getElementById("cellImage3").src = imageUrls[4];
-            document.getElementById("cellImage3_2").src = imageUrls[5];
+            // document.getElementById("cellImage3_2").src = imageUrls[5];
             document.getElementById("cellImage4").src = imageUrls[6];
-            document.getElementById("cellImage4_2").src = imageUrls[7];
+            // document.getElementById("cellImage4_2").src = imageUrls[7];
             document.getElementById("cellID").textContent = currentCellNumber;
             
             const cellStats = statistics[currentCellNumber];
@@ -597,23 +638,49 @@
         function nextFile() {
             currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
             loadFile(currentFileIndex);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
         }
 
         function previousFile() {
             currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
             loadFile(currentFileIndex);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
         }
 
         function nextCell() {
             currentCellNumber = (currentCellNumber % maxCells) + 1;
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
         }
 
         function previousCell() {
             currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
+        }
+
+        function toggleContourOverlays() {
+            let fileData = filesData[fileUUIDs[currentFileIndex]];
+            let imageUrls = fileData.CellPairImages[currentCellNumber];
+            var toggle = document.getElementById('toggleContours').addEventListener('change', function() {
+                if (!this.checked) {
+                    document.getElementById("cellImage1").src = imageUrls[1];
+                    document.getElementById("cellImage2").src = imageUrls[3];
+                    document.getElementById("cellImage3").src = imageUrls[5];
+                    document.getElementById("cellImage4").src = imageUrls[7];
+                } else {
+                    document.getElementById("cellImage1").src = imageUrls[0];
+                    document.getElementById("cellImage2").src = imageUrls[2];
+                    document.getElementById("cellImage3").src = imageUrls[4];
+                    document.getElementById("cellImage4").src = imageUrls[6];
+                }
+            });
         }
 
         // Sidebar elements

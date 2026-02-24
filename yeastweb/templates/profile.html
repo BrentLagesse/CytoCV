@@ -71,7 +71,7 @@
             }
             .progress-text {
                 color: #fff;
-                font-size: 12px;
+                font-size: 10px;
             }
 
             .files {
@@ -220,7 +220,7 @@
             <h1>Used Storage</h1>
             <div class="progress-bar-container">
                 <div class="progress-bar" style="width: {{ percentage_used }}%;">
-                    <span class="progress-text">{{ used_storage|filesize }} / {{ total_storage|filesize }}</span>
+                    <span class="progress-text">{{ used_storage|filesize }}</span>
                 </div>
             </div>
             <p>Storage Available: {{ available_storage|filesize }}</p>
