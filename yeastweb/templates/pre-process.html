@@ -322,10 +322,24 @@
       .analysis { display: inline; }
 
       .analysis-actions {
-        margin-top: 10px;
+        margin: 10px auto 0;
         display: flex;
-        justify-content: center;
-        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: min(460px, 100%);
+      }
+      .analysis-actions .button {
+        margin: 0;
+      }
+      .button.back {
+        background: var(--surface-muted-alt);
+        border: 1px solid var(--panel-border);
+        color: #fff;
+        min-width: 120px;
+      }
+      .button.back:hover {
+        background: var(--surface-hover-strong);
       }
       .button.secondary {
         background-color: #007bff;
@@ -573,6 +587,14 @@
           <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
             {% csrf_token %}
             <div class="analysis-actions">
+              <button
+                type="button"
+                class="button back"
+                id="preprocessBackButton"
+                data-href="/image/upload/?restore={{ uuids|urlencode }}"
+              >
+                Back
+              </button>
               <button type="submit" class="button analyze" id="startAnalysisButton">
                 <span class="spinner" aria-hidden="true"></span>
                 <span class="btn-text">Start Analysis</span>
@@ -711,6 +733,7 @@
         const navLinks = document.querySelectorAll(
           '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile"]'
         );
+        const preprocessBackButton = document.getElementById('preprocessBackButton');
         const backdrop = document.getElementById('navExitBackdrop');
         const cancel = document.getElementById('navExitCancel');
         const confirm = document.getElementById('navExitConfirm');
@@ -753,6 +776,17 @@
           openModal(event.currentTarget.getAttribute('href'));
         };
         navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
+        if (preprocessBackButton) {
+          preprocessBackButton.addEventListener('click', (event) => {
+            const backHref = preprocessBackButton.dataset.href || '/image/upload/';
+            if (!Number.isFinite(totalFiles) || totalFiles <= 0) {
+              window.location.href = backHref;
+              return;
+            }
+            event.preventDefault();
+            openModal(backHref);
+          });
+        }
 
         cancel.addEventListener('click', closeModal);
         confirm.addEventListener('click', async () => {

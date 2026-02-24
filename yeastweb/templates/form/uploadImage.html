@@ -1067,6 +1067,7 @@
 </form>
 
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
+<script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 
 <div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -1081,11 +1082,37 @@
     </div>
 </div>
 
+<div class="nav-exit-backdrop" id="statsUnsavedBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal" role="dialog" aria-modal="true" aria-labelledby="statsUnsavedTitle">
+        <div class="nav-exit-title" id="statsUnsavedTitle">Keep stats plugin changes?</div>
+        <div class="nav-exit-body">
+            You changed stats plugin settings. Do you want to keep these new changes?
+        </div>
+        <div class="nav-exit-actions">
+            <button type="button" class="nav-exit-btn confirm" id="statsUnsavedKeepOld">Keep Old Settings</button>
+            <button type="button" class="nav-exit-btn cancel" id="statsUnsavedKeepNew">Keep New Changes</button>
+        </div>
+    </div>
+</div>
+
 <div id="statsInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
 <script>
     const selectedFiles = new Map();
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
+    const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
+    let restoredQueueItems = [];
+    try {
+        const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
+        const restoredParsed = JSON.parse(restoredRaw || '[]');
+        if (Array.isArray(restoredParsed)) {
+            restoredQueueItems = restoredParsed
+                .filter((item) => item && typeof item.uuid === 'string' && typeof item.name === 'string')
+                .map((item) => ({ uuid: item.uuid, name: item.name }));
+        }
+    } catch (err) {
+        restoredQueueItems = [];
+    }
     let statsPayload = {};
     try {
         const payloadRaw = pluginPayloadElement ? pluginPayloadElement.textContent : '{}';
@@ -1128,6 +1155,20 @@
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
 
+    function getQueuedCount() {
+        return selectedFiles.size + restoredQueueItems.length;
+    }
+
+    function getQueuedNameSet() {
+        const names = new Set(selectedFiles.keys());
+        restoredQueueItems.forEach((item) => {
+            if (item && typeof item.name === 'string') {
+                names.add(item.name);
+            }
+        });
+        return names;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         infoTooltipElement = document.getElementById('statsInfoTooltip');
         initializeStatsSettings();
@@ -1136,6 +1177,7 @@
         setupResetModal();
         setupFileInputs();
         setupUploadSubmit();
+        displayFileQueue();
         window.addEventListener('scroll', refreshInfoTooltipPosition, true);
         window.addEventListener('resize', refreshInfoTooltipPosition);
         document.addEventListener('click', (event) => {
@@ -1787,6 +1829,9 @@
         const primaryView = document.getElementById('statsPrimaryView');
         const advancedView = document.getElementById('statsAdvancedView');
         const modalPanel = backdrop ? backdrop.querySelector('.settings-modal') : null;
+        const unsavedBackdrop = document.getElementById('statsUnsavedBackdrop');
+        const keepOldButton = document.getElementById('statsUnsavedKeepOld');
+        const keepNewButton = document.getElementById('statsUnsavedKeepNew');
 
         if (!settingsButton || !backdrop || !closeButton || !primaryView || !advancedView) {
             return;
@@ -1808,6 +1853,44 @@
         let viewSwitchTimer = null;
         let modalEnterTimer = null;
         let modalCloseTimer = null;
+        let modalOpenSnapshot = null;
+
+        const captureStatsSnapshot = () => ({
+            selectedPlugins: [...statsState.selectedPlugins].sort(),
+            moduleEnabled: !!statsState.moduleEnabled,
+            enforceLayerCount: !!statsState.enforceLayerCount,
+            enforceAllWavelengths: !!statsState.enforceAllWavelengths,
+            manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
+            gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
+        });
+        const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
+        const hasModalChanges = () => {
+            if (!modalOpenSnapshot) return false;
+            return snapshotToKey(captureStatsSnapshot()) !== snapshotToKey(modalOpenSnapshot);
+        };
+        const restoreStatsSnapshot = (snapshot) => {
+            if (!snapshot) return;
+            statsState.selectedPlugins = new Set(
+                Array.isArray(snapshot.selectedPlugins)
+                    ? snapshot.selectedPlugins.filter((pluginId) => pluginMap.has(pluginId))
+                    : []
+            );
+            [...statsState.selectedPlugins].forEach((pluginId) => applyPluginDependencies(pluginId));
+            statsState.moduleEnabled = !!snapshot.moduleEnabled;
+            statsState.enforceLayerCount = !!snapshot.enforceLayerCount;
+            statsState.enforceAllWavelengths = !!snapshot.enforceAllWavelengths;
+            statsState.manualRequiredChannels = new Set(
+                Array.isArray(snapshot.manualRequiredChannels)
+                    ? snapshot.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
+                    : []
+            );
+            const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
+            statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
+            persistSelectedPlugins();
+            persistAdvancedSettings();
+            localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+            syncStatsUI();
+        };
 
         const clearViewAnim = (view) => {
             if (!view) return;
@@ -1838,6 +1921,48 @@
             if (modalPanel) {
                 modalPanel.classList.remove('modal-enter', 'modal-exit');
             }
+        };
+        const promptUnsavedStatsDecision = () => {
+            if (!unsavedBackdrop || !keepOldButton || !keepNewButton) {
+                return Promise.resolve(true);
+            }
+            unsavedBackdrop.style.display = 'flex';
+            unsavedBackdrop.setAttribute('aria-hidden', 'false');
+
+            return new Promise((resolve) => {
+                let settled = false;
+                const closePrompt = (decision) => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+                    unsavedBackdrop.style.display = 'none';
+                    unsavedBackdrop.setAttribute('aria-hidden', 'true');
+                    resolve(decision);
+                };
+                const onKeepOld = () => closePrompt(false);
+                const onKeepNew = () => closePrompt(true);
+                const onBackdrop = (event) => {
+                    if (event.target === unsavedBackdrop) {
+                        closePrompt(null);
+                    }
+                };
+                const onKeydown = (event) => {
+                    if (event.key === 'Escape') {
+                        closePrompt(null);
+                    }
+                };
+                const cleanup = () => {
+                    keepOldButton.removeEventListener('click', onKeepOld);
+                    keepNewButton.removeEventListener('click', onKeepNew);
+                    unsavedBackdrop.removeEventListener('click', onBackdrop);
+                    document.removeEventListener('keydown', onKeydown);
+                };
+
+                keepOldButton.addEventListener('click', onKeepOld);
+                keepNewButton.addEventListener('click', onKeepNew);
+                unsavedBackdrop.addEventListener('click', onBackdrop);
+                document.addEventListener('keydown', onKeydown);
+            });
         };
 
         const switchToView = (target, animate = false) => {
@@ -1882,6 +2007,7 @@
             clearModalAnim();
             showPrimary(false);
             syncStatsUI();
+            modalOpenSnapshot = captureStatsSnapshot();
             backdrop.style.display = 'flex';
             backdrop.setAttribute('aria-hidden', 'false');
             settingsButton.setAttribute('aria-expanded', 'true');
@@ -1922,6 +2048,23 @@
                 modalCloseTimer = null;
             }, MODAL_EXIT_MS);
         };
+        const attemptCloseModal = async () => {
+            if (backdrop.style.display !== 'flex') {
+                return;
+            }
+            if (!hasModalChanges()) {
+                closeModal();
+                return;
+            }
+            const keepChanges = await promptUnsavedStatsDecision();
+            if (keepChanges === null) {
+                return;
+            }
+            if (!keepChanges) {
+                restoreStatsSnapshot(modalOpenSnapshot);
+            }
+            closeModal();
+        };
 
         settingsButton.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -1929,7 +2072,7 @@
         });
         closeButton.addEventListener('click', (event) => {
             event.stopPropagation();
-            closeModal();
+            attemptCloseModal();
         });
         if (openAdvanced) {
             openAdvanced.addEventListener('click', (event) => {
@@ -1945,12 +2088,12 @@
         }
         backdrop.addEventListener('click', (event) => {
             if (event.target === backdrop) {
-                closeModal();
+                attemptCloseModal();
             }
         });
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                closeModal();
+            if (event.key === 'Escape' && backdrop.style.display === 'flex') {
+                attemptCloseModal();
             }
         });
     }
@@ -1980,7 +2123,7 @@
             backdrop.setAttribute('aria-hidden', 'true');
         };
         const handleNavClick = (event) => {
-            if (!selectedFiles || selectedFiles.size === 0) {
+            if (getQueuedCount() === 0) {
                 return;
             }
             event.preventDefault();
@@ -1990,7 +2133,7 @@
         navLinks.forEach((link) => link.addEventListener('click', handleNavClick));
         if (pageBackButton) {
             pageBackButton.addEventListener('click', (event) => {
-                if (!selectedFiles || selectedFiles.size === 0) {
+                if (getQueuedCount() === 0) {
                     window.location.href = '/';
                     return;
                 }
@@ -2036,13 +2179,14 @@
 
         if (clearQueueButton) {
             clearQueueButton.addEventListener('click', () => {
-                if (selectedFiles.size === 0) return;
+                if (getQueuedCount() === 0) return;
                 openResetModal();
             });
         }
         if (resetConfirm) {
             resetConfirm.addEventListener('click', () => {
                 selectedFiles.clear();
+                restoredQueueItems = [];
                 displayFileQueue();
                 closeResetModal();
             });
@@ -2067,6 +2211,26 @@
     function displayFileQueue() {
         const fileList = document.getElementById('fileList');
         fileList.innerHTML = '';
+
+        restoredQueueItems.forEach((item) => {
+            const listItem = document.createElement('div');
+            listItem.className = 'file-item';
+
+            const fileNameSpan = document.createElement('span');
+            fileNameSpan.textContent = item.name;
+
+            const removeButton = document.createElement('button');
+            removeButton.textContent = 'X';
+            removeButton.className = 'remove-btn';
+            removeButton.onclick = () => {
+                restoredQueueItems = restoredQueueItems.filter((queued) => queued.uuid !== item.uuid);
+                displayFileQueue();
+            };
+
+            listItem.appendChild(fileNameSpan);
+            listItem.appendChild(removeButton);
+            fileList.appendChild(listItem);
+        });
 
         selectedFiles.forEach((file, fileName) => {
             const listItem = document.createElement('div');
@@ -2177,6 +2341,7 @@
         const duplicateFiles = [];
         const invalidFiles = [];
         const filesToAdd = [];
+        const queuedNames = getQueuedNameSet();
 
         files.forEach(file => {
             const fileName = file.name;
@@ -2186,10 +2351,11 @@
                 return;
             }
 
-            if (selectedFiles.has(fileName)) {
+            if (queuedNames.has(fileName)) {
                 duplicateFiles.push(fileName);
             } else {
                 filesToAdd.push([fileName, file]);
+                queuedNames.add(fileName);
             }
         });
 
@@ -2258,7 +2424,7 @@
         uploadForm.addEventListener('submit', function (event) {
             event.preventDefault();
 
-            if (selectedFiles.size === 0) {
+            if (getQueuedCount() === 0) {
                 showErrors([
                     'No files selected. Please upload at least one .dv file before preprocessing.',
                 ]);
@@ -2347,6 +2513,7 @@
 
             const formData = new FormData();
             selectedFiles.forEach(file => formData.append('files', file));
+            restoredQueueItems.forEach((item) => formData.append('existing_uuids', item.uuid));
             formData.append('yeast_analysis_enabled', moduleEnabled ? '1' : '0');
             formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
