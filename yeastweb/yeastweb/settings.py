@@ -1,19 +1,48 @@
-"""Django settings for Yeast-Web."""
+﻿"""Django settings for Yeast-Web."""
 
 from pathlib import Path
 import os
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent
+
+
+def _load_env_file(path: Path) -> None:
+    """Load simple KEY=VALUE pairs from a .env file without overriding os.environ."""
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or key in os.environ:
+            continue
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+_load_env_file(PROJECT_ROOT / ".env")
+_load_env_file(BASE_DIR / ".env")
 
 # Media storage
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Core settings (override in production)
-SECRET_KEY = 'django-insecure-r_afs-3hujl8xfiqc%l#t*%$(bs*@ycdlnz$okl%i57g!tn%3y'
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY = os.getenv("YEASTWEB_SECRET_KEY", "django-insecure-change-me-in-env")
+DEBUG = os.getenv("YEASTWEB_DEBUG", "1") == "1"
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("YEASTWEB_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
 
 # Authentication
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -217,13 +246,53 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("YEASTWEB_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
 EMAIL_REPLY_TO = os.getenv("YEASTWEB_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 
+# Google reCAPTCHA
+RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"
+RECAPTCHA_SITE_KEY = os.getenv("CYTOCV_RECAPTCHA_SITE_KEY", "")
+RECAPTCHA_SECRET_KEY = os.getenv("CYTOCV_RECAPTCHA_SECRET_KEY", "")
+_recaptcha_default_verify_url = "https://www.google.com/recaptcha/api/siteverify"
+_recaptcha_override_allowed = os.getenv("CYTOCV_RECAPTCHA_ALLOW_VERIFY_URL_OVERRIDE", "0") == "1"
+if DEBUG or _recaptcha_override_allowed:
+    RECAPTCHA_VERIFY_URL = os.getenv(
+        "CYTOCV_RECAPTCHA_VERIFY_URL",
+        _recaptcha_default_verify_url,
+    )
+else:
+    RECAPTCHA_VERIFY_URL = _recaptcha_default_verify_url
+_raw_recaptcha_hosts = os.getenv("CYTOCV_RECAPTCHA_EXPECTED_HOSTNAMES", "")
+if _raw_recaptcha_hosts.strip():
+    RECAPTCHA_EXPECTED_HOSTNAMES = tuple(
+        host.strip().lower()
+        for host in _raw_recaptcha_hosts.split(",")
+        if host.strip()
+    )
+elif DEBUG:
+    RECAPTCHA_EXPECTED_HOSTNAMES = ("localhost", "127.0.0.1")
+else:
+    RECAPTCHA_EXPECTED_HOSTNAMES = tuple(
+        host.strip().lower()
+        for host in ALLOWED_HOSTS
+        if host.strip() and host != "*"
+    )
+
 # Content Security Policy (CSP)
 CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net")
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "https://cdn.jsdelivr.net",
+    "https://www.google.com/recaptcha/",
+    "https://www.gstatic.com/recaptcha/",
+)
 CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com")
 CSP_IMG_SRC = ("'self'", "data:", "blob:")
 CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com")
-CSP_CONNECT_SRC = ("'self'",)
+CSP_CONNECT_SRC = ("'self'", "https://www.google.com/recaptcha/")
+CSP_FRAME_SRC = (
+    "'self'",
+    "https://www.google.com/recaptcha/",
+    "https://recaptcha.google.com/recaptcha/",
+)
 CSP_FRAME_ANCESTORS = ("'none'",)
 CSP_BASE_URI = ("'self'",)
 CSP_FORM_ACTION = ("'self'", "https://accounts.google.com", "https://login.microsoftonline.com")
@@ -258,6 +327,10 @@ SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
 if SECURITY_STRICT:
+    if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
+        raise RuntimeError(
+            "SECURITY_STRICT requires explicit YEASTWEB_ALLOWED_HOSTS without wildcards."
+        )
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
