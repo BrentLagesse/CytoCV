@@ -5,6 +5,7 @@ import os
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent
 
 
 def _load_env_file(path: Path) -> None:
@@ -27,6 +28,7 @@ def _load_env_file(path: Path) -> None:
         os.environ[key] = value
 
 
+_load_env_file(PROJECT_ROOT / ".env")
 _load_env_file(BASE_DIR / ".env")
 
 # Media storage

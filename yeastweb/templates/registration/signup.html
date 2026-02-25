@@ -351,8 +351,38 @@
 {% endblock head %}
 
 {% block content %}
+    {% if recaptcha_gate_error %}
+        <div class="message-container">
+            <div class="message error auto-dismiss" role="alert">{{ recaptcha_gate_error }}</div>
+        </div>
+    {% endif %}
     <div class="signup-page">
         <div class="signup-card soft-fade-in">
+            {% if recaptcha_gate_mode %}
+            <div class="signup-header">
+                <div class="step-indicator">Step 0 of 4</div>
+                <h1>Verify you are human</h1>
+                <p class="subtitle">Complete reCAPTCHA to start signup.</p>
+            </div>
+            <form method="post" class="signup-form" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="pass_captcha_gate" value="1">
+                {% if recaptcha_enabled %}
+                    <div class="recaptcha-wrap">
+                        <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                    </div>
+                {% endif %}
+                <div class="form-footer">
+                    <div class="footer-left"></div>
+                    <div class="footer-right">
+                        <button type="submit" class="btn primary primary-action">
+                            <span class="btn-spinner" aria-hidden="true"></span>
+                            <span class="btn-label">Continue</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            {% else %}
             <div class="signup-header">
                 <div class="step-indicator">Step {{ step }} of {{ step_total }}</div>
                 {% if step == 1 %}
@@ -560,15 +590,8 @@
                         </div>
                     </div>
                 {% endif %}
-                {% if recaptcha_enabled %}
-                    <div class="recaptcha-wrap">
-                        <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
-                        {% if recaptcha_error %}
-                            <p class="recaptcha-error" role="alert">{{ recaptcha_error }}</p>
-                        {% endif %}
-                    </div>
-                {% endif %}
             </form>
+            {% endif %}
         </div>
     </div>
 
@@ -630,6 +653,19 @@
                     }
                 } else if (currentToast) {
                     currentToast.remove();
+                }
+            };
+            const syncTopMessages = (doc) => {
+                const newContainer = doc.querySelector('.message-container');
+                const currentContainer = document.querySelector('.message-container');
+                if (newContainer) {
+                    if (currentContainer) {
+                        currentContainer.replaceWith(newContainer);
+                    } else {
+                        document.body.appendChild(newContainer);
+                    }
+                } else if (currentContainer) {
+                    currentContainer.remove();
                 }
             };
 
@@ -709,6 +745,7 @@
                         }
                         currentCard.replaceWith(newCard);
                         syncNoticeToast(doc);
+                        syncTopMessages(doc);
                         initSignupFlow(document);
                         restorePasswords(newCard, preserved);
                     } catch (error) {
