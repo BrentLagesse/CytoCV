@@ -103,7 +103,7 @@ class GFPDot(Analysis):
                 else:   # Check biorientation instead
                     num_between = 0
                     for green_center in green_centers.values():
-                        if self.point_is_between(green_center, centers[0], centers[1], 50):
+                        if self.point_is_between(green_center, centers[0], centers[1], 66):
                             num_between += 1
 
                     # Set biorientation status
