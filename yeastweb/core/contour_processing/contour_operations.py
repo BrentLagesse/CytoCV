@@ -72,6 +72,7 @@ def find_contours(images:GrayImage):
     #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
     
     # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong brightness of cell
+    # Consider hybrid Otsu/Canny approach, where Otsu can be used to find the high hysteresis threshold and divided by 3 to find low
     contours_dapi = []
     contours_dapi_3 = []
     bestContours_dapi = []
@@ -99,6 +100,7 @@ def find_contours(images:GrayImage):
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
         contours_gfp, _ = cv2.findContours(thresh_gfp, cv2.RETR_LIST, 2)
+        contours_gfp = filterContours(contours_gfp)     # NOTE: If you notice cells where "obvious" green dots are missing, this is likely to blame
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly
@@ -179,3 +181,15 @@ def merge_contour(bestContours, contours):
 
     print("only 1 contour found")
     return best_contour
+
+# Gets rid of a high number of erroneous contours, but is a little overzealous at times
+# TODO Reduce instances where good contours are removed
+def filterContours(contours):
+    contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= 8]
+    ret = []
+    for cnt in contours:
+        closed = cv2.arcLength(cnt, True)
+        opened = cv2.arcLength(cnt, False)
+        if (closed / opened) <= 0.9 or (closed / opened) >= 1.06:
+            ret.append(cnt)
+    return ret
