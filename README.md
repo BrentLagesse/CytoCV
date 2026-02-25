@@ -1,8 +1,8 @@
-# YeastAnalysisTool
+# CytoCV Yeast Analysis Tool
 Automated analysis of **DeltaVision (DV)** fluorescent microscopy stacks of yeast cells in mitosis. Quantifies points of interest across **DIC, DAPI, mCherry, GFP** channels with a Django web UI and a ML segmentation workflow (Mask R-CNN).
 
-> **Version:** 1.0
-> **Repo:** https://github.com/BrentLagesse/Yeast-Web  
+> **Version:** 1.0  
+> **Repo:** https://github.com/BrentLagesse/CytoCV  
 > **Python:** **3.11.5** (exact)  
 > **DB:** SQLite (default)  
 > **OS:** Windows (native) / Linux (via Docker)
@@ -72,23 +72,23 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 2. Clone the Github repository:
    ```bash
-   git clone https://github.com/BrentLagesse/Yeast-Web.git
+   git clone https://github.com/BrentLagesse/CytoCV.git
 
 3. Navigate to the Directory:
    ```bash
-   cd Yeast-Web
+   cd CytoCV
 
 4. Create virtual environment:
     ```bash
-   python -m venv yeast_web
+   python -m venv cyto_cv
 
 5. Activate virtual environment:
    ```bash
-   source yeast_web/Scripts/activate
+   source cyto_cv/Scripts/activate
    ```
    or
    ```bash
-   yeast_web\Scripts\activate
+   cyto_cv\Scripts\activate
    ```
 6. Make sure pip exists in the virtual environment:
     ```bash
@@ -100,7 +100,7 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 8. Check that pip is from the virtual environment:
    ```bash
-   python -m pip --version   # path should point into Yeast-Web/.venv
+   python -m pip --version   # path should point into CytoCV/cyto_cv
 
 
 ### Installing dependencies
@@ -186,7 +186,7 @@ The server follows a layered architecture:
 
 ### Project Layout
 ```
-Yeast-Web/
+CytoCV/
 ├─ Dockerfile         # python:3.11.5-slim
 ├─ compose.yml
 ├─ start.sh           # run migrations, launch gunicorn
@@ -262,7 +262,7 @@ Caching can reuse artifacts when `use_cache=True`.
 - Convert to binary TIFFs (optional rescale)
 
 **Segmentation**
-- Gaussian blur + Otsu threshold
+- Gaussian blur + Canny/Otsu threshold
 - Rolling-ball background subtraction
 - Neighbor merges, plugin analyses
 
@@ -310,11 +310,11 @@ Caching can reuse artifacts when `use_cache=True`.
 
 **Start server**
 ```bash
-python -m venv yeast_web
+python -m venv cyto_cv
 # bash
-source yeast_web/Scripts/activate
+source cyto_cv/Scripts/activate
 # PowerShell alternative:
-# .\yeast_web\Scripts\Activate.ps1
+# .\cyto_cv\Scripts\Activate.ps1
 
 python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt --no-cache-dir
