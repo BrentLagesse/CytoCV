@@ -49,5 +49,14 @@ def verify_recaptcha_response(response_token: str, remote_ip: str | None = None)
     except (URLError, TimeoutError, ValueError, json.JSONDecodeError):
         return False
 
-    return bool(parsed.get("success"))
+    if not bool(parsed.get("success")):
+        return False
 
+    expected_hosts = getattr(settings, "RECAPTCHA_EXPECTED_HOSTNAMES", ())
+    if expected_hosts:
+        response_hostname = str(parsed.get("hostname", "")).strip().lower()
+        allowed = {str(host).strip().lower() for host in expected_hosts if str(host).strip()}
+        if not response_hostname or response_hostname not in allowed:
+            return False
+
+    return True

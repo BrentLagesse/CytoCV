@@ -36,9 +36,13 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Core settings (override in production)
-SECRET_KEY = 'django-insecure-r_afs-3hujl8xfiqc%l#t*%$(bs*@ycdlnz$okl%i57g!tn%3y'
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY = os.getenv("YEASTWEB_SECRET_KEY", "django-insecure-change-me-in-env")
+DEBUG = os.getenv("YEASTWEB_DEBUG", "1") == "1"
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("YEASTWEB_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
 
 # Authentication
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -246,10 +250,30 @@ EMAIL_REPLY_TO = os.getenv("YEASTWEB_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"
 RECAPTCHA_SITE_KEY = os.getenv("CYTOCV_RECAPTCHA_SITE_KEY", "")
 RECAPTCHA_SECRET_KEY = os.getenv("CYTOCV_RECAPTCHA_SECRET_KEY", "")
-RECAPTCHA_VERIFY_URL = os.getenv(
-    "CYTOCV_RECAPTCHA_VERIFY_URL",
-    "https://www.google.com/recaptcha/api/siteverify",
-)
+_recaptcha_default_verify_url = "https://www.google.com/recaptcha/api/siteverify"
+_recaptcha_override_allowed = os.getenv("CYTOCV_RECAPTCHA_ALLOW_VERIFY_URL_OVERRIDE", "0") == "1"
+if DEBUG or _recaptcha_override_allowed:
+    RECAPTCHA_VERIFY_URL = os.getenv(
+        "CYTOCV_RECAPTCHA_VERIFY_URL",
+        _recaptcha_default_verify_url,
+    )
+else:
+    RECAPTCHA_VERIFY_URL = _recaptcha_default_verify_url
+_raw_recaptcha_hosts = os.getenv("CYTOCV_RECAPTCHA_EXPECTED_HOSTNAMES", "")
+if _raw_recaptcha_hosts.strip():
+    RECAPTCHA_EXPECTED_HOSTNAMES = tuple(
+        host.strip().lower()
+        for host in _raw_recaptcha_hosts.split(",")
+        if host.strip()
+    )
+elif DEBUG:
+    RECAPTCHA_EXPECTED_HOSTNAMES = ("localhost", "127.0.0.1")
+else:
+    RECAPTCHA_EXPECTED_HOSTNAMES = tuple(
+        host.strip().lower()
+        for host in ALLOWED_HOSTS
+        if host.strip() and host != "*"
+    )
 
 # Content Security Policy (CSP)
 CSP_DEFAULT_SRC = ("'self'",)
@@ -303,6 +327,10 @@ SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
 if SECURITY_STRICT:
+    if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
+        raise RuntimeError(
+            "SECURITY_STRICT requires explicit YEASTWEB_ALLOWED_HOSTS without wildcards."
+        )
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
