@@ -393,6 +393,17 @@
     .email-display strong {
         color: var(--text);
     }
+    .recaptcha-wrap {
+        margin-top: 8px;
+        display: grid;
+        gap: 6px;
+        justify-items: start;
+    }
+    .recaptcha-error {
+        margin: 0;
+        color: #f28b82;
+        font-size: 12px;
+    }
     .shake {
         animation: shake 0.18s ease-in-out 2;
     }
@@ -419,12 +430,45 @@
         }
     }
 </style>
+{% if recaptcha_enabled %}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endif %}
 {% endblock head %}
 
 {% block content %}
+{% if recaptcha_gate_error %}
+<div class="message-container">
+    <div class="message error auto-dismiss" role="alert">{{ recaptcha_gate_error }}</div>
+</div>
+{% endif %}
 <div class="login-page">
     <div class="page">
-        {% if recovery_mode %}
+        {% if recaptcha_gate_mode %}
+            <div class="card soft-fade-in">
+                <div>
+                    <div class="step-indicator">Verification</div>
+                    <h1>Verify you are human</h1>
+                    <p class="subtitle">Complete reCAPTCHA to continue to sign in or password recovery.</p>
+                </div>
+                <form method="post" class="form" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="pass_captcha_gate" value="1">
+                    {% if recaptcha_enabled %}
+                        <div class="recaptcha-wrap">
+                            <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                        </div>
+                    {% endif %}
+                    <div class="form-footer">
+                        <div></div>
+                        <div class="right">
+                            <button type="submit" class="primary-btn" id="captchaGateContinue">
+                                <span class="btn-label">Continue</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        {% elif recovery_mode %}
             <div class="card soft-fade-in">
                 <div>
                     <div class="step-indicator">Step {{ recovery_step }} of {{ recovery_step_total }}</div>
@@ -596,6 +640,9 @@
 
                 <div class="section">
                     <div class="title">Credentials</div>
+                    {% if login_page_error %}
+                        <div class="page-banner" role="alert">{{ login_page_error }}</div>
+                    {% endif %}
                     <form method="post" class="form login-form" novalidate>
                         {% csrf_token %}
                         <div class="field">

@@ -1,8 +1,9 @@
-"""Authentication views for sign-in, password recovery, and logout."""
+﻿"""Authentication views for sign-in, password recovery, and logout."""
 
 from __future__ import annotations
 
 import secrets
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -17,6 +18,7 @@ from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import (
     build_rate_limit_keys,
     check_rate_limit,
@@ -34,6 +36,7 @@ from .signup import (
 RECOVERY_CODE_TTL_SECONDS = VERIFY_CODE_TTL_SECONDS
 RECOVERY_CODE_MAX_ATTEMPTS = VERIFY_CODE_MAX_ATTEMPTS
 RECOVERY_CODE_RESEND_SECONDS = VERIFY_CODE_RESEND_SECONDS
+AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
 
 
 def _normalize_email(email: str) -> str:
@@ -181,6 +184,7 @@ def _render_recovery(
     code_locked: bool = False,
     sender_email: str | None = None,
     confirm_outline: bool = False,
+    recaptcha_error: str | None = None,
 ) -> TemplateResponse:
     """Render the sign-in template in password recovery mode."""
     return TemplateResponse(
@@ -200,11 +204,40 @@ def _render_recovery(
             "recovery_code_locked": code_locked,
             "recovery_sender_email": sender_email,
             "recovery_confirm_outline": confirm_outline,
+            "recaptcha_enabled": recaptcha_enabled(),
+            "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+            "recaptcha_error": recaptcha_error,
             "rate_limit_active": False,
             "rate_limit_retry_after": 0,
             "login_failed": False,
         },
     )
+
+
+def _is_recaptcha_gate_verified(request: HttpRequest, *, session_key: str) -> bool:
+    """Return True when the reCAPTCHA gate has been passed within TTL."""
+    if not recaptcha_enabled():
+        return True
+    raw_ts = request.session.get(session_key)
+    if not raw_ts:
+        return False
+    try:
+        verified_at = timezone.datetime.fromisoformat(str(raw_ts))
+    except (ValueError, TypeError):
+        request.session.pop(session_key, None)
+        return False
+    if timezone.is_naive(verified_at):
+        verified_at = timezone.make_aware(verified_at, timezone.get_current_timezone())
+    ttl_seconds = int(getattr(settings, "RECAPTCHA_GATE_TTL_SECONDS", 1800))
+    if timezone.now() - verified_at > timedelta(seconds=max(60, ttl_seconds)):
+        request.session.pop(session_key, None)
+        return False
+    return True
+
+
+def _mark_recaptcha_gate_verified(request: HttpRequest, *, session_key: str) -> None:
+    """Persist successful reCAPTCHA gate verification timestamp."""
+    request.session[session_key] = timezone.now().isoformat()
 
 
 def _is_recovery_request(request: HttpRequest) -> bool:
@@ -235,6 +268,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
     page_error = None
     code_notice = None
     confirm_outline = False
+    recaptcha_error = None
 
     # Normalize computed state derived from the session.
     _is_recovery_code_active(request)
@@ -273,6 +307,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             code_locked=overrides.get("code_locked", code_locked),
             sender_email=overrides.get("sender_email", sender_email),
             confirm_outline=overrides.get("confirm_outline", confirm_outline),
+            recaptcha_error=overrides.get("recaptcha_error", recaptcha_error),
         )
 
     def send_code_email(email: str, code: str) -> bool:
@@ -547,6 +582,33 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
 @ensure_csrf_cookie
 def auth_login(request: HttpRequest) -> HttpResponse:
     """Handle sign-in with optional rate limiting and password recovery."""
+    if recaptcha_enabled() and not _is_recaptcha_gate_verified(
+        request, session_key=AUTH_RECAPTCHA_GATE_SESSION_KEY
+    ):
+        gate_error = None
+        if request.method == "POST" and request.POST.get("pass_captcha_gate") == "1":
+            token = request.POST.get("g-recaptcha-response", "")
+            if verify_recaptcha_response(token, get_client_ip(request)):
+                _mark_recaptcha_gate_verified(
+                    request, session_key=AUTH_RECAPTCHA_GATE_SESSION_KEY
+                )
+                return redirect(request.get_full_path())
+            gate_error = "Please complete the reCAPTCHA challenge."
+        return TemplateResponse(
+            request,
+            "registration/login.html",
+            {
+                "recovery_mode": False,
+                "recaptcha_gate_mode": True,
+                "recaptcha_gate_error": gate_error,
+                "recaptcha_enabled": recaptcha_enabled(),
+                "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+                "rate_limit_active": False,
+                "rate_limit_retry_after": 0,
+                "login_failed": False,
+            },
+        )
+
     if _is_recovery_request(request):
         return _handle_password_recovery(request)
 
@@ -563,6 +625,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         rate_limit_active: bool = False,
         retry_after: int = 0,
         login_failed: bool = False,
+        login_page_error: str | None = None,
     ) -> TemplateResponse:
         """Render the sign-in page with rate-limit context."""
         return TemplateResponse(
@@ -573,6 +636,9 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 "rate_limit_active": rate_limit_active,
                 "rate_limit_retry_after": retry_after,
                 "login_failed": login_failed,
+                "login_page_error": login_page_error,
+                "recaptcha_enabled": recaptcha_enabled(),
+                "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
             },
         )
 
@@ -587,6 +653,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         # Normalize user input to keep rate-limit keys and auth consistent.
         email = (request.POST.get("email") or "").strip()
         password = request.POST.get("password") or ""
+
         keys = build_rate_limit_keys(ip, email)
         request.session["login_last_email"] = email
 

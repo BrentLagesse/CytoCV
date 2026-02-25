@@ -67,6 +67,7 @@ class ContentSecurityPolicyMiddleware:
             "img-src": _format_sources(getattr(settings, "CSP_IMG_SRC", ("'self'",))),
             "font-src": _format_sources(getattr(settings, "CSP_FONT_SRC", ("'self'",))),
             "connect-src": _format_sources(getattr(settings, "CSP_CONNECT_SRC", ("'self'",))),
+            "frame-src": _format_sources(getattr(settings, "CSP_FRAME_SRC", ("'self'",))),
             "frame-ancestors": _format_sources(getattr(settings, "CSP_FRAME_ANCESTORS", ("'self'",))),
             "base-uri": _format_sources(getattr(settings, "CSP_BASE_URI", ("'self'",))),
             "form-action": _format_sources(getattr(settings, "CSP_FORM_ACTION", ("'self'",))),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, login
@@ -16,9 +17,13 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 
+from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
+from core.security.rate_limit import get_client_ip
+
 VERIFY_CODE_TTL_SECONDS = 30 * 60
 VERIFY_CODE_MAX_ATTEMPTS = 5
 VERIFY_CODE_RESEND_SECONDS = 10 if settings.DEBUG else 60
+AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
 
 
 def _generate_verify_code() -> str:
@@ -60,6 +65,7 @@ def _render_signup(
     clear_password: bool = False,
     clear_confirm: bool = False,
     confirm_outline: bool = False,
+    recaptcha_error: str | None = None,
 ) -> HttpResponse:
     """Render the signup template with shared context."""
     context = {
@@ -77,6 +83,9 @@ def _render_signup(
         "clear_password": clear_password,
         "clear_confirm": clear_confirm,
         "confirm_outline": confirm_outline,
+        "recaptcha_enabled": recaptcha_enabled(),
+        "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+        "recaptcha_error": recaptcha_error,
     }
     return TemplateResponse(request, "registration/signup.html", context)
 
@@ -236,6 +245,32 @@ def _build_verification_email(
     return subject, body
 
 
+def _is_recaptcha_gate_verified(request: HttpRequest, *, session_key: str) -> bool:
+    """Return True when the reCAPTCHA gate has been passed within TTL."""
+    if not recaptcha_enabled():
+        return True
+    raw_ts = request.session.get(session_key)
+    if not raw_ts:
+        return False
+    try:
+        verified_at = timezone.datetime.fromisoformat(str(raw_ts))
+    except (ValueError, TypeError):
+        request.session.pop(session_key, None)
+        return False
+    if timezone.is_naive(verified_at):
+        verified_at = timezone.make_aware(verified_at, timezone.get_current_timezone())
+    ttl_seconds = int(getattr(settings, "RECAPTCHA_GATE_TTL_SECONDS", 1800))
+    if timezone.now() - verified_at > timedelta(seconds=max(60, ttl_seconds)):
+        request.session.pop(session_key, None)
+        return False
+    return True
+
+
+def _mark_recaptcha_gate_verified(request: HttpRequest, *, session_key: str) -> None:
+    """Persist successful reCAPTCHA gate verification timestamp."""
+    request.session[session_key] = timezone.now().isoformat()
+
+
 def signup(request: HttpRequest) -> HttpResponse:
     """Handle the multi-step signup flow.
 
@@ -247,6 +282,29 @@ def signup(request: HttpRequest) -> HttpResponse:
     """
     if _should_reset_signup(request):
         _clear_signup_session(request)
+
+    if recaptcha_enabled() and not _is_recaptcha_gate_verified(
+        request, session_key=AUTH_RECAPTCHA_GATE_SESSION_KEY
+    ):
+        gate_error = None
+        if request.method == "POST" and request.POST.get("pass_captcha_gate") == "1":
+            token = request.POST.get("g-recaptcha-response", "")
+            if verify_recaptcha_response(token, get_client_ip(request)):
+                _mark_recaptcha_gate_verified(
+                    request, session_key=AUTH_RECAPTCHA_GATE_SESSION_KEY
+                )
+                return redirect(request.path)
+            gate_error = "Please complete the reCAPTCHA challenge."
+        return TemplateResponse(
+            request,
+            "registration/signup.html",
+            {
+                "recaptcha_gate_mode": True,
+                "recaptcha_gate_error": gate_error,
+                "recaptcha_enabled": recaptcha_enabled(),
+                "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
+            },
+        )
 
     user_model = get_user_model()
     session = request.session
@@ -265,6 +323,7 @@ def signup(request: HttpRequest) -> HttpResponse:
     clear_password = False
     clear_confirm = False
     confirm_outline = False
+    recaptcha_error = None
 
     # Normalize computed state derived from the session.
     _is_code_active(request)
@@ -305,6 +364,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             clear_password=overrides.get("clear_password", clear_password),
             clear_confirm=overrides.get("clear_confirm", clear_confirm),
             confirm_outline=overrides.get("confirm_outline", confirm_outline),
+            recaptcha_error=overrides.get("recaptcha_error", recaptcha_error),
         )
 
     if request.method == "POST":
