@@ -22,7 +22,7 @@ from .utils import (
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.cell_analysis import Analysis
 
-from yeastweb.settings import MEDIA_ROOT, BASE_DIR
+from cytocv.settings import MEDIA_ROOT, BASE_DIR
 from pathlib import Path
 import json
 import re

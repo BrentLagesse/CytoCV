@@ -2,7 +2,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from pathlib import Path
 from PIL import Image
-from yeastweb.settings import MEDIA_ROOT
+from cytocv.settings import MEDIA_ROOT
 from .utils import write_progress, is_cancelled, clear_cancelled
 
 import csv
@@ -160,4 +160,3 @@ def convert_to_image(request, uuids):
 
     # Redirect after processing all UUIDs
     return redirect(f'/image/{uuids}/segment/')
-

@@ -12,7 +12,7 @@ from django.template.response import TemplateResponse
 
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.models import SegmentedImage, UploadedImage
-from yeastweb.settings import MEDIA_URL
+from cytocv.settings import MEDIA_URL
 from .cache import get_cache_image
 
 
@@ -135,5 +135,3 @@ def profile_view(request: HttpRequest) -> HttpResponse:
             "files_data": json_files_data,
         },
     )
-
-

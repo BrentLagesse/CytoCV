@@ -3,7 +3,7 @@ from core.forms import UploadImageForm
 from core.models import UploadedImage, DVLayerTifPreview
 from .utils import tif_to_jpg, write_progress
 from pathlib import Path    
-from yeastweb.settings import MEDIA_ROOT
+from cytocv.settings import MEDIA_ROOT
 from .variables import PRE_PROCESS_FOLDER_NAME
 from mrc import DVFile
 from PIL import Image
@@ -147,7 +147,7 @@ def upload_images(request):
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
         request.session["distance"] = gfp_distance
 
-        module_enabled = _parse_bool(request.POST.get("yeast_analysis_enabled"), default=False)
+        module_enabled = _parse_bool(request.POST.get("cytocv_analysis_enabled"), default=False)
         enforce_layer_count = module_enabled and _parse_bool(
             request.POST.get("enforce_layer_count"),
             default=False,

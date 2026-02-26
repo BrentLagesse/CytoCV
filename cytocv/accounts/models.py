@@ -1,4 +1,4 @@
-"""Custom user model for Yeast-Web."""
+"""Custom user model for CytoCV."""
 
 from __future__ import annotations
 
@@ -88,3 +88,4 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self) -> str:
         """Return the primary identifier for display."""
         return self.email
+

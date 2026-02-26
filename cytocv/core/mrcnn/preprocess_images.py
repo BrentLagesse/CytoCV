@@ -4,7 +4,7 @@ import os
 import skimage.exposure
 import skimage.filters
 from mrc import DVFile
-from yeastweb.settings import MEDIA_ROOT
+from cytocv.settings import MEDIA_ROOT
 from core.models import UploadedImage
 from core.config import get_channel_config_for_uuid
 from pathlib import Path

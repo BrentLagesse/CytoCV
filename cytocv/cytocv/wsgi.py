@@ -1,5 +1,5 @@
 """
-WSGI config for yeastweb project.
+WSGI config for CytoCV project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -19,6 +19,6 @@ except Exception:
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'yeastweb.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cytocv.settings')
 
 application = get_wsgi_application()
