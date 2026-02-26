@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any
 
-from yeastweb.settings import MEDIA_ROOT
+from cytocv.settings import MEDIA_ROOT
 
 input_dir = ""
 output_dir = ""

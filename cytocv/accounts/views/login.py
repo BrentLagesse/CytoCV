@@ -1,4 +1,4 @@
-﻿"""Authentication views for sign-in, password recovery, and logout."""
+"""Authentication views for sign-in, password recovery, and logout."""
 
 from __future__ import annotations
 
@@ -157,14 +157,14 @@ def _build_recovery_email(
     """Build the password recovery email subject/body pair."""
     safe_name = (recipient_name or "").strip()
     greeting = f"Hello {safe_name},\n\n" if safe_name else "Hello,\n\n"
-    subject = f"YeastWeb password reset verification code: {code}"
+    subject = f"CytoCV password reset verification code: {code}"
     body = greeting + (
         f"Your password reset verification code is: {code}\n\n"
         f"The verification code is valid for {minutes_valid} minutes. "
         "Please complete password recovery as soon as possible.\n\n"
         "If you did not request this change, you can ignore this email.\n\n"
         "Kind regards,\n"
-        "YeastWeb Team"
+        "CytoCV Team"
     )
     return subject, body
 
@@ -621,11 +621,21 @@ def auth_login(request: HttpRequest) -> HttpResponse:
     max_attempts = int(rate_limit_cfg.get("max_attempts", 5))
     window_seconds = int(rate_limit_cfg.get("window_seconds", 300))
 
+    def build_login_notice() -> str | None:
+        """Return a contextual notice when redirected from protected routes."""
+        next_url = (request.GET.get("next") or "").strip()
+        if not next_url:
+            return None
+        if next_url.startswith("/image/") or next_url.startswith("/api/"):
+            return "Please sign in to use the experiment workflow."
+        return "Please sign in to continue."
+
     def render_login(
         rate_limit_active: bool = False,
         retry_after: int = 0,
         login_failed: bool = False,
         login_page_error: str | None = None,
+        login_page_notice: str | None = None,
     ) -> TemplateResponse:
         """Render the sign-in page with rate-limit context."""
         return TemplateResponse(
@@ -637,6 +647,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 "rate_limit_retry_after": retry_after,
                 "login_failed": login_failed,
                 "login_page_error": login_page_error,
+                "login_page_notice": login_page_notice,
                 "recaptcha_enabled": recaptcha_enabled(),
                 "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
             },
@@ -699,12 +710,17 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 rate_limit_active=True,
                 retry_after=retry_after,
                 login_failed=login_failed,
+                login_page_notice=build_login_notice(),
             )
 
-    return render_login(login_failed=login_failed)
+    return render_login(
+        login_failed=login_failed,
+        login_page_notice=build_login_notice(),
+    )
 
 
 def auth_logout(request: HttpRequest) -> HttpResponse:
     """Log out the current user and return to the homepage."""
     logout(request)
     return redirect("homepage")
+

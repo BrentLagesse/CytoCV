@@ -16,6 +16,22 @@ from PIL import Image
 from core.config import get_channel_config_for_uuid
 
 
+def get_guest_user() -> int:
+    """Return the guest user id for unauthenticated runs."""
+    user_model = get_user_model()
+    guest = user_model.objects.filter(email="guest@local.invalid").only("id").first()
+    if guest:
+        return guest.id
+    guest = user_model.objects.create_user(
+        email="guest@local.invalid",
+        password=None,
+        first_name="Guest",
+        last_name="User",
+        is_active=False,
+    )
+    return guest.id
+
+
 class UploadedImage(models.Model):
     """Stores an uploaded image and its on-disk location."""
 
@@ -23,17 +39,19 @@ class UploadedImage(models.Model):
         """Build the storage path for an uploaded file."""
         file_extension = "." + filename.split(".")[-1]
         return f"{instance.uuid}/{instance.name}{file_extension}"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        to_field="id",
+        default=get_guest_user,
+    )
     name = models.TextField()
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file_location = models.FileField(upload_to=upload_to)
 
     def __str__(self) -> str:
-        return f"Name: {self.name} UUID: {self.uuid}"
-
-
-def get_guest_user() -> int:
-    """Return the guest user id for unauthenticated runs."""
-    return get_user_model().objects.get(email="guest@local.invalid").id
+        return f"User: {self.user_id} Name: {self.name} UUID: {self.uuid}"
 
 
 def user_directory_path(instance: "SegmentedImage", filename: str) -> str:

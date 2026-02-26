@@ -980,7 +980,7 @@
                             <span class="toggle-hint">Required checks from selected stats are always enforced.</span>
                         </div>
                         <label class="switch">
-                            <input type="checkbox" id="yeastAnalysisEnabled">
+                            <input type="checkbox" id="cytocvAnalysisEnabled">
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -1151,10 +1151,10 @@
     const channelInfo = statsPayload.channel_info || {};
     const pluginMap = new Map(statsPlugins.map((plugin) => [plugin.id, plugin]));
 
-    const selectionKey = 'yeastweb.selected_analyses.v2';
-    const initializedKey = 'yeastweb.selected_analyses_initialized.v2';
-    const distanceKey = 'yeastweb.gfp_distance';
-    const advancedKey = 'yeastweb.advanced_validation.v2';
+    const selectionKey = 'cytocv.selected_analyses.v2';
+    const initializedKey = 'cytocv.selected_analyses_initialized.v2';
+    const distanceKey = 'cytocv.gfp_distance';
+    const advancedKey = 'cytocv.advanced_validation.v2';
 
     const statsState = {
         selectedPlugins: new Set(),
@@ -1669,7 +1669,7 @@
             channelRowElements.set(channel, row);
         });
 
-        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
         if (moduleToggle) {
@@ -1791,7 +1791,7 @@
 
     function syncStatsUI() {
         const statsRequired = getStatsRequiredChannels();
-        const moduleToggle = document.getElementById('yeastAnalysisEnabled');
+        const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
         const layerRow = document.getElementById('layerCheckRow');
@@ -2581,7 +2581,7 @@
             const formData = new FormData();
             selectedFiles.forEach(file => formData.append('files', file));
             restoredQueueItems.forEach((item) => formData.append('existing_uuids', item.uuid));
-            formData.append('yeast_analysis_enabled', moduleEnabled ? '1' : '0');
+            formData.append('cytocv_analysis_enabled', moduleEnabled ? '1' : '0');
             formData.append('enforce_layer_count', layerEnabled ? '1' : '0');
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
@@ -2646,4 +2646,3 @@
 </body>
 </html>
 {% endblock content %}
-

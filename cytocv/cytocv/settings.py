@@ -1,4 +1,4 @@
-﻿"""Django settings for Yeast-Web."""
+"""Django settings for CytoCV."""
 
 from pathlib import Path
 import os
@@ -36,11 +36,11 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Core settings (override in production)
-SECRET_KEY = os.getenv("YEASTWEB_SECRET_KEY", "django-insecure-change-me-in-env")
-DEBUG = os.getenv("YEASTWEB_DEBUG", "1") == "1"
+SECRET_KEY = os.getenv("CYTOCV_SECRET_KEY", "django-insecure-change-me-in-env")
+DEBUG = os.getenv("CYTOCV_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv("YEASTWEB_ALLOWED_HOSTS", "").split(",")
+    for host in os.getenv("CYTOCV_ALLOWED_HOSTS", "").split(",")
     if host.strip()
 ]
 
@@ -111,7 +111,7 @@ CACHES = {
 }
 
 # URL routing
-ROOT_URLCONF = 'yeastweb.urls'
+ROOT_URLCONF = 'cytocv.urls'
 
 # Templates
 TEMPLATES = [
@@ -133,7 +133,7 @@ TEMPLATES = [
 ]
 
 # WSGI
-WSGI_APPLICATION = 'yeastweb.wsgi.application'
+WSGI_APPLICATION = 'cytocv.wsgi.application'
 
 
 # Database
@@ -238,13 +238,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv("YEASTWEB_EMAIL_HOST", "smtp.gmail.com")
-EMAIL_HOST_USER = os.getenv("YEASTWEB_EMAIL_HOST_USER", "yeastanalysistool@gmail.com")
-EMAIL_HOST_PASSWORD = os.getenv("YEASTWEB_EMAIL_HOST_PASSWORD", "drjx oiir ejnx lwdn")  # TODO: Change before production
+EMAIL_HOST = os.getenv("CYTOCV_EMAIL_HOST", "smtp.gmail.com")
+EMAIL_HOST_USER = os.getenv("CYTOCV_EMAIL_HOST_USER", "cytocv@gmail.com")
+EMAIL_HOST_PASSWORD = os.getenv("CYTOCV_EMAIL_HOST_PASSWORD", "drjx oiir ejnx lwdn")  # TODO: Change before production
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = os.getenv("YEASTWEB_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
-EMAIL_REPLY_TO = os.getenv("YEASTWEB_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
+DEFAULT_FROM_EMAIL = os.getenv("CYTOCV_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
+EMAIL_REPLY_TO = os.getenv("CYTOCV_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 
 # Google reCAPTCHA
 RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"
@@ -298,17 +298,17 @@ CSP_BASE_URI = ("'self'",)
 CSP_FORM_ACTION = ("'self'", "https://accounts.google.com", "https://login.microsoftonline.com")
 CSP_OBJECT_SRC = ("'none'",)
 
-# Security profile toggles (defaults to not DEBUG; override with YEASTWEB_SECURITY_STRICT)
-_security_strict_env = os.getenv("YEASTWEB_SECURITY_STRICT")
+# Security profile toggles (defaults to not DEBUG; override with CYTOCV_SECURITY_STRICT)
+_security_strict_env = os.getenv("CYTOCV_SECURITY_STRICT")
 if _security_strict_env is None or _security_strict_env.strip() == "":
     SECURITY_STRICT = not DEBUG
 else:
     SECURITY_STRICT = _security_strict_env.strip().lower() in ("1", "true", "yes", "on")
-SECURITY_RATE_LIMIT_ENABLED = os.getenv("YEASTWEB_RATE_LIMIT_ENABLED", "1") == "1"
+SECURITY_RATE_LIMIT_ENABLED = os.getenv("CYTOCV_RATE_LIMIT_ENABLED", "1") == "1"
 SECURITY_RATE_LIMIT = {
-    "mode": os.getenv("YEASTWEB_RATE_LIMIT_MODE", "sliding"),
-    "max_attempts": int(os.getenv("YEASTWEB_RATE_LIMIT_MAX", "15")),
-    "window_seconds": int(os.getenv("YEASTWEB_RATE_LIMIT_WINDOW", "60")),
+    "mode": os.getenv("CYTOCV_RATE_LIMIT_MODE", "sliding"),
+    "max_attempts": int(os.getenv("CYTOCV_RATE_LIMIT_MAX", "15")),
+    "window_seconds": int(os.getenv("CYTOCV_RATE_LIMIT_WINDOW", "60")),
     "lockout_schedule": [60, 180, 300, 600, 1800, 3600],
 }
 SECURITY_HEADERS_ENABLED = True
@@ -329,7 +329,7 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 if SECURITY_STRICT:
     if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
         raise RuntimeError(
-            "SECURITY_STRICT requires explicit YEASTWEB_ALLOWED_HOSTS without wildcards."
+            "SECURITY_STRICT requires explicit CYTOCV_ALLOWED_HOSTS without wildcards."
         )
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
