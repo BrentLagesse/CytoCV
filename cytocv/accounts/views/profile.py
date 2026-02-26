@@ -12,7 +12,7 @@ from django.template.response import TemplateResponse
 
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.models import SegmentedImage, UploadedImage
-from cytocv.settings import MEDIA_URL
+from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from .cache import get_cache_image
 
 
@@ -81,7 +81,19 @@ def profile_view(request: HttpRequest) -> HttpResponse:
 
     images = {}
     statistics = {}
-    for i in range(1, cell_image.NumCells + 1):
+    stats_by_id = recent["cell"]
+    if stats_by_id:
+        cell_ids = sorted(stats_by_id.keys())
+    else:
+        segmented_dir = Path(MEDIA_ROOT) / str(uuid) / "segmented"
+        cell_ids = sorted(
+            int(path.stem.split("_", 1)[1])
+            for path in segmented_dir.glob("cell_*.png")
+            if path.stem.split("_", 1)[1].isdigit()
+        )
+    number_of_cells = len(cell_ids)
+
+    for i in cell_ids:
         images[str(i)] = []
         for channel_name in channel_order:
             channel_index = DEFAULT_CHANNEL_CONFIG.get(channel_name)
@@ -92,27 +104,30 @@ def profile_view(request: HttpRequest) -> HttpResponse:
                 image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
             images[str(i)].append(image_url)
 
-        try:
-            cell_stat = recent["cell"][i]
-            print(cell_stat)
+        cell_stat = stats_by_id.get(i)
+        if cell_stat:
             statistics[str(i)] = {
                 "distance": cell_stat.distance,
                 "line_gfp_intensity": cell_stat.line_gfp_intensity,
                 "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
                 "cellular_intensity_sum": cell_stat.cellular_intensity_sum,
-                "green_red_intensity": cell_stat.green_red_intensity,
+                "green_red_intensity": cell_stat.green_red_intensity_1,
+                "green_red_intensity_1": cell_stat.green_red_intensity_1,
+                "green_red_intensity_2": cell_stat.green_red_intensity_2,
+                "green_red_intensity_3": cell_stat.green_red_intensity_3,
                 "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
+                "category_GFP_dot": cell_stat.category_GFP_dot,
+                "biorientation": cell_stat.biorientation,
                 "cellular_intensity_sum_DAPI": cell_stat.cellular_intensity_sum_DAPI,
                 "nucleus_intensity_sum_DAPI": cell_stat.nucleus_intensity_sum_DAPI,
                 "cytoplasmic_intensity_DAPI": cell_stat.cytoplasmic_intensity_DAPI,
             }
-        except Exception:
+        else:
             statistics[str(i)] = None
-
 
     all_files_data[str(uuid)] = {
         "MainImagePath": full_outlined,
-        "NumberOfCells": cell_image.NumCells,
+        "NumberOfCells": number_of_cells,
         "CellPairImages": images,
         "Image_Name": image_name,
         "Statistics": statistics,

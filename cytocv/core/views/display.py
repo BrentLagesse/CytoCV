@@ -2,7 +2,7 @@ from core.models import UploadedImage, SegmentedImage, CellStatistics
 from core.tables import CellTable
 from django.shortcuts import render
 from pathlib import Path
-from cytocv.settings import MEDIA_URL
+from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 import json
 from django.contrib.auth import get_user_model
 import os
@@ -25,12 +25,15 @@ def display_cell(request, uuids):
     # Split the comma-separated UUIDs into a list
     uuid_list = uuids.split(',')
 
+    # Keep table output bound to the first UUID that has statistics.
+    first_table_uuid = None
+
     # Dictionary to store data for all files (UUIDs)
     all_files_data = {}
 
     # List to store file information for sidebar navigation
     file_list = []
-
+    cell_table = None
     # Define the channel order that matches your HTML template:
     # Order: DIC, DAPI, mCherry, GFP
     channel_order = ["DIC", "DAPI", "mCherry", "GFP"]
@@ -87,7 +90,29 @@ def display_cell(request, uuids):
             # Build the images for each cell based on the dynamic channel configuration
             images = {}
             statistics = {}
-            for i in range(1, cell_image.NumCells + 1):
+            cell_stats_qs = CellStatistics.objects.filter(segmented_image=cell_image).order_by('cell_id')
+            stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
+            if stats_by_id and first_table_uuid is None:
+                first_table_uuid = uuid
+                cell_table = CellTable(cell_stats_qs)
+            if stats_by_id:
+                cell_ids = list(stats_by_id.keys())
+            else:
+                segmented_dir = Path(MEDIA_ROOT) / str(uuid) / 'segmented'
+                cell_ids = sorted(
+                    int(path.stem.split('_', 1)[1])
+                    for path in segmented_dir.glob('cell_*.png')
+                    if path.stem.split('_', 1)[1].isdigit()
+                )
+            number_of_cells = len(cell_ids)
+            no_cells_warning = None
+            if number_of_cells == 0:
+                no_cells_warning = (
+                    'No segmented cells were produced for this file. '
+                    'Check channel mapping (DIC/DAPI/mCherry/GFP) and try again.'
+                )
+
+            for i in cell_ids:
                 images[str(i)] = []
                 for channel_name in channel_order:
                     channel_index = channel_config.get(channel_name)
@@ -101,12 +126,21 @@ def display_cell(request, uuids):
                     images[str(i)].append(no_outline)
 
                 # Retrieve statistics for the cell
-                try:
-                    cell_table = CellTable(CellStatistics.objects.all().filter(segmented_image=cell_image))
-                    cell_stat = CellStatistics.objects.get(segmented_image=cell_image, cell_id=i)
+                cell_stat = stats_by_id.get(i)
+                if cell_stat:
                     statistics[str(i)] = {
                         'distance': cell_stat.distance,
                         'line_gfp_intensity': cell_stat.line_gfp_intensity,
+                        'blue_contour_size': cell_stat.blue_contour_size,
+                        'red_contour_1_size': cell_stat.red_contour_1_size,
+                        'red_contour_2_size': cell_stat.red_contour_2_size,
+                        'red_contour_3_size': cell_stat.red_contour_3_size,
+                        'red_intensity_1': cell_stat.red_intensity_1,
+                        'red_intensity_2': cell_stat.red_intensity_2,
+                        'red_intensity_3': cell_stat.red_intensity_3,
+                        'green_intensity_1': cell_stat.green_intensity_1,
+                        'green_intensity_2': cell_stat.green_intensity_2,
+                        'green_intensity_3': cell_stat.green_intensity_3,
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
                         'green_red_intensity_1': cell_stat.green_red_intensity_1,
@@ -119,27 +153,31 @@ def display_cell(request, uuids):
                         'category_GFP_dot': cell_stat.category_GFP_dot,
                         'biorientation': cell_stat.biorientation,
                     }
-                except CellStatistics.DoesNotExist:
+                else:
                     statistics[str(i)] = None  # In case statistics are missing for a cell
 
             export_format = request.GET.get('_export', None)
-            if TableExport.is_valid_format(export_format) and cell_table:
+            if TableExport.is_valid_format(export_format) and cell_table is not None:
                 exporter = TableExport(export_format,cell_table)
                 return exporter.response(f"table.{export_format}")
 
             # Store all image details and statistics for this UUID
             all_files_data[str(uuid)] = {
                 'MainImagePath': full_outlined,
-                'NumberOfCells': cell_image.NumCells,
+                'NumberOfCells': number_of_cells,
                 'CellPairImages': images,
                 'Image_Name': image_name,
-                'Statistics': statistics
+                'Statistics': statistics,
+                'NoCellsWarning': no_cells_warning,
             }
 
         except UploadedImage.DoesNotExist:
             return HttpResponse(f"Uploaded image not found for UUID {uuid}", status=404)
         except SegmentedImage.DoesNotExist:
             return HttpResponse(f"Segmented image not found for UUID {uuid}", status=404)
+
+    if cell_table is None:
+        cell_table = CellTable(CellStatistics.objects.none())
 
     # Convert the files_data to JSON to be used in the template
     json_files_data = json.dumps(all_files_data)
@@ -148,6 +186,7 @@ def display_cell(request, uuids):
         'files_data': json_files_data,  # Pass all file data to the template
         'file_list': file_list,  # Pass sidebar file list data to the template
         'cell_table': cell_table,
+        'table_uuid': first_table_uuid or '',
     })
 
 

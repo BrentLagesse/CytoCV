@@ -732,19 +732,20 @@ def segment_image(request, uuids):
                     plt.clf()
 
             # Assign SegmentedImage to a user
+            num_cells = max(int(np.max(seg)), 0)
             if request.user.is_authenticated:
                 user = request.user
                 instance = SegmentedImage(UUID = uuid, user=user,
                                         ImagePath = (MEDIA_URL  + str(uuid) + '/output/' + DV_Name + '.png'),
                                         CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                                        NumCells = int(np.max(seg) + 1),
+                                        NumCells = num_cells,
                                         uploaded_date=timezone.now())
             else:
                 # this would save to a guest user for now
                 instance = SegmentedImage(UUID=uuid,
                                           ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
                                           CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                                          NumCells=int(np.max(seg) + 1),
+                                          NumCells=num_cells,
                                           uploaded_date=timezone.now())
             instance.save()
 
