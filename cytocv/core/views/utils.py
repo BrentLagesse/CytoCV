@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from yeastweb.settings import MEDIA_ROOT
+from cytocv.settings import MEDIA_ROOT
 
 # base_path = "data/images/"
 # new_path = "data/ims/"

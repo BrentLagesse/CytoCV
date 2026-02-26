@@ -240,7 +240,7 @@ def _build_verification_email(
         f"The verification code is valid for {minutes_valid} minutes. "
         "Please complete the verification as soon as possible.\n\n"
         "Kind regards,\n"
-        "YeastWeb Team"
+        "CytoCV Team"
     )
     return subject, body
 
@@ -439,7 +439,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             subject, message = _build_verification_email(
                 code=verify_code,
                 minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
-                subject_prefix="YeastWeb",
+                subject_prefix="CytoCV",
                 recipient_name=values.get("first_name", ""),
             )
 
@@ -492,7 +492,7 @@ def signup(request: HttpRequest) -> HttpResponse:
             subject, message = _build_verification_email(
                 code=verify_code,
                 minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
-                subject_prefix="YeastWeb",
+                subject_prefix="CytoCV",
                 recipient_name=values.get("first_name", ""),
             )
 
@@ -662,3 +662,4 @@ def signup(request: HttpRequest) -> HttpResponse:
             return redirect("homepage")
 
     return render_current()
+

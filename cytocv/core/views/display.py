@@ -2,7 +2,7 @@ from core.models import UploadedImage, SegmentedImage, CellStatistics
 from core.tables import CellTable
 from django.shortcuts import render
 from pathlib import Path
-from yeastweb.settings import MEDIA_URL
+from cytocv.settings import MEDIA_URL
 import json
 from django.contrib.auth import get_user_model
 import os

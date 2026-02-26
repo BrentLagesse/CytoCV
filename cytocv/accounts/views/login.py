@@ -1,4 +1,4 @@
-﻿"""Authentication views for sign-in, password recovery, and logout."""
+"""Authentication views for sign-in, password recovery, and logout."""
 
 from __future__ import annotations
 
@@ -157,14 +157,14 @@ def _build_recovery_email(
     """Build the password recovery email subject/body pair."""
     safe_name = (recipient_name or "").strip()
     greeting = f"Hello {safe_name},\n\n" if safe_name else "Hello,\n\n"
-    subject = f"YeastWeb password reset verification code: {code}"
+    subject = f"CytoCV password reset verification code: {code}"
     body = greeting + (
         f"Your password reset verification code is: {code}\n\n"
         f"The verification code is valid for {minutes_valid} minutes. "
         "Please complete password recovery as soon as possible.\n\n"
         "If you did not request this change, you can ignore this email.\n\n"
         "Kind regards,\n"
-        "YeastWeb Team"
+        "CytoCV Team"
     )
     return subject, body
 
@@ -708,3 +708,4 @@ def auth_logout(request: HttpRequest) -> HttpResponse:
     """Log out the current user and return to the homepage."""
     logout(request)
     return redirect("homepage")
+

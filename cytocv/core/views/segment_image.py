@@ -50,7 +50,7 @@ from django.utils import timezone
 # =========================
 # Local application imports
 # =========================
-from yeastweb.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
+from cytocv.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
 from .utils import write_progress, is_cancelled, clear_cancelled
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
