@@ -28,14 +28,13 @@ from core.views import (
     segment_image,
     upload_images,
 )
+from core.views.media import serve_media
 from core.views.pre_process_step import (
     cancel_progress,
     get_progress,
     set_progress,
     update_channel_order,
 )
-from django.conf import settings
-from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -69,6 +68,6 @@ urlpatterns = [
     path('api/progress/<str:uuids>/', login_required(get_progress), name='analysis_progress'),
     path('api/progress/<str:key>/set/', login_required(set_progress), name='set_progress'),
     path('api/progress/<str:uuids>/cancel/', login_required(cancel_progress), name='cancel_progress'),
+    path('media/<path:relative_path>', login_required(serve_media), name='protected_media'),
 ]
 
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

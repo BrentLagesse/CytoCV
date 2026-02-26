@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from core.forms import UploadImageForm
-from core.models import UploadedImage, DVLayerTifPreview
+from core.models import UploadedImage, DVLayerTifPreview, get_guest_user
 from .utils import tif_to_jpg, write_progress
 from pathlib import Path    
 from cytocv.settings import MEDIA_ROOT
@@ -86,6 +86,14 @@ def _parse_restore_uuids(raw_values) -> list[str]:
     return parsed
 
 
+def _current_owner_filter(request) -> dict:
+    """Return queryset filter args for the current upload owner."""
+
+    if request.user.is_authenticated:
+        return {"user": request.user}
+    return {"user_id": get_guest_user()}
+
+
 def _upload_view_context(*, form, progress_key, error=None, restored_queue_items=None):
     """Build template context for the upload page."""
 
@@ -109,6 +117,8 @@ def upload_images(request):
     if not request.session.session_key:
         request.session.save()
     progress_key = request.session.session_key
+    owner_filter = _current_owner_filter(request)
+    owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
 
     if request.method == "POST":
         print("POST request received")
@@ -177,7 +187,7 @@ def upload_images(request):
         # Validate any restored queue UUIDs first to preserve order.
         for existing_uuid in existing_uuids:
             try:
-                existing_image = UploadedImage.objects.get(uuid=existing_uuid)
+                existing_image = UploadedImage.objects.get(uuid=existing_uuid, **owner_filter)
             except UploadedImage.DoesNotExist:
                 validation_failures.append(
                     (
@@ -187,7 +197,7 @@ def upload_images(request):
                             layer_count=None,
                             missing_channels=set(),
                             required_channels=set(required_channels),
-                            error_message="no longer available in the upload queue",
+                            error_message="no longer available in your upload queue",
                         ),
                     )
                 )
@@ -210,7 +220,7 @@ def upload_images(request):
             image_uuid = uuid.uuid4()
 
             # Save the image instance with the generated UUID
-            instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location)
+            instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location, user_id=owner_id)
             instance.save()
 
 
@@ -282,7 +292,7 @@ def upload_images(request):
         restore_uuids = _parse_restore_uuids(restore_param)
         restored_map = {
             str(item.uuid): item
-            for item in UploadedImage.objects.filter(uuid__in=restore_uuids)
+            for item in UploadedImage.objects.filter(uuid__in=restore_uuids, **owner_filter)
         }
         restored_queue_items = []
         for uid in restore_uuids:
