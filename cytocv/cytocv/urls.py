@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.auth.decorators import login_required
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 
@@ -54,21 +55,20 @@ urlpatterns = [
             query_string=True,
         ),
     ),
-    path('logout/',auth_logout, name="logout"),
-    path('signup/',signup, name="signup"),
-    path('profile/',profile_view ,name="profile"),
-    path('image/upload/', upload_images, name="image_upload"),
-    path('image/preprocess/', pre_process_step, name="pre_process_step"),  
-    path('image/preprocess/<str:uuids>/', pre_process_step, name="pre_process_step"),  # Multiple UUIDs
-    path('image/<str:uuids>/convert/', convert_to_image.convert_to_image),
-    path('image/<str:uuids>/segment/', segment_image.segment_image),
-    path('image/<str:uuids>/display/', display.display_cell, name='display'),  # Accepting multiple UUIDs as a comma-separated string
-    path('image/<str:uuid>/main-channel/', display.main_image_channel, name='main_image_channel'),
-    path('api/update-channel-order/<str:uuid>/', update_channel_order, name='update_channel_order'),
-    path('api/progress/<str:uuids>/', get_progress, name='analysis_progress'),
-    path('api/progress/<str:key>/set/', set_progress, name='set_progress'),
-    path('api/progress/<str:uuids>/cancel/', cancel_progress, name='cancel_progress'),
+    path('logout/', auth_logout, name="logout"),
+    path('signup/', signup, name="signup"),
+    path('profile/', login_required(profile_view), name="profile"),
+    path('image/upload/', login_required(upload_images), name="image_upload"),
+    path('image/preprocess/', login_required(pre_process_step), name="pre_process_step"),
+    path('image/preprocess/<str:uuids>/', login_required(pre_process_step), name="pre_process_step"),
+    path('image/<str:uuids>/convert/', login_required(convert_to_image.convert_to_image)),
+    path('image/<str:uuids>/segment/', login_required(segment_image.segment_image)),
+    path('image/<str:uuids>/display/', login_required(display.display_cell), name='display'),
+    path('image/<str:uuid>/main-channel/', login_required(display.main_image_channel), name='main_image_channel'),
+    path('api/update-channel-order/<str:uuid>/', login_required(update_channel_order), name='update_channel_order'),
+    path('api/progress/<str:uuids>/', login_required(get_progress), name='analysis_progress'),
+    path('api/progress/<str:key>/set/', login_required(set_progress), name='set_progress'),
+    path('api/progress/<str:uuids>/cancel/', login_required(cancel_progress), name='cancel_progress'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
