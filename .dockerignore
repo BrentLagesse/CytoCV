@@ -1,8 +1,7 @@
 __pycache__
-yeast-web/
-yeastweb/media/
-yeastweb/core/migrations
-yeastweb/accounts/migrations
+cytocv/media/
+cytocv/core/migrations
+cytocv/accounts/migrations
 db.sqlite3
 debug.log
 README.md

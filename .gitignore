@@ -5,16 +5,16 @@
 __pycache__/
 db.sqlite3
 media/
-yeast_web/
+cytocv_venv/
 
 # Neural network
 deepretina_final.h5
 
 # Migrations and cache
-yeastweb/core/migrations/
-yeastweb/accounts/migrations/
-yeastweb/cache/
-yeastweb/media/
+cytocv/core/migrations/
+cytocv/accounts/migrations/
+cytocv/cache/
+cytocv/media/
 
 .idea
 
