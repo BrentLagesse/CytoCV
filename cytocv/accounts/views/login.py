@@ -621,11 +621,21 @@ def auth_login(request: HttpRequest) -> HttpResponse:
     max_attempts = int(rate_limit_cfg.get("max_attempts", 5))
     window_seconds = int(rate_limit_cfg.get("window_seconds", 300))
 
+    def build_login_notice() -> str | None:
+        """Return a contextual notice when redirected from protected routes."""
+        next_url = (request.GET.get("next") or "").strip()
+        if not next_url:
+            return None
+        if next_url.startswith("/image/") or next_url.startswith("/api/"):
+            return "Please sign in to use the experiment workflow."
+        return "Please sign in to continue."
+
     def render_login(
         rate_limit_active: bool = False,
         retry_after: int = 0,
         login_failed: bool = False,
         login_page_error: str | None = None,
+        login_page_notice: str | None = None,
     ) -> TemplateResponse:
         """Render the sign-in page with rate-limit context."""
         return TemplateResponse(
@@ -637,6 +647,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 "rate_limit_retry_after": retry_after,
                 "login_failed": login_failed,
                 "login_page_error": login_page_error,
+                "login_page_notice": login_page_notice,
                 "recaptcha_enabled": recaptcha_enabled(),
                 "recaptcha_site_key": getattr(settings, "RECAPTCHA_SITE_KEY", ""),
             },
@@ -699,9 +710,13 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 rate_limit_active=True,
                 retry_after=retry_after,
                 login_failed=login_failed,
+                login_page_notice=build_login_notice(),
             )
 
-    return render_login(login_failed=login_failed)
+    return render_login(
+        login_failed=login_failed,
+        login_page_notice=build_login_notice(),
+    )
 
 
 def auth_logout(request: HttpRequest) -> HttpResponse:

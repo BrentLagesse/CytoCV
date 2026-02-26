@@ -335,6 +335,18 @@
         border-radius: 10px;
         font-size: 13px;
     }
+    .message.info {
+        background: rgba(0, 123, 255, 0.2);
+        border: 1px solid rgba(96, 165, 250, 0.6);
+        color: #dbeafe;
+    }
+    .message.info .message-close {
+        background: rgba(0, 123, 255, 0.2);
+        color: #dbeafe;
+    }
+    .message.info .message-close:hover {
+        background: rgba(0, 123, 255, 0.34);
+    }
     .notice-toast {
         position: fixed;
         top: calc(var(--nav-height) + 12px);
@@ -439,6 +451,11 @@
 {% if recaptcha_gate_error %}
 <div class="message-container">
     <div class="message error auto-dismiss" role="alert">{{ recaptcha_gate_error }}</div>
+</div>
+{% endif %}
+{% if login_page_notice and not recovery_mode %}
+<div class="message-container">
+    <div class="message info" role="status">{{ login_page_notice }}</div>
 </div>
 {% endif %}
 <div class="login-page">
