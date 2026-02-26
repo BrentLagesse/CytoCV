@@ -44,13 +44,13 @@ from skimage import io
 # =========================
 from django.conf import settings
 from django.http import HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 
 # =========================
 # Local application imports
 # =========================
-from yeastweb.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
+from cytocv.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
 from .utils import write_progress, is_cancelled, clear_cancelled
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
@@ -58,7 +58,7 @@ from core.config import (
     input_dir,
     output_dir,
 )
-from core.models import CellStatistics, Contour, SegmentedImage, UploadedImage
+from core.models import CellStatistics, Contour, SegmentedImage, UploadedImage, get_guest_user
 from core.image_processing import (
     ensure_3channel_bgr,
     load_image,
@@ -84,6 +84,14 @@ logging.basicConfig(
 )
 
 ## progress helpers moved to core.views.utils
+
+def _current_owner_filter(request) -> dict:
+    """Return queryset filter args for the current upload owner."""
+
+    if request.user.is_authenticated:
+        return {"user": request.user}
+    return {"user_id": get_guest_user()}
+
 
 def set_options(opt):
     """
@@ -238,6 +246,7 @@ def segment_image(request, uuids):
     Handles segmentation cell_analysis for multiple images passed as UUIDs.
     """
     uuid_list = uuids.split(',')
+    owner_filter = _current_owner_filter(request)
     cancelled = lambda: is_cancelled(uuids)
 
     if cancelled():
@@ -264,7 +273,8 @@ def segment_image(request, uuids):
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
             return HttpResponse("Cancelled")
-        DV_Name = UploadedImage.objects.get(pk=uuid).name
+        uploaded_image = get_object_or_404(UploadedImage, pk=uuid, **owner_filter)
+        DV_Name = uploaded_image.name
         image_dict = dict()
         image_dict[DV_Name] = list()
 

@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.contrib import messages
 import sys, pkgutil, importlib, inspect
 
-from core.models import DVLayerTifPreview, UploadedImage
+from core.models import DVLayerTifPreview, UploadedImage, get_guest_user
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 from .utils import (
@@ -22,12 +22,19 @@ from .utils import (
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.cell_analysis import Analysis
 
-from yeastweb.settings import MEDIA_ROOT, BASE_DIR
+from cytocv.settings import MEDIA_ROOT, BASE_DIR
 from pathlib import Path
 import json
 import re
 import hashlib
 
+
+def _current_owner_filter(request) -> dict:
+    """Return queryset filter args for the current upload owner."""
+
+    if request.user.is_authenticated:
+        return {"user": request.user}
+    return {"user_id": get_guest_user()}
 
 
 def load_analyses(path:str) -> list:
@@ -83,6 +90,7 @@ def pre_process_step(request, uuids):
     """
 
     uuid_list = uuids.split(',')
+    owner_filter = _current_owner_filter(request)
     total_files = len(uuid_list)
 
     # clamp file_index into [0, total_files-1]
@@ -92,7 +100,7 @@ def pre_process_step(request, uuids):
     # build sidebar list, including the 4-channel order per file
     file_list = []
     for uid in uuid_list:
-        uploaded = get_object_or_404(UploadedImage, uuid=uid)
+        uploaded = get_object_or_404(UploadedImage, uuid=uid, **owner_filter)
 
         # try reading existing channel_config.json
         cfg_path = Path(MEDIA_ROOT) / uid / 'channel_config.json'
@@ -116,8 +124,8 @@ def pre_process_step(request, uuids):
 
     # current file previews
     current_uuid = uuid_list[current_file_index]
-    uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid)
-    preview_images = get_list_or_404(DVLayerTifPreview, uploaded_image_uuid=current_uuid)
+    uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid, **owner_filter)
+    preview_images = get_list_or_404(DVLayerTifPreview, uploaded_image_uuid=uploaded_image)
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
@@ -153,7 +161,7 @@ def pre_process_step(request, uuids):
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
                 return cancel_response()
-            img_obj = get_object_or_404(UploadedImage, uuid=image_uuid)
+            img_obj = get_object_or_404(UploadedImage, uuid=image_uuid, **owner_filter)
             out_dir = Path(MEDIA_ROOT) / image_uuid
 
             if not preprocess_marked:

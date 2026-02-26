@@ -1,8 +1,8 @@
-# YeastAnalysisTool
+# CytoCV
 Automated analysis of **DeltaVision (DV)** fluorescent microscopy stacks of yeast cells in mitosis. Quantifies points of interest across **DIC, DAPI, mCherry, GFP** channels with a Django web UI and a ML segmentation workflow (Mask R-CNN).
 
-> **Version:** 1.0
-> **Repo:** https://github.com/BrentLagesse/Yeast-Web  
+> **Version:** 1.0  
+> **Repo:** https://github.com/BrentLagesse/CytoCV  
 > **Python:** **3.11.5** (exact)  
 > **DB:** SQLite (default)  
 > **OS:** Windows (native) / Linux (via Docker)
@@ -59,7 +59,7 @@ The project is a tool to automatically analyze WIDE-fluorescent microscopy image
 ## Local deployment & installation 
 You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are installed and are in the $PATH (you can type those command names on the commandline and your computer finds them).
 
-1. Download the file "deepretina_final.h5" in the link below and place it in the weights directory under yeastweb/core/weights (may need to create the folder manually):
+1. Download the file "deepretina_final.h5" in the link below and place it in the weights directory under `cytocv/core/weights` (may need to create the folder manually):
 
    https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing
 
@@ -72,23 +72,23 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 2. Clone the Github repository:
    ```bash
-   git clone https://github.com/BrentLagesse/Yeast-Web.git
+   git clone https://github.com/BrentLagesse/CytoCV.git
 
 3. Navigate to the Directory:
    ```bash
-   cd Yeast-Web
+   cd <repo-root>
 
 4. Create virtual environment:
     ```bash
-   python -m venv yeast_web
+   python -m venv cyto_cv
 
 5. Activate virtual environment:
    ```bash
-   source yeast_web/Scripts/activate
+   source cyto_cv/Scripts/activate
    ```
    or
    ```bash
-   yeast_web\Scripts\activate
+   cyto_cv\Scripts\activate
    ```
 6. Make sure pip exists in the virtual environment:
     ```bash
@@ -100,7 +100,7 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 8. Check that pip is from the virtual environment:
    ```bash
-   python -m pip --version   # path should point into Yeast-Web/.venv
+   python -m pip --version   # path should point into <repo-root>/cyto_cv
 
 
 ### Installing dependencies
@@ -142,9 +142,9 @@ You must have your virtual environment activated to make the respective migratio
 
 ## Launching project
 
-1. Navigate to the yeastweb directory:
+1. Navigate to the project directory:
    ```bash
-   cd yeastweb
+   cd <repo-root>
 
 2. Run the application:
    ```bash
@@ -155,7 +155,7 @@ You must have your virtual environment activated to make the respective migratio
 ## Configuration
 **No `.env` file is required.** The current repo ships with working defaults defined directly in:
 ```
-yeastweb/yeastweb/settings.py
+cytocv/cytocv/settings.py
 ```
 - Local development works out of the box (SQLite, DEBUG on, email/Gmail placeholders, OAuth provider stubs)
 - If you only run locally, you **do not need to configure anything** here
@@ -186,11 +186,11 @@ The server follows a layered architecture:
 
 ### Project Layout
 ```
-Yeast-Web/
+<repo-root>/
 ├─ Dockerfile         # python:3.11.5-slim
 ├─ compose.yml
 ├─ start.sh           # run migrations, launch gunicorn
-└─ yeastweb/
+└─ cytocv/
    ├─ accounts/       # auth, profile, config UI
    ├─ core/           # upload, preprocess, convert, segment, display, stats
    │  ├─ image_processing/
@@ -200,10 +200,10 @@ Yeast-Web/
    │     ├─ weights/deepretina_final.h5
    │     └─ my_inference.py
    ├─ templates/      # upload/preprocess/display pages
-   └─ yeastweb/       # settings, urls, wsgi, asgi
+   └─ cytocv/       # settings, urls, wsgi, asgi
 ```
 
-Entry points: `manage.py` (CLI), `yeastweb/urls.py` (routes), `wsgi.py/asgi.py` (servers)
+Entry points: `manage.py` (CLI), `cytocv/urls.py` (routes), `wsgi.py/asgi.py` (servers)
 
 
 ## Data & artifacts
@@ -262,7 +262,7 @@ Caching can reuse artifacts when `use_cache=True`.
 - Convert to binary TIFFs (optional rescale)
 
 **Segmentation**
-- Gaussian blur + Otsu threshold
+- Gaussian blur + Canny/Otsu threshold
 - Rolling-ball background subtraction
 - Neighbor merges, plugin analyses
 
@@ -310,11 +310,11 @@ Caching can reuse artifacts when `use_cache=True`.
 
 **Start server**
 ```bash
-python -m venv yeast_web
+python -m venv cyto_cv
 # bash
-source yeast_web/Scripts/activate
+source cyto_cv/Scripts/activate
 # PowerShell alternative:
-# .\yeast_web\Scripts\Activate.ps1
+# .\cyto_cv\Scripts\Activate.ps1
 
 python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt --no-cache-dir
@@ -414,3 +414,4 @@ python manage.py test
 ### Notes
 - **Exact Python** is non-negotiable here. If you must change TF/NumPy pins, expect breakage.  
 - Keep the weights path and Mask R-CNN config consistent unless you also update docs and sample results.
+
