@@ -1,4 +1,4 @@
-# CytoCV Yeast Analysis Tool
+# CytoCV
 Automated analysis of **DeltaVision (DV)** fluorescent microscopy stacks of yeast cells in mitosis. Quantifies points of interest across **DIC, DAPI, mCherry, GFP** channels with a Django web UI and a ML segmentation workflow (Mask R-CNN).
 
 > **Version:** 1.0  
@@ -59,7 +59,7 @@ The project is a tool to automatically analyze WIDE-fluorescent microscopy image
 ## Local deployment & installation 
 You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are installed and are in the $PATH (you can type those command names on the commandline and your computer finds them).
 
-1. Download the file "deepretina_final.h5" in the link below and place it in the weights directory under yeastweb/core/weights (may need to create the folder manually):
+1. Download the file "deepretina_final.h5" in the link below and place it in the weights directory under `cytocv/core/weights` (may need to create the folder manually):
 
    https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing
 
@@ -76,7 +76,7 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 3. Navigate to the Directory:
    ```bash
-   cd CytoCV
+   cd <repo-root>
 
 4. Create virtual environment:
     ```bash
@@ -100,7 +100,7 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 8. Check that pip is from the virtual environment:
    ```bash
-   python -m pip --version   # path should point into CytoCV/cyto_cv
+   python -m pip --version   # path should point into <repo-root>/cyto_cv
 
 
 ### Installing dependencies
@@ -142,9 +142,9 @@ You must have your virtual environment activated to make the respective migratio
 
 ## Launching project
 
-1. Navigate to the yeastweb directory:
+1. Navigate to the project directory:
    ```bash
-   cd yeastweb
+   cd <repo-root>
 
 2. Run the application:
    ```bash
@@ -155,7 +155,7 @@ You must have your virtual environment activated to make the respective migratio
 ## Configuration
 **No `.env` file is required.** The current repo ships with working defaults defined directly in:
 ```
-yeastweb/yeastweb/settings.py
+cytocv/cytocv/settings.py
 ```
 - Local development works out of the box (SQLite, DEBUG on, email/Gmail placeholders, OAuth provider stubs)
 - If you only run locally, you **do not need to configure anything** here
@@ -186,11 +186,11 @@ The server follows a layered architecture:
 
 ### Project Layout
 ```
-CytoCV/
+<repo-root>/
 ├─ Dockerfile         # python:3.11.5-slim
 ├─ compose.yml
 ├─ start.sh           # run migrations, launch gunicorn
-└─ yeastweb/
+└─ cytocv/
    ├─ accounts/       # auth, profile, config UI
    ├─ core/           # upload, preprocess, convert, segment, display, stats
    │  ├─ image_processing/
@@ -200,10 +200,10 @@ CytoCV/
    │     ├─ weights/deepretina_final.h5
    │     └─ my_inference.py
    ├─ templates/      # upload/preprocess/display pages
-   └─ yeastweb/       # settings, urls, wsgi, asgi
+   └─ cytocv/       # settings, urls, wsgi, asgi
 ```
 
-Entry points: `manage.py` (CLI), `yeastweb/urls.py` (routes), `wsgi.py/asgi.py` (servers)
+Entry points: `manage.py` (CLI), `cytocv/urls.py` (routes), `wsgi.py/asgi.py` (servers)
 
 
 ## Data & artifacts
@@ -414,3 +414,4 @@ python manage.py test
 ### Notes
 - **Exact Python** is non-negotiable here. If you must change TF/NumPy pins, expect breakage.  
 - Keep the weights path and Mask R-CNN config consistent unless you also update docs and sample results.
+
