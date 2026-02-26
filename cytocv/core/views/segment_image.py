@@ -175,12 +175,47 @@ def get_stats(cp, conf, selected_analysis, gfp_distance):
 
     best_contour_data = {}
     best_contour_dapi = None
-    if contours_data.get("bestContours_dapi") and contours_data.get("contours_dapi"):
-        best_index = contours_data["bestContours_dapi"][0]
-        if len(contours_data["contours_dapi"]) > best_index:
-            best_contour_dapi = contours_data["contours_dapi"][best_index]
-            best_contour_data["DAPI"] = best_contour_dapi
-            cp.blue_contour_size = cv2.contourArea(best_contour_dapi)
+    best_dapi_area = None
+    dapi_gray = preprocessed_images.get_image("gray_dapi")
+    if dapi_gray is not None:
+        image_area = float(dapi_gray.shape[0] * dapi_gray.shape[1])
+        min_dapi_area = max(10.0, image_area * 0.002)
+        max_dapi_area = image_area * 0.95
+
+        def _pick_first_valid(contours, indices):
+            for idx in indices:
+                if idx >= len(contours):
+                    continue
+                cnt = contours[idx]
+                area = cv2.contourArea(cnt)
+                if min_dapi_area <= area <= max_dapi_area:
+                    return cnt, area
+            return None, None
+
+        best_contour_dapi, best_dapi_area = _pick_first_valid(
+            contours_data.get("contours_dapi_3", []),
+            contours_data.get("bestContours_dapi_3", []),
+        )
+
+        if best_contour_dapi is None:
+            best_contour_dapi, best_dapi_area = _pick_first_valid(
+                contours_data.get("contours_dapi", []),
+                contours_data.get("bestContours_dapi", []),
+            )
+
+        if best_contour_dapi is None and contours_data.get("contours_dapi"):
+            valid_dapi = []
+            for cnt in contours_data["contours_dapi"]:
+                area = cv2.contourArea(cnt)
+                if min_dapi_area <= area <= max_dapi_area:
+                    valid_dapi.append((area, cnt))
+            if valid_dapi:
+                valid_dapi.sort(key=lambda item: item[0], reverse=True)
+                best_dapi_area, best_contour_dapi = valid_dapi[0]
+
+    if best_contour_dapi is not None:
+        best_contour_data["DAPI"] = best_contour_dapi
+        cp.blue_contour_size = float(best_dapi_area)
     else:
         cp.blue_contour_size = 0.0
 
