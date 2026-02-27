@@ -492,6 +492,16 @@
         const channels = ["dapi", "mCherry", "gfp", "dic"];
         let activeChannelRequest = 0;
         const channelIndexMap = { 0: 'mcherry', 1: 'gfp', 2: 'dapi', 3: 'dic' };
+        const serverTableUUID = "{{ table_uuid|default:'' }}";
+        const noCellPlaceholder =
+            "data:image/svg+xml;utf8," + encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">' +
+                '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1d2530"/><stop offset="100%" stop-color="#10151c"/></linearGradient></defs>' +
+                '<rect width="320" height="220" fill="url(#g)"/>' +
+                '<text x="50%" y="46%" fill="#8fa6bf" font-size="15" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">No segmented cell image</text>' +
+                '<text x="50%" y="58%" fill="#6f859d" font-size="12" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Check channel mapping and rerun segmentation</text>' +
+                '</svg>'
+            );
 
         window.onload = function () {
             loadFile(currentFileIndex);
@@ -507,9 +517,13 @@
                 let form = channel + '_form';
                 document.getElementById(form).action = `/image/${fileUUID}/display/`;
             }
-            maxCells = Number(fileData.NumberOfCells) - 1;
+            maxCells = Number(fileData.NumberOfCells);
             currentCellNumber = 1;
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            if (fileData.NoCellsWarning) {
+                showChannelError(fileData.NoCellsWarning);
+            }
+            updateTableState(fileUUID, fileData);
             updateSidebarActive();
             const inferred = inferChannelFromMainImage(fileData.MainImagePath);
             if (inferred) {
@@ -605,8 +619,129 @@
             });
         }
 
+        function normalizeHeader(text) {
+            return (text || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function formatStatValue(value) {
+            if (value === null || value === undefined || value === '') {
+                return 'N/A';
+            }
+            if (typeof value === 'number') {
+                if (Number.isInteger(value)) {
+                    return String(value);
+                }
+                return value.toFixed(3);
+            }
+            return String(value);
+        }
+
+        function renderStatisticsTable(statistics) {
+            const table = document.getElementById('celltable');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+
+            const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
+            const keyMap = {
+                'Cell ID': 'cell_id',
+                'MCherry Line Distance': 'distance',
+                'Line GFP Intensity': 'line_gfp_intensity',
+                'Blue Contour Size': 'blue_contour_size',
+                'Red Contour 1 Size': 'red_contour_1_size',
+                'Red Contour 2 Size': 'red_contour_2_size',
+                'Red Contour 3 Size': 'red_contour_3_size',
+                'Red in Red Intensity 1': 'red_intensity_1',
+                'Red in Red Intensity 2': 'red_intensity_2',
+                'Red in Red Intensity 3': 'red_intensity_3',
+                'Green in Red Intensity 1': 'green_intensity_1',
+                'Green in Red Intensity 2': 'green_intensity_2',
+                'Green in Red Intensity 3': 'green_intensity_3',
+                'Cellular Intensity DAPI': 'cellular_intensity_sum_DAPI',
+                'GFP Dot Category': 'category_GFP_dot',
+                'Nucleus Intensity': 'nucleus_intensity_sum',
+                'Biorientation': 'biorientation',
+            };
+
+            const ids = Object.keys(statistics || {})
+                .map((k) => Number(k))
+                .filter((n) => !Number.isNaN(n))
+                .sort((a, b) => a - b);
+
+            tbody.innerHTML = '';
+            for (const id of ids) {
+                const rowStats = statistics[String(id)] || null;
+                const tr = document.createElement('tr');
+                for (const header of headers) {
+                    const td = document.createElement('td');
+                    const key = keyMap[header];
+                    if (!key) {
+                        td.textContent = 'N/A';
+                    } else if (key === 'cell_id') {
+                        td.textContent = String(id);
+                    } else {
+                        td.textContent = formatStatValue(rowStats ? rowStats[key] : null);
+                    }
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+        }
+
+        function updateTableState(fileUUID, fileData) {
+            const exportButtons = document.querySelector('.export-buttons');
+            let note = document.getElementById('table-empty-note');
+            if (!note) {
+                note = document.createElement('div');
+                note.id = 'table-empty-note';
+                note.className = 'message info';
+                note.style.marginTop = '10px';
+                const tableSection = document.querySelector('.table-section');
+                if (tableSection) {
+                    tableSection.insertBefore(note, exportButtons || null);
+                }
+            }
+
+            renderStatisticsTable(fileData.Statistics || {});
+
+            if (fileData.NoCellsWarning) {
+                note.textContent = fileData.NoCellsWarning;
+                note.style.display = 'block';
+            } else {
+                note.style.display = 'none';
+            }
+
+            if (exportButtons) {
+                const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
+                const canExportCurrentView = hasRows && fileUUID === serverTableUUID;
+                exportButtons.style.display = canExportCurrentView ? 'flex' : 'none';
+            }
+        }
+
         function updateCellImages(cellPairImages, statistics) {
             const imageUrls = cellPairImages[currentCellNumber];
+            if (!imageUrls) {
+                document.getElementById("cellImage1").src = noCellPlaceholder;
+                document.getElementById("cellImage2").src = noCellPlaceholder;
+                document.getElementById("cellImage3").src = noCellPlaceholder;
+                document.getElementById("cellImage4").src = noCellPlaceholder;
+                document.getElementById("cellID").textContent = maxCells > 0 ? currentCellNumber : 0;
+                document.getElementById("distance").textContent = "N/A";
+                document.getElementById("lineGFPIntensity").textContent = "N/A";
+                document.getElementById("greenredIntensity1").textContent = "N/A";
+                document.getElementById("greenredIntensity2").textContent = "N/A";
+                document.getElementById("greenredIntensity3").textContent = "N/A";
+                document.getElementById("nucleusIntensitySum").textContent = "N/A";
+                document.getElementById("cellularIntensitySum").textContent = "N/A";
+                document.getElementById("cytoplasmicIntensity").textContent = "N/A";
+                document.getElementById("gfpDot").textContent = "N/A";
+                document.getElementById("biorientation").textContent = "N/A";
+                document.getElementById("nucleusIntensitySum_DAPI").textContent = "N/A";
+                document.getElementById("cytoplasmicIntensity_DAPI").textContent = "N/A";
+                document.getElementById("cellularIntensitySum_DAPI").textContent = "N/A";
+                return;
+            }
+
             document.getElementById("cellImage1").src = imageUrls[0];
             // document.getElementById("cellImage1_2").src = imageUrls[1];
             document.getElementById("cellImage2").src = imageUrls[2];
@@ -616,7 +751,7 @@
             document.getElementById("cellImage4").src = imageUrls[6];
             // document.getElementById("cellImage4_2").src = imageUrls[7];
             document.getElementById("cellID").textContent = currentCellNumber;
-            
+
             const cellStats = statistics[currentCellNumber];
             const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
             const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
@@ -650,6 +785,9 @@
         }
 
         function nextCell() {
+            if (maxCells < 1) {
+                return;
+            }
             currentCellNumber = (currentCellNumber % maxCells) + 1;
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
@@ -658,6 +796,9 @@
         }
 
         function previousCell() {
+            if (maxCells < 1) {
+                return;
+            }
             currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
@@ -667,8 +808,11 @@
 
         function toggleContourOverlays() {
             let fileData = filesData[fileUUIDs[currentFileIndex]];
-            let imageUrls = fileData.CellPairImages[currentCellNumber];
             var toggle = document.getElementById('toggleContours').addEventListener('change', function() {
+                let imageUrls = fileData.CellPairImages[currentCellNumber];
+                if (!imageUrls) {
+                    return;
+                }
                 if (!this.checked) {
                     document.getElementById("cellImage1").src = imageUrls[1];
                     document.getElementById("cellImage2").src = imageUrls[3];

@@ -20,44 +20,15 @@ def get_contour_center(contour_list):
     return coordinates
 
 def get_largest(contours):
-    """
-    This function output the two largest contours index in the list of contours
-    :param contours: List of contours
-    :return: List of indexes of the largest contour in descending order
-    """
-    best_contour = []
-    best_area = []
+    """Return up to two contour indices sorted by descending area."""
+    ranked = []
     for i, contour in enumerate(contours):
-        if len(contour) == 0: # if no contour found
-            # print(i, "none")
+        if contour is None or len(contour) == 0:
             continue
-        # if i == len(contours) - 1:  # not robust #TODO fix it
-        if len(contours) > 1 and i == len(contours) - 1:  
-            # print(i, "last")
-            continue
-        area = cv2.contourArea(contour)
-        if len(best_contour) == 0: # first contour
-            # print(area, i, "first")
-            best_contour.append(i)
-            best_area.append(area)
-            continue
-        if len(best_contour) == 1: # second contour
-            # print(area, i, "second")
-            best_contour.append(i)
-            best_area.append(area)
+        ranked.append((i, cv2.contourArea(contour)))
 
-        if area > best_area[0]: # check if current contour area is bigger than biggest
-            # print(area, i, "new best")
-            # swapping 1st to 2nd and new one to 1st
-            best_area[1] = best_area[0]
-            best_area[0] = area
-            best_contour[1] = best_contour[0]
-            best_contour[0] = i
-        elif area > best_area[1]: # check if current contour area is bigger than second biggest
-            # print(area, i, "new second best")
-            best_area[1] = area
-            best_contour[1] = i
-    return best_contour
+    ranked.sort(key=lambda item: item[1], reverse=True)
+    return [idx for idx, _ in ranked[:2]]
 
 def get_neighbor_count(seg_image, center, radius=1, loss=0):
     """

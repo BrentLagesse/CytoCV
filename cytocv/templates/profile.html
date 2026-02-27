@@ -333,6 +333,30 @@
                     // Function to update the images and statistics for the current cell
                     function updateCellImages(cellPairImages, statistics) {
                         const imageUrls = cellPairImages[currentCellNumber];
+                        if (!imageUrls) {
+                            document.getElementById("cellImage1").removeAttribute('src');
+                            document.getElementById("cellImage1_2").removeAttribute('src');
+                            document.getElementById("cellImage2").removeAttribute('src');
+                            document.getElementById("cellImage2_2").removeAttribute('src');
+                            document.getElementById("cellImage3").removeAttribute('src');
+                            document.getElementById("cellImage3_2").removeAttribute('src');
+                            document.getElementById("cellImage4").removeAttribute('src');
+                            document.getElementById("cellImage4_2").removeAttribute('src');
+                            document.getElementById("cellID").textContent = maxCells > 0 ? currentCellNumber : 0;
+                            document.getElementById("distance").textContent = "N/A";
+                            document.getElementById("lineGFPIntensity").textContent = "N/A";
+                            document.getElementById("greenredIntensity").textContent = "N/A";
+                            document.getElementById("nucleusIntensitySum").textContent = "N/A";
+                            document.getElementById("cellularIntensitySum").textContent = "N/A";
+                            document.getElementById("cytoplasmicIntensity").textContent = "N/A";
+                            document.getElementById("gfpDot").textContent = "N/A";
+                            document.getElementById("biorientation").textContent = "N/A";
+                            document.getElementById("nucleusIntensitySum_DAPI").textContent = "N/A";
+                            document.getElementById("cytoplasmicIntensity_DAPI").textContent = "N/A";
+                            document.getElementById("cellularIntensitySum_DAPI").textContent = "N/A";
+                            return;
+                        }
+
                         document.getElementById("cellImage1").src = imageUrls[0];
                         document.getElementById("cellImage1_2").src = imageUrls[1];
                         document.getElementById("cellImage2").src = imageUrls[2];
@@ -375,6 +399,9 @@
 
                     // Function to load the next set of cell images without page reload
                     function nextCell() {
+                        if (maxCells < 1) {
+                            return;
+                        }
                         currentCellNumber = (currentCellNumber % maxCells) + 1;
                         const fileData = filesData[fileUUIDs[currentFileIndex]];
                         updateCellImages(fileData.CellPairImages, fileData.Statistics);
@@ -382,6 +409,9 @@
 
                     // Function to load the previous set of cell images without page reload
                     function previousCell() {
+                        if (maxCells < 1) {
+                            return;
+                        }
                         currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
                         const fileData = filesData[fileUUIDs[currentFileIndex]];
                         updateCellImages(fileData.CellPairImages, fileData.Statistics);
