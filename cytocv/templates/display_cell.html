@@ -307,7 +307,24 @@
             border: 1px solid var(--panel-border);
             border-radius: 10px;
             background-color: var(--surface-media);
+            scrollbar-width: auto;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
         }
+        .table-scroll-frame::-webkit-scrollbar { width: 14px; height: 14px; }
+        .table-scroll-frame::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll-frame::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-corner { background: transparent; }
         .table-scroll-frame .celltable {
             min-width: max-content;
             margin-top: 0;
