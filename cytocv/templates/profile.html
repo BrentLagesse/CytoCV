@@ -115,6 +115,56 @@
                 align-items: center;
                 justify-items: center;
             }
+            .viewer-panel {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                border: 1px solid var(--panel-border);
+                border-radius: 12px;
+                padding: 12px;
+                background: rgba(0, 0, 0, 0.16);
+            }
+            .viewer-toolbar {
+                display: flex;
+                justify-content: flex-end;
+                width: 100%;
+            }
+            .viewer-fullscreen-btn {
+                padding: 8px 12px;
+                font-size: 12px;
+                background-color: var(--accent);
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+            }
+            .viewer-fullscreen-btn:hover { background-color: var(--accent-dark); }
+            .viewer-scroll-frame {
+                width: 100%;
+                overflow-x: auto;
+                overflow-y: visible;
+            }
+            .viewer-content {
+                min-width: 1040px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+            .viewer-panel:fullscreen {
+                width: 100vw;
+                height: 100dvh;
+                border-radius: 0;
+                border: none;
+                padding: 16px;
+            }
+            .viewer-panel:fullscreen .viewer-scroll-frame {
+                flex: 1 1 auto;
+                max-height: calc(100dvh - 72px);
+                overflow-x: auto;
+                overflow-y: auto;
+            }
 
             .main-container {
                 display: flex;
@@ -240,108 +290,127 @@
             </div>
             <div class="recent">
                 <h1>Recent files</h1>
-                <!-- Main Image and Title -->
-                <h2 id="imageTitle">{{ Image_Name }}</h2>
-                <div class="main-container">
-                    <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
-                </div>
-
-                <!-- Cell Images Row with Cell ID on Same Line -->
-                <div class="cell-images-row">
-                    <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
-
-                    <!-- DIC cell image -->
-                    <div class="cell-column">
-                        <div class="cell-label dic">DIC</div>
-                        <img id="cellImage1" class="cell-image" src="">
+                <div class="viewer-panel" id="profileViewerPanel">
+                    <div class="viewer-toolbar">
+                        <button type="button" class="viewer-fullscreen-btn" id="profileFullscreenBtn">Enter Fullscreen</button>
                     </div>
-
-                    <!-- DAPI cell image -->
-                    <div class="cell-column">
-                        <div class="cell-label dapi">DAPI</div>
-                        <img id="cellImage2" class="cell-image" src="">
-                        <div class="info-box">
-                            <div class="tight-info">Nucleus intensity from DAPI: <span
-                                    id="nucleusIntensitySum_DAPI"></span></div>
-                            <div class="tight-info">Total cellular intensity from DAPI: <span
-                                    id="cellularIntensitySum_DAPI"></span></div>
-                            <div class="tight-info">Cytoplasmic intensity from DAPI: <span
-                                    id="cytoplasmicIntensity_DAPI"></span></div>
-                        </div>
-                    </div>
-
-                    <!-- mCherry cell image with additional info -->
-                    <div class="cell-column">
-                        <div class="cell-label mcherry">mCherry</div>
-                        <img id="cellImage3" class="cell-image" src="">
-                        <div class="info-box">
-                            <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
-                            <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
-                            <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
-                        </div>
-                    </div>
-
-                    <!-- GFP cell image with additional info -->
-                    <div class="cell-column">
-                        <div class="cell-label gfp">GFP</div>
-                        <img id="cellImage4" class="cell-image" src="">
-                        <div class="info-box">
-                            <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
-                            <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span>
+                    <div class="viewer-scroll-frame">
+                        <div class="viewer-content">
+                            <h2 id="imageTitle">{{ Image_Name }}</h2>
+                            <div class="main-container">
+                                <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
                             </div>
-                            <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
-                            <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
-                            <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
+
+                            <div class="cell-images-row">
+                                <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
+
+                                <div class="cell-column">
+                                    <div class="cell-label dic">DIC</div>
+                                    <img id="cellImage1" class="cell-image" src="">
+                                </div>
+
+                                <div class="cell-column">
+                                    <div class="cell-label dapi">DAPI</div>
+                                    <img id="cellImage2" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
+                                        <div class="tight-info">Measurement channel: <span id="measurementChannel"></span></div>
+                                        <div class="tight-info">Nuclear status: <span id="nuclearStatus"></span></div>
+                                    </div>
+                                </div>
+
+                                <div class="cell-column">
+                                    <div class="cell-label mcherry">mCherry</div>
+                                    <img id="cellImage3" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
+                                        <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                                        <div class="tight-info">Green Red Intensity: <span id="greenredIntensity"></span></div>
+                                    </div>
+                                </div>
+
+                                <div class="cell-column">
+                                    <div class="cell-label gfp">GFP</div>
+                                    <img id="cellImage4" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
+                                        <div class="tight-info"><span id="cellularIntensityLabel">Measured Cellular Intensity</span>: <span id="cellularIntensitySum"></span></div>
+                                        <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                                        <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
+                                        <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="navigation-buttons">
+                                <button onclick="previousCell()">Previous Cell</button>
+                                <button onclick="nextCell()">Next Cell</button>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Navigation Buttons for Cells -->
-                <div class="navigation-buttons">
-                    <button onclick="previousCell()">Previous Cell</button>
-                    <button onclick="nextCell()">Next Cell</button>
                 </div>
 
                 <script>
-                    let filesData = JSON.parse('{{ files_data|safe }}');  // Get all the file data (multiple UUIDs)
-                    let fileUUIDs = Object.keys(filesData);  // Extract all UUIDs (the list of file UUIDs)
-                    let currentFileIndex = 0;  // Initialize the first file
+                    let filesData = {};
+                    try {
+                        filesData = JSON.parse('{{ files_data|default:"{}"|safe }}');
+                    } catch (err) {
+                        filesData = {};
+                    }
+                    let fileUUIDs = Object.keys(filesData);
+                    let currentFileIndex = 0;
                     let currentCellNumber = 1;
                     let maxCells;
 
-                    // Load the first file on page load
+                    function getNuclearLabelPair(mode) {
+                        if (mode === 'red_nucleus') {
+                            return {
+                                cellular: 'Green cellular intensity',
+                                nuclear: 'Green nuclear intensity',
+                                contour: 'mCherry',
+                                measurement: 'GFP',
+                            };
+                        }
+                        if (mode === 'green_nucleus') {
+                            return {
+                                cellular: 'Red cellular intensity',
+                                nuclear: 'Red nuclear intensity',
+                                contour: 'GFP',
+                                measurement: 'mCherry',
+                            };
+                        }
+                        return {
+                            cellular: 'Measured cellular intensity',
+                            nuclear: 'Measured nuclear intensity',
+                            contour: 'N/A',
+                            measurement: 'N/A',
+                        };
+                    }
+
                     window.onload = function () {
-                        loadFile(currentFileIndex);  // Load the first file
+                        if (!fileUUIDs.length) return;
+                        loadFile(currentFileIndex);
                     };
 
-                    // Function to load a file (UUID) and display its images
                     function loadFile(fileIndex) {
+                        if (!fileUUIDs.length) return;
                         const fileUUID = fileUUIDs[fileIndex];
                         const fileData = filesData[fileUUID];
-
-                        // Update the main image and cell images
+                        if (!fileData) return;
                         document.getElementById("mainImage").src = fileData.MainImagePath;
                         document.getElementById("imageTitle").textContent = fileData.Image_Name;
-
-                        // Load the first cell images for the current file
                         maxCells = Number(fileData.NumberOfCells);
-                        currentCellNumber = 1;  // Reset to the first cell when changing files
+                        currentCellNumber = 1;
                         updateCellImages(fileData.CellPairImages, fileData.Statistics);
                     }
 
-                    // Function to update the images and statistics for the current cell
                     function updateCellImages(cellPairImages, statistics) {
                         const imageUrls = cellPairImages[currentCellNumber];
                         if (!imageUrls) {
                             document.getElementById("cellImage1").removeAttribute('src');
-                            document.getElementById("cellImage1_2").removeAttribute('src');
                             document.getElementById("cellImage2").removeAttribute('src');
-                            document.getElementById("cellImage2_2").removeAttribute('src');
                             document.getElementById("cellImage3").removeAttribute('src');
-                            document.getElementById("cellImage3_2").removeAttribute('src');
                             document.getElementById("cellImage4").removeAttribute('src');
-                            document.getElementById("cellImage4_2").removeAttribute('src');
                             document.getElementById("cellID").textContent = maxCells > 0 ? currentCellNumber : 0;
                             document.getElementById("distance").textContent = "N/A";
                             document.getElementById("lineGFPIntensity").textContent = "N/A";
@@ -351,70 +420,76 @@
                             document.getElementById("cytoplasmicIntensity").textContent = "N/A";
                             document.getElementById("gfpDot").textContent = "N/A";
                             document.getElementById("biorientation").textContent = "N/A";
-                            document.getElementById("nucleusIntensitySum_DAPI").textContent = "N/A";
-                            document.getElementById("cytoplasmicIntensity_DAPI").textContent = "N/A";
-                            document.getElementById("cellularIntensitySum_DAPI").textContent = "N/A";
+                            document.getElementById("nucleusIntensityLabel").textContent = "Measured Nuclear Intensity";
+                            document.getElementById("cellularIntensityLabel").textContent = "Measured Cellular Intensity";
+                            document.getElementById("nucleusContourChannel").textContent = "N/A";
+                            document.getElementById("measurementChannel").textContent = "N/A";
+                            document.getElementById("nuclearStatus").textContent = "N/A";
                             return;
                         }
 
                         document.getElementById("cellImage1").src = imageUrls[0];
-                        document.getElementById("cellImage1_2").src = imageUrls[1];
                         document.getElementById("cellImage2").src = imageUrls[2];
-                        document.getElementById("cellImage2_2").src = imageUrls[3];
                         document.getElementById("cellImage3").src = imageUrls[4];
-                        document.getElementById("cellImage3_2").src = imageUrls[5];
                         document.getElementById("cellImage4").src = imageUrls[6];
-                        document.getElementById("cellImage4_2").src = imageUrls[7];
                         document.getElementById("cellID").textContent = currentCellNumber;
 
-                        // Update the statistics for the current cell
                         const cellStats = statistics[currentCellNumber];
                         const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
                         const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
+                        const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+                        const labels = getNuclearLabelPair(mode);
 
                         document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
                         document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
-                        document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity : "N/A";
+                        document.getElementById("greenredIntensity").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
                         document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
                         document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
                         document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
                         document.getElementById("gfpDot").textContent = category;
                         document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
-                        document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
-                        document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
-                        document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";
+                        document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
+                        document.getElementById("cellularIntensityLabel").textContent = labels.cellular;
+                        document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour;
+                        document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement;
+                        document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cellular_status || "unknown") : "N/A";
                     }
 
-                    // Function to load the next main image (file) without page reload
-                    function nextFile() {
-                        currentFileIndex = (currentFileIndex) % fileUUIDs.length;
-                        loadFile(currentFileIndex);  // Dynamically update images for the next file
-                    }
-
-                    // Function to load the previous main image (file) without page reload
-                    function previousFile() {
-                        currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
-                        loadFile(currentFileIndex);  // Dynamically update images for the previous file
-                    }
-
-                    // Function to load the next set of cell images without page reload
                     function nextCell() {
-                        if (maxCells < 1) {
-                            return;
-                        }
+                        if (!fileUUIDs.length || maxCells < 1) return;
                         currentCellNumber = (currentCellNumber % maxCells) + 1;
                         const fileData = filesData[fileUUIDs[currentFileIndex]];
                         updateCellImages(fileData.CellPairImages, fileData.Statistics);
                     }
 
-                    // Function to load the previous set of cell images without page reload
                     function previousCell() {
-                        if (maxCells < 1) {
-                            return;
-                        }
+                        if (!fileUUIDs.length || maxCells < 1) return;
                         currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
                         const fileData = filesData[fileUUIDs[currentFileIndex]];
                         updateCellImages(fileData.CellPairImages, fileData.Statistics);
+                    }
+
+                    const profileViewerPanel = document.getElementById('profileViewerPanel');
+                    const profileFullscreenBtn = document.getElementById('profileFullscreenBtn');
+                    function syncProfileFullscreenState() {
+                        if (!profileViewerPanel || !profileFullscreenBtn) return;
+                        const active = document.fullscreenElement === profileViewerPanel;
+                        profileFullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Enter Fullscreen';
+                    }
+                    if (profileViewerPanel && profileFullscreenBtn) {
+                        profileFullscreenBtn.addEventListener('click', async () => {
+                            try {
+                                if (document.fullscreenElement === profileViewerPanel) {
+                                    await document.exitFullscreen();
+                                } else {
+                                    await profileViewerPanel.requestFullscreen();
+                                }
+                            } catch (err) {
+                                // ignore
+                            }
+                        });
+                        document.addEventListener('fullscreenchange', syncProfileFullscreenState);
+                        syncProfileFullscreenState();
                     }
                 </script>
             </div>

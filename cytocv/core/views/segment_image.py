@@ -139,6 +139,9 @@ def import_analyses(path:str, selected_analysis:list) -> list:
 def get_stats(cp, conf, selected_analysis, gfp_distance):
     # loading configuration
     kernel_size_input, mcherry_line_width_input, kernel_deviation_input, _ = set_options(conf)
+    nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
+    cp.properties = dict(cp.properties or {})
+    cp.properties["nuclear_cellular_mode"] = nuclear_cellular_mode
 
     requirement_summary = build_requirement_summary(selected_analysis)
     stats_required_channels = {
@@ -619,7 +622,7 @@ def segment_image(request, uuids):
             for i in range(1, int(np.max(seg) + 1)):
                 tmp = np.zeros(seg.shape)
                 tmp[np.where(seg == i)] = 1
-                tmp = tmp - skimage.morphology.binary_erosion(tmp)
+                tmp = tmp - skimage.morphology.erosion(tmp)
                 outlines += tmp
 
             # Overlay the outlines on the original image in green
@@ -723,7 +726,7 @@ def segment_image(request, uuids):
             for i in range(1, int(np.max(seg) + 1)):
                 tmp = np.zeros(seg.shape)
                 tmp[np.where(seg == i)] = 1
-                tmp = tmp - skimage.morphology.binary_erosion(tmp)
+                tmp = tmp - skimage.morphology.erosion(tmp)
                 outlines += tmp
             
             # Overlay the outlines on the original image in green
@@ -804,6 +807,7 @@ def segment_image(request, uuids):
             'kernel_deviation': configuration["kernel_deviation"],
             'arrested': configuration["arrested"],
             'analysis' : selected_analysis,
+            'nuclear_cellular_mode': request.session.get("nuclear_cellular_mode", "green_nucleus"),
         }
 
         if cancelled():
@@ -843,6 +847,8 @@ def segment_image(request, uuids):
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
             selected_analysis = request.session.get('selected_analysis',[])
+            cp.properties = dict(cp.properties or {})
+            cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
             gfp_distance = request.session.get('distance', 37)
             try:
                 gfp_distance = int(gfp_distance)

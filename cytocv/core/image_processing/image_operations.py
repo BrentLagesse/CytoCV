@@ -74,8 +74,16 @@ def preprocess_image_to_gray(images, kdev, ksize):
     mcherry_image = images.get("mCherry")
     if mcherry_image is not None:
         original_gray_mcherry = cv2.cvtColor(mcherry_image, cv2.COLOR_RGB2GRAY)
+        mcherry_no_bg, _ = subtract_background_rolling_ball(
+            original_gray_mcherry,
+            50,
+            light_background=False,
+            use_paraboloid=False,
+            do_presmooth=True,
+        )
         gray_payload["gray_mcherry_3"] = cv2.GaussianBlur(original_gray_mcherry, (3, 3), 1)
         gray_payload["gray_mcherry"] = cv2.GaussianBlur(original_gray_mcherry, (ksize, ksize), kdev)
+        gray_payload["mCherry_no_bg"] = mcherry_no_bg
 
     dapi_image = images.get("DAPI")
     if dapi_image is not None:

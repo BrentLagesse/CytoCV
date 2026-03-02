@@ -132,6 +132,22 @@ class CellStatistics(models.Model):
     green_intensity_2 = models.FloatField(default=0.0)
     green_intensity_3 = models.FloatField(default=0.0)
 
+    red_in_green_intensity_1 = models.FloatField(default=0.0)
+    red_in_green_intensity_2 = models.FloatField(default=0.0)
+    red_in_green_intensity_3 = models.FloatField(default=0.0)
+
+    green_in_green_intensity_1 = models.FloatField(default=0.0)
+    green_in_green_intensity_2 = models.FloatField(default=0.0)
+    green_in_green_intensity_3 = models.FloatField(default=0.0)
+
+    gfp_contour_1_size = models.FloatField(default=0.0)
+    gfp_contour_2_size = models.FloatField(default=0.0)
+    gfp_contour_3_size = models.FloatField(default=0.0)
+
+    gfp_to_mcherry_distance_1 = models.FloatField(default=0.0)
+    gfp_to_mcherry_distance_2 = models.FloatField(default=0.0)
+    gfp_to_mcherry_distance_3 = models.FloatField(default=0.0)
+
     green_red_intensity_1 = models.FloatField(default=0.0)
     green_red_intensity_2 = models.FloatField(default=0.0)
     green_red_intensity_3 = models.FloatField(default=0.0)

@@ -12,6 +12,16 @@ from django_tables2.config import RequestConfig
 from django_tables2.export.export import TableExport
 
 
+def _resolve_nuclear_cellular_mode(stats_iterable):
+    modes = set()
+    for stat in stats_iterable:
+        props = stat.properties or {}
+        mode = props.get("nuclear_cellular_mode")
+        if mode in {"green_nucleus", "red_nucleus"}:
+            modes.add(mode)
+    return modes.pop() if len(modes) == 1 else None
+
+
 def display_cell(request, uuids):
     """Render cell display data for one or more uploaded image UUIDs.
 
@@ -94,7 +104,8 @@ def display_cell(request, uuids):
             stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
-                cell_table = CellTable(cell_stats_qs)
+                table_mode = _resolve_nuclear_cellular_mode(stats_by_id.values())
+                cell_table = CellTable(cell_stats_qs, intensity_mode=table_mode)
             if stats_by_id:
                 cell_ids = list(stats_by_id.keys())
             else:
@@ -141,6 +152,18 @@ def display_cell(request, uuids):
                         'green_intensity_1': cell_stat.green_intensity_1,
                         'green_intensity_2': cell_stat.green_intensity_2,
                         'green_intensity_3': cell_stat.green_intensity_3,
+                        'red_in_green_intensity_1': cell_stat.red_in_green_intensity_1,
+                        'red_in_green_intensity_2': cell_stat.red_in_green_intensity_2,
+                        'red_in_green_intensity_3': cell_stat.red_in_green_intensity_3,
+                        'green_in_green_intensity_1': cell_stat.green_in_green_intensity_1,
+                        'green_in_green_intensity_2': cell_stat.green_in_green_intensity_2,
+                        'green_in_green_intensity_3': cell_stat.green_in_green_intensity_3,
+                        'gfp_contour_1_size': cell_stat.gfp_contour_1_size,
+                        'gfp_contour_2_size': cell_stat.gfp_contour_2_size,
+                        'gfp_contour_3_size': cell_stat.gfp_contour_3_size,
+                        'gfp_to_mcherry_distance_1': cell_stat.gfp_to_mcherry_distance_1,
+                        'gfp_to_mcherry_distance_2': cell_stat.gfp_to_mcherry_distance_2,
+                        'gfp_to_mcherry_distance_3': cell_stat.gfp_to_mcherry_distance_3,
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
                         'green_red_intensity_1': cell_stat.green_red_intensity_1,
@@ -150,6 +173,19 @@ def display_cell(request, uuids):
                         'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
                         'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
                         'cytoplasmic_intensity_DAPI': cell_stat.cytoplasmic_intensity_DAPI,
+                        'nuclear_cellular_mode': (cell_stat.properties or {}).get("nuclear_cellular_mode", "green_nucleus"),
+                        'nuclear_cellular_contour_channel': (cell_stat.properties or {}).get(
+                            "nuclear_cellular_contour_channel",
+                            "GFP",
+                        ),
+                        'nuclear_cellular_measurement_channel': (cell_stat.properties or {}).get(
+                            "nuclear_cellular_measurement_channel",
+                            "mCherry",
+                        ),
+                        'nuclear_cellular_status': (cell_stat.properties or {}).get(
+                            "nuclear_cellular_status",
+                            "unknown",
+                        ),
                         'category_GFP_dot': cell_stat.category_GFP_dot,
                         'biorientation': cell_stat.biorientation,
                     }
@@ -177,7 +213,7 @@ def display_cell(request, uuids):
             return HttpResponse(f"Segmented image not found for UUID {uuid}", status=404)
 
     if cell_table is None:
-        cell_table = CellTable(CellStatistics.objects.none())
+        cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
 
     # Convert the files_data to JSON to be used in the template
     json_files_data = json.dumps(all_files_data)

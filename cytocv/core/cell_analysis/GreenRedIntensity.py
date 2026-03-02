@@ -1,26 +1,101 @@
-import math, cv2
-import numpy as np
-from core.contour_processing import get_contour_center
-from core.image_processing import calculate_intensity_mask,create_circular_mask
-from core.image_processing.GrayImage import GrayImage
+import math
+
+import cv2
+
+from core.image_processing import calculate_intensity_mask, create_circular_mask
 from .Analysis import Analysis
 
-class GreenRedIntensity(Analysis):
-    name = 'Green Red Intensity'
-    def calculate_statistics(self, best_contours, contours_data,red_image, green_image,mcherry_line_width_input,gfp_distance):
-        """
-        :param preprocessed_images: GrayImage object
-        :return: ratio between red and green intensity
-        """
-        dot_contours = contours_data['dot_contours']
-        mcherry_gray = self.preprocessed_images.get_image('gray_mcherry')
-        GFP_gray = self.preprocessed_images.get_image('GFP')
 
-        for i in range (0,len(dot_contours)):
-            mask = create_circular_mask(mcherry_gray.shape, dot_contours,i)  # draw a mask around contour
-            red_intensity = calculate_intensity_mask(mcherry_gray, mask)
-            green_intensity = calculate_intensity_mask(GFP_gray, mask)
-            ratio = green_intensity / red_intensity if red_intensity != 0 else 0
-            setattr(self.cp, f'red_intensity_{i+1}', red_intensity)
-            setattr(self.cp, f'green_intensity_{i+1}', green_intensity)
-            setattr(self.cp, f'green_red_intensity_{i+1}', ratio)
+class GreenRedIntensity(Analysis):
+    name = "Green Red Intensity"
+
+    @staticmethod
+    def _contour_center(contour):
+        moment = cv2.moments(contour)
+        if moment["m00"] == 0:
+            x, y, w, h = cv2.boundingRect(contour)
+            return (x + w / 2.0, y + h / 2.0)
+        return (moment["m10"] / moment["m00"], moment["m01"] / moment["m00"])
+
+    def _rank_contours(self, contours, limit=3):
+        ranked = []
+        for contour in contours or []:
+            if contour is None or len(contour) == 0:
+                continue
+            area = float(cv2.contourArea(contour))
+            if area <= 0:
+                continue
+            center = self._contour_center(contour)
+            ranked.append((area, center, contour))
+        ranked.sort(key=lambda item: (-item[0], item[1][0], item[1][1]))
+        return ranked[:limit]
+
+    def _set_default_triplet(self, prefix):
+        for idx in range(1, 4):
+            setattr(self.cp, f"{prefix}_{idx}", 0.0)
+
+    def calculate_statistics(
+        self,
+        best_contours,
+        contours_data,
+        red_image,
+        green_image,
+        mcherry_line_width_input,
+        gfp_distance,
+    ):
+        red_contours = [entry[2] for entry in self._rank_contours(contours_data.get("dot_contours", []), limit=3)]
+        green_contours_ranked = self._rank_contours(contours_data.get("contours_gfp", []), limit=3)
+        green_contours = [entry[2] for entry in green_contours_ranked]
+
+        mcherry_gray = self.preprocessed_images.get_image("mCherry_no_bg")
+        if mcherry_gray is None:
+            mcherry_gray = self.preprocessed_images.get_image("gray_mcherry")
+
+        gfp_gray = self.preprocessed_images.get_image("GFP_no_bg")
+        if gfp_gray is None:
+            gfp_gray = self.preprocessed_images.get_image("GFP")
+        if mcherry_gray is None or gfp_gray is None:
+            self._set_default_triplet("red_intensity")
+            self._set_default_triplet("green_intensity")
+            self._set_default_triplet("green_red_intensity")
+            self._set_default_triplet("red_in_green_intensity")
+            self._set_default_triplet("green_in_green_intensity")
+            self._set_default_triplet("gfp_to_mcherry_distance")
+            for idx in range(1, 4):
+                setattr(self.cp, f"gfp_contour_{idx}_size", 0.0)
+            return
+
+        red_centers = [self._contour_center(contour) for contour in red_contours]
+
+        self._set_default_triplet("red_intensity")
+        self._set_default_triplet("green_intensity")
+        self._set_default_triplet("green_red_intensity")
+        self._set_default_triplet("red_in_green_intensity")
+        self._set_default_triplet("green_in_green_intensity")
+        self._set_default_triplet("gfp_to_mcherry_distance")
+        for idx in range(1, 4):
+            setattr(self.cp, f"gfp_contour_{idx}_size", 0.0)
+
+        for i, contour in enumerate(red_contours):
+            mask = create_circular_mask(mcherry_gray.shape, red_contours, i)
+            red_intensity = float(calculate_intensity_mask(mcherry_gray, mask))
+            green_intensity = float(calculate_intensity_mask(gfp_gray, mask))
+            ratio = green_intensity / red_intensity if red_intensity != 0 else 0.0
+            setattr(self.cp, f"red_intensity_{i + 1}", red_intensity)
+            setattr(self.cp, f"green_intensity_{i + 1}", green_intensity)
+            setattr(self.cp, f"green_red_intensity_{i + 1}", ratio)
+
+        for i, contour_info in enumerate(green_contours_ranked):
+            area, center, _ = contour_info
+            mask = create_circular_mask(gfp_gray.shape, green_contours, i)
+            red_in_green = float(calculate_intensity_mask(mcherry_gray, mask))
+            green_in_green = float(calculate_intensity_mask(gfp_gray, mask))
+            if red_centers:
+                nearest_red_dist = min(math.dist(center, red_center) for red_center in red_centers)
+            else:
+                nearest_red_dist = 0.0
+
+            setattr(self.cp, f"red_in_green_intensity_{i + 1}", red_in_green)
+            setattr(self.cp, f"green_in_green_intensity_{i + 1}", green_in_green)
+            setattr(self.cp, f"gfp_contour_{i + 1}_size", float(area))
+            setattr(self.cp, f"gfp_to_mcherry_distance_{i + 1}", float(nearest_red_dist))

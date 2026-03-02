@@ -33,6 +33,8 @@ class StatsPluginDefinition:
     description: str
     required_channels: frozenset[str] = field(default_factory=frozenset)
     required_plugins: frozenset[str] = field(default_factory=frozenset)
+    is_legacy: bool = False
+    exclusive_group: str | None = None
 
 
 # Keep order stable for UI rendering.
@@ -40,6 +42,7 @@ PLUGIN_ORDER: tuple[str, ...] = (
     "MCherryLine",
     "GFPDot",
     "GreenRedIntensity",
+    "NuclearCellularIntensity",
     "NucleusIntensity",
     "DAPI_NucleusIntensity",
     "RedBlueIntensity",
@@ -62,26 +65,42 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     "GreenRedIntensity": StatsPluginDefinition(
         plugin_id="GreenRedIntensity",
         label="Green/Red Intensity Ratio",
-        description="Computes GFP-to-mCherry intensity ratios around detected red dots.",
+        description="Computes per-contour intensity combinations across red and green channels.",
         required_channels=frozenset({"mCherry", "GFP"}),
+    ),
+    "NuclearCellularIntensity": StatsPluginDefinition(
+        plugin_id="NuclearCellularIntensity",
+        label="Nuclear, Cellular Intensity",
+        description=(
+            "Uses selected channel as nucleus contour source and measures intensity in the opposite "
+            "channel within nucleus and whole-cell regions."
+        ),
+        required_channels=frozenset({"mCherry", "GFP"}),
+        exclusive_group="nuclear_cellular",
     ),
     "NucleusIntensity": StatsPluginDefinition(
         plugin_id="NucleusIntensity",
         label="Nucleus GFP Intensity",
         description="Measures GFP intensity in nuclear vs cellular regions using DAPI contour reference.",
         required_channels=frozenset({"DAPI", "GFP"}),
+        is_legacy=True,
+        exclusive_group="nuclear_cellular",
     ),
     "DAPI_NucleusIntensity": StatsPluginDefinition(
         plugin_id="DAPI_NucleusIntensity",
         label="Nucleus DAPI Intensity",
         description="Measures DAPI intensity in nucleus/cytoplasm using DAPI contour reference.",
         required_channels=frozenset({"DAPI"}),
+        is_legacy=True,
+        exclusive_group="nuclear_cellular",
     ),
     "RedBlueIntensity": StatsPluginDefinition(
         plugin_id="RedBlueIntensity",
         label="Red-in-Blue Intensity",
         description="Measures DAPI intensity around red-dot contour locations.",
         required_channels=frozenset({"mCherry", "DAPI"}),
+        is_legacy=True,
+        exclusive_group="nuclear_cellular",
     ),
 }
 
@@ -97,7 +116,18 @@ def normalize_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
     """Return plugin IDs filtered to known plugins in stable order."""
 
     selected_set = {name for name in selected_plugins if name in PLUGIN_DEFINITIONS}
-    return [plugin_id for plugin_id in PLUGIN_ORDER if plugin_id in selected_set]
+    normalized: list[str] = []
+    seen_exclusive_groups: set[str] = set()
+    for plugin_id in PLUGIN_ORDER:
+        if plugin_id not in selected_set:
+            continue
+        definition = PLUGIN_DEFINITIONS[plugin_id]
+        if definition.exclusive_group and definition.exclusive_group in seen_exclusive_groups:
+            continue
+        if definition.exclusive_group:
+            seen_exclusive_groups.add(definition.exclusive_group)
+        normalized.append(plugin_id)
+    return normalized
 
 
 def expand_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
@@ -162,6 +192,8 @@ def build_plugin_ui_payload() -> dict:
                 "description": definition.description,
                 "required_channels": sorted(definition.required_channels, key=_channel_sort_key),
                 "required_plugins": sorted(definition.required_plugins),
+                "is_legacy": definition.is_legacy,
+                "exclusive_group": definition.exclusive_group,
             }
         )
 
