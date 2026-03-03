@@ -53,7 +53,7 @@ class NuclearCellularIntensity(Analysis):
         return nucleus_mask, largest
 
     @staticmethod
-    def _draw_dashed_contour(image, contour, color=(255, 255, 255), dash_px=6, gap_px=4, thickness=1):
+    def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1):
         if image is None or contour is None or len(contour) < 2:
             return
         dash_px = max(int(dash_px), 1)
@@ -162,6 +162,6 @@ class NuclearCellularIntensity(Analysis):
 
         if largest_contour is not None:
             if red_image is not None:
-                self._draw_dashed_contour(red_image, largest_contour, color=(255, 255, 255), dash_px=6, gap_px=4, thickness=1)
+                self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
             if green_image is not None:
-                self._draw_dashed_contour(green_image, largest_contour, color=(255, 255, 255), dash_px=6, gap_px=4, thickness=1)
+                self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
