@@ -53,6 +53,20 @@ class NuclearCellularIntensity(Analysis):
         return nucleus_mask, largest
 
     @staticmethod
+    def _build_mask_from_contours(shape, contours):
+        mask = np.zeros(shape, np.uint8)
+        valid_contours = []
+        for contour in contours or []:
+            if contour is None or len(contour) < 3:
+                continue
+            if cv2.contourArea(contour) <= 0:
+                continue
+            valid_contours.append(contour)
+        if valid_contours:
+            cv2.drawContours(mask, valid_contours, -1, 255, thickness=-1)
+        return mask
+
+    @staticmethod
     def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1):
         if image is None or contour is None or len(contour) < 2:
             return
@@ -134,15 +148,32 @@ class NuclearCellularIntensity(Analysis):
             if 0 <= y < h and 0 <= x < w:
                 cell_mask[y, x] = 255
 
-        contour_u8 = contour_img.astype(np.uint8, copy=False)
-        _, threshold_mask = cv2.threshold(contour_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        threshold_mask = cv2.bitwise_and(threshold_mask, cell_mask)
+        # Prefer the precomputed contour set for the selected mode so overlays/measurements
+        # use the same contour source as other stats.
+        if mode == "red_nucleus":
+            source_contours = contours_data.get("dot_contours", [])
+        else:
+            source_contours = contours_data.get("contours_gfp", [])
+
+        contour_mask = self._build_mask_from_contours((h, w), source_contours)
+        contour_mask = cv2.bitwise_and(contour_mask, cell_mask)
+        used_contour_source = "precomputed_contours"
 
         kernel = np.ones((3, 3), np.uint8)
-        threshold_mask = cv2.morphologyEx(threshold_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
-        threshold_mask = cv2.morphologyEx(threshold_mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        contour_mask = cv2.morphologyEx(contour_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+        contour_mask = cv2.morphologyEx(contour_mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        nucleus_mask, largest_contour = self._largest_component_mask(contour_mask)
 
-        nucleus_mask, largest_contour = self._largest_component_mask(threshold_mask)
+        # Fallback: if no usable precomputed contour exists, derive it from thresholded source channel.
+        if largest_contour is None:
+            contour_u8 = contour_img.astype(np.uint8, copy=False)
+            _, threshold_mask = cv2.threshold(contour_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            threshold_mask = cv2.bitwise_and(threshold_mask, cell_mask)
+            threshold_mask = cv2.morphologyEx(threshold_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+            threshold_mask = cv2.morphologyEx(threshold_mask, cv2.MORPH_OPEN, kernel, iterations=1)
+            nucleus_mask, largest_contour = self._largest_component_mask(threshold_mask)
+            used_contour_source = "threshold_fallback"
+
         measure_u8 = measure_img.astype(np.float32, copy=False)
         cell_pixels = measure_u8[cell_mask > 0]
         nucleus_pixels = measure_u8[nucleus_mask > 0]
@@ -157,6 +188,7 @@ class NuclearCellularIntensity(Analysis):
         props["nuclear_cellular_mode"] = mode
         props["nuclear_cellular_contour_channel"] = contour_channel
         props["nuclear_cellular_measurement_channel"] = measurement_channel
+        props["nuclear_cellular_contour_source"] = used_contour_source
         props["nuclear_cellular_status"] = "ok" if largest_contour is not None else "no_nucleus_contour"
         self.cp.properties = props
 

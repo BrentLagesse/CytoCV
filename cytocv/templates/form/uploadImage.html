@@ -1062,6 +1062,16 @@
             </div>
             <div class="settings-view" id="statsAdvancedView" hidden>
                 <div class="settings-body">
+                    <div class="toggle-row" id="legacyPluginRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label">Show Legacy Plugins</span>
+                            <span class="toggle-hint">Reveal legacy DAPI-era plugins in the statistics list.</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="showLegacyPlugins">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
                             <span class="toggle-label">Enable Optional Metadata Checks</span>
@@ -1090,16 +1100,6 @@
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="enforceWavelengths">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row subtoggle" id="legacyPluginRow">
-                            <div class="toggle-text">
-                                <span class="toggle-label">Show Legacy Plugins</span>
-                                <span class="toggle-hint">Reveal legacy DAPI-era plugins in the statistics list.</span>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" id="showLegacyPlugins">
                                 <span class="slider"></span>
                             </label>
                         </div>
