@@ -102,7 +102,7 @@ def find_contours(images:GrayImage):
         contours_dapi, _ = cv2.findContours(thresh_dapi, cv2.RETR_LIST, 2)
         contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, cv2.RETR_LIST, 2)
         contours_dapi_3 = [
-            cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt) > 100 and cv2.contourArea(cnt) < 1000
+            cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt) > 100 #and cv2.contourArea(cnt) < 1000
         ]
         bestContours_dapi = get_largest(contours_dapi)
         bestContours_dapi_3 = get_largest(contours_dapi_3) if contours_dapi_3 else []
