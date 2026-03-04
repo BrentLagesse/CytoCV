@@ -2062,6 +2062,16 @@
         return required;
     }
 
+    function isChannelUsed(channel) {
+        var used = statsState.manualRequiredChannels.has("GFP");
+        statsState.selectedPlugins.forEach((pluginId) => {
+            const plugin = pluginMap.get(pluginId);
+            if (!plugin || !Array.isArray(plugin.required_channels)) return false;
+            plugin.required_channels.forEach((required_channel) => {console.log(required_channel); if (required_channel === channel) used = true;});
+        });
+        return used;
+    }
+
     function syncStatsUI() {
         const statsRequired = getStatsRequiredChannels();
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
@@ -2072,6 +2082,7 @@
         const layerRow = document.getElementById('layerCheckRow');
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
         const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
+        const gfpFilterRow = document.getElementById('gfpFilterRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
             toggle.checked = statsState.selectedPlugins.has(pluginId);
@@ -2098,6 +2109,15 @@
         }
         if (gfpFilterEnabled) {
             gfpFilterEnabled.checked = !!statsState.gfpFilterEnabled;
+            const gfpUsed = isChannelUsed('GFP');
+            gfpFilterEnabled.disabled = !gfpUsed;
+            if (gfpUsed) {
+                gfpFilterRow.classList.remove('disabled');
+            } else {
+                gfpFilterRow.classList.add('disabled');
+                gfpFilterEnabled.checked = false;
+                statsState.gfpFilterEnabled = gfpFilterEnabled.checked;
+            }
         }
 
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
