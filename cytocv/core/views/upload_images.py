@@ -170,6 +170,8 @@ def upload_images(request):
         if gfp_distance < 0:
             gfp_distance = 37
 
+        gfp_filter_enabled = request.POST.get("gfpFilterEnabled", False)
+
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
         request.session["mCherryWidth"] = mcherry_width
@@ -178,6 +180,7 @@ def upload_images(request):
             request.POST.get("nuclear_cellular_mode"),
             default="green_nucleus",
         )
+        request.session["gfpFilterEnabled"] = gfp_filter_enabled
 
         module_enabled = _parse_bool(request.POST.get("cytocv_analysis_enabled"), default=False)
         enforce_layer_count = module_enabled and _parse_bool(

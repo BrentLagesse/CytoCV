@@ -6,7 +6,7 @@ import scipy.ndimage as ndi
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 
-def find_contours(images:GrayImage):
+def find_contours(images:GrayImage, gfp_filter_enabled=False):
     """
     This function finds contours in an image and returns them as a numpy array.
     :param images: Gray scale image list
@@ -113,7 +113,8 @@ def find_contours(images:GrayImage):
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
         contours_gfp, _ = cv2.findContours(thresh_gfp, cv2.RETR_LIST, 2)
-        # contours_gfp = filterContours(contours_gfp)     # NOTE: If you notice cells where "obvious" green dots are missing, this is likely to blame
+        if gfp_filter_enabled:
+            contours_gfp = filterContours(contours_gfp)     # NOTE: If you notice cells where "obvious" green dots are missing, this is likely to blame
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly

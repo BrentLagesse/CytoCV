@@ -143,6 +143,8 @@ def pre_process_step(request, uuids):
         )
         if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
             nuclear_cellular_mode = "green_nucleus"
+        gfp_filter_enabled_raw = request.POST.get('gfpFilterEnabled', request.session.get('gfpFilterEnabled', 'False'))
+        gfp_filter_enabled = gfp_filter_enabled_raw == 'true'
         try:
             mcherry_width = int(mcherry_width_raw)
         except (TypeError, ValueError):
@@ -160,6 +162,7 @@ def pre_process_step(request, uuids):
         request.session['mCherryWidth'] = mcherry_width
         request.session['distance'] = gfp_distance
         request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
+        request.session['gfpFilterEnabled'] = gfp_filter_enabled
 
         # Track when we first enter phases to mark progress once
         preprocess_marked = False

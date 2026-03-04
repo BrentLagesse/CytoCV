@@ -1072,6 +1072,16 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row" id="gfpFilterRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label">Filter GFP Contours</span>
+                            <span class="toggle-hint">EXPERIMENTAL: Filter out low-confidence GFP signal contours in challenging images.</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="gfpFilterEnabled">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
                             <span class="toggle-label">Enable Optional Metadata Checks</span>
@@ -1266,6 +1276,7 @@
         mCherryWidth: 1,
         gfpDistance: 37,
         nuclearCellularMode: 'green_nucleus',
+        gfpFilterEnabled: false,
     };
 
     const statToggleElements = new Map();
@@ -1277,6 +1288,8 @@
     let gfpDistanceRow = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
+    // let gfpFilterEnabled = null;
+    // let gfpFilterRow = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
 
@@ -1859,10 +1872,18 @@
             channelRowElements.set(channel, row);
         });
 
+        const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
         const legacyToggle = document.getElementById('showLegacyPlugins');
+        if (gfpFilterEnabled) {
+            gfpFilterEnabled.addEventListener('change', () => {
+                statsState.gfpFilterEnabled = gfpFilterEnabled.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
         if (moduleToggle) {
             moduleToggle.addEventListener('change', () => {
                 statsState.moduleEnabled = moduleToggle.checked;
@@ -1938,6 +1959,7 @@
             stored = {};
         }
 
+        statsState.gfpFilterEnabled = typeof stored.gfpFilterEnabled === 'boolean' ? stored.gfpFilterEnabled : false;
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
         statsState.enforceAllWavelengths = typeof stored.enforceAllWavelengths === 'boolean' ? stored.enforceAllWavelengths : false;
@@ -1978,6 +2000,7 @@
             enforceAllWavelengths: !!statsState.enforceAllWavelengths,
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
+            gfpFilterEnabled: !!statsState.gfpFilterEnabled,
         }));
     }
 
@@ -2048,6 +2071,7 @@
         const legacyRow = document.getElementById('legacyPluginRow');
         const layerRow = document.getElementById('layerCheckRow');
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
+        const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
 
         statToggleElements.forEach((toggle, pluginId) => {
             toggle.checked = statsState.selectedPlugins.has(pluginId);
@@ -2071,6 +2095,9 @@
         }
         if (nuclearModeRow) {
             nuclearModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellularIntensity'));
+        }
+        if (gfpFilterEnabled) {
+            gfpFilterEnabled.checked = !!statsState.gfpFilterEnabled;
         }
 
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
@@ -2205,6 +2232,7 @@
             mCherryWidth: Number.isFinite(Number(statsState.mCherryWidth)) ? Number(statsState.mCherryWidth) : 1,
             gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
             nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
+            gfpFilterEnabled: !!statsState.gfpFilterEnabled,
         });
         const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
         const hasModalChanges = () => {
@@ -2234,6 +2262,7 @@
             const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
             statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
             statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+            statsState.gfpFilterEnabled = !!snapshot.gfpFilterEnabled;
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
                     if (plugin.is_legacy) {
@@ -2884,6 +2913,7 @@
             formData.append('mCherryWidth', String(statsState.mCherryWidth));
             formData.append('distance', String(statsState.gfpDistance));
             formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
+            formData.append('gfpFilterEnabled', String(statsState.gfpFilterEnabled));
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const uploadController = new AbortController();
