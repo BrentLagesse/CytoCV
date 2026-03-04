@@ -9,6 +9,8 @@ from .Analysis import Analysis
 
 class NuclearCellularIntensity(Analysis):
     name = "Nuclear, Cellular Intensity"
+    # Temporary release toggle: keep overlay logic available but disabled by default.
+    _DRAW_NUCLEAR_CONTOUR_OVERLAY = False
 
     _MODE_CONFIG = {
         "green_nucleus": (
@@ -194,7 +196,8 @@ class NuclearCellularIntensity(Analysis):
         props["nuclear_cellular_status"] = "ok"
         self.cp.properties = props
 
-        if red_image is not None:
-            self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
-        if green_image is not None:
-            self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
+        if self._DRAW_NUCLEAR_CONTOUR_OVERLAY:
+            if red_image is not None:
+                self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
+            if green_image is not None:
+                self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)

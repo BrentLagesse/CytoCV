@@ -80,10 +80,10 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.properties["nuclear_cellular_status"], "ok")
         self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
 
-    def test_debug_overlay_is_drawn_when_precomputed_contour_exists(self):
+    def test_debug_overlay_is_disabled_even_when_precomputed_contour_exists(self):
         _, red_debug, green_debug = self._run_plugin("red_nucleus")
-        self.assertTrue(np.any(red_debug > 0))
-        self.assertTrue(np.any(green_debug > 0))
+        self.assertFalse(np.any(red_debug > 0))
+        self.assertFalse(np.any(green_debug > 0))
 
     def test_hard_cutoff_marks_no_nucleus_contour_without_fallback(self):
         cp, red_debug, green_debug = self._run_plugin("red_nucleus", include_precomputed=False)
