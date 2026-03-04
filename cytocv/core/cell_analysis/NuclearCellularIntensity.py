@@ -9,6 +9,7 @@ from .Analysis import Analysis
 
 class NuclearCellularIntensity(Analysis):
     name = "Nuclear, Cellular Intensity"
+
     # Temporary release toggle: keep overlay logic available but disabled by default.
     _DRAW_NUCLEAR_CONTOUR_OVERLAY = False
 
@@ -67,6 +68,29 @@ class NuclearCellularIntensity(Analysis):
         if valid_contours:
             cv2.drawContours(mask, valid_contours, -1, 255, thickness=-1)
         return mask
+    
+    @staticmethod
+    def _fill_mask_gaps(binary_mask):
+        # Get height and width
+        h, w = binary_mask.shape[:2]
+
+        # Make the borders black so that we don't hit the borders with the flood fill
+        binary_mask[0:1, 0:w] = 0
+        binary_mask[(h - 1):h, 0:w] = 0
+        binary_mask[0:h, 0:1] = 0
+        binary_mask[0:h, (w - 1):w] = 0
+
+        mask_fill = binary_mask.copy()
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+
+        # Fill background 
+        cv2.floodFill(mask_fill, mask, (0, 0), 255)
+
+        # Invert the mask
+        mask_fill = cv2.bitwise_not(mask_fill)
+
+        # OR the original image with the inverted mask
+        return binary_mask | mask_fill
 
     @staticmethod
     def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1):
@@ -149,6 +173,9 @@ class NuclearCellularIntensity(Analysis):
         for y, x in cell_points:
             if 0 <= y < h and 0 <= x < w:
                 cell_mask[y, x] = 255
+        
+        # Fill any holes or gaps in the cell mask
+        cell_mask = self._fill_mask_gaps(cell_mask)
 
         # Prefer the precomputed contour set for the selected mode so overlays/measurements
         # use the same contour source as other stats.
