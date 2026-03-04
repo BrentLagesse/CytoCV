@@ -2063,7 +2063,7 @@
     }
 
     function isChannelUsed(channel) {
-        var used = statsState.manualRequiredChannels.has("GFP");
+        var used = statsState.manualRequiredChannels.has(channel);
         statsState.selectedPlugins.forEach((pluginId) => {
             const plugin = pluginMap.get(pluginId);
             if (!plugin || !Array.isArray(plugin.required_channels)) return false;
