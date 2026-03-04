@@ -3,6 +3,7 @@ import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ['KERAS_BACKEND'] = 'tensorflow'
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 
 seed = 123
 #from keras import backend as K
@@ -200,4 +201,3 @@ def predict_images(
     
     print("predict_images FINISHED")
     return rle_file_path
-

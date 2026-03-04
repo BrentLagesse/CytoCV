@@ -28,6 +28,8 @@ import json
 import re
 import hashlib
 
+NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+
 
 def _current_owner_filter(request) -> dict:
     """Return queryset filter args for the current upload owner."""
@@ -134,6 +136,12 @@ def pre_process_step(request, uuids):
         # backward compatibility with older clients.
         selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
         gfp_distance_raw = request.POST.get('distance', request.session.get('distance', 37))
+        nuclear_cellular_mode = request.POST.get(
+            "nuclear_cellular_mode",
+            request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        )
+        if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
+            nuclear_cellular_mode = "green_nucleus"
         try:
             gfp_distance = int(gfp_distance_raw)
         except (TypeError, ValueError):
@@ -143,6 +151,7 @@ def pre_process_step(request, uuids):
 
         request.session['selected_analysis'] = selected_analysis
         request.session['distance'] = gfp_distance
+        request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
 
         # Track when we first enter phases to mark progress once
         preprocess_marked = False

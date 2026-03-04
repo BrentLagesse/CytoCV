@@ -146,6 +146,26 @@
             padding: 16px;
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
         }
+        .viewer-panel {
+            width: 100%;
+            display: block;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            padding: 0;
+        }
+        .viewer-scroll-frame {
+            width: 100%;
+            overflow-x: visible;
+            overflow-y: visible;
+        }
+        .viewer-content {
+            min-width: 1040px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
 
         /* Reduced top/bottom margin for the main container */
         .main-container { display: flex; align-items: center; margin: 10px 0; gap: 20px; }
@@ -248,32 +268,149 @@
         }
         a:hover { background-color: #0056b3; color: #fff; }
 
-        .table-section { margin-top: 15px; margin-bottom: 15px; }
+        .table-section { margin-top: 15px; margin-bottom: 15px; width: 100%; }
+
+        .table-panel {
+            width: 100%;
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            background-color: var(--surface-media);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .table-panel.fullscreen-exit-anim:not(:fullscreen) {
+            animation: tableFullscreenExit 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .table-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+        }
+        .table-fullscreen-btn {
+            padding: 8px 12px;
+            font-size: 12px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .table-fullscreen-btn:hover { background-color: #0056b3; }
+        .table-scroll-frame {
+            width: 100%;
+            max-height: 520px;
+            overflow-x: auto;
+            overflow-y: auto;
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            background-color: var(--surface-media);
+            scrollbar-width: auto;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .table-scroll-frame::-webkit-scrollbar { width: 14px; height: 14px; }
+        .table-scroll-frame::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll-frame::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-corner { background: transparent; }
+        .table-scroll-frame .celltable {
+            min-width: max-content;
+            margin-top: 0;
+        }
+        .table-panel:fullscreen {
+            width: 100vw;
+            height: 100dvh;
+            border-radius: 0;
+            border: none;
+            padding: 16px;
+            margin: 0;
+            box-sizing: border-box;
+            animation: tableFullscreenEnter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .table-panel:fullscreen .table-scroll-frame {
+            flex: 1 1 auto;
+            max-height: none;
+            height: calc(100dvh - 96px);
+            overflow-x: auto;
+            overflow-y: auto;
+        }
+        @keyframes tableFullscreenEnter {
+            from {
+                opacity: 0.6;
+                transform: translateY(10px) scale(0.985);
+                filter: blur(1.5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+        @keyframes tableFullscreenExit {
+            from {
+                opacity: 1;
+                transform: scale(1);
+                filter: blur(0);
+            }
+            to {
+                opacity: 0.75;
+                transform: scale(0.988);
+                filter: blur(1px);
+            }
+        }
 
         /* Table container */
         .celltable {
-            width: 100%; max-width: 1000px; background-color: var(--card-bg); border-radius: 14px; overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); margin-top: 20px;
+            width: max-content;
+            min-width: 100%;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            border-collapse: separate;
+            border-spacing: 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            margin-top: 0;
         }
 
         /* Table itself */
-        .celltable table {
-            width: 100%; border-collapse: separate; border-spacing: 0;
-            background-color: var(--card-bg); color: #fff; font-family: var(--app-font); font-size: 14px;
+        .table-scroll-frame table {
+            background-color: var(--card-bg);
+            color: #fff;
+            font-family: var(--app-font);
+            font-size: 12px;
         }
 
         /* Table header */
         .celltable thead { background-color: var(--surface-header); }
         .celltable th {
-            padding: 15px 12px; text-align: left; font-weight: bold; color: #fff; background-color: var(--surface-header);
+            padding: 9px 8px; text-align: left; font-weight: 600; color: #fff; background-color: var(--surface-header);
             border-bottom: 2px solid #007bff; position: relative;
+            font-size: 12px;
+            line-height: 1.2;
         }
         .celltable th:first-child { border-top-left-radius: 10px; }
         .celltable th:last-child { border-top-right-radius: 10px; }
 
         /* Table body */
         .celltable tbody { background-color: var(--card-bg); }
-        .celltable td { padding: 12px; border-bottom: 1px solid var(--border-muted); transition: background-color 0.2s; }
+        .celltable td {
+            padding: 7px 8px;
+            border-bottom: 1px solid var(--border-muted);
+            transition: background-color 0.2s;
+            font-size: 12px;
+            line-height: 1.2;
+        }
 
         /* Row striping for better readability */
         .celltable tbody tr:nth-child(even) { background-color: var(--surface-muted-alt); }
@@ -291,7 +428,7 @@
 
         /* Links within table cells */
         .celltable a {
-            color: #66b3ff; text-decoration: none; font-size: 14px; padding: 0; border-radius: 3px;
+            color: #66b3ff; text-decoration: none; font-size: 12px; padding: 0; border-radius: 3px;
             background-color: transparent; transition: all 0.2s;
         }
         .celltable a:hover { color: #fff; background-color: #007bff; text-decoration: none; }
@@ -385,83 +522,91 @@
         <div class="content-wrapper">
             <!-- MAIN CONTENT -->
             <div class="main-content">
-                <h2 id="imageTitle">{{ Image_Name }}</h2>
-                <div class="main-container">
-                    <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
-                    <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
-                    <button class="file-navigation-button" onclick="nextFile()">Next File</button>
-                </div>
+                <div class="viewer-panel" id="viewerPanel">
+                    <div class="viewer-scroll-frame" id="viewerScrollFrame">
+                        <div class="viewer-content">
+                            <h2 id="imageTitle">{{ Image_Name }}</h2>
+                            <div class="main-container">
+                                <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
+                                <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
+                                <button class="file-navigation-button" onclick="nextFile()">Next File</button>
+                            </div>
 
-                <div class="cell-images-row">
-                    <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
-                    <div class="cell-column">
-                        <form method="post" id="dic_form">
-                            {% csrf_token %}
-                            <button name="dic" class="cell-label dic" data-channel="dic" type="button">DIC</button>
-                        </form>
-                        <img id="cellImage1" class="cell-image" src="">
-                        <div class="info-box">
-                            Toggle contours <br>
-                            <label class="switch">
-                                <input type="checkbox" id="toggleContours" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <!-- <img id="cellImage1_2" class="cell-image" src=""> -->
-                    </div>
-                    <div class="cell-column">
-                        <form method="post" id="dapi_form">
-                            {% csrf_token %}
-                            <button name="dapi" class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
-                        </form>
-                        <img id="cellImage2" class="cell-image" src="">
-                        <!-- <img id="cellImage2_2" class="cell-image" src=""> -->
-                        <div class="info-box">
-                            <div class="tight-info">Nucleus intensity from DAPI: <span id="nucleusIntensitySum_DAPI"></span></div>
-                            <div class="tight-info">Total cellular intensity from DAPI: <span id="cellularIntensitySum_DAPI"></span></div>
-                            <div class="tight-info">Cytoplasmic intensity from DAPI: <span id="cytoplasmicIntensity_DAPI"></span></div>
-                        </div>
-                    </div>
-                    <div class="cell-column">
-                        <form method="post" id="mCherry_form">
-                            {% csrf_token %}
-                            <button name="mCherry" class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
-                        </form>
-                        <img id="cellImage3" class="cell-image" src="">
-                        <!-- <img id="cellImage3_2" class="cell-image" src=""> -->
-                        <div class="info-box">
-                            <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
-                            <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
-                            <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
-                            <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
-                            <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
+                            <div class="cell-images-row">
+                                <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
+                                <div class="cell-column">
+                                    <form method="post" id="dic_form">
+                                        {% csrf_token %}
+                                        <button name="dic" class="cell-label dic" data-channel="dic" type="button">DIC</button>
+                                    </form>
+                                    <img id="cellImage1" class="cell-image" src="">
+                                    <div class="info-box">
+                                        Toggle contours <br>
+                                        <label class="switch">
+                                            <input type="checkbox" id="toggleContours" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cell-column">
+                                    <form method="post" id="dapi_form">
+                                        {% csrf_token %}
+                                        <button name="dapi" class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
+                                    </form>
+                                    <img id="cellImage2" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
+                                        <div class="tight-info">Measurement channel: <span id="measurementChannel"></span></div>
+                                        <div class="tight-info">Nuclear status: <span id="nuclearStatus"></span></div>
+                                    </div>
+                                </div>
+                                <div class="cell-column">
+                                    <form method="post" id="mCherry_form">
+                                        {% csrf_token %}
+                                        <button name="mCherry" class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
+                                    </form>
+                                    <img id="cellImage3" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info">MCherry Line Distance: <span id="distance"></span></div>
+                                        <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                                        <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
+                                        <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
+                                        <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
+                                    </div>
+                                </div>
+                                <div class="cell-column">
+                                    <form method="post" id="gfp_form">
+                                        {% csrf_token %}
+                                        <button name="gfp" class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
+                                    </form>
+                                    <img id="cellImage4" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
+                                        <div class="tight-info"><span id="cellularIntensityLabel">Measured Cellular Intensity</span>: <span id="cellularIntensitySum"></span></div>
+                                        <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                                        <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
+                                        <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
+                                    </div>
+                                </div>
+                            </div>
 
+                            <div class="navigation-buttons">
+                                <button onclick="previousCell()">Previous Cell</button>
+                                <button onclick="nextCell()">Next Cell</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="cell-column">
-                        <form method="post" id="gfp_form">
-                            {% csrf_token %}
-                            <button name="gfp" class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
-                        </form>
-                        <img id="cellImage4" class="cell-image" src="">
-                        <!-- <img id="cellImage4_2" class="cell-image" src=""> -->
-                        <div class="info-box">
-                            <div class="tight-info">Nucleus Intensity Sum: <span id="nucleusIntensitySum"></span></div>
-                            <div class="tight-info">Cellular Intensity Sum: <span id="cellularIntensitySum"></span></div>
-                            <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
-                            <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
-                            <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="navigation-buttons">
-                    <button onclick="previousCell()">Previous Cell</button>
-                    <button onclick="nextCell()">Next Cell</button>
                 </div>
 
                 <div class="table-section">
-                    {% render_table cell_table %}
+                    <div class="table-panel" id="statsTablePanel">
+                        <div class="table-toolbar">
+                            <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">Enter Fullscreen</button>
+                        </div>
+                        <div class="table-scroll-frame" id="tableScrollFrame">
+                            {% render_table cell_table %}
+                        </div>
+                    </div>
                     <div class="popup">
                         <p><strong>Cell ID:</strong><span id="popup-id"></span></p>
                         <form method="post" id="delete_cell">
@@ -636,11 +781,45 @@
             return String(value);
         }
 
+        function hasNoNucleusContour(cellStats) {
+            return Boolean(cellStats && cellStats.nuclear_cellular_status === 'no_nucleus_contour');
+        }
+
+        function getNuclearLabelPair(mode) {
+            if (mode === 'red_nucleus') {
+                return {
+                    cellular: 'Green cellular intensity',
+                    nuclear: 'Green nuclear intensity',
+                    contour: 'mCherry',
+                    measurement: 'GFP',
+                };
+            }
+            if (mode === 'green_nucleus') {
+                return {
+                    cellular: 'Red cellular intensity',
+                    nuclear: 'Red nuclear intensity',
+                    contour: 'GFP',
+                    measurement: 'mCherry',
+                };
+            }
+            return {
+                cellular: 'Measured cellular intensity',
+                nuclear: 'Measured nuclear intensity',
+                contour: 'N/A',
+                measurement: 'N/A',
+            };
+        }
+
         function renderStatisticsTable(statistics) {
             const table = document.getElementById('celltable');
             if (!table) return;
             const tbody = table.querySelector('tbody');
             if (!tbody) return;
+            const nuclearCellularFields = new Set([
+                'cellular_intensity_sum',
+                'nucleus_intensity_sum',
+                'cytoplasmic_intensity',
+            ]);
 
             const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
             const keyMap = {
@@ -651,15 +830,38 @@
                 'Red Contour 1 Size': 'red_contour_1_size',
                 'Red Contour 2 Size': 'red_contour_2_size',
                 'Red Contour 3 Size': 'red_contour_3_size',
+                'GFP Contour 1 Size': 'gfp_contour_1_size',
+                'GFP Contour 2 Size': 'gfp_contour_2_size',
+                'GFP Contour 3 Size': 'gfp_contour_3_size',
                 'Red in Red Intensity 1': 'red_intensity_1',
                 'Red in Red Intensity 2': 'red_intensity_2',
                 'Red in Red Intensity 3': 'red_intensity_3',
                 'Green in Red Intensity 1': 'green_intensity_1',
                 'Green in Red Intensity 2': 'green_intensity_2',
                 'Green in Red Intensity 3': 'green_intensity_3',
-                'Cellular Intensity DAPI': 'cellular_intensity_sum_DAPI',
+                'Red in Green Intensity 1': 'red_in_green_intensity_1',
+                'Red in Green Intensity 2': 'red_in_green_intensity_2',
+                'Red in Green Intensity 3': 'red_in_green_intensity_3',
+                'Green in Green Intensity 1': 'green_in_green_intensity_1',
+                'Green in Green Intensity 2': 'green_in_green_intensity_2',
+                'Green in Green Intensity 3': 'green_in_green_intensity_3',
+                'GFP-to-mCherry Distance 1': 'gfp_to_mcherry_distance_1',
+                'GFP-to-mCherry Distance 2': 'gfp_to_mcherry_distance_2',
+                'GFP-to-mCherry Distance 3': 'gfp_to_mcherry_distance_3',
                 'GFP Dot Category': 'category_GFP_dot',
-                'Nucleus Intensity': 'nucleus_intensity_sum',
+                'Measured cellular intensity': 'cellular_intensity_sum',
+                'Measured nuclear intensity': 'nucleus_intensity_sum',
+                'Measured Cellular Intensity': 'cellular_intensity_sum',
+                'Measured Nuclear Intensity': 'nucleus_intensity_sum',
+                'Red cellular intensity': 'cellular_intensity_sum',
+                'Red nuclear intensity': 'nucleus_intensity_sum',
+                'Green cellular intensity': 'cellular_intensity_sum',
+                'Green nuclear intensity': 'nucleus_intensity_sum',
+                'Red Cellular Intensity': 'cellular_intensity_sum',
+                'Red Nuclear Intensity': 'nucleus_intensity_sum',
+                'Green Cellular Intensity': 'cellular_intensity_sum',
+                'Green Nuclear Intensity': 'nucleus_intensity_sum',
+                'Cytoplasmic Intensity': 'cytoplasmic_intensity',
                 'Biorientation': 'biorientation',
             };
 
@@ -679,6 +881,8 @@
                         td.textContent = 'N/A';
                     } else if (key === 'cell_id') {
                         td.textContent = String(id);
+                    } else if (nuclearCellularFields.has(key) && hasNoNucleusContour(rowStats)) {
+                        td.textContent = 'N/A';
                     } else {
                         td.textContent = formatStatValue(rowStats ? rowStats[key] : null);
                     }
@@ -736,9 +940,11 @@
                 document.getElementById("cytoplasmicIntensity").textContent = "N/A";
                 document.getElementById("gfpDot").textContent = "N/A";
                 document.getElementById("biorientation").textContent = "N/A";
-                document.getElementById("nucleusIntensitySum_DAPI").textContent = "N/A";
-                document.getElementById("cytoplasmicIntensity_DAPI").textContent = "N/A";
-                document.getElementById("cellularIntensitySum_DAPI").textContent = "N/A";
+                document.getElementById("nucleusIntensityLabel").textContent = "Measured Nuclear Intensity";
+                document.getElementById("cellularIntensityLabel").textContent = "Measured Cellular Intensity";
+                document.getElementById("nucleusContourChannel").textContent = "N/A";
+                document.getElementById("measurementChannel").textContent = "N/A";
+                document.getElementById("nuclearStatus").textContent = "N/A";
                 return;
             }
 
@@ -755,19 +961,24 @@
             const cellStats = statistics[currentCellNumber];
             const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
             const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
+            const nuclearUnavailable = hasNoNucleusContour(cellStats);
             document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
             document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
             document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
             document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
             document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";
-            document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
-            document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
-            document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.nucleus_intensity_sum;
+            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cellular_intensity_sum;
+            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cytoplasmic_intensity;
             document.getElementById("gfpDot").textContent = category;
             document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
-            document.getElementById("nucleusIntensitySum_DAPI").textContent = cellStats ? cellStats.nucleus_intensity_sum_DAPI : "N/A";
-            document.getElementById("cytoplasmicIntensity_DAPI").textContent = cellStats ? cellStats.cytoplasmic_intensity_DAPI : "N/A";
-            document.getElementById("cellularIntensitySum_DAPI").textContent = cellStats ? cellStats.cellular_intensity_sum_DAPI : "N/A";
+            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            const labels = getNuclearLabelPair(mode);
+            document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
+            document.getElementById("cellularIntensityLabel").textContent = labels.cellular;
+            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour;
+            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement;
+            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cellular_status || "unknown") : "N/A";
         }
 
         function nextFile() {
@@ -872,6 +1083,55 @@
                 switchMainChannel(channel);
             });
         });
+
+        const statsTablePanel = document.getElementById('statsTablePanel');
+        const tableFullscreenBtn = document.getElementById('tableFullscreenBtn');
+        let wasTableFullscreen = false;
+
+        function playTableExitFade() {
+            if (!statsTablePanel) return;
+            statsTablePanel.classList.remove('fullscreen-exit-anim');
+            // force reflow so rapid re-entry replays animation
+            void statsTablePanel.offsetWidth;
+            statsTablePanel.classList.add('fullscreen-exit-anim');
+            window.setTimeout(() => {
+                if (statsTablePanel) {
+                    statsTablePanel.classList.remove('fullscreen-exit-anim');
+                }
+            }, 320);
+        }
+
+        function syncTableFullscreenState() {
+            if (!tableFullscreenBtn || !statsTablePanel) return;
+            const active = document.fullscreenElement === statsTablePanel;
+            if (!active && wasTableFullscreen) {
+                playTableExitFade();
+            }
+            tableFullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Enter Fullscreen';
+            tableFullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            wasTableFullscreen = active;
+        }
+
+        async function toggleTableFullscreen() {
+            if (!statsTablePanel) return;
+            if (document.fullscreenElement === statsTablePanel) {
+                await document.exitFullscreen();
+            } else {
+                await statsTablePanel.requestFullscreen();
+            }
+        }
+
+        if (tableFullscreenBtn && statsTablePanel) {
+            tableFullscreenBtn.addEventListener('click', async () => {
+                try {
+                    await toggleTableFullscreen();
+                } catch (err) {
+                    showChannelError('Fullscreen is not available in this browser context.');
+                }
+            });
+            document.addEventListener('fullscreenchange', syncTableFullscreenState);
+            syncTableFullscreenState();
+        }
     </script>
 
     <script>

@@ -17,8 +17,9 @@ from collections import OrderedDict
 import multiprocessing
 import numpy as np
 import skimage.transform
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 import tensorflow as tf
-from tensorflow import keras
+import tensorflow.keras as keras
 
 # from keras import backend as K
 # from keras import layers as KL
@@ -36,7 +37,32 @@ from . import utils
 # Requires TensorFlow 1.3+ and Keras 2.0.8+.
 from distutils.version import LooseVersion
 assert LooseVersion(tf.__version__) >= LooseVersion("1.3")
-assert LooseVersion(keras.__version__) >= LooseVersion('2.0.8')
+
+
+def _resolve_keras_version():
+    """Resolve an installed Keras version across TF/Keras packaging layouts."""
+
+    candidates = [
+        getattr(keras, "__version__", None),
+        getattr(tf.keras, "__version__", None),
+    ]
+    try:
+        import keras as standalone_keras
+
+        candidates.append(getattr(standalone_keras, "__version__", None))
+    except Exception:
+        pass
+    # As a safe fallback, use TF version (bundled tf.keras tracks TF release).
+    candidates.append(getattr(tf, "__version__", None))
+
+    for value in candidates:
+        if isinstance(value, str) and value.strip():
+            return value
+    return "2.0.8"
+
+
+_keras_version = _resolve_keras_version()
+assert LooseVersion(_keras_version) >= LooseVersion('2.0.8')
 
 
 ############################################################
@@ -727,9 +753,11 @@ def refine_detections_graph(rois, probs, deltas, window, config):
     # Filter out low confidence boxes
     if config.DETECTION_MIN_CONFIDENCE:
         conf_keep = tf.where(class_scores >= config.DETECTION_MIN_CONFIDENCE)[:, 0]
-        keep = tf.compat.v1.sets.set_intersection(tf.expand_dims(keep, 0),
-                                        tf.expand_dims(conf_keep, 0))
-        keep = tf.compat.v1.sparse_tensor_to_dense(keep)[0]
+        keep = tf.sets.intersection(
+            tf.expand_dims(keep, 0),
+            tf.expand_dims(conf_keep, 0),
+        )
+        keep = tf.sparse.to_dense(keep)[0]
 
     # Apply per-class NMS
     # 1. Prepare variables
@@ -759,15 +787,20 @@ def refine_detections_graph(rois, probs, deltas, window, config):
         return class_keep
 
     # 2. Map over class IDs
-    nms_keep = tf.map_fn(nms_keep_map, unique_pre_nms_class_ids,
-                         dtype=tf.int64)
+    nms_keep = tf.map_fn(
+        nms_keep_map,
+        unique_pre_nms_class_ids,
+        fn_output_signature=tf.int64,
+    )
     # 3. Merge results into one list, and remove -1 padding
     nms_keep = tf.reshape(nms_keep, [-1])
     nms_keep = tf.gather(nms_keep, tf.where(nms_keep > -1)[:, 0])
     # 4. Compute intersection between keep and nms_keep
-    keep = tf.compat.v1.sets.set_intersection(tf.expand_dims(keep, 0),
-                                    tf.expand_dims(nms_keep, 0))
-    keep = tf.compat.v1.sparse_tensor_to_dense(keep)[0]
+    keep = tf.sets.intersection(
+        tf.expand_dims(keep, 0),
+        tf.expand_dims(nms_keep, 0),
+    )
+    keep = tf.sparse.to_dense(keep)[0]
     # Keep top detections
     roi_count = config.DETECTION_MAX_INSTANCES
     class_scores_keep = tf.gather(class_scores, keep)
@@ -1371,7 +1404,7 @@ def load_image_gt(dataset, config, image_id, augment=False, augmentation=None,
         assert image.shape == image_shape, "Augmentation shouldn't change image size"
         assert mask.shape == mask_shape, "Augmentation shouldn't change mask size"
         # Change mask back to bool
-        mask = mask.astype(np.bool)
+        mask = mask.astype(bool)
 
     # Note that some boxes might be all zeros if the corresponding mask got cropped out.
     # and here is to filter them out
@@ -2237,7 +2270,7 @@ class MaskRCNN():
         """Downloads ImageNet trained weights from Keras.
         Returns path to weights file.
         """
-        from keras.utils.data_utils import get_file
+        from tensorflow.keras.utils import get_file
         TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/'\
                                  'releases/download/v0.2/'\
                                  'resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
@@ -2252,7 +2285,7 @@ class MaskRCNN():
         metrics. Then calls the Keras compile() function.
         """
         # Optimizer object
-        optimizer = tensorflow.keras.optimizers.SGD(
+        optimizer = tf.keras.optimizers.SGD(
             lr=learning_rate, momentum=momentum,
             clipnorm=self.config.GRADIENT_CLIP_NORM)
         # Add Losses
@@ -2274,7 +2307,7 @@ class MaskRCNN():
         # Add L2 Regularization
         # Skip gamma and beta weights of batch normalization layers.
         reg_losses = [
-            tensorflow.keras.regularizers.l2(self.config.WEIGHT_DECAY)(w) / tf.cast(tf.size(w), tf.float32)
+            tf.keras.regularizers.l2(self.config.WEIGHT_DECAY)(w) / tf.cast(tf.size(w), tf.float32)
             for w in self.keras_model.trainable_weights
             if 'gamma' not in w.name and 'beta' not in w.name]
         self.keras_model.add_loss(tf.add_n(reg_losses))
@@ -2427,7 +2460,7 @@ class MaskRCNN():
 
         # Callbacks
         callbacks = [
-            tensorflow.keras.callbacks.TensorBoard(log_dir=self.log_dir,
+            tf.keras.callbacks.TensorBoard(log_dir=self.log_dir,
                                         histogram_freq=0, write_graph=True, write_images=False)#,
             # keras.callbacks.ModelCheckpoint(self.checkpoint_path,
             #                                 verbose=0, save_weights_only=True),
@@ -2442,7 +2475,7 @@ class MaskRCNN():
         # Work-around for Windows: Keras fails on Windows when using
         # multiprocessing workers. See discussion here:
         # https://github.com/matterport/Mask_RCNN/issues/13#issuecomment-353124009
-        if os.name is 'nt':
+        if os.name == 'nt':
             workers = 0
         else:
             workers = multiprocessing.cpu_count()

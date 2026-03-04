@@ -706,7 +706,7 @@
         }
         .stats-toggle-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 10px;
             padding: 8px 10px;
@@ -714,6 +714,7 @@
             background: var(--surface-rail);
             border: 1px solid var(--panel-border);
             position: relative;
+            flex-wrap: wrap;
         }
         .stats-toggle-left {
             display: flex;
@@ -741,14 +742,16 @@
             display: none;
             align-items: center;
             gap: 6px;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1;
+            position: static;
+            transform: none;
+            z-index: auto;
+            margin-top: 4px;
+            flex: 1 1 100%;
+            min-width: 0;
         }
         .stats-distance-inline.visible {
-            display: inline-flex;
+            display: flex;
+            animation: inlineControlFadeIn 0.16s ease-out;
         }
         .stats-distance-inline label {
             font-size: 11px;
@@ -763,6 +766,70 @@
             color: #fff;
             padding: 4px 6px;
             font-family: var(--app-font);
+        }
+        .nuclear-mode-inline {
+            display: none;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            position: static;
+            transform: none;
+            z-index: auto;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            margin-top: 4px;
+            flex: 1 1 100%;
+            min-width: 0;
+            opacity: 0;
+        }
+        .nuclear-mode-inline.visible {
+            display: flex;
+            opacity: 1;
+            animation: inlineControlFadeIn 0.16s ease-out;
+        }
+        @keyframes inlineControlFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .nuclear-mode-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+        }
+        .nuclear-mode-inline label {
+            font-size: 11px;
+            color: #cfcfcf;
+            white-space: normal;
+            line-height: 1.2;
+            flex: 1 1 220px;
+            min-width: 0;
+        }
+        .nuclear-mode-inline select {
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            background: var(--surface-input);
+            color: #fff;
+            padding: 4px 6px;
+            font-size: 11px;
+            font-family: var(--app-font);
+            max-width: 100%;
+        }
+        .nuclear-mode-helper {
+            font-size: 10px;
+            color: #b8b8b8;
+            line-height: 1.2;
+            max-width: none;
+            white-space: normal;
         }
         .info-dot {
             border: 1px solid var(--panel-border);
@@ -812,6 +879,27 @@
             justify-content: flex-start;
             margin-top: auto;
             padding-top: 8px;
+        }
+        #statsAdvancedView {
+            overflow: hidden;
+        }
+        #statsAdvancedView .settings-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 2px;
+            overscroll-behavior: contain;
+        }
+        #statsAdvancedView .settings-body::-webkit-scrollbar {
+            width: 10px;
+        }
+        #statsAdvancedView .settings-body::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+        }
+        #statsAdvancedView .advanced-header {
+            flex: 0 0 auto;
+            margin-top: 0;
         }
         .back-btn {
             border: 1px solid var(--panel-border);
@@ -974,6 +1062,16 @@
             </div>
             <div class="settings-view" id="statsAdvancedView" hidden>
                 <div class="settings-body">
+                    <div class="toggle-row" id="legacyPluginRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label">Show Legacy Plugins</span>
+                            <span class="toggle-hint">Reveal legacy DAPI-era plugins in the statistics list.</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="showLegacyPlugins">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
                             <span class="toggle-label">Enable Optional Metadata Checks</span>
@@ -1155,14 +1253,17 @@
     const initializedKey = 'cytocv.selected_analyses_initialized.v2';
     const distanceKey = 'cytocv.gfp_distance';
     const advancedKey = 'cytocv.advanced_validation.v2';
+    const nuclearModeKey = 'cytocv.nuclear_cellular_mode.v1';
 
     const statsState = {
         selectedPlugins: new Set(),
         moduleEnabled: false,
         enforceLayerCount: false,
         enforceAllWavelengths: false,
+        showLegacyPlugins: false,
         manualRequiredChannels: new Set(),
         gfpDistance: 37,
+        nuclearCellularMode: 'green_nucleus',
     };
 
     const statToggleElements = new Map();
@@ -1170,6 +1271,8 @@
     const channelRowElements = new Map();
     let gfpDistanceInput = null;
     let gfpDistanceRow = null;
+    let nuclearModeSelect = null;
+    let nuclearModeRow = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
 
@@ -1493,11 +1596,19 @@
 
     function initializeStatsSettings() {
         renderRequiredChannels();
-        renderStatsToggles();
-        renderAdvancedChannelToggles();
         loadStoredSelections();
         loadStoredAdvancedSettings();
         loadStoredDistance();
+        loadStoredNuclearMode();
+        if (!statsState.showLegacyPlugins) {
+            statsPlugins.forEach((plugin) => {
+                if (plugin.is_legacy) {
+                    statsState.selectedPlugins.delete(plugin.id);
+                }
+            });
+        }
+        renderStatsToggles();
+        renderAdvancedChannelToggles();
         syncStatsUI();
     }
 
@@ -1535,8 +1646,14 @@
         statToggleElements.clear();
         gfpDistanceInput = null;
         gfpDistanceRow = null;
+        nuclearModeSelect = null;
+        nuclearModeRow = null;
 
-        statsPlugins.forEach((plugin) => {
+        const visiblePlugins = statsPlugins.filter(
+            (plugin) => statsState.showLegacyPlugins || !plugin.is_legacy
+        );
+
+        visiblePlugins.forEach((plugin) => {
             const row = document.createElement('div');
             row.className = 'stats-toggle-row';
 
@@ -1579,6 +1696,7 @@
                 if (!pluginId) return;
                 if (input.checked) {
                     statsState.selectedPlugins.add(pluginId);
+                    enforceExclusiveGroup(pluginId);
                     applyPluginDependencies(pluginId);
                 } else if (isPluginRequiredBySelection(pluginId)) {
                     input.checked = true;
@@ -1614,6 +1732,45 @@
                 row.appendChild(distanceRow);
                 gfpDistanceRow = distanceRow;
                 gfpDistanceInput = distanceInput;
+            }
+
+            if (plugin.id === 'NuclearCellularIntensity') {
+                const modeRow = document.createElement('div');
+                modeRow.className = 'nuclear-mode-inline';
+
+                const modeTop = document.createElement('div');
+                modeTop.className = 'nuclear-mode-row';
+
+                const modeLabel = document.createElement('label');
+                modeLabel.setAttribute('for', 'nuclearCellularMode');
+                modeLabel.textContent = 'Nucleus contour source (Nuclear/Cellular mode):';
+                modeTop.appendChild(modeLabel);
+
+                const select = document.createElement('select');
+                select.id = 'nuclearCellularMode';
+                const greenOption = document.createElement('option');
+                greenOption.value = 'green_nucleus';
+                greenOption.textContent = 'Green nucleus (measure Red)';
+                const redOption = document.createElement('option');
+                redOption.value = 'red_nucleus';
+                redOption.textContent = 'Red nucleus (measure Green)';
+                select.appendChild(greenOption);
+                select.appendChild(redOption);
+                select.addEventListener('change', () => {
+                    const nextMode = select.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+                    statsState.nuclearCellularMode = nextMode;
+                    localStorage.setItem(nuclearModeKey, nextMode);
+                });
+                modeTop.appendChild(select);
+                modeRow.appendChild(modeTop);
+
+                const modeHelper = document.createElement('div');
+                modeHelper.className = 'nuclear-mode-helper';
+                modeHelper.textContent = 'Selected channel outlines the nucleus; intensity is measured in the other channel inside the nucleus and whole cell.';
+                modeRow.appendChild(modeHelper);
+                row.appendChild(modeRow);
+                nuclearModeSelect = select;
+                nuclearModeRow = modeRow;
             }
         });
     }
@@ -1672,6 +1829,7 @@
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
+        const legacyToggle = document.getElementById('showLegacyPlugins');
         if (moduleToggle) {
             moduleToggle.addEventListener('change', () => {
                 statsState.moduleEnabled = moduleToggle.checked;
@@ -1689,6 +1847,22 @@
         if (wavelengthToggle) {
             wavelengthToggle.addEventListener('change', () => {
                 statsState.enforceAllWavelengths = wavelengthToggle.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+        if (legacyToggle) {
+            legacyToggle.addEventListener('change', () => {
+                statsState.showLegacyPlugins = !!legacyToggle.checked;
+                if (!statsState.showLegacyPlugins) {
+                    statsPlugins.forEach((plugin) => {
+                        if (plugin.is_legacy) {
+                            statsState.selectedPlugins.delete(plugin.id);
+                        }
+                    });
+                }
+                renderStatsToggles();
+                persistSelectedPlugins();
                 persistAdvancedSettings();
                 syncStatsUI();
             });
@@ -1714,8 +1888,10 @@
             stored.forEach((pluginId) => {
                 if (pluginMap.has(pluginId)) {
                     statsState.selectedPlugins.add(pluginId);
+                    enforceExclusiveGroup(pluginId);
                 }
             });
+            normalizeExclusiveSelections();
         }
 
         [...statsState.selectedPlugins].forEach((pluginId) => applyPluginDependencies(pluginId));
@@ -1732,6 +1908,7 @@
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
         statsState.enforceAllWavelengths = typeof stored.enforceAllWavelengths === 'boolean' ? stored.enforceAllWavelengths : false;
+        statsState.showLegacyPlugins = typeof stored.showLegacyPlugins === 'boolean' ? stored.showLegacyPlugins : false;
         statsState.manualRequiredChannels = new Set(
             Array.isArray(stored.manualRequiredChannels)
                 ? stored.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
@@ -1745,6 +1922,11 @@
         statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
     }
 
+    function loadStoredNuclearMode() {
+        const raw = localStorage.getItem(nuclearModeKey);
+        statsState.nuclearCellularMode = raw === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+    }
+
     function persistSelectedPlugins() {
         localStorage.setItem(selectionKey, JSON.stringify([...statsState.selectedPlugins]));
         localStorage.setItem(initializedKey, '1');
@@ -1755,8 +1937,37 @@
             moduleEnabled: !!statsState.moduleEnabled,
             enforceLayerCount: !!statsState.enforceLayerCount,
             enforceAllWavelengths: !!statsState.enforceAllWavelengths,
+            showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
         }));
+    }
+
+    function enforceExclusiveGroup(pluginId) {
+        const plugin = pluginMap.get(pluginId);
+        if (!plugin || !plugin.exclusive_group) return;
+        statsPlugins.forEach((candidate) => {
+            if (
+                candidate.id !== pluginId &&
+                candidate.exclusive_group &&
+                candidate.exclusive_group === plugin.exclusive_group
+            ) {
+                statsState.selectedPlugins.delete(candidate.id);
+            }
+        });
+    }
+
+    function normalizeExclusiveSelections() {
+        const normalized = new Set();
+        const seenGroups = new Set();
+        statsPlugins.forEach((plugin) => {
+            if (!statsState.selectedPlugins.has(plugin.id)) return;
+            if (plugin.exclusive_group && seenGroups.has(plugin.exclusive_group)) return;
+            if (plugin.exclusive_group) {
+                seenGroups.add(plugin.exclusive_group);
+            }
+            normalized.add(plugin.id);
+        });
+        statsState.selectedPlugins = normalized;
     }
 
     function isPluginRequiredBySelection(pluginId) {
@@ -1794,6 +2005,8 @@
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
+        const legacyToggle = document.getElementById('showLegacyPlugins');
+        const legacyRow = document.getElementById('legacyPluginRow');
         const layerRow = document.getElementById('layerCheckRow');
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
 
@@ -1808,10 +2021,19 @@
         if (gfpDistanceRow) {
             gfpDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('GFPDot'));
         }
+        if (nuclearModeSelect) {
+            nuclearModeSelect.value = statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+        }
+        if (nuclearModeRow) {
+            nuclearModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellularIntensity'));
+        }
 
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
         if (layerToggle) layerToggle.checked = !!statsState.enforceLayerCount;
         if (wavelengthToggle) wavelengthToggle.checked = !!statsState.enforceAllWavelengths;
+        if (legacyToggle) legacyToggle.checked = !!statsState.showLegacyPlugins;
+        if (legacyRow) legacyRow.classList.remove('disabled');
+        if (legacyToggle) legacyToggle.disabled = false;
 
         if (layerToggle && layerRow) {
             layerToggle.disabled = !statsState.moduleEnabled;
@@ -1933,8 +2155,10 @@
             moduleEnabled: !!statsState.moduleEnabled,
             enforceLayerCount: !!statsState.enforceLayerCount,
             enforceAllWavelengths: !!statsState.enforceAllWavelengths,
+            showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
             gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
+            nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
         });
         const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
         const hasModalChanges = () => {
@@ -1949,9 +2173,11 @@
                     : []
             );
             [...statsState.selectedPlugins].forEach((pluginId) => applyPluginDependencies(pluginId));
+            normalizeExclusiveSelections();
             statsState.moduleEnabled = !!snapshot.moduleEnabled;
             statsState.enforceLayerCount = !!snapshot.enforceLayerCount;
             statsState.enforceAllWavelengths = !!snapshot.enforceAllWavelengths;
+            statsState.showLegacyPlugins = !!snapshot.showLegacyPlugins;
             statsState.manualRequiredChannels = new Set(
                 Array.isArray(snapshot.manualRequiredChannels)
                     ? snapshot.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
@@ -1959,9 +2185,19 @@
             );
             const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
             statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
+            statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+            if (!statsState.showLegacyPlugins) {
+                statsPlugins.forEach((plugin) => {
+                    if (plugin.is_legacy) {
+                        statsState.selectedPlugins.delete(plugin.id);
+                    }
+                });
+            }
+            renderStatsToggles();
             persistSelectedPlugins();
             persistAdvancedSettings();
             localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+            localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
             syncStatsUI();
         };
 
@@ -2506,6 +2742,10 @@
                 gfpDistanceInput.value = String(statsState.gfpDistance);
                 localStorage.setItem(distanceKey, String(statsState.gfpDistance));
             }
+            if (nuclearModeSelect) {
+                statsState.nuclearCellularMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+            }
+            localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
 
             const submitBtn = document.getElementById('uploadSubmit');
             const btnText = submitBtn.querySelector('.btn-text');
@@ -2587,6 +2827,7 @@
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
             formData.append('distance', String(statsState.gfpDistance));
+            formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const uploadController = new AbortController();

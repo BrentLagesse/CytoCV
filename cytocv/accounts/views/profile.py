@@ -97,8 +97,8 @@ def profile_view(request: HttpRequest) -> HttpResponse:
         images[str(i)] = []
         for channel_name in channel_order:
             channel_index = DEFAULT_CHANNEL_CONFIG.get(channel_name)
-            # For mCherry and GFP, use the debug filename pattern
-            if channel_name in ["mCherry", "GFP"]:
+            # For mCherry/GFP/DAPI, use the debug filename pattern
+            if channel_name in ["mCherry", "GFP", "DAPI"]:
                 image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
             else:
                 image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
@@ -115,12 +115,40 @@ def profile_view(request: HttpRequest) -> HttpResponse:
                 "green_red_intensity_1": cell_stat.green_red_intensity_1,
                 "green_red_intensity_2": cell_stat.green_red_intensity_2,
                 "green_red_intensity_3": cell_stat.green_red_intensity_3,
+                "red_intensity_1": cell_stat.red_intensity_1,
+                "red_intensity_2": cell_stat.red_intensity_2,
+                "red_intensity_3": cell_stat.red_intensity_3,
+                "green_intensity_1": cell_stat.green_intensity_1,
+                "green_intensity_2": cell_stat.green_intensity_2,
+                "green_intensity_3": cell_stat.green_intensity_3,
+                "red_in_green_intensity_1": cell_stat.red_in_green_intensity_1,
+                "red_in_green_intensity_2": cell_stat.red_in_green_intensity_2,
+                "red_in_green_intensity_3": cell_stat.red_in_green_intensity_3,
+                "green_in_green_intensity_1": cell_stat.green_in_green_intensity_1,
+                "green_in_green_intensity_2": cell_stat.green_in_green_intensity_2,
+                "green_in_green_intensity_3": cell_stat.green_in_green_intensity_3,
+                "gfp_contour_1_size": cell_stat.gfp_contour_1_size,
+                "gfp_contour_2_size": cell_stat.gfp_contour_2_size,
+                "gfp_contour_3_size": cell_stat.gfp_contour_3_size,
+                "gfp_to_mcherry_distance_1": cell_stat.gfp_to_mcherry_distance_1,
+                "gfp_to_mcherry_distance_2": cell_stat.gfp_to_mcherry_distance_2,
+                "gfp_to_mcherry_distance_3": cell_stat.gfp_to_mcherry_distance_3,
                 "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
                 "category_GFP_dot": cell_stat.category_GFP_dot,
                 "biorientation": cell_stat.biorientation,
                 "cellular_intensity_sum_DAPI": cell_stat.cellular_intensity_sum_DAPI,
                 "nucleus_intensity_sum_DAPI": cell_stat.nucleus_intensity_sum_DAPI,
                 "cytoplasmic_intensity_DAPI": cell_stat.cytoplasmic_intensity_DAPI,
+                "nuclear_cellular_mode": (cell_stat.properties or {}).get("nuclear_cellular_mode", "green_nucleus"),
+                "nuclear_cellular_contour_channel": (cell_stat.properties or {}).get(
+                    "nuclear_cellular_contour_channel",
+                    "GFP",
+                ),
+                "nuclear_cellular_measurement_channel": (cell_stat.properties or {}).get(
+                    "nuclear_cellular_measurement_channel",
+                    "mCherry",
+                ),
+                "nuclear_cellular_status": (cell_stat.properties or {}).get("nuclear_cellular_status", "unknown"),
             }
         else:
             statistics[str(i)] = None

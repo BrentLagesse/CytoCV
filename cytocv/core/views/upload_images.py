@@ -28,6 +28,8 @@ from ..stats_plugins import (
 )
 import uuid as uuid_lib
 
+NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+
 
 def _parse_bool(value, default=False):
     """Parse a POST boolean value with a safe default."""
@@ -54,6 +56,13 @@ def _parse_channels(raw_values) -> set[str]:
             values.extend(part.strip() for part in item.split(","))
     allowed = set(CHANNEL_ORDER)
     return {value for value in values if value in allowed}
+
+
+def _parse_nuclear_cellular_mode(value: str | None, default: str = "green_nucleus") -> str:
+    """Parse nucleus contour mode for Nuclear/Cellular intensity analysis."""
+
+    raw = str(value or "").strip()
+    return raw if raw in NUCLEAR_CELLULAR_MODES else default
 
 
 def _parse_restore_uuids(raw_values) -> list[str]:
@@ -156,6 +165,10 @@ def upload_images(request):
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
         request.session["distance"] = gfp_distance
+        request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
+            request.POST.get("nuclear_cellular_mode"),
+            default="green_nucleus",
+        )
 
         module_enabled = _parse_bool(request.POST.get("cytocv_analysis_enabled"), default=False)
         enforce_layer_count = module_enabled and _parse_bool(
