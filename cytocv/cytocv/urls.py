@@ -45,11 +45,11 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="signin", permanent=False, query_string=True),
         name="login",
     ),
-    path('login/oauth', include('allauth.urls')),
+    path('login/oauth/', include('allauth.urls')),
     re_path(
         r'^signin/oauth/?(?P<path>.*)$',
         RedirectView.as_view(
-            url="/login/oauth%(path)s",
+            url="/login/oauth/%(path)s",
             permanent=False,
             query_string=True,
         ),
@@ -70,4 +70,3 @@ urlpatterns = [
     path('api/progress/<str:uuids>/cancel/', login_required(cancel_progress), name='cancel_progress'),
     path('media/<path:relative_path>', login_required(serve_media), name='protected_media'),
 ]
-

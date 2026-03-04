@@ -160,6 +160,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# OAuth / provider settings from environment
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("CYTOCV_GOOGLE_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("CYTOCV_GOOGLE_CLIENT_SECRET", "")
+MICROSOFT_OAUTH_CLIENT_ID = os.getenv("CYTOCV_MICROSOFT_CLIENT_ID", "")
+MICROSOFT_OAUTH_CLIENT_SECRET = os.getenv("CYTOCV_MICROSOFT_CLIENT_SECRET", "")
+MICROSOFT_OAUTH_TENANT = os.getenv("CYTOCV_MICROSOFT_TENANT", "organizations")
+MICROSOFT_OAUTH_LOGIN_URL = os.getenv(
+    "CYTOCV_MICROSOFT_LOGIN_URL",
+    "https://login.microsoftonline.com",
+)
+
 # Social auth providers
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -167,9 +178,8 @@ SOCIALACCOUNT_PROVIDERS = {
         # (``socialaccount`` app) containing the required client
         # credentials, or list them here:
         'APP': {
-            # TODO: Move client secrets to environment variables
-            'client_id': '225323565107-ofofsr4m2hta51gmm68ocrtukh1jou83.apps.googleusercontent.com',
-            'secret': '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',
+            'client_id': GOOGLE_OAUTH_CLIENT_ID,
+            'secret': GOOGLE_OAUTH_CLIENT_SECRET,
             'key': ''
         },
         'SCOPE': ['profile', 'email']
@@ -177,11 +187,11 @@ SOCIALACCOUNT_PROVIDERS = {
     "microsoft": {
         "APPS": [
             {
-                "client_id": "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-                "secret": "Fw.8Q~cetTJeJ3vqSmNsVdSjA1EcoXqL5Y2z3aBT",
+                "client_id": MICROSOFT_OAUTH_CLIENT_ID,
+                "secret": MICROSOFT_OAUTH_CLIENT_SECRET,
                 "settings": {
-                    "tenant": "organizations",
-                    "login_url": "https://login.microsoftonline.com",
+                    "tenant": MICROSOFT_OAUTH_TENANT,
+                    "login_url": MICROSOFT_OAUTH_LOGIN_URL,
                 },
                 'OAUTH_PKCE_ENABLED': True,
             }
@@ -194,17 +204,20 @@ SOCIALACCOUNT_LOGIN_ON_GET = False
 
 # Microsoft ADFS (legacy / optional)
 AUTH_ADFS = {
-    'AUDIENCE': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-    'CLIENT_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
-    'CLIENT_SECRET': "91673088-079a-4bc0-a7de-348e3a0f0752",
+    'AUDIENCE': os.getenv("CYTOCV_ADFS_AUDIENCE", MICROSOFT_OAUTH_CLIENT_ID),
+    'CLIENT_ID': os.getenv("CYTOCV_ADFS_CLIENT_ID", MICROSOFT_OAUTH_CLIENT_ID),
+    'CLIENT_SECRET': os.getenv("CYTOCV_ADFS_CLIENT_SECRET", ""),
     'CLAIM_MAPPING': {'first_name': 'given_name',
                       'last_name': 'family_name',
                       'email': 'upn'},
     'GROUPS_CLAIM': 'roles',
     'MIRROR_GROUPS': True,
     'USERNAME_CLAIM': 'upn',
-    'TENANT_ID': "f6b6dd5b-f02f-441a-99a0-162ac5060bd2",
-    'RELYING_PARTY_ID': "7d0d357b-f8a4-41a7-8e9f-002504bd9b1c",
+    'TENANT_ID': os.getenv("CYTOCV_ADFS_TENANT_ID", ""),
+    'RELYING_PARTY_ID': os.getenv(
+        "CYTOCV_ADFS_RELYING_PARTY_ID",
+        MICROSOFT_OAUTH_CLIENT_ID,
+    ),
 }
 
 # Allauth account configuration for email-only authentication.
@@ -240,7 +253,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("CYTOCV_EMAIL_HOST", "smtp.gmail.com")
 EMAIL_HOST_USER = os.getenv("CYTOCV_EMAIL_HOST_USER", "cytocv@gmail.com")
-EMAIL_HOST_PASSWORD = os.getenv("CYTOCV_EMAIL_HOST_PASSWORD", "drjx oiir ejnx lwdn")  # TODO: Change before production
+EMAIL_HOST_PASSWORD = os.getenv("CYTOCV_EMAIL_HOST_PASSWORD", "")
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("CYTOCV_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")

@@ -22,6 +22,13 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
+
+    # Default local dev host to localhost when runserver is invoked without addr:port.
+    if len(sys.argv) >= 2 and sys.argv[1] == "runserver":
+        has_addrport = any(arg and not arg.startswith("-") for arg in sys.argv[2:])
+        if not has_addrport:
+            sys.argv.append("localhost:8000")
+
     execute_from_command_line(sys.argv)
 
 
