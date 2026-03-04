@@ -781,6 +781,10 @@
             return String(value);
         }
 
+        function hasNoNucleusContour(cellStats) {
+            return Boolean(cellStats && cellStats.nuclear_cellular_status === 'no_nucleus_contour');
+        }
+
         function getNuclearLabelPair(mode) {
             if (mode === 'red_nucleus') {
                 return {
@@ -811,6 +815,11 @@
             if (!table) return;
             const tbody = table.querySelector('tbody');
             if (!tbody) return;
+            const nuclearCellularFields = new Set([
+                'cellular_intensity_sum',
+                'nucleus_intensity_sum',
+                'cytoplasmic_intensity',
+            ]);
 
             const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
             const keyMap = {
@@ -872,6 +881,8 @@
                         td.textContent = 'N/A';
                     } else if (key === 'cell_id') {
                         td.textContent = String(id);
+                    } else if (nuclearCellularFields.has(key) && hasNoNucleusContour(rowStats)) {
+                        td.textContent = 'N/A';
                     } else {
                         td.textContent = formatStatValue(rowStats ? rowStats[key] : null);
                     }
@@ -950,14 +961,15 @@
             const cellStats = statistics[currentCellNumber];
             const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
             const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
+            const nuclearUnavailable = hasNoNucleusContour(cellStats);
             document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
             document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
             document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
             document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
             document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";
-            document.getElementById("nucleusIntensitySum").textContent = cellStats ? cellStats.nucleus_intensity_sum : "N/A";
-            document.getElementById("cellularIntensitySum").textContent = cellStats ? cellStats.cellular_intensity_sum : "N/A";
-            document.getElementById("cytoplasmicIntensity").textContent = cellStats ? cellStats.cytoplasmic_intensity : "N/A";
+            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.nucleus_intensity_sum;
+            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cellular_intensity_sum;
+            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cytoplasmic_intensity;
             document.getElementById("gfpDot").textContent = category;
             document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;

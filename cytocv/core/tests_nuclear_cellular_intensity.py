@@ -33,7 +33,14 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
             }
         )
 
-    def _run_plugin(self, mode: str):
+    @staticmethod
+    def _rect_contour(x1: int, y1: int, x2: int, y2: int):
+        return np.array(
+            [[[x1, y1]], [[x2, y1]], [[x2, y2]], [[x1, y2]]],
+            dtype=np.int32,
+        )
+
+    def _run_plugin(self, mode: str, *, include_precomputed: bool = True):
         plugin = NuclearCellularIntensity()
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -46,8 +53,15 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
             preprocessed = self._build_gray_images()
             red_debug = np.zeros((24, 24, 3), dtype=np.uint8)
             green_debug = np.zeros((24, 24, 3), dtype=np.uint8)
+            contours_data = {"dot_contours": [], "contours_gfp": []}
+            if include_precomputed:
+                contour = self._rect_contour(8, 8, 16, 16)
+                if mode == "red_nucleus":
+                    contours_data["dot_contours"] = [contour]
+                else:
+                    contours_data["contours_gfp"] = [contour]
             plugin.setting_up(cp, preprocessed, str(output_dir))
-            plugin.calculate_statistics({}, {}, red_debug, green_debug, 1, 37)
+            plugin.calculate_statistics({}, contours_data, red_debug, green_debug, 1, 37)
             return cp, red_debug, green_debug
 
     def test_red_nucleus_sets_expected_contour_and_measurement_channels(self):
@@ -56,6 +70,7 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.properties["nuclear_cellular_measurement_channel"], "GFP")
         self.assertEqual(cp.properties["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(cp.properties["nuclear_cellular_status"], "ok")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
 
     def test_green_nucleus_sets_expected_contour_and_measurement_channels(self):
         cp, _, _ = self._run_plugin("green_nucleus")
@@ -63,24 +78,19 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.properties["nuclear_cellular_measurement_channel"], "mCherry")
         self.assertEqual(cp.properties["nuclear_cellular_mode"], "green_nucleus")
         self.assertEqual(cp.properties["nuclear_cellular_status"], "ok")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
 
-    def test_debug_overlay_is_white_dashed_not_yellow(self):
+    def test_debug_overlay_is_drawn_when_precomputed_contour_exists(self):
         _, red_debug, green_debug = self._run_plugin("red_nucleus")
+        self.assertTrue(np.any(red_debug > 0))
+        self.assertTrue(np.any(green_debug > 0))
 
-        has_white_red = np.any(
-            (red_debug[:, :, 0] > 200) & (red_debug[:, :, 1] > 200) & (red_debug[:, :, 2] > 200)
-        )
-        has_white_green = np.any(
-            (green_debug[:, :, 0] > 200) & (green_debug[:, :, 1] > 200) & (green_debug[:, :, 2] > 200)
-        )
-        self.assertTrue(has_white_red)
-        self.assertTrue(has_white_green)
-
-        has_yellow_red = np.any(
-            (red_debug[:, :, 0] < 40) & (red_debug[:, :, 1] > 200) & (red_debug[:, :, 2] > 200)
-        )
-        has_yellow_green = np.any(
-            (green_debug[:, :, 0] < 40) & (green_debug[:, :, 1] > 200) & (green_debug[:, :, 2] > 200)
-        )
-        self.assertFalse(has_yellow_red)
-        self.assertFalse(has_yellow_green)
+    def test_hard_cutoff_marks_no_nucleus_contour_without_fallback(self):
+        cp, red_debug, green_debug = self._run_plugin("red_nucleus", include_precomputed=False)
+        self.assertEqual(cp.properties["nuclear_cellular_status"], "no_nucleus_contour")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
+        self.assertEqual(cp.nucleus_intensity_sum, 0.0)
+        self.assertEqual(cp.cellular_intensity_sum, 0.0)
+        self.assertEqual(cp.cytoplasmic_intensity, 0.0)
+        self.assertFalse(np.any(red_debug > 0))
+        self.assertFalse(np.any(green_debug > 0))

@@ -116,6 +116,41 @@ class CellTable(tables.Table):
         self.columns["cellular_intensity_sum"].column.verbose_name = cellular_label
         self.columns["nucleus_intensity_sum"].column.verbose_name = nuclear_label
 
+    @staticmethod
+    def _has_no_nucleus_contour(record: CellStatistics) -> bool:
+        properties = getattr(record, "properties", {}) or {}
+        return properties.get("nuclear_cellular_status") == "no_nucleus_contour"
+
+    @staticmethod
+    def _format_number(value: float) -> str:
+        try:
+            return "{:0.3f}".format(float(value))
+        except (TypeError, ValueError):
+            return "N/A"
+
+    def _render_nuclear_cellular_value(self, record: CellStatistics, value: float) -> str:
+        if self._has_no_nucleus_contour(record):
+            return "N/A"
+        return self._format_number(value)
+
+    def render_cellular_intensity_sum(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cellular_value(record, value)
+
+    def value_cellular_intensity_sum(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cellular_value(record, value)
+
+    def render_nucleus_intensity_sum(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cellular_value(record, value)
+
+    def value_nucleus_intensity_sum(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cellular_value(record, value)
+
+    def render_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cellular_value(record, value)
+
+    def value_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cellular_value(record, value)
+
 
 class CellTableView(ExportMixin, SingleTableView):
     """Table view with CSV/XLSX export support for cell statistics."""

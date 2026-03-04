@@ -164,15 +164,17 @@ class NuclearCellularIntensity(Analysis):
         contour_mask = cv2.morphologyEx(contour_mask, cv2.MORPH_OPEN, kernel, iterations=1)
         nucleus_mask, largest_contour = self._largest_component_mask(contour_mask)
 
-        # Fallback: if no usable precomputed contour exists, derive it from thresholded source channel.
         if largest_contour is None:
-            contour_u8 = contour_img.astype(np.uint8, copy=False)
-            _, threshold_mask = cv2.threshold(contour_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            threshold_mask = cv2.bitwise_and(threshold_mask, cell_mask)
-            threshold_mask = cv2.morphologyEx(threshold_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
-            threshold_mask = cv2.morphologyEx(threshold_mask, cv2.MORPH_OPEN, kernel, iterations=1)
-            nucleus_mask, largest_contour = self._largest_component_mask(threshold_mask)
-            used_contour_source = "threshold_fallback"
+            self.cp.nucleus_intensity_sum = 0.0
+            self.cp.cellular_intensity_sum = 0.0
+            self.cp.cytoplasmic_intensity = 0.0
+            props["nuclear_cellular_mode"] = mode
+            props["nuclear_cellular_contour_channel"] = contour_channel
+            props["nuclear_cellular_measurement_channel"] = measurement_channel
+            props["nuclear_cellular_contour_source"] = used_contour_source
+            props["nuclear_cellular_status"] = "no_nucleus_contour"
+            self.cp.properties = props
+            return
 
         measure_u8 = measure_img.astype(np.float32, copy=False)
         cell_pixels = measure_u8[cell_mask > 0]
@@ -189,11 +191,10 @@ class NuclearCellularIntensity(Analysis):
         props["nuclear_cellular_contour_channel"] = contour_channel
         props["nuclear_cellular_measurement_channel"] = measurement_channel
         props["nuclear_cellular_contour_source"] = used_contour_source
-        props["nuclear_cellular_status"] = "ok" if largest_contour is not None else "no_nucleus_contour"
+        props["nuclear_cellular_status"] = "ok"
         self.cp.properties = props
 
-        if largest_contour is not None:
-            if red_image is not None:
-                self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
-            if green_image is not None:
-                self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
+        if red_image is not None:
+            self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
+        if green_image is not None:
+            self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
