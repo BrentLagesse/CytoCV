@@ -31,10 +31,10 @@ class MCherryLine(Analysis):
                 c2x, c2y = centers[1]
 
                 # Use a 3-channel white color tuple:
-                cv2.line(red_image, (c1x, c1y), (c2x, c2y), (255, 255, 255), int(mcherry_line_width_input))
+                cv2.line(red_image, (c1x, c1y), (c2x, c2y), (255, 255, 255), thickness=int(mcherry_line_width_input))
                 gray_mCherry = self.preprocessed_images.get_image('gray_mcherry')
                 mcherry_line_mask = np.zeros(gray_mCherry.shape, np.uint8)
-                cv2.line(mcherry_line_mask, (c1x, c1y), (c2x, c2y), 255, int(mcherry_line_width_input))
+                cv2.line(mcherry_line_mask, (c1x, c1y), (c2x, c2y), 255, thickness=int(mcherry_line_width_input))
                 mcherry_line_pts = np.transpose(np.nonzero(mcherry_line_mask))
 
                 # Calculate mCherry line intensity

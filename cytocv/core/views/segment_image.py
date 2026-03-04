@@ -136,7 +136,7 @@ def import_analyses(path:str, selected_analysis:list) -> list:
 
     return analyses
 
-def get_stats(cp, conf, selected_analysis, gfp_distance):
+def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance):
     # loading configuration
     kernel_size_input, mcherry_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
@@ -253,7 +253,7 @@ def get_stats(cp, conf, selected_analysis, gfp_distance):
             contours_data,
             edit_mCherry_img,
             edit_GFP_img,
-            mcherry_line_width_input,
+            mcherry_width,
             gfp_distance,
         )
 
@@ -849,13 +849,18 @@ def segment_image(request, uuids):
             selected_analysis = request.session.get('selected_analysis',[])
             cp.properties = dict(cp.properties or {})
             cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
+            mcherry_width = request.session.get('mCherryWidth', 1)
+            try:
+                mcherry_width = int(mcherry_width)
+            except ValueError:
+                mcherry_width = 1
             gfp_distance = request.session.get('distance', 37)
             try:
                 gfp_distance = int(gfp_distance)
             except ValueError:
                 gfp_distance = 37
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, gfp_distance)
+            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, mcherry_width, gfp_distance)
 
             # Save the debug images so we can view them later
             debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"

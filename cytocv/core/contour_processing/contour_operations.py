@@ -78,20 +78,21 @@ def find_contours(images:GrayImage):
     bestContours_dapi = []
     bestContours_dapi_3 = []
     if gray_dapi_3 is not None and gray_dapi is not None:
-        blur_3 = cv2.GaussianBlur(gray_dapi_3, (5, 5), 0)
-        blur = cv2.GaussianBlur(gray_dapi, (5, 5), 0)
+        # TODO: Work-in-progress hybrid Otsu/Canny solution, at present seemingly still worse than Canny alone
+        # blur_3 = cv2.GaussianBlur(gray_dapi_3, (5, 5), 0)
+        # blur = cv2.GaussianBlur(gray_dapi, (5, 5), 0)
 
-        thresh_dapi_3, _ = cv2.threshold(blur_3, 0, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C + cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
-        thresh_dapi, _ = cv2.threshold(blur, 0, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C + cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
+        # thresh_dapi_3, _ = cv2.threshold(blur_3, 0, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C + cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
+        # thresh_dapi, _ = cv2.threshold(blur, 0, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C + cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
 
-        low_thresh_3 = thresh_dapi_3 * 0.3
-        low_thresh = thresh_dapi * 0.3
+        # low_thresh_3 = thresh_dapi_3 * 0.3
+        # low_thresh = thresh_dapi * 0.3
         
-        thresh_dapi_3 = cv2.Canny(blur_3, low_thresh_3, thresh_dapi_3)
-        thresh_dapi = cv2.Canny(blur, low_thresh, thresh_dapi)
+        # thresh_dapi_3 = cv2.Canny(blur_3, low_thresh_3, thresh_dapi_3)
+        # thresh_dapi = cv2.Canny(blur, low_thresh, thresh_dapi)
 
-        # thresh_dapi_3 = cv2.Canny(gray_dapi_3, 60, 70)
-        # thresh_dapi = cv2.Canny(gray_dapi, 60, 70)
+        thresh_dapi_3 = cv2.Canny(gray_dapi_3, 60, 70)
+        thresh_dapi = cv2.Canny(gray_dapi, 60, 70)
 
         # TODO: Best kernel for closing so far, but better probably exists
         kernel = np.ones((3, 3), np.uint8)
@@ -101,7 +102,7 @@ def find_contours(images:GrayImage):
         contours_dapi, _ = cv2.findContours(thresh_dapi, cv2.RETR_LIST, 2)
         contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, cv2.RETR_LIST, 2)
         contours_dapi_3 = [
-            cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt) > 100 #and cv2.contourArea(cnt) < 1000
+            cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt) > 100 and cv2.contourArea(cnt) < 1000
         ]
         bestContours_dapi = get_largest(contours_dapi)
         bestContours_dapi_3 = get_largest(contours_dapi_3) if contours_dapi_3 else []
@@ -112,7 +113,7 @@ def find_contours(images:GrayImage):
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
         contours_gfp, _ = cv2.findContours(thresh_gfp, cv2.RETR_LIST, 2)
-        contours_gfp = filterContours(contours_gfp)     # NOTE: If you notice cells where "obvious" green dots are missing, this is likely to blame
+        # contours_gfp = filterContours(contours_gfp)     # NOTE: If you notice cells where "obvious" green dots are missing, this is likely to blame
 
     # Biggest contour for the cellular intensity boundary
     # TODO: In the future, handle multiple large contours more robustly

@@ -154,6 +154,14 @@ def upload_images(request):
         selected_analysis = normalize_selected_plugins(request.POST.getlist("selected_analysis"))
         requirement_summary = build_requirement_summary(selected_analysis)
 
+        mcherry_width_raw = request.POST.get("mCherryWidth", "1")
+        try:
+            mcherry_width = int(mcherry_width_raw)
+        except (TypeError, ValueError):
+            mcherry_width = 1
+        if mcherry_width < 1:
+            mcherry_width = 1
+
         gfp_distance_raw = request.POST.get("distance", "37")
         try:
             gfp_distance = int(gfp_distance_raw)
@@ -164,6 +172,7 @@ def upload_images(request):
 
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
+        request.session["mCherryWidth"] = mcherry_width
         request.session["distance"] = gfp_distance
         request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
             request.POST.get("nuclear_cellular_mode"),

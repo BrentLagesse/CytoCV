@@ -1251,6 +1251,7 @@
 
     const selectionKey = 'cytocv.selected_analyses.v2';
     const initializedKey = 'cytocv.selected_analyses_initialized.v2';
+    const widthKey = 'cytocv.mcherry_width';
     const distanceKey = 'cytocv.gfp_distance';
     const advancedKey = 'cytocv.advanced_validation.v2';
     const nuclearModeKey = 'cytocv.nuclear_cellular_mode.v1';
@@ -1262,6 +1263,7 @@
         enforceAllWavelengths: false,
         showLegacyPlugins: false,
         manualRequiredChannels: new Set(),
+        mCherryWidth: 1,
         gfpDistance: 37,
         nuclearCellularMode: 'green_nucleus',
     };
@@ -1269,6 +1271,8 @@
     const statToggleElements = new Map();
     const channelToggleElements = new Map();
     const channelRowElements = new Map();
+    let mCherryWidthInput = null;
+    let mCherryWidthRow = null;
     let gfpDistanceInput = null;
     let gfpDistanceRow = null;
     let nuclearModeSelect = null;
@@ -1598,6 +1602,7 @@
         renderRequiredChannels();
         loadStoredSelections();
         loadStoredAdvancedSettings();
+        loadStoredWidth();
         loadStoredDistance();
         loadStoredNuclearMode();
         if (!statsState.showLegacyPlugins) {
@@ -1644,6 +1649,8 @@
         if (!list) return;
         list.innerHTML = '';
         statToggleElements.clear();
+        mCherryWidthInput = null;
+        mCherryWidthRow = null;
         gfpDistanceInput = null;
         gfpDistanceRow = null;
         nuclearModeSelect = null;
@@ -1707,6 +1714,32 @@
                 persistSelectedPlugins();
                 syncStatsUI();
             });
+
+            if (plugin.id === 'MCherryLine') {
+                const widthRow = document.createElement('div');
+                widthRow.className = 'stats-distance-inline';
+
+                const widthLabel = document.createElement('label');
+                widthLabel.setAttribute('for', 'mCherryWidthInput');
+                widthLabel.textContent = 'mCherry line width (px):';
+                widthRow.appendChild(widthLabel);
+
+                const widthInput = document.createElement('input');
+                widthInput.type = 'number';
+                widthInput.id = 'mCherryWidthInput';
+                widthInput.min = '1';
+                widthInput.value = '1';
+                widthInput.addEventListener('change', () => {
+                    const parsed = parseInt(widthInput.value, 10);
+                    statsState.mCherryWidth = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+                    widthInput.value = String(statsState.mCherryWidth);
+                    localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+                });
+                widthRow.appendChild(widthInput);
+                row.appendChild(widthRow);
+                mCherryWidthRow = widthRow;
+                mCherryWidthInput = widthInput;
+            }
 
             if (plugin.id === 'GFPDot') {
                 const distanceRow = document.createElement('div');
@@ -1916,6 +1949,12 @@
         );
     }
 
+    function loadStoredWidth() {
+        const raw = localStorage.getItem(widthKey);
+        const parsed = parseInt(raw || '1', 10);
+        statsState.mCherryWidth = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+    }
+
     function loadStoredDistance() {
         const raw = localStorage.getItem(distanceKey);
         const parsed = parseInt(raw || '37', 10);
@@ -2015,6 +2054,12 @@
             toggle.disabled = isPluginRequiredBySelection(pluginId);
         });
 
+        if (mCherryWidthInput) {
+            mCherryWidthInput.value = String(statsState.mCherryWidth);
+        }
+        if (mCherryWidthRow) {
+            mCherryWidthRow.classList.toggle('visible', statsState.selectedPlugins.has('MCherryLine'));
+        }
         if (gfpDistanceInput) {
             gfpDistanceInput.value = String(statsState.gfpDistance);
         }
@@ -2157,6 +2202,7 @@
             enforceAllWavelengths: !!statsState.enforceAllWavelengths,
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
+            mCherryWidth: Number.isFinite(Number(statsState.mCherryWidth)) ? Number(statsState.mCherryWidth) : 1,
             gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
             nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
         });
@@ -2183,6 +2229,8 @@
                     ? snapshot.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
                     : []
             );
+            const parsedWidth = parseInt(String(snapshot.mCherryWidth ?? 1), 10);
+            statsState.mCherryWidth = Number.isFinite(parsedWidth) && parsedWidth >= 1 ? parsedWidth : 1;
             const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
             statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
             statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
@@ -2196,6 +2244,7 @@
             renderStatsToggles();
             persistSelectedPlugins();
             persistAdvancedSettings();
+            localStorage.setItem(widthKey, String(statsState.mCherryWidth));
             localStorage.setItem(distanceKey, String(statsState.gfpDistance));
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
             syncStatsUI();
@@ -2736,6 +2785,12 @@
 
             persistSelectedPlugins();
             persistAdvancedSettings();
+            if (mCherryWidthInput) {
+                const parsed = parseInt(mCherryWidthInput.value, 10);
+                statsState.mCherryWidth = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+                mCherryWidthInput.value = String(statsState.mCherryWidth);
+                localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+            }
             if (gfpDistanceInput) {
                 const parsed = parseInt(gfpDistanceInput.value, 10);
                 statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
@@ -2826,6 +2881,7 @@
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
+            formData.append('mCherryWidth', String(statsState.mCherryWidth));
             formData.append('distance', String(statsState.gfpDistance));
             formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
 

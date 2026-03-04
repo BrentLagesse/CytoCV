@@ -135,6 +135,7 @@ def pre_process_step(request, uuids):
         # Selection is primarily set during upload step. Keep POST fallback for
         # backward compatibility with older clients.
         selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
+        mcherry_width_raw = request.POST.get('mCherryWidth', request.session.get('mCherryWidth', 1))
         gfp_distance_raw = request.POST.get('distance', request.session.get('distance', 37))
         nuclear_cellular_mode = request.POST.get(
             "nuclear_cellular_mode",
@@ -143,6 +144,12 @@ def pre_process_step(request, uuids):
         if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
             nuclear_cellular_mode = "green_nucleus"
         try:
+            mcherry_width = int(mcherry_width_raw)
+        except (TypeError, ValueError):
+            mcherry_width = 1
+        if mcherry_width < 1:
+            gfp_distance = 1        
+        try:
             gfp_distance = int(gfp_distance_raw)
         except (TypeError, ValueError):
             gfp_distance = 37
@@ -150,6 +157,7 @@ def pre_process_step(request, uuids):
             gfp_distance = 37
 
         request.session['selected_analysis'] = selected_analysis
+        request.session['mCherryWidth'] = mcherry_width
         request.session['distance'] = gfp_distance
         request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
 
