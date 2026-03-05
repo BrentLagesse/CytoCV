@@ -739,19 +739,31 @@
             flex: 0 0 auto;
         }
         .stats-distance-inline {
-            display: none;
+            display: flex;
             align-items: center;
             gap: 6px;
             position: static;
-            transform: none;
             z-index: auto;
-            margin-top: 4px;
+            margin-top: 0;
             flex: 1 1 100%;
             min-width: 0;
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transform: translateY(-2px);
+            pointer-events: none;
+            transition:
+                opacity 0.24s ease,
+                transform 0.24s ease,
+                max-height 0.28s ease,
+                margin-top 0.24s ease;
         }
         .stats-distance-inline.visible {
-            display: flex;
-            animation: inlineControlFadeIn 0.16s ease-out;
+            opacity: 1;
+            max-height: 48px;
+            transform: translateY(0);
+            margin-top: 4px;
+            pointer-events: auto;
         }
         .stats-distance-inline label {
             font-size: 11px;
@@ -768,36 +780,36 @@
             font-family: var(--app-font);
         }
         .nuclear-mode-inline {
-            display: none;
+            display: flex;
             flex-direction: column;
             align-items: flex-start;
             gap: 6px;
             position: static;
-            transform: none;
             z-index: auto;
             background: transparent;
             border: none;
             border-radius: 0;
             padding: 0;
-            margin-top: 4px;
+            margin-top: 0;
             flex: 1 1 100%;
             min-width: 0;
             opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transform: translateY(-2px);
+            pointer-events: none;
+            transition:
+                opacity 0.24s ease,
+                transform 0.24s ease,
+                max-height 0.32s ease,
+                margin-top 0.24s ease;
         }
         .nuclear-mode-inline.visible {
-            display: flex;
             opacity: 1;
-            animation: inlineControlFadeIn 0.16s ease-out;
-        }
-        @keyframes inlineControlFadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(3px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            max-height: 180px;
+            transform: translateY(0);
+            margin-top: 4px;
+            pointer-events: auto;
         }
         .nuclear-mode-row {
             display: flex;
