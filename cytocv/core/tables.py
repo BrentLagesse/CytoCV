@@ -31,7 +31,7 @@ class CellTable(tables.Table):
     """Table layout for per-cell statistics used in UI and export."""
 
     cell_id = tables.Column(verbose_name="Cell ID")
-    distance = NumberColumn(verbose_name="MCherry Line Distance")
+    distance = NumberColumn(verbose_name="mCherry Line Distance")
     line_gfp_intensity = NumberColumn(verbose_name="Line GFP Intensity")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
 

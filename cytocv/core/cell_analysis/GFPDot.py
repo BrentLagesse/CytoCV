@@ -32,7 +32,7 @@ class GFPDot(Analysis):
         return math.dist(green_center_1, green_center_2) <= 8
 
 
-    def calculate_statistics(self, best_contours, contours_data, red_image, green_image, mcherry_line_width_input, gfp_distance=37):
+    def calculate_statistics(self, best_contours, contours_data, red_image, green_image, mcherry_line_width_input, gfp_distance=37, gfp_threshold=66):
         """
         :param: 
         :return: 
@@ -78,14 +78,14 @@ class GFPDot(Analysis):
                             filtered_centers[i] = green_centers[i]
                 green_centers = filtered_centers
                 
-                # Check whether distance is greater than 4 micrometers (37 pixels)
+                # Check whether distance is greater than 4 micrometers (given distance in pixels)
                 # TODO: Is the return value actually pixels?
                 if distance > gfp_distance:
                     num_signals = [0] * len(centers)
                     for i in range(len(centers)):
                         for green_center in green_centers.values():
                             # Visualize circles
-                            cv2.circle(green_image, centers[i], prox_radius, (255, 255, 255), mcherry_line_width_input)
+                            cv2.circle(green_image, centers[i], prox_radius, (255, 255, 255), 1)
 
                             # Check how many green signals are within a circle of 20-30 pixels in diameter 
                             if math.dist(centers[i], green_center) <= prox_radius:       # TODO: 20-30?
@@ -103,7 +103,7 @@ class GFPDot(Analysis):
                 else:   # Check biorientation instead
                     num_between = 0
                     for green_center in green_centers.values():
-                        if self.point_is_between(green_center, centers[0], centers[1], 50):
+                        if self.point_is_between(green_center, centers[0], centers[1], gfp_threshold):
                             num_between += 1
 
                     # Set biorientation status

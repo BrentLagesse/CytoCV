@@ -208,6 +208,7 @@ class AnalysisRegressionTests(SimpleTestCase):
             green_image=None,
             mcherry_line_width_input=1,
             gfp_distance=37,
+            gfp_threshold=66,
         )
 
         self.assertEqual(cp.red_intensity_1, 0.0)

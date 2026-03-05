@@ -52,7 +52,7 @@ PLUGIN_ORDER: tuple[str, ...] = (
 PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     "MCherryLine": StatsPluginDefinition(
         plugin_id="MCherryLine",
-        label="MCherry Line Intensity",
+        label="mCherry Line Intensity",
         description="Draws a line between red dot centers and measures GFP intensity along that line.",
         required_channels=frozenset({"mCherry", "GFP"}),
     ),
