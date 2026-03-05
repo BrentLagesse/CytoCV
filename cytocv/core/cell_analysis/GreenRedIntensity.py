@@ -42,6 +42,7 @@ class GreenRedIntensity(Analysis):
         green_image,
         mcherry_line_width_input,
         gfp_distance,
+        gfp_threshold,
     ):
         red_contours = [entry[2] for entry in self._rank_contours(contours_data.get("dot_contours", []), limit=3)]
         green_contours_ranked = self._rank_contours(contours_data.get("contours_gfp", []), limit=3)

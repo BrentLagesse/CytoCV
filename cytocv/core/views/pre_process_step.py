@@ -137,6 +137,7 @@ def pre_process_step(request, uuids):
         selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
         mcherry_width_raw = request.POST.get('mCherryWidth', request.session.get('mCherryWidth', 1))
         gfp_distance_raw = request.POST.get('distance', request.session.get('distance', 37))
+        gfp_threshold_raw = request.POST.get('threshold', request.session.get('threshold', 66))
         nuclear_cellular_mode = request.POST.get(
             "nuclear_cellular_mode",
             request.session.get("nuclear_cellular_mode", "green_nucleus"),
@@ -150,17 +151,24 @@ def pre_process_step(request, uuids):
         except (TypeError, ValueError):
             mcherry_width = 1
         if mcherry_width < 1:
-            gfp_distance = 1        
+            mcherry_width = 1        
         try:
             gfp_distance = int(gfp_distance_raw)
         except (TypeError, ValueError):
             gfp_distance = 37
         if gfp_distance < 0:
             gfp_distance = 37
+        try:
+            gfp_threshold = int(gfp_threshold_raw)
+        except (TypeError, ValueError):
+            gfp_threshold = 66
+        if gfp_threshold < 0:
+            gfp_threshold = 66
 
         request.session['selected_analysis'] = selected_analysis
         request.session['mCherryWidth'] = mcherry_width
         request.session['distance'] = gfp_distance
+        request.session['threshold'] = gfp_threshold
         request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
         request.session['gfpFilterEnabled'] = gfp_filter_enabled
 

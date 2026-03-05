@@ -1175,7 +1175,7 @@
                                     type="button"
                                     class="info-dot warning-dot advanced-info-dot"
                                     id="gfpFilterExperimentalDot"
-                                    data-info-text="Experimental setting: this filter may improve noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions."
+                                    data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions."
                                     aria-label="Experimental setting warning"
                                 >&#9888;</button>
                             </span>
@@ -1388,6 +1388,7 @@
     const initializedKey = 'cytocv.selected_analyses_initialized.v2';
     const widthKey = 'cytocv.mcherry_width';
     const distanceKey = 'cytocv.gfp_distance';
+    const thresholdKey = 'cytocv.gfp_threshold';
     const advancedKey = 'cytocv.advanced_validation.v2';
     const nuclearModeKey = 'cytocv.nuclear_cellular_mode.v1';
 
@@ -1400,6 +1401,7 @@
         manualRequiredChannels: new Set(),
         mCherryWidth: 1,
         gfpDistance: 37,
+        gfpThreshold: 66,
         nuclearCellularMode: 'green_nucleus',
         gfpFilterEnabled: false,
     };
@@ -1411,10 +1413,9 @@
     let mCherryWidthRow = null;
     let gfpDistanceInput = null;
     let gfpDistanceRow = null;
+    let gfpThresholdInput = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
-    // let gfpFilterEnabled = null;
-    // let gfpFilterRow = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
 
@@ -1748,6 +1749,7 @@
         loadStoredAdvancedSettings();
         loadStoredWidth();
         loadStoredDistance();
+        loadStoredThreshold();
         loadStoredNuclearMode();
         if (!statsState.showLegacyPlugins) {
             statsPlugins.forEach((plugin) => {
@@ -1797,6 +1799,7 @@
         mCherryWidthRow = null;
         gfpDistanceInput = null;
         gfpDistanceRow = null;
+        gfpThresholdInput = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
 
@@ -1891,7 +1894,7 @@
 
                 const distanceLabel = document.createElement('label');
                 distanceLabel.setAttribute('for', 'gfpDistanceInput');
-                distanceLabel.textContent = 'Min distance (px):';
+                distanceLabel.textContent = 'Minimum signal distance (px):';
                 distanceRow.appendChild(distanceLabel);
 
                 const distanceInput = document.createElement('input');
@@ -1906,9 +1909,31 @@
                     localStorage.setItem(distanceKey, String(statsState.gfpDistance));
                 });
                 distanceRow.appendChild(distanceInput);
+                // row.appendChild(distanceRow);
+                // gfpDistanceRow = distanceRow;
+                // gfpDistanceInput = distanceInput;
+
+                const thresholdLabel = document.createElement('label');
+                thresholdLabel.setAttribute('for', 'gfpThresholdInput');
+                thresholdLabel.textContent = 'Biorientation collinearity threshold:';
+                distanceRow.appendChild(thresholdLabel);
+
+                const thresholdInput = document.createElement('input');
+                thresholdInput.type = 'number';
+                thresholdInput.id = 'gfpThresholdInput';
+                thresholdInput.min = '0';
+                thresholdInput.value = '66';
+                thresholdInput.addEventListener('change', () => {
+                    const parsed = parseInt(thresholdInput.value, 10);
+                    statsState.gfpThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                    thresholdInput.value = String(statsState.gfpThreshold);
+                    localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
+                });
+                distanceRow.appendChild(thresholdInput);
                 row.appendChild(distanceRow);
                 gfpDistanceRow = distanceRow;
                 gfpDistanceInput = distanceInput;
+                gfpThresholdInput = thresholdInput;
             }
 
             if (plugin.id === 'NuclearCellularIntensity') {
@@ -2115,6 +2140,12 @@
         statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
     }
 
+    function loadStoredThreshold() {
+        const raw = localStorage.getItem(thresholdKey);
+        const parsed = parseInt(raw || '66', 10);
+        statsState.gfpThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+    }
+
     function loadStoredNuclearMode() {
         const raw = localStorage.getItem(nuclearModeKey);
         statsState.nuclearCellularMode = raw === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
@@ -2233,6 +2264,9 @@
         }
         if (gfpDistanceRow) {
             gfpDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('GFPDot'));
+        }
+        if (gfpThresholdInput) {
+            gfpThresholdInput.value = String(statsState.gfpThreshold);
         }
         if (nuclearModeSelect) {
             nuclearModeSelect.value = statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
@@ -2411,6 +2445,7 @@
             manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
             mCherryWidth: Number.isFinite(Number(statsState.mCherryWidth)) ? Number(statsState.mCherryWidth) : 1,
             gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
+            gfpThreshold: Number.isFinite(Number(statsState.gfpThreshold)) ? Number(statsState.gfpThreshold) : 66,
             nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             gfpFilterEnabled: !!statsState.gfpFilterEnabled,
         });
@@ -2441,6 +2476,8 @@
             statsState.mCherryWidth = Number.isFinite(parsedWidth) && parsedWidth >= 1 ? parsedWidth : 1;
             const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
             statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
+            const parsedThreshold = parseInt(String(snapshot.gfpThreshold ?? 66), 10);
+            statsState.gfpThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
             statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.gfpFilterEnabled = !!snapshot.gfpFilterEnabled;
             if (!statsState.showLegacyPlugins) {
@@ -2455,6 +2492,7 @@
             persistAdvancedSettings();
             localStorage.setItem(widthKey, String(statsState.mCherryWidth));
             localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+            localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
             syncStatsUI();
         };
@@ -3006,6 +3044,12 @@
                 gfpDistanceInput.value = String(statsState.gfpDistance);
                 localStorage.setItem(distanceKey, String(statsState.gfpDistance));
             }
+            if (gfpThresholdInput) {
+                const parsed = parseInt(gfpThresholdInput.value, 10);
+                statsState.gfpThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                gfpThresholdInput.value = String(statsState.gfpThreshold);
+                localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
+            }
             if (nuclearModeSelect) {
                 statsState.nuclearCellularMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
@@ -3092,6 +3136,7 @@
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
             formData.append('mCherryWidth', String(statsState.mCherryWidth));
             formData.append('distance', String(statsState.gfpDistance));
+            formData.append('threshold', String(statsState.gfpThreshold));
             formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
             formData.append('gfpFilterEnabled', String(statsState.gfpFilterEnabled));
 

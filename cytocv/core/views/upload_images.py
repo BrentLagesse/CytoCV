@@ -170,12 +170,21 @@ def upload_images(request):
         if gfp_distance < 0:
             gfp_distance = 37
 
+        gfp_threshold_raw = request.POST.get("threshold", "66")
+        try:
+            gfp_threshold = int(gfp_threshold_raw)
+        except (TypeError, ValueError):
+            gfp_threshold = 66
+        if gfp_threshold < 0:
+            gfp_threshold = 66
+
         gfp_filter_enabled = request.POST.get("gfpFilterEnabled", False)
 
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
         request.session["mCherryWidth"] = mcherry_width
         request.session["distance"] = gfp_distance
+        request.session["threshold"] = gfp_threshold
         request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
             request.POST.get("nuclear_cellular_mode"),
             default="green_nucleus",

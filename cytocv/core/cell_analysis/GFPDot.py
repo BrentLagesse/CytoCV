@@ -32,7 +32,7 @@ class GFPDot(Analysis):
         return math.dist(green_center_1, green_center_2) <= 8
 
 
-    def calculate_statistics(self, best_contours, contours_data, red_image, green_image, mcherry_line_width_input, gfp_distance=37):
+    def calculate_statistics(self, best_contours, contours_data, red_image, green_image, mcherry_line_width_input, gfp_distance=37, gfp_threshold=66):
         """
         :param: 
         :return: 
@@ -103,7 +103,7 @@ class GFPDot(Analysis):
                 else:   # Check biorientation instead
                     num_between = 0
                     for green_center in green_centers.values():
-                        if self.point_is_between(green_center, centers[0], centers[1], 66):
+                        if self.point_is_between(green_center, centers[0], centers[1], gfp_threshold):
                             num_between += 1
 
                     # Set biorientation status

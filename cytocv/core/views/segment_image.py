@@ -136,7 +136,7 @@ def import_analyses(path:str, selected_analysis:list) -> list:
 
     return analyses
 
-def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_filter_enabled=False):
+def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled=False):
     # loading configuration
     kernel_size_input, mcherry_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
@@ -255,6 +255,7 @@ def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_filt
             edit_GFP_img,
             mcherry_width,
             gfp_distance,
+            gfp_threshold
         )
 
     # Convert BGR back to RGB so PIL shows correct colors
@@ -860,9 +861,14 @@ def segment_image(request, uuids):
                 gfp_distance = int(gfp_distance)
             except ValueError:
                 gfp_distance = 37
+            gfp_threshold = request.session.get('threshold', 66)
+            try:
+                gfp_threshold = int(gfp_threshold)
+            except ValueError:
+                gfp_threshold = 66
             gfp_filter_enabled = request.session.get('gfpFilterEnabled', 'False')
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, mcherry_width, gfp_distance, gfp_filter_enabled)
+            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled)
 
             # Save the debug images so we can view them later
             debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"

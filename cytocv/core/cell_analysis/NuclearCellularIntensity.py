@@ -135,6 +135,7 @@ class NuclearCellularIntensity(Analysis):
         green_image=None,
         mcherry_line_width_input=None,
         gfp_distance=0,
+        gfp_threshold=0,
     ):
         props = dict(getattr(self.cp, "properties", {}) or {})
         mode = props.get("nuclear_cellular_mode", "green_nucleus")
