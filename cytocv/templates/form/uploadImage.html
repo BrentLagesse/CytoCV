@@ -860,12 +860,47 @@
             flex: 0 0 auto;
             font-family: var(--app-font);
         }
+        .info-dot.compact {
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+        }
         .info-dot:hover {
             background: var(--surface-hover-strong);
         }
         .info-dot:focus-visible {
             outline: 1px solid #2f8f4e;
             outline-offset: 1px;
+        }
+        .warning-dot {
+            width: 20px;
+            height: 20px;
+            border: none !important;
+            border-radius: 3px;
+            background: transparent !important;
+            color: #e3b329;
+            font-size: 15px;
+            font-weight: 800;
+            line-height: 1;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none !important;
+            filter: none !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.62);
+        }
+        .warning-dot:hover {
+            background: transparent !important;
+            color: #f0cb53;
+            box-shadow: none !important;
+            filter: none !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.68);
+        }
+        .warning-dot:focus-visible {
+            outline: 1px solid #e1b71d;
+            outline-offset: 2px;
+            border-radius: 3px;
         }
         .info-tooltip {
             position: fixed;
@@ -938,9 +973,6 @@
         .toggle-row.locked .slider {
             background-color: #2f8f4e;
         }
-        .toggle-row.locked .toggle-hint {
-            color: #9fcfaf;
-        }
         .toggle-row {
             display: flex;
             align-items: center;
@@ -970,12 +1002,45 @@
             flex-direction: column;
             gap: 2px;
         }
+        .toggle-label-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
         .toggle-label {
             font-size: 14px;
         }
-        .toggle-hint {
-            font-size: 12px;
-            color: #b5b5b5;
+        .toggle-state-note {
+            margin-top: 2px;
+            font-size: 11px;
+            line-height: 1.25;
+            color: #b8b8b8;
+            transition: color 0.18s ease;
+        }
+        .toggle-state-note.on {
+            color: #9fd5af;
+        }
+        .toggle-state-note.off {
+            color: #e6d6a7;
+        }
+        .toggle-state-note.reveal {
+            animation: toggleStateSlideFadeIn 0.22s ease-out;
+        }
+        @keyframes toggleStateSlideFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .toggle-state-note.reveal {
+                animation: none;
+            }
         }
         .switch {
             position: relative;
@@ -1076,8 +1141,15 @@
                 <div class="settings-body">
                     <div class="toggle-row" id="legacyPluginRow">
                         <div class="toggle-text">
-                            <span class="toggle-label">Show Legacy Plugins</span>
-                            <span class="toggle-hint">Reveal legacy DAPI-era plugins in the statistics list.</span>
+                            <span class="toggle-label-row">
+                                <span class="toggle-label">Show DAPI-based Plugins</span>
+                                <button
+                                    type="button"
+                                    class="info-dot compact advanced-info-dot"
+                                    data-info-text="Reveal DAPI-based plugins in the statistics list."
+                                    aria-label="Reveal DAPI-based plugins in the statistics list."
+                                >i</button>
+                            </span>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="showLegacyPlugins">
@@ -1086,8 +1158,23 @@
                     </div>
                     <div class="toggle-row" id="gfpFilterRow">
                         <div class="toggle-text">
-                            <span class="toggle-label">Filter GFP Contours</span>
-                            <span class="toggle-hint">EXPERIMENTAL: Filter out low-confidence GFP signal contours in challenging images.</span>
+                            <span class="toggle-label-row">
+                                <span class="toggle-label">Filter GFP Contours</span>
+                                <button
+                                    type="button"
+                                    class="info-dot compact advanced-info-dot"
+                                    id="gfpFilterInfoDot"
+                                    data-info-text="Filter out low-confidence GFP signal contours in challenging images."
+                                    aria-label="Filter out low-confidence GFP signal contours in challenging images."
+                                >i</button>
+                                <button
+                                    type="button"
+                                    class="info-dot warning-dot advanced-info-dot"
+                                    id="gfpFilterExperimentalDot"
+                                    data-info-text="Experimental setting: this filter may improve noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions."
+                                    aria-label="Experimental setting warning"
+                                >&#9888;</button>
+                            </span>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="gfpFilterEnabled">
@@ -1096,8 +1183,16 @@
                     </div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
-                            <span class="toggle-label">Enable Optional Metadata Checks</span>
-                            <span class="toggle-hint">Required checks from selected stats are always enforced.</span>
+                            <span class="toggle-label-row">
+                                <span class="toggle-label">Enable Optional Metadata Checks Below</span>
+                                <button
+                                    type="button"
+                                    class="info-dot compact advanced-info-dot"
+                                    data-info-text="If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced."
+                                    aria-label="If off, all optional checks below are inactive even when selected; required checks from selected statistics are still enforced."
+                                >i</button>
+                            </span>
+                            <span class="toggle-state-note" id="optionalChecksNote" aria-live="polite"></span>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="cytocvAnalysisEnabled">
@@ -1107,8 +1202,15 @@
                     <div class="toggle-subgroup">
                         <div class="toggle-row subtoggle" id="layerCheckRow">
                             <div class="toggle-text">
-                                <span class="toggle-label">Enforce 4-image DV files</span>
-                                <span class="toggle-hint">Require exactly four layers before preprocessing.</span>
+                                <span class="toggle-label-row">
+                                    <span class="toggle-label">Enforce 4-image DV files</span>
+                                    <button
+                                        type="button"
+                                        class="info-dot compact advanced-info-dot"
+                                        data-info-text="Require exactly four layers before preprocessing."
+                                        aria-label="Require exactly four layers before preprocessing."
+                                    >i</button>
+                                </span>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="enforceLayerCount">
@@ -1117,8 +1219,15 @@
                         </div>
                         <div class="toggle-row subtoggle" id="wavelengthCheckRow">
                             <div class="toggle-text">
-                                <span class="toggle-label">Require all wavelengths</span>
-                                <span class="toggle-hint">Require DIC, DAPI, mCherry, and GFP even if not needed by selected stats.</span>
+                                <span class="toggle-label-row">
+                                    <span class="toggle-label">Require all wavelengths</span>
+                                    <button
+                                        type="button"
+                                        class="info-dot compact advanced-info-dot"
+                                        data-info-text="Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics."
+                                        aria-label="Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics."
+                                    >i</button>
+                                </span>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="enforceWavelengths">
@@ -1375,6 +1484,9 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         infoTooltipElement = document.getElementById('statsInfoTooltip');
+        document.querySelectorAll('.advanced-info-dot').forEach((el) => {
+            attachInfoTooltipBehavior(el);
+        });
         initializeStatsSettings();
         setupSettingsModal();
         setupNavExitGuard();
@@ -1593,17 +1705,13 @@
         positionInfoTooltip(anchor);
     }
 
-    function buildInfoDot(text) {
-        const info = document.createElement('button');
-        info.type = 'button';
-        info.className = 'info-dot';
-        info.textContent = 'i';
-
-        const normalized = normalizeInfoText(text);
+    function attachInfoTooltipBehavior(info, text = '') {
+        if (!info) return;
+        const normalized = normalizeInfoText(text || info.dataset.infoText || '');
         if (normalized) {
             info.dataset.infoText = normalized;
             info.setAttribute('aria-label', normalized);
-        } else {
+        } else if (!info.getAttribute('aria-label')) {
             info.setAttribute('aria-label', 'Information');
         }
 
@@ -1619,7 +1727,14 @@
             }
             showInfoTooltip(info);
         });
+    }
 
+    function buildInfoDot(text) {
+        const info = document.createElement('button');
+        info.type = 'button';
+        info.className = 'info-dot';
+        info.textContent = 'i';
+        attachInfoTooltipBehavior(info, text);
         return info;
     }
 
@@ -1847,15 +1962,16 @@
 
             const text = document.createElement('div');
             text.className = 'toggle-text';
+            const labelRow = document.createElement('span');
+            labelRow.className = 'toggle-label-row';
             const label = document.createElement('span');
             label.className = 'toggle-label';
             label.textContent = `Require ${channel} wavelength`;
-            text.appendChild(label);
-            const hint = document.createElement('span');
-            hint.className = 'toggle-hint';
-            hint.id = `channelHint_${channel}`;
-            hint.textContent = channelInfo[channel] || `${channel} wavelength channel`;
-            text.appendChild(hint);
+            labelRow.appendChild(label);
+            const info = buildInfoDot(channelInfo[channel] || `${channel} wavelength channel`);
+            info.classList.add('compact');
+            labelRow.appendChild(info);
+            text.appendChild(labelRow);
             row.appendChild(text);
 
             const switchLabel = document.createElement('label');
@@ -2093,6 +2209,7 @@
         const legacyRow = document.getElementById('legacyPluginRow');
         const layerRow = document.getElementById('layerCheckRow');
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
+        const optionalChecksNote = document.getElementById('optionalChecksNote');
         const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
         const gfpFilterRow = document.getElementById('gfpFilterRow');
 
@@ -2138,6 +2255,29 @@
         if (legacyToggle) legacyToggle.checked = !!statsState.showLegacyPlugins;
         if (legacyRow) legacyRow.classList.remove('disabled');
         if (legacyToggle) legacyToggle.disabled = false;
+        if (optionalChecksNote) {
+            const prevState = optionalChecksNote.dataset.state || '';
+            const prevText = optionalChecksNote.textContent || '';
+            const nextState = statsState.moduleEnabled ? 'on' : 'off';
+            const nextText = statsState.moduleEnabled
+                ? 'Optional checks below are ON. Required checks from selected statistics are still enforced.'
+                : 'Optional checks below are OFF. Saved optional selections are paused; required checks from selected statistics are still enforced.';
+            const shouldAnimate = prevState !== nextState || prevText !== nextText;
+            if (statsState.moduleEnabled) {
+                optionalChecksNote.classList.remove('off');
+                optionalChecksNote.classList.add('on');
+            } else {
+                optionalChecksNote.classList.remove('on');
+                optionalChecksNote.classList.add('off');
+            }
+            optionalChecksNote.dataset.state = nextState;
+            optionalChecksNote.textContent = nextText;
+            if (shouldAnimate) {
+                optionalChecksNote.classList.remove('reveal');
+                void optionalChecksNote.offsetWidth;
+                optionalChecksNote.classList.add('reveal');
+            }
+        }
 
         if (layerToggle && layerRow) {
             layerToggle.disabled = !statsState.moduleEnabled;
@@ -2159,11 +2299,12 @@
         channelOrder.forEach((channel) => {
             const toggle = channelToggleElements.get(channel);
             const row = channelRowElements.get(channel);
-            const hint = document.getElementById(`channelHint_${channel}`);
+            const info = row ? row.querySelector('.info-dot') : null;
             if (!toggle || !row) return;
 
             const requiredByStats = statsRequired.has(channel);
             const requiredByAllToggle = statsState.moduleEnabled && statsState.enforceAllWavelengths;
+            let infoText = channelInfo[channel] || `${channel} wavelength channel`;
 
             if (requiredByStats) {
                 toggle.checked = true;
@@ -2171,28 +2312,31 @@
                 statsState.manualRequiredChannels.delete(channel);
                 row.classList.add('locked');
                 row.classList.remove('disabled');
-                if (hint) {
-                    hint.textContent = alwaysRequiredChannels.has(channel)
-                        ? 'Always required for segmentation/CNN.'
-                        : 'Required by selected statistic(s).';
-                }
+                infoText = alwaysRequiredChannels.has(channel)
+                    ? 'Always required for segmentation/CNN.'
+                    : 'Required by selected statistic(s).';
             } else if (requiredByAllToggle) {
                 toggle.checked = true;
                 toggle.disabled = true;
                 row.classList.remove('locked');
                 row.classList.add('disabled');
-                if (hint) {
-                    hint.textContent = 'Required because "Require all wavelengths" is enabled.';
-                }
+                infoText = 'Required because "Require all wavelengths" is enabled.';
             } else {
                 toggle.checked = statsState.manualRequiredChannels.has(channel);
                 toggle.disabled = !statsState.moduleEnabled;
                 row.classList.toggle('disabled', !statsState.moduleEnabled);
                 row.classList.remove('locked');
-                if (hint) {
-                    hint.textContent = toggle.checked
-                        ? 'Optional advanced enforcement is enabled.'
-                        : (channelInfo[channel] || `${channel} wavelength channel`);
+                infoText = toggle.checked
+                    ? 'Optional advanced enforcement is enabled.'
+                    : (channelInfo[channel] || `${channel} wavelength channel`);
+            }
+
+            if (info) {
+                const normalizedInfoText = normalizeInfoText(infoText);
+                info.dataset.infoText = normalizedInfoText;
+                info.setAttribute('aria-label', normalizedInfoText || 'Information');
+                if (activeInfoAnchor === info && infoTooltipElement && !infoTooltipElement.hidden) {
+                    showInfoTooltip(info);
                 }
             }
 
