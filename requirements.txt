@@ -67,7 +67,6 @@ pefile==2024.8.26
 pillow==12.1.1
 protobuf==4.25.8
 psycopg==3.3.3
-psycopg2-binary==2.9.11
 pyasn1==0.6.2
 pyasn1-modules==0.4.2
 pycparser==3.0

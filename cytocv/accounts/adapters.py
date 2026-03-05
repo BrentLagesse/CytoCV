@@ -16,21 +16,25 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     """Redirects social auth errors to sign-in with provider context."""
 
+    @staticmethod
+    def _normalized_social_email(sociallogin) -> str:
+        """Return the best available social email in normalized form."""
+        email = (sociallogin.user.email or "").strip().lower()
+        if email:
+            return email
+        for addr in getattr(sociallogin, "email_addresses", []):
+            candidate = (getattr(addr, "email", "") or "").strip().lower()
+            if candidate:
+                return candidate
+        return ""
+
     def pre_social_login(self, request: HttpRequest, sociallogin) -> None:
-        """Connect a social login to an existing user with a verified email."""
+        """Connect a social login to an existing user by email."""
         if sociallogin.is_existing:
             return
 
-        email = (sociallogin.user.email or "").strip().lower()
+        email = self._normalized_social_email(sociallogin)
         if not email:
-            return
-
-        # Only link accounts when the provider asserts the email is verified.
-        verified = any(
-            addr.email and addr.verified and addr.email.lower() == email
-            for addr in sociallogin.email_addresses
-        )
-        if not verified:
             return
 
         # Match a local account by email to avoid duplicate signups.
@@ -43,12 +47,9 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         sociallogin.connect(request, user)
 
     def is_auto_signup_allowed(self, request: HttpRequest, sociallogin) -> bool:
-        """Allow automatic signup when the provider supplies a verified email."""
-        email = (sociallogin.user.email or "").strip()
-        if not email:
-            return False
-        # Require a verified address to avoid creating accounts with untrusted emails.
-        return any(addr.verified for addr in sociallogin.email_addresses)
+        """Allow automatic signup when the provider supplies any email."""
+        return bool(self._normalized_social_email(sociallogin))
+
     def on_authentication_error(
         self,
         request: HttpRequest,
