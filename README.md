@@ -153,12 +153,35 @@ You must have your virtual environment activated to make the respective migratio
 
 
 ## Configuration
-**No `.env` file is required.** The current repo ships with working defaults defined directly in:
+Create a `.env` file in the repository root. `cytocv/cytocv/settings.py` loads this file automatically.
+
+Minimum useful keys:
+```bash
+CYTOCV_SECRET_KEY=change-me
+CYTOCV_DEBUG=1
+CYTOCV_ALLOWED_HOSTS=localhost,127.0.0.1
 ```
-cytocv/cytocv/settings.py
+
+OAuth / provider keys:
+```bash
+CYTOCV_GOOGLE_CLIENT_ID=
+CYTOCV_GOOGLE_CLIENT_SECRET=
+CYTOCV_MICROSOFT_CLIENT_ID=
+CYTOCV_MICROSOFT_CLIENT_SECRET=
+CYTOCV_MICROSOFT_TENANT=organizations
+CYTOCV_MICROSOFT_LOGIN_URL=https://login.microsoftonline.com
 ```
-- Local development works out of the box (SQLite, DEBUG on, email/Gmail placeholders, OAuth provider stubs)
-- If you only run locally, you **do not need to configure anything** here
+
+Email keys:
+```bash
+CYTOCV_EMAIL_HOST=smtp.gmail.com
+CYTOCV_EMAIL_HOST_USER=
+CYTOCV_EMAIL_HOST_PASSWORD=
+CYTOCV_DEFAULT_FROM_EMAIL=no-reply@noreply.x.edu
+CYTOCV_EMAIL_REPLY_TO=no-reply@noreply.x.edu
+```
+
+Use `.env.example` as the template.
 
 
 
@@ -414,4 +437,3 @@ python manage.py test
 ### Notes
 - **Exact Python** is non-negotiable here. If you must change TF/NumPy pins, expect breakage.  
 - Keep the weights path and Mask R-CNN config consistent unless you also update docs and sample results.
-
