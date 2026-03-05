@@ -3,6 +3,8 @@
 from pathlib import Path
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -31,6 +33,33 @@ def _load_env_file(path: Path) -> None:
 _load_env_file(PROJECT_ROOT / ".env")
 _load_env_file(BASE_DIR / ".env")
 
+
+def _parse_env_bool(var_name: str, default: bool = False) -> bool:
+    """Parse common boolean env values with strict validation."""
+    raw_value = os.getenv(var_name)
+    if raw_value is None:
+        return default
+    value = raw_value.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ImproperlyConfigured(
+        f"{var_name} must be a boolean value (1/0, true/false, yes/no, on/off)."
+    )
+
+
+def _parse_env_int(var_name: str, default: int) -> int:
+    """Parse integer env values with strict validation."""
+    raw_value = os.getenv(var_name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    try:
+        return int(raw_value.strip())
+    except ValueError as exc:
+        raise ImproperlyConfigured(f"{var_name} must be an integer.") from exc
+
+
 # Media storage
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -43,6 +72,23 @@ ALLOWED_HOSTS = [
     for host in os.getenv("CYTOCV_ALLOWED_HOSTS", "").split(",")
     if host.strip()
 ]
+
+_INSECURE_SECRET_KEY_VALUES = {
+    "django-insecure-change-me-in-env",
+    "change-me",
+    "your-secret-key",
+    "secret",
+}
+if not DEBUG:
+    normalized_secret_key = SECRET_KEY.strip()
+    if (
+        not normalized_secret_key
+        or normalized_secret_key.lower() in _INSECURE_SECRET_KEY_VALUES
+    ):
+        raise ImproperlyConfigured(
+            "CYTOCV_SECRET_KEY must be set to a strong, non-default value "
+            "when CYTOCV_DEBUG=0."
+        )
 
 # Authentication
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -135,13 +181,67 @@ TEMPLATES = [
 WSGI_APPLICATION = 'cytocv.wsgi.application'
 
 
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Database policy:
+# - sqlite is supported for local development/testing convenience.
+# - postgres is required for production (enforced when CYTOCV_DEBUG=0).
+DB_BACKEND = os.getenv("CYTOCV_DB_BACKEND", "").strip().lower()
+if not DB_BACKEND:
+    raise ImproperlyConfigured(
+        "CYTOCV_DB_BACKEND is required and must be set to 'sqlite' or 'postgres'."
+    )
+if DB_BACKEND not in {"sqlite", "postgres"}:
+    raise ImproperlyConfigured(
+        "CYTOCV_DB_BACKEND must be one of: sqlite, postgres."
+    )
+
+if DB_BACKEND == "sqlite":
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "SQLite is not allowed when CYTOCV_DEBUG=0. "
+            "Set CYTOCV_DB_BACKEND=postgres for production."
+        )
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    required_postgres_settings = (
+        "CYTOCV_DB_NAME",
+        "CYTOCV_DB_USER",
+        "CYTOCV_DB_PASSWORD",
+    )
+    missing_postgres_settings = [
+        key for key in required_postgres_settings if not os.getenv(key, "").strip()
+    ]
+    if missing_postgres_settings:
+        raise ImproperlyConfigured(
+            "Missing required PostgreSQL settings: "
+            + ", ".join(missing_postgres_settings)
+        )
+
+    postgres_host = os.getenv("CYTOCV_DB_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    postgres_port = str(_parse_env_int("CYTOCV_DB_PORT", 5432))
+    postgres_conn_max_age = _parse_env_int("CYTOCV_DB_CONN_MAX_AGE", 60)
+    postgres_atomic_requests = _parse_env_bool("CYTOCV_DB_ATOMIC_REQUESTS", False)
+    postgres_sslmode = os.getenv("CYTOCV_DB_SSLMODE", "prefer").strip() or "prefer"
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("CYTOCV_DB_NAME", "").strip(),
+            "USER": os.getenv("CYTOCV_DB_USER", "").strip(),
+            "PASSWORD": os.getenv("CYTOCV_DB_PASSWORD", ""),
+            "HOST": postgres_host,
+            "PORT": postgres_port,
+            "CONN_MAX_AGE": postgres_conn_max_age,
+            "ATOMIC_REQUESTS": postgres_atomic_requests,
+            "OPTIONS": {
+                "sslmode": postgres_sslmode,
+            },
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -207,6 +307,14 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = os.getenv(
+    "CYTOCV_ACCOUNT_EMAIL_VERIFICATION",
+    "none" if DEBUG else "optional",
+).strip().lower()
+if ACCOUNT_EMAIL_VERIFICATION not in {"none", "optional", "mandatory"}:
+    raise ImproperlyConfigured(
+        "CYTOCV_ACCOUNT_EMAIL_VERIFICATION must be one of: none, optional, mandatory."
+    )
 
 LOGIN_URL = "signin"
 LOGIN_REDIRECT_URL = "profile"
@@ -231,12 +339,22 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = os.getenv(
+    "CYTOCV_EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+).strip() or "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("CYTOCV_EMAIL_HOST", "smtp.gmail.com")
 EMAIL_HOST_USER = os.getenv("CYTOCV_EMAIL_HOST_USER", "cytocv@gmail.com")
 EMAIL_HOST_PASSWORD = os.getenv("CYTOCV_EMAIL_HOST_PASSWORD", "")
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_PORT = _parse_env_int("CYTOCV_EMAIL_PORT", 587)
+EMAIL_USE_TLS = _parse_env_bool("CYTOCV_EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = _parse_env_bool("CYTOCV_EMAIL_USE_SSL", False)
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    raise ImproperlyConfigured(
+        "CYTOCV_EMAIL_USE_TLS and CYTOCV_EMAIL_USE_SSL cannot both be enabled."
+    )
+_email_timeout_raw = os.getenv("CYTOCV_EMAIL_TIMEOUT", "").strip()
+EMAIL_TIMEOUT = _parse_env_int("CYTOCV_EMAIL_TIMEOUT", 0) if _email_timeout_raw else None
 DEFAULT_FROM_EMAIL = os.getenv("CYTOCV_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
 EMAIL_REPLY_TO = os.getenv("CYTOCV_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
 
