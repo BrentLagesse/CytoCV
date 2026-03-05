@@ -53,7 +53,6 @@ AUTHENTICATION_BACKENDS = [
 
     # Allauth auth methods (email/social)
     'allauth.account.auth_backends.AuthenticationBackend',
-    #'django_auth_adfs.backend.AdfsAccessTokenBackend',
 ]
 
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
@@ -201,24 +200,6 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # OAuth provider redirects
 SOCIALACCOUNT_LOGIN_ON_GET = False
-
-# Microsoft ADFS (legacy / optional)
-AUTH_ADFS = {
-    'AUDIENCE': os.getenv("CYTOCV_ADFS_AUDIENCE", MICROSOFT_OAUTH_CLIENT_ID),
-    'CLIENT_ID': os.getenv("CYTOCV_ADFS_CLIENT_ID", MICROSOFT_OAUTH_CLIENT_ID),
-    'CLIENT_SECRET': os.getenv("CYTOCV_ADFS_CLIENT_SECRET", ""),
-    'CLAIM_MAPPING': {'first_name': 'given_name',
-                      'last_name': 'family_name',
-                      'email': 'upn'},
-    'GROUPS_CLAIM': 'roles',
-    'MIRROR_GROUPS': True,
-    'USERNAME_CLAIM': 'upn',
-    'TENANT_ID': os.getenv("CYTOCV_ADFS_TENANT_ID", ""),
-    'RELYING_PARTY_ID': os.getenv(
-        "CYTOCV_ADFS_RELYING_PARTY_ID",
-        MICROSOFT_OAUTH_CLIENT_ID,
-    ),
-}
 
 # Allauth account configuration for email-only authentication.
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
