@@ -888,14 +888,18 @@
             justify-content: center;
             box-shadow: none !important;
             filter: none !important;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.62);
+            text-shadow:
+                0 2px 5px rgba(0, 0, 0, 0.74),
+                0 0 3px rgba(0, 0, 0, 0.46);
         }
         .warning-dot:hover {
             background: transparent !important;
             color: #f0cb53;
             box-shadow: none !important;
             filter: none !important;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.68);
+            text-shadow:
+                0 3px 6px rgba(0, 0, 0, 0.8),
+                0 0 4px rgba(0, 0, 0, 0.54);
         }
         .warning-dot:focus-visible {
             outline: 1px solid #e1b71d;
@@ -1025,12 +1029,12 @@
             color: #e6d6a7;
         }
         .toggle-state-note.reveal {
-            animation: toggleStateSlideFadeIn 0.22s ease-out;
+            animation: toggleStateSlideFadeIn 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
         }
         @keyframes toggleStateSlideFadeIn {
             from {
                 opacity: 0;
-                transform: translateY(-5px);
+                transform: translateY(-7px);
             }
             to {
                 opacity: 1;
