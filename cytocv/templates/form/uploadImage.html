@@ -698,6 +698,7 @@
             max-height: min(42vh, 320px);
             overflow-y: auto;
             padding-right: 2px;
+            isolation: isolate;
         }
         .stats-list::-webkit-scrollbar { width: 10px; }
         .stats-list::-webkit-scrollbar-thumb {
@@ -715,6 +716,9 @@
             border: 1px solid var(--panel-border);
             position: relative;
             flex-wrap: wrap;
+        }
+        .stats-toggle-row.unit-menu-open {
+            z-index: 4300;
         }
         .stats-toggle-left {
             display: flex;
@@ -740,7 +744,8 @@
         }
         .stats-distance-inline {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            align-items: stretch;
             gap: 6px;
             position: static;
             z-index: auto;
@@ -760,24 +765,175 @@
         }
         .stats-distance-inline.visible {
             opacity: 1;
-            max-height: 48px;
+            max-height: 132px;
             transform: translateY(0);
             margin-top: 4px;
             pointer-events: auto;
+            overflow: visible;
         }
         .stats-distance-inline label {
             font-size: 11px;
             color: #cfcfcf;
             white-space: nowrap;
         }
+        .stats-distance-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            min-width: 0;
+        }
+        .stats-distance-line .length-input-group,
+        .stats-distance-line .threshold-input-group {
+            margin-left: auto;
+        }
+        .stats-threshold-line > label {
+            white-space: normal;
+            line-height: 1.2;
+        }
+        .length-input-group {
+            display: inline-flex;
+            align-items: stretch;
+            margin-left: auto;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            overflow: visible;
+            background: var(--surface-input);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .length-input-group:focus-within {
+            border-color: rgba(86, 147, 220, 0.75);
+            box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
+        }
+        .boxed-number-group {
+            display: inline-flex;
+            align-items: center;
+            margin-left: auto;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--surface-input);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .boxed-number-group:focus-within {
+            border-color: rgba(86, 147, 220, 0.75);
+            box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
+        }
         .stats-distance-inline input[type="number"] {
             width: 68px;
-            border: 1px solid var(--panel-border);
-            border-radius: 6px;
-            background: var(--surface-input);
+            border: none;
+            border-radius: 0;
+            background: transparent;
             color: #fff;
-            padding: 4px 6px;
+            padding: 4px 8px;
             font-family: var(--app-font);
+            outline: none;
+            color-scheme: dark;
+        }
+        .stats-distance-inline input[type="number"]::-webkit-outer-spin-button,
+        .stats-distance-inline input[type="number"]::-webkit-inner-spin-button {
+            opacity: 1;
+            margin: 0;
+            background: var(--surface-input);
+            filter: grayscale(1) brightness(0.68);
+        }
+        .boxed-number-group input[type="number"] {
+            width: 72px;
+        }
+        .length-unit-dropdown {
+            position: relative;
+            display: inline-flex;
+            align-items: stretch;
+            align-self: stretch;
+            height: auto;
+            min-width: 54px;
+        }
+        .length-unit-trigger {
+            border: none;
+            border-left: 1px solid var(--panel-border);
+            border-radius: 0 7px 7px 0;
+            background: transparent;
+            color: #efefef;
+            padding: 4px 6px;
+            min-width: 54px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--app-font);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            align-self: stretch;
+            margin: 0;
+        }
+        .length-unit-trigger:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .length-unit-trigger:focus-visible {
+            outline: 1px solid #6ca4df;
+            outline-offset: 1px;
+        }
+        .length-unit-caret {
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #b7bfca;
+            transform: translateY(1px);
+        }
+        .length-unit-dropdown.open .length-unit-trigger {
+            background: rgba(255, 255, 255, 0.13);
+        }
+        .length-unit-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            width: 100%;
+            min-width: 54px;
+            background: #2f2f2f;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42);
+            overflow: hidden;
+            z-index: 4200;
+        }
+        .length-unit-option {
+            width: 100%;
+            border: none;
+            border-radius: 0;
+            background: #2f2f2f;
+            color: #efefef;
+            text-align: left;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: var(--app-font);
+            cursor: pointer;
+            transition: background-color 0.16s ease, color 0.16s ease;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        .length-unit-option + .length-unit-option {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .length-unit-option:hover {
+            background: #464646;
+            color: #ffffff;
+        }
+        .length-unit-option.is-selected {
+            background: #5a5a5a;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .length-unit-option:focus-visible {
+            outline: 1px solid #6ca4df;
+            outline-offset: -1px;
         }
         .nuclear-mode-inline {
             display: flex;
@@ -835,6 +991,13 @@
             font-size: 11px;
             font-family: var(--app-font);
             max-width: 100%;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .nuclear-mode-inline select:focus,
+        .nuclear-mode-inline select:focus-visible {
+            border-color: rgba(86, 147, 220, 0.75);
+            box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .nuclear-mode-helper {
             font-size: 10px;
@@ -1391,6 +1554,11 @@
     const thresholdKey = 'cytocv.gfp_threshold';
     const advancedKey = 'cytocv.advanced_validation.v2';
     const nuclearModeKey = 'cytocv.nuclear_cellular_mode.v1';
+    const legacyLengthUnitKey = 'cytocv.stats_length_unit.v1';
+    const mCherryWidthUnitKey = 'cytocv.mcherry_width_unit.v1';
+    const gfpDistanceUnitKey = 'cytocv.gfp_distance_unit.v1';
+    const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v1';
+    const DEFAULT_MICRONS_PER_PIXEL = 0.1;
 
     const statsState = {
         selectedPlugins: new Set(),
@@ -1404,11 +1572,15 @@
         gfpThreshold: 66,
         nuclearCellularMode: 'green_nucleus',
         gfpFilterEnabled: false,
+        mCherryWidthUnit: 'px',
+        gfpDistanceUnit: 'px',
+        micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
     };
 
     const statToggleElements = new Map();
     const channelToggleElements = new Map();
     const channelRowElements = new Map();
+    const lengthUnitSelectElements = new Set();
     let mCherryWidthInput = null;
     let mCherryWidthRow = null;
     let gfpDistanceInput = null;
@@ -1503,12 +1675,24 @@
         window.addEventListener('resize', refreshInfoTooltipPosition);
         document.addEventListener('click', (event) => {
             const target = event.target;
+            let clickedInsideLengthUnit = false;
+            if (target instanceof Element) {
+                lengthUnitSelectElements.forEach((control) => {
+                    if (control.root.contains(target)) {
+                        clickedInsideLengthUnit = true;
+                    }
+                });
+            }
+            if (!clickedInsideLengthUnit) {
+                closeAllLengthUnitDropdowns();
+            }
             if (!(target instanceof Element) || !target.classList.contains('info-dot')) {
                 hideInfoTooltip();
             }
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
+                closeAllLengthUnitDropdowns();
                 hideInfoTooltip();
             }
         });
@@ -1743,10 +1927,323 @@
         return info;
     }
 
+    function normalizeLengthUnit(value) {
+        return value === 'um' ? 'um' : 'px';
+    }
+
+    function sanitizeMicronsPerPixel(value, fallback = DEFAULT_MICRONS_PER_PIXEL) {
+        const parsed = Number.parseFloat(String(value ?? '').trim());
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return fallback;
+        }
+        return parsed;
+    }
+
+    function formatNumericInputValue(value, decimals = 3) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return '';
+        if (Number.isInteger(numeric)) return String(numeric);
+        return numeric.toFixed(decimals).replace(/\.?0+$/, '');
+    }
+
+    function defaultWidthForUnit(unit) {
+        return unit === 'um' ? sanitizeMicronsPerPixel(statsState.micronsPerPixel) : 1;
+    }
+
+    function defaultDistanceForUnit(unit) {
+        return unit === 'um'
+            ? 37 * sanitizeMicronsPerPixel(statsState.micronsPerPixel)
+            : 37;
+    }
+
+    function getLengthUnitForField(field) {
+        if (field === 'mCherryWidth') return statsState.mCherryWidthUnit;
+        if (field === 'gfpDistance') return statsState.gfpDistanceUnit;
+        return 'px';
+    }
+
+    function setLengthUnitForField(field, unit) {
+        const normalized = normalizeLengthUnit(unit);
+        if (field === 'mCherryWidth') {
+            statsState.mCherryWidthUnit = normalized;
+            return;
+        }
+        if (field === 'gfpDistance') {
+            statsState.gfpDistanceUnit = normalized;
+        }
+    }
+
+    function getLengthValueForField(field) {
+        if (field === 'mCherryWidth') return statsState.mCherryWidth;
+        if (field === 'gfpDistance') return statsState.gfpDistance;
+        return 0;
+    }
+
+    function setLengthValueForField(field, value) {
+        if (field === 'mCherryWidth') {
+            statsState.mCherryWidth = value;
+            return;
+        }
+        if (field === 'gfpDistance') {
+            statsState.gfpDistance = value;
+        }
+    }
+
+    function parseLengthValue(raw, unit, fallback, minimum = 0) {
+        const parser = unit === 'um' ? Number.parseFloat : (value) => Number.parseInt(value, 10);
+        const parsed = parser(String(raw ?? '').trim());
+        if (!Number.isFinite(parsed) || parsed < minimum) {
+            return fallback;
+        }
+        if (unit === 'um') {
+            return parsed;
+        }
+        return Math.round(parsed);
+    }
+
+    function persistLengthUnitSettings() {
+        localStorage.setItem(mCherryWidthUnitKey, statsState.mCherryWidthUnit);
+        localStorage.setItem(gfpDistanceUnitKey, statsState.gfpDistanceUnit);
+        localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
+    }
+
+    function convertLengthValueToUnit(value, fromUnit, toUnit) {
+        const normalizedFrom = normalizeLengthUnit(fromUnit);
+        const normalizedTo = normalizeLengthUnit(toUnit);
+        if (normalizedFrom === normalizedTo) {
+            return Number(value);
+        }
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return Number.NaN;
+        }
+        const umPerPx = sanitizeMicronsPerPixel(statsState.micronsPerPixel);
+        if (normalizedFrom === 'px' && normalizedTo === 'um') {
+            return numeric * umPerPx;
+        }
+        if (normalizedFrom === 'um' && normalizedTo === 'px') {
+            return numeric / umPerPx;
+        }
+        return numeric;
+    }
+
+    function convertLengthToPixels(value, unit, minimumPx, fallbackPx) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return fallbackPx;
+        }
+        if (normalizeLengthUnit(unit) === 'um') {
+            const umPerPx = sanitizeMicronsPerPixel(statsState.micronsPerPixel);
+            const asPx = numeric / umPerPx;
+            if (!Number.isFinite(asPx)) {
+                return fallbackPx;
+            }
+            return Math.max(minimumPx, Math.round(asPx));
+        }
+        return Math.max(minimumPx, Math.round(numeric));
+    }
+
+    function applyLengthUnitSelection(field, nextUnit) {
+        const currentUnit = getLengthUnitForField(field);
+        const normalizedNext = normalizeLengthUnit(nextUnit);
+        if (currentUnit === normalizedNext) return;
+
+        const currentValue = getLengthValueForField(field);
+        let converted = convertLengthValueToUnit(currentValue, currentUnit, normalizedNext);
+        if (!Number.isFinite(converted)) {
+            converted = field === 'mCherryWidth'
+                ? defaultWidthForUnit(normalizedNext)
+                : defaultDistanceForUnit(normalizedNext);
+        }
+
+        if (field === 'mCherryWidth') {
+            const minValue = normalizedNext === 'um' ? 0.01 : 1;
+            if (converted < minValue) {
+                converted = defaultWidthForUnit(normalizedNext);
+            }
+            if (normalizedNext === 'px') {
+                converted = Math.round(converted);
+            }
+        } else if (field === 'gfpDistance') {
+            if (converted < 0) {
+                converted = defaultDistanceForUnit(normalizedNext);
+            }
+            if (normalizedNext === 'px') {
+                converted = Math.round(converted);
+            }
+        }
+
+        setLengthValueForField(field, converted);
+        setLengthUnitForField(field, normalizedNext);
+        persistLengthUnitSettings();
+        if (field === 'mCherryWidth') {
+            localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+        } else if (field === 'gfpDistance') {
+            localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+        }
+        syncStatsUI();
+    }
+
+    function closeAllLengthUnitDropdowns(exceptControl = null) {
+        lengthUnitSelectElements.forEach((control) => {
+            if (control !== exceptControl) {
+                control.close();
+            }
+        });
+    }
+
+    function buildLengthUnitSelect(field) {
+        const root = document.createElement('div');
+        root.className = 'length-unit-dropdown';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'length-unit-trigger';
+        trigger.setAttribute('aria-haspopup', 'menu');
+        trigger.setAttribute('aria-expanded', 'false');
+
+        const label = document.createElement('span');
+        label.className = 'length-unit-label';
+        label.textContent = getLengthUnitForField(field);
+
+        const caret = document.createElement('span');
+        caret.className = 'length-unit-caret';
+        caret.setAttribute('aria-hidden', 'true');
+
+        trigger.appendChild(label);
+        trigger.appendChild(caret);
+        root.appendChild(trigger);
+
+        const menu = document.createElement('div');
+        menu.className = 'length-unit-menu';
+        menu.hidden = true;
+        root.appendChild(menu);
+
+        const optionButtons = new Map();
+        ['px', 'um'].forEach((unit) => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'length-unit-option';
+            option.textContent = unit;
+            option.dataset.unit = unit;
+            option.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                applyLengthUnitSelection(field, unit);
+                control.close();
+            });
+            menu.appendChild(option);
+            optionButtons.set(unit, option);
+        });
+
+        const control = {
+            field,
+            root,
+            close() {
+                root.classList.remove('open');
+                menu.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+                const row = root.closest('.stats-toggle-row');
+                if (row) {
+                    row.classList.remove('unit-menu-open');
+                }
+            },
+            open() {
+                closeAllLengthUnitDropdowns(control);
+                root.classList.add('open');
+                menu.hidden = false;
+                trigger.setAttribute('aria-expanded', 'true');
+                const row = root.closest('.stats-toggle-row');
+                if (row) {
+                    row.classList.add('unit-menu-open');
+                }
+            },
+            setUnit(unit) {
+                const normalized = normalizeLengthUnit(unit);
+                label.textContent = normalized;
+                root.dataset.unit = normalized;
+                optionButtons.forEach((button, candidate) => {
+                    button.classList.toggle('is-selected', candidate === normalized);
+                });
+            },
+        };
+
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (root.classList.contains('open')) {
+                control.close();
+            } else {
+                control.open();
+            }
+        });
+        trigger.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                control.close();
+            }
+        });
+
+        lengthUnitSelectElements.add(control);
+        control.setUnit(getLengthUnitForField(field));
+        return root;
+    }
+
+    function buildLengthInputGroup({ field, inputId, minValue, defaultValue, onChange }) {
+        const controls = document.createElement('div');
+        controls.className = 'length-input-group';
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.id = inputId;
+        input.min = String(minValue);
+        input.value = String(defaultValue);
+        input.addEventListener('change', onChange);
+
+        controls.appendChild(input);
+        controls.appendChild(buildLengthUnitSelect(field));
+        return { controls, input };
+    }
+
+    function syncLengthControls() {
+        if (statsState.mCherryWidthUnit === 'px') {
+            statsState.mCherryWidth = Math.max(1, Math.round(Number(statsState.mCherryWidth) || 1));
+        }
+        if (statsState.gfpDistanceUnit === 'px') {
+            statsState.gfpDistance = Math.max(0, Math.round(Number(statsState.gfpDistance) || 0));
+        }
+        lengthUnitSelectElements.forEach((control) => {
+            control.setUnit(getLengthUnitForField(control.field));
+        });
+
+        if (mCherryWidthInput) {
+            if (statsState.mCherryWidthUnit === 'um') {
+                mCherryWidthInput.step = '0.01';
+                mCherryWidthInput.min = '0.01';
+            } else {
+                mCherryWidthInput.step = '1';
+                mCherryWidthInput.min = '1';
+            }
+            mCherryWidthInput.value = formatNumericInputValue(statsState.mCherryWidth);
+        }
+
+        if (gfpDistanceInput) {
+            if (statsState.gfpDistanceUnit === 'um') {
+                gfpDistanceInput.step = '0.01';
+                gfpDistanceInput.min = '0';
+            } else {
+                gfpDistanceInput.step = '1';
+                gfpDistanceInput.min = '0';
+            }
+            gfpDistanceInput.value = formatNumericInputValue(statsState.gfpDistance);
+        }
+    }
+
     function initializeStatsSettings() {
         renderRequiredChannels();
         loadStoredSelections();
         loadStoredAdvancedSettings();
+        loadStoredLengthUnits();
+        loadStoredMicronsPerPixel();
         loadStoredWidth();
         loadStoredDistance();
         loadStoredThreshold();
@@ -1795,6 +2292,7 @@
         if (!list) return;
         list.innerHTML = '';
         statToggleElements.clear();
+        lengthUnitSelectElements.clear();
         mCherryWidthInput = null;
         mCherryWidthRow = null;
         gfpDistanceInput = null;
@@ -1865,58 +2363,66 @@
             if (plugin.id === 'MCherryLine') {
                 const widthRow = document.createElement('div');
                 widthRow.className = 'stats-distance-inline';
+                const widthLine = document.createElement('div');
+                widthLine.className = 'stats-distance-line';
 
                 const widthLabel = document.createElement('label');
                 widthLabel.setAttribute('for', 'mCherryWidthInput');
-                widthLabel.textContent = 'mCherry line width (px):';
-                widthRow.appendChild(widthLabel);
+                widthLabel.textContent = 'mCherry line width:';
+                widthLine.appendChild(widthLabel);
 
-                const widthInput = document.createElement('input');
-                widthInput.type = 'number';
-                widthInput.id = 'mCherryWidthInput';
-                widthInput.min = '1';
-                widthInput.value = '1';
-                widthInput.addEventListener('change', () => {
-                    const parsed = parseInt(widthInput.value, 10);
-                    statsState.mCherryWidth = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
-                    widthInput.value = String(statsState.mCherryWidth);
-                    localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+                const widthGroup = buildLengthInputGroup({
+                    field: 'mCherryWidth',
+                    inputId: 'mCherryWidthInput',
+                    minValue: 1,
+                    defaultValue: 1,
+                    onChange: () => {
+                        const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
+                        const minimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
+                        statsState.mCherryWidth = parseLengthValue(widthGroup.input.value, statsState.mCherryWidthUnit, fallback, minimum);
+                        widthGroup.input.value = formatNumericInputValue(statsState.mCherryWidth);
+                        localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+                    },
                 });
-                widthRow.appendChild(widthInput);
+                widthLine.appendChild(widthGroup.controls);
+                widthRow.appendChild(widthLine);
                 row.appendChild(widthRow);
                 mCherryWidthRow = widthRow;
-                mCherryWidthInput = widthInput;
+                mCherryWidthInput = widthGroup.input;
             }
 
             if (plugin.id === 'GFPDot') {
                 const distanceRow = document.createElement('div');
                 distanceRow.className = 'stats-distance-inline';
+                const distanceLine = document.createElement('div');
+                distanceLine.className = 'stats-distance-line';
 
                 const distanceLabel = document.createElement('label');
                 distanceLabel.setAttribute('for', 'gfpDistanceInput');
-                distanceLabel.textContent = 'Minimum signal distance (px):';
-                distanceRow.appendChild(distanceLabel);
+                distanceLabel.textContent = 'Minimum signal distance:';
+                distanceLine.appendChild(distanceLabel);
 
-                const distanceInput = document.createElement('input');
-                distanceInput.type = 'number';
-                distanceInput.id = 'gfpDistanceInput';
-                distanceInput.min = '0';
-                distanceInput.value = '37';
-                distanceInput.addEventListener('change', () => {
-                    const parsed = parseInt(distanceInput.value, 10);
-                    statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
-                    distanceInput.value = String(statsState.gfpDistance);
-                    localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+                const distanceGroup = buildLengthInputGroup({
+                    field: 'gfpDistance',
+                    inputId: 'gfpDistanceInput',
+                    minValue: 0,
+                    defaultValue: 37,
+                    onChange: () => {
+                        const fallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
+                        statsState.gfpDistance = parseLengthValue(distanceGroup.input.value, statsState.gfpDistanceUnit, fallback, 0);
+                        distanceGroup.input.value = formatNumericInputValue(statsState.gfpDistance);
+                        localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+                    },
                 });
-                distanceRow.appendChild(distanceInput);
-                // row.appendChild(distanceRow);
-                // gfpDistanceRow = distanceRow;
-                // gfpDistanceInput = distanceInput;
+                distanceLine.appendChild(distanceGroup.controls);
+                distanceRow.appendChild(distanceLine);
 
+                const thresholdLine = document.createElement('div');
+                thresholdLine.className = 'stats-distance-line stats-threshold-line';
                 const thresholdLabel = document.createElement('label');
                 thresholdLabel.setAttribute('for', 'gfpThresholdInput');
                 thresholdLabel.textContent = 'Biorientation collinearity threshold:';
-                distanceRow.appendChild(thresholdLabel);
+                thresholdLine.appendChild(thresholdLabel);
 
                 const thresholdInput = document.createElement('input');
                 thresholdInput.type = 'number';
@@ -1929,10 +2435,14 @@
                     thresholdInput.value = String(statsState.gfpThreshold);
                     localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
                 });
-                distanceRow.appendChild(thresholdInput);
+                const thresholdInputGroup = document.createElement('div');
+                thresholdInputGroup.className = 'boxed-number-group';
+                thresholdInputGroup.appendChild(thresholdInput);
+                thresholdLine.appendChild(thresholdInputGroup);
+                distanceRow.appendChild(thresholdLine);
                 row.appendChild(distanceRow);
                 gfpDistanceRow = distanceRow;
-                gfpDistanceInput = distanceInput;
+                gfpDistanceInput = distanceGroup.input;
                 gfpThresholdInput = thresholdInput;
             }
 
@@ -2128,16 +2638,29 @@
         );
     }
 
+    function loadStoredLengthUnits() {
+        const legacyUnit = normalizeLengthUnit(localStorage.getItem(legacyLengthUnitKey));
+        const storedWidthUnit = localStorage.getItem(mCherryWidthUnitKey);
+        const storedDistanceUnit = localStorage.getItem(gfpDistanceUnitKey);
+        statsState.mCherryWidthUnit = normalizeLengthUnit(storedWidthUnit || legacyUnit);
+        statsState.gfpDistanceUnit = normalizeLengthUnit(storedDistanceUnit || legacyUnit);
+    }
+
+    function loadStoredMicronsPerPixel() {
+        statsState.micronsPerPixel = sanitizeMicronsPerPixel(localStorage.getItem(micronsPerPixelKey));
+    }
+
     function loadStoredWidth() {
         const raw = localStorage.getItem(widthKey);
-        const parsed = parseInt(raw || '1', 10);
-        statsState.mCherryWidth = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+        const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
+        const minimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
+        statsState.mCherryWidth = parseLengthValue(raw, statsState.mCherryWidthUnit, fallback, minimum);
     }
 
     function loadStoredDistance() {
         const raw = localStorage.getItem(distanceKey);
-        const parsed = parseInt(raw || '37', 10);
-        statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
+        const fallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
+        statsState.gfpDistance = parseLengthValue(raw, statsState.gfpDistanceUnit, fallback, 0);
     }
 
     function loadStoredThreshold() {
@@ -2253,14 +2776,16 @@
             toggle.disabled = isPluginRequiredBySelection(pluginId);
         });
 
+        syncLengthControls();
+
         if (mCherryWidthInput) {
-            mCherryWidthInput.value = String(statsState.mCherryWidth);
+            mCherryWidthInput.value = formatNumericInputValue(statsState.mCherryWidth);
         }
         if (mCherryWidthRow) {
             mCherryWidthRow.classList.toggle('visible', statsState.selectedPlugins.has('MCherryLine'));
         }
         if (gfpDistanceInput) {
-            gfpDistanceInput.value = String(statsState.gfpDistance);
+            gfpDistanceInput.value = formatNumericInputValue(statsState.gfpDistance);
         }
         if (gfpDistanceRow) {
             gfpDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('GFPDot'));
@@ -2448,6 +2973,9 @@
             gfpThreshold: Number.isFinite(Number(statsState.gfpThreshold)) ? Number(statsState.gfpThreshold) : 66,
             nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             gfpFilterEnabled: !!statsState.gfpFilterEnabled,
+            mCherryWidthUnit: normalizeLengthUnit(statsState.mCherryWidthUnit),
+            gfpDistanceUnit: normalizeLengthUnit(statsState.gfpDistanceUnit),
+            micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
         });
         const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
         const hasModalChanges = () => {
@@ -2472,10 +3000,14 @@
                     ? snapshot.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
                     : []
             );
-            const parsedWidth = parseInt(String(snapshot.mCherryWidth ?? 1), 10);
-            statsState.mCherryWidth = Number.isFinite(parsedWidth) && parsedWidth >= 1 ? parsedWidth : 1;
-            const parsedDistance = parseInt(String(snapshot.gfpDistance ?? 37), 10);
-            statsState.gfpDistance = Number.isFinite(parsedDistance) && parsedDistance >= 0 ? parsedDistance : 37;
+            statsState.mCherryWidthUnit = normalizeLengthUnit(snapshot.mCherryWidthUnit);
+            statsState.gfpDistanceUnit = normalizeLengthUnit(snapshot.gfpDistanceUnit);
+            statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
+            const widthMinimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
+            const widthFallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
+            statsState.mCherryWidth = parseLengthValue(snapshot.mCherryWidth, statsState.mCherryWidthUnit, widthFallback, widthMinimum);
+            const distanceFallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
+            statsState.gfpDistance = parseLengthValue(snapshot.gfpDistance, statsState.gfpDistanceUnit, distanceFallback, 0);
             const parsedThreshold = parseInt(String(snapshot.gfpThreshold ?? 66), 10);
             statsState.gfpThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
             statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
@@ -2494,6 +3026,7 @@
             localStorage.setItem(distanceKey, String(statsState.gfpDistance));
             localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
+            persistLengthUnitSettings();
             syncStatsUI();
         };
 
@@ -3032,16 +3565,18 @@
 
             persistSelectedPlugins();
             persistAdvancedSettings();
+            persistLengthUnitSettings();
             if (mCherryWidthInput) {
-                const parsed = parseInt(mCherryWidthInput.value, 10);
-                statsState.mCherryWidth = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
-                mCherryWidthInput.value = String(statsState.mCherryWidth);
+                const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
+                const minimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
+                statsState.mCherryWidth = parseLengthValue(mCherryWidthInput.value, statsState.mCherryWidthUnit, fallback, minimum);
+                mCherryWidthInput.value = formatNumericInputValue(statsState.mCherryWidth);
                 localStorage.setItem(widthKey, String(statsState.mCherryWidth));
             }
             if (gfpDistanceInput) {
-                const parsed = parseInt(gfpDistanceInput.value, 10);
-                statsState.gfpDistance = Number.isFinite(parsed) && parsed >= 0 ? parsed : 37;
-                gfpDistanceInput.value = String(statsState.gfpDistance);
+                const fallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
+                statsState.gfpDistance = parseLengthValue(gfpDistanceInput.value, statsState.gfpDistanceUnit, fallback, 0);
+                gfpDistanceInput.value = formatNumericInputValue(statsState.gfpDistance);
                 localStorage.setItem(distanceKey, String(statsState.gfpDistance));
             }
             if (gfpThresholdInput) {
@@ -3054,6 +3589,16 @@
                 statsState.nuclearCellularMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
+            const usingMicrometers = statsState.mCherryWidthUnit === 'um' || statsState.gfpDistanceUnit === 'um';
+            if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
+                showErrors([
+                    'Micrometers-per-pixel must be greater than 0 when using micrometer input.',
+                ]);
+                return;
+            }
+
+            const mCherryWidthPixels = convertLengthToPixels(statsState.mCherryWidth, statsState.mCherryWidthUnit, 1, 1);
+            const gfpDistancePixels = convertLengthToPixels(statsState.gfpDistance, statsState.gfpDistanceUnit, 0, 37);
 
             const submitBtn = document.getElementById('uploadSubmit');
             const btnText = submitBtn.querySelector('.btn-text');
@@ -3134,11 +3679,18 @@
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
-            formData.append('mCherryWidth', String(statsState.mCherryWidth));
-            formData.append('distance', String(statsState.gfpDistance));
+            formData.append('mCherryWidth', String(mCherryWidthPixels));
+            formData.append('distance', String(gfpDistancePixels));
             formData.append('threshold', String(statsState.gfpThreshold));
             formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
             formData.append('gfpFilterEnabled', String(statsState.gfpFilterEnabled));
+            const sharedLengthUnit = statsState.mCherryWidthUnit === statsState.gfpDistanceUnit
+                ? statsState.mCherryWidthUnit
+                : 'mixed';
+            formData.append('stats_length_unit', sharedLengthUnit);
+            formData.append('stats_mcherry_width_unit', statsState.mCherryWidthUnit);
+            formData.append('stats_gfp_distance_unit', statsState.gfpDistanceUnit);
+            formData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const uploadController = new AbortController();
