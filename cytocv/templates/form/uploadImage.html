@@ -1931,6 +1931,10 @@
         return value === 'um' ? 'um' : 'px';
     }
 
+    function formatLengthUnitLabel(value) {
+        return normalizeLengthUnit(value) === 'um' ? 'µm' : 'px';
+    }
+
     function sanitizeMicronsPerPixel(value, fallback = DEFAULT_MICRONS_PER_PIXEL) {
         const parsed = Number.parseFloat(String(value ?? '').trim());
         if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -2104,7 +2108,7 @@
 
         const label = document.createElement('span');
         label.className = 'length-unit-label';
-        label.textContent = getLengthUnitForField(field);
+        label.textContent = formatLengthUnitLabel(getLengthUnitForField(field));
 
         const caret = document.createElement('span');
         caret.className = 'length-unit-caret';
@@ -2124,7 +2128,7 @@
             const option = document.createElement('button');
             option.type = 'button';
             option.className = 'length-unit-option';
-            option.textContent = unit;
+            option.textContent = formatLengthUnitLabel(unit);
             option.dataset.unit = unit;
             option.addEventListener('click', (event) => {
                 event.preventDefault();
@@ -2160,7 +2164,7 @@
             },
             setUnit(unit) {
                 const normalized = normalizeLengthUnit(unit);
-                label.textContent = normalized;
+                label.textContent = formatLengthUnitLabel(normalized);
                 root.dataset.unit = normalized;
                 optionButtons.forEach((button, candidate) => {
                     button.classList.toggle('is-selected', candidate === normalized);
