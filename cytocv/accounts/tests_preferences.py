@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
@@ -14,7 +17,7 @@ from accounts.preferences import (
     normalize_preferences_payload,
     update_user_preferences,
 )
-from core.models import SegmentedImage, UploadedImage
+from core.models import CellStatistics, SegmentedImage, UploadedImage
 
 
 class PreferenceNormalizationTests(TestCase):
@@ -116,6 +119,179 @@ class AccountAreaAccessTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("homepage"))
         self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
+
+
+class AccountDeletionIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            email="delete-owner@example.com",
+            password="TestPass123!",
+            first_name="Delete",
+            last_name="Owner",
+        )
+        self.other_user = user_model.objects.create_user(
+            email="delete-other@example.com",
+            password="TestPass123!",
+        )
+        self.assertTrue(
+            self.client.login(
+                email="delete-owner@example.com",
+                password="TestPass123!",
+            )
+        )
+
+    def _create_account_artifacts(self, owner, stem: str) -> str:
+        file_uuid = uuid4()
+        uploaded = UploadedImage.objects.create(
+            user=owner,
+            name=stem,
+            uuid=file_uuid,
+            file_location=f"{file_uuid}/{stem}.dv",
+        )
+        segmented = SegmentedImage.objects.create(
+            user=owner,
+            UUID=file_uuid,
+            file_location=f"user_{file_uuid}/{stem}.png",
+            ImagePath=f"{file_uuid}/output/{stem}_frame_0.png",
+            CellPairPrefix=f"{file_uuid}/segmented/cell_",
+            NumCells=1,
+        )
+        CellStatistics.objects.create(
+            segmented_image=segmented,
+            cell_id=1,
+            distance=1.0,
+            line_gfp_intensity=2.0,
+            nucleus_intensity_sum=3.0,
+            cellular_intensity_sum=4.0,
+        )
+        self.assertTrue(UploadedImage.objects.filter(pk=uploaded.pk).exists())
+        self.assertTrue(SegmentedImage.objects.filter(pk=segmented.pk).exists())
+        self.assertTrue(CellStatistics.objects.filter(segmented_image=segmented).exists())
+        return str(file_uuid)
+
+    def _create_media_artifacts(self, media_root: str, file_uuid: str, stem: str) -> tuple[Path, Path]:
+        uuid_dir = Path(media_root) / file_uuid
+        user_uuid_dir = Path(media_root) / f"user_{file_uuid}"
+        paths = [
+            uuid_dir / f"{stem}.dv",
+            uuid_dir / "output" / f"{stem}_frame_0.png",
+            uuid_dir / "segmented" / "cell_1.png",
+            user_uuid_dir / f"{stem}.png",
+        ]
+        for path in paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"x")
+        return uuid_dir, user_uuid_dir
+
+    def test_delete_account_removes_user_related_rows_media_and_session(self):
+        with TemporaryDirectory() as temp_media:
+            owned_uuid = self._create_account_artifacts(self.user, "owned_sample")
+            uuid_dir, user_uuid_dir = self._create_media_artifacts(
+                temp_media,
+                owned_uuid,
+                "owned_sample",
+            )
+            self.assertTrue(uuid_dir.exists())
+            self.assertTrue(user_uuid_dir.exists())
+
+            with patch("accounts.views.profile.MEDIA_ROOT", temp_media):
+                response = self.client.post(
+                    reverse("account_settings"),
+                    {
+                        "action": "delete_account",
+                        "confirm_email": "delete-owner@example.com",
+                    },
+                )
+
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response["Location"], reverse("homepage"))
+            self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
+            self.assertFalse(UploadedImage.objects.filter(uuid=owned_uuid).exists())
+            self.assertFalse(SegmentedImage.objects.filter(UUID=owned_uuid).exists())
+            self.assertFalse(
+                CellStatistics.objects.filter(segmented_image_id=owned_uuid).exists()
+            )
+            self.assertFalse(uuid_dir.exists())
+            self.assertFalse(user_uuid_dir.exists())
+
+            auth_response = self.client.get(reverse("dashboard"))
+            self.assertEqual(auth_response.status_code, 302)
+            self.assertIn(reverse("signin"), auth_response["Location"])
+
+    def test_delete_account_with_wrong_email_keeps_user_rows_and_media(self):
+        with TemporaryDirectory() as temp_media:
+            owned_uuid = self._create_account_artifacts(self.user, "keep_sample")
+            uuid_dir, user_uuid_dir = self._create_media_artifacts(
+                temp_media,
+                owned_uuid,
+                "keep_sample",
+            )
+
+            with patch("accounts.views.profile.MEDIA_ROOT", temp_media):
+                response = self.client.post(
+                    reverse("account_settings"),
+                    {
+                        "action": "delete_account",
+                        "confirm_email": "wrong@example.com",
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Incorrect email address entered.")
+            self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+            self.assertTrue(UploadedImage.objects.filter(uuid=owned_uuid).exists())
+            self.assertTrue(SegmentedImage.objects.filter(UUID=owned_uuid).exists())
+            self.assertTrue(
+                CellStatistics.objects.filter(segmented_image_id=owned_uuid).exists()
+            )
+            self.assertTrue(uuid_dir.exists())
+            self.assertTrue(user_uuid_dir.exists())
+
+    def test_delete_account_does_not_remove_other_users_data(self):
+        with TemporaryDirectory() as temp_media:
+            owned_uuid = self._create_account_artifacts(self.user, "owned_sample")
+            other_uuid = self._create_account_artifacts(self.other_user, "other_sample")
+            owned_uuid_dir, owned_user_dir = self._create_media_artifacts(
+                temp_media,
+                owned_uuid,
+                "owned_sample",
+            )
+            other_uuid_dir, other_user_dir = self._create_media_artifacts(
+                temp_media,
+                other_uuid,
+                "other_sample",
+            )
+
+            with patch("accounts.views.profile.MEDIA_ROOT", temp_media):
+                response = self.client.post(
+                    reverse("account_settings"),
+                    {
+                        "action": "delete_account",
+                        "confirm_email": "delete-owner@example.com",
+                    },
+                )
+
+            self.assertEqual(response.status_code, 302)
+            self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
+            self.assertTrue(get_user_model().objects.filter(pk=self.other_user.pk).exists())
+
+            self.assertFalse(UploadedImage.objects.filter(uuid=owned_uuid).exists())
+            self.assertFalse(SegmentedImage.objects.filter(UUID=owned_uuid).exists())
+            self.assertFalse(
+                CellStatistics.objects.filter(segmented_image_id=owned_uuid).exists()
+            )
+            self.assertFalse(owned_uuid_dir.exists())
+            self.assertFalse(owned_user_dir.exists())
+
+            self.assertTrue(UploadedImage.objects.filter(uuid=other_uuid).exists())
+            self.assertTrue(SegmentedImage.objects.filter(UUID=other_uuid).exists())
+            self.assertTrue(
+                CellStatistics.objects.filter(segmented_image_id=other_uuid).exists()
+            )
+            self.assertTrue(other_uuid_dir.exists())
+            self.assertTrue(other_user_dir.exists())
 
 
 class DashboardBulkDeleteTests(TestCase):
