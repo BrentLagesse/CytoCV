@@ -15,6 +15,7 @@ from django.urls import reverse
 from accounts.preferences import (
     get_user_preferences,
     normalize_preferences_payload,
+    should_auto_save_experiments,
     update_user_preferences,
 )
 from core.models import CellStatistics, SegmentedImage, UploadedImage
@@ -408,6 +409,54 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
+
+    def test_behavior_form_disables_auto_save_when_toggle_is_off(self):
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_behavior",
+                "show_saved_file_channels": "on",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Experiment autosave disabled. New runs will stay out of your dashboard history.",
+        )
+
+        self.user.refresh_from_db()
+        preferences = get_user_preferences(self.user)
+        self.assertFalse(preferences["auto_save_experiments"])
+        self.assertTrue(preferences["show_saved_file_channels"])
+        self.assertFalse(should_auto_save_experiments(self.user))
+
+    def test_behavior_form_enables_auto_save_when_toggle_is_on(self):
+        existing = get_user_preferences(self.user)
+        existing["auto_save_experiments"] = False
+        update_user_preferences(self.user, existing)
+        self.assertFalse(should_auto_save_experiments(self.user))
+
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Experiment autosave enabled. New runs will appear on your dashboard.",
+        )
+
+        self.user.refresh_from_db()
+        preferences = get_user_preferences(self.user)
+        self.assertTrue(preferences["auto_save_experiments"])
+        self.assertTrue(preferences["show_saved_file_channels"])
+        self.assertTrue(should_auto_save_experiments(self.user))
 
     def test_new_user_has_default_selected_plugins(self):
         defaults = get_user_preferences(self.user)["experiment_defaults"]
