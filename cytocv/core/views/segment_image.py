@@ -72,6 +72,7 @@ from core.contour_processing import (
 )
 from core.cell_analysis import Analysis
 from core.stats_plugins import build_requirement_summary
+from accounts.preferences import should_auto_save_experiments
 
 # Configure logging
 logging.basicConfig(
@@ -287,6 +288,11 @@ def segment_image(request, uuids):
     uuid_list = uuids.split(',')
     owner_filter = _current_owner_filter(request)
     cancelled = lambda: is_cancelled(uuids)
+    auto_save_experiments = (
+        should_auto_save_experiments(request.user)
+        if request.user.is_authenticated
+        else True
+    )
 
     if cancelled():
         write_progress(uuids, "Cancelled")
@@ -772,20 +778,19 @@ def segment_image(request, uuids):
 
             # Assign SegmentedImage to a user
             num_cells = max(int(np.max(seg)), 0)
-            if request.user.is_authenticated:
-                user = request.user
-                instance = SegmentedImage(UUID = uuid, user=user,
-                                        ImagePath = (MEDIA_URL  + str(uuid) + '/output/' + DV_Name + '.png'),
-                                        CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                                        NumCells = num_cells,
-                                        uploaded_date=timezone.now())
-            else:
-                # this would save to a guest user for now
-                instance = SegmentedImage(UUID=uuid,
-                                          ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
-                                          CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                                          NumCells=num_cells,
-                                          uploaded_date=timezone.now())
+            segmented_owner_id = (
+                request.user.id
+                if request.user.is_authenticated and auto_save_experiments
+                else get_guest_user()
+            )
+            instance = SegmentedImage(
+                UUID=uuid,
+                user_id=segmented_owner_id,
+                ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
+                CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
+                NumCells=num_cells,
+                uploaded_date=timezone.now(),
+            )
             instance.save()
 
         # ================================================
@@ -896,7 +901,7 @@ def segment_image(request, uuids):
         #else: show error message'''
 
         # calculate storage size for this uuid
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and auto_save_experiments:
             stored_path = Path(str(MEDIA_ROOT), str(uuid))
             storing_size = get_dir_size(stored_path)
             user = request.user
@@ -910,6 +915,19 @@ def segment_image(request, uuids):
         user = request.user
         user.processing_used += duration
         user.save()
+
+    if request.user.is_authenticated:
+        current_uuids = {str(item) for item in uuid_list}
+        transient = {
+            str(item)
+            for item in request.session.get("transient_experiment_uuids", [])
+            if str(item)
+        }
+        if auto_save_experiments:
+            transient.difference_update(current_uuids)
+        else:
+            transient.update(current_uuids)
+        request.session["transient_experiment_uuids"] = sorted(transient)
 
 
     write_progress(uuids, "Completed")

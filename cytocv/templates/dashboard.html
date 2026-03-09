@@ -1,0 +1,1802 @@
+{% extends 'base.html' %}
+
+{% block head %}
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Display Cell Images</title>
+    <style>
+        .channel-chip.dic { background-color: black; }
+        .channel-chip.dapi { background-color: blue; }
+        .channel-chip.mcherry { background-color: red; }
+        .channel-chip.gfp { background-color: green; }
+        .channel-chip.dic:hover { background-color: var(--panel-border); }
+        .channel-chip.dapi:hover { background-color: #4d4dff; }
+        .channel-chip.mcherry:hover { background-color: #ff6b6b; }
+        .channel-chip.gfp:hover { background-color: #3bbf3b; }
+
+        /* Overall page styling */
+        body {
+            margin: 0;
+            font-family: var(--app-font);
+            background-color: var(--page-bg);
+            color: var(--text);
+            padding: calc(var(--nav-height) + 14px) 10px 12px;
+        }
+
+        .page-container {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            min-height: calc(100dvh - var(--nav-height) - 26px);
+            align-items: stretch;
+            gap: 10px;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: relative;
+            width: 400px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            transition: width 0.3s ease, background-color 0.2s ease; /* animate the color change too */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-self: stretch; /* ensure it stretches with content column */
+        }
+
+        /* Collapsed state: set width to something minimal */
+        .sidebar.collapsed { width: 60px; background-color: var(--card-bg); }
+
+        /* Hide text + content when collapsed */
+        .sidebar.collapsed .sidebar-header h2,
+        .sidebar.collapsed .sidebar-content { display: none; }
+
+        /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
+        .sidebar:hover { background-color: var(--card-bg); }
+
+        /* Only lighten when collapsed AND hovered */
+        .sidebar.collapsed:hover { background-color: var(--surface-hover); }
+
+        /* Sidebar header */
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--surface-input);
+            border-radius: 12px;
+            margin: 10px 12px;
+            padding: 10px;
+        }
+        .sidebar-header h2 { margin: 0; font-size: 18px; }
+
+        /* Toggle button */
+        .toggle-btn {
+            position: static;
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 24px;
+        }
+        .toggle-btn:hover { color: #ddd; }
+        .toggle-btn::before { content: '◀'; }
+        .sidebar.collapsed .toggle-btn::before { content: '▶'; }
+
+        /* Sidebar content (file list) */
+        .sidebar-content {
+            flex-grow: 1;
+            overflow-y: scroll;  /* show scrollbar only when needed */
+            min-height: 0;       /* critical for flex children to allow scrolling */
+            padding-bottom: 10px;
+        }
+
+        .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
+        .sidebar-content li { margin: 0; padding: 0; border: none; }
+
+        /* Each file-item */
+        .file-item {
+            margin: 8px 12px;
+            padding: 12px;
+            background-color: var(--surface-muted);
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 14px;
+        }
+        .file-item:hover { background-color: #3399ff; }
+        .file-item.active { background-color: #007bff; color: #fff; }
+        .file-item.active:hover { background-color: #0056b3; }
+
+        /* Channel pills */
+        .channel-bar {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            opacity: 1;
+            max-height: 36px;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.2s ease, margin-top 0.2s ease, transform 0.2s ease;
+        }
+        .channel-chip {
+            background-color: var(--panel-border); color: #fff;
+            border: 1px solid var(--border-contrast);
+            padding: 6px 0; border-radius: 6px; cursor: grab; user-select: none;
+            flex: 1; box-sizing: border-box; text-align: center;
+        }
+        .channel-chip:active { cursor: grabbing; }
+
+        /* CONTENT WRAPPER */
+        .content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            flex: 1 1 auto;
+            min-height: 0;
+            min-width: 0;
+            width: 100%;
+            padding: 0;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        }
+        .empty-dashboard {
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 420px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 10px;
+            padding: 20px;
+        }
+        .empty-dashboard h2 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .empty-dashboard p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 16px;
+        }
+        .empty-dashboard .start-link {
+            margin-top: 4px;
+        }
+        .viewer-panel {
+            width: 100%;
+            display: block;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            padding: 0;
+        }
+        .viewer-scroll-frame {
+            width: 100%;
+            overflow-x: visible;
+            overflow-y: visible;
+        }
+        .viewer-content {
+            min-width: 1040px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Reduced top/bottom margin for the main container */
+        .main-container { display: flex; align-items: center; margin: 10px 0; gap: 20px; }
+
+        /* Adjust heading margin so it’s closer to the top */
+        h2#imageTitle { margin: 5px 0 10px 0; }
+
+        .main-image { width: 500px; height: 500px; border: 1px solid var(--surface-muted); border-radius: 12px; background: var(--surface-media); }
+
+        .file-navigation-button {
+            padding: 10px 18px; font-size: 14px; background-color: #007bff; color: #fff;
+            border: none; border-radius: 10px; cursor: pointer; transition: background-color 0.3s;
+            font-weight: 600; letter-spacing: 0.2px;
+        }
+        .file-navigation-button:hover { background-color: #0056b3; }
+
+        /* Cell Images Row */
+        .cell-images-row {
+            display: flex; align-items: stretch; justify-content: center;
+            width: 100%; max-width: 1000px; gap: 20px; margin-bottom: 20px;
+        }
+        .cell-id {
+            font-size: 18px; display: flex; align-items: center; justify-content: center;
+            height: 100%; flex-shrink: 0; padding-top: 120px;
+        }
+        .cell-column { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+        .cell-image { width: 200px; height: 200px; object-fit: contain; border: 1px solid var(--surface-muted); border-radius: 10px; background: var(--surface-media); }
+
+        .cell-label {
+            width: 200px; height: 30px; display: flex; color: white; align-items: center; justify-content: center;
+            text-align: center; font-weight: 600; margin-bottom: 6px; border: none; border-radius: 6px;
+        }
+        .cell-label:hover { color: #fff; }
+        .cell-label.active {
+            position: relative;
+            outline: 4px solid transparent;
+            outline-offset: 2px;
+        }
+        .cell-label.dic.active { outline-color: #5a5a5a; }
+        .cell-label.dapi.active { outline-color: #1d3ccf; }
+        .cell-label.mcherry.active { outline-color: #a72b2b; }
+        .cell-label.gfp.active { outline-color: #0f7a41; }
+        .dic { background-color: black; }
+        .dapi { background-color: blue; }
+        .mcherry { background-color: red; }
+        .gfp { background-color: green; }
+        .cell-label.dic:hover { background-color: var(--panel-border); }
+        .cell-label.dapi:hover { background-color: #4d4dff; }
+        .cell-label.mcherry:hover { background-color: #ff6b6b; }
+        .cell-label.gfp:hover { background-color: #3bbf3b; }
+
+        .info-box { font-size: 14px; text-align: center; margin-top: 2px; }
+        .tight-info { line-height: 1.2; margin: 0; }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 22px;
+            flex: 0 0 auto;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background-color: var(--surface-toggle-off);
+            border-radius: 999px;
+            transition: background-color 0.2s ease;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            top: 2px;
+            background-color: #f2f2f2;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+        }
+        .switch input:checked + .slider {
+            background-color: #2f8f4e;
+        }
+        .switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .navigation-buttons { margin-top: 5px; display: flex; justify-content: space-between; width: 300px; }
+        .navigation-buttons button {
+            padding: 10px 16px; font-size: 14px; background-color: #007bff; color: #fff;
+            border: none; border-radius: 10px; cursor: pointer; transition: background-color 0.3s;
+            font-weight: 600; letter-spacing: 0.2px;
+        }
+        .navigation-buttons button:hover { background-color: #0056b3; }
+
+        a {
+            background-color: #007bff; color: #fff; text-decoration: none; padding: 10px 16px; border: none;
+            border-radius: 8px; transition: background-color 0.3s, color 0.3s; margin-bottom: 0;
+            font-size: 14px; font-weight: 600; letter-spacing: 0.2px;
+        }
+        a:hover { background-color: #0056b3; color: #fff; }
+
+        .table-section { margin-top: 15px; margin-bottom: 15px; width: 100%; }
+
+        .table-panel {
+            width: 100%;
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            background-color: var(--surface-media);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .table-panel.fullscreen-exit-anim:not(:fullscreen) {
+            animation: tableFullscreenExit 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .table-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+        }
+        .table-fullscreen-btn {
+            padding: 8px 12px;
+            font-size: 12px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .table-fullscreen-btn:hover { background-color: #0056b3; }
+        .table-scroll-frame {
+            width: 100%;
+            max-height: 520px;
+            overflow-x: auto;
+            overflow-y: auto;
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            background-color: var(--surface-media);
+            scrollbar-width: auto;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .table-scroll-frame::-webkit-scrollbar { width: 14px; height: 14px; }
+        .table-scroll-frame::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll-frame::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-corner { background: transparent; }
+        .table-scroll-frame .celltable {
+            min-width: max-content;
+            margin-top: 0;
+        }
+        .table-panel:fullscreen {
+            width: 100vw;
+            height: 100dvh;
+            border-radius: 0;
+            border: none;
+            padding: 16px;
+            margin: 0;
+            box-sizing: border-box;
+            animation: tableFullscreenEnter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .table-panel:fullscreen .table-scroll-frame {
+            flex: 1 1 auto;
+            max-height: none;
+            height: calc(100dvh - 96px);
+            overflow-x: auto;
+            overflow-y: auto;
+        }
+        @keyframes tableFullscreenEnter {
+            from {
+                opacity: 0.6;
+                transform: translateY(10px) scale(0.985);
+                filter: blur(1.5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+        @keyframes tableFullscreenExit {
+            from {
+                opacity: 1;
+                transform: scale(1);
+                filter: blur(0);
+            }
+            to {
+                opacity: 0.75;
+                transform: scale(0.988);
+                filter: blur(1px);
+            }
+        }
+
+        /* Table container */
+        .celltable {
+            width: max-content;
+            min-width: 100%;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            border-collapse: separate;
+            border-spacing: 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            margin-top: 0;
+        }
+
+        /* Table itself */
+        .table-scroll-frame table {
+            background-color: var(--card-bg);
+            color: #fff;
+            font-family: var(--app-font);
+            font-size: 12px;
+        }
+
+        /* Table header */
+        .celltable thead { background-color: var(--surface-header); }
+        .celltable th {
+            padding: 9px 8px; text-align: left; font-weight: 600; color: #fff; background-color: var(--surface-header);
+            border-bottom: 2px solid #007bff; position: relative;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+        .celltable th:first-child { border-top-left-radius: 10px; }
+        .celltable th:last-child { border-top-right-radius: 10px; }
+
+        /* Table body */
+        .celltable tbody { background-color: var(--card-bg); }
+        .celltable td {
+            padding: 7px 8px;
+            border-bottom: 1px solid var(--border-muted);
+            transition: background-color 0.2s;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        /* Row striping for better readability */
+        .celltable tbody tr:nth-child(even) { background-color: var(--surface-muted-alt); }
+        .celltable tbody tr:nth-child(odd) { background-color: var(--card-bg); }
+
+        /* Row hover effect */
+        .celltable tbody tr:hover { background-color: var(--surface-hover); cursor: pointer; }
+
+        /* Active/selected row */
+        .celltable tbody tr.selected { background-color: #1a4a6b; }
+        .celltable tbody tr.selected:hover { background-color: #1e5474; }
+
+        /* Numeric columns - right align */
+        .celltable td.numeric { text-align: right; font-family: 'Courier New', monospace; }
+
+        /* Links within table cells */
+        .celltable a {
+            color: #66b3ff; text-decoration: none; font-size: 12px; padding: 0; border-radius: 3px;
+            background-color: transparent; transition: all 0.2s;
+        }
+        .celltable a:hover { color: #fff; background-color: #007bff; text-decoration: none; }
+
+        /* Action buttons within table */
+        .celltable .action-btn {
+            padding: 4px 8px; font-size: 12px; background-color: #007bff; color: #fff;
+            border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;
+        }
+        .celltable .action-btn:hover { background-color: #0056b3; }
+
+        /* Empty table message */
+        .celltable .no-data { text-align: center; padding: 30px; color: #888; font-style: italic; }
+
+        .popup {
+            position: absolute; display: none; background-color: var(--card-bg); border-radius: 4px; padding: 5px;
+            font-family: var(--app-font); align-items: center; justify-content: space-around;
+        }
+        .popup a { padding: 5px; font-size: 15px; margin-bottom:20px; }
+        .popup button {
+            font-size: 15px; background-color: red; color: white; text-decoration: none; padding: 5px;
+            border: none; border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin-bottom: 20px;
+        }
+        .popup .hide { background-color: #007bff; }
+        .popup .hide:hover { background-color: #0056b3; }
+        .popup button:hover { background-color: darkred; color: #fff; }
+
+
+        /* Chrome / Edge / Safari */
+        .sidebar-content::-webkit-scrollbar-track {
+        background: var(--card-bg) !important;
+        }
+
+
+            .popup button:hover {
+                background-color: darkred;
+                color: #fff;
+            }
+            .table-section{
+                margin-bottom: 10px;
+            }
+            .export-buttons {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+                margin-top: 30px;
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        /* Firefox */
+        .sidebar-content {
+        /* first = thumb, second = track */
+        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
+        }
+
+        .sidebar-actions {
+            display: grid;
+            gap: 8px;
+            margin: 0 12px 8px;
+        }
+        .sidebar.collapsed .sidebar-header h2,
+        .sidebar.collapsed .sidebar-actions,
+        .sidebar.collapsed .sidebar-content {
+            display: none;
+        }
+        .selection-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 34px;
+        }
+        .selection-extra {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transform: translateX(-8px);
+            transition: max-width 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+        }
+        .sidebar.select-mode .selection-extra {
+            max-width: 240px;
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .select-mode-btn,
+        .select-all-btn,
+        .delete-selected-btn,
+        .channel-visibility-btn {
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            color: #fff;
+            background: var(--surface-muted-alt);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 8px 10px;
+            white-space: nowrap;
+            transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
+        }
+        .channel-visibility-btn.label-fade { opacity: 0.62; }
+        .select-mode-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .delete-selected-btn {
+            background: #b4232f;
+            border-color: #b4232f;
+        }
+        .delete-selected-btn:hover:not(:disabled) {
+            background: #911b25;
+            border-color: #911b25;
+        }
+        .delete-selected-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .file-item {
+            position: relative;
+            display: grid;
+            gap: 4px;
+        }
+        .file-title {
+            padding-right: 28px;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .file-meta {
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .file-item.active .file-meta {
+            color: #d5e8ff;
+        }
+        .file-select-check {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: transparent;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, background-color 0.18s ease;
+        }
+        .sidebar.select-mode .file-select-check {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .file-select-check span {
+            opacity: 0;
+            transition: opacity 0.12s ease;
+        }
+        .file-item.selected .file-select-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .file-item.selected .file-select-check span {
+            opacity: 1;
+        }
+        .sidebar.channels-hidden .channel-bar {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            pointer-events: none;
+            transform: translateY(-2px);
+        }
+        .content-wrapper {
+            gap: 10px;
+        }
+        .storage-card {
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            padding: 12px 14px;
+            display: grid;
+            gap: 8px;
+        }
+        .storage-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .storage-title {
+            margin: 0;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .storage-text {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .storage-summary {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .quota-track {
+            height: 12px;
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--panel-border);
+            background: var(--surface-muted-alt);
+        }
+        .quota-fill {
+            height: 100%;
+            background: var(--accent);
+            width: {{ storage_percentage|floatformat:2 }}%;
+        }
+        .delete-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2200;
+        }
+        .delete-modal {
+            width: min(420px, 92vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 18px;
+            display: grid;
+            gap: 10px;
+        }
+        .delete-modal h3,
+        .delete-modal p {
+            margin: 0;
+        }
+        .delete-modal p {
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .delete-preview-box {
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            background: var(--surface-muted-alt);
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 8px;
+            scrollbar-color: #7f7f7f transparent;
+        }
+        .delete-preview-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 4px;
+            font-size: 12px;
+        }
+        .delete-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .delete-modal-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .delete-modal-btn.cancel {
+            background: var(--surface-muted-alt);
+            border: 1px solid var(--panel-border);
+            color: #fff;
+        }
+        .delete-modal-btn.confirm {
+            background: #b4232f;
+            color: #fff;
+        }
+        @media (max-width: 1240px) {
+            .page-container {
+                flex-direction: column;
+            }
+            .sidebar,
+            .sidebar.collapsed {
+                width: 100%;
+            }
+            .sidebar.collapsed .sidebar-header h2,
+            .sidebar.collapsed .sidebar-actions,
+            .sidebar.collapsed .sidebar-content {
+                display: block;
+            }
+        }
+    </style>
+
+    <!-- Sortable.js for drag & drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% endblock head %}
+
+{% block content %}
+    {% load render_table from django_tables2 %}
+
+    <div class="page-container soft-fade-in">
+        <!-- SIDEBAR -->
+        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Saved Files</h2>
+                <button class="toggle-btn" id="toggleSidebarBtn"></button>
+            </div>
+            <div class="sidebar-actions">
+                <div class="selection-toolbar">
+                    <button class="select-mode-btn" id="selectModeBtn" type="button">Select</button>
+                    <div class="selection-extra">
+                        <button class="select-all-btn" id="selectAllBtn" type="button">Select All</button>
+                        <button class="delete-selected-btn" id="deleteSelectedBtn" type="button" disabled>Delete</button>
+                    </div>
+                </div>
+                <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
+                    {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
+                </button>
+            </div>
+            <div class="sidebar-content">
+                <ul id="fileList">
+                    {% for file in file_list %}
+                        <li>
+                            <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
+                                <button class="file-select-check" type="button" aria-label="Select file"><span>&#10003;</span></button>
+                                <div class="file-title">{{ file.name }}</div>
+                                <div class="file-meta">{{ file.uploaded_date|date:"Y-m-d H:i" }} UTC &middot; {{ file.num_cells }} cells</div>
+                                <div class="channel-bar">
+                                    {% for channel in file.detected_channels %}
+                                        <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li>
+                            <div class="file-item">
+                                <div class="file-title">No files saved.</div>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- CONTENT WRAPPER to center everything else -->
+        <div class="content-wrapper">
+            <div class="storage-card">
+                <div class="storage-top">
+                    <p class="storage-title">Storage quota</p>
+                    <p class="storage-text">{{ used_storage_mb|floatformat:2 }} MB out of {{ total_storage_gb|floatformat:2 }} GB</p>
+                </div>
+                <div class="quota-track">
+                    <div class="quota-fill"></div>
+                </div>
+                <p class="storage-summary">{{ saved_file_count }} out of {{ max_files_at_current_average }} files saved.</p>
+                {% if file_capacity_projection_ready %}
+                    <p class="storage-summary">{{ additional_files_possible }} additional files can be saved before quota at your current average file size.</p>
+                {% else %}
+                    <p class="storage-summary">Save at least one full file to calculate additional file capacity.</p>
+                {% endif %}
+            </div>
+            <!-- MAIN CONTENT -->
+            <div class="main-content">
+                {% if has_files %}
+                <div class="viewer-panel" id="viewerPanel">
+                    <div class="viewer-scroll-frame" id="viewerScrollFrame">
+                        <div class="viewer-content">
+                            <h2 id="imageTitle">No file selected</h2>
+                            <div class="main-container">
+                                <button class="file-navigation-button" type="button" id="previousFileBtn">Previous File</button>
+                                <img id="mainImage" class="main-image" src="" alt="Main Image">
+                                <button class="file-navigation-button" type="button" id="nextFileBtn">Next File</button>
+                            </div>
+
+                            <div class="cell-images-row">
+                                <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
+                                <div class="cell-column">
+                                    <button class="cell-label dic" data-channel="dic" type="button">DIC</button>
+                                    <img id="cellImage1" class="cell-image" src="">
+                                    <div class="info-box">
+                                        Toggle contours <br>
+                                        <label class="switch">
+                                            <input type="checkbox" id="toggleContours" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="cell-column">
+                                    <button class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
+                                    <img id="cellImage2" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
+                                        <div class="tight-info">Measurement channel: <span id="measurementChannel"></span></div>
+                                        <div class="tight-info">Nuclear status: <span id="nuclearStatus"></span></div>
+                                    </div>
+                                </div>
+                                <div class="cell-column">
+                                    <button class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
+                                    <img id="cellImage3" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info">mCherry Line Distance: <span id="distance"></span></div>
+                                        <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                                        <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
+                                        <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
+                                        <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
+                                    </div>
+                                </div>
+                                <div class="cell-column">
+                                    <button class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
+                                    <img id="cellImage4" class="cell-image" src="">
+                                    <div class="info-box">
+                                        <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
+                                        <div class="tight-info"><span id="cellularIntensityLabel">Measured Cellular Intensity</span>: <span id="cellularIntensitySum"></span></div>
+                                        <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                                        <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
+                                        <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="navigation-buttons">
+                                <button type="button" id="previousCellBtn">Previous Cell</button>
+                                <button type="button" id="nextCellBtn">Next Cell</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="table-panel" id="statsTablePanel">
+                        <div class="table-toolbar">
+                            <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">Enter Fullscreen</button>
+                        </div>
+                        <div class="table-scroll-frame" id="tableScrollFrame">
+                            {% render_table cell_table %}
+                        </div>
+                    </div>
+                    <div class="export-buttons" id="exportButtons">
+                        <a class="export_btn" id="downloadCsvBtn" href="#">Download CSV</a>
+                        <a class="export_btn" id="downloadXlsxBtn" href="#">Download Excel</a>
+                    </div>
+
+                </div>
+                {% else %}
+                    <div class="empty-dashboard">
+                        <h2>No files saved</h2>
+                        <p>Start an experiment to upload and analyze your first files.</p>
+                        <a class="start-link" href="{% url 'image_upload' %}">Start Experiment</a>
+                    </div>
+                {% endif %}
+            </div> <!-- end main-content -->
+        </div> <!-- end content-wrapper -->
+    </div> <!-- end page-container -->
+
+    <div class="delete-modal-backdrop" id="deleteFilesBackdrop" aria-hidden="true">
+        <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFilesTitle">
+            <h3 id="deleteFilesTitle">Delete saved files</h3>
+            <p id="deleteFilesMessage"></p>
+            <div class="delete-preview-box">
+                <ul class="delete-preview-list" id="deleteFilesList"></ul>
+            </div>
+            <div class="delete-modal-actions">
+                <button type="button" class="delete-modal-btn cancel" id="cancelDeleteFilesBtn">Cancel</button>
+                <button type="button" class="delete-modal-btn confirm" id="confirmDeleteFilesBtn">Confirm Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script id="dashboardFilesData" type="application/json">{{ files_data_json|safe }}</script>
+
+    <script>
+        // Parse JSON file data
+        let filesData = {};
+        let filesDataParseError = false;
+        try {
+            filesData = JSON.parse(document.getElementById('dashboardFilesData').textContent || '{}');
+        } catch (err) {
+            filesData = {};
+            filesDataParseError = true;
+        }
+        let fileUUIDs = Object.keys(filesData);
+        const dashboardHasFiles = {{ has_files|yesno:"true,false" }};
+        let currentFileIndex = 0;
+        let currentCellNumber = 1;
+        let maxCells;
+        const channels = ["dapi", "mCherry", "gfp", "dic"];
+        let activeChannelRequest = 0;
+        const channelIndexMap = { 0: 'mcherry', 1: 'gfp', 2: 'dapi', 3: 'dic' };
+        const noCellPlaceholder =
+            "data:image/svg+xml;utf8," + encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">' +
+                '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1d2530"/><stop offset="100%" stop-color="#10151c"/></linearGradient></defs>' +
+                '<rect width="320" height="220" fill="url(#g)"/>' +
+                '<text x="50%" y="46%" fill="#8fa6bf" font-size="15" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">No segmented cell image</text>' +
+                '<text x="50%" y="58%" fill="#6f859d" font-size="12" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Check channel mapping and rerun segmentation</text>' +
+                '</svg>'
+            );
+
+        window.onload = function () {
+            if (filesDataParseError) {
+                showChannelError('Saved file preview data could not be loaded. Refresh and try again.');
+                return;
+            }
+            if (dashboardHasFiles && fileUUIDs.length === 0) {
+                showChannelError('Saved files were found, but preview payload is unavailable.');
+                return;
+            }
+            if (fileUUIDs.length > 0) {
+                loadFile(currentFileIndex);
+                toggleContourOverlays();
+            }
+        };
+
+        function loadFile(fileIndex) {
+            const fileUUID = fileUUIDs[fileIndex];
+            const fileData = filesData[fileUUID];
+            if (!fileData) {
+                return;
+            }
+            document.getElementById("mainImage").src = fileData.MainImagePath || noCellPlaceholder;
+            document.getElementById("imageTitle").textContent = fileData.Image_Name;
+            maxCells = Number(fileData.NumberOfCells || 0);
+            if (!Number.isFinite(maxCells) || maxCells < 0) {
+                maxCells = 0;
+            }
+            currentCellNumber = 1;
+            updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            if (fileData.NoCellsWarning) {
+                showChannelError(fileData.NoCellsWarning);
+            }
+            updateTableState(fileUUID, fileData);
+            updateSidebarActive();
+            const inferred = inferChannelFromMainImage(fileData.MainImagePath);
+            if (inferred) {
+                setActiveChannel(inferred);
+            }
+        }
+
+        function ensureChannelMessageContainer() {
+            let container = document.querySelector('.message-container.channel-switch');
+            if (container) return container;
+            container = document.createElement('div');
+            container.className = 'message-container channel-switch';
+            container.style.top = 'calc(var(--nav-height) + 8px)';
+            container.style.left = '50%';
+            container.style.transform = 'translateX(-50%)';
+            container.style.width = 'min(720px, calc(100% - 32px))';
+            container.style.margin = '0';
+            container.style.zIndex = '1500';
+            container.style.pointerEvents = 'none';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        function showChannelError(message) {
+            const container = ensureChannelMessageContainer();
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.style.pointerEvents = 'auto';
+            msg.textContent = message;
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'message-close';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.innerHTML = '&times;';
+            close.addEventListener('click', () => msg.remove());
+            msg.appendChild(close);
+            container.appendChild(msg);
+            setTimeout(() => msg.remove(), 8000);
+        }
+
+        function preloadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('Image failed to load'));
+                img.src = url;
+            });
+        }
+
+        async function switchMainChannel(channel) {
+            const mainImage = document.getElementById('mainImage');
+            if (!mainImage) return;
+            const fileUUID = fileUUIDs[currentFileIndex];
+            if (!fileUUID) return;
+            const requestId = ++activeChannelRequest;
+            try {
+                const response = await fetch(`/image/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    throw new Error(`Channel request failed (${response.status})`);
+                }
+                const data = await response.json();
+                if (!data || !data.image_url) {
+                    throw new Error('Missing image URL');
+                }
+                await preloadImage(data.image_url);
+                if (requestId !== activeChannelRequest) {
+                    return;
+                }
+                mainImage.src = data.image_url;
+                setActiveChannel(channel);
+            } catch (error) {
+                if (error && error.name === 'AbortError') return;
+                showChannelError('Unable to load that channel image. Please try again.');
+            }
+        }
+
+        function inferChannelFromMainImage(src) {
+            if (!src) return null;
+            const match = src.match(/_frame_(\d+)\.png/i);
+            if (!match) return null;
+            const index = Number(match[1]);
+            return channelIndexMap[index] || null;
+        }
+
+        function setActiveChannel(channel) {
+            channelButtons.forEach((btn) => {
+                const isActive = btn.dataset.channel === channel;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        }
+
+        function normalizeHeader(text) {
+            return (text || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function formatStatValue(value) {
+            if (value === null || value === undefined || value === '') {
+                return 'N/A';
+            }
+            if (typeof value === 'number') {
+                if (Number.isInteger(value)) {
+                    return String(value);
+                }
+                return value.toFixed(3);
+            }
+            return String(value);
+        }
+
+        function hasNoNucleusContour(cellStats) {
+            return Boolean(cellStats && cellStats.nuclear_cellular_status === 'no_nucleus_contour');
+        }
+
+        function getNuclearLabelPair(mode) {
+            if (mode === 'red_nucleus') {
+                return {
+                    cellular: 'Green cellular intensity',
+                    nuclear: 'Green nuclear intensity',
+                    contour: 'mCherry',
+                    measurement: 'GFP',
+                };
+            }
+            if (mode === 'green_nucleus') {
+                return {
+                    cellular: 'Red cellular intensity',
+                    nuclear: 'Red nuclear intensity',
+                    contour: 'GFP',
+                    measurement: 'mCherry',
+                };
+            }
+            return {
+                cellular: 'Measured cellular intensity',
+                nuclear: 'Measured nuclear intensity',
+                contour: 'N/A',
+                measurement: 'N/A',
+            };
+        }
+
+        function renderStatisticsTable(statistics, numberOfCells) {
+            const table = document.getElementById('celltable');
+            if (!table) return 0;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return 0;
+            const nuclearCellularFields = new Set([
+                'cellular_intensity_sum',
+                'nucleus_intensity_sum',
+                'cytoplasmic_intensity',
+            ]);
+
+            const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
+            const keyMap = {
+                'Cell ID': 'cell_id',
+                'mCherry Line Distance': 'distance',
+                'Line GFP Intensity': 'line_gfp_intensity',
+                'Blue Contour Size': 'blue_contour_size',
+                'Red Contour 1 Size': 'red_contour_1_size',
+                'Red Contour 2 Size': 'red_contour_2_size',
+                'Red Contour 3 Size': 'red_contour_3_size',
+                'GFP Contour 1 Size': 'gfp_contour_1_size',
+                'GFP Contour 2 Size': 'gfp_contour_2_size',
+                'GFP Contour 3 Size': 'gfp_contour_3_size',
+                'Red in Red Intensity 1': 'red_intensity_1',
+                'Red in Red Intensity 2': 'red_intensity_2',
+                'Red in Red Intensity 3': 'red_intensity_3',
+                'Green in Red Intensity 1': 'green_intensity_1',
+                'Green in Red Intensity 2': 'green_intensity_2',
+                'Green in Red Intensity 3': 'green_intensity_3',
+                'Red in Green Intensity 1': 'red_in_green_intensity_1',
+                'Red in Green Intensity 2': 'red_in_green_intensity_2',
+                'Red in Green Intensity 3': 'red_in_green_intensity_3',
+                'Green in Green Intensity 1': 'green_in_green_intensity_1',
+                'Green in Green Intensity 2': 'green_in_green_intensity_2',
+                'Green in Green Intensity 3': 'green_in_green_intensity_3',
+                'GFP-to-mCherry Distance 1': 'gfp_to_mcherry_distance_1',
+                'GFP-to-mCherry Distance 2': 'gfp_to_mcherry_distance_2',
+                'GFP-to-mCherry Distance 3': 'gfp_to_mcherry_distance_3',
+                'GFP Dot Category': 'category_GFP_dot',
+                'Measured cellular intensity': 'cellular_intensity_sum',
+                'Measured nuclear intensity': 'nucleus_intensity_sum',
+                'Measured Cellular Intensity': 'cellular_intensity_sum',
+                'Measured Nuclear Intensity': 'nucleus_intensity_sum',
+                'Red cellular intensity': 'cellular_intensity_sum',
+                'Red nuclear intensity': 'nucleus_intensity_sum',
+                'Green cellular intensity': 'cellular_intensity_sum',
+                'Green nuclear intensity': 'nucleus_intensity_sum',
+                'Red Cellular Intensity': 'cellular_intensity_sum',
+                'Red Nuclear Intensity': 'nucleus_intensity_sum',
+                'Green Cellular Intensity': 'cellular_intensity_sum',
+                'Green Nuclear Intensity': 'nucleus_intensity_sum',
+                'Cytoplasmic Intensity': 'cytoplasmic_intensity',
+                'Biorientation': 'biorientation',
+            };
+
+            const ids = Object.keys(statistics || {})
+                .map((k) => Number(k))
+                .filter((n) => !Number.isNaN(n))
+                .sort((a, b) => a - b);
+            const totalCells = Number(numberOfCells) || 0;
+            if (totalCells > 0) {
+                const idSet = new Set(ids);
+                for (let i = 1; i <= totalCells; i += 1) {
+                    if (!idSet.has(i)) {
+                        ids.push(i);
+                    }
+                }
+                ids.sort((a, b) => a - b);
+            }
+
+            tbody.innerHTML = '';
+            for (const id of ids) {
+                const rowStats = statistics[String(id)] || null;
+                const tr = document.createElement('tr');
+                for (const header of headers) {
+                    const td = document.createElement('td');
+                    const key = keyMap[header];
+                    if (!key) {
+                        td.textContent = 'N/A';
+                    } else if (key === 'cell_id') {
+                        td.textContent = String(id);
+                    } else if (nuclearCellularFields.has(key) && hasNoNucleusContour(rowStats)) {
+                        td.textContent = 'N/A';
+                    } else {
+                        td.textContent = formatStatValue(rowStats ? rowStats[key] : null);
+                    }
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            return ids.length;
+        }
+
+        function updateTableState(fileUUID, fileData) {
+            const exportButtons = document.querySelector('.export-buttons');
+            let note = document.getElementById('table-empty-note');
+            if (!note) {
+                note = document.createElement('div');
+                note.id = 'table-empty-note';
+                note.className = 'message info';
+                note.style.marginTop = '10px';
+                const tableSection = document.querySelector('.table-section');
+                if (tableSection) {
+                    tableSection.insertBefore(note, exportButtons || null);
+                }
+            }
+
+            renderStatisticsTable(
+                fileData.Statistics || {},
+                Number(fileData.NumberOfCells || 0),
+            );
+
+            if (fileData.NoCellsWarning) {
+                note.textContent = fileData.NoCellsWarning;
+                note.style.display = 'block';
+            } else {
+                note.style.display = 'none';
+            }
+
+            if (exportButtons) {
+                const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
+                exportButtons.style.display = hasRows ? 'flex' : 'none';
+                const csvBtn = document.getElementById('downloadCsvBtn');
+                const xlsxBtn = document.getElementById('downloadXlsxBtn');
+                if (csvBtn) {
+                    csvBtn.href = `/dashboard/?file_uuid=${encodeURIComponent(fileUUID)}&_export=csv`;
+                }
+                if (xlsxBtn) {
+                    xlsxBtn.href = `/dashboard/?file_uuid=${encodeURIComponent(fileUUID)}&_export=xlsx`;
+                }
+            }
+        }
+
+        function updateCellImages(cellPairImages, statistics) {
+            const safeCellPairImages = cellPairImages || {};
+            const safeStatistics = statistics || {};
+            const imageUrls = safeCellPairImages[currentCellNumber] || safeCellPairImages[String(currentCellNumber)];
+            if (!imageUrls) {
+                document.getElementById("cellImage1").src = noCellPlaceholder;
+                document.getElementById("cellImage2").src = noCellPlaceholder;
+                document.getElementById("cellImage3").src = noCellPlaceholder;
+                document.getElementById("cellImage4").src = noCellPlaceholder;
+                document.getElementById("cellID").textContent = maxCells > 0 ? currentCellNumber : 0;
+                document.getElementById("distance").textContent = "N/A";
+                document.getElementById("lineGFPIntensity").textContent = "N/A";
+                document.getElementById("greenredIntensity1").textContent = "N/A";
+                document.getElementById("greenredIntensity2").textContent = "N/A";
+                document.getElementById("greenredIntensity3").textContent = "N/A";
+                document.getElementById("nucleusIntensitySum").textContent = "N/A";
+                document.getElementById("cellularIntensitySum").textContent = "N/A";
+                document.getElementById("cytoplasmicIntensity").textContent = "N/A";
+                document.getElementById("gfpDot").textContent = "N/A";
+                document.getElementById("biorientation").textContent = "N/A";
+                document.getElementById("nucleusIntensityLabel").textContent = "Measured Nuclear Intensity";
+                document.getElementById("cellularIntensityLabel").textContent = "Measured Cellular Intensity";
+                document.getElementById("nucleusContourChannel").textContent = "N/A";
+                document.getElementById("measurementChannel").textContent = "N/A";
+                document.getElementById("nuclearStatus").textContent = "N/A";
+                return;
+            }
+
+            document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
+            document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
+            document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
+            document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
+            document.getElementById("cellID").textContent = currentCellNumber;
+
+            const cellStats = safeStatistics[currentCellNumber] || safeStatistics[String(currentCellNumber)] || null;
+            const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
+            const categoryIndex = cellStats ? Number(cellStats.category_GFP_dot) - 1 : -1;
+            const category = categoryIndex >= 0 && categoryIndex < categories.length
+                ? categories[categoryIndex]
+                : 'N/A';
+            const nuclearUnavailable = hasNoNucleusContour(cellStats);
+            document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
+            document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
+            document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
+            document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
+            document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";
+            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.nucleus_intensity_sum;
+            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cellular_intensity_sum;
+            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cytoplasmic_intensity;
+            document.getElementById("gfpDot").textContent = category;
+            document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
+            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            const labels = getNuclearLabelPair(mode);
+            document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
+            document.getElementById("cellularIntensityLabel").textContent = labels.cellular;
+            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour;
+            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement;
+            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cellular_status || "unknown") : "N/A";
+        }
+
+        function nextFile() {
+            currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
+            loadFile(currentFileIndex);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
+        }
+
+        function previousFile() {
+            currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
+            loadFile(currentFileIndex);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
+        }
+
+        function nextCell() {
+            if (maxCells < 1) {
+                return;
+            }
+            currentCellNumber = (currentCellNumber % maxCells) + 1;
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
+        }
+
+        function previousCell() {
+            if (maxCells < 1) {
+                return;
+            }
+            currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            toggleContourOverlays();
+            document.getElementById('toggleContours').checked = true;
+        }
+
+        let contourToggleBound = false;
+        function toggleContourOverlays() {
+            if (contourToggleBound) {
+                return;
+            }
+            const toggleElement = document.getElementById('toggleContours');
+            if (!toggleElement) {
+                return;
+            }
+            contourToggleBound = true;
+            toggleElement.addEventListener('change', function() {
+                const fileData = filesData[fileUUIDs[currentFileIndex]];
+                if (!fileData) {
+                    return;
+                }
+                const pairImages = fileData.CellPairImages || {};
+                const imageUrls = pairImages[currentCellNumber] || pairImages[String(currentCellNumber)];
+                if (!imageUrls) {
+                    return;
+                }
+                if (!this.checked) {
+                    document.getElementById("cellImage1").src = imageUrls[1] || noCellPlaceholder;
+                    document.getElementById("cellImage2").src = imageUrls[3] || noCellPlaceholder;
+                    document.getElementById("cellImage3").src = imageUrls[5] || noCellPlaceholder;
+                    document.getElementById("cellImage4").src = imageUrls[7] || noCellPlaceholder;
+                } else {
+                    document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
+                    document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
+                    document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
+                    document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
+                }
+            });
+        }
+
+        // Sidebar elements
+        const sidebar = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('toggleSidebarBtn');
+        const fileItems = document.querySelectorAll('.file-item[data-index]');
+        const channelButtons = document.querySelectorAll('.cell-label[data-channel]');
+
+        // Highlight active
+        function updateSidebarActive() {
+            fileItems.forEach(i => i.classList.remove('active'));
+            const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
+            if (active) active.classList.add('active');
+        }
+        updateSidebarActive();
+
+        // Click file
+        fileItems.forEach(item => {
+            item.addEventListener('click', () => {
+                if (sidebar.classList.contains('select-mode')) {
+                    return;
+                }
+                const idx = parseInt(item.dataset.index, 10);
+                currentFileIndex = idx;  // keep your globals in sync
+                loadFile(idx);           // call the correct function
+            });
+        });
+
+        const previousFileBtn = document.getElementById('previousFileBtn');
+        const nextFileBtn = document.getElementById('nextFileBtn');
+        const previousCellBtn = document.getElementById('previousCellBtn');
+        const nextCellBtn = document.getElementById('nextCellBtn');
+        if (previousFileBtn) previousFileBtn.addEventListener('click', previousFile);
+        if (nextFileBtn) nextFileBtn.addEventListener('click', nextFile);
+        if (previousCellBtn) previousCellBtn.addEventListener('click', previousCell);
+        if (nextCellBtn) nextCellBtn.addEventListener('click', nextCell);
+
+        // Toggle sidebar
+        toggleBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            sidebar.classList.toggle('collapsed');
+        });
+
+        // ALSO expand when collapsed sidebar area is clicked
+        sidebar.addEventListener('click', e => {
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+            }
+        });
+
+        // Main channel switching (async, no page reload)
+        channelButtons.forEach((btn) => {
+            btn.addEventListener('click', (event) => {
+                event.preventDefault();
+                const channel = btn.dataset.channel;
+                if (!channel) return;
+                switchMainChannel(channel);
+            });
+        });
+
+        const statsTablePanel = document.getElementById('statsTablePanel');
+        const tableFullscreenBtn = document.getElementById('tableFullscreenBtn');
+        let wasTableFullscreen = false;
+
+        function playTableExitFade() {
+            if (!statsTablePanel) return;
+            statsTablePanel.classList.remove('fullscreen-exit-anim');
+            // force reflow so rapid re-entry replays animation
+            void statsTablePanel.offsetWidth;
+            statsTablePanel.classList.add('fullscreen-exit-anim');
+            window.setTimeout(() => {
+                if (statsTablePanel) {
+                    statsTablePanel.classList.remove('fullscreen-exit-anim');
+                }
+            }, 320);
+        }
+
+        function syncTableFullscreenState() {
+            if (!tableFullscreenBtn || !statsTablePanel) return;
+            const active = document.fullscreenElement === statsTablePanel;
+            if (!active && wasTableFullscreen) {
+                playTableExitFade();
+            }
+            tableFullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Enter Fullscreen';
+            tableFullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            wasTableFullscreen = active;
+        }
+
+        async function toggleTableFullscreen() {
+            if (!statsTablePanel) return;
+            if (document.fullscreenElement === statsTablePanel) {
+                await document.exitFullscreen();
+            } else {
+                await statsTablePanel.requestFullscreen();
+            }
+        }
+
+        if (tableFullscreenBtn && statsTablePanel) {
+            tableFullscreenBtn.addEventListener('click', async () => {
+                try {
+                    await toggleTableFullscreen();
+                } catch (err) {
+                    showChannelError('Fullscreen is not available in this browser context.');
+                }
+            });
+            document.addEventListener('fullscreenchange', syncTableFullscreenState);
+            syncTableFullscreenState();
+        }
+    </script>
+
+    <script>
+        // Sidebar drag & drop
+        // CSRF helper
+        function getCookie(name) {
+            let val = null;
+            document.cookie.split(';').forEach(c => {
+                c = c.trim();
+                if (c.startsWith(name + '=')) {
+                    val = decodeURIComponent(c.slice(name.length + 1));
+                }
+            });
+            return val;
+        }
+    </script>
+
+    <script>
+        // Row-popup deletion is intentionally disabled on dashboard.
+    </script>
+
+    <!-- Sidebar Code -->
+    <script>
+        (function () {
+        function setSidebarScrollHeight() {
+            var sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            var header  = sidebar.querySelector('.sidebar-header');
+            var content = sidebar.querySelector('.sidebar-content');
+            if (!content) return;
+
+            // Sidebar height now equals the flex row height (which can exceed the viewport)
+            var sidebarH = sidebar.getBoundingClientRect().height;
+
+            var headerH = header ? header.getBoundingClientRect().height : 0;
+            var hs = header ? getComputedStyle(header) : null;
+            var headerMargins = hs ? (parseFloat(hs.marginTop)||0) + (parseFloat(hs.marginBottom)||0) : 0;
+
+            var cs = getComputedStyle(content);
+            var contentVPad = (parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0);
+
+            var maxH = Math.max(0, sidebarH - headerH - headerMargins - contentVPad);
+            content.style.maxHeight = maxH + 'px';
+            content.style.overflowY = 'auto';
+            content.style.minHeight  = '0';
+        }
+
+        window.addEventListener('load', function () {
+            requestAnimationFrame(setSidebarScrollHeight);
+            setTimeout(setSidebarScrollHeight, 0);
+        });
+        window.addEventListener('resize', setSidebarScrollHeight);
+
+        var sidebarEl = document.getElementById('sidebar');
+        if (sidebarEl) {
+            sidebarEl.addEventListener('transitionend', function (e) {
+            if (e.propertyName === 'width') setSidebarScrollHeight();
+            });
+        }
+
+        if ('ResizeObserver' in window) {
+            var main = document.querySelector('.main-content');
+            if (main) new ResizeObserver(setSidebarScrollHeight).observe(main);
+        }
+        })();
+    </script>
+
+    <script>
+        (() => {
+            const sidebar = document.getElementById('sidebar');
+            const fileItems = Array.from(document.querySelectorAll('.file-item[data-uuid]'));
+            const fileUUIDs = fileItems.map((item) => item.dataset.uuid).filter(Boolean);
+            const selectModeBtn = document.getElementById('selectModeBtn');
+            const selectAllBtn = document.getElementById('selectAllBtn');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
+            const deleteBackdrop = document.getElementById('deleteFilesBackdrop');
+            const deleteMessage = document.getElementById('deleteFilesMessage');
+            const deleteList = document.getElementById('deleteFilesList');
+            const cancelDeleteFilesBtn = document.getElementById('cancelDeleteFilesBtn');
+            const confirmDeleteFilesBtn = document.getElementById('confirmDeleteFilesBtn');
+
+            if (!sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn || !channelVisibilityBtn) {
+                return;
+            }
+
+            const selectedFileUUIDs = new Set();
+            let selectModeActive = false;
+            const csrfToken = getCookie('csrftoken');
+            let channelLabelFadeTimer = null;
+
+            function getCookie(name) {
+                let value = null;
+                document.cookie.split(';').forEach((cookie) => {
+                    const item = cookie.trim();
+                    if (item.startsWith(`${name}=`)) {
+                        value = decodeURIComponent(item.slice(name.length + 1));
+                    }
+                });
+                return value;
+            }
+
+            function showMessage(message) {
+                let container = document.querySelector('.message-container.channel-switch');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.className = 'message-container channel-switch';
+                    container.style.top = 'calc(var(--nav-height) + 8px)';
+                    document.body.appendChild(container);
+                }
+                const msg = document.createElement('div');
+                msg.className = 'message';
+                msg.textContent = message;
+                const close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'message-close';
+                close.innerHTML = '&times;';
+                close.addEventListener('click', () => msg.remove());
+                msg.appendChild(close);
+                container.appendChild(msg);
+                setTimeout(() => msg.remove(), 7000);
+            }
+
+            function syncSelectionUI() {
+                fileItems.forEach((item) => item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid)));
+                deleteSelectedBtn.disabled = selectedFileUUIDs.size === 0;
+            }
+
+            function setSelectMode(enabled) {
+                selectModeActive = enabled;
+                sidebar.classList.toggle('select-mode', enabled);
+                selectModeBtn.classList.toggle('active', enabled);
+                selectModeBtn.textContent = enabled ? 'Done' : 'Select';
+                if (!enabled) {
+                    selectedFileUUIDs.clear();
+                }
+                syncSelectionUI();
+            }
+
+            function toggleSelectAll() {
+                if (selectedFileUUIDs.size === fileUUIDs.length) {
+                    selectedFileUUIDs.clear();
+                } else {
+                    fileUUIDs.forEach((uuid) => selectedFileUUIDs.add(uuid));
+                }
+                syncSelectionUI();
+            }
+
+            function applyChannelVisibility(visible, persist) {
+                sidebar.classList.toggle('channels-hidden', !visible);
+                channelVisibilityBtn.classList.add('label-fade');
+                if (channelLabelFadeTimer) {
+                    window.clearTimeout(channelLabelFadeTimer);
+                }
+                channelVisibilityBtn.textContent = visible ? 'Hide Channels' : 'Show Channels';
+                channelLabelFadeTimer = window.setTimeout(() => {
+                    channelVisibilityBtn.classList.remove('label-fade');
+                    channelLabelFadeTimer = null;
+                }, 170);
+                if (persist) {
+                    fetch('/dashboard/preferences/channels/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ show_saved_file_channels: visible }),
+                    }).catch(() => null);
+                }
+            }
+
+            function closeDeleteModal() {
+                if (!deleteBackdrop) return;
+                deleteBackdrop.style.display = 'none';
+                deleteBackdrop.setAttribute('aria-hidden', 'true');
+            }
+
+            function openDeleteModal() {
+                if (!deleteBackdrop || !deleteMessage || !deleteList) return;
+                const selected = fileUUIDs.filter((uuid) => selectedFileUUIDs.has(uuid)).map((uuid) => {
+                    const row = fileItems.find((item) => item.dataset.uuid === uuid);
+                    const title = row ? row.querySelector('.file-title') : null;
+                    return title ? title.textContent.trim() : uuid;
+                });
+                if (!selected.length) return;
+                deleteMessage.textContent = selected.length === fileUUIDs.length
+                    ? 'Are you sure you want to delete all your saved files?'
+                    : 'Are you sure you want to delete the selected files?';
+                deleteList.innerHTML = '';
+                selected.forEach((name) => {
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    deleteList.appendChild(li);
+                });
+                deleteBackdrop.style.display = 'flex';
+                deleteBackdrop.setAttribute('aria-hidden', 'false');
+            }
+
+            async function deleteSelectedFiles() {
+                const uuids = Array.from(selectedFileUUIDs);
+                if (!uuids.length) return;
+                confirmDeleteFilesBtn.disabled = true;
+                try {
+                    const response = await fetch('/dashboard/files/delete/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ uuids }),
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.error || 'Delete failed');
+                    }
+                    window.location.reload();
+                } catch (err) {
+                    showMessage(err.message || 'Unable to delete selected files.');
+                    confirmDeleteFilesBtn.disabled = false;
+                    closeDeleteModal();
+                }
+            }
+
+            selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
+            selectAllBtn.addEventListener('click', toggleSelectAll);
+            deleteSelectedBtn.addEventListener('click', openDeleteModal);
+            channelVisibilityBtn.addEventListener('click', () => {
+                applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
+            });
+
+            fileItems.forEach((item) => {
+                const uuid = item.dataset.uuid;
+                const checkbox = item.querySelector('.file-select-check');
+                if (checkbox && uuid) {
+                    checkbox.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!selectModeActive) return;
+                        if (selectedFileUUIDs.has(uuid)) {
+                            selectedFileUUIDs.delete(uuid);
+                        } else {
+                            selectedFileUUIDs.add(uuid);
+                        }
+                        syncSelectionUI();
+                    });
+                }
+                item.addEventListener('click', () => {
+                    if (!selectModeActive || !uuid) return;
+                    if (selectedFileUUIDs.has(uuid)) {
+                        selectedFileUUIDs.delete(uuid);
+                    } else {
+                        selectedFileUUIDs.add(uuid);
+                    }
+                    syncSelectionUI();
+                });
+            });
+
+            if (cancelDeleteFilesBtn) cancelDeleteFilesBtn.addEventListener('click', closeDeleteModal);
+            if (confirmDeleteFilesBtn) confirmDeleteFilesBtn.addEventListener('click', deleteSelectedFiles);
+            if (deleteBackdrop) {
+                deleteBackdrop.addEventListener('click', (event) => {
+                    if (event.target === deleteBackdrop) closeDeleteModal();
+                });
+            }
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && deleteBackdrop && deleteBackdrop.style.display === 'flex') {
+                    closeDeleteModal();
+                }
+            });
+
+            applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
+            syncSelectionUI();
+        })();
+    </script>
+
+{% endblock content %}

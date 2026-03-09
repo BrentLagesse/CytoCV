@@ -27,6 +27,7 @@ from ..stats_plugins import (
     normalize_selected_plugins,
 )
 import uuid as uuid_lib
+from accounts.preferences import get_user_preferences
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
 
@@ -103,7 +104,14 @@ def _current_owner_filter(request) -> dict:
     return {"user_id": get_guest_user()}
 
 
-def _upload_view_context(*, form, progress_key, error=None, restored_queue_items=None):
+def _upload_view_context(
+    *,
+    form,
+    progress_key,
+    error=None,
+    restored_queue_items=None,
+    user_preference_defaults=None,
+):
     """Build template context for the upload page."""
 
     context = {
@@ -111,6 +119,7 @@ def _upload_view_context(*, form, progress_key, error=None, restored_queue_items
         "progress_key": progress_key,
         "stats_plugin_payload_json": json.dumps(build_plugin_ui_payload()),
         "restored_queue_payload_json": json.dumps(restored_queue_items or []),
+        "user_preference_defaults_json": json.dumps(user_preference_defaults or {}),
     }
     if error:
         context["error"] = error
@@ -128,6 +137,7 @@ def upload_images(request):
     progress_key = request.session.session_key
     owner_filter = _current_owner_filter(request)
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
+    user_preferences = get_user_preferences(request.user)
 
     if request.method == "POST":
         print("POST request received")
@@ -146,6 +156,7 @@ def upload_images(request):
                     form=UploadImageForm(),
                     progress_key=progress_key,
                     error='No files received.',
+                    user_preference_defaults=user_preferences.get("experiment_defaults", {}),
                 ),
             )
 
@@ -295,6 +306,7 @@ def upload_images(request):
         error_lines = build_dv_error_messages(validation_failures, validation_options)
         preprocess_url = None
         if image_uuids:
+            request.session["last_experiment_uuids"] = image_uuids
             preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
 
         # Case 3: no valid files
@@ -346,6 +358,7 @@ def upload_images(request):
             form=form,
             progress_key=progress_key,
             restored_queue_items=restored_queue_items if request.method != "POST" else None,
+            user_preference_defaults=user_preferences.get("experiment_defaults", {}),
         ),
     )
 

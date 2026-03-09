@@ -480,7 +480,7 @@
             <div class="nav-right">
                 {% if user.is_authenticated %}
                     <div class="account-menu" id="accountMenu">
-                        <a href="{% url 'profile' %}" class="account-link">Account</a>
+                        <a href="{% url 'dashboard' %}" class="account-link">Account</a>
                         <button
                             type="button"
                             class="account-toggle"
@@ -506,8 +506,10 @@
                                 </span>
                                 <span class="account-email">{{ user.email }}</span>
                             </div>
-                            <a href="{% url 'profile' %}" class="account-action" role="menuitem">Profile</a>
-                            <a href="{% url 'profile' %}" class="account-action" role="menuitem">Settings</a>
+                            <a href="{% url 'account_settings' %}" class="account-action" role="menuitem">Account</a>
+                            <a href="{% url 'dashboard' %}" class="account-action" role="menuitem">Dashboard</a>
+                            <a href="{% url 'image_upload' %}" class="account-action" role="menuitem">Experiment</a>
+                            <a href="{% url 'preferences' %}" class="account-action" role="menuitem">Workflow Defaults</a>
                             <div class="account-divider" aria-hidden="true"></div>
                             <a href="/logout/" id="logoutLink" class="account-action account-signout" role="menuitem">Sign Out</a>
                         </div>

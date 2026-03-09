@@ -317,7 +317,7 @@ if ACCOUNT_EMAIL_VERIFICATION not in {"none", "optional", "mandatory"}:
     )
 
 LOGIN_URL = "signin"
-LOGIN_REDIRECT_URL = "profile"
+LOGIN_REDIRECT_URL = "dashboard"
 
 # Login rate limiting
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 15

@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<style>
+body{margin:0;font-family:var(--app-font);background:var(--page-bg);color:var(--text);padding:calc(var(--nav-height) + 18px) 12px 16px}
+.layout{width:100%;max-width:1160px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:12px;min-height:calc(100dvh - var(--nav-height) - 34px)}
+.nav,.main{background:var(--card-bg);border:1px solid var(--panel-border);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,.3)}
+.nav{padding:12px;display:grid;gap:8px;align-content:start}.nav p{margin:4px 6px 8px;color:var(--muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.nav button{width:100%;text-align:left;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text);padding:10px 12px;cursor:pointer;font-size:14px}
+.nav button.active{background:var(--surface-muted);border-color:var(--panel-border)}
+.main{padding:18px}.panel[hidden]{display:none!important}.panel{display:grid;gap:14px}
+main.main>section.panel{gap:0}
+main.main>section.panel>.hdr{margin-bottom:14px}
+.panel.fade-enter{animation:panelFadeIn .24s ease both}
+@keyframes panelFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.hdr{display:grid;gap:8px;align-content:start}
+.hdr h1{margin:0;font-size:24px;line-height:1.15}
+.hdr p{margin:0;color:var(--muted);font-size:14px}
+.card{border:1px solid var(--panel-border);border-radius:12px;background:var(--surface-muted);padding:12px;display:grid;gap:10px}.card h2{margin:0;font-size:16px}
+.channel-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.channel-pill{border:1px solid var(--panel-border);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;transition:border-color .2s ease,background-color .2s ease,box-shadow .2s ease,opacity .18s ease}
+.channel-pill.required{border-color:#2a8a50;background:rgba(47,143,78,.14)}
+.channel-pill-left{display:grid;gap:2px;align-content:start}
+.channel-pill-name{font-weight:700;line-height:1.1}
+.channel-pill-meta{font-size:11px;color:var(--muted);line-height:1.2}
+.channel-pill-state{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.02em;text-align:right;white-space:nowrap;opacity:1;transform:translateX(0);transition:color .2s ease,opacity .22s ease,transform .22s ease}
+.channel-pill.required .channel-pill-state{color:#d7ffe4}
+.channel-pill.status-changing{opacity:.56}
+.channel-pill-state.state-enter{opacity:0;transform:translateX(12px)}
+.plugins{display:grid;gap:8px}
+.plugin{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);padding:10px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.plugin-main{display:grid;gap:4px;min-width:0}
+.plugin p{margin:0}.desc{margin-top:4px;color:var(--muted);font-size:12px}.reqtxt{margin-top:5px;color:#c7d2ff;font-size:11px}
+.plugin-inline{opacity:0;max-height:0;overflow:hidden;pointer-events:none;margin-top:0;padding:0;display:grid;gap:8px;transition:opacity .2s ease,max-height .24s ease,margin-top .2s ease}
+.plugin-inline.is-active{opacity:1;max-height:180px;margin-top:6px;padding:0;pointer-events:auto}
+.plugin-measure-line{display:flex;align-items:center;gap:8px;min-width:0}
+.plugin-measure-line>label{font-size:11px;color:#cfcfcf;line-height:1.2}
+.plugin-measure-right{margin-left:6px}
+.length-input-group,.boxed-number-group,.mode-select-group{display:inline-flex;align-items:center;border:1px solid var(--panel-border);border-radius:8px;background:var(--surface-input);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);transition:border-color .2s ease,box-shadow .2s ease}
+.length-input-group:focus-within,.boxed-number-group:focus-within,.mode-select-group:focus-within{border-color:rgba(86,147,220,.75);box-shadow:inset 0 0 0 1px rgba(86,147,220,.32)}
+.length-input-group input[type="number"],.boxed-number-group input[type="number"]{width:74px;height:30px;border:none;background:transparent;color:#fff;padding:4px 8px;outline:none;color-scheme:dark}
+.length-input-group select,.mode-select-group select{height:30px;border:none;background:transparent;color:#efefef;padding:4px 8px;font-size:11px;font-weight:600;font-family:var(--app-font);outline:none}
+.length-input-group select{border-left:1px solid var(--panel-border)}
+.legacy{font-size:10px;color:#f2d1a0;border:1px solid #6a5a3c;border-radius:999px;padding:1px 6px;margin-left:6px}
+.row{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);padding:10px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.row.locked{border-color:#2a8a50;background:rgba(47,143,78,.14)}.row p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.field{display:grid;gap:6px}.field label{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.field input,.field select{height:38px;border-radius:8px;border:1px solid var(--panel-border);background:var(--surface-input);color:var(--text);padding:8px 10px}
+.save{justify-self:start;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.save-right{justify-self:end}
+.sw{position:relative;display:inline-block;width:44px;height:24px;flex:0 0 auto}.sw input{opacity:0;width:0;height:0}
+.sl{position:absolute;inset:0;border-radius:999px;background:var(--surface-toggle-off)}.sl:before{content:"";position:absolute;width:20px;height:20px;left:2px;top:2px;border-radius:50%;background:#f3f3f3;transition:transform .2s}
+.sw input:checked+.sl{background:#2f8f4e}.sw input:checked+.sl:before{transform:translateX(20px)}.sw input:disabled+.sl{opacity:.65}
+.confirm-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:2200}
+.confirm{width:min(420px,92vw);border-radius:14px;border:1px solid var(--panel-border);background:var(--card-bg);padding:18px;display:grid;gap:10px}
+.confirm h3,.confirm p{margin:0}.confirm p{color:var(--muted);font-size:13px}.confirm ul{margin:0;padding-left:18px;max-height:120px;overflow:auto}
+.confirm-actions{display:flex;justify-content:flex-end;gap:10px}.confirm-actions button{border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer}
+.confirm-actions .cancel{background:var(--accent);color:#fff}.confirm-actions .ok{background:#6a6a6a;color:#fff}
+@media (max-width:920px){.layout{grid-template-columns:1fr}.channel-summary{grid-template-columns:1fr}}
+</style>
+{% endblock head %}
+
+{% block content %}
+<div class="layout soft-fade-in">
+  <aside class="nav">
+    <p>Workflow Defaults</p>
+    <button class="active" data-sec="plugins">Plugin Settings</button>
+    <button data-sec="advanced">Advanced Settings</button>
+    <button data-sec="saving">Preferences</button>
+  </aside>
+  <main class="main">
+    <section class="panel" id="sec-plugins">
+      <div class="hdr"><h1>Plugin Settings</h1><p>Choose defaults for new experiment workflows.</p></div>
+      <form method="post" class="panel" id="pluginForm">{% csrf_token %}<input type="hidden" name="action" value="save_plugin_defaults">
+        <div class="card"><h2>Required Channels</h2><div class="channel-summary">
+          {% for channel in channels %}
+          <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="plugins">
+            <div class="channel-pill-left">
+              <span class="channel-pill-name">{{ channel }}</span>
+              <span class="channel-pill-meta">
+                {% if channel == 'DIC' %}
+                  Brightfield morphology reference
+                {% elif channel == 'DAPI' %}
+                  Nucleus contour reference channel
+                {% elif channel == 'mCherry' %}
+                  Red fluorescence signal channel
+                {% elif channel == 'GFP' %}
+                  Green fluorescence signal channel
+                {% else %}
+                  Channel data used in analysis
+                {% endif %}
+              </span>
+            </div>
+            <span class="channel-pill-state">
+              {% if channel == 'DIC' %}
+                Always required
+              {% elif channel in required_channels_by_plugins %}
+                Required by stats
+              {% else %}
+                Optional
+              {% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div></div>
+        <div class="card"><h2>Plugin Defaults</h2><div class="plugins">
+          {% for plugin in plugins %}
+          <div class="plugin">
+            <div class="plugin-main">
+              <p><strong>{{ plugin.label }}</strong>{% if plugin.is_legacy %}<span class="legacy">Legacy</span>{% endif %}</p>
+              <p class="desc">{{ plugin.description }}</p>
+              <p class="reqtxt">Requires: {{ plugin.required_channels|join:", " }}</p>
+              {% if plugin.id == 'MCherryLine' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="MCherryLine" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+                <div class="plugin-measure-line">
+                  <label for="mcherry_width">mCherry line width:</label>
+                  <div class="length-input-group plugin-measure-right">
+                    <input type="number" step="0.01" min="0" id="mcherry_width" name="mcherry_width" value="{{ preferences.experiment_defaults.mcherry_width }}">
+                    <select id="mcherry_width_unit" name="mcherry_width_unit"><option value="px" {% if preferences.experiment_defaults.mcherry_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.mcherry_width_unit == 'um' %}selected{% endif %}>um</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <label for="microns_per_pixel">Micrometers per pixel:</label>
+                  <div class="boxed-number-group plugin-measure-right">
+                    <input type="number" min="0.0001" step="0.0001" id="microns_per_pixel" name="microns_per_pixel" value="{{ preferences.experiment_defaults.microns_per_pixel }}">
+                  </div>
+                </div>
+              </div>
+              {% elif plugin.id == 'GFPDot' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="GFPDot" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+                <div class="plugin-measure-line">
+                  <label for="gfp_distance">Minimum signal distance:</label>
+                  <div class="length-input-group plugin-measure-right">
+                    <input type="number" step="0.01" min="0" id="gfp_distance" name="gfp_distance" value="{{ preferences.experiment_defaults.gfp_distance }}">
+                    <select id="gfp_distance_unit" name="gfp_distance_unit"><option value="px" {% if preferences.experiment_defaults.gfp_distance_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.gfp_distance_unit == 'um' %}selected{% endif %}>um</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <label for="gfp_threshold">Biorientation collinearity threshold:</label>
+                  <div class="boxed-number-group plugin-measure-right">
+                    <input type="number" min="0" id="gfp_threshold" name="gfp_threshold" value="{{ preferences.experiment_defaults.gfp_threshold }}">
+                  </div>
+                </div>
+              </div>
+              {% elif plugin.id == 'NuclearCellularIntensity' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="NuclearCellularIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+                <div class="plugin-measure-line">
+                  <label for="nuclear_cellular_mode">Nucleus contour source:</label>
+                  <div class="mode-select-group plugin-measure-right">
+                    <select id="nuclear_cellular_mode" name="nuclear_cellular_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cellular_mode == 'green_nucleus' %}selected{% endif %}>Green nucleus (measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cellular_mode == 'red_nucleus' %}selected{% endif %}>Red nucleus (measure Green)</option></select>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            <label class="sw"><input type="checkbox" class="plugin-toggle" name="selected_plugins" value="{{ plugin.id }}" data-plugin="{{ plugin.id }}" {% if plugin.checked %}checked{% endif %}><span class="sl"></span></label>
+          </div>
+          {% endfor %}
+        </div></div>
+        <button class="save save-right" type="submit">Save Plugin Settings</button>
+      </form>
+    </section>
+
+    <section class="panel" id="sec-advanced" hidden>
+      <div class="hdr"><h1>Advanced Settings</h1><p>Configure optional validation enforcement and measurement defaults.</p></div>
+      <form method="post" class="panel" id="advancedForm">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div>
+        <div class="card"><h2>Required Channels</h2><div class="channel-summary">
+          {% for channel in channels %}
+          <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins or channel in preferences.experiment_defaults.manual_required_channels %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="advanced">
+            <div class="channel-pill-left">
+              <span class="channel-pill-name">{{ channel }}</span>
+              <span class="channel-pill-meta">
+                {% if channel == 'DIC' %}
+                  Brightfield morphology reference
+                {% elif channel == 'DAPI' %}
+                  Nucleus contour reference channel
+                {% elif channel == 'mCherry' %}
+                  Red fluorescence signal channel
+                {% elif channel == 'GFP' %}
+                  Green fluorescence signal channel
+                {% else %}
+                  Channel data used in analysis
+                {% endif %}
+              </span>
+            </div>
+            <span class="channel-pill-state">
+              {% if channel == 'DIC' %}
+                Always required
+              {% elif channel in required_channels_by_plugins %}
+                Required by stats
+              {% elif channel in preferences.experiment_defaults.manual_required_channels %}
+                Required manually
+              {% else %}
+                Optional
+              {% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div></div>
+        <div class="card"><h2>Validation Enforcement</h2>
+          <div class="row"><div><label for="module_enabled">Enable analysis validation module</label><p>Turns optional metadata checks on by default.</p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="enforce_layer_count">Enforce expected layer count</label></div><label class="sw"><input type="checkbox" id="enforce_layer_count" name="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="enforce_wavelengths">Enforce required wavelengths</label></div><label class="sw"><input type="checkbox" id="enforce_wavelengths" name="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="show_legacy_plugins">Show legacy plugins by default</label></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="gfp_filter_enabled">Enable GFP minimum-size filter</label></div><label class="sw"><input type="checkbox" id="gfp_filter_enabled" name="gfp_filter_enabled" {% if preferences.experiment_defaults.gfp_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+        </div>
+        <div class="card"><h2>Channel Requirements</h2>
+          {% for channel in channels %}
+          <div class="row{% if channel == 'DIC' %} locked{% endif %}" data-ch-row="{{ channel }}">
+            <div><label for="manual_{{ channel }}">Require {{ channel }} wavelength</label><p data-ch-help="{{ channel }}">{% if channel == 'DIC' %}Always required for segmentation.{% else %}Optional.{% endif %}</p></div>
+            <label class="sw"><input type="checkbox" id="manual_{{ channel }}" class="channel-toggle" name="manual_required_channels" value="{{ channel }}" data-channel="{{ channel }}" {% if channel == 'DIC' or channel in preferences.experiment_defaults.manual_required_channels %}checked{% endif %} {% if channel == 'DIC' %}disabled{% endif %}><span class="sl"></span></label>
+          </div>
+          {% endfor %}
+        </div>
+        <button class="save save-right" type="submit">Save Advanced Settings</button>
+      </form>
+    </section>
+
+    <section class="panel" id="sec-saving" hidden>
+      <div class="hdr"><h1>Preferences</h1><p>Control autosave and dashboard sidebar display defaults.</p></div>
+      <form method="post" class="panel">{% csrf_token %}<input type="hidden" name="action" value="save_behavior">
+        <div class="card">
+          <div class="row"><div><label for="auto_save_experiments">Auto-save experiment files to account</label><p>When off, new experiment runs are excluded from dashboard history.</p></div><label class="sw"><input type="checkbox" id="auto_save_experiments" name="auto_save_experiments" {% if preferences.auto_save_experiments %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="show_saved_file_channels">Show channel tags in dashboard sidebar</label><p>Controls whether DIC/DAPI/mCherry/GFP tags are shown under each saved file.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
+        </div>
+        <button class="save save-right" type="submit">Save Preferences</button>
+      </form>
+    </section>
+  </main>
+</div>
+
+<div class="confirm-back" id="confirmBack" aria-hidden="true">
+  <div class="confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h3 id="confirmTitle">Channel requirement conflict</h3>
+    <p id="confirmMsg"></p>
+    <ul id="confirmPlugins"></ul>
+    <div class="confirm-actions"><button type="button" class="cancel" id="confirmCancel">Cancel</button><button type="button" class="ok" id="confirmOk">Confirm</button></div>
+  </div>
+</div>
+
+<script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
+<script>
+(() => {
+  const navButtons = [...document.querySelectorAll('.nav button')];
+  const sections = {
+    plugins: document.getElementById('sec-plugins'),
+    advanced: document.getElementById('sec-advanced'),
+    saving: document.getElementById('sec-saving'),
+  };
+  const showSection = (id) => {
+    navButtons.forEach((button) => button.classList.toggle('active', button.dataset.sec === id));
+    Object.entries(sections).forEach(([name, panel]) => {
+      if (!panel) return;
+      const isActive = name === id;
+      panel.hidden = !isActive;
+      if (isActive) {
+        panel.classList.remove('fade-enter');
+        requestAnimationFrame(() => panel.classList.add('fade-enter'));
+      } else {
+        panel.classList.remove('fade-enter');
+      }
+    });
+  };
+  navButtons.forEach((button) => {
+    button.addEventListener('click', () => showSection(button.dataset.sec));
+  });
+  showSection('plugins');
+
+  let payload = {};
+  try {
+    payload = JSON.parse(document.getElementById('pluginDependencyPayload').textContent || '{}');
+  } catch (err) {
+    payload = {};
+  }
+  const pluginMap = new Map((payload.plugins || []).map((plugin) => [plugin.id, plugin]));
+  const alwaysRequired = new Set(payload.always_required_channels || []);
+  const pluginToggles = [...document.querySelectorAll('.plugin-toggle')];
+  const channelToggles = [...document.querySelectorAll('.channel-toggle')];
+  const selectedPlugins = new Set(
+    pluginToggles.filter((toggle) => toggle.checked).map((toggle) => toggle.value)
+  );
+  const overrideBox = document.getElementById('overrideChannels');
+  const overrides = new Set(
+    [...(overrideBox ? overrideBox.querySelectorAll('input[name=\"override_required_channels\"]') : [])]
+      .map((input) => input.value)
+      .filter((value) => value)
+  );
+
+  const confirmBack = document.getElementById('confirmBack');
+  const confirmMsg = document.getElementById('confirmMsg');
+  const confirmPlugins = document.getElementById('confirmPlugins');
+  const confirmCancel = document.getElementById('confirmCancel');
+  const confirmOk = document.getElementById('confirmOk');
+  let pending = null;
+
+  const pluginDependents = (channel) => {
+    return [...selectedPlugins].filter((pluginId) => {
+      const plugin = pluginMap.get(pluginId);
+      return plugin && Array.isArray(plugin.required_channels) && plugin.required_channels.includes(channel);
+    });
+  };
+
+  const requiredByStatsChannels = () => {
+    const required = new Set(alwaysRequired);
+    selectedPlugins.forEach((pluginId) => {
+      const plugin = pluginMap.get(pluginId);
+      if (!plugin || !Array.isArray(plugin.required_channels)) return;
+      plugin.required_channels.forEach((channel) => required.add(channel));
+    });
+    overrides.forEach((channel) => required.delete(channel));
+    alwaysRequired.forEach((channel) => required.add(channel));
+    return required;
+  };
+
+  const syncPluginToggles = () => {
+    pluginToggles.forEach((toggle) => {
+      toggle.checked = selectedPlugins.has(toggle.value);
+    });
+  };
+
+  const syncOverrideInputs = () => {
+    if (!overrideBox) return;
+    overrideBox.innerHTML = '';
+    overrides.forEach((channel) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'override_required_channels';
+      input.value = channel;
+      overrideBox.appendChild(input);
+    });
+  };
+
+  const syncPluginInlineSettings = () => {
+    [...document.querySelectorAll('[data-plugin-inline]')].forEach((panel) => {
+      const pluginId = panel.dataset.pluginInline;
+      const toggle = pluginToggles.find((item) => item.value === pluginId);
+      const isActive = !!(toggle && toggle.checked);
+      panel.classList.toggle('is-active', isActive);
+      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+  };
+
+  const syncChannelSummary = (statsRequired) => {
+    const manualRequired = new Set(
+      channelToggles
+        .filter((toggle) => toggle.checked)
+        .map((toggle) => toggle.dataset.channel)
+        .filter((channel) => channel)
+    );
+    [...document.querySelectorAll('[data-req-row][data-summary-scope]')].forEach((row) => {
+      const channel = row.dataset.reqRow;
+      const scope = row.dataset.summaryScope;
+      const statusEl = row.querySelector('.channel-pill-state');
+      const wasRequired = row.classList.contains('required');
+      const previousLabel = statusEl ? statusEl.textContent.trim() : '';
+      let label = 'Optional';
+      let required = false;
+      if (alwaysRequired.has(channel)) {
+        label = 'Always required';
+        required = true;
+      } else if (statsRequired.has(channel)) {
+        label = 'Required by stats';
+        required = true;
+      } else if (scope === 'advanced' && manualRequired.has(channel)) {
+        label = 'Required manually';
+        required = true;
+      }
+      const changed = wasRequired !== required || previousLabel !== label;
+      if (changed) row.classList.add('status-changing');
+      row.classList.toggle('required', required);
+      if (statusEl) {
+        if (changed) {
+          statusEl.classList.add('state-enter');
+          void statusEl.offsetWidth;
+          statusEl.textContent = label;
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => statusEl.classList.remove('state-enter'));
+          });
+        } else {
+          statusEl.textContent = label;
+        }
+      }
+      if (changed) {
+        window.setTimeout(() => row.classList.remove('status-changing'), 190);
+      }
+    });
+  };
+
+  const syncRows = () => {
+    const statsRequired = requiredByStatsChannels();
+    channelToggles.forEach((toggle) => {
+      const channel = toggle.dataset.channel;
+      if (!channel) return;
+      const row = document.querySelector(`[data-ch-row=\"${channel}\"]`);
+      const help = document.querySelector(`[data-ch-help=\"${channel}\"]`);
+
+      if (alwaysRequired.has(channel)) {
+        toggle.checked = true;
+        toggle.disabled = true;
+        if (row) row.classList.add('locked');
+        if (help) help.textContent = 'Always required for segmentation.';
+        return;
+      }
+
+      const requiredByStats = statsRequired.has(channel);
+      if (requiredByStats) {
+        toggle.checked = true;
+        if (row) row.classList.add('locked');
+        if (help) help.textContent = 'Required because selected statistical plugins need this channel.';
+      } else {
+        if (row) row.classList.remove('locked');
+        if (help) help.textContent = toggle.checked ? 'Optional enforcement enabled.' : 'Optional.';
+      }
+    });
+    syncOverrideInputs();
+    syncChannelSummary(statsRequired);
+    syncPluginInlineSettings();
+  };
+
+  const closeConfirm = () => {
+    pending = null;
+    if (!confirmBack) return;
+    confirmBack.style.display = 'none';
+    confirmBack.setAttribute('aria-hidden', 'true');
+  };
+
+  const openConfirm = (channel, deps) => {
+    pending = { channel, deps };
+    if (!confirmBack || !confirmMsg || !confirmPlugins) return;
+    confirmMsg.textContent = `Are you sure you want to untoggle ${channel}? These selected statistics require it.`;
+    confirmPlugins.innerHTML = '';
+    deps.map((id) => pluginMap.get(id)?.label || id).forEach((label) => {
+      const li = document.createElement('li');
+      li.textContent = label;
+      confirmPlugins.appendChild(li);
+    });
+    confirmBack.style.display = 'flex';
+    confirmBack.setAttribute('aria-hidden', 'false');
+  };
+
+  pluginToggles.forEach((toggle) => {
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) {
+        selectedPlugins.add(toggle.value);
+        const plugin = pluginMap.get(toggle.value);
+        if (plugin && Array.isArray(plugin.required_channels)) {
+          plugin.required_channels.forEach((channel) => overrides.delete(channel));
+        }
+      } else {
+        selectedPlugins.delete(toggle.value);
+      }
+      syncPluginToggles();
+      syncRows();
+    });
+  });
+
+  channelToggles.forEach((toggle) => {
+    toggle.addEventListener('change', () => {
+      const channel = toggle.dataset.channel;
+      if (!channel || alwaysRequired.has(channel)) {
+        toggle.checked = true;
+        return;
+      }
+      if (!toggle.checked) {
+        const deps = pluginDependents(channel);
+        if (deps.length) {
+          toggle.checked = true;
+          openConfirm(channel, deps);
+          return;
+        }
+      }
+      overrides.delete(channel);
+      syncRows();
+    });
+  });
+
+  if (confirmCancel) {
+    confirmCancel.addEventListener('click', () => {
+      closeConfirm();
+      syncRows();
+    });
+  }
+  if (confirmOk) {
+    confirmOk.addEventListener('click', () => {
+      if (!pending) return;
+      pending.deps.forEach((pluginId) => selectedPlugins.delete(pluginId));
+      overrides.add(pending.channel);
+      syncPluginToggles();
+      const toggle = document.querySelector(`.channel-toggle[data-channel=\"${pending.channel}\"]`);
+      if (toggle) toggle.checked = false;
+      closeConfirm();
+      syncRows();
+    });
+  }
+
+  if (confirmBack) {
+    confirmBack.addEventListener('click', (event) => {
+      if (event.target === confirmBack) {
+        closeConfirm();
+        syncRows();
+      }
+    });
+  }
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && confirmBack && confirmBack.style.display === 'flex') {
+      closeConfirm();
+      syncRows();
+    }
+  });
+
+  syncPluginToggles();
+  syncRows();
+})();
+</script>
+{% endblock content %}

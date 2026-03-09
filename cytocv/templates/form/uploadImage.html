@@ -1482,6 +1482,7 @@
 
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
+<script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -1515,6 +1516,7 @@
     const selectedFiles = new Map();
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
+    const serverPreferenceDefaultsElement = document.getElementById('serverPreferenceDefaults');
     let restoredQueueItems = [];
     try {
         const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
@@ -1559,6 +1561,15 @@
     const gfpDistanceUnitKey = 'cytocv.gfp_distance_unit.v1';
     const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v1';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
+    let serverPreferenceDefaults = {};
+    try {
+        const defaultsRaw = serverPreferenceDefaultsElement
+            ? serverPreferenceDefaultsElement.textContent
+            : '{}';
+        serverPreferenceDefaults = JSON.parse(defaultsRaw || '{}');
+    } catch (err) {
+        serverPreferenceDefaults = {};
+    }
 
     const statsState = {
         selectedPlugins: new Set(),
@@ -1590,6 +1601,56 @@
     let nuclearModeRow = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
+
+    function applyServerPreferenceDefaults() {
+        if (!serverPreferenceDefaults || typeof serverPreferenceDefaults !== 'object') {
+            return;
+        }
+
+        const selectedPlugins = Array.isArray(serverPreferenceDefaults.selected_plugins)
+            ? serverPreferenceDefaults.selected_plugins.filter((pluginId) => pluginMap.has(pluginId))
+            : [];
+        localStorage.setItem(selectionKey, JSON.stringify(selectedPlugins));
+        localStorage.setItem(initializedKey, '1');
+
+        const manualChannels = Array.isArray(serverPreferenceDefaults.manual_required_channels)
+            ? serverPreferenceDefaults.manual_required_channels.filter((channel) => channelOrder.includes(channel))
+            : [];
+        const advancedPayload = {
+            moduleEnabled: !!serverPreferenceDefaults.module_enabled,
+            enforceLayerCount: !!serverPreferenceDefaults.enforce_layer_count,
+            enforceAllWavelengths: !!serverPreferenceDefaults.enforce_wavelengths,
+            showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
+            manualRequiredChannels: manualChannels,
+            gfpFilterEnabled: !!serverPreferenceDefaults.gfp_filter_enabled,
+        };
+        localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
+
+        const widthUnit = (serverPreferenceDefaults.mcherry_width_unit === 'um') ? 'um' : 'px';
+        const distanceUnit = (serverPreferenceDefaults.gfp_distance_unit === 'um') ? 'um' : 'px';
+        localStorage.setItem(mCherryWidthUnitKey, widthUnit);
+        localStorage.setItem(gfpDistanceUnitKey, distanceUnit);
+        localStorage.setItem(legacyLengthUnitKey, widthUnit === distanceUnit ? widthUnit : 'mixed');
+
+        const width = Number(serverPreferenceDefaults.mcherry_width);
+        const distance = Number(serverPreferenceDefaults.gfp_distance);
+        const threshold = Number(serverPreferenceDefaults.gfp_threshold);
+        const micronsPerPixel = Number(serverPreferenceDefaults.microns_per_pixel);
+        localStorage.setItem(widthKey, Number.isFinite(width) ? String(width) : '1');
+        localStorage.setItem(distanceKey, Number.isFinite(distance) ? String(distance) : '37');
+        localStorage.setItem(thresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
+        localStorage.setItem(
+            micronsPerPixelKey,
+            Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
+                ? String(micronsPerPixel)
+                : String(DEFAULT_MICRONS_PER_PIXEL)
+        );
+
+        const nuclearMode = serverPreferenceDefaults.nuclear_cellular_mode === 'red_nucleus'
+            ? 'red_nucleus'
+            : 'green_nucleus';
+        localStorage.setItem(nuclearModeKey, nuclearMode);
+    }
 
     function getQueuedCount() {
         return selectedFiles.size + restoredQueueItems.length;
@@ -1660,6 +1721,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        applyServerPreferenceDefaults();
         infoTooltipElement = document.getElementById('statsInfoTooltip');
         document.querySelectorAll('.advanced-info-dot').forEach((el) => {
             attachInfoTooltipBehavior(el);
@@ -3235,11 +3297,19 @@
                 attemptCloseModal();
             }
         });
+
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('open_settings') === 'advanced') {
+            openModal();
+            showAdvanced(false);
+            url.searchParams.delete('open_settings');
+            window.history.replaceState({}, '', url.toString());
+        }
     }
 
     function setupNavExitGuard() {
         const navLinks = document.querySelectorAll(
-            '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile"]'
+            '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile/"], .navbar a[href="/settings/"], .navbar a[href="/dashboard/"], .navbar a[href="/preferences/"]'
         );
         const pageBackButton = document.getElementById('pageBackButton');
         const backdrop = document.getElementById('navExitBackdrop');

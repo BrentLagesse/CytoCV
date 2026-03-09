@@ -19,7 +19,17 @@ from django.contrib.auth.decorators import login_required
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 
-from accounts.views import auth_login, auth_logout, profile_view, signup
+from accounts.views import (
+    account_settings_view,
+    auth_login,
+    auth_logout,
+    dashboard_bulk_delete_view,
+    dashboard_channel_visibility_view,
+    dashboard_view,
+    preferences_view,
+    profile_view,
+    signup,
+)
 from core.views import (
     convert_to_image,
     display,
@@ -57,6 +67,19 @@ urlpatterns = [
     path('logout/', auth_logout, name="logout"),
     path('signup/', signup, name="signup"),
     path('profile/', login_required(profile_view), name="profile"),
+    path('settings/', login_required(account_settings_view), name="account_settings"),
+    path('dashboard/', login_required(dashboard_view), name="dashboard"),
+    path(
+        'dashboard/files/delete/',
+        login_required(dashboard_bulk_delete_view),
+        name="dashboard_bulk_delete",
+    ),
+    path(
+        'dashboard/preferences/channels/',
+        login_required(dashboard_channel_visibility_view),
+        name="dashboard_channel_visibility",
+    ),
+    path('preferences/', login_required(preferences_view), name="preferences"),
     path('image/upload/', login_required(upload_images), name="image_upload"),
     path('image/preprocess/', login_required(pre_process_step), name="pre_process_step"),
     path('image/preprocess/<str:uuids>/', login_required(pre_process_step), name="pre_process_step"),

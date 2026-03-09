@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<style>
+    body {
+        margin: 0;
+        font-family: var(--app-font);
+        background-color: var(--page-bg);
+        color: var(--text);
+        padding: calc(var(--nav-height) + 18px) 14px 20px;
+    }
+    .settings-shell {
+        width: min(760px, 100%);
+        margin: 0 auto;
+        background: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        padding: 20px;
+        display: grid;
+        gap: 16px;
+    }
+    .settings-header h1 {
+        margin: 0;
+        font-size: 24px;
+    }
+    .settings-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .profile-grid {
+        display: grid;
+        gap: 12px;
+    }
+    .profile-row {
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        background: var(--surface-muted);
+        padding: 12px;
+        display: grid;
+        gap: 4px;
+    }
+    .row-label {
+        margin: 0;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 11px;
+    }
+    .row-value {
+        margin: 0;
+        font-size: 15px;
+        word-break: break-word;
+    }
+    .danger-zone {
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        background: rgba(160, 36, 36, 0.12);
+        border-radius: 14px;
+        padding: 14px;
+        display: grid;
+        gap: 10px;
+    }
+    .danger-zone h2 {
+        margin: 0;
+        font-size: 18px;
+    }
+    .danger-zone p {
+        margin: 0;
+        color: #f9b8b8;
+        font-size: 13px;
+        line-height: 1.35;
+    }
+    .delete-account-btn {
+        justify-self: start;
+        background: #b4232f;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .delete-account-btn:hover {
+        background: #911b25;
+    }
+    .delete-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2100;
+    }
+    .delete-modal {
+        width: min(460px, 92vw);
+        background: var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        display: grid;
+        gap: 12px;
+    }
+    .delete-modal h3 {
+        margin: 0;
+        font-size: 18px;
+    }
+    .delete-modal p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+    }
+    .field {
+        display: grid;
+        gap: 6px;
+    }
+    .field-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 18px;
+    }
+    .field label {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .field-error {
+        margin: 0;
+        color: #f28b82;
+        font-size: 12px;
+        text-align: right;
+    }
+    .field input {
+        width: 100%;
+        height: 44px;
+        border-radius: 10px;
+        border: 1px solid var(--panel-border);
+        background: var(--surface-muted-alt);
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    .field input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+    }
+    .field.has-error input {
+        border-color: #ff4d4f;
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.25);
+    }
+    .field.has-error {
+        animation: fieldShake 0.18s ease-in-out 2;
+    }
+    @keyframes fieldShake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-2px); }
+        50% { transform: translateX(2px); }
+        75% { transform: translateX(-2px); }
+        100% { transform: translateX(0); }
+    }
+    .delete-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    .delete-modal-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+    }
+    .delete-modal-btn.cancel {
+        background: var(--surface-muted-alt);
+        border: 1px solid var(--panel-border);
+        color: #fff;
+    }
+    .delete-modal-btn.cancel:hover {
+        background: var(--surface-hover-strong);
+    }
+    .delete-modal-btn.confirm {
+        background: #b4232f;
+        color: #fff;
+    }
+    .delete-modal-btn.confirm:hover {
+        background: #911b25;
+    }
+</style>
+{% endblock head %}
+
+{% block content %}
+<div class="settings-shell soft-fade-in">
+    <div class="settings-header">
+        <h1>Account Settings</h1>
+        <p>Manage your account profile and security options.</p>
+    </div>
+
+    <div class="profile-grid">
+        <div class="profile-row">
+            <p class="row-label">Name</p>
+            <p class="row-value">{{ account_name }}</p>
+        </div>
+        <div class="profile-row">
+            <p class="row-label">Email</p>
+            <p class="row-value">{{ email }}</p>
+        </div>
+    </div>
+
+    <div class="danger-zone">
+        <h2>Delete your account</h2>
+        <p>
+            Deleting your account permanently removes your user profile and experiment data.
+        </p>
+        <button type="button" class="delete-account-btn" id="openDeleteAccountModal">
+            Delete your account
+        </button>
+    </div>
+</div>
+
+<div class="delete-modal-backdrop" id="deleteAccountBackdrop" aria-hidden="true">
+    <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+        <h3 id="deleteAccountTitle">Confirm account deletion</h3>
+        <p>Are you sure? This action cannot be undone.</p>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_account">
+            <div class="field{% if delete_error %} has-error{% endif %}">
+                <div class="field-header">
+                    <label for="confirmDeleteEmail">Enter your email address</label>
+                    {% if delete_error %}
+                        <span class="field-error">{{ delete_error }}</span>
+                    {% endif %}
+                </div>
+                <input
+                    type="email"
+                    id="confirmDeleteEmail"
+                    name="confirm_email"
+                    autocomplete="off"
+                    aria-required="true"
+                    {% if delete_error %}aria-invalid="true"{% endif %}
+                >
+            </div>
+            <div class="delete-modal-actions">
+                <button type="button" class="delete-modal-btn cancel" id="cancelDeleteAccount">Cancel</button>
+                <button type="submit" class="delete-modal-btn confirm">Confirm Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (() => {
+        const backdrop = document.getElementById('deleteAccountBackdrop');
+        const openButton = document.getElementById('openDeleteAccountModal');
+        const cancelButton = document.getElementById('cancelDeleteAccount');
+        const emailInput = document.getElementById('confirmDeleteEmail');
+        if (!backdrop || !openButton || !cancelButton || !emailInput) {
+            return;
+        }
+
+        const openModal = () => {
+            backdrop.style.display = 'flex';
+            backdrop.setAttribute('aria-hidden', 'false');
+            window.setTimeout(() => {
+                emailInput.focus();
+            }, 0);
+        };
+        const closeModal = () => {
+            backdrop.style.display = 'none';
+            backdrop.setAttribute('aria-hidden', 'true');
+            emailInput.value = '';
+        };
+
+        openButton.addEventListener('click', openModal);
+        cancelButton.addEventListener('click', closeModal);
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && backdrop.style.display === 'flex') {
+                closeModal();
+            }
+        });
+
+        {% if open_delete_modal %}
+            openModal();
+            emailInput.value = '';
+        {% endif %}
+    })();
+</script>
+{% endblock content %}

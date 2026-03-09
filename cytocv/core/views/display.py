@@ -1,14 +1,13 @@
-from core.models import UploadedImage, SegmentedImage, CellStatistics
+from core.models import UploadedImage, SegmentedImage, CellStatistics, get_guest_user
 from core.tables import CellTable
 from django.shortcuts import render
 from pathlib import Path
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 import json
-from django.contrib.auth import get_user_model
-import os
+import math
+import re
 from django.http import HttpResponse, JsonResponse
 from core.config import get_channel_config_for_uuid
-from django_tables2.config import RequestConfig
 from django_tables2.export.export import TableExport
 
 
@@ -20,6 +19,55 @@ def _resolve_nuclear_cellular_mode(stats_iterable):
         if mode in {"green_nucleus", "red_nucleus"}:
             modes.add(mode)
     return modes.pop() if len(modes) == 1 else None
+
+
+def _sanitize_for_json(value):
+    """Convert nested values to strict JSON-safe equivalents."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(key): _sanitize_for_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_sanitize_for_json(item) for item in value]
+    return value
+
+
+def _scan_output_frames(uuid: str):
+    output_dir = Path(MEDIA_ROOT) / str(uuid) / "output"
+    frames = {}
+    if not output_dir.exists():
+        return frames
+    frame_pattern = re.compile(r"^.+_frame_(\d+)\.png$")
+    for path in output_dir.glob("*_frame_*.png"):
+        match = frame_pattern.match(path.name)
+        if not match:
+            continue
+        frame_idx = int(match.group(1))
+        frames[frame_idx] = f"{MEDIA_URL}{uuid}/output/{path.name}"
+    return frames
+
+
+def _current_transient_uuid_set(request):
+    return {
+        str(value)
+        for value in request.session.get("transient_experiment_uuids", [])
+        if str(value)
+    }
+
+
+def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
+    if request.user.is_authenticated:
+        if uploaded_image.user_id != request.user.id:
+            return False
+        if segmented_image.user_id == request.user.id:
+            return True
+        return (
+            segmented_image.user_id == get_guest_user()
+            and str(uploaded_image.uuid) in _current_transient_uuid_set(request)
+        )
+
+    guest_id = get_guest_user()
+    return uploaded_image.user_id == guest_id and segmented_image.user_id == guest_id
 
 
 def display_cell(request, uuids):
@@ -53,6 +101,9 @@ def display_cell(request, uuids):
         try:
             # Get the uploaded image details, including the file name
             uploaded_image = UploadedImage.objects.get(uuid=uuid)
+            cell_image = SegmentedImage.objects.get(UUID=uuid)
+            if not _can_access_display_uuid(request, uploaded_image, cell_image):
+                return HttpResponse('Unauthorized', status=401)
             image_name = uploaded_image.name
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
@@ -84,18 +135,6 @@ def display_cell(request, uuids):
                     image_index = 2
             image_file_name = image_name_stem + "_frame_" + str(image_index)
             full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
-
-            # Get the segmented image details
-            cell_image = SegmentedImage.objects.get(UUID=uuid)
-
-            if ((cell_image.user_id != request.user.id and request.user.id) or  # this is not your image OR
-                    (not request.user.id and cell_image.user_id != get_user_model().objects.get(
-                        email='guest@local.invalid').id)):  # you viewing your guest image
-                print(cell_image.user_id)
-                print(request.user.id)
-                return HttpResponse('Unauthorized', status=401)
-
-            channel_config = get_channel_config_for_uuid(uuid)
 
             # Build the images for each cell based on the dynamic channel configuration
             images = {}
@@ -216,7 +255,7 @@ def display_cell(request, uuids):
         cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
 
     # Convert the files_data to JSON to be used in the template
-    json_files_data = json.dumps(all_files_data)
+    json_files_data = json.dumps(_sanitize_for_json(all_files_data), allow_nan=False)
 
     return render(request, "display_cell.html", {
         'files_data': json_files_data,  # Pass all file data to the template
@@ -232,13 +271,19 @@ def main_image_channel(request, uuid):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     channel = (request.GET.get('channel') or '').strip().lower()
-    channel_map = {
+    channel_to_config_key = {
+        'mcherry': 'mCherry',
+        'gfp': 'GFP',
+        'dapi': 'DAPI',
+        'dic': 'DIC',
+    }
+    fallback_frame_map = {
         'mcherry': 0,
         'gfp': 1,
         'dapi': 2,
         'dic': 3,
     }
-    if channel not in channel_map:
+    if channel not in channel_to_config_key:
         return JsonResponse({'error': 'Unknown channel'}, status=400)
 
     try:
@@ -251,15 +296,25 @@ def main_image_channel(request, uuid):
     except SegmentedImage.DoesNotExist:
         return JsonResponse({'error': 'Segmented image not found'}, status=404)
 
-    if ((cell_image.user_id != request.user.id and request.user.id) or
-            (not request.user.id and cell_image.user_id != get_user_model().objects.get(
-                email='guest@local.invalid').id)):
+    if not _can_access_display_uuid(request, uploaded_image, cell_image):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
-    image_name_stem = Path(uploaded_image.name).stem
-    image_index = channel_map[channel]
-    image_file_name = f"{image_name_stem}_frame_{image_index}"
-    full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+    channel_config = get_channel_config_for_uuid(str(uuid))
+    configured_frame_idx = channel_config.get(
+        channel_to_config_key[channel],
+        fallback_frame_map[channel],
+    )
+    available_frames = _scan_output_frames(str(uuid))
+    full_outlined = available_frames.get(configured_frame_idx)
+    if not full_outlined:
+        full_outlined = available_frames.get(fallback_frame_map[channel])
+    if not full_outlined and available_frames:
+        first_idx = sorted(available_frames.keys())[0]
+        full_outlined = available_frames[first_idx]
+    if not full_outlined:
+        image_name_stem = Path(uploaded_image.name).stem
+        image_file_name = f"{image_name_stem}_frame_{fallback_frame_map[channel]}"
+        full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
 
     return JsonResponse({
         'image_url': full_outlined,
