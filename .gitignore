@@ -11,7 +11,8 @@ cytocv_venv/
 deepretina_final.h5
 
 # Migrations and cache
-cytocv/core/migrations/
+cytocv/core/migrations/*
+!cytocv/core/migrations/0007_uploadedimage_scale_info.py
 cytocv/accounts/migrations/
 cytocv/cache/
 cytocv/media/

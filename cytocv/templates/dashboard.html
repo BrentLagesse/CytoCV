@@ -531,6 +531,11 @@
             gap: 8px;
             margin: 0 12px 8px;
         }
+        .visibility-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
         .sidebar.collapsed .sidebar-header h2,
         .sidebar.collapsed .sidebar-actions,
         .sidebar.collapsed .sidebar-content {
@@ -560,7 +565,8 @@
         .select-mode-btn,
         .select-all-btn,
         .delete-selected-btn,
-        .channel-visibility-btn {
+        .channel-visibility-btn,
+        .scale-visibility-btn {
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             color: #fff;
@@ -573,7 +579,8 @@
             white-space: nowrap;
             transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
         }
-        .channel-visibility-btn.label-fade { opacity: 0.62; }
+        .channel-visibility-btn.label-fade,
+        .scale-visibility-btn.label-fade { opacity: 0.62; }
         .select-mode-btn.active {
             background: var(--accent);
             border-color: var(--accent);
@@ -614,6 +621,11 @@
             flex-wrap: wrap;
             font-size: 11px;
             color: #c6d7ea;
+            opacity: 1;
+            max-height: 80px;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
         }
         .file-item.active .file-scale-line {
             color: #e5f0ff;
@@ -637,6 +649,11 @@
             font-size: 10px;
             color: #f3c978;
             line-height: 1.3;
+            opacity: 1;
+            max-height: 48px;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
         }
         .file-item.active .file-scale-note {
             color: #ffe2a8;
@@ -674,6 +691,14 @@
             opacity: 1;
         }
         .sidebar.channels-hidden .channel-bar {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            pointer-events: none;
+            transform: translateY(-2px);
+        }
+        .sidebar.scales-hidden .file-scale-line,
+        .sidebar.scales-hidden .file-scale-note {
             opacity: 0;
             max-height: 0;
             margin-top: 0;
@@ -816,7 +841,7 @@
 
     <div class="page-container soft-fade-in">
         <!-- SIDEBAR -->
-        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}" id="sidebar">
+        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
             <div class="sidebar-header">
                 <h2>Saved Files</h2>
                 <button class="toggle-btn" id="toggleSidebarBtn"></button>
@@ -829,9 +854,14 @@
                         <button class="delete-selected-btn" id="deleteSelectedBtn" type="button" disabled>Delete</button>
                     </div>
                 </div>
-                <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
-                    {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
-                </button>
+                <div class="visibility-controls">
+                    <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
+                        {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
+                    </button>
+                    <button class="scale-visibility-btn" id="toggleScaleVisibilityBtn" type="button">
+                        {% if show_saved_file_scales %}Hide Scale{% else %}Show Scale{% endif %}
+                    </button>
+                </div>
             </div>
             <div class="sidebar-content">
                 <ul id="fileList">
@@ -1641,13 +1671,14 @@
             const selectAllBtn = document.getElementById('selectAllBtn');
             const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
             const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
+            const scaleVisibilityBtn = document.getElementById('toggleScaleVisibilityBtn');
             const deleteBackdrop = document.getElementById('deleteFilesBackdrop');
             const deleteMessage = document.getElementById('deleteFilesMessage');
             const deleteList = document.getElementById('deleteFilesList');
             const cancelDeleteFilesBtn = document.getElementById('cancelDeleteFilesBtn');
             const confirmDeleteFilesBtn = document.getElementById('confirmDeleteFilesBtn');
 
-            if (!sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn || !channelVisibilityBtn) {
+            if (!sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn || !channelVisibilityBtn || !scaleVisibilityBtn) {
                 return;
             }
 
@@ -1655,6 +1686,7 @@
             let selectModeActive = false;
             const csrfToken = getCookie('csrftoken');
             let channelLabelFadeTimer = null;
+            let scaleLabelFadeTimer = null;
 
             function getCookie(name) {
                 let value = null;
@@ -1737,6 +1769,30 @@
                 }
             }
 
+            function applyScaleVisibility(visible, persist) {
+                sidebar.classList.toggle('scales-hidden', !visible);
+                scaleVisibilityBtn.classList.add('label-fade');
+                if (scaleLabelFadeTimer) {
+                    window.clearTimeout(scaleLabelFadeTimer);
+                }
+                scaleVisibilityBtn.textContent = visible ? 'Hide Scale' : 'Show Scale';
+                scaleLabelFadeTimer = window.setTimeout(() => {
+                    scaleVisibilityBtn.classList.remove('label-fade');
+                    scaleLabelFadeTimer = null;
+                }, 170);
+                if (persist) {
+                    fetch('/dashboard/preferences/channels/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ show_saved_file_scales: visible }),
+                    }).catch(() => null);
+                }
+            }
+
             function closeDeleteModal() {
                 if (!deleteBackdrop) return;
                 deleteBackdrop.style.display = 'none';
@@ -1796,6 +1852,9 @@
             channelVisibilityBtn.addEventListener('click', () => {
                 applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
             });
+            scaleVisibilityBtn.addEventListener('click', () => {
+                applyScaleVisibility(sidebar.classList.contains('scales-hidden'), true);
+            });
 
             fileItems.forEach((item) => {
                 const uuid = item.dataset.uuid;
@@ -1838,6 +1897,7 @@
             });
 
             applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
+            applyScaleVisibility(!sidebar.classList.contains('scales-hidden'), false);
             syncSelectionUI();
         })();
     </script>

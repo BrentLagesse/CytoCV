@@ -43,6 +43,8 @@ class PreferenceNormalizationTests(TestCase):
         )
         self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
         self.assertTrue(defaults["use_metadata_scale"])
+        self.assertTrue(normalized["show_saved_file_channels"])
+        self.assertTrue(normalized["show_saved_file_scales"])
 
     def test_normalize_preferences_filters_invalid_values(self):
         normalized = normalize_preferences_payload(
@@ -63,6 +65,7 @@ class PreferenceNormalizationTests(TestCase):
                     "use_metadata_scale": "off",
                 },
                 "auto_save_experiments": "off",
+                "show_saved_file_scales": "off",
             }
         )
 
@@ -79,6 +82,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
+        self.assertFalse(normalized["show_saved_file_scales"])
 
 
 class AccountAreaAccessTests(TestCase):
@@ -810,6 +814,32 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'class="sidebar channels-hidden"')
         self.assertContains(response, "Show Channels")
 
+    def test_display_view_respects_scale_visibility_preference(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="scale_visibility_saved",
+        )
+        prefs = get_user_preferences(self.user)
+        prefs["show_saved_file_scales"] = False
+        update_user_preferences(self.user, prefs)
+
+        response = self.client.get(reverse("display", args=[saved_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="sidebar scales-hidden"')
+        self.assertContains(response, "Show Scale")
+
+    def test_preprocess_view_respects_scale_visibility_preference(self):
+        preprocess_uuid = self._create_preprocess_file(filename="scale_visibility_preprocess")
+        prefs = get_user_preferences(self.user)
+        prefs["show_saved_file_scales"] = False
+        update_user_preferences(self.user, prefs)
+
+        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="sidebar scales-hidden"')
+        self.assertContains(response, "Show Scale")
+
     def test_preprocess_post_rejects_tampered_scale_uuid_map(self):
         preprocess_uuid = self._create_preprocess_file(filename="tamper_preprocess")
         outside_uuid = self._create_preprocess_file(filename="outside_preprocess")
@@ -916,6 +946,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_dashboard_scale_visibility_requires_boolean(self):
+        response = self.client.post(
+            reverse("dashboard_channel_visibility"),
+            data=json.dumps({"show_saved_file_scales": "yes"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_dashboard_channel_visibility_persists_user_preference(self):
         response = self.client.post(
             reverse("dashboard_channel_visibility"),
@@ -925,6 +963,16 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
+
+    def test_dashboard_scale_visibility_persists_user_preference(self):
+        response = self.client.post(
+            reverse("dashboard_channel_visibility"),
+            data=json.dumps({"show_saved_file_scales": False}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
 
     def test_behavior_form_persists_channel_visibility_toggle(self):
         response = self.client.post(
@@ -937,6 +985,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
+        self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
 
     def test_behavior_form_disables_auto_save_when_toggle_is_off(self):
         response = self.client.post(
@@ -957,6 +1006,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         preferences = get_user_preferences(self.user)
         self.assertFalse(preferences["auto_save_experiments"])
         self.assertTrue(preferences["show_saved_file_channels"])
+        self.assertFalse(preferences["show_saved_file_scales"])
         self.assertFalse(should_auto_save_experiments(self.user))
 
     def test_behavior_form_enables_auto_save_when_toggle_is_on(self):
@@ -971,6 +1021,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "action": "save_behavior",
                 "auto_save_experiments": "on",
                 "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
             },
             follow=True,
         )
@@ -984,6 +1035,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         preferences = get_user_preferences(self.user)
         self.assertTrue(preferences["auto_save_experiments"])
         self.assertTrue(preferences["show_saved_file_channels"])
+        self.assertTrue(preferences["show_saved_file_scales"])
         self.assertTrue(should_auto_save_experiments(self.user))
 
     def test_new_user_has_default_selected_plugins(self):

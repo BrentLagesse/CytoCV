@@ -169,6 +169,7 @@ def pre_process_step(request, uuids):
     total_files = len(uuid_list)
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -390,6 +391,7 @@ def pre_process_step(request, uuids):
         'uuids': uuids,
         'file_list': file_list,
         'show_saved_file_channels': show_saved_file_channels,
+        'show_saved_file_scales': show_saved_file_scales,
         'has_selected_stats': bool(request.session.get('selected_analysis', [])),
         'file_scale_map_json': json.dumps(
             {

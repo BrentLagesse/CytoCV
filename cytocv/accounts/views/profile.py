@@ -387,6 +387,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     }
     preferences = get_user_preferences(user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -570,6 +571,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "total_storage_gb": total_storage / (1024 * 1024 * 1024),
         "storage_percentage": used_percentage,
         "show_saved_file_channels": show_saved_file_channels,
+        "show_saved_file_scales": show_saved_file_scales,
     }
 
 
@@ -719,18 +721,46 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid request payload."}, status=400)
+
+    has_channels = "show_saved_file_channels" in payload
+    has_scales = "show_saved_file_scales" in payload
+    if not has_channels and not has_scales:
+        return JsonResponse(
+            {"error": "At least one visibility flag is required."},
+            status=400,
+        )
+
     show_saved_file_channels = payload.get("show_saved_file_channels")
-    if not isinstance(show_saved_file_channels, bool):
+    if has_channels and not isinstance(show_saved_file_channels, bool):
         return JsonResponse(
             {"error": "show_saved_file_channels must be a boolean."},
             status=400,
         )
 
+    show_saved_file_scales = payload.get("show_saved_file_scales")
+    if has_scales and not isinstance(show_saved_file_scales, bool):
+        return JsonResponse(
+            {"error": "show_saved_file_scales must be a boolean."},
+            status=400,
+        )
+
     current = get_user_preferences(request.user)
     next_payload = dict(current)
-    next_payload["show_saved_file_channels"] = show_saved_file_channels
-    update_user_preferences(request.user, next_payload)
-    return JsonResponse({"show_saved_file_channels": show_saved_file_channels})
+    if has_channels:
+        next_payload["show_saved_file_channels"] = show_saved_file_channels
+    if has_scales:
+        next_payload["show_saved_file_scales"] = show_saved_file_scales
+    updated = update_user_preferences(request.user, next_payload)
+    return JsonResponse(
+        {
+            "show_saved_file_channels": bool(
+                updated.get("show_saved_file_channels", True)
+            ),
+            "show_saved_file_scales": bool(
+                updated.get("show_saved_file_scales", True)
+            ),
+        }
+    )
 
 
 @login_required
@@ -861,6 +891,10 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             next_payload["show_saved_file_channels"] = _post_bool(
                 request,
                 "show_saved_file_channels",
+            )
+            next_payload["show_saved_file_scales"] = _post_bool(
+                request,
+                "show_saved_file_scales",
             )
             preferences = update_user_preferences(request.user, next_payload)
             if should_auto_save_experiments(request.user):

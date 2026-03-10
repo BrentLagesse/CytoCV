@@ -308,6 +308,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
         <div class="card">
           <div class="row"><div><label for="auto_save_experiments">Auto-save experiment files to account</label><p>When off, new experiment runs are excluded from dashboard history.</p></div><label class="sw"><input type="checkbox" id="auto_save_experiments" name="auto_save_experiments" {% if preferences.auto_save_experiments %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div><label for="show_saved_file_channels">Show channel tags in dashboard sidebar</label><p>Controls whether DIC/DAPI/mCherry/GFP tags are shown under each saved file.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="show_saved_file_scales">Show scale details in file sidebars</label><p>Controls whether per-file scale details are shown on dashboard, preprocess, and display sidebars.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_scales" name="show_saved_file_scales" {% if preferences.show_saved_file_scales %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
         <button class="save save-right" type="submit">Save Preferences</button>
       </form>

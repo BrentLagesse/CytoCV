@@ -164,6 +164,7 @@ def display_cell(request, uuids):
 
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -342,6 +343,7 @@ def display_cell(request, uuids):
         'cell_table': cell_table,
         'table_uuid': first_table_uuid or '',
         'show_saved_file_channels': show_saved_file_channels,
+        'show_saved_file_scales': show_saved_file_scales,
     })
 
 

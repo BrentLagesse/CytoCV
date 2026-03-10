@@ -134,6 +134,11 @@
             flex-wrap: wrap;
             font-size: 11px;
             color: #c6d7ea;
+            opacity: 1;
+            max-height: 80px;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
         }
         .file-item.active .file-scale-line {
             color: #e5f0ff;
@@ -157,6 +162,11 @@
             font-size: 10px;
             color: #f3c978;
             line-height: 1.3;
+            opacity: 1;
+            max-height: 48px;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
         }
         .file-item.active .file-scale-note {
             color: #ffe2a8;
@@ -224,6 +234,11 @@
             gap: 8px;
             margin: 0 12px 8px;
         }
+        .visibility-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
         .selection-toolbar {
             display: flex;
             align-items: center;
@@ -248,7 +263,8 @@
         .select-mode-btn,
         .select-all-btn,
         .save-selected-btn,
-        .channel-visibility-btn {
+        .channel-visibility-btn,
+        .scale-visibility-btn {
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             color: #fff;
@@ -261,7 +277,8 @@
             white-space: nowrap;
             transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
         }
-        .channel-visibility-btn.label-fade { opacity: 0.62; }
+        .channel-visibility-btn.label-fade,
+        .scale-visibility-btn.label-fade { opacity: 0.62; }
         .select-mode-btn.active {
             background: var(--accent);
             border-color: var(--accent);
@@ -280,7 +297,7 @@
             gap: 7px;
         }
         .selection-info-dot {
-            border: 1px solid var(--panel-border);
+            border: 1px solid rgba(255, 255, 255, 0.28);
             border-radius: 50%;
             width: 16px;
             height: 16px;
@@ -290,14 +307,15 @@
             font-size: 10px;
             font-weight: 700;
             line-height: 1;
-            color: #d9d9d9;
-            background: var(--surface-muted);
+            color: #ffffff;
+            background: var(--accent);
             cursor: pointer;
             opacity: 0.95;
-            transition: background-color 0.2s ease;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
         }
         .selection-info-dot:hover {
-            background: var(--surface-hover-strong);
+            background: #0f70d8;
+            border-color: rgba(255, 255, 255, 0.4);
         }
         .save-selected-btn:disabled {
             opacity: 0.45;
@@ -340,6 +358,14 @@
         }
         .channel-chip:active { cursor: grabbing; }
         .sidebar.channels-hidden .channel-bar {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            pointer-events: none;
+            transform: translateY(-2px);
+        }
+        .sidebar.scales-hidden .file-scale-line,
+        .sidebar.scales-hidden .file-scale-note {
             opacity: 0;
             max-height: 0;
             margin-top: 0;
@@ -798,7 +824,7 @@
 
     <div class="page-container soft-fade-in">
         <!-- SIDEBAR -->
-        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}" id="sidebar">
+        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
             <div class="sidebar-header">
                 <h2>Saved Files</h2>
                 <button class="toggle-btn" id="toggleSidebarBtn"></button>
@@ -824,9 +850,14 @@
                         </button>
                     </div>
                 </div>
-                <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
-                    {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
-                </button>
+                <div class="visibility-controls">
+                    <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
+                        {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
+                    </button>
+                    <button class="scale-visibility-btn" id="toggleScaleVisibilityBtn" type="button">
+                        {% if show_saved_file_scales %}Hide Scale{% else %}Show Scale{% endif %}
+                    </button>
+                </div>
             </div>
             <div class="sidebar-content">
                 <ul id="fileList">
@@ -1417,6 +1448,7 @@
         const selectAllBtn = document.getElementById('selectAllBtn');
         const saveSelectedBtn = document.getElementById('saveSelectedBtn');
         const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
+        const scaleVisibilityBtn = document.getElementById('toggleScaleVisibilityBtn');
         const saveBackdrop = document.getElementById('saveFilesBackdrop');
         const saveTitle = document.getElementById('saveFilesTitle');
         const saveMessage = document.getElementById('saveFilesMessage');
@@ -1438,6 +1470,7 @@
         );
         let selectModeActive = false;
         let channelLabelFadeTimer = null;
+        let scaleLabelFadeTimer = null;
         let pendingSelectionPayload = null;
         let activeInfoAnchor = null;
 
@@ -1716,6 +1749,31 @@
             }
         }
 
+        function applyScaleVisibility(visible, persist) {
+            sidebar.classList.toggle('scales-hidden', !visible);
+            if (!scaleVisibilityBtn) return;
+            scaleVisibilityBtn.classList.add('label-fade');
+            if (scaleLabelFadeTimer) {
+                window.clearTimeout(scaleLabelFadeTimer);
+            }
+            scaleVisibilityBtn.textContent = visible ? 'Hide Scale' : 'Show Scale';
+            scaleLabelFadeTimer = window.setTimeout(() => {
+                scaleVisibilityBtn.classList.remove('label-fade');
+                scaleLabelFadeTimer = null;
+            }, 170);
+            if (persist) {
+                fetch('/dashboard/preferences/channels/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || '',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ show_saved_file_scales: visible }),
+                }).catch(() => null);
+            }
+        }
+
         function closeSaveModal() {
             if (!saveBackdrop) return;
             saveBackdrop.style.display = 'none';
@@ -1858,6 +1916,11 @@
         channelVisibilityBtn.addEventListener('click', () => {
             applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
         });
+        if (scaleVisibilityBtn) {
+            scaleVisibilityBtn.addEventListener('click', () => {
+                applyScaleVisibility(sidebar.classList.contains('scales-hidden'), true);
+            });
+        }
         if (cancelSaveFilesBtn) cancelSaveFilesBtn.addEventListener('click', closeSaveModal);
         if (confirmSaveFilesBtn) confirmSaveFilesBtn.addEventListener('click', saveSelectedFiles);
         if (saveBackdrop) {
@@ -1885,6 +1948,7 @@
 
         updateSavedStateClasses();
         applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
+        applyScaleVisibility(!sidebar.classList.contains('scales-hidden'), false);
         syncSelectionUI();
 
         // Main channel switching (async, no page reload)

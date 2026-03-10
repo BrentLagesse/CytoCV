@@ -36,6 +36,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     },
     "auto_save_experiments": True,
     "show_saved_file_channels": True,
+    "show_saved_file_scales": True,
 }
 
 
@@ -171,6 +172,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     )
     normalized["show_saved_file_channels"] = _as_bool(
         raw_payload.get("show_saved_file_channels"),
+        default=True,
+    )
+    normalized["show_saved_file_scales"] = _as_bool(
+        raw_payload.get("show_saved_file_scales"),
         default=True,
     )
     return normalized

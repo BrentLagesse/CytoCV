@@ -166,8 +166,7 @@ def normalize_scale_info(
         if override_value is not None:
             normalized["source"] = "manual_override"
             normalized["effective_um_per_px"] = override_value
-            if not normalized["note"]:
-                normalized["note"] = "Manual per-file scale override."
+            normalized["note"] = ""
         return normalized
 
     if source in {"metadata", "manual_global", "manual_fallback"}:
@@ -217,7 +216,7 @@ def apply_manual_override_scale(raw_scale_info: Any, *, effective_um_per_px: Any
     )
     normalized["effective_um_per_px"] = override_value
     normalized["source"] = "manual_override"
-    normalized["note"] = "Manual per-file scale override."
+    normalized["note"] = ""
     return normalized
 
 
