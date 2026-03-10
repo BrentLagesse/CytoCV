@@ -137,7 +137,7 @@
       /* SIDEBAR */
       .sidebar {
         position: relative;
-        width: 400px;
+        width: 320px;
         background-color: var(--card-bg);
         border: 1px solid var(--panel-border);
         border-radius: 16px;
@@ -153,6 +153,7 @@
 
       /* Hide text + content when collapsed */
       .sidebar.collapsed .sidebar-header h2,
+      .sidebar.collapsed .sidebar-actions,
       .sidebar.collapsed .sidebar-content { display: none; }
 
       /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
@@ -202,6 +203,28 @@
       }
       .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
       .sidebar-content li { margin: 0; padding: 0; border: none; }
+      .sidebar-actions {
+        display: grid;
+        gap: 8px;
+        margin: 0 12px 8px;
+      }
+      .channel-visibility-btn {
+        border: 1px solid var(--panel-border);
+        border-radius: 8px;
+        color: #fff;
+        background: var(--surface-muted-alt);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        padding: 8px 10px;
+        white-space: nowrap;
+        transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
+      }
+      .channel-visibility-btn:hover {
+        background: var(--surface-hover-strong);
+      }
+      .channel-visibility-btn.label-fade { opacity: 0.62; }
 
       /* Each file-item */
       .file-item {
@@ -219,7 +242,15 @@
       .file-item.active:hover { background-color: #0056b3; }
 
       /* Channel pills */
-      .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
+      .channel-bar {
+        display: flex;
+        gap: 4px;
+        margin-top: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        max-height: 36px;
+        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+      }
       .channel-chip {
         background-color: var(--panel-border); color: #fff;
         border: 1px solid var(--border-contrast);
@@ -227,6 +258,14 @@
         flex: 1; box-sizing: border-box; text-align: center;
       }
       .channel-chip:active { cursor: grabbing; }
+      .sidebar.channels-hidden .channel-bar {
+        opacity: 0;
+        max-height: 0;
+        margin-top: 0;
+        pointer-events: none;
+        transform: translateY(-2px);
+        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+      }
 
       /* ---- ADDED: Always show and style the HORIZONTAL scrollbar on each .channel-bar ---- */
       .channel-bar {
@@ -554,22 +593,9 @@
         scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
       }
 
-      /* NEW: force scrollbar to always show */
-      .sidebar-content {
-        scrollbar-gutter: stable both-edges; /* always leave room */
-        scrollbar-width: auto;               /* firefox: make sure it shows */
-      }
-
-      /* Chromium/Edge/WebKit scrollbar body & thumb */
-      .sidebar-content::-webkit-scrollbar {
-        width: 12px;                         /* visible width */
-      }
       .sidebar-content::-webkit-scrollbar-thumb {
-        background: var(--scrollbar-thumb);                     /* actual draggable part */
+        background: var(--scrollbar-thumb);
         border-radius: 8px;
-      }
-      .sidebar-content::-webkit-scrollbar-button {
-        display: none;                        /* hide tiny arrows */
       }
     </style>
 
@@ -587,10 +613,15 @@
 
     <div class="page-container soft-fade-in">
       <!-- SIDEBAR -->
-      <div class="sidebar" id="sidebar">
+      <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}" id="sidebar">
         <div class="sidebar-header">
           <h2>Configuration</h2>
           <button class="toggle-btn" id="toggleSidebarBtn"></button>
+        </div>
+        <div class="sidebar-actions">
+          <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
+            {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
+          </button>
         </div>
         <div class="sidebar-content">
           <ul id="fileList">
@@ -673,11 +704,25 @@
       // Sidebar elements
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleSidebarBtn");
+      const channelVisibilityBtn = document.getElementById("toggleChannelVisibilityBtn");
       const fileItems = document.querySelectorAll(".file-item");
       let analysisAbortController = null;
       let analysisPollTimer = null;
       let suppressAnalysisErrors = false;
       window.isAnalysisRunning = false;
+      let channelLabelFadeTimer = null;
+
+      function getSidebarCsrfToken() {
+        let value = null;
+        document.cookie.split(';').forEach((cookie) => {
+          const item = cookie.trim();
+          if (item.startsWith('csrftoken=')) {
+            value = decodeURIComponent(item.slice('csrftoken='.length));
+          }
+        });
+        return value;
+      }
+      const sidebarCsrfToken = getSidebarCsrfToken();
 
       // Highlight active
       function updateSidebarActive() {
@@ -686,6 +731,32 @@
         if (active) active.classList.add("active");
       }
       updateSidebarActive();
+
+      function applyChannelVisibility(visible, persist) {
+        sidebar.classList.toggle('channels-hidden', !visible);
+        if (channelVisibilityBtn) {
+          channelVisibilityBtn.classList.add('label-fade');
+          if (channelLabelFadeTimer) {
+            window.clearTimeout(channelLabelFadeTimer);
+          }
+          channelVisibilityBtn.textContent = visible ? 'Hide Channels' : 'Show Channels';
+          channelLabelFadeTimer = window.setTimeout(() => {
+            channelVisibilityBtn.classList.remove('label-fade');
+            channelLabelFadeTimer = null;
+          }, 170);
+        }
+        if (persist) {
+          fetch('/dashboard/preferences/channels/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': sidebarCsrfToken || '',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ show_saved_file_channels: visible }),
+          }).catch(() => null);
+        }
+      }
 
       const cancelClientAnalysis = () => {
         suppressAnalysisErrors = true;
@@ -901,6 +972,12 @@
           sidebar.classList.remove("collapsed");
         }
       });
+      if (channelVisibilityBtn) {
+        channelVisibilityBtn.addEventListener('click', () => {
+          applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
+        });
+      }
+      applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
 
       const analysisButton = null;
       const analysisPopover = null;

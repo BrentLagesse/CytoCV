@@ -86,6 +86,21 @@ urlpatterns = [
     path('image/<str:uuids>/convert/', login_required(convert_to_image.convert_to_image)),
     path('image/<str:uuids>/segment/', login_required(segment_image.segment_image)),
     path('image/<str:uuids>/display/', login_required(display.display_cell), name='display'),
+    path(
+        'image/display/files/save/',
+        login_required(display.save_display_files),
+        name='display_save_files',
+    ),
+    path(
+        'image/display/files/unsave/',
+        login_required(display.unsave_display_files),
+        name='display_unsave_files',
+    ),
+    path(
+        'image/display/files/sync-selection/',
+        login_required(display.sync_display_file_selection),
+        name='display_sync_file_selection',
+    ),
     path('image/<str:uuid>/main-channel/', login_required(display.main_image_channel), name='main_image_channel'),
     path('api/update-channel-order/<str:uuid>/', login_required(update_channel_order), name='update_channel_order'),
     path('api/progress/<str:uuids>/', login_required(get_progress), name='analysis_progress'),

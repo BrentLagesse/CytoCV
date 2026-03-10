@@ -18,7 +18,13 @@ from accounts.preferences import (
     should_auto_save_experiments,
     update_user_preferences,
 )
-from core.models import CellStatistics, SegmentedImage, UploadedImage
+from core.models import (
+    CellStatistics,
+    DVLayerTifPreview,
+    SegmentedImage,
+    UploadedImage,
+    get_guest_user,
+)
 
 
 class PreferenceNormalizationTests(TestCase):
@@ -363,6 +369,442 @@ class DashboardBulkDeleteTests(TestCase):
         self.assertFalse(UploadedImage.objects.filter(uuid=uuid_two).exists())
         self.assertFalse(SegmentedImage.objects.filter(UUID=uuid_one).exists())
         self.assertFalse(SegmentedImage.objects.filter(UUID=uuid_two).exists())
+
+
+class DisplayManualSaveTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            email="display-owner@example.com",
+            password="TestPass123!",
+        )
+        self.other_user = user_model.objects.create_user(
+            email="display-other@example.com",
+            password="TestPass123!",
+        )
+        self.guest_user_id = get_guest_user()
+        self.assertTrue(
+            self.client.login(
+                email="display-owner@example.com",
+                password="TestPass123!",
+            )
+        )
+
+    def _create_display_file(
+        self,
+        *,
+        uploaded_owner,
+        segmented_owner_id: str,
+        filename: str,
+    ) -> str:
+        file_uuid = uuid4()
+        UploadedImage.objects.create(
+            user=uploaded_owner,
+            name=filename,
+            uuid=file_uuid,
+            file_location=f"{file_uuid}/{filename}.dv",
+        )
+        SegmentedImage.objects.create(
+            user_id=segmented_owner_id,
+            UUID=file_uuid,
+            file_location=f"user_{file_uuid}/{filename}.png",
+            ImagePath=f"{file_uuid}/output/{filename}_frame_0.png",
+            CellPairPrefix=f"{file_uuid}/segmented/cell_",
+            NumCells=2,
+        )
+        return str(file_uuid)
+
+    def _set_transient_uuids(self, uuids: list[str]) -> None:
+        session = self.client.session
+        session["transient_experiment_uuids"] = uuids
+        session.save()
+
+    def _create_preprocess_file(self, *, filename: str) -> str:
+        file_uuid = uuid4()
+        uploaded = UploadedImage.objects.create(
+            user=self.user,
+            name=filename,
+            uuid=file_uuid,
+            file_location=f"{file_uuid}/{filename}.dv",
+        )
+        DVLayerTifPreview.objects.create(
+            uploaded_image_uuid=uploaded,
+            wavelength="DAPI",
+            file_location=f"{file_uuid}/{filename}_preview.png",
+        )
+        return str(file_uuid)
+
+    def test_display_save_endpoint_rejects_invalid_payload(self):
+        response = self.client.post(
+            reverse("display_save_files"),
+            data=json.dumps({"uuids": "bad-shape"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_display_save_endpoint_rejects_empty_uuid_list(self):
+        response = self.client.post(
+            reverse("display_save_files"),
+            data=json.dumps({"uuids": []}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_display_save_endpoint_rejects_foreign_or_unavailable_uuid(self):
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="transient_owned",
+        )
+        foreign_uuid = self._create_display_file(
+            uploaded_owner=self.other_user,
+            segmented_owner_id=self.guest_user_id,
+            filename="foreign_uploaded",
+        )
+        self._set_transient_uuids([transient_uuid, foreign_uuid])
+
+        response = self.client.post(
+            reverse("display_save_files"),
+            data=json.dumps({"uuids": [transient_uuid, foreign_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.guest_user_id,
+        )
+        session = self.client.session
+        self.assertIn(transient_uuid, session.get("transient_experiment_uuids", []))
+
+    def test_display_save_endpoint_saves_transient_file_and_clears_session(self):
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="manual_save_candidate",
+        )
+        self._set_transient_uuids([transient_uuid])
+
+        response = self.client.post(
+            reverse("display_save_files"),
+            data=json.dumps({"uuids": [transient_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["saved_count"], 1)
+        self.assertEqual(payload["already_saved_count"], 0)
+        self.assertEqual(payload["saved_uuids"], [transient_uuid])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.user.id,
+        )
+
+        session = self.client.session
+        self.assertNotIn(transient_uuid, session.get("transient_experiment_uuids", []))
+
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertContains(dashboard_response, "manual_save_candidate")
+
+    def test_display_save_endpoint_is_idempotent_for_saved_file(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="already_saved",
+        )
+
+        response = self.client.post(
+            reverse("display_save_files"),
+            data=json.dumps({"uuids": [saved_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["saved_count"], 0)
+        self.assertEqual(payload["already_saved_count"], 1)
+        self.assertEqual(payload["already_saved_uuids"], [saved_uuid])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.user.id,
+        )
+
+    def test_display_save_endpoint_handles_mixed_saved_and_transient_selection(self):
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="mixed_transient",
+        )
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="mixed_saved",
+        )
+        self._set_transient_uuids([transient_uuid])
+
+        response = self.client.post(
+            reverse("display_save_files"),
+            data=json.dumps({"uuids": [saved_uuid, transient_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["saved_count"], 1)
+        self.assertEqual(payload["already_saved_count"], 1)
+        self.assertIn(transient_uuid, payload["saved_uuids"])
+        self.assertIn(saved_uuid, payload["already_saved_uuids"])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.user.id,
+        )
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.user.id,
+        )
+
+        session = self.client.session
+        self.assertNotIn(transient_uuid, session.get("transient_experiment_uuids", []))
+
+    def test_display_unsave_endpoint_rejects_invalid_payload(self):
+        response = self.client.post(
+            reverse("display_unsave_files"),
+            data=json.dumps({"uuids": "bad-shape"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_display_unsave_endpoint_unsaves_saved_file_and_adds_transient(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="manual_unsave_candidate",
+        )
+
+        response = self.client.post(
+            reverse("display_unsave_files"),
+            data=json.dumps({"uuids": [saved_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["unsaved_count"], 1)
+        self.assertEqual(payload["already_unsaved_count"], 0)
+        self.assertEqual(payload["unsaved_uuids"], [saved_uuid])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.guest_user_id,
+        )
+        session = self.client.session
+        self.assertIn(saved_uuid, session.get("transient_experiment_uuids", []))
+
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertNotContains(dashboard_response, "manual_unsave_candidate")
+
+    def test_display_unsave_endpoint_rejects_foreign_or_unavailable_uuid(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="owner_saved",
+        )
+        foreign_uuid = self._create_display_file(
+            uploaded_owner=self.other_user,
+            segmented_owner_id=self.other_user.id,
+            filename="foreign_saved",
+        )
+
+        response = self.client.post(
+            reverse("display_unsave_files"),
+            data=json.dumps({"uuids": [saved_uuid, foreign_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(SegmentedImage.objects.get(UUID=saved_uuid).user_id, self.user.id)
+
+    def test_display_unsave_endpoint_is_idempotent_for_already_unsaved_file(self):
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="already_unsaved",
+        )
+        self._set_transient_uuids([transient_uuid])
+
+        response = self.client.post(
+            reverse("display_unsave_files"),
+            data=json.dumps({"uuids": [transient_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["unsaved_count"], 0)
+        self.assertEqual(payload["already_unsaved_count"], 1)
+        self.assertEqual(payload["already_unsaved_uuids"], [transient_uuid])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.guest_user_id,
+        )
+
+    def test_display_unsave_endpoint_handles_mixed_saved_and_unsaved_selection(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="mixed_saved_unsave",
+        )
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="mixed_unsaved_unsave",
+        )
+        self._set_transient_uuids([transient_uuid])
+
+        response = self.client.post(
+            reverse("display_unsave_files"),
+            data=json.dumps({"uuids": [saved_uuid, transient_uuid]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["unsaved_count"], 1)
+        self.assertEqual(payload["already_unsaved_count"], 1)
+        self.assertIn(saved_uuid, payload["unsaved_uuids"])
+        self.assertIn(transient_uuid, payload["already_unsaved_uuids"])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.guest_user_id,
+        )
+
+    def test_display_sync_selection_rejects_selected_not_in_visible_list(self):
+        visible_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="visible_sync",
+        )
+        outside_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="outside_sync",
+        )
+        self._set_transient_uuids([visible_uuid, outside_uuid])
+
+        response = self.client.post(
+            reverse("display_sync_file_selection"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [visible_uuid],
+                    "selected_uuids": [outside_uuid],
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_display_sync_selection_applies_save_and_unsave_together(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="sync_saved",
+        )
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="sync_transient",
+        )
+        self._set_transient_uuids([transient_uuid])
+
+        response = self.client.post(
+            reverse("display_sync_file_selection"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [saved_uuid, transient_uuid],
+                    "selected_uuids": [transient_uuid],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["saved_count"], 1)
+        self.assertEqual(payload["unsaved_count"], 1)
+        self.assertIn(transient_uuid, payload["saved_uuids"])
+        self.assertIn(saved_uuid, payload["unsaved_uuids"])
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.user.id,
+        )
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.guest_user_id,
+        )
+
+        session = self.client.session
+        transient_session = set(session.get("transient_experiment_uuids", []))
+        self.assertIn(saved_uuid, transient_session)
+        self.assertNotIn(transient_uuid, transient_session)
+
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertContains(dashboard_response, "sync_transient")
+        self.assertNotContains(dashboard_response, "sync_saved")
+
+    def test_display_sync_selection_rejects_foreign_visible_file(self):
+        owned_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="sync_owned",
+        )
+        foreign_uuid = self._create_display_file(
+            uploaded_owner=self.other_user,
+            segmented_owner_id=self.guest_user_id,
+            filename="sync_foreign",
+        )
+        self._set_transient_uuids([owned_uuid, foreign_uuid])
+
+        response = self.client.post(
+            reverse("display_sync_file_selection"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [owned_uuid, foreign_uuid],
+                    "selected_uuids": [owned_uuid],
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_display_view_respects_channel_visibility_preference(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="visibility_saved",
+        )
+        prefs = get_user_preferences(self.user)
+        prefs["show_saved_file_channels"] = False
+        update_user_preferences(self.user, prefs)
+
+        response = self.client.get(reverse("display", args=[saved_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="sidebar channels-hidden"')
+        self.assertContains(response, "Show Channels")
+
+    def test_preprocess_view_respects_channel_visibility_preference(self):
+        preprocess_uuid = self._create_preprocess_file(filename="visibility_preprocess")
+        prefs = get_user_preferences(self.user)
+        prefs["show_saved_file_channels"] = False
+        update_user_preferences(self.user, prefs)
+
+        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="sidebar channels-hidden"')
+        self.assertContains(response, "Show Channels")
 
 
 class ChannelVisibilityPreferenceTests(TestCase):

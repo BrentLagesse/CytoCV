@@ -51,6 +51,7 @@
 
         /* Hide text + content when collapsed */
         .sidebar.collapsed .sidebar-header h2,
+        .sidebar.collapsed .sidebar-actions,
         .sidebar.collapsed .sidebar-content { display: none; }
 
         /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
@@ -107,13 +108,196 @@
             cursor: pointer;
             transition: background-color 0.2s;
             font-size: 14px;
+            position: relative;
+            display: grid;
+            gap: 4px;
         }
         .file-item:hover { background-color: #3399ff; }
         .file-item.active { background-color: #007bff; color: #fff; }
         .file-item.active:hover { background-color: #0056b3; }
+        .file-title {
+            padding-right: 58px;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .file-meta {
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .file-item.active .file-meta {
+            color: #d5e8ff;
+        }
+        .file-select-check {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: transparent;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+        }
+        .sidebar.select-mode .file-select-check {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .file-select-check span {
+            opacity: 0;
+            transition: opacity 0.12s ease;
+        }
+        .file-item.selected .file-select-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .file-item.selected .file-select-check span {
+            opacity: 1;
+        }
+        .file-saved-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            border: 1px solid rgba(62, 201, 132, 0.45);
+            background: rgba(18, 98, 59, 0.28);
+            color: #9ff2c6;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease;
+        }
+        .file-item.saved .file-saved-badge {
+            opacity: 1;
+        }
+        .sidebar.select-mode .file-saved-badge {
+            opacity: 0;
+        }
+
+        .sidebar-actions {
+            display: grid;
+            gap: 8px;
+            margin: 0 12px 8px;
+        }
+        .selection-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 34px;
+        }
+        .selection-extra {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transform: translateX(-8px);
+            transition: max-width 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+        }
+        .sidebar.select-mode .selection-extra {
+            max-width: 340px;
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .select-mode-btn,
+        .select-all-btn,
+        .save-selected-btn,
+        .channel-visibility-btn {
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            color: #fff;
+            background: var(--surface-muted-alt);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 8px 10px;
+            white-space: nowrap;
+            transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
+        }
+        .channel-visibility-btn.label-fade { opacity: 0.62; }
+        .select-mode-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .save-selected-btn {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .save-selected-btn:hover:not(:disabled) {
+            background: #0f70d8;
+            border-color: #0f70d8;
+        }
+        .save-selected-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .selection-info-dot {
+            border: 1px solid var(--panel-border);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            color: #d9d9d9;
+            background: var(--surface-muted);
+            cursor: pointer;
+            opacity: 0.95;
+            transition: background-color 0.2s ease;
+        }
+        .selection-info-dot:hover {
+            background: var(--surface-hover-strong);
+        }
+        .save-selected-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .info-tooltip {
+            position: fixed;
+            z-index: 4000;
+            max-width: min(320px, calc(100vw - 24px));
+            padding: 8px 10px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: rgba(14, 16, 20, 0.98);
+            color: #e9e9e9;
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: pre-line;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+        .info-tooltip[hidden] {
+            display: none !important;
+        }
 
         /* Channel pills */
-        .channel-bar { display: flex; gap: 4px; margin-top: 6px; flex-wrap: nowrap; overflow-x: auto; }
+        .channel-bar {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            max-height: 36px;
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+        }
         .channel-chip {
             background-color: var(--panel-border); color: #fff;
             border: 1px solid var(--border-contrast);
@@ -121,6 +305,13 @@
             flex: 1; box-sizing: border-box; text-align: center;
         }
         .channel-chip:active { cursor: grabbing; }
+        .sidebar.channels-hidden .channel-bar {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            pointer-events: none;
+            transform: translateY(-2px);
+        }
 
         /* CONTENT WRAPPER */
         .content-wrapper {
@@ -479,6 +670,84 @@
                 width: 100%;
                 flex-wrap: wrap;
             }
+        .save-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2200;
+        }
+        .save-modal {
+            width: min(420px, 92vw);
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 18px;
+            display: grid;
+            gap: 10px;
+        }
+        .save-modal h3,
+        .save-modal p {
+            margin: 0;
+        }
+        .save-modal p {
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .save-change-section {
+            display: grid;
+            gap: 6px;
+        }
+        .save-change-section[hidden] {
+            display: none !important;
+        }
+        .save-change-label {
+            margin: 0;
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .save-preview-box {
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            background: var(--surface-muted-alt);
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 8px;
+            scrollbar-color: #7f7f7f transparent;
+        }
+        .save-preview-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 4px;
+            font-size: 12px;
+        }
+        .save-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .save-modal-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .save-modal-btn.cancel {
+            background: var(--surface-muted-alt);
+            border: 1px solid var(--panel-border);
+            color: #fff;
+        }
+        .save-modal-btn.confirm {
+            background: var(--accent);
+            color: #fff;
+        }
         /* Firefox */
         .sidebar-content {
         /* first = thumb, second = track */
@@ -495,22 +764,56 @@
 
     <div class="page-container soft-fade-in">
         <!-- SIDEBAR -->
-        <div class="sidebar" id="sidebar">
+        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}" id="sidebar">
             <div class="sidebar-header">
-                <h2>Configuration</h2>
+                <h2>Saved Files</h2>
                 <button class="toggle-btn" id="toggleSidebarBtn"></button>
+            </div>
+            <div class="sidebar-actions">
+                <div class="selection-toolbar">
+                    <button class="select-mode-btn" id="selectModeBtn" type="button">Select</button>
+                    <div class="selection-extra">
+                        <button class="select-all-btn" id="selectAllBtn" type="button">Select All</button>
+                        <button
+                            class="save-selected-btn"
+                            id="saveSelectedBtn"
+                            type="button"
+                            disabled
+                            title="Selected files will be saved and unselected files will not be saved."
+                        >
+                            <span>Save Selection</span>
+                            <span
+                                class="selection-info-dot"
+                                data-info-text="Selected files will be saved and unselected files will not be saved."
+                                aria-label="Selected files will be saved and unselected files will not be saved."
+                            >i</span>
+                        </button>
+                    </div>
+                </div>
+                <button class="channel-visibility-btn" id="toggleChannelVisibilityBtn" type="button">
+                    {% if show_saved_file_channels %}Hide Channels{% else %}Show Channels{% endif %}
+                </button>
             </div>
             <div class="sidebar-content">
                 <ul id="fileList">
                     {% for file in file_list %}
                         <li>
-                            <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
-                                {{ file.name }}
+                            <div class="file-item{% if file.is_saved %} saved{% endif %}" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}" data-saved="{{ file.is_saved|yesno:'true,false' }}">
+                                <button class="file-select-check" type="button" aria-label="Select file"><span>&#10003;</span></button>
+                                <div class="file-saved-badge">&#10003; Saved</div>
+                                <div class="file-title">{{ file.name }}</div>
+                                <div class="file-meta">{{ file.uploaded_date|date:"Y-m-d H:i" }} UTC &middot; {{ file.num_cells }} cells</div>
                                 <div class="channel-bar">
                                     {% for channel in file.detected_channels %}
                                         <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>
                                     {% endfor %}
                                 </div>
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li>
+                            <div class="file-item">
+                                <div class="file-title">No files available.</div>
                             </div>
                         </li>
                     {% endfor %}
@@ -626,6 +929,30 @@
             </div> <!-- end main-content -->
         </div> <!-- end content-wrapper -->
     </div> <!-- end page-container -->
+
+    <div class="save-modal-backdrop" id="saveFilesBackdrop" aria-hidden="true">
+        <div class="save-modal" role="dialog" aria-modal="true" aria-labelledby="saveFilesTitle">
+            <h3 id="saveFilesTitle">Save Selection</h3>
+            <p id="saveFilesMessage">Selected files will be saved and unselected files will be removed from saved history.</p>
+            <div class="save-change-section" id="saveFilesAddSection" hidden>
+                <p class="save-change-label">Will be saved</p>
+                <div class="save-preview-box">
+                    <ul class="save-preview-list" id="saveFilesAddList"></ul>
+                </div>
+            </div>
+            <div class="save-change-section" id="saveFilesRemoveSection" hidden>
+                <p class="save-change-label">Will not be saved</p>
+                <div class="save-preview-box">
+                    <ul class="save-preview-list" id="saveFilesRemoveList"></ul>
+                </div>
+            </div>
+            <div class="save-modal-actions">
+                <button class="save-modal-btn cancel" id="cancelSaveFilesBtn" type="button">Cancel</button>
+                <button class="save-modal-btn confirm" id="confirmSaveFilesBtn" type="button">Confirm Save Selection</button>
+            </div>
+        </div>
+    </div>
+    <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
     <script>
         // Parse JSON file data
@@ -1041,38 +1368,481 @@
         // Sidebar elements
         const sidebar = document.getElementById('sidebar');
         const toggleBtn = document.getElementById('toggleSidebarBtn');
-        const fileItems = document.querySelectorAll('.file-item');
+        const fileItems = Array.from(document.querySelectorAll('.file-item[data-uuid]'));
         const channelButtons = document.querySelectorAll('.cell-label[data-channel]');
+        const selectModeBtn = document.getElementById('selectModeBtn');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const saveSelectedBtn = document.getElementById('saveSelectedBtn');
+        const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
+        const saveBackdrop = document.getElementById('saveFilesBackdrop');
+        const saveTitle = document.getElementById('saveFilesTitle');
+        const saveMessage = document.getElementById('saveFilesMessage');
+        const saveAddSection = document.getElementById('saveFilesAddSection');
+        const saveRemoveSection = document.getElementById('saveFilesRemoveSection');
+        const saveAddList = document.getElementById('saveFilesAddList');
+        const saveRemoveList = document.getElementById('saveFilesRemoveList');
+        const cancelSaveFilesBtn = document.getElementById('cancelSaveFilesBtn');
+        const confirmSaveFilesBtn = document.getElementById('confirmSaveFilesBtn');
+        const selectionInfoDots = Array.from(document.querySelectorAll('.selection-info-dot[data-info-text]'));
+        const infoTooltipElement = document.getElementById('selectionInfoTooltip');
+        const fileItemByUUID = new Map(fileItems.map((item) => [item.dataset.uuid, item]));
+        const selectedFileUUIDs = new Set();
+        const savedFileUUIDs = new Set(
+            fileItems
+                .filter((item) => item.dataset.saved === 'true')
+                .map((item) => item.dataset.uuid)
+                .filter(Boolean)
+        );
+        let selectModeActive = false;
+        let channelLabelFadeTimer = null;
+        let pendingSelectionPayload = null;
+        let activeInfoAnchor = null;
+
+        function getCookie(name) {
+            let value = null;
+            document.cookie.split(';').forEach((cookie) => {
+                const item = cookie.trim();
+                if (item.startsWith(`${name}=`)) {
+                    value = decodeURIComponent(item.slice(name.length + 1));
+                }
+            });
+            return value;
+        }
+
+        const csrfToken = getCookie('csrftoken');
+
+        function normalizeInfoText(value) {
+            if (typeof value !== 'string') return '';
+            return value
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line, index, arr) => !(line === '' && (index === 0 || index === arr.length - 1)))
+                .join('\n');
+        }
+
+        function hideInfoTooltip() {
+            activeInfoAnchor = null;
+            if (!infoTooltipElement) return;
+            infoTooltipElement.hidden = true;
+            infoTooltipElement.textContent = '';
+        }
+
+        function positionInfoTooltip(anchor) {
+            if (!infoTooltipElement || !anchor) return;
+            const rect = anchor.getBoundingClientRect();
+            const margin = 10;
+            const gap = 8;
+
+            infoTooltipElement.style.left = '0px';
+            infoTooltipElement.style.top = '0px';
+            const width = infoTooltipElement.offsetWidth;
+            const height = infoTooltipElement.offsetHeight;
+
+            let left = rect.left + (rect.width / 2) - (width / 2);
+            left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+            let top = rect.top - height - gap;
+            if (top < margin) {
+                top = rect.bottom + gap;
+            }
+            if (top + height > window.innerHeight - margin) {
+                top = Math.max(margin, window.innerHeight - height - margin);
+            }
+
+            infoTooltipElement.style.left = `${Math.round(left)}px`;
+            infoTooltipElement.style.top = `${Math.round(top)}px`;
+        }
+
+        function refreshInfoTooltipPosition() {
+            if (!activeInfoAnchor || !infoTooltipElement || infoTooltipElement.hidden) return;
+            positionInfoTooltip(activeInfoAnchor);
+        }
+
+        function showInfoTooltip(anchor) {
+            if (!anchor || !infoTooltipElement) return;
+            const text = normalizeInfoText(anchor.dataset.infoText || '');
+            if (!text) {
+                hideInfoTooltip();
+                return;
+            }
+            activeInfoAnchor = anchor;
+            infoTooltipElement.textContent = text;
+            infoTooltipElement.hidden = false;
+            positionInfoTooltip(anchor);
+        }
+
+        function attachInfoTooltipBehavior(infoDot) {
+            if (!infoDot) return;
+            infoDot.addEventListener('mouseenter', () => showInfoTooltip(infoDot));
+            infoDot.addEventListener('mouseleave', hideInfoTooltip);
+            infoDot.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (activeInfoAnchor === infoDot && infoTooltipElement && !infoTooltipElement.hidden) {
+                    hideInfoTooltip();
+                    return;
+                }
+                showInfoTooltip(infoDot);
+            });
+        }
+
+        function showSidebarMessage(message, tone = 'error') {
+            let container = document.querySelector('.message-container.channel-switch');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'message-container channel-switch';
+                container.style.top = 'calc(var(--nav-height) + 8px)';
+                container.style.left = '50%';
+                container.style.transform = 'translateX(-50%)';
+                container.style.width = 'min(720px, calc(100% - 32px))';
+                container.style.margin = '0';
+                container.style.zIndex = '1500';
+                container.style.pointerEvents = 'none';
+                document.body.appendChild(container);
+            }
+
+            const msg = document.createElement('div');
+            msg.className = tone === 'success' ? 'message success' : 'message';
+            msg.style.pointerEvents = 'auto';
+            msg.textContent = message;
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'message-close';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.innerHTML = '&times;';
+            close.addEventListener('click', () => msg.remove());
+            msg.appendChild(close);
+            container.appendChild(msg);
+            setTimeout(() => msg.remove(), 7000);
+        }
+
+        function updateSavedStateClasses() {
+            fileItems.forEach((item) => {
+                const uuid = item.dataset.uuid;
+                const isSaved = savedFileUUIDs.has(uuid);
+                item.dataset.saved = isSaved ? 'true' : 'false';
+                item.classList.toggle('saved', isSaved);
+            });
+        }
+
+        function getSelectionChanges() {
+            const selectedSet = new Set(selectedFileUUIDs);
+            const toSave = [];
+            const toUnsave = [];
+            fileUUIDs.forEach((uuid) => {
+                const isSelected = selectedSet.has(uuid);
+                const isSaved = savedFileUUIDs.has(uuid);
+                if (isSelected && !isSaved) {
+                    toSave.push(uuid);
+                }
+                if (!isSelected && isSaved) {
+                    toUnsave.push(uuid);
+                }
+            });
+            return { toSave, toUnsave };
+        }
+
+        function syncSelectionUI() {
+            fileItems.forEach((item) => {
+                item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid));
+            });
+
+            const hasFiles = fileUUIDs.length > 0;
+            const { toSave, toUnsave } = getSelectionChanges();
+            const hasChanges = toSave.length > 0 || toUnsave.length > 0;
+
+            selectAllBtn.disabled = !hasFiles;
+            saveSelectedBtn.disabled = !selectModeActive || !hasFiles || !hasChanges;
+            if (!selectModeActive) {
+                saveSelectedBtn.title = 'Select files first.';
+            } else if (!hasChanges) {
+                saveSelectedBtn.title = 'No save-state changes to apply.';
+            } else {
+                saveSelectedBtn.title = 'Apply selected save state.';
+            }
+        }
+
+        function renderPreviewList(target, uuids) {
+            if (!target) return;
+            target.innerHTML = '';
+            uuids.forEach((uuid) => {
+                const fileItem = fileItemByUUID.get(uuid);
+                const title = fileItem ? fileItem.querySelector('.file-title') : null;
+                const li = document.createElement('li');
+                li.textContent = title ? title.textContent.trim() : uuid;
+                target.appendChild(li);
+            });
+        }
+
+        function updateModalSections(toSave, toUnsave) {
+            if (saveAddSection) {
+                saveAddSection.hidden = toSave.length === 0;
+            }
+            if (saveRemoveSection) {
+                saveRemoveSection.hidden = toUnsave.length === 0;
+            }
+            renderPreviewList(saveAddList, toSave);
+            renderPreviewList(saveRemoveList, toUnsave);
+        }
+
+        function buildSelectionMessage(toSave, toUnsave) {
+            if (toSave.length > 0 && toUnsave.length > 0) {
+                return 'Selected files will be saved, and unselected files will be removed from saved history.';
+            }
+            if (toSave.length > 0) {
+                return toSave.length === fileUUIDs.length
+                    ? 'Are you sure you want to save all files?'
+                    : 'Are you sure you want to save the selected files?';
+            }
+            return toUnsave.length === fileUUIDs.length
+                ? 'Are you sure you want to remove all files from saved history?'
+                : 'Are you sure you want to remove these files from saved history?';
+        }
+
+        function buildSelectionToast(savedCount, unsavedCount) {
+            if (savedCount > 0 && unsavedCount > 0) {
+                return {
+                    message: `Updated selection: saved ${savedCount} file${savedCount === 1 ? '' : 's'} and removed ${unsavedCount} file${unsavedCount === 1 ? '' : 's'}.`,
+                    tone: 'success',
+                };
+            }
+            if (savedCount > 0) {
+                return {
+                    message: `Saved ${savedCount} file${savedCount === 1 ? '' : 's'}.`,
+                    tone: 'success',
+                };
+            }
+            if (unsavedCount > 0) {
+                return {
+                    message: `Removed ${unsavedCount} file${unsavedCount === 1 ? '' : 's'} from saved history.`,
+                    tone: 'error',
+                };
+            }
+            return {
+                message: 'No save-state changes were needed.',
+                tone: 'success',
+            };
+        }
+
+        function setSelectMode(enabled) {
+            selectModeActive = enabled;
+            sidebar.classList.toggle('select-mode', enabled);
+            selectModeBtn.classList.toggle('active', enabled);
+            selectModeBtn.textContent = enabled ? 'Done' : 'Select';
+
+            if (enabled) {
+                selectedFileUUIDs.clear();
+                savedFileUUIDs.forEach((uuid) => selectedFileUUIDs.add(uuid));
+            } else {
+                selectedFileUUIDs.clear();
+            }
+
+            syncSelectionUI();
+        }
+
+        function toggleSelectAll() {
+            if (selectedFileUUIDs.size === fileUUIDs.length) {
+                selectedFileUUIDs.clear();
+            } else {
+                fileUUIDs.forEach((uuid) => selectedFileUUIDs.add(uuid));
+            }
+            syncSelectionUI();
+        }
+
+        function applyChannelVisibility(visible, persist) {
+            sidebar.classList.toggle('channels-hidden', !visible);
+            channelVisibilityBtn.classList.add('label-fade');
+            if (channelLabelFadeTimer) {
+                window.clearTimeout(channelLabelFadeTimer);
+            }
+            channelVisibilityBtn.textContent = visible ? 'Hide Channels' : 'Show Channels';
+            channelLabelFadeTimer = window.setTimeout(() => {
+                channelVisibilityBtn.classList.remove('label-fade');
+                channelLabelFadeTimer = null;
+            }, 170);
+            if (persist) {
+                fetch('/dashboard/preferences/channels/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || '',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ show_saved_file_channels: visible }),
+                }).catch(() => null);
+            }
+        }
+
+        function closeSaveModal() {
+            if (!saveBackdrop) return;
+            saveBackdrop.style.display = 'none';
+            saveBackdrop.setAttribute('aria-hidden', 'true');
+            pendingSelectionPayload = null;
+            if (confirmSaveFilesBtn) {
+                confirmSaveFilesBtn.textContent = 'Confirm Save Selection';
+            }
+            if (saveTitle) {
+                saveTitle.textContent = 'Save Selection';
+            }
+            if (saveMessage) {
+                saveMessage.textContent = 'Selected files will be saved and unselected files will be removed from saved history.';
+            }
+            if (saveAddSection) {
+                saveAddSection.hidden = true;
+            }
+            if (saveRemoveSection) {
+                saveRemoveSection.hidden = true;
+            }
+            if (saveAddList) saveAddList.innerHTML = '';
+            if (saveRemoveList) saveRemoveList.innerHTML = '';
+        }
+
+        function openSaveModal() {
+            if (!saveBackdrop || !saveMessage || !saveTitle || !confirmSaveFilesBtn) return;
+            const changes = getSelectionChanges();
+            const hasChanges = changes.toSave.length > 0 || changes.toUnsave.length > 0;
+            if (!hasChanges) {
+                return;
+            }
+
+            pendingSelectionPayload = {
+                visible_uuids: Array.from(fileUUIDs),
+                selected_uuids: Array.from(selectedFileUUIDs),
+            };
+
+            saveTitle.textContent = 'Save Selection';
+            saveMessage.textContent = buildSelectionMessage(changes.toSave, changes.toUnsave);
+            confirmSaveFilesBtn.textContent = 'Confirm Save Selection';
+            updateModalSections(changes.toSave, changes.toUnsave);
+            saveBackdrop.style.display = 'flex';
+            saveBackdrop.setAttribute('aria-hidden', 'false');
+        }
+
+        async function saveSelectedFiles() {
+            if (!pendingSelectionPayload) return;
+            confirmSaveFilesBtn.disabled = true;
+            try {
+                const response = await fetch('/image/display/files/sync-selection/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || '',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(pendingSelectionPayload),
+                });
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.error || 'Unable to update selected files.');
+                }
+
+                (payload.saved_uuids || []).forEach((uuid) => savedFileUUIDs.add(uuid));
+                (payload.unsaved_uuids || []).forEach((uuid) => savedFileUUIDs.delete(uuid));
+                updateSavedStateClasses();
+                syncSelectionUI();
+
+                const toast = buildSelectionToast(
+                    Number(payload.saved_count || 0),
+                    Number(payload.unsaved_count || 0)
+                );
+                showSidebarMessage(toast.message, toast.tone);
+                closeSaveModal();
+            } catch (err) {
+                showSidebarMessage(err.message || 'Unable to update selected files.');
+            } finally {
+                confirmSaveFilesBtn.disabled = false;
+            }
+        }
 
         // Highlight active
         function updateSidebarActive() {
-            fileItems.forEach(i => i.classList.remove('active'));
+            fileItems.forEach((item) => item.classList.remove('active'));
             const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
             if (active) active.classList.add('active');
         }
         updateSidebarActive();
 
-        // Click file
-        fileItems.forEach(item => {
+        // Click file/select
+        fileItems.forEach((item) => {
+            const uuid = item.dataset.uuid;
+            const selectCheck = item.querySelector('.file-select-check');
+            if (selectCheck) {
+                selectCheck.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!selectModeActive || !uuid) return;
+                    if (selectedFileUUIDs.has(uuid)) {
+                        selectedFileUUIDs.delete(uuid);
+                    } else {
+                        selectedFileUUIDs.add(uuid);
+                    }
+                    syncSelectionUI();
+                });
+            }
+
             item.addEventListener('click', () => {
                 const idx = parseInt(item.dataset.index, 10);
-                currentFileIndex = idx;  // keep your globals in sync
-                loadFile(idx);           // call the correct function
+                if (selectModeActive && uuid) {
+                    if (selectedFileUUIDs.has(uuid)) {
+                        selectedFileUUIDs.delete(uuid);
+                    } else {
+                        selectedFileUUIDs.add(uuid);
+                    }
+                    syncSelectionUI();
+                    return;
+                }
+                currentFileIndex = idx;
+                loadFile(idx);
             });
         });
 
         // Toggle sidebar
-        toggleBtn.addEventListener('click', e => {
+        toggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             sidebar.classList.toggle('collapsed');
         });
 
-        // ALSO expand when collapsed sidebar area is clicked
-        sidebar.addEventListener('click', e => {
+        // Also expand when collapsed sidebar area is clicked
+        sidebar.addEventListener('click', () => {
             if (sidebar.classList.contains('collapsed')) {
                 sidebar.classList.remove('collapsed');
             }
         });
+
+        selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
+        selectAllBtn.addEventListener('click', toggleSelectAll);
+        saveSelectedBtn.addEventListener('click', openSaveModal);
+        channelVisibilityBtn.addEventListener('click', () => {
+            applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
+        });
+        if (cancelSaveFilesBtn) cancelSaveFilesBtn.addEventListener('click', closeSaveModal);
+        if (confirmSaveFilesBtn) confirmSaveFilesBtn.addEventListener('click', saveSelectedFiles);
+        if (saveBackdrop) {
+            saveBackdrop.addEventListener('click', (event) => {
+                if (event.target === saveBackdrop) closeSaveModal();
+            });
+        }
+        selectionInfoDots.forEach(attachInfoTooltipBehavior);
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element) || !target.classList.contains('selection-info-dot')) {
+                hideInfoTooltip();
+            }
+        });
+        window.addEventListener('resize', refreshInfoTooltipPosition);
+        window.addEventListener('scroll', refreshInfoTooltipPosition, true);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideInfoTooltip();
+            }
+            if (event.key === 'Escape' && saveBackdrop && saveBackdrop.style.display === 'flex') {
+                closeSaveModal();
+            }
+        });
+
+        updateSavedStateClasses();
+        applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
+        syncSelectionUI();
 
         // Main channel switching (async, no page reload)
         channelButtons.forEach((btn) => {
@@ -1135,21 +1905,6 @@
     </script>
 
     <script>
-        // Sidebar drag & drop
-        // CSRF helper
-        function getCookie(name) {
-            let val = null;
-            document.cookie.split(';').forEach(c => {
-                c = c.trim();
-                if (c.startsWith(name + '=')) {
-                    val = decodeURIComponent(c.slice(name.length + 1));
-                }
-            });
-            return val;
-        }
-    </script>
-
-    <script>
         // table script
         var table = document.getElementById('celltable');
         var popup = document.getElementsByClassName('popup');
@@ -1206,6 +1961,7 @@
             var sidebar = document.getElementById('sidebar');
             if (!sidebar) return;
             var header  = sidebar.querySelector('.sidebar-header');
+            var actions = sidebar.querySelector('.sidebar-actions');
             var content = sidebar.querySelector('.sidebar-content');
             if (!content) return;
 
@@ -1215,11 +1971,14 @@
             var headerH = header ? header.getBoundingClientRect().height : 0;
             var hs = header ? getComputedStyle(header) : null;
             var headerMargins = hs ? (parseFloat(hs.marginTop)||0) + (parseFloat(hs.marginBottom)||0) : 0;
+            var actionsH = actions ? actions.getBoundingClientRect().height : 0;
+            var as = actions ? getComputedStyle(actions) : null;
+            var actionMargins = as ? (parseFloat(as.marginTop)||0) + (parseFloat(as.marginBottom)||0) : 0;
 
             var cs = getComputedStyle(content);
             var contentVPad = (parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0);
 
-            var maxH = Math.max(0, sidebarH - headerH - headerMargins - contentVPad);
+            var maxH = Math.max(0, sidebarH - headerH - headerMargins - actionsH - actionMargins - contentVPad);
             content.style.maxHeight = maxH + 'px';
             content.style.overflowY = 'auto';
             content.style.minHeight  = '0';

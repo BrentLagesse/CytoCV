@@ -202,10 +202,13 @@ def _recalculate_user_storage_usage(user: Any) -> None:
         return
     uuids = {
         str(value)
-        for value in UploadedImage.objects.filter(user=user).values_list("uuid", flat=True)
+        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
     }
     media_root = Path(MEDIA_ROOT)
-    used_storage = sum(_media_path_size(media_root / uuid_value) for uuid_value in uuids)
+    used_storage = 0
+    for uuid_value in uuids:
+        used_storage += _media_path_size(media_root / uuid_value)
+        used_storage += _media_path_size(media_root / f"user_{uuid_value}")
     total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
     user.used_storage = max(0, int(used_storage))
     user.available_storage = max(0, int(total_storage - user.used_storage))

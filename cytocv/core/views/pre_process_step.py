@@ -28,6 +28,8 @@ import json
 import re
 import hashlib
 
+from accounts.preferences import get_user_preferences
+
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
 
 
@@ -94,6 +96,8 @@ def pre_process_step(request, uuids):
     uuid_list = uuids.split(',')
     owner_filter = _current_owner_filter(request)
     total_files = len(uuid_list)
+    preferences = get_user_preferences(request.user)
+    show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
 
     # clamp file_index into [0, total_files-1]
     current_file_index = int(request.GET.get('file_index', 0))
@@ -242,6 +246,7 @@ def pre_process_step(request, uuids):
         'total_files': total_files,
         'uuids': uuids,
         'file_list': file_list,
+        'show_saved_file_channels': show_saved_file_channels,
         'has_selected_stats': bool(request.session.get('selected_analysis', [])),
     })
 
