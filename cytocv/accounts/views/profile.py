@@ -27,6 +27,7 @@ from accounts.preferences import (
 )
 from core.config import get_channel_config_for_uuid
 from core.models import CellStatistics, SegmentedImage, UploadedImage
+from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
     CHANNEL_INFO,
@@ -113,6 +114,7 @@ def _extract_measurement_defaults(
         default=0.1,
         minimum=0.0001,
     )
+    current_use_metadata_scale = bool(defaults.get("use_metadata_scale", True))
     current_nuclear_mode = _normalize_nuclear_mode(
         defaults.get("nuclear_cellular_mode"),
         default="green_nucleus",
@@ -127,6 +129,16 @@ def _extract_measurement_defaults(
         default=current_gfp_distance_unit,
     )
     mcherry_minimum = 1 if mcherry_width_unit == "px" else 0
+    raw_use_metadata_scale = post_data.get("use_metadata_scale")
+    if raw_use_metadata_scale is None:
+        use_metadata_scale = current_use_metadata_scale
+    else:
+        use_metadata_scale = str(raw_use_metadata_scale).strip().lower() in {
+            "1",
+            "true",
+            "on",
+            "yes",
+        }
     return {
         "mcherry_width": _parse_positive_float(
             post_data.get("mcherry_width"),
@@ -154,6 +166,7 @@ def _extract_measurement_defaults(
             default=current_microns_per_pixel,
             minimum=0.0001,
         ),
+        "use_metadata_scale": use_metadata_scale,
     }
 
 
@@ -372,6 +385,11 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         str(item.uuid): item
         for item in UploadedImage.objects.filter(user=user, uuid__in=uuid_list)
     }
+    preferences = get_user_preferences(user)
+    show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
 
     files_data: dict[str, Any] = {}
     file_list: list[dict[str, Any]] = []
@@ -404,6 +422,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 "uploaded_date": segmented_image.uploaded_date,
                 "num_cells": segmented_image.NumCells,
                 "detected_channels": detected_channels,
+                "scale": get_scale_sidebar_payload(
+                    uploaded.scale_info,
+                    manual_default=default_manual_scale,
+                ),
             }
         )
 
@@ -529,8 +551,6 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             file_capacity_projection_ready = True
             additional_files_possible = max(0, int(remaining_storage / average_file_size))
             max_files_at_current_average = saved_file_count + additional_files_possible
-    preferences = get_user_preferences(user)
-    show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     files_data_json = json.dumps(_sanitize_for_json(files_data), allow_nan=False)
 
     return {

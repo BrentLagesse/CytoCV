@@ -25,6 +25,7 @@ from core.models import (
     UploadedImage,
     get_guest_user,
 )
+from core.scale import apply_manual_override_scale, build_scale_info
 
 
 class PreferenceNormalizationTests(TestCase):
@@ -41,6 +42,7 @@ class PreferenceNormalizationTests(TestCase):
             ],
         )
         self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertTrue(defaults["use_metadata_scale"])
 
     def test_normalize_preferences_filters_invalid_values(self):
         normalized = normalize_preferences_payload(
@@ -58,6 +60,7 @@ class PreferenceNormalizationTests(TestCase):
                     "mcherry_width_unit": "um",
                     "gfp_distance_unit": "px",
                     "microns_per_pixel": "0",
+                    "use_metadata_scale": "off",
                 },
                 "auto_save_experiments": "off",
             }
@@ -73,6 +76,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["gfp_distance"], 37)
         self.assertEqual(defaults["gfp_threshold"], 66)
         self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertFalse(defaults["use_metadata_scale"])
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
 
@@ -806,6 +810,88 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'class="sidebar channels-hidden"')
         self.assertContains(response, "Show Channels")
 
+    def test_preprocess_post_rejects_tampered_scale_uuid_map(self):
+        preprocess_uuid = self._create_preprocess_file(filename="tamper_preprocess")
+        outside_uuid = self._create_preprocess_file(filename="outside_preprocess")
+
+        response = self.client.post(
+            reverse("pre_process_step", args=[preprocess_uuid]),
+            data={"file_scale_map": json.dumps({outside_uuid: 0.2})},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_preprocess_post_rejects_tampered_scale_revert_uuid_map(self):
+        preprocess_uuid = self._create_preprocess_file(filename="tamper_revert_preprocess")
+        outside_uuid = self._create_preprocess_file(filename="outside_revert_preprocess")
+
+        response = self.client.post(
+            reverse("pre_process_step", args=[preprocess_uuid]),
+            data={"file_scale_revert_uuids": json.dumps([outside_uuid])},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("core.views.pre_process_step.preprocess_images", return_value=("stub_prep", ["stub_image"]))
+    @patch("core.views.pre_process_step.predict_images", return_value=True)
+    @patch("core.views.pre_process_step.tif_to_jpg", return_value=None)
+    def test_preprocess_post_persists_manual_scale_override_before_analysis(
+        self,
+        _mock_tif_to_jpg,
+        _mock_predict,
+        _mock_preprocess,
+    ):
+        preprocess_uuid = self._create_preprocess_file(filename="scale_override_preprocess")
+
+        response = self.client.post(
+            reverse("pre_process_step", args=[preprocess_uuid]),
+            data={"file_scale_map": json.dumps({preprocess_uuid: 0.27})},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/convert/", response["Location"])
+        uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
+        scale_info = uploaded.scale_info or {}
+        self.assertEqual(scale_info.get("source"), "manual_override")
+        self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.27, places=6)
+
+    @patch("core.views.pre_process_step.preprocess_images", return_value=("stub_prep", ["stub_image"]))
+    @patch("core.views.pre_process_step.predict_images", return_value=True)
+    @patch("core.views.pre_process_step.tif_to_jpg", return_value=None)
+    def test_preprocess_post_reverts_manual_override_to_metadata_scale(
+        self,
+        _mock_tif_to_jpg,
+        _mock_predict,
+        _mock_preprocess,
+    ):
+        preprocess_uuid = self._create_preprocess_file(filename="scale_revert_preprocess")
+        uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
+        uploaded.scale_info = apply_manual_override_scale(
+            build_scale_info(
+                manual_um_per_px=0.2,
+                prefer_metadata=True,
+                metadata_um_per_px=0.11,
+                status="ok",
+            ),
+            effective_um_per_px=0.27,
+        )
+        uploaded.save(update_fields=["scale_info"])
+
+        response = self.client.post(
+            reverse("pre_process_step", args=[preprocess_uuid]),
+            data={"file_scale_revert_uuids": json.dumps([preprocess_uuid])},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        uploaded.refresh_from_db()
+        scale_info = uploaded.scale_info or {}
+        self.assertEqual(scale_info.get("source"), "metadata")
+        self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.11, places=6)
+
 
 class ChannelVisibilityPreferenceTests(TestCase):
     def setUp(self):
@@ -926,6 +1012,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "gfp_threshold": "77",
                 "nuclear_cellular_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
+                "use_metadata_scale": "on",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -940,6 +1027,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["gfp_threshold"], 77)
         self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
+        self.assertTrue(defaults["use_metadata_scale"])
 
     def test_advanced_settings_save_preserves_measurement_defaults(self):
         payload = get_user_preferences(self.user)
@@ -952,6 +1040,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "gfp_threshold": 81,
                 "nuclear_cellular_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
+                "use_metadata_scale": False,
             }
         )
         update_user_preferences(self.user, payload)
@@ -976,3 +1065,4 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["gfp_threshold"], 81)
         self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
+        self.assertFalse(defaults["use_metadata_scale"])

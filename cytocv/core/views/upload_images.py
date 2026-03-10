@@ -14,6 +14,7 @@ import json
 from django.contrib import messages
 from django.http import JsonResponse
 from ..metadata_processing.dv_channel_parser import extract_channel_config
+from ..metadata_processing.dv_scale_parser import extract_dv_scale_metadata
 from ..metadata_processing.error_handling import (
     DVValidationOptions,
     DVValidationResult,
@@ -28,10 +29,15 @@ from ..stats_plugins import (
 )
 import uuid as uuid_lib
 from accounts.preferences import get_user_preferences
+from core.scale import (
+    DEFAULT_MICRONS_PER_PIXEL,
+    build_scale_info,
+    convert_length_to_pixels,
+    normalize_length_unit,
+    parse_microns_per_pixel,
+)
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
-LENGTH_UNITS = {"px", "um"}
-DEFAULT_MICRONS_PER_PIXEL = 0.1
 
 
 def _parse_bool(value, default=False):
@@ -59,10 +65,7 @@ def _parse_positive_float(value, default: float, minimum: float = 0.0) -> float:
 def _normalize_length_unit(value, default: str = "px") -> str:
     """Normalize incoming length unit to px/um."""
 
-    normalized = str(value or "").strip().lower()
-    if normalized not in LENGTH_UNITS:
-        return default
-    return normalized
+    return normalize_length_unit(value, default=default)
 
 
 def _convert_length_to_pixels(
@@ -74,23 +77,13 @@ def _convert_length_to_pixels(
     microns_per_pixel: float,
 ) -> int:
     """Convert a length value to pixels with validation and fallback."""
-
-    try:
-        numeric = float(raw_value)
-    except (TypeError, ValueError):
-        return fallback_px
-
-    normalized_unit = _normalize_length_unit(unit, default="px")
-    if normalized_unit == "um":
-        if microns_per_pixel <= 0:
-            return fallback_px
-        pixels = numeric / microns_per_pixel
-    else:
-        pixels = numeric
-
-    if not np.isfinite(pixels):
-        return fallback_px
-    return max(minimum_px, int(round(pixels)))
+    return convert_length_to_pixels(
+        raw_value,
+        unit,
+        minimum_px=minimum_px,
+        fallback_px=fallback_px,
+        um_per_px=microns_per_pixel,
+    )
 
 
 def _parse_channels(raw_values) -> set[str]:
@@ -189,6 +182,12 @@ def upload_images(request):
     owner_filter = _current_owner_filter(request)
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
     user_preferences = get_user_preferences(request.user)
+    experiment_defaults = user_preferences.get("experiment_defaults", {})
+    default_microns_per_pixel = parse_microns_per_pixel(
+        experiment_defaults.get("microns_per_pixel"),
+        default=DEFAULT_MICRONS_PER_PIXEL,
+    )
+    default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
 
     if request.method == "POST":
         print("POST request received")
@@ -216,10 +215,13 @@ def upload_images(request):
         selected_analysis = normalize_selected_plugins(request.POST.getlist("selected_analysis"))
         requirement_summary = build_requirement_summary(selected_analysis)
 
-        posted_microns_per_pixel = _parse_positive_float(
+        posted_microns_per_pixel = parse_microns_per_pixel(
             request.POST.get("stats_microns_per_pixel"),
-            default=DEFAULT_MICRONS_PER_PIXEL,
-            minimum=0.0001,
+            default=default_microns_per_pixel,
+        )
+        stats_use_metadata_scale = _parse_bool(
+            request.POST.get("stats_use_metadata_scale"),
+            default=default_use_metadata_scale,
         )
         mcherry_width_unit = _normalize_length_unit(
             request.POST.get("stats_mcherry_width_unit"),
@@ -281,6 +283,9 @@ def upload_images(request):
         request.session["stats_mcherry_width_unit"] = mcherry_width_unit
         request.session["stats_gfp_distance_unit"] = gfp_distance_unit
         request.session["stats_microns_per_pixel"] = posted_microns_per_pixel
+        request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
+        request.session["stats_mcherry_width_value"] = mcherry_value
+        request.session["stats_gfp_distance_value"] = gfp_distance_value
         request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
             request.POST.get("nuclear_cellular_mode"),
             default="green_nucleus",
@@ -338,6 +343,19 @@ def upload_images(request):
             if not validation_result.is_valid:
                 validation_failures.append((existing_image.name, validation_result))
                 continue
+
+            metadata_scale = extract_dv_scale_metadata(existing_dv_path)
+            existing_image.scale_info = build_scale_info(
+                manual_um_per_px=posted_microns_per_pixel,
+                prefer_metadata=stats_use_metadata_scale,
+                metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
+                status=metadata_scale.get("status"),
+                dx=metadata_scale.get("dx"),
+                dy=metadata_scale.get("dy"),
+                dz=metadata_scale.get("dz"),
+                note=metadata_scale.get("note"),
+            )
+            existing_image.save(update_fields=["scale_info"])
             image_uuids.append(str(existing_uuid))
 
         # Iterate through each newly uploaded file and assign a unique UUID
@@ -361,6 +379,19 @@ def upload_images(request):
                 validation_failures.append((name, validation_result))
                 instance.delete()
                 continue
+
+            metadata_scale = extract_dv_scale_metadata(dv_file_path)
+            instance.scale_info = build_scale_info(
+                manual_um_per_px=posted_microns_per_pixel,
+                prefer_metadata=stats_use_metadata_scale,
+                metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
+                status=metadata_scale.get("status"),
+                dx=metadata_scale.get("dx"),
+                dy=metadata_scale.get("dy"),
+                dz=metadata_scale.get("dz"),
+                note=metadata_scale.get("note"),
+            )
+            instance.save(update_fields=["scale_info"])
 
             # only valid files make it into the queue
             image_uuids.append(str(image_uuid))

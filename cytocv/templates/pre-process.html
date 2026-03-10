@@ -237,9 +237,185 @@
         transition: background-color 0.2s;
         font-size: 14px;
       }
+      .file-title {
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
       .file-item:hover { background-color: #3399ff; }
       .file-item.active { background-color: #007bff; color: #fff; }
       .file-item.active:hover { background-color: #0056b3; }
+      .file-item {
+        --scale-input-bg: var(--surface-input);
+        --scale-input-border: var(--panel-border);
+      }
+      .scale-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .scale-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 600;
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .file-item.active .scale-label {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .file-scale-input {
+        width: 88px;
+        min-width: 88px;
+        border: 1px solid var(--scale-input-border);
+        border-radius: 7px;
+        background-color: var(--scale-input-bg);
+        color-scheme: dark;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.1;
+        padding: 5px 7px 5px 8px;
+      }
+      .file-scale-input::-webkit-outer-spin-button,
+      .file-scale-input::-webkit-inner-spin-button {
+        opacity: 1;
+        margin: 0;
+        background: var(--scale-input-bg);
+        filter: grayscale(1) brightness(0.68);
+      }
+      .file-scale-input::-webkit-textfield-decoration-container {
+        background-color: var(--scale-input-bg);
+      }
+      .file-scale-input:focus {
+        outline: none;
+      }
+      .file-scale-input:focus {
+        border-color: var(--scale-input-border);
+        box-shadow: inset 0 0 0 1px var(--scale-input-border);
+      }
+      .file-scale-input:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
+      .scale-source-badge {
+        justify-self: end;
+        flex: 0 0 auto;
+        border: 1px solid rgba(90, 127, 166, 0.75);
+        color: #c9deff;
+        background: rgba(37, 56, 79, 0.5);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.25px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
+        width: 82px;
+        min-width: 82px;
+        max-width: 82px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: opacity 0.22s ease, transform 0.22s ease;
+      }
+      .scale-source-badge.warning {
+        border-color: rgba(193, 147, 51, 0.72);
+        color: #ffd487;
+        background: rgba(104, 78, 18, 0.34);
+      }
+      .scale-summary-row {
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      .scale-revert-btn {
+        border: 1px solid #2b7dd8;
+        background: linear-gradient(180deg, #1d88f4 0%, #0d6ddf 100%);
+        color: #fff;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1;
+        padding: 3px 7px;
+        opacity: 0;
+        transform: translateY(-4px);
+        pointer-events: none;
+        transition: opacity 0.22s ease, transform 0.22s ease;
+        white-space: nowrap;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24);
+      }
+      .scale-revert-btn.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      .scale-revert-btn:hover {
+        border-color: #4392ea;
+        background: linear-gradient(180deg, #2a93ff 0%, #1a76e4 100%);
+      }
+      .scale-summary {
+        margin-top: 0;
+        font-size: 10px;
+        color: #b8c8db;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+        flex: 1 1 auto;
+        min-width: 0;
+        transition: opacity 0.22s ease, transform 0.22s ease;
+      }
+      .scale-note {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #f3c978;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+        transition: opacity 0.22s ease, transform 0.22s ease;
+      }
+      .scale-note.is-empty {
+        display: none;
+      }
+      .file-item.active .scale-note {
+        color: #ffe2a8;
+      }
+      .scale-fade-transition {
+        transition: opacity 0.22s ease, transform 0.22s ease;
+        transform: translate3d(0, 0, 0);
+      }
+      .scale-fade-transition[data-fade-direction="left"] {
+        transform: translate3d(0, 0, 0);
+      }
+      .scale-fade-transition[data-fade-direction="top"] {
+        transform: translate3d(0, 0, 0);
+      }
+      .scale-fade-transition.is-fading[data-fade-direction="left"] {
+        opacity: 0;
+        transform: translate3d(-6px, 0, 0);
+      }
+      .scale-fade-transition.is-fading[data-fade-direction="top"] {
+        opacity: 0;
+        transform: translate3d(0, -6px, 0);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .scale-fade-transition,
+        .scale-revert-btn,
+        .scale-source-badge,
+        .scale-summary,
+        .scale-note {
+          transition: none !important;
+          transform: none !important;
+        }
+      }
+      .analysis-locked .file-scale-input {
+        pointer-events: none;
+      }
 
       /* Channel pills */
       .channel-bar {
@@ -628,11 +804,53 @@
             {% for file in file_list %}
             <li>
               <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
-                {{ file.name }}
+                <div class="file-title">{{ file.name }}</div>
                 <div class="channel-bar">
                   {% for channel in file.detected_channels %}
                   <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>
                   {% endfor %}
+                </div>
+                <div class="scale-row">
+                  <label class="scale-label" for="scaleInput_{{ file.uuid }}">Scale (um/px)</label>
+                  <input
+                    id="scaleInput_{{ file.uuid }}"
+                    type="number"
+                    min="0.0001"
+                    step="0.0001"
+                    class="file-scale-input"
+                    data-uuid="{{ file.uuid }}"
+                    data-source-key="{{ file.scale.source }}"
+                    data-scale-status="{{ file.scale.status }}"
+                    data-prefer-metadata="{{ file.scale.prefer_metadata|yesno:'true,false' }}"
+                    data-metadata-um-per-px="{% if file.scale.metadata_um_per_px %}{{ file.scale.metadata_um_per_px }}{% endif %}"
+                    data-manual-um-per-px="{{ file.scale.manual_um_per_px }}"
+                    data-scale-dx="{% if file.scale.dx %}{{ file.scale.dx }}{% endif %}"
+                    data-scale-dy="{% if file.scale.dy %}{{ file.scale.dy }}{% endif %}"
+                    value="{{ file.scale.effective_um_per_px }}"
+                  />
+                  <span
+                    class="scale-source-badge{% if file.scale.is_warning %} warning{% endif %}"
+                    data-scale-source="{{ file.uuid }}"
+                    data-scale-source-key="{{ file.scale.source }}"
+                    title="{% if file.scale.source == 'manual_override' %}Manual per-file scale override. Click Revert to restore this file to auto-detected scaling.{% elif file.scale.note %}{{ file.scale.note }}{% endif %}"
+                  >
+                    {% if file.scale.source == 'manual_override' %}
+                    Override
+                    {% elif file.scale.source == 'manual_fallback' %}
+                    Fallback
+                    {% else %}
+                    {{ file.scale.source_label }}
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="scale-summary-row">
+                  <div class="scale-summary" data-scale-summary="{{ file.uuid }}">
+                    {{ file.scale.scale_summary_label|default:file.scale.effective_label }}
+                  </div>
+                  <button type="button" class="scale-revert-btn" data-scale-revert="{{ file.uuid }}">↺ Revert</button>
+                </div>
+                <div class="scale-note{% if not file.scale.note %} is-empty{% endif %}" data-scale-note="{{ file.uuid }}">
+                  {% if file.scale.note %}{{ file.scale.note }}{% endif %}
                 </div>
               </div>
             </li>
@@ -656,6 +874,8 @@
               >
                 Back
               </button>
+              <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
+              <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />
               <button type="submit" class="button analyze" id="startAnalysisButton">
                 <span class="spinner" aria-hidden="true"></span>
                 <span class="btn-text">Start Analysis</span>
@@ -695,6 +915,7 @@
         </div>
       </div>
     </div>
+    <script id="preprocessScalePayload" type="application/json">{{ file_scale_map_json|safe }}</script>
 
     <script>
       // Current index & total
@@ -706,11 +927,16 @@
       const toggleBtn = document.getElementById("toggleSidebarBtn");
       const channelVisibilityBtn = document.getElementById("toggleChannelVisibilityBtn");
       const fileItems = document.querySelectorAll(".file-item");
+      const fileScaleMapInput = document.getElementById("fileScaleMapInput");
+      const fileScaleRevertInput = document.getElementById("fileScaleRevertInput");
+      const fileScaleInputs = Array.from(document.querySelectorAll(".file-scale-input"));
       let analysisAbortController = null;
       let analysisPollTimer = null;
       let suppressAnalysisErrors = false;
       window.isAnalysisRunning = false;
       let channelLabelFadeTimer = null;
+      const SCALE_TOLERANCE = 1e-6;
+      const SCALE_MATCH_TOLERANCE = 5e-5;
 
       function getSidebarCsrfToken() {
         let value = null;
@@ -723,6 +949,325 @@
         return value;
       }
       const sidebarCsrfToken = getSidebarCsrfToken();
+
+      function parseScalePayload() {
+        const payloadElement = document.getElementById("preprocessScalePayload");
+        if (!payloadElement) return {};
+        try {
+          const parsed = JSON.parse(payloadElement.textContent || "{}");
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (err) {
+          return {};
+        }
+      }
+      function sanitizeScaleValue(value, fallback = 0.1) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          return fallback;
+        }
+        return parsed;
+      }
+      function formatScaleValue(value) {
+        const parsed = sanitizeScaleValue(value);
+        return parsed.toFixed(4).replace(/\.?0+$/, "");
+      }
+      function parseOptionalScale(value) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed <= 0) return null;
+        return parsed;
+      }
+      function parseScaleBoolean(value, fallback = false) {
+        if (typeof value === "boolean") return value;
+        const normalized = String(value ?? "").trim().toLowerCase();
+        if (["1", "true", "yes", "on"].includes(normalized)) return true;
+        if (["0", "false", "no", "off"].includes(normalized)) return false;
+        return fallback;
+      }
+      function buildAutoScaleUi(input, fallbackValue) {
+        const preferMetadata = parseScaleBoolean(input.dataset.preferMetadata, true);
+        const metadataScale = parseOptionalScale(input.dataset.metadataUmPerPx);
+        const manualScale = sanitizeScaleValue(input.dataset.manualUmPerPx, fallbackValue);
+        const dx = parseOptionalScale(input.dataset.scaleDx);
+        const dy = parseOptionalScale(input.dataset.scaleDy);
+        const status = String(input.dataset.scaleStatus || "").trim().toLowerCase();
+
+        const hasMetadataScale = metadataScale !== null;
+        const useMetadata = preferMetadata && hasMetadataScale;
+        const anisotropic = useMetadata && dx !== null && dy !== null && Math.abs(dx - dy) > SCALE_TOLERANCE;
+
+        const sourceKey = useMetadata ? "metadata" : (preferMetadata ? "manual_fallback" : "manual_global");
+        const sourceLabel = useMetadata
+          ? (anisotropic ? "Anisotropic auto" : "Metadata")
+          : (sourceKey === "manual_fallback" ? "Fallback" : "Manual");
+        const effectiveValue = useMetadata ? metadataScale : manualScale;
+        const summary = anisotropic
+          ? `dx ${formatScaleValue(dx)} / dy ${formatScaleValue(dy)} um/px`
+          : `${formatScaleValue(effectiveValue)} um/px`;
+        const warning = sourceKey === "manual_fallback" || status === "invalid" || anisotropic;
+
+        let note = "";
+        if (anisotropic) {
+          note = "Anisotropic metadata detected: distance checks use per-axis dx/dy; line width conversion uses geometric proxy.";
+        } else if (sourceKey === "manual_fallback") {
+          note = status === "invalid"
+            ? "Metadata scale values are invalid; using manual scale."
+            : "Metadata scale unavailable; using manual global scale.";
+        }
+
+        let tooltip = note;
+        if (!tooltip) {
+          if (sourceKey === "metadata") {
+            tooltip = "Using per-file DV metadata scale.";
+          } else if (sourceKey === "manual_global") {
+            tooltip = "Using manual global scale.";
+          }
+        }
+
+        return {
+          sourceKey,
+          sourceLabel,
+          sourceWarning: warning,
+          summary,
+          note,
+          tooltip,
+          effectiveValue,
+        };
+      }
+      function buildManualOverrideTooltip(autoUi) {
+        if (autoUi.sourceKey === "metadata") {
+          return "Manual per-file scale override. Click Revert to restore auto-detected metadata scale.";
+        }
+        return "Manual per-file scale override. Click Revert to restore this file's automatic scale.";
+      }
+      function getRevertTitle(autoUi) {
+        return autoUi.sourceKey === "metadata"
+          ? "Revert this file to metadata scale."
+          : "Revert this file to automatic scale.";
+      }
+      function setRevertButtonState(button, visible, title) {
+        if (!button) return;
+        button.textContent = "↺ Revert";
+        button.title = title || "";
+        button.classList.toggle("is-visible", !!visible);
+      }
+      function setScaleText(element, nextText, options = {}) {
+        if (!element) return;
+        const allowEmpty = !!options.allowEmpty;
+        const normalized = typeof nextText === "string" ? nextText : String(nextText ?? "");
+        const direction = options.direction === "left" ? "left" : "top";
+        if (element._scaleFadeTimer) {
+          clearTimeout(element._scaleFadeTimer);
+          element._scaleFadeTimer = null;
+        }
+        element.classList.add("scale-fade-transition");
+        element.dataset.fadeDirection = direction;
+        element.classList.remove("is-fading");
+        element.textContent = normalized;
+        if (allowEmpty) {
+          element.classList.toggle("is-empty", !normalized);
+        }
+      }
+
+      function fadeScaleText(element, nextText, options = {}) {
+        if (!element) return;
+        const normalized = typeof nextText === "string" ? nextText : String(nextText ?? "");
+        const allowEmpty = !!options.allowEmpty;
+        const direction = options.direction === "left" ? "left" : "top";
+        const currentText = element.textContent || "";
+        const currentlyEmpty = allowEmpty && element.classList.contains("is-empty");
+        if (currentText === normalized && (!allowEmpty || (!!normalized !== currentlyEmpty))) {
+          return;
+        }
+        if (element._scaleFadeTimer) {
+          clearTimeout(element._scaleFadeTimer);
+          element._scaleFadeTimer = null;
+        }
+        element.classList.add("scale-fade-transition");
+        element.dataset.fadeDirection = direction;
+
+        if (allowEmpty && normalized && (currentlyEmpty || !currentText)) {
+          element.textContent = normalized;
+          element.classList.remove("is-empty");
+          element.classList.add("is-fading");
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+              element.classList.remove("is-fading");
+            });
+          });
+          return;
+        }
+
+        element.classList.add("is-fading");
+        element._scaleFadeTimer = window.setTimeout(() => {
+          element.textContent = normalized;
+          if (allowEmpty) {
+            element.classList.toggle("is-empty", !normalized);
+          }
+          element.classList.remove("is-fading");
+          element._scaleFadeTimer = null;
+        }, 115);
+      }
+
+      const initialScalePayload = parseScalePayload();
+      const initialScaleValues = new Map();
+      const fileScaleOverrides = new Map();
+      const fileScaleReverts = new Set();
+      const initialScaleUi = new Map();
+
+      function syncFileScaleMapInput() {
+        if (!fileScaleMapInput) return;
+        const payload = {};
+        fileScaleOverrides.forEach((value, uuid) => {
+          payload[uuid] = Number(formatScaleValue(value));
+        });
+        fileScaleMapInput.value = JSON.stringify(payload);
+      }
+      function syncFileScaleRevertInput() {
+        if (!fileScaleRevertInput) return;
+        fileScaleRevertInput.value = JSON.stringify(Array.from(fileScaleReverts));
+      }
+      function syncScaleInputs() {
+        syncFileScaleMapInput();
+        syncFileScaleRevertInput();
+      }
+
+      fileScaleInputs.forEach((input) => {
+        const uuid = input.dataset.uuid;
+        if (!uuid) return;
+        const fallbackValue = sanitizeScaleValue(input.value, 0.1);
+        const seededValue = sanitizeScaleValue(initialScalePayload[uuid], fallbackValue);
+        initialScaleValues.set(uuid, seededValue);
+        input.value = formatScaleValue(seededValue);
+        const sourceBadge = document.querySelector(`[data-scale-source="${uuid}"]`);
+        const summary = document.querySelector(`[data-scale-summary="${uuid}"]`);
+        const note = document.querySelector(`[data-scale-note="${uuid}"]`);
+        const revertButton = document.querySelector(`[data-scale-revert="${uuid}"]`);
+        const initialSourceKey = String(input.dataset.sourceKey || "").trim().toLowerCase();
+        const autoUi = buildAutoScaleUi(input, seededValue);
+
+        initialScaleUi.set(uuid, {
+          ...autoUi,
+          initialSourceKey,
+          seededValue,
+        });
+
+        const handleScaleUpdate = () => {
+          const current = sanitizeScaleValue(input.value, seededValue);
+          const baseUi = initialScaleUi.get(uuid) || autoUi;
+          const autoScale = sanitizeScaleValue(baseUi.effectiveValue, seededValue);
+          const baseline = initialScaleValues.get(uuid) ?? seededValue;
+          const initialWasOverride = baseUi.initialSourceKey === "manual_override";
+          const currentRounded = Number(formatScaleValue(current));
+          const autoRounded = Number(formatScaleValue(autoScale));
+          const isOverride = Math.abs(currentRounded - autoRounded) > SCALE_MATCH_TOLERANCE;
+
+          if (isOverride) {
+            if (!(initialWasOverride && Math.abs(current - baseline) <= SCALE_TOLERANCE)) {
+              fileScaleOverrides.set(uuid, current);
+            } else {
+              fileScaleOverrides.delete(uuid);
+            }
+            fileScaleReverts.delete(uuid);
+          } else {
+            fileScaleOverrides.delete(uuid);
+            if (initialWasOverride) {
+              fileScaleReverts.add(uuid);
+            } else {
+              fileScaleReverts.delete(uuid);
+            }
+          }
+          input.value = formatScaleValue(current);
+
+          if (sourceBadge) {
+            fadeScaleText(
+              sourceBadge,
+              isOverride ? "Override" : (baseUi.sourceLabel || "Metadata"),
+              { direction: "left" },
+            );
+            sourceBadge.classList.toggle("warning", isOverride ? false : !!baseUi.sourceWarning);
+            sourceBadge.title = isOverride
+              ? buildManualOverrideTooltip(baseUi)
+              : (baseUi.tooltip || "");
+          }
+          if (summary) {
+            fadeScaleText(
+              summary,
+              isOverride
+                ? `${formatScaleValue(current)} um/px`
+                : (baseUi.summary || `${formatScaleValue(baseline)} um/px`),
+              { direction: "top" },
+            );
+          }
+          if (note) {
+            fadeScaleText(
+              note,
+              isOverride ? "" : (baseUi.note || ""),
+              { allowEmpty: true, direction: "top" },
+            );
+          }
+          setRevertButtonState(
+            revertButton,
+            isOverride,
+            getRevertTitle(baseUi),
+          );
+          syncScaleInputs();
+        };
+
+        setScaleText(
+          sourceBadge,
+          initialSourceKey === "manual_override" ? "Override" : (autoUi.sourceLabel || "Metadata"),
+          { direction: "left" },
+        );
+        if (sourceBadge) {
+          sourceBadge.classList.toggle("warning", initialSourceKey === "manual_override" ? false : !!autoUi.sourceWarning);
+          sourceBadge.title = initialSourceKey === "manual_override"
+            ? buildManualOverrideTooltip(autoUi)
+            : (autoUi.tooltip || "");
+        }
+        setScaleText(
+          summary,
+          initialSourceKey === "manual_override"
+            ? `${formatScaleValue(seededValue)} um/px`
+            : (autoUi.summary || `${formatScaleValue(seededValue)} um/px`),
+          { direction: "top" },
+        );
+        setScaleText(
+          note,
+          initialSourceKey === "manual_override" ? "" : (autoUi.note || ""),
+          { allowEmpty: true, direction: "top" },
+        );
+        setRevertButtonState(
+          revertButton,
+          initialSourceKey === "manual_override",
+          getRevertTitle(autoUi),
+        );
+
+        if (revertButton) {
+          revertButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (document.body.classList.contains("analysis-locked")) return;
+            input.value = formatScaleValue(autoUi.effectiveValue);
+            handleScaleUpdate();
+          });
+        }
+
+        input.addEventListener("input", handleScaleUpdate);
+        input.addEventListener("change", handleScaleUpdate);
+        input.addEventListener("click", (event) => event.stopPropagation());
+        input.addEventListener("keydown", (event) => event.stopPropagation());
+      });
+      syncScaleInputs();
+
+      function setAnalysisLocked(locked) {
+        document.body.classList.toggle("analysis-locked", locked);
+        fileScaleInputs.forEach((input) => {
+          input.disabled = locked;
+        });
+        document.querySelectorAll(".channel-bar").forEach((bar) => {
+          bar.style.pointerEvents = locked ? "none" : "";
+        });
+      }
 
       // Highlight active
       function updateSidebarActive() {
@@ -1005,6 +1550,8 @@
         btn.style.cursor = "not-allowed";
         btn.style.backgroundColor = "#0056b3";
         if (textEl) textEl.textContent = "Processing Images";
+        syncFileScaleMapInput();
+        setAnalysisLocked(true);
 
         // Disable other interactive controls
         if (analysisButton) {
@@ -1017,10 +1564,6 @@
           analysisPopover.classList.remove("open");
           analysisPopover.setAttribute("aria-hidden", "true");
         }
-        document.querySelectorAll(".channel-bar").forEach(bar => {
-          bar.style.pointerEvents = "none";
-        });
-
         // Reset server-side phase immediately to avoid stale reads
         try {
           const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
@@ -1100,6 +1643,7 @@
           btn.disabled = false;
           btn.classList.remove("loading");
           if (textEl) textEl.textContent = "Start Analysis";
+          setAnalysisLocked(false);
           alert('Failed to start analysis. Please try again.');
         }
       });

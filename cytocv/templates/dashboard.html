@@ -607,6 +607,40 @@
         .file-item.active .file-meta {
             color: #d5e8ff;
         }
+        .file-scale-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            color: #c6d7ea;
+        }
+        .file-item.active .file-scale-line {
+            color: #e5f0ff;
+        }
+        .file-scale-source {
+            border: 1px solid rgba(90, 127, 166, 0.75);
+            color: #c9deff;
+            background: rgba(37, 56, 79, 0.5);
+            border-radius: 999px;
+            padding: 2px 7px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .file-scale-source.warning {
+            border-color: rgba(193, 147, 51, 0.72);
+            color: #ffd487;
+            background: rgba(104, 78, 18, 0.34);
+        }
+        .file-scale-note {
+            font-size: 10px;
+            color: #f3c978;
+            line-height: 1.3;
+        }
+        .file-item.active .file-scale-note {
+            color: #ffe2a8;
+        }
         .file-select-check {
             position: absolute;
             top: 8px;
@@ -807,6 +841,15 @@
                                 <button class="file-select-check" type="button" aria-label="Select file"><span>&#10003;</span></button>
                                 <div class="file-title">{{ file.name }}</div>
                                 <div class="file-meta">{{ file.uploaded_date|date:"Y-m-d H:i" }} UTC &middot; {{ file.num_cells }} cells</div>
+                                <div class="file-scale-line">
+                                    <span>Scale: {{ file.scale.scale_summary_label|default:file.scale.effective_label }}</span>
+                                    <span class="file-scale-source{% if file.scale.is_warning %} warning{% endif %}">
+                                        {{ file.scale.source_label }}
+                                    </span>
+                                </div>
+                                {% if file.scale.note %}
+                                <div class="file-scale-note">{{ file.scale.note }}</div>
+                                {% endif %}
                                 <div class="channel-bar">
                                     {% for channel in file.detected_channels %}
                                         <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>

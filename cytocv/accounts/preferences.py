@@ -32,6 +32,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "mcherry_width_unit": "px",
         "gfp_distance_unit": "px",
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
+        "use_metadata_scale": True,
     },
     "auto_save_experiments": True,
     "show_saved_file_channels": True,
@@ -133,6 +134,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         defaults_payload.get("microns_per_pixel"),
         default=DEFAULT_MICRONS_PER_PIXEL,
         minimum=0.0001,
+    )
+    normalized["experiment_defaults"]["use_metadata_scale"] = _as_bool(
+        defaults_payload.get("use_metadata_scale"),
+        default=True,
     )
     width_minimum = (
         1

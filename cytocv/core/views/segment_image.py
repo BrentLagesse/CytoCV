@@ -73,6 +73,12 @@ from core.contour_processing import (
 from core.cell_analysis import Analysis
 from core.stats_plugins import build_requirement_summary
 from accounts.preferences import should_auto_save_experiments
+from core.scale import (
+    convert_length_to_pixels,
+    normalize_length_unit,
+    normalize_scale_info,
+    resolve_scale_context,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -804,6 +810,82 @@ def segment_image(request, uuids):
             configuration = settings.DEFAULT_SEGMENT_CONFIG
 
         selected_analysis = request.session.get('selected_analysis', [])
+        raw_mcherry_width = request.session.get(
+            'stats_mcherry_width_value',
+            request.session.get('mCherryWidth', 1),
+        )
+        raw_gfp_distance = request.session.get(
+            'stats_gfp_distance_value',
+            request.session.get('distance', 37),
+        )
+        mcherry_width_unit = request.session.get('stats_mcherry_width_unit', 'px')
+        gfp_distance_unit = request.session.get('stats_gfp_distance_unit', 'px')
+        session_manual_scale = request.session.get('stats_microns_per_pixel', 0.1)
+        scale_info = normalize_scale_info(
+            uploaded_image.scale_info,
+            manual_default=session_manual_scale,
+            prefer_metadata_default=bool(request.session.get("stats_use_metadata_scale", True)),
+        )
+        if uploaded_image.scale_info != scale_info:
+            uploaded_image.scale_info = scale_info
+            uploaded_image.save(update_fields=["scale_info"])
+        scale_context = resolve_scale_context(
+            scale_info,
+            manual_default=session_manual_scale,
+            prefer_metadata_default=bool(request.session.get("stats_use_metadata_scale", True)),
+        )
+        effective_um_per_px = scale_context.get("effective_um_per_px", 0.1)
+        x_um_per_px = scale_context.get("x_um_per_px", effective_um_per_px)
+        y_um_per_px = scale_context.get("y_um_per_px", effective_um_per_px)
+        line_width_proxy_um_per_px = scale_context.get(
+            "line_width_proxy_um_per_px",
+            effective_um_per_px,
+        )
+        gfp_distance_unit = normalize_length_unit(gfp_distance_unit, default="px")
+
+        mcherry_width = convert_length_to_pixels(
+            raw_mcherry_width,
+            mcherry_width_unit,
+            minimum_px=1,
+            fallback_px=1,
+            um_per_px=line_width_proxy_um_per_px,
+        )
+        if gfp_distance_unit == "um":
+            try:
+                gfp_distance = float(raw_gfp_distance)
+            except (TypeError, ValueError):
+                gfp_distance = 37.0
+            if not math.isfinite(gfp_distance) or gfp_distance < 0:
+                gfp_distance = 37.0
+            gfp_distance_px_equivalent = convert_length_to_pixels(
+                gfp_distance,
+                "um",
+                minimum_px=0,
+                fallback_px=37,
+                um_per_px=line_width_proxy_um_per_px,
+            )
+            gfp_distance_mode = "physical_um"
+        else:
+            gfp_distance = float(
+                convert_length_to_pixels(
+                    raw_gfp_distance,
+                    gfp_distance_unit,
+                    minimum_px=0,
+                    fallback_px=37,
+                    um_per_px=effective_um_per_px,
+                )
+            )
+            gfp_distance_px_equivalent = int(gfp_distance)
+            gfp_distance_mode = "pixel"
+        gfp_threshold = request.session.get('threshold', 66)
+        try:
+            gfp_threshold = int(gfp_threshold)
+        except (TypeError, ValueError):
+            gfp_threshold = 66
+        if gfp_threshold < 0:
+            gfp_threshold = 66
+        gfp_filter_enabled = request.session.get('gfpFilterEnabled', 'False')
+
         # Build a proper 'conf' dict with required keys for get_stats
         conf = {
             'input_dir': input_dir,
@@ -856,22 +938,23 @@ def segment_image(request, uuids):
             selected_analysis = request.session.get('selected_analysis',[])
             cp.properties = dict(cp.properties or {})
             cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
-            mcherry_width = request.session.get('mCherryWidth', 1)
-            try:
-                mcherry_width = int(mcherry_width)
-            except ValueError:
-                mcherry_width = 1
-            gfp_distance = request.session.get('distance', 37)
-            try:
-                gfp_distance = int(gfp_distance)
-            except ValueError:
-                gfp_distance = 37
-            gfp_threshold = request.session.get('threshold', 66)
-            try:
-                gfp_threshold = int(gfp_threshold)
-            except ValueError:
-                gfp_threshold = 66
-            gfp_filter_enabled = request.session.get('gfpFilterEnabled', 'False')
+            cp.properties["scale_effective_um_per_px"] = effective_um_per_px
+            cp.properties["scale_source"] = scale_info.get("source", "manual_global")
+            cp.properties["scale_status"] = scale_info.get("status", "missing")
+            cp.properties["scale_note"] = scale_info.get("note", "")
+            cp.properties["scale_manual_um_per_px"] = scale_info.get("manual_um_per_px")
+            cp.properties["scale_metadata_um_per_px"] = scale_info.get("metadata_um_per_px")
+            cp.properties["scale_x_um_per_px"] = x_um_per_px
+            cp.properties["scale_y_um_per_px"] = y_um_per_px
+            cp.properties["scale_is_anisotropic"] = bool(scale_context.get("is_anisotropic", False))
+            cp.properties["scale_distance_mode"] = scale_context.get("distance_mode", "scalar")
+            cp.properties["scale_line_width_proxy_um_per_px"] = line_width_proxy_um_per_px
+            cp.properties["stats_mcherry_width_px"] = mcherry_width
+            cp.properties["stats_gfp_distance_px"] = gfp_distance_px_equivalent
+            cp.properties["stats_gfp_distance_threshold"] = gfp_distance
+            cp.properties["stats_gfp_distance_mode"] = gfp_distance_mode
+            cp.properties["stats_mcherry_width_unit"] = mcherry_width_unit
+            cp.properties["stats_gfp_distance_unit"] = gfp_distance_unit
             # Call get_stats to do the real work
             debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled)
 

@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from accounts.preferences import get_user_preferences
 from core.config import get_channel_config_for_uuid
 from core.models import UploadedImage, SegmentedImage, CellStatistics, get_guest_user
+from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from django_tables2.export.export import TableExport
@@ -163,6 +164,9 @@ def display_cell(request, uuids):
 
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -186,6 +190,10 @@ def display_cell(request, uuids):
                 'uploaded_date': cell_image.uploaded_date,
                 'num_cells': int(cell_image.NumCells or 0),
                 'is_saved': bool(request.user.is_authenticated and cell_image.user_id == request.user.id),
+                'scale': get_scale_sidebar_payload(
+                    uploaded_image.scale_info,
+                    manual_default=default_manual_scale,
+                ),
             })
             image_name_stem = Path(image_name).stem
             image_index = 0

@@ -6,6 +6,8 @@ from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.contrib import messages
 import sys, pkgutil, importlib, inspect
+import math
+from uuid import UUID
 
 from core.models import DVLayerTifPreview, UploadedImage, get_guest_user
 from core.mrcnn.my_inference import predict_images
@@ -29,6 +31,11 @@ import re
 import hashlib
 
 from accounts.preferences import get_user_preferences
+from core.scale import (
+    apply_manual_override_scale,
+    clear_manual_override_scale,
+    get_scale_sidebar_payload,
+)
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
 
@@ -39,6 +46,70 @@ def _current_owner_filter(request) -> dict:
     if request.user.is_authenticated:
         return {"user": request.user}
     return {"user_id": get_guest_user()}
+
+
+def _parse_file_scale_map_payload(
+    raw_payload: str,
+    active_uuid_set: set[str],
+) -> tuple[dict[str, float], str | None, int]:
+    """Parse and validate per-file scale payload from preprocess form."""
+
+    if not raw_payload:
+        return {}, None, 200
+    try:
+        payload = json.loads(raw_payload)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}, "Invalid per-file scale payload.", 400
+    if not isinstance(payload, dict):
+        return {}, "Per-file scale payload must be a JSON object.", 400
+
+    parsed: dict[str, float] = {}
+    for raw_uuid, raw_value in payload.items():
+        try:
+            normalized_uuid = str(UUID(str(raw_uuid)))
+        except (TypeError, ValueError, AttributeError):
+            return {}, "Per-file scale payload contains an invalid UUID.", 400
+        if normalized_uuid not in active_uuid_set:
+            return {}, "Per-file scale payload contains unavailable files.", 403
+
+        value = raw_value
+        if isinstance(raw_value, dict):
+            value = raw_value.get("effective_um_per_px")
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return {}, "Per-file scale values must be numeric.", 400
+        if not math.isfinite(numeric) or numeric <= 0:
+            return {}, "Per-file scale values must be greater than 0.", 400
+        parsed[normalized_uuid] = numeric
+    return parsed, None, 200
+
+
+def _parse_file_scale_revert_payload(
+    raw_payload: str,
+    active_uuid_set: set[str],
+) -> tuple[set[str], str | None, int]:
+    """Parse and validate file UUIDs that should revert to auto scale resolution."""
+
+    if not raw_payload:
+        return set(), None, 200
+    try:
+        payload = json.loads(raw_payload)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return set(), "Invalid scale revert payload.", 400
+    if not isinstance(payload, list):
+        return set(), "Scale revert payload must be a JSON array.", 400
+
+    parsed: set[str] = set()
+    for raw_uuid in payload:
+        try:
+            normalized_uuid = str(UUID(str(raw_uuid)))
+        except (TypeError, ValueError, AttributeError):
+            return set(), "Scale revert payload contains an invalid UUID.", 400
+        if normalized_uuid not in active_uuid_set:
+            return set(), "Scale revert payload contains unavailable files.", 403
+        parsed.add(normalized_uuid)
+    return parsed, None, 200
 
 
 def load_analyses(path:str) -> list:
@@ -98,6 +169,9 @@ def pre_process_step(request, uuids):
     total_files = len(uuid_list)
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
 
     # clamp file_index into [0, total_files-1]
     current_file_index = int(request.GET.get('file_index', 0))
@@ -122,10 +196,16 @@ def pre_process_step(request, uuids):
             else:
                 detected_channels = []
 
+        scale_payload = get_scale_sidebar_payload(
+            uploaded.scale_info,
+            manual_default=default_manual_scale,
+        )
+
         file_list.append({
             'uuid': uid,
             'name': uploaded.name,
             'detected_channels': detected_channels,
+            'scale': scale_payload,
         })
 
     # current file previews
@@ -135,6 +215,69 @@ def pre_process_step(request, uuids):
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
+        active_uuid_set: set[str] = set()
+        for value in uuid_list:
+            if not str(value):
+                continue
+            try:
+                active_uuid_set.add(str(UUID(str(value))))
+            except (TypeError, ValueError, AttributeError):
+                active_uuid_set.add(str(value))
+        scale_map, scale_error, scale_status = _parse_file_scale_map_payload(
+            request.POST.get("file_scale_map", ""),
+            active_uuid_set=active_uuid_set,
+        )
+        if scale_error:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"error": scale_error}, status=scale_status)
+            return HttpResponse(scale_error, status=scale_status)
+        revert_uuid_set, revert_error, revert_status = _parse_file_scale_revert_payload(
+            request.POST.get("file_scale_revert_uuids", ""),
+            active_uuid_set=active_uuid_set,
+        )
+        if revert_error:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"error": revert_error}, status=revert_status)
+            return HttpResponse(revert_error, status=revert_status)
+        # Explicit manual overrides take precedence if the same UUID appears in both payloads.
+        if scale_map and revert_uuid_set:
+            revert_uuid_set.difference_update(scale_map.keys())
+
+        if scale_map or revert_uuid_set:
+            uploaded_map = {
+                str(item.uuid): item
+                for item in UploadedImage.objects.filter(uuid__in=active_uuid_set, **owner_filter)
+            }
+            if len(uploaded_map) != len(active_uuid_set):
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return JsonResponse({"error": "Unauthorized"}, status=401)
+                return HttpResponse("Unauthorized", status=401)
+            updates = []
+            for image_uuid in revert_uuid_set:
+                uploaded = uploaded_map.get(image_uuid)
+                if uploaded is None:
+                    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                        return JsonResponse({"error": "Unauthorized"}, status=401)
+                    return HttpResponse("Unauthorized", status=401)
+                uploaded.scale_info = clear_manual_override_scale(
+                    uploaded.scale_info,
+                    manual_default=default_manual_scale,
+                )
+                updates.append(uploaded)
+            for image_uuid, effective_scale in scale_map.items():
+                uploaded = uploaded_map.get(image_uuid)
+                if uploaded is None:
+                    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                        return JsonResponse({"error": "Unauthorized"}, status=401)
+                    return HttpResponse("Unauthorized", status=401)
+                uploaded.scale_info = apply_manual_override_scale(
+                    uploaded.scale_info,
+                    effective_um_per_px=effective_scale,
+                )
+                updates.append(uploaded)
+            if updates:
+                UploadedImage.objects.bulk_update(updates, ["scale_info"])
+
         clear_cancelled(uuids)
         # Selection is primarily set during upload step. Keep POST fallback for
         # backward compatibility with older clients.
@@ -248,6 +391,12 @@ def pre_process_step(request, uuids):
         'file_list': file_list,
         'show_saved_file_channels': show_saved_file_channels,
         'has_selected_stats': bool(request.session.get('selected_analysis', [])),
+        'file_scale_map_json': json.dumps(
+            {
+                item["uuid"]: item["scale"]["effective_um_per_px"]
+                for item in file_list
+            }
+        ),
     })
 
 @require_POST
