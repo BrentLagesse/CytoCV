@@ -577,6 +577,16 @@
             min-height: 0;
             overflow-y: auto;
             padding-right: 2px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .settings-view::-webkit-scrollbar { width: 10px; }
+        .settings-view::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+        }
+        .settings-view::-webkit-scrollbar-track {
+            background: transparent;
         }
         .settings-view[hidden] {
             display: none !important;
@@ -632,6 +642,29 @@
             justify-content: flex-start;
             align-items: center;
             gap: 12px;
+        }
+        #statsPrimaryView {
+            overflow: hidden;
+            padding-right: 0;
+        }
+        .stats-primary-scroll {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 2px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .stats-primary-scroll::-webkit-scrollbar { width: 10px; }
+        .stats-primary-scroll::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+        }
+        .stats-primary-scroll::-webkit-scrollbar-track {
+            background: transparent;
         }
         .stats-view-footer {
             display: flex;
@@ -695,15 +728,87 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: min(42vh, 320px);
-            overflow-y: auto;
-            padding-right: 2px;
+            max-height: none;
+            overflow: visible;
+            padding-right: 0;
             isolation: isolate;
         }
-        .stats-list::-webkit-scrollbar { width: 10px; }
-        .stats-list::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
-            border-radius: 6px;
+        .measurement-scale-card {
+            display: grid;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--surface-rail);
+            border: 1px solid var(--panel-border);
+        }
+        .measurement-scale-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .measurement-scale-text {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .measurement-scale-title-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .measurement-scale-title {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .measurement-scale-help {
+            margin: 0;
+            font-size: 11px;
+            color: #bababa;
+            line-height: 1.3;
+        }
+        .measurement-scale-formula {
+            margin: 0;
+            font-size: 11px;
+            color: #d2d2d2;
+            line-height: 1.35;
+        }
+        .measurement-scale-live {
+            margin: 0;
+            font-size: 11px;
+            color: #9fd5af;
+            line-height: 1.35;
+        }
+        .measurement-scale-example {
+            margin: 0;
+            font-size: 11px;
+            color: #b8c8db;
+            line-height: 1.35;
+        }
+        .measurement-scale-input-group {
+            margin-left: auto;
+        }
+        .measurement-scale-input {
+            width: 92px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: #fff;
+            padding: 4px 8px;
+            font-family: var(--app-font);
+            outline: none;
+            color-scheme: dark;
+        }
+        .measurement-scale-input::-webkit-outer-spin-button,
+        .measurement-scale-input::-webkit-inner-spin-button {
+            opacity: 1;
+            margin: 0;
+            background: var(--surface-input);
+            filter: grayscale(1) brightness(0.68);
         }
         .stats-toggle-row {
             display: flex;
@@ -1298,8 +1403,13 @@
                 </div>
                 <div class="required-channel-grid" id="requiredChannelGrid"></div>
                 <div class="stats-divider"></div>
-                <div class="stats-view-title">Statistics</div>
-                <div class="stats-list" id="statsList"></div>
+                <div class="stats-primary-scroll" id="statsPrimaryScroll">
+                    <div class="stats-view-title">Statistics</div>
+                    <div class="stats-list" id="statsList"></div>
+                    <div class="stats-divider"></div>
+                    <div class="stats-view-title">Measurement Scale</div>
+                    <div class="measurement-scale-card" id="measurementScaleGroup"></div>
+                </div>
                 <div class="stats-view-footer">
                     <button type="button" class="advanced-btn" id="openAdvancedSettings">Advanced Settings</button>
                 </div>
@@ -1597,6 +1707,9 @@
     let gfpDistanceInput = null;
     let gfpDistanceRow = null;
     let gfpThresholdInput = null;
+    let micronsPerPixelInput = null;
+    let measurementScaleLiveHint = null;
+    let measurementScaleExampleHint = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
     let infoTooltipElement = null;
@@ -2364,6 +2477,7 @@
         gfpDistanceInput = null;
         gfpDistanceRow = null;
         gfpThresholdInput = null;
+        micronsPerPixelInput = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
 
@@ -2448,6 +2562,7 @@
                         statsState.mCherryWidth = parseLengthValue(widthGroup.input.value, statsState.mCherryWidthUnit, fallback, minimum);
                         widthGroup.input.value = formatNumericInputValue(statsState.mCherryWidth);
                         localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+                        updateMeasurementScaleHints();
                     },
                 });
                 widthLine.appendChild(widthGroup.controls);
@@ -2478,6 +2593,7 @@
                         statsState.gfpDistance = parseLengthValue(distanceGroup.input.value, statsState.gfpDistanceUnit, fallback, 0);
                         distanceGroup.input.value = formatNumericInputValue(statsState.gfpDistance);
                         localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+                        updateMeasurementScaleHints();
                     },
                 });
                 distanceLine.appendChild(distanceGroup.controls);
@@ -2551,6 +2667,110 @@
                 nuclearModeRow = modeRow;
             }
         });
+        renderMeasurementScaleSettings();
+    }
+
+    function renderMeasurementScaleSettings() {
+        const container = document.getElementById('measurementScaleGroup');
+        if (!container) return;
+        container.innerHTML = '';
+        measurementScaleLiveHint = null;
+        measurementScaleExampleHint = null;
+
+        const row = document.createElement('div');
+        row.className = 'measurement-scale-row';
+
+        const text = document.createElement('div');
+        text.className = 'measurement-scale-text';
+
+        const titleRow = document.createElement('div');
+        titleRow.className = 'measurement-scale-title-row';
+
+        const title = document.createElement('span');
+        title.className = 'measurement-scale-title';
+        title.textContent = 'Micrometers per pixel (um/px)';
+        titleRow.appendChild(title);
+
+        const info = buildInfoDot(
+            'Enter image scale in um/px (micrometers per pixel).\n\nImportant: enter um/px, not px/um.\n\nExample: if 1 pixel equals 0.1 um, enter 0.1.\n\nUsed for all plugin length settings when unit is um.'
+        );
+        info.classList.add('compact');
+        titleRow.appendChild(info);
+
+        text.appendChild(titleRow);
+
+        const help = document.createElement('p');
+        help.className = 'measurement-scale-help';
+        help.textContent = 'Enter image scale as um/px (how many micrometers one pixel represents).';
+        text.appendChild(help);
+
+        const formula = document.createElement('p');
+        formula.className = 'measurement-scale-formula';
+        formula.textContent = 'Enter um/px, not px/um. Example: if 1 pixel = 0.1 um, enter 0.1. Formula: pixels = micrometers / (um/px).';
+        text.appendChild(formula);
+
+        const live = document.createElement('p');
+        live.className = 'measurement-scale-live';
+        text.appendChild(live);
+
+        const example = document.createElement('p');
+        example.className = 'measurement-scale-example';
+        text.appendChild(example);
+
+        row.appendChild(text);
+
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'boxed-number-group measurement-scale-input-group';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.id = 'statsMicronsPerPixelInput';
+        input.className = 'measurement-scale-input';
+        input.min = '0.0001';
+        input.step = '0.0001';
+        input.placeholder = '0.1';
+        input.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
+        input.addEventListener('change', () => {
+            statsState.micronsPerPixel = sanitizeMicronsPerPixel(input.value);
+            input.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
+            persistLengthUnitSettings();
+            syncLengthControls();
+            updateMeasurementScaleHints();
+        });
+        inputGroup.appendChild(input);
+        row.appendChild(inputGroup);
+
+        container.appendChild(row);
+        micronsPerPixelInput = input;
+        measurementScaleLiveHint = live;
+        measurementScaleExampleHint = example;
+        updateMeasurementScaleHints();
+    }
+
+    function updateMeasurementScaleHints() {
+        if (!measurementScaleLiveHint || !measurementScaleExampleHint) return;
+
+        const umPerPx = sanitizeMicronsPerPixel(statsState.micronsPerPixel);
+        const pxPerUm = umPerPx > 0 ? (1 / umPerPx) : 0;
+        measurementScaleLiveHint.textContent =
+            `Current scale: 1 um = ${formatNumericInputValue(pxPerUm, 3)} px (${formatNumericInputValue(umPerPx, 4)} um/px).`;
+
+        const examples = [];
+        if (statsState.mCherryWidthUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.mCherryWidth, statsState.mCherryWidthUnit, 1, 1);
+            examples.push(
+                `mCherry line width ${formatNumericInputValue(statsState.mCherryWidth, 3)} um -> ${pxValue} px`
+            );
+        }
+        if (statsState.gfpDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.gfpDistance, statsState.gfpDistanceUnit, 0, 37);
+            examples.push(
+                `Minimum signal distance ${formatNumericInputValue(statsState.gfpDistance, 3)} um -> ${pxValue} px`
+            );
+        }
+
+        measurementScaleExampleHint.textContent = examples.length
+            ? `Live conversion: ${examples.join(' | ')}`
+            : 'Set a plugin length unit to um to preview its pixel conversion here.';
     }
 
     function renderAdvancedChannelToggles() {
@@ -2859,6 +3079,10 @@
         if (gfpThresholdInput) {
             gfpThresholdInput.value = String(statsState.gfpThreshold);
         }
+        if (micronsPerPixelInput) {
+            micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
+        }
+        updateMeasurementScaleHints();
         if (nuclearModeSelect) {
             nuclearModeSelect.value = statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
         }
@@ -3753,6 +3977,8 @@
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
+            formData.append('stats_mcherry_width_value', String(statsState.mCherryWidth));
+            formData.append('stats_gfp_distance_value', String(statsState.gfpDistance));
             formData.append('mCherryWidth', String(mCherryWidthPixels));
             formData.append('distance', String(gfpDistancePixels));
             formData.append('threshold', String(statsState.gfpThreshold));

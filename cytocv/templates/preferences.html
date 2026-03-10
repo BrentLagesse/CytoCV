@@ -44,6 +44,10 @@ main.main>section.panel>.hdr{margin-bottom:14px}
 .legacy{font-size:10px;color:#f2d1a0;border:1px solid #6a5a3c;border-radius:999px;padding:1px 6px;margin-left:6px}
 .row{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);padding:10px;display:flex;justify-content:space-between;gap:12px;align-items:center}
 .row.locked{border-color:#2a8a50;background:rgba(47,143,78,.14)}.row p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.measurement-scale-copy{display:grid;gap:4px;min-width:0}
+.measurement-scale-copy p{margin:0;color:var(--muted);font-size:12px;line-height:1.35}
+.measurement-scale-live{color:#9fd5af!important}
+.measurement-scale-example{color:#b8c8db!important}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.field{display:grid;gap:6px}.field label{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .field input,.field select{height:38px;border-radius:8px;border:1px solid var(--panel-border);background:var(--surface-input);color:var(--text);padding:8px 10px}
 .save{justify-self:start;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer}
@@ -119,12 +123,6 @@ main.main>section.panel>.hdr{margin-bottom:14px}
                     <select id="mcherry_width_unit" name="mcherry_width_unit"><option value="px" {% if preferences.experiment_defaults.mcherry_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.mcherry_width_unit == 'um' %}selected{% endif %}>um</option></select>
                   </div>
                 </div>
-                <div class="plugin-measure-line">
-                  <label for="microns_per_pixel">Micrometers per pixel:</label>
-                  <div class="boxed-number-group plugin-measure-right">
-                    <input type="number" min="0.0001" step="0.0001" id="microns_per_pixel" name="microns_per_pixel" value="{{ preferences.experiment_defaults.microns_per_pixel }}">
-                  </div>
-                </div>
               </div>
               {% elif plugin.id == 'GFPDot' %}
               <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="GFPDot" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
@@ -157,6 +155,21 @@ main.main>section.panel>.hdr{margin-bottom:14px}
           </div>
           {% endfor %}
         </div></div>
+        <div class="card">
+          <h2>Measurement Scale</h2>
+          <div class="row">
+            <div class="measurement-scale-copy">
+              <label for="microns_per_pixel">Micrometers per pixel (um/px)</label>
+              <p>Enter the image scale as <strong>um/px</strong>: how many micrometers one pixel represents.</p>
+              <p>Enter <strong>um/px</strong>, not <strong>px/um</strong>. Example: if <strong>1 pixel = 0.1 um</strong>, enter <strong>0.1</strong>. Formula used: <strong>pixels = micrometers / (um/px)</strong>.</p>
+              <p class="measurement-scale-live" id="prefsScaleLive" aria-live="polite"></p>
+              <p class="measurement-scale-example" id="prefsScaleExample" aria-live="polite"></p>
+            </div>
+            <div class="boxed-number-group">
+              <input type="number" min="0.0001" step="0.0001" id="microns_per_pixel" name="microns_per_pixel" value="{{ preferences.experiment_defaults.microns_per_pixel }}" placeholder="0.1">
+            </div>
+          </div>
+        </div>
         <button class="save save-right" type="submit">Save Plugin Settings</button>
       </form>
     </section>
@@ -508,8 +521,159 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     }
   });
 
+  const prefsScaleInput = document.getElementById('microns_per_pixel');
+  const prefsScaleLive = document.getElementById('prefsScaleLive');
+  const prefsScaleExample = document.getElementById('prefsScaleExample');
+  const mcherryWidthInput = document.getElementById('mcherry_width');
+  const mcherryWidthUnit = document.getElementById('mcherry_width_unit');
+  const gfpDistanceInput = document.getElementById('gfp_distance');
+  const gfpDistanceUnit = document.getElementById('gfp_distance_unit');
+
+  const sanitizePositive = (value, fallback) => {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    return fallback;
+  };
+
+  const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
+
+  const formatNumeric = (value, precision) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return '0';
+    return parsed.toFixed(precision).replace(/\.?0+$/, '');
+  };
+
+  const convertLengthValueToUnit = (value, fromUnit, toUnit, umPerPx) => {
+    const sourceUnit = normalizeLengthUnit(fromUnit);
+    const targetUnit = normalizeLengthUnit(toUnit);
+    if (sourceUnit === targetUnit) return Number(value);
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || umPerPx <= 0) return Number.NaN;
+    if (sourceUnit === 'px' && targetUnit === 'um') return numeric * umPerPx;
+    if (sourceUnit === 'um' && targetUnit === 'px') return numeric / umPerPx;
+    return numeric;
+  };
+
+  const syncLengthInputConstraints = (inputEl, unit, minimumPx, minimumUm) => {
+    if (!inputEl) return;
+    const normalized = normalizeLengthUnit(unit);
+    if (normalized === 'um') {
+      inputEl.step = '0.01';
+      inputEl.min = String(minimumUm);
+      return;
+    }
+    inputEl.step = '1';
+    inputEl.min = String(minimumPx);
+  };
+
+  const parseLengthValue = (inputEl, unit, fallback, minimum) => {
+    if (!inputEl) return fallback;
+    const normalized = normalizeLengthUnit(unit);
+    const raw = String(inputEl.value ?? '').trim();
+    const parsed = normalized === 'um' ? Number.parseFloat(raw) : Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < minimum) return fallback;
+    if (normalized === 'px') return Math.round(parsed);
+    return parsed;
+  };
+
+  const convertUmToPixels = (valueUm, umPerPx, minimumPx = 1) => {
+    const umValue = Number(valueUm);
+    if (!Number.isFinite(umValue) || umValue <= 0 || umPerPx <= 0) return 0;
+    return Math.max(minimumPx, Math.round(umValue / umPerPx));
+  };
+
+  const applyUnitConversion = (inputEl, unitEl, options) => {
+    if (!inputEl || !unitEl) return;
+    const previousUnit = normalizeLengthUnit(unitEl.dataset.prevUnit || unitEl.value);
+    const nextUnit = normalizeLengthUnit(unitEl.value);
+    syncLengthInputConstraints(inputEl, nextUnit, options.minimumPx, options.minimumUm);
+    if (previousUnit === nextUnit) {
+      unitEl.dataset.prevUnit = nextUnit;
+      return;
+    }
+    const umPerPx = sanitizePositive(prefsScaleInput ? prefsScaleInput.value : 0.1, 0.1);
+    const currentValue = parseLengthValue(
+      inputEl,
+      previousUnit,
+      options.defaultForUnit(previousUnit, umPerPx),
+      options.minimumForUnit(previousUnit)
+    );
+    let converted = convertLengthValueToUnit(currentValue, previousUnit, nextUnit, umPerPx);
+    if (!Number.isFinite(converted)) {
+      converted = options.defaultForUnit(nextUnit, umPerPx);
+    }
+    if (converted < options.minimumForUnit(nextUnit)) {
+      converted = options.defaultForUnit(nextUnit, umPerPx);
+    }
+    if (nextUnit === 'px') {
+      converted = Math.round(converted);
+    }
+    inputEl.value = formatNumeric(converted, nextUnit === 'um' ? 3 : 0);
+    unitEl.dataset.prevUnit = nextUnit;
+  };
+
+  const updateMeasurementScaleHelp = () => {
+    if (!prefsScaleInput || !prefsScaleLive || !prefsScaleExample) return;
+    const umPerPx = sanitizePositive(prefsScaleInput.value, 0.1);
+    const pxPerUm = umPerPx > 0 ? (1 / umPerPx) : 0;
+    prefsScaleLive.textContent =
+      `Current scale: 1 um = ${formatNumeric(pxPerUm, 3)} px (${formatNumeric(umPerPx, 4)} um/px).`;
+
+    const examples = [];
+    if (mcherryWidthUnit && mcherryWidthInput && mcherryWidthUnit.value === 'um') {
+      const px = convertUmToPixels(mcherryWidthInput.value, umPerPx);
+      if (px > 0) {
+        examples.push(`mCherry line width ${formatNumeric(mcherryWidthInput.value, 3)} um -> ${px} px`);
+      }
+    }
+    if (gfpDistanceUnit && gfpDistanceInput && gfpDistanceUnit.value === 'um') {
+      const px = convertUmToPixels(gfpDistanceInput.value, umPerPx);
+      if (px > 0) {
+        examples.push(`Minimum signal distance ${formatNumeric(gfpDistanceInput.value, 3)} um -> ${px} px`);
+      }
+    }
+    prefsScaleExample.textContent = examples.length
+      ? `Live conversion: ${examples.join(' | ')}`
+      : 'Set a plugin length unit to um to preview its pixel conversion here.';
+  };
+
+  [prefsScaleInput, mcherryWidthInput, mcherryWidthUnit, gfpDistanceInput, gfpDistanceUnit].forEach((el) => {
+    if (!el) return;
+    el.addEventListener('input', updateMeasurementScaleHelp);
+    el.addEventListener('change', updateMeasurementScaleHelp);
+  });
+
+  if (mcherryWidthInput && mcherryWidthUnit) {
+    mcherryWidthUnit.dataset.prevUnit = normalizeLengthUnit(mcherryWidthUnit.value);
+    syncLengthInputConstraints(mcherryWidthInput, mcherryWidthUnit.value, 1, 0.01);
+    mcherryWidthUnit.addEventListener('change', () => {
+      applyUnitConversion(mcherryWidthInput, mcherryWidthUnit, {
+        minimumPx: 1,
+        minimumUm: 0.01,
+        defaultForUnit: (unit, umPerPx) => (normalizeLengthUnit(unit) === 'um' ? umPerPx : 1),
+        minimumForUnit: (unit) => (normalizeLengthUnit(unit) === 'um' ? 0.01 : 1),
+      });
+      updateMeasurementScaleHelp();
+    });
+  }
+
+  if (gfpDistanceInput && gfpDistanceUnit) {
+    gfpDistanceUnit.dataset.prevUnit = normalizeLengthUnit(gfpDistanceUnit.value);
+    syncLengthInputConstraints(gfpDistanceInput, gfpDistanceUnit.value, 0, 0);
+    gfpDistanceUnit.addEventListener('change', () => {
+      applyUnitConversion(gfpDistanceInput, gfpDistanceUnit, {
+        minimumPx: 0,
+        minimumUm: 0,
+        defaultForUnit: (unit, umPerPx) => (normalizeLengthUnit(unit) === 'um' ? 37 * umPerPx : 37),
+        minimumForUnit: () => 0,
+      });
+      updateMeasurementScaleHelp();
+    });
+  }
+
   syncPluginToggles();
   syncRows();
+  updateMeasurementScaleHelp();
 })();
 </script>
 {% endblock content %}
