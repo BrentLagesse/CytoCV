@@ -424,6 +424,17 @@ class DisplayManualSaveTests(TestCase):
         )
         return str(file_uuid)
 
+    def _add_cell_stat(self, file_uuid: str, *, cell_id: int = 1) -> None:
+        segmented = SegmentedImage.objects.get(UUID=file_uuid)
+        CellStatistics.objects.create(
+            segmented_image=segmented,
+            cell_id=cell_id,
+            distance=1.0,
+            line_gfp_intensity=2.0,
+            nucleus_intensity_sum=3.0,
+            cellular_intensity_sum=4.0,
+        )
+
     def _set_transient_uuids(self, uuids: list[str]) -> None:
         session = self.client.session
         session["transient_experiment_uuids"] = uuids
@@ -517,6 +528,62 @@ class DisplayManualSaveTests(TestCase):
         dashboard_response = self.client.get(reverse("dashboard"))
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertContains(dashboard_response, "manual_save_candidate")
+
+    def test_dashboard_renders_main_table_export_buttons(self):
+        self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_export_first",
+        )
+
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="exportButtons"', html=False)
+        self.assertContains(response, 'id="downloadCsvBtn"', html=False)
+        self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertNotContains(response, "data-file-export=", html=False)
+
+    def test_dashboard_csv_export_for_file_uuid_returns_attachment(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_csv_export",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {"file_uuid": saved_uuid, "_export": "csv"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn(f"dashboard-{saved_uuid}.csv", response["Content-Disposition"])
+        self.assertIn("text/csv", response["Content-Type"])
+        csv_text = response.content.decode("utf-8")
+        self.assertIn("Cell ID", csv_text)
+
+    def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_xlsx_export",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {"file_uuid": saved_uuid, "_export": "xlsx"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn(f"dashboard-{saved_uuid}.xlsx", response["Content-Disposition"])
+        self.assertIn(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            response["Content-Type"],
+        )
+        self.assertGreater(len(response.content), 0)
 
     def test_display_save_endpoint_is_idempotent_for_saved_file(self):
         saved_uuid = self._create_display_file(
