@@ -871,8 +871,28 @@
             min-width: 0;
             flex: 1 1 auto;
         }
+        .stats-toggle-title-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
         .stats-toggle-title {
             font-size: 14px;
+            line-height: 1.2;
+        }
+        .legacy-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1;
+            color: #f2d1a0;
+            border: 1px solid #6a5a3c;
+            border-radius: 999px;
+            padding: 2px 6px;
+            white-space: nowrap;
         }
         .stats-toggle-meta {
             font-size: 11px;
@@ -1491,6 +1511,7 @@
                                     data-info-text="Reveal DAPI-based plugins in the statistics list."
                                     aria-label="Reveal DAPI-based plugins in the statistics list."
                                 >i</button>
+                                <span class="legacy-pill">Legacy</span>
                             </span>
                         </div>
                         <label class="switch">
@@ -2567,14 +2588,23 @@
 
             const left = document.createElement('div');
             left.className = 'stats-toggle-left';
+            const titleWrap = document.createElement('span');
+            titleWrap.className = 'stats-toggle-title-wrap';
             const title = document.createElement('span');
             title.className = 'stats-toggle-title';
             title.textContent = plugin.label || plugin.id;
-            left.appendChild(title);
+            titleWrap.appendChild(title);
+            left.appendChild(titleWrap);
 
             const req = Array.isArray(plugin.required_channels) ? plugin.required_channels.join(', ') : '';
             const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired wavelengths: ${req}` : ''}`);
             left.appendChild(info);
+            if (plugin.is_legacy) {
+                const legacyBadge = document.createElement('span');
+                legacyBadge.className = 'legacy-pill';
+                legacyBadge.textContent = 'Legacy';
+                left.appendChild(legacyBadge);
+            }
             row.appendChild(left);
 
             const right = document.createElement('div');
