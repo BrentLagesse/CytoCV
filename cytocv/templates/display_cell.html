@@ -49,10 +49,26 @@
         /* Collapsed state: set width to something minimal */
         .sidebar.collapsed { width: 60px; background-color: var(--card-bg); }
 
-        /* Hide text + content when collapsed */
-        .sidebar.collapsed .sidebar-header h2,
+        .sidebar-actions,
+        .sidebar-content {
+            opacity: 1;
+            transform: translateX(0);
+            transition: opacity 0.1s ease, transform 0.12s ease;
+            will-change: opacity, transform;
+        }
         .sidebar.collapsed .sidebar-actions,
-        .sidebar.collapsed .sidebar-content { display: none; }
+        .sidebar.collapsed .sidebar-content,
+        .sidebar.is-expanding .sidebar-actions,
+        .sidebar.is-expanding .sidebar-content {
+            opacity: 0;
+            transform: translateX(-10px);
+            pointer-events: none;
+            visibility: hidden;
+        }
+        .sidebar.collapsed .sidebar-header h2,
+        .sidebar.is-expanding .sidebar-header h2 {
+            display: none;
+        }
 
         /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
         .sidebar:hover { background-color: var(--card-bg); }
@@ -1921,15 +1937,28 @@
         });
 
         // Toggle sidebar
+        const setSidebarCollapsed = (collapsed) => {
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            if (collapsed === isCollapsed) {
+                return;
+            }
+            if (collapsed) {
+                sidebar.classList.remove('is-expanding');
+                sidebar.classList.add('collapsed');
+                return;
+            }
+            sidebar.classList.add('is-expanding');
+            sidebar.classList.remove('collapsed');
+        };
         toggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            sidebar.classList.toggle('collapsed');
+            setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
         });
 
         // Also expand when collapsed sidebar area is clicked
         sidebar.addEventListener('click', () => {
             if (sidebar.classList.contains('collapsed')) {
-                sidebar.classList.remove('collapsed');
+                setSidebarCollapsed(false);
             }
         });
 
@@ -2123,7 +2152,9 @@
         var sidebarEl = document.getElementById('sidebar');
         if (sidebarEl) {
             sidebarEl.addEventListener('transitionend', function (e) {
-            if (e.propertyName === 'width') setSidebarScrollHeight();
+            if (e.propertyName !== 'width') return;
+            sidebarEl.classList.remove('is-expanding');
+            setSidebarScrollHeight();
             });
         }
 
