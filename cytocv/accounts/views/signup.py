@@ -289,7 +289,11 @@ def signup(request: HttpRequest) -> HttpResponse:
         gate_error = None
         if request.method == "POST" and request.POST.get("pass_captcha_gate") == "1":
             token = request.POST.get("g-recaptcha-response", "")
-            if verify_recaptcha_response(token, get_client_ip(request)):
+            if verify_recaptcha_response(
+                token,
+                get_client_ip(request),
+                request.get_host(),
+            ):
                 _mark_recaptcha_gate_verified(
                     request, session_key=AUTH_RECAPTCHA_GATE_SESSION_KEY
                 )
@@ -662,4 +666,3 @@ def signup(request: HttpRequest) -> HttpResponse:
             return redirect("homepage")
 
     return render_current()
-

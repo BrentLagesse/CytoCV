@@ -32,6 +32,22 @@ def get_guest_user() -> int:
     return guest.id
 
 
+def default_scale_info() -> dict[str, object]:
+    """Return default per-file scale metadata."""
+    return {
+        "effective_um_per_px": 0.1,
+        "manual_um_per_px": 0.1,
+        "metadata_um_per_px": None,
+        "prefer_metadata": True,
+        "source": "manual_fallback",
+        "status": "missing",
+        "dx": None,
+        "dy": None,
+        "dz": None,
+        "note": "Metadata scale unavailable; using manual global scale.",
+    }
+
+
 class UploadedImage(models.Model):
     """Stores an uploaded image and its on-disk location."""
 
@@ -49,6 +65,7 @@ class UploadedImage(models.Model):
     name = models.TextField()
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file_location = models.FileField(upload_to=upload_to)
+    scale_info = models.JSONField(default=default_scale_info)
 
     def __str__(self) -> str:
         return f"User: {self.user_id} Name: {self.name} UUID: {self.uuid}"

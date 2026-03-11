@@ -574,7 +574,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             login(request, user, backend="accounts.backends.EmailBackend")
             messages.success(request, f"Successfully signed in as {user.email}.")
             _clear_recovery_session(request)
-            return redirect("profile")
+            return redirect("dashboard")
 
     return render_current()
 
@@ -588,7 +588,11 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         gate_error = None
         if request.method == "POST" and request.POST.get("pass_captcha_gate") == "1":
             token = request.POST.get("g-recaptcha-response", "")
-            if verify_recaptcha_response(token, get_client_ip(request)):
+            if verify_recaptcha_response(
+                token,
+                get_client_ip(request),
+                request.get_host(),
+            ):
                 _mark_recaptcha_gate_verified(
                     request, session_key=AUTH_RECAPTCHA_GATE_SESSION_KEY
                 )
@@ -682,7 +686,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
                 reset_limits(keys)
             login(request, user)
             messages.success(request, f"Successfully signed in as {user.email}.")
-            return redirect("profile")
+            return redirect("dashboard")
 
         if rate_limit_enabled:
             register_failure(
@@ -723,4 +727,3 @@ def auth_logout(request: HttpRequest) -> HttpResponse:
     """Log out the current user and return to the homepage."""
     logout(request)
     return redirect("homepage")
-

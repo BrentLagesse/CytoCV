@@ -20,14 +20,14 @@
             font-family: var(--app-font);
             background-color: var(--page-bg);
             color: var(--text);
-            padding: calc(var(--nav-height) + 10px) 10px 10px;
+            padding: calc(var(--nav-height) + 14px) 10px 12px;
         }
 
         .page-container {
             display: flex;
             flex-direction: row;
             width: 100%;
-            min-height: calc(100dvh - var(--nav-height));
+            min-height: calc(100dvh - var(--nav-height) - 26px);
             align-items: stretch;
             gap: 10px;
         }
@@ -124,237 +124,10 @@
             cursor: pointer;
             transition: background-color 0.2s;
             font-size: 14px;
-            position: relative;
-            display: grid;
-            gap: 4px;
         }
         .file-item:hover { background-color: #3399ff; }
         .file-item.active { background-color: #007bff; color: #fff; }
         .file-item.active:hover { background-color: #0056b3; }
-        .file-title {
-            padding-right: 58px;
-            font-weight: 600;
-            word-break: break-word;
-        }
-        .file-meta {
-            color: var(--muted);
-            font-size: 11px;
-        }
-        .file-item.active .file-meta {
-            color: #d5e8ff;
-        }
-        .file-scale-line {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-            font-size: 11px;
-            color: #c6d7ea;
-            opacity: 1;
-            max-height: 80px;
-            overflow: hidden;
-            transform: translateY(0);
-            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
-        }
-        .file-item.active .file-scale-line {
-            color: #e5f0ff;
-        }
-        .file-scale-source {
-            border: 1px solid rgba(90, 127, 166, 0.75);
-            color: #c9deff;
-            background: rgba(37, 56, 79, 0.5);
-            border-radius: 999px;
-            padding: 2px 7px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-        }
-        .file-scale-source.warning {
-            border-color: rgba(193, 147, 51, 0.72);
-            color: #ffd487;
-            background: rgba(104, 78, 18, 0.34);
-        }
-        .file-scale-note {
-            font-size: 10px;
-            color: #f3c978;
-            line-height: 1.3;
-            opacity: 1;
-            max-height: 48px;
-            overflow: hidden;
-            transform: translateY(0);
-            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
-        }
-        .file-item.active .file-scale-note {
-            color: #ffe2a8;
-        }
-        .file-select-check {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 20px;
-            height: 20px;
-            border-radius: 6px;
-            border: 1px solid var(--panel-border);
-            background: transparent;
-            color: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
-        }
-        .sidebar.select-mode .file-select-check {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .file-select-check span {
-            opacity: 0;
-            transition: opacity 0.12s ease;
-        }
-        .file-item.selected .file-select-check {
-            background: var(--accent);
-            border-color: var(--accent);
-        }
-        .file-item.selected .file-select-check span {
-            opacity: 1;
-        }
-        .file-saved-badge {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 7px;
-            border-radius: 999px;
-            border: 1px solid rgba(62, 201, 132, 0.45);
-            background: rgba(18, 98, 59, 0.28);
-            color: #9ff2c6;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.18s ease;
-        }
-        .file-item.saved .file-saved-badge {
-            opacity: 1;
-        }
-        .sidebar.select-mode .file-saved-badge {
-            opacity: 0;
-        }
-
-        .sidebar-actions {
-            display: grid;
-            gap: 8px;
-            margin: 0 12px 8px;
-        }
-        .visibility-controls {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-        }
-        .selection-toolbar {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            min-height: 34px;
-        }
-        .selection-extra {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            max-width: 0;
-            opacity: 0;
-            overflow: hidden;
-            transform: translateX(-8px);
-            transition: max-width 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
-        }
-        .sidebar.select-mode .selection-extra {
-            max-width: 340px;
-            opacity: 1;
-            transform: translateX(0);
-        }
-        .select-mode-btn,
-        .select-all-btn,
-        .save-selected-btn,
-        .channel-visibility-btn,
-        .scale-visibility-btn {
-            border: 1px solid var(--panel-border);
-            border-radius: 8px;
-            color: #fff;
-            background: var(--surface-muted-alt);
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1;
-            padding: 8px 10px;
-            white-space: nowrap;
-            transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
-        }
-        .channel-visibility-btn.label-fade,
-        .scale-visibility-btn.label-fade { opacity: 0.62; }
-        .select-mode-btn.active {
-            background: var(--accent);
-            border-color: var(--accent);
-        }
-        .save-selected-btn {
-            background: var(--accent);
-            border-color: var(--accent);
-        }
-        .save-selected-btn:hover:not(:disabled) {
-            background: #0f70d8;
-            border-color: #0f70d8;
-        }
-        .save-selected-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-        }
-        .selection-info-dot {
-            border: 1px solid rgba(255, 255, 255, 0.28);
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 700;
-            line-height: 1;
-            color: #ffffff;
-            background: var(--accent);
-            cursor: pointer;
-            opacity: 0.95;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        .selection-info-dot:hover {
-            background: #0f70d8;
-            border-color: rgba(255, 255, 255, 0.4);
-        }
-        .save-selected-btn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
-        }
-        .info-tooltip {
-            position: fixed;
-            z-index: 4000;
-            max-width: min(320px, calc(100vw - 24px));
-            padding: 8px 10px;
-            border: 1px solid var(--panel-border);
-            border-radius: 8px;
-            background: rgba(14, 16, 20, 0.98);
-            color: #e9e9e9;
-            font-size: 12px;
-            line-height: 1.35;
-            white-space: pre-line;
-            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
-            pointer-events: none;
-        }
-        .info-tooltip[hidden] {
-            display: none !important;
-        }
 
         /* Channel pills */
         .channel-bar {
@@ -363,8 +136,11 @@
             margin-top: 6px;
             flex-wrap: nowrap;
             overflow-x: auto;
+            overflow-y: hidden;
+            opacity: 1;
             max-height: 36px;
-            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.2s ease, margin-top 0.2s ease, transform 0.2s ease;
         }
         .channel-chip {
             background-color: var(--panel-border); color: #fff;
@@ -373,21 +149,6 @@
             flex: 1; box-sizing: border-box; text-align: center;
         }
         .channel-chip:active { cursor: grabbing; }
-        .sidebar.channels-hidden .channel-bar {
-            opacity: 0;
-            max-height: 0;
-            margin-top: 0;
-            pointer-events: none;
-            transform: translateY(-2px);
-        }
-        .sidebar.scales-hidden .file-scale-line,
-        .sidebar.scales-hidden .file-scale-note {
-            opacity: 0;
-            max-height: 0;
-            margin-top: 0;
-            pointer-events: none;
-            transform: translateY(-2px);
-        }
 
         /* CONTENT WRAPPER */
         .content-wrapper {
@@ -396,6 +157,7 @@
             align-items: stretch;
             justify-content: flex-start;
             flex: 1 1 auto;
+            min-height: 0;
             min-width: 0;
             width: 100%;
             padding: 0;
@@ -406,12 +168,41 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            flex: 1 1 auto;
+            min-height: 0;
             width: 100%;
             background: var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 16px;
             padding: 16px;
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        }
+        .empty-dashboard {
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 420px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 10px;
+            padding: 20px;
+        }
+        .empty-dashboard h2 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .empty-dashboard p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 16px;
+        }
+        .empty-dashboard .start-link {
+            margin-top: 4px;
         }
         .viewer-panel {
             width: 100%;
@@ -746,7 +537,233 @@
                 width: 100%;
                 flex-wrap: wrap;
             }
-        .save-modal-backdrop {
+        /* Firefox */
+        .sidebar-content {
+        /* first = thumb, second = track */
+        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
+        }
+
+        .sidebar-actions {
+            display: grid;
+            gap: 8px;
+            margin: 0 12px 8px;
+        }
+        .visibility-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .selection-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 34px;
+        }
+        .selection-extra {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transform: translateX(-8px);
+            transition: max-width 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+        }
+        .sidebar.select-mode .selection-extra {
+            max-width: 240px;
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .select-mode-btn,
+        .select-all-btn,
+        .delete-selected-btn,
+        .channel-visibility-btn,
+        .scale-visibility-btn {
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            color: #fff;
+            background: var(--surface-muted-alt);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 8px 10px;
+            white-space: nowrap;
+            transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
+        }
+        .channel-visibility-btn.label-fade,
+        .scale-visibility-btn.label-fade { opacity: 0.62; }
+        .select-mode-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .delete-selected-btn {
+            background: #b4232f;
+            border-color: #b4232f;
+        }
+        .delete-selected-btn:hover:not(:disabled) {
+            background: #911b25;
+            border-color: #911b25;
+        }
+        .delete-selected-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .file-item {
+            position: relative;
+            display: grid;
+            gap: 4px;
+        }
+        .file-title {
+            padding-right: 28px;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .file-meta {
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .file-item.active .file-meta {
+            color: #d5e8ff;
+        }
+        .file-scale-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            color: #c6d7ea;
+            opacity: 1;
+            max-height: 80px;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+        }
+        .file-item.active .file-scale-line {
+            color: #e5f0ff;
+        }
+        .file-scale-source {
+            border: 1px solid rgba(90, 127, 166, 0.75);
+            color: #c9deff;
+            background: rgba(37, 56, 79, 0.5);
+            border-radius: 999px;
+            padding: 2px 7px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .file-scale-source.warning {
+            border-color: rgba(193, 147, 51, 0.72);
+            color: #ffd487;
+            background: rgba(104, 78, 18, 0.34);
+        }
+        .file-scale-note {
+            font-size: 10px;
+            color: #f3c978;
+            line-height: 1.3;
+            opacity: 1;
+            max-height: 48px;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+        }
+        .file-item.active .file-scale-note {
+            color: #ffe2a8;
+        }
+        .file-select-check {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: transparent;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, background-color 0.18s ease;
+        }
+        .sidebar.select-mode .file-select-check {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .file-select-check span {
+            opacity: 0;
+            transition: opacity 0.12s ease;
+        }
+        .file-item.selected .file-select-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .file-item.selected .file-select-check span {
+            opacity: 1;
+        }
+        .sidebar.channels-hidden .channel-bar {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            pointer-events: none;
+            transform: translateY(-2px);
+        }
+        .sidebar.scales-hidden .file-scale-line,
+        .sidebar.scales-hidden .file-scale-note {
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            pointer-events: none;
+            transform: translateY(-2px);
+        }
+        .content-wrapper {
+            gap: 10px;
+        }
+        .storage-card {
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            padding: 12px 14px;
+            display: grid;
+            gap: 8px;
+        }
+        .storage-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .storage-title {
+            margin: 0;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .storage-text {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .storage-summary {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .quota-track {
+            height: 12px;
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--panel-border);
+            background: var(--surface-muted-alt);
+        }
+        .quota-fill {
+            height: 100%;
+            background: var(--accent);
+            width: {{ storage_percentage|floatformat:2 }}%;
+        }
+        .delete-modal-backdrop {
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.55);
@@ -755,7 +772,7 @@
             justify-content: center;
             z-index: 2200;
         }
-        .save-modal {
+        .delete-modal {
             width: min(420px, 92vw);
             background: var(--card-bg);
             border: 1px solid var(--panel-border);
@@ -764,28 +781,15 @@
             display: grid;
             gap: 10px;
         }
-        .save-modal h3,
-        .save-modal p {
+        .delete-modal h3,
+        .delete-modal p {
             margin: 0;
         }
-        .save-modal p {
+        .delete-modal p {
             color: var(--muted);
             font-size: 13px;
         }
-        .save-change-section {
-            display: grid;
-            gap: 6px;
-        }
-        .save-change-section[hidden] {
-            display: none !important;
-        }
-        .save-change-label {
-            margin: 0;
-            font-size: 12px;
-            color: var(--muted);
-            font-weight: 600;
-        }
-        .save-preview-box {
+        .delete-preview-box {
             border: 1px solid var(--panel-border);
             border-radius: 10px;
             background: var(--surface-muted-alt);
@@ -794,7 +798,7 @@
             padding: 8px;
             scrollbar-color: #7f7f7f transparent;
         }
-        .save-preview-list {
+        .delete-preview-list {
             list-style: none;
             margin: 0;
             padding: 0;
@@ -802,12 +806,12 @@
             gap: 4px;
             font-size: 12px;
         }
-        .save-modal-actions {
+        .delete-modal-actions {
             display: flex;
             justify-content: flex-end;
             gap: 10px;
         }
-        .save-modal-btn {
+        .delete-modal-btn {
             border: none;
             border-radius: 8px;
             padding: 10px 14px;
@@ -815,19 +819,23 @@
             font-weight: 600;
             cursor: pointer;
         }
-        .save-modal-btn.cancel {
+        .delete-modal-btn.cancel {
             background: var(--surface-muted-alt);
             border: 1px solid var(--panel-border);
             color: #fff;
         }
-        .save-modal-btn.confirm {
-            background: var(--accent);
+        .delete-modal-btn.confirm {
+            background: #b4232f;
             color: #fff;
         }
-        /* Firefox */
-        .sidebar-content {
-        /* first = thumb, second = track */
-        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
+        @media (max-width: 1240px) {
+            .page-container {
+                flex-direction: column;
+            }
+            .sidebar,
+            .sidebar.collapsed {
+                width: 100%;
+            }
         }
     </style>
 
@@ -850,20 +858,7 @@
                     <button class="select-mode-btn" id="selectModeBtn" type="button">Select</button>
                     <div class="selection-extra">
                         <button class="select-all-btn" id="selectAllBtn" type="button">Select All</button>
-                        <button
-                            class="save-selected-btn"
-                            id="saveSelectedBtn"
-                            type="button"
-                            disabled
-                            title="Selected files will be saved and unselected files will not be saved."
-                        >
-                            <span>Save Selection</span>
-                            <span
-                                class="selection-info-dot"
-                                data-info-text="Selected files will be saved and unselected files will not be saved."
-                                aria-label="Selected files will be saved and unselected files will not be saved."
-                            >i</span>
-                        </button>
+                        <button class="delete-selected-btn" id="deleteSelectedBtn" type="button" disabled>Delete</button>
                     </div>
                 </div>
                 <div class="visibility-controls">
@@ -879,9 +874,8 @@
                 <ul id="fileList">
                     {% for file in file_list %}
                         <li>
-                            <div class="file-item{% if file.is_saved %} saved{% endif %}" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}" data-saved="{{ file.is_saved|yesno:'true,false' }}">
+                            <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                                 <button class="file-select-check" type="button" aria-label="Select file"><span>&#10003;</span></button>
-                                <div class="file-saved-badge">&#10003; Saved</div>
                                 <div class="file-title">{{ file.name }}</div>
                                 <div class="file-meta">{{ file.uploaded_date|date:"Y-m-d H:i" }} UTC &middot; {{ file.num_cells }} cells</div>
                                 <div class="file-scale-line">
@@ -903,7 +897,7 @@
                     {% empty %}
                         <li>
                             <div class="file-item">
-                                <div class="file-title">No files available.</div>
+                                <div class="file-title">No files saved.</div>
                             </div>
                         </li>
                     {% endfor %}
@@ -913,25 +907,38 @@
 
         <!-- CONTENT WRAPPER to center everything else -->
         <div class="content-wrapper">
+            <div class="storage-card">
+                <div class="storage-top">
+                    <p class="storage-title">Storage quota</p>
+                    <p class="storage-text">{{ used_storage_mb|floatformat:2 }} MB out of {{ total_storage_gb|floatformat:2 }} GB</p>
+                </div>
+                <div class="quota-track">
+                    <div class="quota-fill"></div>
+                </div>
+                <p class="storage-summary">{{ saved_file_count }} out of {{ max_files_at_current_average }} files saved.</p>
+                {% if file_capacity_projection_ready %}
+                    <p class="storage-summary">{{ additional_files_possible }} additional files can be saved before quota at your current average file size.</p>
+                {% else %}
+                    <p class="storage-summary">Save at least one full file to calculate additional file capacity.</p>
+                {% endif %}
+            </div>
             <!-- MAIN CONTENT -->
             <div class="main-content">
+                {% if has_files %}
                 <div class="viewer-panel" id="viewerPanel">
                     <div class="viewer-scroll-frame" id="viewerScrollFrame">
                         <div class="viewer-content">
-                            <h2 id="imageTitle">{{ Image_Name }}</h2>
+                            <h2 id="imageTitle">No file selected</h2>
                             <div class="main-container">
-                                <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
-                                <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
-                                <button class="file-navigation-button" onclick="nextFile()">Next File</button>
+                                <button class="file-navigation-button" type="button" id="previousFileBtn">Previous File</button>
+                                <img id="mainImage" class="main-image" src="" alt="Main Image">
+                                <button class="file-navigation-button" type="button" id="nextFileBtn">Next File</button>
                             </div>
 
                             <div class="cell-images-row">
                                 <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
                                 <div class="cell-column">
-                                    <form method="post" id="dic_form">
-                                        {% csrf_token %}
-                                        <button name="dic" class="cell-label dic" data-channel="dic" type="button">DIC</button>
-                                    </form>
+                                    <button class="cell-label dic" data-channel="dic" type="button">DIC</button>
                                     <img id="cellImage1" class="cell-image" src="">
                                     <div class="info-box">
                                         Toggle contours <br>
@@ -942,10 +949,7 @@
                                     </div>
                                 </div>
                                 <div class="cell-column">
-                                    <form method="post" id="dapi_form">
-                                        {% csrf_token %}
-                                        <button name="dapi" class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
-                                    </form>
+                                    <button class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
                                     <img id="cellImage2" class="cell-image" src="">
                                     <div class="info-box">
                                         <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
@@ -954,10 +958,7 @@
                                     </div>
                                 </div>
                                 <div class="cell-column">
-                                    <form method="post" id="mCherry_form">
-                                        {% csrf_token %}
-                                        <button name="mCherry" class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
-                                    </form>
+                                    <button class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
                                     <img id="cellImage3" class="cell-image" src="">
                                     <div class="info-box">
                                         <div class="tight-info">mCherry Line Distance: <span id="distance"></span></div>
@@ -968,10 +969,7 @@
                                     </div>
                                 </div>
                                 <div class="cell-column">
-                                    <form method="post" id="gfp_form">
-                                        {% csrf_token %}
-                                        <button name="gfp" class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
-                                    </form>
+                                    <button class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
                                     <img id="cellImage4" class="cell-image" src="">
                                     <div class="info-box">
                                         <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
@@ -984,8 +982,8 @@
                             </div>
 
                             <div class="navigation-buttons">
-                                <button onclick="previousCell()">Previous Cell</button>
-                                <button onclick="nextCell()">Next Cell</button>
+                                <button type="button" id="previousCellBtn">Previous Cell</button>
+                                <button type="button" id="nextCellBtn">Next Cell</button>
                             </div>
                         </div>
                     </div>
@@ -1000,61 +998,57 @@
                             {% render_table cell_table %}
                         </div>
                     </div>
-                    <div class="popup">
-                        <p><strong>Cell ID:</strong><span id="popup-id"></span></p>
-                        <form method="post" id="delete_cell">
-                            {% csrf_token %}
-                            <input id="cell_id_input" type="hidden" name="cell_id">
-                            <button name="delete" class="deleteCell" type="submit">Delete</button>
-                        </form>
-                        <button class="hide" onclick="hidePopUp()">Close</button>
-                    </div>
-                    {% load export_url from django_tables2 %}
-                    <div class="export-buttons">
-                        <a class="export_btn" href="{% export_url 'csv' %}">Download CSV</a>
-                        <a class="export_btn" href="{% export_url 'xlsx' %}">Download Excel</a>
+                    <div class="export-buttons" id="exportButtons">
+                        <a class="export_btn" id="downloadCsvBtn" href="#">Download CSV</a>
+                        <a class="export_btn" id="downloadXlsxBtn" href="#">Download Excel</a>
                     </div>
 
                 </div>
+                {% else %}
+                    <div class="empty-dashboard">
+                        <h2>No files saved</h2>
+                        <p>Start an experiment to upload and analyze your first files.</p>
+                        <a class="start-link" href="{% url 'image_upload' %}">Start Experiment</a>
+                    </div>
+                {% endif %}
             </div> <!-- end main-content -->
         </div> <!-- end content-wrapper -->
     </div> <!-- end page-container -->
 
-    <div class="save-modal-backdrop" id="saveFilesBackdrop" aria-hidden="true">
-        <div class="save-modal" role="dialog" aria-modal="true" aria-labelledby="saveFilesTitle">
-            <h3 id="saveFilesTitle">Save Selection</h3>
-            <p id="saveFilesMessage">Selected files will be saved and unselected files will be removed from saved history.</p>
-            <div class="save-change-section" id="saveFilesAddSection" hidden>
-                <p class="save-change-label">Will be saved</p>
-                <div class="save-preview-box">
-                    <ul class="save-preview-list" id="saveFilesAddList"></ul>
-                </div>
+    <div class="delete-modal-backdrop" id="deleteFilesBackdrop" aria-hidden="true">
+        <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFilesTitle">
+            <h3 id="deleteFilesTitle">Delete saved files</h3>
+            <p id="deleteFilesMessage"></p>
+            <div class="delete-preview-box">
+                <ul class="delete-preview-list" id="deleteFilesList"></ul>
             </div>
-            <div class="save-change-section" id="saveFilesRemoveSection" hidden>
-                <p class="save-change-label">Will not be saved</p>
-                <div class="save-preview-box">
-                    <ul class="save-preview-list" id="saveFilesRemoveList"></ul>
-                </div>
-            </div>
-            <div class="save-modal-actions">
-                <button class="save-modal-btn cancel" id="cancelSaveFilesBtn" type="button">Cancel</button>
-                <button class="save-modal-btn confirm" id="confirmSaveFilesBtn" type="button">Confirm Save Selection</button>
+            <div class="delete-modal-actions">
+                <button type="button" class="delete-modal-btn cancel" id="cancelDeleteFilesBtn">Cancel</button>
+                <button type="button" class="delete-modal-btn confirm" id="confirmDeleteFilesBtn">Confirm Delete</button>
             </div>
         </div>
     </div>
-    <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
+
+    <script id="dashboardFilesData" type="application/json">{{ files_data_json|safe }}</script>
 
     <script>
         // Parse JSON file data
-        let filesData = JSON.parse('{{ files_data|safe }}');
+        let filesData = {};
+        let filesDataParseError = false;
+        try {
+            filesData = JSON.parse(document.getElementById('dashboardFilesData').textContent || '{}');
+        } catch (err) {
+            filesData = {};
+            filesDataParseError = true;
+        }
         let fileUUIDs = Object.keys(filesData);
+        const dashboardHasFiles = {{ has_files|yesno:"true,false" }};
         let currentFileIndex = 0;
         let currentCellNumber = 1;
         let maxCells;
         const channels = ["dapi", "mCherry", "gfp", "dic"];
         let activeChannelRequest = 0;
         const channelIndexMap = { 0: 'mcherry', 1: 'gfp', 2: 'dapi', 3: 'dic' };
-        const serverTableUUID = "{{ table_uuid|default:'' }}";
         const noCellPlaceholder =
             "data:image/svg+xml;utf8," + encodeURIComponent(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">' +
@@ -1066,20 +1060,32 @@
             );
 
         window.onload = function () {
-            loadFile(currentFileIndex);
-            toggleContourOverlays();
+            if (filesDataParseError) {
+                showChannelError('Saved file preview data could not be loaded. Refresh and try again.');
+                return;
+            }
+            if (dashboardHasFiles && fileUUIDs.length === 0) {
+                showChannelError('Saved files were found, but preview payload is unavailable.');
+                return;
+            }
+            if (fileUUIDs.length > 0) {
+                loadFile(currentFileIndex);
+                toggleContourOverlays();
+            }
         };
 
         function loadFile(fileIndex) {
             const fileUUID = fileUUIDs[fileIndex];
             const fileData = filesData[fileUUID];
-            document.getElementById("mainImage").src = fileData.MainImagePath;
-            document.getElementById("imageTitle").textContent = fileData.Image_Name;
-            for (const channel of channels) {
-                let form = channel + '_form';
-                document.getElementById(form).action = `/image/${fileUUID}/display/`;
+            if (!fileData) {
+                return;
             }
-            maxCells = Number(fileData.NumberOfCells);
+            document.getElementById("mainImage").src = fileData.MainImagePath || noCellPlaceholder;
+            document.getElementById("imageTitle").textContent = fileData.Image_Name;
+            maxCells = Number(fileData.NumberOfCells || 0);
+            if (!Number.isFinite(maxCells) || maxCells < 0) {
+                maxCells = 0;
+            }
             currentCellNumber = 1;
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
             applyContourToggleState();
@@ -1228,11 +1234,11 @@
             };
         }
 
-        function renderStatisticsTable(statistics) {
+        function renderStatisticsTable(statistics, numberOfCells) {
             const table = document.getElementById('celltable');
-            if (!table) return;
+            if (!table) return 0;
             const tbody = table.querySelector('tbody');
-            if (!tbody) return;
+            if (!tbody) return 0;
             const nuclearCellularFields = new Set([
                 'cellular_intensity_sum',
                 'nucleus_intensity_sum',
@@ -1287,6 +1293,16 @@
                 .map((k) => Number(k))
                 .filter((n) => !Number.isNaN(n))
                 .sort((a, b) => a - b);
+            const totalCells = Number(numberOfCells) || 0;
+            if (totalCells > 0) {
+                const idSet = new Set(ids);
+                for (let i = 1; i <= totalCells; i += 1) {
+                    if (!idSet.has(i)) {
+                        ids.push(i);
+                    }
+                }
+                ids.sort((a, b) => a - b);
+            }
 
             tbody.innerHTML = '';
             for (const id of ids) {
@@ -1308,6 +1324,7 @@
                 }
                 tbody.appendChild(tr);
             }
+            return ids.length;
         }
 
         function updateTableState(fileUUID, fileData) {
@@ -1324,7 +1341,10 @@
                 }
             }
 
-            renderStatisticsTable(fileData.Statistics || {});
+            renderStatisticsTable(
+                fileData.Statistics || {},
+                Number(fileData.NumberOfCells || 0),
+            );
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
@@ -1335,13 +1355,22 @@
 
             if (exportButtons) {
                 const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
-                const canExportCurrentView = hasRows && fileUUID === serverTableUUID;
-                exportButtons.style.display = canExportCurrentView ? 'flex' : 'none';
+                exportButtons.style.display = hasRows ? 'flex' : 'none';
+                const csvBtn = document.getElementById('downloadCsvBtn');
+                const xlsxBtn = document.getElementById('downloadXlsxBtn');
+                if (csvBtn) {
+                    csvBtn.href = `/dashboard/?file_uuid=${encodeURIComponent(fileUUID)}&_export=csv`;
+                }
+                if (xlsxBtn) {
+                    xlsxBtn.href = `/dashboard/?file_uuid=${encodeURIComponent(fileUUID)}&_export=xlsx`;
+                }
             }
         }
 
         function updateCellImages(cellPairImages, statistics) {
-            const imageUrls = cellPairImages[currentCellNumber];
+            const safeCellPairImages = cellPairImages || {};
+            const safeStatistics = statistics || {};
+            const imageUrls = safeCellPairImages[currentCellNumber] || safeCellPairImages[String(currentCellNumber)];
             if (!imageUrls) {
                 document.getElementById("cellImage1").src = noCellPlaceholder;
                 document.getElementById("cellImage2").src = noCellPlaceholder;
@@ -1366,19 +1395,18 @@
                 return;
             }
 
-            document.getElementById("cellImage1").src = imageUrls[0];
-            // document.getElementById("cellImage1_2").src = imageUrls[1];
-            document.getElementById("cellImage2").src = imageUrls[2];
-            // document.getElementById("cellImage2_2").src = imageUrls[3];
-            document.getElementById("cellImage3").src = imageUrls[4];
-            // document.getElementById("cellImage3_2").src = imageUrls[5];
-            document.getElementById("cellImage4").src = imageUrls[6];
-            // document.getElementById("cellImage4_2").src = imageUrls[7];
+            document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
+            document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
+            document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
+            document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
             document.getElementById("cellID").textContent = currentCellNumber;
 
-            const cellStats = statistics[currentCellNumber];
+            const cellStats = safeStatistics[currentCellNumber] || safeStatistics[String(currentCellNumber)] || null;
             const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
-            const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
+            const categoryIndex = cellStats ? Number(cellStats.category_GFP_dot) - 1 : -1;
+            const category = categoryIndex >= 0 && categoryIndex < categories.length
+                ? categories[categoryIndex]
+                : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
             document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
@@ -1481,460 +1509,37 @@
         // Sidebar elements
         const sidebar = document.getElementById('sidebar');
         const toggleBtn = document.getElementById('toggleSidebarBtn');
-        const fileItems = Array.from(document.querySelectorAll('.file-item[data-uuid]'));
+        const fileItems = document.querySelectorAll('.file-item[data-index]');
         const channelButtons = document.querySelectorAll('.cell-label[data-channel]');
-        const selectModeBtn = document.getElementById('selectModeBtn');
-        const selectAllBtn = document.getElementById('selectAllBtn');
-        const saveSelectedBtn = document.getElementById('saveSelectedBtn');
-        const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
-        const scaleVisibilityBtn = document.getElementById('toggleScaleVisibilityBtn');
-        const saveBackdrop = document.getElementById('saveFilesBackdrop');
-        const saveTitle = document.getElementById('saveFilesTitle');
-        const saveMessage = document.getElementById('saveFilesMessage');
-        const saveAddSection = document.getElementById('saveFilesAddSection');
-        const saveRemoveSection = document.getElementById('saveFilesRemoveSection');
-        const saveAddList = document.getElementById('saveFilesAddList');
-        const saveRemoveList = document.getElementById('saveFilesRemoveList');
-        const cancelSaveFilesBtn = document.getElementById('cancelSaveFilesBtn');
-        const confirmSaveFilesBtn = document.getElementById('confirmSaveFilesBtn');
-        const selectionInfoDots = Array.from(document.querySelectorAll('.selection-info-dot[data-info-text]'));
-        const infoTooltipElement = document.getElementById('selectionInfoTooltip');
-        const fileItemByUUID = new Map(fileItems.map((item) => [item.dataset.uuid, item]));
-        const selectedFileUUIDs = new Set();
-        const savedFileUUIDs = new Set(
-            fileItems
-                .filter((item) => item.dataset.saved === 'true')
-                .map((item) => item.dataset.uuid)
-                .filter(Boolean)
-        );
-        let selectModeActive = false;
-        let channelLabelFadeTimer = null;
-        let scaleLabelFadeTimer = null;
-        let pendingSelectionPayload = null;
-        let activeInfoAnchor = null;
-
-        function getCookie(name) {
-            let value = null;
-            document.cookie.split(';').forEach((cookie) => {
-                const item = cookie.trim();
-                if (item.startsWith(`${name}=`)) {
-                    value = decodeURIComponent(item.slice(name.length + 1));
-                }
-            });
-            return value;
-        }
-
-        const csrfToken = getCookie('csrftoken');
-
-        function normalizeInfoText(value) {
-            if (typeof value !== 'string') return '';
-            return value
-                .split('\n')
-                .map((line) => line.trim())
-                .filter((line, index, arr) => !(line === '' && (index === 0 || index === arr.length - 1)))
-                .join('\n');
-        }
-
-        function hideInfoTooltip() {
-            activeInfoAnchor = null;
-            if (!infoTooltipElement) return;
-            infoTooltipElement.hidden = true;
-            infoTooltipElement.textContent = '';
-        }
-
-        function positionInfoTooltip(anchor) {
-            if (!infoTooltipElement || !anchor) return;
-            const rect = anchor.getBoundingClientRect();
-            const margin = 10;
-            const gap = 8;
-
-            infoTooltipElement.style.left = '0px';
-            infoTooltipElement.style.top = '0px';
-            const width = infoTooltipElement.offsetWidth;
-            const height = infoTooltipElement.offsetHeight;
-
-            let left = rect.left + (rect.width / 2) - (width / 2);
-            left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
-
-            let top = rect.top - height - gap;
-            if (top < margin) {
-                top = rect.bottom + gap;
-            }
-            if (top + height > window.innerHeight - margin) {
-                top = Math.max(margin, window.innerHeight - height - margin);
-            }
-
-            infoTooltipElement.style.left = `${Math.round(left)}px`;
-            infoTooltipElement.style.top = `${Math.round(top)}px`;
-        }
-
-        function refreshInfoTooltipPosition() {
-            if (!activeInfoAnchor || !infoTooltipElement || infoTooltipElement.hidden) return;
-            positionInfoTooltip(activeInfoAnchor);
-        }
-
-        function showInfoTooltip(anchor) {
-            if (!anchor || !infoTooltipElement) return;
-            const text = normalizeInfoText(anchor.dataset.infoText || '');
-            if (!text) {
-                hideInfoTooltip();
-                return;
-            }
-            activeInfoAnchor = anchor;
-            infoTooltipElement.textContent = text;
-            infoTooltipElement.hidden = false;
-            positionInfoTooltip(anchor);
-        }
-
-        function attachInfoTooltipBehavior(infoDot) {
-            if (!infoDot) return;
-            infoDot.addEventListener('mouseenter', () => showInfoTooltip(infoDot));
-            infoDot.addEventListener('mouseleave', hideInfoTooltip);
-            infoDot.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (activeInfoAnchor === infoDot && infoTooltipElement && !infoTooltipElement.hidden) {
-                    hideInfoTooltip();
-                    return;
-                }
-                showInfoTooltip(infoDot);
-            });
-        }
-
-        function showSidebarMessage(message, tone = 'error') {
-            let container = document.querySelector('.message-container.channel-switch');
-            if (!container) {
-                container = document.createElement('div');
-                container.className = 'message-container channel-switch';
-                container.style.top = 'calc(var(--nav-height) + 8px)';
-                container.style.left = '50%';
-                container.style.transform = 'translateX(-50%)';
-                container.style.width = 'min(720px, calc(100% - 32px))';
-                container.style.margin = '0';
-                container.style.zIndex = '1500';
-                container.style.pointerEvents = 'none';
-                document.body.appendChild(container);
-            }
-
-            const msg = document.createElement('div');
-            msg.className = tone === 'success' ? 'message success' : 'message';
-            msg.style.pointerEvents = 'auto';
-            msg.textContent = message;
-            const close = document.createElement('button');
-            close.type = 'button';
-            close.className = 'message-close';
-            close.setAttribute('aria-label', 'Dismiss');
-            close.innerHTML = '&times;';
-            close.addEventListener('click', () => msg.remove());
-            msg.appendChild(close);
-            container.appendChild(msg);
-            setTimeout(() => msg.remove(), 7000);
-        }
-
-        function updateSavedStateClasses() {
-            fileItems.forEach((item) => {
-                const uuid = item.dataset.uuid;
-                const isSaved = savedFileUUIDs.has(uuid);
-                item.dataset.saved = isSaved ? 'true' : 'false';
-                item.classList.toggle('saved', isSaved);
-            });
-        }
-
-        function getSelectionChanges() {
-            const selectedSet = new Set(selectedFileUUIDs);
-            const toSave = [];
-            const toUnsave = [];
-            fileUUIDs.forEach((uuid) => {
-                const isSelected = selectedSet.has(uuid);
-                const isSaved = savedFileUUIDs.has(uuid);
-                if (isSelected && !isSaved) {
-                    toSave.push(uuid);
-                }
-                if (!isSelected && isSaved) {
-                    toUnsave.push(uuid);
-                }
-            });
-            return { toSave, toUnsave };
-        }
-
-        function syncSelectionUI() {
-            fileItems.forEach((item) => {
-                item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid));
-            });
-
-            const hasFiles = fileUUIDs.length > 0;
-            const { toSave, toUnsave } = getSelectionChanges();
-            const hasChanges = toSave.length > 0 || toUnsave.length > 0;
-
-            selectAllBtn.disabled = !hasFiles;
-            saveSelectedBtn.disabled = !selectModeActive || !hasFiles || !hasChanges;
-            if (!selectModeActive) {
-                saveSelectedBtn.title = 'Select files first.';
-            } else if (!hasChanges) {
-                saveSelectedBtn.title = 'No save-state changes to apply.';
-            } else {
-                saveSelectedBtn.title = 'Apply selected save state.';
-            }
-        }
-
-        function renderPreviewList(target, uuids) {
-            if (!target) return;
-            target.innerHTML = '';
-            uuids.forEach((uuid) => {
-                const fileItem = fileItemByUUID.get(uuid);
-                const title = fileItem ? fileItem.querySelector('.file-title') : null;
-                const li = document.createElement('li');
-                li.textContent = title ? title.textContent.trim() : uuid;
-                target.appendChild(li);
-            });
-        }
-
-        function updateModalSections(toSave, toUnsave) {
-            if (saveAddSection) {
-                saveAddSection.hidden = toSave.length === 0;
-            }
-            if (saveRemoveSection) {
-                saveRemoveSection.hidden = toUnsave.length === 0;
-            }
-            renderPreviewList(saveAddList, toSave);
-            renderPreviewList(saveRemoveList, toUnsave);
-        }
-
-        function buildSelectionMessage(toSave, toUnsave) {
-            if (toSave.length > 0 && toUnsave.length > 0) {
-                return 'Selected files will be saved, and unselected files will be removed from saved history.';
-            }
-            if (toSave.length > 0) {
-                return toSave.length === fileUUIDs.length
-                    ? 'Are you sure you want to save all files?'
-                    : 'Are you sure you want to save the selected files?';
-            }
-            return toUnsave.length === fileUUIDs.length
-                ? 'Are you sure you want to remove all files from saved history?'
-                : 'Are you sure you want to remove these files from saved history?';
-        }
-
-        function buildSelectionToast(savedCount, unsavedCount) {
-            if (savedCount > 0 && unsavedCount > 0) {
-                return {
-                    message: `Updated selection: saved ${savedCount} file${savedCount === 1 ? '' : 's'} and removed ${unsavedCount} file${unsavedCount === 1 ? '' : 's'}.`,
-                    tone: 'success',
-                };
-            }
-            if (savedCount > 0) {
-                return {
-                    message: `Saved ${savedCount} file${savedCount === 1 ? '' : 's'}.`,
-                    tone: 'success',
-                };
-            }
-            if (unsavedCount > 0) {
-                return {
-                    message: `Removed ${unsavedCount} file${unsavedCount === 1 ? '' : 's'} from saved history.`,
-                    tone: 'error',
-                };
-            }
-            return {
-                message: 'No save-state changes were needed.',
-                tone: 'success',
-            };
-        }
-
-        function setSelectMode(enabled) {
-            selectModeActive = enabled;
-            sidebar.classList.toggle('select-mode', enabled);
-            selectModeBtn.classList.toggle('active', enabled);
-            selectModeBtn.textContent = enabled ? 'Done' : 'Select';
-
-            if (enabled) {
-                selectedFileUUIDs.clear();
-                savedFileUUIDs.forEach((uuid) => selectedFileUUIDs.add(uuid));
-            } else {
-                selectedFileUUIDs.clear();
-            }
-
-            syncSelectionUI();
-        }
-
-        function toggleSelectAll() {
-            if (selectedFileUUIDs.size === fileUUIDs.length) {
-                selectedFileUUIDs.clear();
-            } else {
-                fileUUIDs.forEach((uuid) => selectedFileUUIDs.add(uuid));
-            }
-            syncSelectionUI();
-        }
-
-        function applyChannelVisibility(visible, persist) {
-            sidebar.classList.toggle('channels-hidden', !visible);
-            channelVisibilityBtn.classList.add('label-fade');
-            if (channelLabelFadeTimer) {
-                window.clearTimeout(channelLabelFadeTimer);
-            }
-            channelVisibilityBtn.textContent = visible ? 'Hide Channels' : 'Show Channels';
-            channelLabelFadeTimer = window.setTimeout(() => {
-                channelVisibilityBtn.classList.remove('label-fade');
-                channelLabelFadeTimer = null;
-            }, 170);
-            if (persist) {
-                fetch('/dashboard/preferences/channels/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken || '',
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ show_saved_file_channels: visible }),
-                }).catch(() => null);
-            }
-        }
-
-        function applyScaleVisibility(visible, persist) {
-            sidebar.classList.toggle('scales-hidden', !visible);
-            if (!scaleVisibilityBtn) return;
-            scaleVisibilityBtn.classList.add('label-fade');
-            if (scaleLabelFadeTimer) {
-                window.clearTimeout(scaleLabelFadeTimer);
-            }
-            scaleVisibilityBtn.textContent = visible ? 'Hide Scale' : 'Show Scale';
-            scaleLabelFadeTimer = window.setTimeout(() => {
-                scaleVisibilityBtn.classList.remove('label-fade');
-                scaleLabelFadeTimer = null;
-            }, 170);
-            if (persist) {
-                fetch('/dashboard/preferences/channels/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken || '',
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ show_saved_file_scales: visible }),
-                }).catch(() => null);
-            }
-        }
-
-        function closeSaveModal() {
-            if (!saveBackdrop) return;
-            saveBackdrop.style.display = 'none';
-            saveBackdrop.setAttribute('aria-hidden', 'true');
-            pendingSelectionPayload = null;
-            if (confirmSaveFilesBtn) {
-                confirmSaveFilesBtn.textContent = 'Confirm Save Selection';
-            }
-            if (saveTitle) {
-                saveTitle.textContent = 'Save Selection';
-            }
-            if (saveMessage) {
-                saveMessage.textContent = 'Selected files will be saved and unselected files will be removed from saved history.';
-            }
-            if (saveAddSection) {
-                saveAddSection.hidden = true;
-            }
-            if (saveRemoveSection) {
-                saveRemoveSection.hidden = true;
-            }
-            if (saveAddList) saveAddList.innerHTML = '';
-            if (saveRemoveList) saveRemoveList.innerHTML = '';
-        }
-
-        function openSaveModal() {
-            if (!saveBackdrop || !saveMessage || !saveTitle || !confirmSaveFilesBtn) return;
-            const changes = getSelectionChanges();
-            const hasChanges = changes.toSave.length > 0 || changes.toUnsave.length > 0;
-            if (!hasChanges) {
-                return;
-            }
-
-            pendingSelectionPayload = {
-                visible_uuids: Array.from(fileUUIDs),
-                selected_uuids: Array.from(selectedFileUUIDs),
-            };
-
-            saveTitle.textContent = 'Save Selection';
-            saveMessage.textContent = buildSelectionMessage(changes.toSave, changes.toUnsave);
-            confirmSaveFilesBtn.textContent = 'Confirm Save Selection';
-            updateModalSections(changes.toSave, changes.toUnsave);
-            saveBackdrop.style.display = 'flex';
-            saveBackdrop.setAttribute('aria-hidden', 'false');
-        }
-
-        async function saveSelectedFiles() {
-            if (!pendingSelectionPayload) return;
-            confirmSaveFilesBtn.disabled = true;
-            try {
-                const response = await fetch('/image/display/files/sync-selection/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken || '',
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify(pendingSelectionPayload),
-                });
-                const payload = await response.json();
-                if (!response.ok) {
-                    throw new Error(payload.error || 'Unable to update selected files.');
-                }
-
-                (payload.saved_uuids || []).forEach((uuid) => savedFileUUIDs.add(uuid));
-                (payload.unsaved_uuids || []).forEach((uuid) => savedFileUUIDs.delete(uuid));
-                updateSavedStateClasses();
-                syncSelectionUI();
-
-                const toast = buildSelectionToast(
-                    Number(payload.saved_count || 0),
-                    Number(payload.unsaved_count || 0)
-                );
-                showSidebarMessage(toast.message, toast.tone);
-                closeSaveModal();
-            } catch (err) {
-                showSidebarMessage(err.message || 'Unable to update selected files.');
-            } finally {
-                confirmSaveFilesBtn.disabled = false;
-            }
-        }
 
         // Highlight active
         function updateSidebarActive() {
-            fileItems.forEach((item) => item.classList.remove('active'));
+            fileItems.forEach(i => i.classList.remove('active'));
             const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
             if (active) active.classList.add('active');
         }
         updateSidebarActive();
 
-        // Click file/select
-        fileItems.forEach((item) => {
-            const uuid = item.dataset.uuid;
-            const selectCheck = item.querySelector('.file-select-check');
-            if (selectCheck) {
-                selectCheck.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (!selectModeActive || !uuid) return;
-                    if (selectedFileUUIDs.has(uuid)) {
-                        selectedFileUUIDs.delete(uuid);
-                    } else {
-                        selectedFileUUIDs.add(uuid);
-                    }
-                    syncSelectionUI();
-                });
-            }
-
-            item.addEventListener('click', () => {
-                const idx = parseInt(item.dataset.index, 10);
-                if (selectModeActive && uuid) {
-                    if (selectedFileUUIDs.has(uuid)) {
-                        selectedFileUUIDs.delete(uuid);
-                    } else {
-                        selectedFileUUIDs.add(uuid);
-                    }
-                    syncSelectionUI();
+        // Click file
+        fileItems.forEach(item => {
+            item.addEventListener('click', (event) => {
+                if (sidebar.classList.contains('select-mode')) {
                     return;
                 }
-                currentFileIndex = idx;
-                loadFile(idx);
+                const idx = parseInt(item.dataset.index, 10);
+                currentFileIndex = idx;  // keep your globals in sync
+                loadFile(idx);           // call the correct function
             });
         });
+
+        const previousFileBtn = document.getElementById('previousFileBtn');
+        const nextFileBtn = document.getElementById('nextFileBtn');
+        const previousCellBtn = document.getElementById('previousCellBtn');
+        const nextCellBtn = document.getElementById('nextCellBtn');
+        if (previousFileBtn) previousFileBtn.addEventListener('click', previousFile);
+        if (nextFileBtn) nextFileBtn.addEventListener('click', nextFile);
+        if (previousCellBtn) previousCellBtn.addEventListener('click', previousCell);
+        if (nextCellBtn) nextCellBtn.addEventListener('click', nextCell);
 
         // Toggle sidebar
         const setSidebarCollapsed = (collapsed) => {
@@ -1950,58 +1555,17 @@
             sidebar.classList.add('is-expanding');
             sidebar.classList.remove('collapsed');
         };
-        toggleBtn.addEventListener('click', (e) => {
+        toggleBtn.addEventListener('click', e => {
             e.stopPropagation();
             setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
         });
 
-        // Also expand when collapsed sidebar area is clicked
-        sidebar.addEventListener('click', () => {
+        // ALSO expand when collapsed sidebar area is clicked
+        sidebar.addEventListener('click', e => {
             if (sidebar.classList.contains('collapsed')) {
                 setSidebarCollapsed(false);
             }
         });
-
-        selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
-        selectAllBtn.addEventListener('click', toggleSelectAll);
-        saveSelectedBtn.addEventListener('click', openSaveModal);
-        channelVisibilityBtn.addEventListener('click', () => {
-            applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
-        });
-        if (scaleVisibilityBtn) {
-            scaleVisibilityBtn.addEventListener('click', () => {
-                applyScaleVisibility(sidebar.classList.contains('scales-hidden'), true);
-            });
-        }
-        if (cancelSaveFilesBtn) cancelSaveFilesBtn.addEventListener('click', closeSaveModal);
-        if (confirmSaveFilesBtn) confirmSaveFilesBtn.addEventListener('click', saveSelectedFiles);
-        if (saveBackdrop) {
-            saveBackdrop.addEventListener('click', (event) => {
-                if (event.target === saveBackdrop) closeSaveModal();
-            });
-        }
-        selectionInfoDots.forEach(attachInfoTooltipBehavior);
-        document.addEventListener('click', (event) => {
-            const target = event.target;
-            if (!(target instanceof Element) || !target.classList.contains('selection-info-dot')) {
-                hideInfoTooltip();
-            }
-        });
-        window.addEventListener('resize', refreshInfoTooltipPosition);
-        window.addEventListener('scroll', refreshInfoTooltipPosition, true);
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                hideInfoTooltip();
-            }
-            if (event.key === 'Escape' && saveBackdrop && saveBackdrop.style.display === 'flex') {
-                closeSaveModal();
-            }
-        });
-
-        updateSavedStateClasses();
-        applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
-        applyScaleVisibility(!sidebar.classList.contains('scales-hidden'), false);
-        syncSelectionUI();
 
         // Main channel switching (async, no page reload)
         channelButtons.forEach((btn) => {
@@ -2064,53 +1628,22 @@
     </script>
 
     <script>
-        // table script
-        var table = document.getElementById('celltable');
-        var popup = document.getElementsByClassName('popup');
-        var closebtn = document.getElementsByClassName('hide');
-
-        function rowListener(e){
-            var row = e.target.closest('tr');
-            if(row && row.parentNode.tagName != 'THEAD'){
-                showPopUp(row,e);
-            }
-        }
-
-        function showPopUp(row,e){
-            var cells = row.getElementsByTagName('td');
-            var cell_id = cells[0].textContent.trim();
-
-            document.getElementById('popup-id').textContent = cell_id
-
-            var rect = row.getBoundingClientRect();
-            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-
-            popup[0].style.left = (rect.right + scrollLeft + 10) + 'px';
-            popup[0].style.top = (rect.top + scrollTop) + 'px';
-            popup[0].style.display = 'block';
-        };
-
-        function hidePopUp(){
-            popup[0].style.display = 'none';
-        }
-
-        if (table) {
-            table.addEventListener("click", rowListener);
-        }
-
-        function setCellID(){
-            var cell_id = document.getElementById('popup-id').innerText;
-            document.getElementById('cell_id_input').value = cell_id;
-        }
-
-        var deleteBtn = document.querySelector('.deleteCell');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', function (e){
-                setCellID();
-                document.getElementById('delete_cell').submit();
+        // Sidebar drag & drop
+        // CSRF helper
+        function getCookie(name) {
+            let val = null;
+            document.cookie.split(';').forEach(c => {
+                c = c.trim();
+                if (c.startsWith(name + '=')) {
+                    val = decodeURIComponent(c.slice(name.length + 1));
+                }
             });
+            return val;
         }
+    </script>
+
+    <script>
+        // Row-popup deletion is intentionally disabled on dashboard.
     </script>
 
     <!-- Sidebar Code -->
@@ -2120,7 +1653,6 @@
             var sidebar = document.getElementById('sidebar');
             if (!sidebar) return;
             var header  = sidebar.querySelector('.sidebar-header');
-            var actions = sidebar.querySelector('.sidebar-actions');
             var content = sidebar.querySelector('.sidebar-content');
             if (!content) return;
 
@@ -2130,14 +1662,11 @@
             var headerH = header ? header.getBoundingClientRect().height : 0;
             var hs = header ? getComputedStyle(header) : null;
             var headerMargins = hs ? (parseFloat(hs.marginTop)||0) + (parseFloat(hs.marginBottom)||0) : 0;
-            var actionsH = actions ? actions.getBoundingClientRect().height : 0;
-            var as = actions ? getComputedStyle(actions) : null;
-            var actionMargins = as ? (parseFloat(as.marginTop)||0) + (parseFloat(as.marginBottom)||0) : 0;
 
             var cs = getComputedStyle(content);
             var contentVPad = (parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0);
 
-            var maxH = Math.max(0, sidebarH - headerH - headerMargins - actionsH - actionMargins - contentVPad);
+            var maxH = Math.max(0, sidebarH - headerH - headerMargins - contentVPad);
             content.style.maxHeight = maxH + 'px';
             content.style.overflowY = 'auto';
             content.style.minHeight  = '0';
@@ -2162,6 +1691,246 @@
             var main = document.querySelector('.main-content');
             if (main) new ResizeObserver(setSidebarScrollHeight).observe(main);
         }
+        })();
+    </script>
+
+    <script>
+        (() => {
+            const sidebar = document.getElementById('sidebar');
+            const fileItems = Array.from(document.querySelectorAll('.file-item[data-uuid]'));
+            const fileUUIDs = fileItems.map((item) => item.dataset.uuid).filter(Boolean);
+            const selectModeBtn = document.getElementById('selectModeBtn');
+            const selectAllBtn = document.getElementById('selectAllBtn');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
+            const scaleVisibilityBtn = document.getElementById('toggleScaleVisibilityBtn');
+            const deleteBackdrop = document.getElementById('deleteFilesBackdrop');
+            const deleteMessage = document.getElementById('deleteFilesMessage');
+            const deleteList = document.getElementById('deleteFilesList');
+            const cancelDeleteFilesBtn = document.getElementById('cancelDeleteFilesBtn');
+            const confirmDeleteFilesBtn = document.getElementById('confirmDeleteFilesBtn');
+
+            if (!sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn || !channelVisibilityBtn || !scaleVisibilityBtn) {
+                return;
+            }
+
+            const selectedFileUUIDs = new Set();
+            let selectModeActive = false;
+            const csrfToken = getCookie('csrftoken');
+            let channelLabelFadeTimer = null;
+            let scaleLabelFadeTimer = null;
+
+            function getCookie(name) {
+                let value = null;
+                document.cookie.split(';').forEach((cookie) => {
+                    const item = cookie.trim();
+                    if (item.startsWith(`${name}=`)) {
+                        value = decodeURIComponent(item.slice(name.length + 1));
+                    }
+                });
+                return value;
+            }
+
+            function showMessage(message) {
+                let container = document.querySelector('.message-container.channel-switch');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.className = 'message-container channel-switch';
+                    container.style.top = 'calc(var(--nav-height) + 8px)';
+                    document.body.appendChild(container);
+                }
+                const msg = document.createElement('div');
+                msg.className = 'message';
+                msg.textContent = message;
+                const close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'message-close';
+                close.innerHTML = '&times;';
+                close.addEventListener('click', () => msg.remove());
+                msg.appendChild(close);
+                container.appendChild(msg);
+                setTimeout(() => msg.remove(), 7000);
+            }
+
+            function syncSelectionUI() {
+                fileItems.forEach((item) => item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid)));
+                deleteSelectedBtn.disabled = selectedFileUUIDs.size === 0;
+            }
+
+            function setSelectMode(enabled) {
+                selectModeActive = enabled;
+                sidebar.classList.toggle('select-mode', enabled);
+                selectModeBtn.classList.toggle('active', enabled);
+                selectModeBtn.textContent = enabled ? 'Done' : 'Select';
+                if (!enabled) {
+                    selectedFileUUIDs.clear();
+                }
+                syncSelectionUI();
+            }
+
+            function toggleSelectAll() {
+                if (selectedFileUUIDs.size === fileUUIDs.length) {
+                    selectedFileUUIDs.clear();
+                } else {
+                    fileUUIDs.forEach((uuid) => selectedFileUUIDs.add(uuid));
+                }
+                syncSelectionUI();
+            }
+
+            function applyChannelVisibility(visible, persist) {
+                sidebar.classList.toggle('channels-hidden', !visible);
+                channelVisibilityBtn.classList.add('label-fade');
+                if (channelLabelFadeTimer) {
+                    window.clearTimeout(channelLabelFadeTimer);
+                }
+                channelVisibilityBtn.textContent = visible ? 'Hide Channels' : 'Show Channels';
+                channelLabelFadeTimer = window.setTimeout(() => {
+                    channelVisibilityBtn.classList.remove('label-fade');
+                    channelLabelFadeTimer = null;
+                }, 170);
+                if (persist) {
+                    fetch('/dashboard/preferences/channels/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ show_saved_file_channels: visible }),
+                    }).catch(() => null);
+                }
+            }
+
+            function applyScaleVisibility(visible, persist) {
+                sidebar.classList.toggle('scales-hidden', !visible);
+                scaleVisibilityBtn.classList.add('label-fade');
+                if (scaleLabelFadeTimer) {
+                    window.clearTimeout(scaleLabelFadeTimer);
+                }
+                scaleVisibilityBtn.textContent = visible ? 'Hide Scale' : 'Show Scale';
+                scaleLabelFadeTimer = window.setTimeout(() => {
+                    scaleVisibilityBtn.classList.remove('label-fade');
+                    scaleLabelFadeTimer = null;
+                }, 170);
+                if (persist) {
+                    fetch('/dashboard/preferences/channels/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ show_saved_file_scales: visible }),
+                    }).catch(() => null);
+                }
+            }
+
+            function closeDeleteModal() {
+                if (!deleteBackdrop) return;
+                deleteBackdrop.style.display = 'none';
+                deleteBackdrop.setAttribute('aria-hidden', 'true');
+            }
+
+            function openDeleteModal() {
+                if (!deleteBackdrop || !deleteMessage || !deleteList) return;
+                const selected = fileUUIDs.filter((uuid) => selectedFileUUIDs.has(uuid)).map((uuid) => {
+                    const row = fileItems.find((item) => item.dataset.uuid === uuid);
+                    const title = row ? row.querySelector('.file-title') : null;
+                    return title ? title.textContent.trim() : uuid;
+                });
+                if (!selected.length) return;
+                deleteMessage.textContent = selected.length === fileUUIDs.length
+                    ? 'Are you sure you want to delete all your saved files?'
+                    : 'Are you sure you want to delete the selected files?';
+                deleteList.innerHTML = '';
+                selected.forEach((name) => {
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    deleteList.appendChild(li);
+                });
+                deleteBackdrop.style.display = 'flex';
+                deleteBackdrop.setAttribute('aria-hidden', 'false');
+            }
+
+            async function deleteSelectedFiles() {
+                const uuids = Array.from(selectedFileUUIDs);
+                if (!uuids.length) return;
+                confirmDeleteFilesBtn.disabled = true;
+                try {
+                    const response = await fetch('/dashboard/files/delete/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken || '',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ uuids }),
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.error || 'Delete failed');
+                    }
+                    window.location.reload();
+                } catch (err) {
+                    showMessage(err.message || 'Unable to delete selected files.');
+                    confirmDeleteFilesBtn.disabled = false;
+                    closeDeleteModal();
+                }
+            }
+
+            selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
+            selectAllBtn.addEventListener('click', toggleSelectAll);
+            deleteSelectedBtn.addEventListener('click', openDeleteModal);
+            channelVisibilityBtn.addEventListener('click', () => {
+                applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
+            });
+            scaleVisibilityBtn.addEventListener('click', () => {
+                applyScaleVisibility(sidebar.classList.contains('scales-hidden'), true);
+            });
+
+            fileItems.forEach((item) => {
+                const uuid = item.dataset.uuid;
+                const checkbox = item.querySelector('.file-select-check');
+                if (checkbox && uuid) {
+                    checkbox.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!selectModeActive) return;
+                        if (selectedFileUUIDs.has(uuid)) {
+                            selectedFileUUIDs.delete(uuid);
+                        } else {
+                            selectedFileUUIDs.add(uuid);
+                        }
+                        syncSelectionUI();
+                    });
+                }
+                item.addEventListener('click', () => {
+                    if (!selectModeActive || !uuid) return;
+                    if (selectedFileUUIDs.has(uuid)) {
+                        selectedFileUUIDs.delete(uuid);
+                    } else {
+                        selectedFileUUIDs.add(uuid);
+                    }
+                    syncSelectionUI();
+                });
+            });
+
+            if (cancelDeleteFilesBtn) cancelDeleteFilesBtn.addEventListener('click', closeDeleteModal);
+            if (confirmDeleteFilesBtn) confirmDeleteFilesBtn.addEventListener('click', deleteSelectedFiles);
+            if (deleteBackdrop) {
+                deleteBackdrop.addEventListener('click', (event) => {
+                    if (event.target === deleteBackdrop) closeDeleteModal();
+                });
+            }
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && deleteBackdrop && deleteBackdrop.style.display === 'flex') {
+                    closeDeleteModal();
+                }
+            });
+
+            applyChannelVisibility(!sidebar.classList.contains('channels-hidden'), false);
+            applyScaleVisibility(!sidebar.classList.contains('scales-hidden'), false);
+            syncSelectionUI();
         })();
     </script>
 

@@ -369,7 +369,7 @@
                 <input type="hidden" name="pass_captcha_gate" value="1">
                 {% if recaptcha_enabled %}
                     <div class="recaptcha-wrap">
-                        <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+                        <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}" data-callback="onSignupRecaptchaGateSuccess"></div>
                     </div>
                 {% endif %}
                 <div class="form-footer">
@@ -684,6 +684,49 @@
                 }
             };
 
+            const setCaptchaToken = (form, token) => {
+                if (!form || !token) return;
+                let tokenInput = form.querySelector('textarea[name="g-recaptcha-response"], input[name="g-recaptcha-response"]');
+                if (!tokenInput) {
+                    tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = 'g-recaptcha-response';
+                    form.appendChild(tokenInput);
+                }
+                tokenInput.value = token;
+            };
+
+            const syncCaptchaResponse = (form) => {
+                if (!form || !window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
+                    return;
+                }
+                const token = window.grecaptcha.getResponse();
+                if (token) {
+                    setCaptchaToken(form, token);
+                }
+            };
+
+            const autoSubmitCaptchaGate = (token) => {
+                const gateMarker = document.querySelector('.signup-form input[name="pass_captcha_gate"]');
+                const gateForm = gateMarker ? gateMarker.form : null;
+                if (!gateForm) return;
+                if (gateForm.dataset.submitting === '1' || gateForm.dataset.recaptchaAutoSubmitted === '1') return;
+                setCaptchaToken(gateForm, token);
+                gateForm.dataset.recaptchaAutoSubmitted = '1';
+                const submitButton =
+                    gateForm.querySelector('button.primary-action[type="submit"]') ||
+                    gateForm.querySelector('button[type="submit"]');
+                if (typeof gateForm.requestSubmit === 'function' && submitButton) {
+                    gateForm.requestSubmit(submitButton);
+                    return;
+                }
+                gateForm.submit();
+            };
+
+            window.onSignupRecaptchaGateSuccess = (token) => {
+                window.setTimeout(() => autoSubmitCaptchaGate(token), 0);
+            };
+
             const initAjaxForm = (root) => {
                 const form = root.querySelector('.signup-form');
                 if (!form || form.dataset.bound === '1') return;
@@ -714,6 +757,9 @@
                         confirm: document.getElementById('verify_password')?.value || '',
                     };
                     const submitter = event.submitter || document.activeElement;
+                    if (form.querySelector('input[name="pass_captcha_gate"]')) {
+                        syncCaptchaResponse(form);
+                    }
                     const formData = new FormData(form);
                     if (submitter && submitter.name) {
                         formData.set(submitter.name, submitter.value || '1');
@@ -773,7 +819,12 @@
                             el.dataset.rendered = '1';
                             return;
                         }
-                        window.grecaptcha.render(el, { sitekey: el.dataset.sitekey });
+                        const renderOptions = { sitekey: el.dataset.sitekey };
+                        const callbackName = el.dataset.callback;
+                        if (callbackName && typeof window[callbackName] === 'function') {
+                            renderOptions.callback = window[callbackName];
+                        }
+                        window.grecaptcha.render(el, renderOptions);
                         el.dataset.rendered = '1';
                     });
                 }

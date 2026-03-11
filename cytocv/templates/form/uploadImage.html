@@ -577,6 +577,17 @@
             min-height: 0;
             overflow-y: auto;
             padding-right: 2px;
+            scrollbar-width: auto;
+            scrollbar-gutter: stable;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .settings-view::-webkit-scrollbar { width: 14px; }
+        .settings-view::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+        }
+        .settings-view::-webkit-scrollbar-track {
+            background: transparent;
         }
         .settings-view[hidden] {
             display: none !important;
@@ -632,6 +643,30 @@
             justify-content: flex-start;
             align-items: center;
             gap: 12px;
+        }
+        #statsPrimaryView {
+            overflow: hidden;
+            padding-right: 0;
+        }
+        .stats-primary-scroll {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 2px;
+            scrollbar-width: auto;
+            scrollbar-gutter: stable;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .stats-primary-scroll::-webkit-scrollbar { width: 14px; }
+        .stats-primary-scroll::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+        }
+        .stats-primary-scroll::-webkit-scrollbar-track {
+            background: transparent;
         }
         .stats-view-footer {
             display: flex;
@@ -695,15 +730,124 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: min(42vh, 320px);
-            overflow-y: auto;
-            padding-right: 2px;
+            max-height: none;
+            overflow: visible;
+            padding-right: 0;
             isolation: isolate;
         }
-        .stats-list::-webkit-scrollbar { width: 10px; }
-        .stats-list::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
-            border-radius: 6px;
+        .measurement-scale-card {
+            display: grid;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--surface-rail);
+            border: 1px solid var(--panel-border);
+        }
+        .measurement-scale-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .measurement-scale-text {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .measurement-scale-title-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .measurement-scale-title {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .measurement-metadata-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding-top: 2px;
+        }
+        .measurement-metadata-row span {
+            font-size: 11px;
+            font-weight: 600;
+            color: #d7e8f6;
+        }
+        .measurement-scale-live {
+            margin: 0;
+            font-size: 11px;
+            color: #9fd5af;
+            line-height: 1.35;
+        }
+        .measurement-scale-live .measurement-scale-value {
+            display: inline-block;
+            color: inherit;
+            min-width: 1ch;
+        }
+        .measurement-scale-example {
+            margin: 0;
+            font-size: 11px;
+            color: #b8c8db;
+            line-height: 1.35;
+        }
+        .measurement-scale-control-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+            min-width: 0;
+            flex: 0 1 auto;
+        }
+        .measurement-scale-inline-note {
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.2;
+            color: #cfcfcf;
+            text-align: right;
+            max-width: 360px;
+        }
+        .measurement-scale-fallback {
+            margin: 0;
+            font-size: 11px;
+            color: #d7c68a;
+            line-height: 1.35;
+        }
+        .measurement-scale-input-group {
+            margin-left: 0;
+        }
+        .measurement-scale-input {
+            width: 92px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: #fff;
+            padding: 4px 8px;
+            font-family: var(--app-font);
+            outline: none;
+            color-scheme: dark;
+        }
+        .measurement-scale-input::-webkit-outer-spin-button,
+        .measurement-scale-input::-webkit-inner-spin-button {
+            opacity: 1;
+            margin: 0;
+            background: var(--surface-input);
+            filter: grayscale(1) brightness(0.68);
+        }
+        @media (max-width: 860px) {
+            .measurement-scale-control-row {
+                flex: 1 1 100%;
+                justify-content: space-between;
+            }
+            .measurement-scale-inline-note {
+                max-width: none;
+                text-align: left;
+            }
         }
         .stats-toggle-row {
             display: flex;
@@ -727,8 +871,28 @@
             min-width: 0;
             flex: 1 1 auto;
         }
+        .stats-toggle-title-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
         .stats-toggle-title {
             font-size: 14px;
+            line-height: 1.2;
+        }
+        .legacy-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1;
+            color: #f2d1a0;
+            border: 1px solid #6a5a3c;
+            border-radius: 999px;
+            padding: 2px 6px;
+            white-space: nowrap;
         }
         .stats-toggle-meta {
             font-size: 11px;
@@ -1103,13 +1267,19 @@
             overflow-y: auto;
             padding-right: 2px;
             overscroll-behavior: contain;
+            scrollbar-width: auto;
+            scrollbar-gutter: stable;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
         }
         #statsAdvancedView .settings-body::-webkit-scrollbar {
-            width: 10px;
+            width: 14px;
         }
         #statsAdvancedView .settings-body::-webkit-scrollbar-thumb {
             background: var(--scrollbar-thumb);
-            border-radius: 6px;
+            border-radius: 8px;
+        }
+        #statsAdvancedView .settings-body::-webkit-scrollbar-track {
+            background: transparent;
         }
         #statsAdvancedView .advanced-header {
             flex: 0 0 auto;
@@ -1183,7 +1353,8 @@
             font-size: 11px;
             line-height: 1.25;
             color: #b8b8b8;
-            transition: color 0.18s ease;
+            opacity: 1;
+            transition: color 0.18s ease, opacity 0.18s ease;
         }
         .toggle-state-note.on {
             color: #9fd5af;
@@ -1192,12 +1363,31 @@
             color: #e6d6a7;
         }
         .toggle-state-note.reveal {
-            animation: toggleStateSlideFadeIn 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+            animation: toggleStateFadeIn 0.24s ease;
         }
-        @keyframes toggleStateSlideFadeIn {
+        @keyframes toggleStateFadeIn {
             from {
                 opacity: 0;
-                transform: translateY(-7px);
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .toggle-state-note.reveal {
+                animation: none;
+            }
+        }
+        .smooth-text-fading {
+            opacity: 0.22 !important;
+        }
+        .smooth-text-slide-in {
+            animation: measurementTextSlideFadeIn 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+        @keyframes measurementTextSlideFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
             }
             to {
                 opacity: 1;
@@ -1205,7 +1395,7 @@
             }
         }
         @media (prefers-reduced-motion: reduce) {
-            .toggle-state-note.reveal {
+            .smooth-text-slide-in {
                 animation: none;
             }
         }
@@ -1298,8 +1488,13 @@
                 </div>
                 <div class="required-channel-grid" id="requiredChannelGrid"></div>
                 <div class="stats-divider"></div>
-                <div class="stats-view-title">Statistics</div>
-                <div class="stats-list" id="statsList"></div>
+                <div class="stats-primary-scroll" id="statsPrimaryScroll">
+                    <div class="stats-view-title">Statistics</div>
+                    <div class="stats-list" id="statsList"></div>
+                    <div class="stats-divider"></div>
+                    <div class="stats-view-title">Measurement Scale</div>
+                    <div class="measurement-scale-card" id="measurementScaleGroup"></div>
+                </div>
                 <div class="stats-view-footer">
                     <button type="button" class="advanced-btn" id="openAdvancedSettings">Advanced Settings</button>
                 </div>
@@ -1316,6 +1511,7 @@
                                     data-info-text="Reveal DAPI-based plugins in the statistics list."
                                     aria-label="Reveal DAPI-based plugins in the statistics list."
                                 >i</button>
+                                <span class="legacy-pill">Legacy</span>
                             </span>
                         </div>
                         <label class="switch">
@@ -1482,6 +1678,7 @@
 
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
+<script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -1515,6 +1712,7 @@
     const selectedFiles = new Map();
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
+    const serverPreferenceDefaultsElement = document.getElementById('serverPreferenceDefaults');
     let restoredQueueItems = [];
     try {
         const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
@@ -1558,7 +1756,17 @@
     const mCherryWidthUnitKey = 'cytocv.mcherry_width_unit.v1';
     const gfpDistanceUnitKey = 'cytocv.gfp_distance_unit.v1';
     const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v1';
+    const useMetadataScaleKey = 'cytocv.use_metadata_scale.v1';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
+    let serverPreferenceDefaults = {};
+    try {
+        const defaultsRaw = serverPreferenceDefaultsElement
+            ? serverPreferenceDefaultsElement.textContent
+            : '{}';
+        serverPreferenceDefaults = JSON.parse(defaultsRaw || '{}');
+    } catch (err) {
+        serverPreferenceDefaults = {};
+    }
 
     const statsState = {
         selectedPlugins: new Set(),
@@ -1575,6 +1783,7 @@
         mCherryWidthUnit: 'px',
         gfpDistanceUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
+        useMetadataScale: true,
     };
 
     const statToggleElements = new Map();
@@ -1586,10 +1795,70 @@
     let gfpDistanceInput = null;
     let gfpDistanceRow = null;
     let gfpThresholdInput = null;
+    let micronsPerPixelInput = null;
+    let useMetadataScaleInput = null;
+    let measurementScalePxPerUmValue = null;
+    let measurementScaleUmPerPxValue = null;
+    let measurementScaleExampleHint = null;
+    let measurementScaleFallbackHint = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
+
+    function applyServerPreferenceDefaults() {
+        if (!serverPreferenceDefaults || typeof serverPreferenceDefaults !== 'object') {
+            return;
+        }
+
+        const selectedPlugins = Array.isArray(serverPreferenceDefaults.selected_plugins)
+            ? serverPreferenceDefaults.selected_plugins.filter((pluginId) => pluginMap.has(pluginId))
+            : [];
+        localStorage.setItem(selectionKey, JSON.stringify(selectedPlugins));
+        localStorage.setItem(initializedKey, '1');
+
+        const manualChannels = Array.isArray(serverPreferenceDefaults.manual_required_channels)
+            ? serverPreferenceDefaults.manual_required_channels.filter((channel) => channelOrder.includes(channel))
+            : [];
+        const advancedPayload = {
+            moduleEnabled: !!serverPreferenceDefaults.module_enabled,
+            enforceLayerCount: !!serverPreferenceDefaults.enforce_layer_count,
+            enforceAllWavelengths: !!serverPreferenceDefaults.enforce_wavelengths,
+            showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
+            manualRequiredChannels: manualChannels,
+            gfpFilterEnabled: !!serverPreferenceDefaults.gfp_filter_enabled,
+        };
+        localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
+
+        const widthUnit = (serverPreferenceDefaults.mcherry_width_unit === 'um') ? 'um' : 'px';
+        const distanceUnit = (serverPreferenceDefaults.gfp_distance_unit === 'um') ? 'um' : 'px';
+        localStorage.setItem(mCherryWidthUnitKey, widthUnit);
+        localStorage.setItem(gfpDistanceUnitKey, distanceUnit);
+        localStorage.setItem(legacyLengthUnitKey, widthUnit === distanceUnit ? widthUnit : 'mixed');
+
+        const width = Number(serverPreferenceDefaults.mcherry_width);
+        const distance = Number(serverPreferenceDefaults.gfp_distance);
+        const threshold = Number(serverPreferenceDefaults.gfp_threshold);
+        const micronsPerPixel = Number(serverPreferenceDefaults.microns_per_pixel);
+        localStorage.setItem(widthKey, Number.isFinite(width) ? String(width) : '1');
+        localStorage.setItem(distanceKey, Number.isFinite(distance) ? String(distance) : '37');
+        localStorage.setItem(thresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
+        localStorage.setItem(
+            micronsPerPixelKey,
+            Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
+                ? String(micronsPerPixel)
+                : String(DEFAULT_MICRONS_PER_PIXEL)
+        );
+        localStorage.setItem(
+            useMetadataScaleKey,
+            String(serverPreferenceDefaults.use_metadata_scale !== false)
+        );
+
+        const nuclearMode = serverPreferenceDefaults.nuclear_cellular_mode === 'red_nucleus'
+            ? 'red_nucleus'
+            : 'green_nucleus';
+        localStorage.setItem(nuclearModeKey, nuclearMode);
+    }
 
     function getQueuedCount() {
         return selectedFiles.size + restoredQueueItems.length;
@@ -1660,6 +1929,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        applyServerPreferenceDefaults();
         infoTooltipElement = document.getElementById('statsInfoTooltip');
         document.querySelectorAll('.advanced-info-dot').forEach((el) => {
             attachInfoTooltipBehavior(el);
@@ -2009,6 +2279,7 @@
         localStorage.setItem(mCherryWidthUnitKey, statsState.mCherryWidthUnit);
         localStorage.setItem(gfpDistanceUnitKey, statsState.gfpDistanceUnit);
         localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
+        localStorage.setItem(useMetadataScaleKey, String(!!statsState.useMetadataScale));
     }
 
     function convertLengthValueToUnit(value, fromUnit, toUnit) {
@@ -2248,6 +2519,7 @@
         loadStoredAdvancedSettings();
         loadStoredLengthUnits();
         loadStoredMicronsPerPixel();
+        loadStoredUseMetadataScale();
         loadStoredWidth();
         loadStoredDistance();
         loadStoredThreshold();
@@ -2302,6 +2574,7 @@
         gfpDistanceInput = null;
         gfpDistanceRow = null;
         gfpThresholdInput = null;
+        micronsPerPixelInput = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
 
@@ -2315,14 +2588,23 @@
 
             const left = document.createElement('div');
             left.className = 'stats-toggle-left';
+            const titleWrap = document.createElement('span');
+            titleWrap.className = 'stats-toggle-title-wrap';
             const title = document.createElement('span');
             title.className = 'stats-toggle-title';
             title.textContent = plugin.label || plugin.id;
-            left.appendChild(title);
+            titleWrap.appendChild(title);
+            left.appendChild(titleWrap);
 
             const req = Array.isArray(plugin.required_channels) ? plugin.required_channels.join(', ') : '';
             const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired wavelengths: ${req}` : ''}`);
             left.appendChild(info);
+            if (plugin.is_legacy) {
+                const legacyBadge = document.createElement('span');
+                legacyBadge.className = 'legacy-pill';
+                legacyBadge.textContent = 'Legacy';
+                left.appendChild(legacyBadge);
+            }
             row.appendChild(left);
 
             const right = document.createElement('div');
@@ -2386,6 +2668,7 @@
                         statsState.mCherryWidth = parseLengthValue(widthGroup.input.value, statsState.mCherryWidthUnit, fallback, minimum);
                         widthGroup.input.value = formatNumericInputValue(statsState.mCherryWidth);
                         localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+                        updateMeasurementScaleHints();
                     },
                 });
                 widthLine.appendChild(widthGroup.controls);
@@ -2416,6 +2699,7 @@
                         statsState.gfpDistance = parseLengthValue(distanceGroup.input.value, statsState.gfpDistanceUnit, fallback, 0);
                         distanceGroup.input.value = formatNumericInputValue(statsState.gfpDistance);
                         localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+                        updateMeasurementScaleHints();
                     },
                 });
                 distanceLine.appendChild(distanceGroup.controls);
@@ -2489,6 +2773,192 @@
                 nuclearModeRow = modeRow;
             }
         });
+        renderMeasurementScaleSettings();
+    }
+
+    function renderMeasurementScaleSettings() {
+        const container = document.getElementById('measurementScaleGroup');
+        if (!container) return;
+        container.innerHTML = '';
+        measurementScalePxPerUmValue = null;
+        measurementScaleUmPerPxValue = null;
+        measurementScaleExampleHint = null;
+        measurementScaleFallbackHint = null;
+
+        const row = document.createElement('div');
+        row.className = 'measurement-scale-row';
+
+        const text = document.createElement('div');
+        text.className = 'measurement-scale-text';
+
+        const titleRow = document.createElement('div');
+        titleRow.className = 'measurement-scale-title-row';
+
+        const title = document.createElement('span');
+        title.className = 'measurement-scale-title';
+        title.textContent = 'Micrometers per pixel (um/px)';
+        titleRow.appendChild(title);
+
+        const info = buildInfoDot(
+            'Enter image scale as um/px (how many micrometers one pixel represents).\n\nEnter um/px, not px/um. Example: if 1 pixel = 0.1 um, enter 0.1.\nFormula: pixels = micrometers / (um/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance_um = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy_um_per_px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is um.'
+        );
+        info.classList.add('compact');
+        titleRow.appendChild(info);
+
+        text.appendChild(titleRow);
+
+        const metadataRow = document.createElement('div');
+        metadataRow.className = 'measurement-metadata-row';
+        const metadataText = document.createElement('span');
+        metadataText.textContent = 'Use metadata scale per file';
+        metadataRow.appendChild(metadataText);
+        const metadataSwitch = document.createElement('label');
+        metadataSwitch.className = 'switch';
+        const metadataInput = document.createElement('input');
+        metadataInput.type = 'checkbox';
+        metadataInput.id = 'statsUseMetadataScale';
+        metadataInput.checked = !!statsState.useMetadataScale;
+        metadataInput.addEventListener('change', () => {
+            statsState.useMetadataScale = metadataInput.checked;
+            persistLengthUnitSettings();
+            updateMeasurementScaleHints();
+        });
+        const metadataSlider = document.createElement('span');
+        metadataSlider.className = 'slider';
+        metadataSwitch.appendChild(metadataInput);
+        metadataSwitch.appendChild(metadataSlider);
+        metadataRow.appendChild(metadataSwitch);
+        text.appendChild(metadataRow);
+
+        const fallback = document.createElement('p');
+        fallback.className = 'measurement-scale-fallback';
+        text.appendChild(fallback);
+
+        const live = document.createElement('p');
+        live.className = 'measurement-scale-live';
+        live.appendChild(document.createTextNode('Current scale: 1 um = '));
+        const livePxValue = document.createElement('span');
+        livePxValue.className = 'measurement-scale-value';
+        live.appendChild(livePxValue);
+        live.appendChild(document.createTextNode(' px ('));
+        const liveUmValue = document.createElement('span');
+        liveUmValue.className = 'measurement-scale-value';
+        live.appendChild(liveUmValue);
+        live.appendChild(document.createTextNode(' um/px).'));
+        text.appendChild(live);
+
+        row.appendChild(text);
+
+        const controlRow = document.createElement('div');
+        controlRow.className = 'measurement-scale-control-row';
+        const example = document.createElement('p');
+        example.className = 'measurement-scale-example measurement-scale-inline-note';
+        controlRow.appendChild(example);
+
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'boxed-number-group measurement-scale-input-group';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.id = 'statsMicronsPerPixelInput';
+        input.className = 'measurement-scale-input';
+        input.min = '0.0001';
+        input.step = '0.0001';
+        input.placeholder = '0.1';
+        input.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
+        input.addEventListener('change', () => {
+            statsState.micronsPerPixel = sanitizeMicronsPerPixel(input.value);
+            input.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
+            persistLengthUnitSettings();
+            syncLengthControls();
+            updateMeasurementScaleHints();
+        });
+        inputGroup.appendChild(input);
+        controlRow.appendChild(inputGroup);
+        row.appendChild(controlRow);
+
+        container.appendChild(row);
+        micronsPerPixelInput = input;
+        useMetadataScaleInput = metadataInput;
+        measurementScalePxPerUmValue = livePxValue;
+        measurementScaleUmPerPxValue = liveUmValue;
+        measurementScaleExampleHint = example;
+        measurementScaleFallbackHint = fallback;
+        updateMeasurementScaleHints();
+    }
+
+    function setSmoothText(element, nextText) {
+        if (!element) return;
+        const normalized = typeof nextText === 'string' ? nextText : String(nextText ?? '');
+        if ((element.textContent || '') === normalized) return;
+
+        if (element._smoothTextTimer) {
+            clearTimeout(element._smoothTextTimer);
+            element._smoothTextTimer = null;
+        }
+
+        element.classList.add('smooth-text-fading');
+        element._smoothTextTimer = window.setTimeout(() => {
+            element.textContent = normalized;
+            element.classList.remove('smooth-text-fading');
+            element._smoothTextTimer = null;
+        }, 105);
+    }
+
+    function setSlideInText(element, nextText) {
+        if (!element) return;
+        const normalized = typeof nextText === 'string' ? nextText : String(nextText ?? '');
+        if ((element.textContent || '') === normalized) return;
+        element.textContent = normalized;
+        if (element._slideInTimer) {
+            clearTimeout(element._slideInTimer);
+            element._slideInTimer = null;
+        }
+        element.classList.remove('smooth-text-slide-in');
+        void element.offsetWidth;
+        element.classList.add('smooth-text-slide-in');
+        element._slideInTimer = window.setTimeout(() => {
+            element.classList.remove('smooth-text-slide-in');
+            element._slideInTimer = null;
+        }, 260);
+    }
+
+    function updateMeasurementScaleHints() {
+        if (!measurementScalePxPerUmValue || !measurementScaleUmPerPxValue || !measurementScaleExampleHint) return;
+
+        const umPerPx = sanitizeMicronsPerPixel(statsState.micronsPerPixel);
+        const pxPerUm = umPerPx > 0 ? (1 / umPerPx) : 0;
+        setSlideInText(measurementScalePxPerUmValue, formatNumericInputValue(pxPerUm, 3));
+        setSlideInText(measurementScaleUmPerPxValue, formatNumericInputValue(umPerPx, 4));
+
+        const examples = [];
+        if (statsState.mCherryWidthUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.mCherryWidth, statsState.mCherryWidthUnit, 1, 1);
+            examples.push(
+                `mCherry line width ${formatNumericInputValue(statsState.mCherryWidth, 3)} um -> ${pxValue} px`
+            );
+        }
+        if (statsState.gfpDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.gfpDistance, statsState.gfpDistanceUnit, 0, 37);
+            examples.push(
+                `Minimum signal distance ${formatNumericInputValue(statsState.gfpDistance, 3)} um -> ${pxValue} px`
+            );
+        }
+
+        setSmoothText(
+            measurementScaleExampleHint,
+            examples.length
+                ? `Live conversion: ${examples.join(' | ')}`
+                : 'Set a plugin length unit to um to preview its pixel conversion here.'
+        );
+
+        if (measurementScaleFallbackHint) {
+            setSlideInText(
+                measurementScaleFallbackHint,
+                statsState.useMetadataScale
+                    ? 'Metadata mode enabled: each file uses DV header dx/dy when valid, and falls back to this manual um/px if metadata is missing or invalid.'
+                    : 'Metadata mode disabled: manual um/px is applied to every file in this run.'
+            );
+        }
     }
 
     function renderAdvancedChannelToggles() {
@@ -2654,6 +3124,16 @@
         statsState.micronsPerPixel = sanitizeMicronsPerPixel(localStorage.getItem(micronsPerPixelKey));
     }
 
+    function loadStoredUseMetadataScale() {
+        const raw = localStorage.getItem(useMetadataScaleKey);
+        if (raw === null) {
+            statsState.useMetadataScale = true;
+            return;
+        }
+        const normalized = String(raw).trim().toLowerCase();
+        statsState.useMetadataScale = !['0', 'false', 'off', 'no'].includes(normalized);
+    }
+
     function loadStoredWidth() {
         const raw = localStorage.getItem(widthKey);
         const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
@@ -2797,6 +3277,13 @@
         if (gfpThresholdInput) {
             gfpThresholdInput.value = String(statsState.gfpThreshold);
         }
+        if (micronsPerPixelInput) {
+            micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
+        }
+        if (useMetadataScaleInput) {
+            useMetadataScaleInput.checked = !!statsState.useMetadataScale;
+        }
+        updateMeasurementScaleHints();
         if (nuclearModeSelect) {
             nuclearModeSelect.value = statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
         }
@@ -2838,12 +3325,12 @@
                 optionalChecksNote.classList.add('off');
             }
             optionalChecksNote.dataset.state = nextState;
-            optionalChecksNote.textContent = nextText;
             if (shouldAnimate) {
                 optionalChecksNote.classList.remove('reveal');
                 void optionalChecksNote.offsetWidth;
                 optionalChecksNote.classList.add('reveal');
             }
+            setSmoothText(optionalChecksNote, nextText);
         }
 
         if (layerToggle && layerRow) {
@@ -2980,6 +3467,7 @@
             mCherryWidthUnit: normalizeLengthUnit(statsState.mCherryWidthUnit),
             gfpDistanceUnit: normalizeLengthUnit(statsState.gfpDistanceUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
+            useMetadataScale: !!statsState.useMetadataScale,
         });
         const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
         const hasModalChanges = () => {
@@ -3007,6 +3495,7 @@
             statsState.mCherryWidthUnit = normalizeLengthUnit(snapshot.mCherryWidthUnit);
             statsState.gfpDistanceUnit = normalizeLengthUnit(snapshot.gfpDistanceUnit);
             statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
+            statsState.useMetadataScale = !!snapshot.useMetadataScale;
             const widthMinimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
             const widthFallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
             statsState.mCherryWidth = parseLengthValue(snapshot.mCherryWidth, statsState.mCherryWidthUnit, widthFallback, widthMinimum);
@@ -3235,11 +3724,19 @@
                 attemptCloseModal();
             }
         });
+
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('open_settings') === 'advanced') {
+            openModal();
+            showAdvanced(false);
+            url.searchParams.delete('open_settings');
+            window.history.replaceState({}, '', url.toString());
+        }
     }
 
     function setupNavExitGuard() {
         const navLinks = document.querySelectorAll(
-            '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile"]'
+            '.navbar a[href="/"], .navbar a[href="/signin/"], .navbar a[href="/signup/"], .navbar a[href="/signup/?fresh=1"], .navbar a[href="/profile/"], .navbar a[href="/settings/"], .navbar a[href="/dashboard/"], .navbar a[href="/preferences/"]'
         );
         const pageBackButton = document.getElementById('pageBackButton');
         const backdrop = document.getElementById('navExitBackdrop');
@@ -3683,6 +4180,8 @@
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
+            formData.append('stats_mcherry_width_value', String(statsState.mCherryWidth));
+            formData.append('stats_gfp_distance_value', String(statsState.gfpDistance));
             formData.append('mCherryWidth', String(mCherryWidthPixels));
             formData.append('distance', String(gfpDistancePixels));
             formData.append('threshold', String(statsState.gfpThreshold));
@@ -3695,6 +4194,7 @@
             formData.append('stats_mcherry_width_unit', statsState.mCherryWidthUnit);
             formData.append('stats_gfp_distance_unit', statsState.gfpDistanceUnit);
             formData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
+            formData.append('stats_use_metadata_scale', statsState.useMetadataScale ? '1' : '0');
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const uploadController = new AbortController();

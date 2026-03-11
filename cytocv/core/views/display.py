@@ -1,14 +1,20 @@
-from core.models import UploadedImage, SegmentedImage, CellStatistics
-from core.tables import CellTable
-from django.shortcuts import render
-from pathlib import Path
-from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 import json
-from django.contrib.auth import get_user_model
-import os
+import math
+import re
+from pathlib import Path
+from uuid import UUID
+
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.views.decorators.http import require_POST
+
+from accounts.preferences import get_user_preferences
 from core.config import get_channel_config_for_uuid
-from django_tables2.config import RequestConfig
+from core.models import UploadedImage, SegmentedImage, CellStatistics, get_guest_user
+from core.scale import get_scale_sidebar_payload
+from core.tables import CellTable
+from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from django_tables2.export.export import TableExport
 
 
@@ -22,6 +28,125 @@ def _resolve_nuclear_cellular_mode(stats_iterable):
     return modes.pop() if len(modes) == 1 else None
 
 
+def _sanitize_for_json(value):
+    """Convert nested values to strict JSON-safe equivalents."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(key): _sanitize_for_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_sanitize_for_json(item) for item in value]
+    return value
+
+
+def _build_export_download_name(raw_name, export_format, fallback):
+    stem = Path(str(raw_name or "").strip()).stem
+    if not stem:
+        stem = fallback
+    # Keep the uploaded name visible while avoiding header-breaking characters.
+    stem = re.sub(r"[\\/\r\n\t]+", "_", stem).strip()
+    if not stem:
+        stem = fallback
+    return f"{stem}.{export_format}"
+
+
+def _scan_output_frames(uuid: str):
+    output_dir = Path(MEDIA_ROOT) / str(uuid) / "output"
+    frames = {}
+    if not output_dir.exists():
+        return frames
+    frame_pattern = re.compile(r"^.+_frame_(\d+)\.png$")
+    for path in output_dir.glob("*_frame_*.png"):
+        match = frame_pattern.match(path.name)
+        if not match:
+            continue
+        frame_idx = int(match.group(1))
+        frames[frame_idx] = f"{MEDIA_URL}{uuid}/output/{path.name}"
+    return frames
+
+
+def _current_transient_uuid_set(request):
+    return {
+        str(value)
+        for value in request.session.get("transient_experiment_uuids", [])
+        if str(value)
+    }
+
+
+def _normalize_uuid_list(raw_values):
+    if not isinstance(raw_values, list):
+        return []
+    normalized = []
+    seen = set()
+    for value in raw_values:
+        try:
+            value_uuid = str(UUID(str(value)))
+        except (TypeError, ValueError, AttributeError):
+            return []
+        if value_uuid in seen:
+            continue
+        seen.add(value_uuid)
+        normalized.append(value_uuid)
+    return normalized
+
+
+def _media_path_size(path: Path):
+    if not path.exists():
+        return 0
+    if path.is_file():
+        try:
+            return int(path.stat().st_size)
+        except OSError:
+            return 0
+
+    total = 0
+    try:
+        for candidate in path.rglob("*"):
+            if not candidate.is_file():
+                continue
+            try:
+                total += int(candidate.stat().st_size)
+            except OSError:
+                continue
+    except OSError:
+        return total
+    return total
+
+
+def _recalculate_user_storage_usage(user):
+    if not getattr(user, "is_authenticated", False):
+        return
+    saved_uuids = {
+        str(value)
+        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
+    }
+    media_root = Path(MEDIA_ROOT)
+    used_storage = 0
+    for uuid_value in saved_uuids:
+        used_storage += _media_path_size(media_root / uuid_value)
+        used_storage += _media_path_size(media_root / f"user_{uuid_value}")
+
+    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
+    user.used_storage = max(0, int(used_storage))
+    user.available_storage = max(0, int(total_storage - user.used_storage))
+    user.save(update_fields=["used_storage", "available_storage"])
+
+
+def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
+    if request.user.is_authenticated:
+        if uploaded_image.user_id != request.user.id:
+            return False
+        if segmented_image.user_id == request.user.id:
+            return True
+        return (
+            segmented_image.user_id == get_guest_user()
+            and str(uploaded_image.uuid) in _current_transient_uuid_set(request)
+        )
+
+    guest_id = get_guest_user()
+    return uploaded_image.user_id == guest_id and segmented_image.user_id == guest_id
+
+
 def display_cell(request, uuids):
     """Render cell display data for one or more uploaded image UUIDs.
 
@@ -33,7 +158,7 @@ def display_cell(request, uuids):
         An HTML response with image previews and statistics, or an error.
     """
     # Split the comma-separated UUIDs into a list
-    uuid_list = uuids.split(',')
+    uuid_list = [value for value in uuids.split(',') if value]
 
     # Keep table output bound to the first UUID that has statistics.
     first_table_uuid = None
@@ -48,11 +173,21 @@ def display_cell(request, uuids):
     # Order: DIC, DAPI, mCherry, GFP
     channel_order = ["DIC", "DAPI", "mCherry", "GFP"]
 
+    preferences = get_user_preferences(request.user)
+    show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
+    show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
+
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
         try:
             # Get the uploaded image details, including the file name
             uploaded_image = UploadedImage.objects.get(uuid=uuid)
+            cell_image = SegmentedImage.objects.get(UUID=uuid)
+            if not _can_access_display_uuid(request, uploaded_image, cell_image):
+                return HttpResponse('Unauthorized', status=401)
             image_name = uploaded_image.name
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
@@ -64,6 +199,13 @@ def display_cell(request, uuids):
                 'uuid': uuid,
                 'name': image_name,
                 'detected_channels': detected,
+                'uploaded_date': cell_image.uploaded_date,
+                'num_cells': int(cell_image.NumCells or 0),
+                'is_saved': bool(request.user.is_authenticated and cell_image.user_id == request.user.id),
+                'scale': get_scale_sidebar_payload(
+                    uploaded_image.scale_info,
+                    manual_default=default_manual_scale,
+                ),
             })
             image_name_stem = Path(image_name).stem
             image_index = 0
@@ -84,18 +226,6 @@ def display_cell(request, uuids):
                     image_index = 2
             image_file_name = image_name_stem + "_frame_" + str(image_index)
             full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
-
-            # Get the segmented image details
-            cell_image = SegmentedImage.objects.get(UUID=uuid)
-
-            if ((cell_image.user_id != request.user.id and request.user.id) or  # this is not your image OR
-                    (not request.user.id and cell_image.user_id != get_user_model().objects.get(
-                        email='guest@local.invalid').id)):  # you viewing your guest image
-                print(cell_image.user_id)
-                print(request.user.id)
-                return HttpResponse('Unauthorized', status=401)
-
-            channel_config = get_channel_config_for_uuid(uuid)
 
             # Build the images for each cell based on the dynamic channel configuration
             images = {}
@@ -195,7 +325,13 @@ def display_cell(request, uuids):
             export_format = request.GET.get('_export', None)
             if TableExport.is_valid_format(export_format) and cell_table is not None:
                 exporter = TableExport(export_format,cell_table)
-                return exporter.response(f"table.{export_format}")
+                return exporter.response(
+                    _build_export_download_name(
+                        image_name,
+                        export_format,
+                        fallback="table",
+                    )
+                )
 
             # Store all image details and statistics for this UUID
             all_files_data[str(uuid)] = {
@@ -216,14 +352,287 @@ def display_cell(request, uuids):
         cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
 
     # Convert the files_data to JSON to be used in the template
-    json_files_data = json.dumps(all_files_data)
+    json_files_data = json.dumps(_sanitize_for_json(all_files_data), allow_nan=False)
 
     return render(request, "display_cell.html", {
         'files_data': json_files_data,  # Pass all file data to the template
         'file_list': file_list,  # Pass sidebar file list data to the template
         'cell_table': cell_table,
         'table_uuid': first_table_uuid or '',
+        'show_saved_file_channels': show_saved_file_channels,
+        'show_saved_file_scales': show_saved_file_scales,
     })
+
+
+@require_POST
+def save_display_files(request):
+    """Persist selected display files to account history."""
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid request payload."}, status=400)
+
+    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    if not requested_uuids:
+        return JsonResponse({"error": "No valid files were selected."}, status=400)
+
+    uploaded_map = {
+        str(item.uuid): item
+        for item in UploadedImage.objects.filter(
+            user=request.user,
+            uuid__in=requested_uuids,
+        )
+    }
+    if len(uploaded_map) != len(set(requested_uuids)):
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    segmented_map = {
+        str(item.UUID): item
+        for item in SegmentedImage.objects.filter(UUID__in=requested_uuids)
+    }
+    if len(segmented_map) != len(set(requested_uuids)):
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    transient_uuids = _current_transient_uuid_set(request)
+    guest_id = get_guest_user()
+    already_saved = []
+    to_save = []
+    for uuid in requested_uuids:
+        segmented = segmented_map.get(uuid)
+        if segmented is None:
+            return JsonResponse(
+                {"error": "One or more selected files are unavailable."},
+                status=403,
+            )
+        if segmented.user_id == request.user.id:
+            already_saved.append(uuid)
+            continue
+        if segmented.user_id == guest_id and uuid in transient_uuids:
+            to_save.append(uuid)
+            continue
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    if to_save:
+        with transaction.atomic():
+            SegmentedImage.objects.filter(UUID__in=to_save, user_id=guest_id).update(
+                user=request.user
+            )
+
+    if to_save:
+        transient_uuids.difference_update(to_save)
+        request.session["transient_experiment_uuids"] = sorted(transient_uuids)
+
+    _recalculate_user_storage_usage(request.user)
+    saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
+    total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
+    used_storage = max(int(getattr(request.user, "used_storage", 0) or 0), 0)
+
+    return JsonResponse(
+        {
+            "saved_count": len(to_save),
+            "already_saved_count": len(already_saved),
+            "saved_uuids": to_save,
+            "already_saved_uuids": already_saved,
+            "saved_file_count": saved_file_count,
+            "used_storage_mb": round(used_storage / (1024 * 1024), 3),
+            "storage_percentage": round(min(100, max(0, (used_storage / total_storage) * 100)), 2),
+        }
+    )
+
+
+@require_POST
+def unsave_display_files(request):
+    """Remove selected files from account-saved history for the current session."""
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid request payload."}, status=400)
+
+    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    if not requested_uuids:
+        return JsonResponse({"error": "No valid files were selected."}, status=400)
+
+    uploaded_map = {
+        str(item.uuid): item
+        for item in UploadedImage.objects.filter(
+            user=request.user,
+            uuid__in=requested_uuids,
+        )
+    }
+    if len(uploaded_map) != len(set(requested_uuids)):
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    segmented_map = {
+        str(item.UUID): item
+        for item in SegmentedImage.objects.filter(UUID__in=requested_uuids)
+    }
+    if len(segmented_map) != len(set(requested_uuids)):
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    transient_uuids = _current_transient_uuid_set(request)
+    guest_id = get_guest_user()
+    already_unsaved = []
+    to_unsave = []
+    for uuid in requested_uuids:
+        segmented = segmented_map.get(uuid)
+        if segmented is None:
+            return JsonResponse(
+                {"error": "One or more selected files are unavailable."},
+                status=403,
+            )
+        if segmented.user_id == request.user.id:
+            to_unsave.append(uuid)
+            continue
+        if segmented.user_id == guest_id and uuid in transient_uuids:
+            already_unsaved.append(uuid)
+            continue
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    if to_unsave:
+        with transaction.atomic():
+            SegmentedImage.objects.filter(
+                UUID__in=to_unsave,
+                user=request.user,
+            ).update(user_id=guest_id)
+
+    if to_unsave:
+        transient_uuids.update(to_unsave)
+        request.session["transient_experiment_uuids"] = sorted(transient_uuids)
+
+    _recalculate_user_storage_usage(request.user)
+    saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
+    total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
+    used_storage = max(int(getattr(request.user, "used_storage", 0) or 0), 0)
+
+    return JsonResponse(
+        {
+            "unsaved_count": len(to_unsave),
+            "already_unsaved_count": len(already_unsaved),
+            "unsaved_uuids": to_unsave,
+            "already_unsaved_uuids": already_unsaved,
+            "saved_file_count": saved_file_count,
+            "used_storage_mb": round(used_storage / (1024 * 1024), 3),
+            "storage_percentage": round(min(100, max(0, (used_storage / total_storage) * 100)), 2),
+        }
+    )
+
+
+@require_POST
+def sync_display_file_selection(request):
+    """Apply display selection state: selected => saved, unselected => unsaved."""
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid request payload."}, status=400)
+
+    visible_uuids = _normalize_uuid_list(payload.get("visible_uuids", []))
+    selected_uuids = _normalize_uuid_list(payload.get("selected_uuids", []))
+    if not visible_uuids:
+        return JsonResponse({"error": "No valid files were provided."}, status=400)
+
+    visible_set = set(visible_uuids)
+    selected_set = set(selected_uuids)
+    if not selected_set.issubset(visible_set):
+        return JsonResponse(
+            {"error": "Selected files must be part of the current display list."},
+            status=400,
+        )
+
+    uploaded_map = {
+        str(item.uuid): item
+        for item in UploadedImage.objects.filter(
+            user=request.user,
+            uuid__in=visible_uuids,
+        )
+    }
+    if len(uploaded_map) != len(visible_set):
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    segmented_map = {
+        str(item.UUID): item
+        for item in SegmentedImage.objects.filter(UUID__in=visible_uuids)
+    }
+    if len(segmented_map) != len(visible_set):
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    transient_uuids = _current_transient_uuid_set(request)
+    guest_id = get_guest_user()
+    current_saved = set()
+    for uuid in visible_uuids:
+        segmented = segmented_map.get(uuid)
+        if segmented is None:
+            return JsonResponse(
+                {"error": "One or more selected files are unavailable."},
+                status=403,
+            )
+        if segmented.user_id == request.user.id:
+            current_saved.add(uuid)
+            continue
+        if segmented.user_id == guest_id and uuid in transient_uuids:
+            continue
+        return JsonResponse(
+            {"error": "One or more selected files are unavailable."},
+            status=403,
+        )
+
+    to_save = sorted(selected_set.difference(current_saved))
+    to_unsave = sorted(current_saved.difference(selected_set))
+
+    with transaction.atomic():
+        if to_save:
+            SegmentedImage.objects.filter(UUID__in=to_save, user_id=guest_id).update(
+                user=request.user
+            )
+        if to_unsave:
+            SegmentedImage.objects.filter(UUID__in=to_unsave, user=request.user).update(
+                user_id=guest_id
+            )
+
+    if to_save or to_unsave:
+        transient_uuids.difference_update(to_save)
+        transient_uuids.update(to_unsave)
+        request.session["transient_experiment_uuids"] = sorted(transient_uuids)
+
+    _recalculate_user_storage_usage(request.user)
+    saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
+    total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
+    used_storage = max(int(getattr(request.user, "used_storage", 0) or 0), 0)
+
+    return JsonResponse(
+        {
+            "saved_count": len(to_save),
+            "unsaved_count": len(to_unsave),
+            "saved_uuids": to_save,
+            "unsaved_uuids": to_unsave,
+            "saved_file_count": saved_file_count,
+            "used_storage_mb": round(used_storage / (1024 * 1024), 3),
+            "storage_percentage": round(min(100, max(0, (used_storage / total_storage) * 100)), 2),
+        }
+    )
 
 
 def main_image_channel(request, uuid):
@@ -232,13 +641,19 @@ def main_image_channel(request, uuid):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     channel = (request.GET.get('channel') or '').strip().lower()
-    channel_map = {
+    channel_to_config_key = {
+        'mcherry': 'mCherry',
+        'gfp': 'GFP',
+        'dapi': 'DAPI',
+        'dic': 'DIC',
+    }
+    fallback_frame_map = {
         'mcherry': 0,
         'gfp': 1,
         'dapi': 2,
         'dic': 3,
     }
-    if channel not in channel_map:
+    if channel not in channel_to_config_key:
         return JsonResponse({'error': 'Unknown channel'}, status=400)
 
     try:
@@ -251,15 +666,25 @@ def main_image_channel(request, uuid):
     except SegmentedImage.DoesNotExist:
         return JsonResponse({'error': 'Segmented image not found'}, status=404)
 
-    if ((cell_image.user_id != request.user.id and request.user.id) or
-            (not request.user.id and cell_image.user_id != get_user_model().objects.get(
-                email='guest@local.invalid').id)):
+    if not _can_access_display_uuid(request, uploaded_image, cell_image):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
-    image_name_stem = Path(uploaded_image.name).stem
-    image_index = channel_map[channel]
-    image_file_name = f"{image_name_stem}_frame_{image_index}"
-    full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+    channel_config = get_channel_config_for_uuid(str(uuid))
+    configured_frame_idx = channel_config.get(
+        channel_to_config_key[channel],
+        fallback_frame_map[channel],
+    )
+    available_frames = _scan_output_frames(str(uuid))
+    full_outlined = available_frames.get(configured_frame_idx)
+    if not full_outlined:
+        full_outlined = available_frames.get(fallback_frame_map[channel])
+    if not full_outlined and available_frames:
+        first_idx = sorted(available_frames.keys())[0]
+        full_outlined = available_frames[first_idx]
+    if not full_outlined:
+        image_name_stem = Path(uploaded_image.name).stem
+        image_file_name = f"{image_name_stem}_frame_{fallback_frame_map[channel]}"
+        full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
 
     return JsonResponse({
         'image_url': full_outlined,

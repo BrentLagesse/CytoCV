@@ -14,6 +14,7 @@ import json
 from django.contrib import messages
 from django.http import JsonResponse
 from ..metadata_processing.dv_channel_parser import extract_channel_config
+from ..metadata_processing.dv_scale_parser import extract_dv_scale_metadata
 from ..metadata_processing.error_handling import (
     DVValidationOptions,
     DVValidationResult,
@@ -27,6 +28,14 @@ from ..stats_plugins import (
     normalize_selected_plugins,
 )
 import uuid as uuid_lib
+from accounts.preferences import get_user_preferences
+from core.scale import (
+    DEFAULT_MICRONS_PER_PIXEL,
+    build_scale_info,
+    convert_length_to_pixels,
+    normalize_length_unit,
+    parse_microns_per_pixel,
+)
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
 
@@ -39,6 +48,42 @@ def _parse_bool(value, default=False):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_positive_float(value, default: float, minimum: float = 0.0) -> float:
+    """Parse a positive float with default fallback."""
+
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if parsed < minimum:
+        return default
+    return parsed
+
+
+def _normalize_length_unit(value, default: str = "px") -> str:
+    """Normalize incoming length unit to px/um."""
+
+    return normalize_length_unit(value, default=default)
+
+
+def _convert_length_to_pixels(
+    raw_value: float,
+    unit: str,
+    *,
+    minimum_px: int,
+    fallback_px: int,
+    microns_per_pixel: float,
+) -> int:
+    """Convert a length value to pixels with validation and fallback."""
+    return convert_length_to_pixels(
+        raw_value,
+        unit,
+        minimum_px=minimum_px,
+        fallback_px=fallback_px,
+        um_per_px=microns_per_pixel,
+    )
 
 
 def _parse_channels(raw_values) -> set[str]:
@@ -103,7 +148,14 @@ def _current_owner_filter(request) -> dict:
     return {"user_id": get_guest_user()}
 
 
-def _upload_view_context(*, form, progress_key, error=None, restored_queue_items=None):
+def _upload_view_context(
+    *,
+    form,
+    progress_key,
+    error=None,
+    restored_queue_items=None,
+    user_preference_defaults=None,
+):
     """Build template context for the upload page."""
 
     context = {
@@ -111,6 +163,7 @@ def _upload_view_context(*, form, progress_key, error=None, restored_queue_items
         "progress_key": progress_key,
         "stats_plugin_payload_json": json.dumps(build_plugin_ui_payload()),
         "restored_queue_payload_json": json.dumps(restored_queue_items or []),
+        "user_preference_defaults_json": json.dumps(user_preference_defaults or {}),
     }
     if error:
         context["error"] = error
@@ -128,6 +181,13 @@ def upload_images(request):
     progress_key = request.session.session_key
     owner_filter = _current_owner_filter(request)
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
+    user_preferences = get_user_preferences(request.user)
+    experiment_defaults = user_preferences.get("experiment_defaults", {})
+    default_microns_per_pixel = parse_microns_per_pixel(
+        experiment_defaults.get("microns_per_pixel"),
+        default=DEFAULT_MICRONS_PER_PIXEL,
+    )
+    default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
 
     if request.method == "POST":
         print("POST request received")
@@ -146,6 +206,7 @@ def upload_images(request):
                     form=UploadImageForm(),
                     progress_key=progress_key,
                     error='No files received.',
+                    user_preference_defaults=user_preferences.get("experiment_defaults", {}),
                 ),
             )
 
@@ -154,21 +215,55 @@ def upload_images(request):
         selected_analysis = normalize_selected_plugins(request.POST.getlist("selected_analysis"))
         requirement_summary = build_requirement_summary(selected_analysis)
 
-        mcherry_width_raw = request.POST.get("mCherryWidth", "1")
-        try:
-            mcherry_width = int(mcherry_width_raw)
-        except (TypeError, ValueError):
-            mcherry_width = 1
-        if mcherry_width < 1:
-            mcherry_width = 1
+        posted_microns_per_pixel = parse_microns_per_pixel(
+            request.POST.get("stats_microns_per_pixel"),
+            default=default_microns_per_pixel,
+        )
+        stats_use_metadata_scale = _parse_bool(
+            request.POST.get("stats_use_metadata_scale"),
+            default=default_use_metadata_scale,
+        )
+        mcherry_width_unit = _normalize_length_unit(
+            request.POST.get("stats_mcherry_width_unit"),
+            default="px",
+        )
+        gfp_distance_unit = _normalize_length_unit(
+            request.POST.get("stats_gfp_distance_unit"),
+            default="px",
+        )
 
-        gfp_distance_raw = request.POST.get("distance", "37")
-        try:
-            gfp_distance = int(gfp_distance_raw)
-        except (TypeError, ValueError):
-            gfp_distance = 37
-        if gfp_distance < 0:
-            gfp_distance = 37
+        # Backward compatibility: if raw-value fields are absent, treat submitted
+        # mCherryWidth/distance as already pixel-normalized.
+        has_raw_mcherry = "stats_mcherry_width_value" in request.POST
+        has_raw_gfp_distance = "stats_gfp_distance_value" in request.POST
+        mcherry_source_unit = mcherry_width_unit if has_raw_mcherry else "px"
+        gfp_source_unit = gfp_distance_unit if has_raw_gfp_distance else "px"
+
+        mcherry_value = _parse_positive_float(
+            request.POST.get("stats_mcherry_width_value", request.POST.get("mCherryWidth", "1")),
+            default=1,
+            minimum=0,
+        )
+        gfp_distance_value = _parse_positive_float(
+            request.POST.get("stats_gfp_distance_value", request.POST.get("distance", "37")),
+            default=37,
+            minimum=0,
+        )
+
+        mcherry_width = _convert_length_to_pixels(
+            mcherry_value,
+            mcherry_source_unit,
+            minimum_px=1,
+            fallback_px=1,
+            microns_per_pixel=posted_microns_per_pixel,
+        )
+        gfp_distance = _convert_length_to_pixels(
+            gfp_distance_value,
+            gfp_source_unit,
+            minimum_px=0,
+            fallback_px=37,
+            microns_per_pixel=posted_microns_per_pixel,
+        )
 
         gfp_threshold_raw = request.POST.get("threshold", "66")
         try:
@@ -185,6 +280,12 @@ def upload_images(request):
         request.session["mCherryWidth"] = mcherry_width
         request.session["distance"] = gfp_distance
         request.session["threshold"] = gfp_threshold
+        request.session["stats_mcherry_width_unit"] = mcherry_width_unit
+        request.session["stats_gfp_distance_unit"] = gfp_distance_unit
+        request.session["stats_microns_per_pixel"] = posted_microns_per_pixel
+        request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
+        request.session["stats_mcherry_width_value"] = mcherry_value
+        request.session["stats_gfp_distance_value"] = gfp_distance_value
         request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
             request.POST.get("nuclear_cellular_mode"),
             default="green_nucleus",
@@ -242,6 +343,19 @@ def upload_images(request):
             if not validation_result.is_valid:
                 validation_failures.append((existing_image.name, validation_result))
                 continue
+
+            metadata_scale = extract_dv_scale_metadata(existing_dv_path)
+            existing_image.scale_info = build_scale_info(
+                manual_um_per_px=posted_microns_per_pixel,
+                prefer_metadata=stats_use_metadata_scale,
+                metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
+                status=metadata_scale.get("status"),
+                dx=metadata_scale.get("dx"),
+                dy=metadata_scale.get("dy"),
+                dz=metadata_scale.get("dz"),
+                note=metadata_scale.get("note"),
+            )
+            existing_image.save(update_fields=["scale_info"])
             image_uuids.append(str(existing_uuid))
 
         # Iterate through each newly uploaded file and assign a unique UUID
@@ -265,6 +379,19 @@ def upload_images(request):
                 validation_failures.append((name, validation_result))
                 instance.delete()
                 continue
+
+            metadata_scale = extract_dv_scale_metadata(dv_file_path)
+            instance.scale_info = build_scale_info(
+                manual_um_per_px=posted_microns_per_pixel,
+                prefer_metadata=stats_use_metadata_scale,
+                metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
+                status=metadata_scale.get("status"),
+                dx=metadata_scale.get("dx"),
+                dy=metadata_scale.get("dy"),
+                dz=metadata_scale.get("dz"),
+                note=metadata_scale.get("note"),
+            )
+            instance.save(update_fields=["scale_info"])
 
             # only valid files make it into the queue
             image_uuids.append(str(image_uuid))
@@ -295,6 +422,7 @@ def upload_images(request):
         error_lines = build_dv_error_messages(validation_failures, validation_options)
         preprocess_url = None
         if image_uuids:
+            request.session["last_experiment_uuids"] = image_uuids
             preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
 
         # Case 3: no valid files
@@ -346,6 +474,7 @@ def upload_images(request):
             form=form,
             progress_key=progress_key,
             restored_queue_items=restored_queue_items if request.method != "POST" else None,
+            user_preference_defaults=user_preferences.get("experiment_defaults", {}),
         ),
     )
 
