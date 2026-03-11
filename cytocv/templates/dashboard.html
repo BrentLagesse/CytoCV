@@ -1081,6 +1081,7 @@
             }
             currentCellNumber = 1;
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
+            applyContourToggleState();
             if (fileData.NoCellsWarning) {
                 showChannelError(fileData.NoCellsWarning);
             }
@@ -1419,18 +1420,47 @@
             document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cellular_status || "unknown") : "N/A";
         }
 
+        function getCurrentCellImageUrls() {
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            if (!fileData) {
+                return null;
+            }
+            const pairImages = fileData.CellPairImages || {};
+            return pairImages[currentCellNumber] || pairImages[String(currentCellNumber)] || null;
+        }
+
+        function applyContourToggleState(forceShowContours = null) {
+            const imageUrls = getCurrentCellImageUrls();
+            if (!imageUrls) {
+                return;
+            }
+            const toggleElement = document.getElementById('toggleContours');
+            const showContours = forceShowContours === null
+                ? !!(toggleElement && toggleElement.checked)
+                : !!forceShowContours;
+            if (showContours) {
+                document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
+                document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
+                document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
+                document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
+            } else {
+                document.getElementById("cellImage1").src = imageUrls[1] || noCellPlaceholder;
+                document.getElementById("cellImage2").src = imageUrls[3] || noCellPlaceholder;
+                document.getElementById("cellImage3").src = imageUrls[5] || noCellPlaceholder;
+                document.getElementById("cellImage4").src = imageUrls[7] || noCellPlaceholder;
+            }
+        }
+
         function nextFile() {
             currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
             loadFile(currentFileIndex);
-            toggleContourOverlays();
-            document.getElementById('toggleContours').checked = true;
+            applyContourToggleState();
         }
 
         function previousFile() {
             currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
             loadFile(currentFileIndex);
-            toggleContourOverlays();
-            document.getElementById('toggleContours').checked = true;
+            applyContourToggleState();
         }
 
         function nextCell() {
@@ -1440,8 +1470,7 @@
             currentCellNumber = (currentCellNumber % maxCells) + 1;
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
-            toggleContourOverlays();
-            document.getElementById('toggleContours').checked = true;
+            applyContourToggleState();
         }
 
         function previousCell() {
@@ -1451,8 +1480,7 @@
             currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
-            toggleContourOverlays();
-            document.getElementById('toggleContours').checked = true;
+            applyContourToggleState();
         }
 
         let contourToggleBound = false;
@@ -1466,27 +1494,9 @@
             }
             contourToggleBound = true;
             toggleElement.addEventListener('change', function() {
-                const fileData = filesData[fileUUIDs[currentFileIndex]];
-                if (!fileData) {
-                    return;
-                }
-                const pairImages = fileData.CellPairImages || {};
-                const imageUrls = pairImages[currentCellNumber] || pairImages[String(currentCellNumber)];
-                if (!imageUrls) {
-                    return;
-                }
-                if (!this.checked) {
-                    document.getElementById("cellImage1").src = imageUrls[1] || noCellPlaceholder;
-                    document.getElementById("cellImage2").src = imageUrls[3] || noCellPlaceholder;
-                    document.getElementById("cellImage3").src = imageUrls[5] || noCellPlaceholder;
-                    document.getElementById("cellImage4").src = imageUrls[7] || noCellPlaceholder;
-                } else {
-                    document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
-                    document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
-                    document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
-                    document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
-                }
+                applyContourToggleState(this.checked);
             });
+            applyContourToggleState(toggleElement.checked);
         }
 
         // Sidebar elements
