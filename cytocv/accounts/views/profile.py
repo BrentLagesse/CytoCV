@@ -16,7 +16,9 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.template.response import TemplateResponse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django_tables2.export.export import TableExport
 
@@ -80,6 +82,17 @@ def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
     if mode not in NUCLEAR_CELLULAR_MODES:
         return default
     return mode
+
+
+def _preferences_redirect(request: HttpRequest, section: str) -> HttpResponse:
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect(f"{reverse('preferences')}?section={section}")
 
 
 def _extract_measurement_defaults(
@@ -815,7 +828,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             preferences = update_user_preferences(request.user, next_payload)
             defaults = dict(preferences.get("experiment_defaults", {}))
             messages.success(request, "Plugin settings saved.")
-            return redirect("preferences")
+            return _preferences_redirect(request, section="plugins")
 
         if action == "save_advanced_settings":
             module_enabled = _post_bool(request, "module_enabled")
@@ -880,7 +893,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 )
             else:
                 messages.success(request, "Advanced settings saved.")
-            return redirect("preferences")
+            return _preferences_redirect(request, section="advanced")
 
         if action == "save_behavior":
             next_payload = dict(preferences)
@@ -907,7 +920,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     request,
                     "Experiment autosave disabled. New runs will stay out of your dashboard history.",
                 )
-            return redirect("preferences")
+            return _preferences_redirect(request, section="saving")
 
     plugin_rows = []
     selected_plugins = set(defaults.get("selected_plugins", []))

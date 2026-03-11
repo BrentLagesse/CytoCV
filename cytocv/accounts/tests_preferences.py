@@ -26,6 +26,7 @@ from core.models import (
     get_guest_user,
 )
 from core.scale import apply_manual_override_scale, build_scale_info
+from core.stats_plugins import PLUGIN_DEFINITIONS
 
 
 class PreferenceNormalizationTests(TestCase):
@@ -938,6 +939,50 @@ class ChannelVisibilityPreferenceTests(TestCase):
             )
         )
 
+    def test_preferences_page_renders_review_modal_and_form_review_hooks(self):
+        response = self.client.get(reverse("preferences"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="pluginForm" data-review-section="plugins"', html=False)
+        self.assertContains(response, 'id="advancedForm" data-review-section="advanced"', html=False)
+        self.assertContains(response, 'id="savingForm" data-review-section="saving"', html=False)
+        self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
+        self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
+        self.assertContains(response, 'class="review-modal popup-surface"', html=False)
+        self.assertContains(response, 'id="reviewKeepOld"', html=False)
+        self.assertContains(response, 'id="reviewConfirmChanges"', html=False)
+        self.assertContains(response, 'id="leaveUnsavedBackdrop"', html=False)
+        self.assertContains(response, 'id="leaveUnsavedKeepOld"', html=False)
+        self.assertContains(response, 'id="leaveUnsavedConfirmNew"', html=False)
+        self.assertContains(response, 'id="leaveUnsavedListWrap"', html=False)
+        self.assertContains(response, 'id="leaveUnsavedList"', html=False)
+        self.assertContains(response, "Leave without saving changes?")
+        self.assertContains(response, "Keep Old")
+        self.assertContains(response, "Confirm Changes")
+        self.assertContains(response, "Confirm New")
+
+    def test_advanced_settings_override_reports_and_removes_dependent_plugins(self):
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_advanced_settings",
+                "override_required_channels": ["mCherry"],
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Advanced settings saved. Removed dependent plugins:")
+        for plugin_id in (
+            "MCherryLine",
+            "GFPDot",
+            "GreenRedIntensity",
+            "NuclearCellularIntensity",
+        ):
+            self.assertContains(response, PLUGIN_DEFINITIONS[plugin_id].label)
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertEqual(defaults["selected_plugins"], [])
+
     def test_dashboard_channel_visibility_requires_boolean(self):
         response = self.client.post(
             reverse("dashboard_channel_visibility"),
@@ -983,9 +1028,32 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=saving")
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
+
+    def test_behavior_form_honors_safe_next_redirect(self):
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_behavior",
+                "next": "/dashboard/",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/dashboard/")
+
+    def test_behavior_form_rejects_external_next_redirect(self):
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_behavior",
+                "next": "https://example.com/phish",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=saving")
 
     def test_behavior_form_disables_auto_save_when_toggle_is_off(self):
         response = self.client.post(
@@ -1068,6 +1136,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=plugins")
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -1107,6 +1176,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=advanced")
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]

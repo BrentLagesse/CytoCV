@@ -82,6 +82,27 @@ main.main>section.panel>.hdr{margin-bottom:14px}
 .confirm h3,.confirm p{margin:0}.confirm p{color:var(--muted);font-size:13px}.confirm ul{margin:0;padding-left:18px;max-height:120px;overflow:auto}
 .confirm-actions{display:flex;justify-content:flex-end;gap:10px}.confirm-actions button{border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer}
 .confirm-actions .cancel{background:var(--accent);color:#fff}.confirm-actions .ok{background:#6a6a6a;color:#fff}
+.popup-backdrop.modal-enter{animation:settingsBackdropIn 150ms ease-out both}
+.popup-backdrop.modal-exit{animation:settingsBackdropOut 120ms ease-in both;pointer-events:none}
+.popup-surface.modal-enter{animation:settingsModalIn 170ms cubic-bezier(0.2,0.8,0.2,1) both}
+.popup-surface.modal-exit{animation:settingsModalOut 120ms ease-in both;pointer-events:none}
+.review-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:2300}
+.review-modal{width:min(500px,94vw);border-radius:14px;border:1px solid var(--panel-border);background:var(--card-bg);padding:18px;display:grid;gap:10px}
+.review-modal h3,.review-modal p{margin:0}
+.review-modal p{color:var(--muted);font-size:13px}
+.review-list-wrap{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);max-height:176px;overflow-y:auto;padding:8px 10px}
+.review-list{margin:0;padding-left:18px;display:grid;gap:5px;font-size:12px;color:var(--text)}
+.review-list li{line-height:1.35}
+.review-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.review-btn{border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;line-height:1.2;white-space:nowrap;min-width:104px}
+.review-btn.review-keep-old{background:var(--surface-muted-alt);border:1px solid var(--panel-border);color:#fff}
+.review-btn.review-confirm{background:var(--accent);color:#fff}
+.review-btn.review-confirm:hover{background:var(--accent-dark)}
+.review-btn.review-keep-old:hover{background:var(--surface-hover-strong)}
+@keyframes settingsBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes settingsBackdropOut{from{opacity:1}to{opacity:0}}
+@keyframes settingsModalIn{from{opacity:1;transform:translateY(8px) scale(0.992)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes settingsModalOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:1;transform:translateY(5px) scale(0.994)}}
 @media (max-width:920px){.layout{grid-template-columns:1fr}.channel-summary{grid-template-columns:1fr}.measurement-scale-entry-row{align-items:flex-start}.measurement-disclosure-stack{width:100%;min-width:0}}
 </style>
 {% endblock head %}
@@ -97,7 +118,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   <main class="main">
     <section class="panel" id="sec-plugins">
       <div class="hdr"><h1>Plugin Settings</h1><p>Choose defaults for new experiment workflows.</p></div>
-      <form method="post" class="panel" id="pluginForm">{% csrf_token %}<input type="hidden" name="action" value="save_plugin_defaults">
+      <form method="post" class="panel" id="pluginForm" data-review-section="plugins">{% csrf_token %}<input type="hidden" name="action" value="save_plugin_defaults">
         <div class="card"><h2>Required Channels</h2><div class="channel-summary">
           {% for channel in channels %}
           <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="plugins">
@@ -249,7 +270,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
 
     <section class="panel" id="sec-advanced" hidden>
       <div class="hdr"><h1>Advanced Settings</h1><p>Configure optional validation enforcement and measurement defaults.</p></div>
-      <form method="post" class="panel" id="advancedForm">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div>
+      <form method="post" class="panel" id="advancedForm" data-review-section="advanced">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div>
         <div class="card"><h2>Required Channels</h2><div class="channel-summary">
           {% for channel in channels %}
           <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins or channel in preferences.experiment_defaults.manual_required_channels %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="advanced">
@@ -304,7 +325,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
 
     <section class="panel" id="sec-saving" hidden>
       <div class="hdr"><h1>Preferences</h1><p>Control autosave and dashboard sidebar display defaults.</p></div>
-      <form method="post" class="panel">{% csrf_token %}<input type="hidden" name="action" value="save_behavior">
+      <form method="post" class="panel" id="savingForm" data-review-section="saving">{% csrf_token %}<input type="hidden" name="action" value="save_behavior">
         <div class="card">
           <div class="row"><div><label for="auto_save_experiments">Auto-save experiment files to account</label><p>When off, new experiment runs are excluded from dashboard history.</p></div><label class="sw"><input type="checkbox" id="auto_save_experiments" name="auto_save_experiments" {% if preferences.auto_save_experiments %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div><label for="show_saved_file_channels">Show channel tags in dashboard sidebar</label><p>Controls whether DIC/DAPI/mCherry/GFP tags are shown under each saved file.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
@@ -325,6 +346,36 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   </div>
 </div>
 
+<div class="review-backdrop popup-backdrop" id="reviewChangesBackdrop" aria-hidden="true">
+  <div class="review-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="reviewChangesTitle">
+    <h3 id="reviewChangesTitle">Review Workflow Defaults Changes</h3>
+    <p id="reviewChangesMessage">Are you sure you want to apply these changes?</p>
+    <div class="review-list-wrap">
+      <ul class="review-list" id="reviewChangesList"></ul>
+    </div>
+    <div class="review-actions">
+      <button type="button" class="review-btn review-keep-old" id="reviewKeepOld">Keep Old</button>
+      <button type="button" class="review-btn review-confirm" id="reviewConfirmChanges">Confirm Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="review-backdrop popup-backdrop" id="leaveUnsavedBackdrop" aria-hidden="true">
+  <div class="review-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="leaveUnsavedTitle">
+    <h3 id="leaveUnsavedTitle">Leave without saving changes?</h3>
+    <p id="leaveUnsavedMessage">
+      Are you sure you want to leave without saving changes? Keep Old will leave this page and discard edits. Confirm New will stay here with your new changes.
+    </p>
+    <div class="review-list-wrap" id="leaveUnsavedListWrap" hidden>
+      <ul class="review-list" id="leaveUnsavedList"></ul>
+    </div>
+    <div class="review-actions">
+      <button type="button" class="review-btn review-keep-old" id="leaveUnsavedKeepOld">Keep Old</button>
+      <button type="button" class="review-btn review-confirm" id="leaveUnsavedConfirmNew">Confirm New</button>
+    </div>
+  </div>
+</div>
+
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
 <script>
 (() => {
@@ -334,7 +385,26 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     advanced: document.getElementById('sec-advanced'),
     saving: document.getElementById('sec-saving'),
   };
-  const showSection = (id) => {
+  const sectionLabelByKey = {
+    plugins: 'Plugin Settings',
+    advanced: 'Advanced Settings',
+    saving: 'Preferences',
+  };
+  const validSections = new Set(Object.keys(sections));
+  let activeSection = 'plugins';
+  const updateSectionQueryParam = (id) => {
+    if (!window.history || !window.history.replaceState) return;
+    const url = new URL(window.location.href);
+    if (id === 'plugins') {
+      url.searchParams.delete('section');
+    } else {
+      url.searchParams.set('section', id);
+    }
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+  const showSection = (id, options = {}) => {
+    if (!validSections.has(id)) return;
+    activeSection = id;
     navButtons.forEach((button) => button.classList.toggle('active', button.dataset.sec === id));
     Object.entries(sections).forEach(([name, panel]) => {
       if (!panel) return;
@@ -347,11 +417,12 @@ main.main>section.panel>.hdr{margin-bottom:14px}
         panel.classList.remove('fade-enter');
       }
     });
+    if (options.syncUrl !== false) {
+      updateSectionQueryParam(id);
+    }
   };
-  navButtons.forEach((button) => {
-    button.addEventListener('click', () => showSection(button.dataset.sec));
-  });
-  showSection('plugins');
+  const sectionFromUrl = new URLSearchParams(window.location.search).get('section');
+  showSection(validSections.has(sectionFromUrl) ? sectionFromUrl : 'plugins', { syncUrl: false });
 
   let payload = {};
   try {
@@ -372,13 +443,86 @@ main.main>section.panel>.hdr{margin-bottom:14px}
       .map((input) => input.value)
       .filter((value) => value)
   );
+  const pluginForm = document.getElementById('pluginForm');
+  const advancedForm = document.getElementById('advancedForm');
+  const savingForm = document.getElementById('savingForm');
+  const sectionFormMap = {
+    plugins: pluginForm,
+    advanced: advancedForm,
+    saving: savingForm,
+  };
 
   const confirmBack = document.getElementById('confirmBack');
   const confirmMsg = document.getElementById('confirmMsg');
   const confirmPlugins = document.getElementById('confirmPlugins');
   const confirmCancel = document.getElementById('confirmCancel');
   const confirmOk = document.getElementById('confirmOk');
+  const reviewChangesBackdrop = document.getElementById('reviewChangesBackdrop');
+  const reviewChangesPanel = reviewChangesBackdrop ? reviewChangesBackdrop.querySelector('.review-modal') : null;
+  const reviewChangesList = document.getElementById('reviewChangesList');
+  const reviewKeepOld = document.getElementById('reviewKeepOld');
+  const reviewConfirmChanges = document.getElementById('reviewConfirmChanges');
+  const leaveUnsavedBackdrop = document.getElementById('leaveUnsavedBackdrop');
+  const leaveUnsavedPanel = leaveUnsavedBackdrop ? leaveUnsavedBackdrop.querySelector('.review-modal') : null;
+  const leaveUnsavedKeepOld = document.getElementById('leaveUnsavedKeepOld');
+  const leaveUnsavedConfirmNew = document.getElementById('leaveUnsavedConfirmNew');
+  const leaveUnsavedListWrap = document.getElementById('leaveUnsavedListWrap');
+  const leaveUnsavedList = document.getElementById('leaveUnsavedList');
+  const POPUP_ENTER_MS = 170;
+  const POPUP_EXIT_MS = 120;
+  const prefersReducedMotionGlobal = !!(
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
   let pending = null;
+  let pendingReview = null;
+  let pendingLeaveTarget = null;
+  let allowWindowUnloadWithoutPrompt = false;
+  const bypassReviewForSubmit = new WeakSet();
+  const baselineSnapshots = {
+    plugins: null,
+    advanced: null,
+    saving: null,
+  };
+ 
+  const clearPopupAnim = (backdrop, panel) => {
+    if (backdrop) backdrop.classList.remove('modal-enter', 'modal-exit');
+    if (panel) panel.classList.remove('modal-enter', 'modal-exit');
+  };
+ 
+  const openPopupModal = (backdrop, panel) => {
+    if (!backdrop) return;
+    clearPopupAnim(backdrop, panel);
+    backdrop.style.display = 'flex';
+    backdrop.setAttribute('aria-hidden', 'false');
+    if (prefersReducedMotionGlobal) return;
+    void backdrop.offsetWidth;
+    backdrop.classList.add('modal-enter');
+    if (panel) panel.classList.add('modal-enter');
+    window.setTimeout(() => clearPopupAnim(backdrop, panel), POPUP_ENTER_MS);
+  };
+ 
+  const closePopupModal = (backdrop, panel, onAfterClose = null) => {
+    if (!backdrop) {
+      if (typeof onAfterClose === 'function') onAfterClose();
+      return;
+    }
+    if (prefersReducedMotionGlobal || backdrop.style.display !== 'flex') {
+      clearPopupAnim(backdrop, panel);
+      backdrop.style.display = 'none';
+      backdrop.setAttribute('aria-hidden', 'true');
+      if (typeof onAfterClose === 'function') onAfterClose();
+      return;
+    }
+    clearPopupAnim(backdrop, panel);
+    backdrop.classList.add('modal-exit');
+    if (panel) panel.classList.add('modal-exit');
+    backdrop.setAttribute('aria-hidden', 'true');
+    window.setTimeout(() => {
+      clearPopupAnim(backdrop, panel);
+      backdrop.style.display = 'none';
+      if (typeof onAfterClose === 'function') onAfterClose();
+    }, POPUP_EXIT_MS);
+  };
 
   const pluginDependents = (channel) => {
     return [...selectedPlugins].filter((pluginId) => {
@@ -588,8 +732,124 @@ main.main>section.panel>.hdr{margin-bottom:14px}
       }
     });
   }
+  if (reviewKeepOld) {
+    reviewKeepOld.addEventListener('click', () => {
+      if (!pendingReview || typeof pendingReview.restore !== 'function') {
+        closeReviewModal();
+        return;
+      }
+      const restore = pendingReview.restore;
+      closeReviewModal(() => restore());
+    });
+  }
+  if (reviewConfirmChanges) {
+    reviewConfirmChanges.addEventListener('click', () => {
+      if (!pendingReview || !pendingReview.form) {
+        closeReviewModal();
+        return;
+      }
+      const form = pendingReview.form;
+      closeReviewModal(() => {
+        allowWindowUnloadWithoutPrompt = true;
+        bypassReviewForSubmit.add(form);
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      });
+    });
+  }
+  if (reviewChangesBackdrop) {
+    reviewChangesBackdrop.addEventListener('click', (event) => {
+      if (event.target === reviewChangesBackdrop) {
+        closeReviewModal();
+      }
+    });
+  }
+  if (leaveUnsavedConfirmNew) {
+    leaveUnsavedConfirmNew.addEventListener('click', () => {
+      const intent = pendingLeaveTarget;
+      closeLeaveUnsavedModal(() => {
+        if (!intent) return;
+        if (intent.mode === 'section') {
+          if (intent.targetSection) showSection(intent.targetSection);
+          return;
+        }
+        if (intent.mode !== 'link' || !intent.href) return;
+        const sectionToSave = intent.sectionToSave;
+        if (!sectionToSave) {
+          allowWindowUnloadWithoutPrompt = true;
+          window.location.assign(intent.href);
+          return;
+        }
+        const form = sectionFormMap[sectionToSave];
+        if (!form) {
+          allowWindowUnloadWithoutPrompt = true;
+          window.location.assign(intent.href);
+          return;
+        }
+        let nextInput = form.querySelector('input[name="next"]');
+        if (!nextInput) {
+          nextInput = document.createElement('input');
+          nextInput.type = 'hidden';
+          nextInput.name = 'next';
+          form.appendChild(nextInput);
+        }
+        nextInput.value = intent.href;
+        allowWindowUnloadWithoutPrompt = true;
+        bypassReviewForSubmit.add(form);
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      });
+    });
+  }
+  if (leaveUnsavedKeepOld) {
+    leaveUnsavedKeepOld.addEventListener('click', () => {
+      const intent = pendingLeaveTarget;
+      closeLeaveUnsavedModal(() => {
+        if (!intent) return;
+        if (intent.mode === 'section') {
+          const sourceSection = intent.sourceSection;
+          const targetSection = intent.targetSection;
+          if (sourceSection === 'plugins' && baselineSnapshots.plugins) {
+            restorePluginSnapshot(baselineSnapshots.plugins);
+          } else if (sourceSection === 'advanced' && baselineSnapshots.advanced) {
+            restoreAdvancedSnapshot(baselineSnapshots.advanced);
+          } else if (sourceSection === 'saving' && baselineSnapshots.saving) {
+            restoreSavingSnapshot(baselineSnapshots.saving);
+          }
+          if (targetSection) showSection(targetSection);
+          return;
+        }
+        if (intent.mode === 'link' && intent.href) {
+          allowWindowUnloadWithoutPrompt = true;
+          window.location.assign(intent.href);
+        }
+      });
+    });
+  }
+  if (leaveUnsavedBackdrop) {
+    leaveUnsavedBackdrop.addEventListener('click', (event) => {
+      if (event.target === leaveUnsavedBackdrop) {
+        closeLeaveUnsavedModal();
+      }
+    });
+  }
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && confirmBack && confirmBack.style.display === 'flex') {
+    if (event.key !== 'Escape') return;
+    if (leaveUnsavedBackdrop && leaveUnsavedBackdrop.style.display === 'flex') {
+      closeLeaveUnsavedModal();
+      return;
+    }
+    if (reviewChangesBackdrop && reviewChangesBackdrop.style.display === 'flex') {
+      closeReviewModal();
+      return;
+    }
+    if (confirmBack && confirmBack.style.display === 'flex') {
       closeConfirm();
       syncRows();
     }
@@ -602,6 +862,19 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   const mcherryWidthUnit = document.getElementById('mcherry_width_unit');
   const gfpDistanceInput = document.getElementById('gfp_distance');
   const gfpDistanceUnit = document.getElementById('gfp_distance_unit');
+  const gfpThresholdInput = document.getElementById('gfp_threshold');
+  const nuclearCellularModeInput = document.getElementById('nuclear_cellular_mode');
+  const useMetadataScaleInput = document.getElementById('use_metadata_scale');
+  const moduleEnabledInput = document.getElementById('module_enabled');
+  const enforceLayerCountInput = document.getElementById('enforce_layer_count');
+  const enforceWavelengthsInput = document.getElementById('enforce_wavelengths');
+  const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
+  const gfpFilterEnabledInput = document.getElementById('gfp_filter_enabled');
+  const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
+  const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
+  const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
+  const pluginOrder = (payload.plugins || []).map((plugin) => plugin.id);
+  const channelOrder = payload.channel_order || [];
 
   const sanitizePositive = (value, fallback) => {
     const parsed = Number(value);
@@ -616,6 +889,33 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     if (!Number.isFinite(parsed)) return '0';
     return parsed.toFixed(precision).replace(/\.?0+$/, '');
   };
+
+  const valueOrEmpty = (inputEl) => (inputEl ? String(inputEl.value ?? '').trim() : '');
+
+  const normalizeNumericString = (rawValue) => {
+    const raw = String(rawValue ?? '').trim();
+    if (!raw) return '';
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return raw;
+    return formatNumeric(parsed, 8);
+  };
+
+  const sortByOrder = (items, order) => {
+    const rank = new Map(order.map((value, idx) => [value, idx]));
+    return [...items].sort((a, b) => {
+      const aRank = rank.has(a) ? rank.get(a) : Number.MAX_SAFE_INTEGER;
+      const bRank = rank.has(b) ? rank.get(b) : Number.MAX_SAFE_INTEGER;
+      if (aRank !== bRank) return aRank - bRank;
+      return String(a).localeCompare(String(b));
+    });
+  };
+
+  const asOnOff = (value) => (value ? 'On' : 'Off');
+  const pluginLabel = (pluginId) => pluginMap.get(pluginId)?.label || pluginId;
+  const nucleusModeLabel = (value) =>
+    value === 'red_nucleus'
+      ? 'Red nucleus (measure Green)'
+      : 'Green nucleus (measure Red)';
 
   const convertLengthValueToUnit = (value, fromUnit, toUnit, umPerPx) => {
     const sourceUnit = normalizeLengthUnit(fromUnit);
@@ -711,6 +1011,391 @@ main.main>section.panel>.hdr{margin-bottom:14px}
       : 'Set a plugin length unit to um to preview its pixel conversion here.';
   };
 
+  const captureNumericField = (inputEl) => {
+    const raw = valueOrEmpty(inputEl);
+    return {
+      raw,
+      normalized: normalizeNumericString(raw),
+    };
+  };
+
+  const capturePluginSnapshot = () => ({
+    selectedPlugins: sortByOrder([...selectedPlugins], pluginOrder),
+    mcherryWidth: captureNumericField(mcherryWidthInput),
+    mcherryWidthUnit: normalizeLengthUnit(valueOrEmpty(mcherryWidthUnit)),
+    gfpDistance: captureNumericField(gfpDistanceInput),
+    gfpDistanceUnit: normalizeLengthUnit(valueOrEmpty(gfpDistanceUnit)),
+    gfpThreshold: captureNumericField(gfpThresholdInput),
+    nuclearCellularMode: valueOrEmpty(nuclearCellularModeInput) || 'green_nucleus',
+    micronsPerPixel: captureNumericField(prefsScaleInput),
+    useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
+  });
+
+  const captureAdvancedSnapshot = () => ({
+    moduleEnabled: !!(moduleEnabledInput && moduleEnabledInput.checked),
+    enforceLayerCount: !!(enforceLayerCountInput && enforceLayerCountInput.checked),
+    enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
+    showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
+    gfpFilterEnabled: !!(gfpFilterEnabledInput && gfpFilterEnabledInput.checked),
+    requiredChannels: sortByOrder(
+      channelToggles
+        .filter((toggle) => {
+          const channel = toggle.dataset.channel;
+          return channel && !alwaysRequired.has(channel) && toggle.checked;
+        })
+        .map((toggle) => toggle.dataset.channel),
+      channelOrder
+    ),
+    overrideChannels: sortByOrder([...overrides], channelOrder),
+  });
+
+  const captureSavingSnapshot = () => ({
+    autoSaveExperiments: !!(autoSaveExperimentsInput && autoSaveExperimentsInput.checked),
+    showSavedFileChannels: !!(showSavedFileChannelsInput && showSavedFileChannelsInput.checked),
+    showSavedFileScales: !!(showSavedFileScalesInput && showSavedFileScalesInput.checked),
+  });
+
+  const pushToggleChange = (changes, label, fromValue, toValue) => {
+    if (fromValue === toValue) return;
+    changes.push(`${label}: ${asOnOff(fromValue)} -> ${asOnOff(toValue)}`);
+  };
+
+  const numericDisplay = (field) => (field.normalized || '0');
+
+  const buildPluginChangeList = (fromSnapshot, toSnapshot) => {
+    const changes = [];
+    const before = new Set(fromSnapshot.selectedPlugins || []);
+    const after = new Set(toSnapshot.selectedPlugins || []);
+
+    sortByOrder([...after], pluginOrder).forEach((pluginId) => {
+      if (!before.has(pluginId)) {
+        changes.push(`Enabled plugin: ${pluginLabel(pluginId)}`);
+      }
+    });
+    sortByOrder([...before], pluginOrder).forEach((pluginId) => {
+      if (!after.has(pluginId)) {
+        changes.push(`Disabled plugin: ${pluginLabel(pluginId)}`);
+      }
+    });
+
+    if (
+      fromSnapshot.mcherryWidth.normalized !== toSnapshot.mcherryWidth.normalized ||
+      fromSnapshot.mcherryWidthUnit !== toSnapshot.mcherryWidthUnit
+    ) {
+      changes.push(
+        `mCherry line width: ${numericDisplay(fromSnapshot.mcherryWidth)} ${fromSnapshot.mcherryWidthUnit} -> ${numericDisplay(toSnapshot.mcherryWidth)} ${toSnapshot.mcherryWidthUnit}`
+      );
+    }
+    if (
+      fromSnapshot.gfpDistance.normalized !== toSnapshot.gfpDistance.normalized ||
+      fromSnapshot.gfpDistanceUnit !== toSnapshot.gfpDistanceUnit
+    ) {
+      changes.push(
+        `Minimum signal distance: ${numericDisplay(fromSnapshot.gfpDistance)} ${fromSnapshot.gfpDistanceUnit} -> ${numericDisplay(toSnapshot.gfpDistance)} ${toSnapshot.gfpDistanceUnit}`
+      );
+    }
+    if (fromSnapshot.gfpThreshold.normalized !== toSnapshot.gfpThreshold.normalized) {
+      changes.push(
+        `Biorientation collinearity threshold: ${numericDisplay(fromSnapshot.gfpThreshold)} -> ${numericDisplay(toSnapshot.gfpThreshold)}`
+      );
+    }
+    if (fromSnapshot.nuclearCellularMode !== toSnapshot.nuclearCellularMode) {
+      changes.push(
+        `Nucleus contour source: ${nucleusModeLabel(fromSnapshot.nuclearCellularMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellularMode)}`
+      );
+    }
+    if (fromSnapshot.micronsPerPixel.normalized !== toSnapshot.micronsPerPixel.normalized) {
+      changes.push(
+        `Micrometers per pixel (um/px): ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
+      );
+    }
+    pushToggleChange(
+      changes,
+      'Use metadata scale per file',
+      fromSnapshot.useMetadataScale,
+      toSnapshot.useMetadataScale
+    );
+    return changes;
+  };
+
+  const predictRemovedPluginsForOverrides = (overrideChannels) => {
+    if (!baselineSnapshots.plugins || !Array.isArray(overrideChannels) || !overrideChannels.length) {
+      return [];
+    }
+    const overrideSet = new Set(overrideChannels);
+    return sortByOrder(baselineSnapshots.plugins.selectedPlugins || [], pluginOrder)
+      .filter((pluginId) => {
+        const requiredChannels = pluginMap.get(pluginId)?.required_channels;
+        return Array.isArray(requiredChannels) && requiredChannels.some((channel) => overrideSet.has(channel));
+      })
+      .map((pluginId) => pluginLabel(pluginId));
+  };
+
+  const buildAdvancedChangeList = (fromSnapshot, toSnapshot) => {
+    const changes = [];
+    pushToggleChange(
+      changes,
+      'Enable analysis validation module',
+      fromSnapshot.moduleEnabled,
+      toSnapshot.moduleEnabled
+    );
+    pushToggleChange(
+      changes,
+      'Enforce expected layer count',
+      fromSnapshot.enforceLayerCount,
+      toSnapshot.enforceLayerCount
+    );
+    pushToggleChange(
+      changes,
+      'Enforce required wavelengths',
+      fromSnapshot.enforceWavelengths,
+      toSnapshot.enforceWavelengths
+    );
+    pushToggleChange(
+      changes,
+      'Show legacy plugins by default',
+      fromSnapshot.showLegacyPlugins,
+      toSnapshot.showLegacyPlugins
+    );
+    pushToggleChange(
+      changes,
+      'Enable GFP minimum-size filter',
+      fromSnapshot.gfpFilterEnabled,
+      toSnapshot.gfpFilterEnabled
+    );
+
+    const beforeRequired = new Set(fromSnapshot.requiredChannels || []);
+    const afterRequired = new Set(toSnapshot.requiredChannels || []);
+    sortByOrder(channelOrder, channelOrder).forEach((channel) => {
+      if (alwaysRequired.has(channel)) return;
+      const wasRequired = beforeRequired.has(channel);
+      const isRequired = afterRequired.has(channel);
+      if (wasRequired === isRequired) return;
+      changes.push(`Require ${channel} wavelength: ${asOnOff(wasRequired)} -> ${asOnOff(isRequired)}`);
+    });
+
+    const beforeOverrides = JSON.stringify(fromSnapshot.overrideChannels || []);
+    const afterOverrides = JSON.stringify(toSnapshot.overrideChannels || []);
+    if (beforeOverrides !== afterOverrides) {
+      const removedPluginLabels = predictRemovedPluginsForOverrides(toSnapshot.overrideChannels || []);
+      if (removedPluginLabels.length) {
+        changes.push(`Dependent plugins that will be removed: ${removedPluginLabels.join(', ')}`);
+      }
+    }
+    return changes;
+  };
+
+  const buildSavingChangeList = (fromSnapshot, toSnapshot) => {
+    const changes = [];
+    pushToggleChange(
+      changes,
+      'Auto-save experiment files to account',
+      fromSnapshot.autoSaveExperiments,
+      toSnapshot.autoSaveExperiments
+    );
+    pushToggleChange(
+      changes,
+      'Show channel tags in dashboard sidebar',
+      fromSnapshot.showSavedFileChannels,
+      toSnapshot.showSavedFileChannels
+    );
+    pushToggleChange(
+      changes,
+      'Show scale details in file sidebars',
+      fromSnapshot.showSavedFileScales,
+      toSnapshot.showSavedFileScales
+    );
+    return changes;
+  };
+
+  const getSectionChanges = (section) => {
+    if (section === 'plugins' && baselineSnapshots.plugins) {
+      return buildPluginChangeList(baselineSnapshots.plugins, capturePluginSnapshot());
+    }
+    if (section === 'advanced' && baselineSnapshots.advanced) {
+      return buildAdvancedChangeList(baselineSnapshots.advanced, captureAdvancedSnapshot());
+    }
+    if (section === 'saving' && baselineSnapshots.saving) {
+      return buildSavingChangeList(baselineSnapshots.saving, captureSavingSnapshot());
+    }
+    return [];
+  };
+
+  const hasUnsavedChangesForSection = (section) => getSectionChanges(section).length > 0;
+  const collectUnsavedChanges = () =>
+    ['plugins', 'advanced', 'saving'].flatMap((section) => getSectionChanges(section));
+  const collectChangedSections = () =>
+    ['plugins', 'advanced', 'saving'].filter((section) => hasUnsavedChangesForSection(section));
+  const resolveSectionToSaveForNavigation = () => {
+    if (hasUnsavedChangesForSection(activeSection)) return activeSection;
+    const changed = collectChangedSections();
+    return changed.length ? changed[0] : null;
+  };
+  const hasUnsavedChanges = () => collectUnsavedChanges().length > 0;
+  const buildLeaveUnsavedPreviewItems = (intent) => {
+    if (!intent) return [];
+    if (intent.mode === 'section') {
+      return getSectionChanges(intent.sourceSection);
+    }
+    if (intent.mode !== 'link') return [];
+    const sectionToSave = intent.sectionToSave;
+    if (!sectionToSave) return collectUnsavedChanges();
+    const currentSectionChanges = getSectionChanges(sectionToSave);
+    const sectionLabel = sectionLabelByKey[sectionToSave] || sectionToSave;
+    const preview = currentSectionChanges.map((item) => `${sectionLabel}: ${item}`);
+    const otherChangedSections = collectChangedSections().filter((section) => section !== sectionToSave);
+    if (otherChangedSections.length) {
+      const labels = otherChangedSections.map((section) => sectionLabelByKey[section] || section).join(', ');
+      preview.push(`Other unsaved sections that will be discarded: ${labels}.`);
+    }
+    return preview;
+  };
+
+  const restorePluginSnapshot = (snapshot) => {
+    if (!snapshot) return;
+    selectedPlugins.clear();
+    (snapshot.selectedPlugins || []).forEach((pluginId) => selectedPlugins.add(pluginId));
+    syncPluginToggles();
+    if (mcherryWidthInput) mcherryWidthInput.value = snapshot.mcherryWidth.raw;
+    if (mcherryWidthUnit) {
+      mcherryWidthUnit.value = snapshot.mcherryWidthUnit;
+      mcherryWidthUnit.dataset.prevUnit = snapshot.mcherryWidthUnit;
+      syncLengthInputConstraints(mcherryWidthInput, snapshot.mcherryWidthUnit, 1, 0.01);
+    }
+    if (gfpDistanceInput) gfpDistanceInput.value = snapshot.gfpDistance.raw;
+    if (gfpDistanceUnit) {
+      gfpDistanceUnit.value = snapshot.gfpDistanceUnit;
+      gfpDistanceUnit.dataset.prevUnit = snapshot.gfpDistanceUnit;
+      syncLengthInputConstraints(gfpDistanceInput, snapshot.gfpDistanceUnit, 0, 0);
+    }
+    if (gfpThresholdInput) gfpThresholdInput.value = snapshot.gfpThreshold.raw;
+    if (nuclearCellularModeInput) nuclearCellularModeInput.value = snapshot.nuclearCellularMode;
+    if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
+    if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
+    syncRows();
+    updateMeasurementScaleHelp();
+  };
+
+  const restoreAdvancedSnapshot = (snapshot) => {
+    if (!snapshot) return;
+    if (moduleEnabledInput) moduleEnabledInput.checked = snapshot.moduleEnabled;
+    if (enforceLayerCountInput) enforceLayerCountInput.checked = snapshot.enforceLayerCount;
+    if (enforceWavelengthsInput) enforceWavelengthsInput.checked = snapshot.enforceWavelengths;
+    if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
+    if (gfpFilterEnabledInput) gfpFilterEnabledInput.checked = snapshot.gfpFilterEnabled;
+    const required = new Set(snapshot.requiredChannels || []);
+    channelToggles.forEach((toggle) => {
+      const channel = toggle.dataset.channel;
+      if (!channel || alwaysRequired.has(channel)) {
+        toggle.checked = true;
+        return;
+      }
+      toggle.checked = required.has(channel);
+    });
+    overrides.clear();
+    (snapshot.overrideChannels || []).forEach((channel) => overrides.add(channel));
+    syncRows();
+  };
+
+  const restoreSavingSnapshot = (snapshot) => {
+    if (!snapshot) return;
+    if (autoSaveExperimentsInput) autoSaveExperimentsInput.checked = snapshot.autoSaveExperiments;
+    if (showSavedFileChannelsInput) showSavedFileChannelsInput.checked = snapshot.showSavedFileChannels;
+    if (showSavedFileScalesInput) showSavedFileScalesInput.checked = snapshot.showSavedFileScales;
+  };
+
+  const captureBaselineSnapshots = () => {
+    baselineSnapshots.plugins = capturePluginSnapshot();
+    baselineSnapshots.advanced = captureAdvancedSnapshot();
+    baselineSnapshots.saving = captureSavingSnapshot();
+  };
+
+  const closeReviewModal = (onAfterClose = null) => {
+    closePopupModal(reviewChangesBackdrop, reviewChangesPanel, () => {
+      pendingReview = null;
+      if (reviewChangesList) reviewChangesList.innerHTML = '';
+      if (typeof onAfterClose === 'function') onAfterClose();
+    });
+  };
+
+  const closeLeaveUnsavedModal = (onAfterClose = null) => {
+    closePopupModal(leaveUnsavedBackdrop, leaveUnsavedPanel, () => {
+      pendingLeaveTarget = null;
+      if (leaveUnsavedList) leaveUnsavedList.innerHTML = '';
+      if (leaveUnsavedListWrap) leaveUnsavedListWrap.hidden = true;
+      if (typeof onAfterClose === 'function') onAfterClose();
+    });
+  };
+
+  const openLeaveUnsavedModal = (intent) => {
+    if (!leaveUnsavedBackdrop) return;
+    pendingLeaveTarget = intent;
+    const messageEl = document.getElementById('leaveUnsavedMessage');
+    if (messageEl) {
+      if (intent && intent.mode === 'section') {
+        const fromLabel = sectionLabelByKey[intent.sourceSection] || 'this section';
+        const toLabel = sectionLabelByKey[intent.targetSection] || 'another section';
+        messageEl.textContent = `You have unsaved changes in ${fromLabel}. Keep Old will discard those edits and switch to ${toLabel}. Confirm New will switch to ${toLabel} and keep your new changes.`;
+      } else {
+        const saveSectionLabel = sectionLabelByKey[intent?.sectionToSave] || 'current section';
+        messageEl.textContent = `Are you sure you want to leave without saving changes? Keep Old will leave and discard edits. Confirm New will save ${saveSectionLabel} and continue to the selected page.`;
+      }
+    }
+    const previewItems = buildLeaveUnsavedPreviewItems(intent);
+    if (leaveUnsavedList && leaveUnsavedListWrap) {
+      leaveUnsavedList.innerHTML = '';
+      if (previewItems.length) {
+        previewItems.forEach((item) => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          leaveUnsavedList.appendChild(li);
+        });
+        leaveUnsavedListWrap.hidden = false;
+      } else {
+        leaveUnsavedListWrap.hidden = true;
+      }
+    }
+    openPopupModal(leaveUnsavedBackdrop, leaveUnsavedPanel);
+  };
+
+  const openReviewModal = ({ section, changes, form, restore }) => {
+    if (!reviewChangesBackdrop || !reviewChangesList) return;
+    pendingReview = { form, restore };
+    const msgEl = document.getElementById('reviewChangesMessage');
+    if (msgEl) {
+      msgEl.textContent = `Are you sure you want to change ${sectionLabelByKey[section] || 'this section'}?`;
+    }
+    reviewChangesList.innerHTML = '';
+    changes.forEach((item) => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      reviewChangesList.appendChild(li);
+    });
+    openPopupModal(reviewChangesBackdrop, reviewChangesPanel);
+  };
+
+  const attachReviewSubmit = (form, section, captureCurrent, buildDiff, restoreFromBaseline) => {
+    if (!form) return;
+    form.addEventListener('submit', (event) => {
+      if (bypassReviewForSubmit.has(form)) {
+        bypassReviewForSubmit.delete(form);
+        return;
+      }
+      const baseline = baselineSnapshots[section];
+      if (!baseline) return;
+      const current = captureCurrent();
+      const changes = buildDiff(baseline, current);
+      if (!changes.length) return;
+      event.preventDefault();
+      openReviewModal({
+        section,
+        changes,
+        form,
+        restore: () => restoreFromBaseline(baseline),
+      });
+    });
+  };
+
   [prefsScaleInput, mcherryWidthInput, mcherryWidthUnit, gfpDistanceInput, gfpDistanceUnit].forEach((el) => {
     if (!el) return;
     el.addEventListener('input', updateMeasurementScaleHelp);
@@ -774,9 +1459,97 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     });
   }
 
+  attachReviewSubmit(
+    pluginForm,
+    'plugins',
+    capturePluginSnapshot,
+    buildPluginChangeList,
+    restorePluginSnapshot
+  );
+  attachReviewSubmit(
+    advancedForm,
+    'advanced',
+    captureAdvancedSnapshot,
+    buildAdvancedChangeList,
+    restoreAdvancedSnapshot
+  );
+  attachReviewSubmit(
+    savingForm,
+    'saving',
+    captureSavingSnapshot,
+    buildSavingChangeList,
+    restoreSavingSnapshot
+  );
+
+  navButtons.forEach((button) => {
+    button.addEventListener('click', (event) => {
+      const targetSection = button.dataset.sec;
+      if (!validSections.has(targetSection)) return;
+      if (targetSection === activeSection) {
+        showSection(targetSection);
+        return;
+      }
+      if (!hasUnsavedChangesForSection(activeSection)) {
+        showSection(targetSection);
+        return;
+      }
+      event.preventDefault();
+      openLeaveUnsavedModal({
+        mode: 'section',
+        sourceSection: activeSection,
+        targetSection,
+      });
+    });
+  });
+
+  const shouldGuardAnchorNavigation = (event, anchor) => {
+    if (!anchor) return false;
+    if (event.defaultPrevented) return false;
+    if (event.button !== 0) return false;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+    if (anchor.hasAttribute('download')) return false;
+    if (anchor.target && anchor.target !== '_self') return false;
+    const rawHref = anchor.getAttribute('href');
+    if (!rawHref || rawHref.startsWith('#')) return false;
+    if (/^javascript:/i.test(rawHref)) return false;
+    let url;
+    try {
+      url = new URL(anchor.href, window.location.href);
+    } catch (err) {
+      return false;
+    }
+    if (url.href === window.location.href) return false;
+    return true;
+  };
+
+  document.addEventListener(
+    'click',
+    (event) => {
+      const anchor = event.target.closest('a[href]');
+      if (!shouldGuardAnchorNavigation(event, anchor)) return;
+      if (!hasUnsavedChanges()) return;
+      event.preventDefault();
+      const sectionToSave = resolveSectionToSaveForNavigation();
+      openLeaveUnsavedModal({
+        mode: 'link',
+        href: anchor.href,
+        sectionToSave,
+      });
+    },
+    true
+  );
+
+  window.addEventListener('beforeunload', (event) => {
+    if (allowWindowUnloadWithoutPrompt) return;
+    if (!hasUnsavedChanges()) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
+
   syncPluginToggles();
   syncRows();
   updateMeasurementScaleHelp();
+  captureBaselineSnapshots();
 })();
 </script>
 {% endblock content %}
