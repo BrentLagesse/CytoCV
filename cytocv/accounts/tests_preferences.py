@@ -544,10 +544,11 @@ class DisplayManualSaveTests(TestCase):
         self.assertNotContains(response, "data-file-export=", html=False)
 
     def test_dashboard_csv_export_for_file_uuid_returns_attachment(self):
+        file_name = "dashboard_csv_export"
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
             segmented_owner_id=self.user.id,
-            filename="dashboard_csv_export",
+            filename=file_name,
         )
         self._add_cell_stat(saved_uuid)
 
@@ -558,16 +559,17 @@ class DisplayManualSaveTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"dashboard-{saved_uuid}.csv", response["Content-Disposition"])
+        self.assertIn(f"{file_name}.csv", response["Content-Disposition"])
         self.assertIn("text/csv", response["Content-Type"])
         csv_text = response.content.decode("utf-8")
         self.assertIn("Cell ID", csv_text)
 
     def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
+        file_name = "dashboard_xlsx_export"
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
             segmented_owner_id=self.user.id,
-            filename="dashboard_xlsx_export",
+            filename=file_name,
         )
         self._add_cell_stat(saved_uuid)
 
@@ -578,12 +580,53 @@ class DisplayManualSaveTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"dashboard-{saved_uuid}.xlsx", response["Content-Disposition"])
+        self.assertIn(f"{file_name}.xlsx", response["Content-Disposition"])
         self.assertIn(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             response["Content-Type"],
         )
         self.assertGreater(len(response.content), 0)
+
+    def test_display_csv_export_uses_uploaded_file_name(self):
+        file_name = "display_csv_export_source"
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename=file_name,
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {"_export": "csv"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn(f"{file_name}.csv", response["Content-Disposition"])
+        self.assertIn("text/csv", response["Content-Type"])
+
+    def test_display_xlsx_export_uses_uploaded_file_name(self):
+        file_name = "display_xlsx_export_source"
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename=file_name,
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {"_export": "xlsx"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn(f"{file_name}.xlsx", response["Content-Disposition"])
+        self.assertIn(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            response["Content-Type"],
+        )
 
     def test_display_save_endpoint_is_idempotent_for_saved_file(self):
         saved_uuid = self._create_display_file(

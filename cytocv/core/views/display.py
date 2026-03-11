@@ -39,6 +39,17 @@ def _sanitize_for_json(value):
     return value
 
 
+def _build_export_download_name(raw_name, export_format, fallback):
+    stem = Path(str(raw_name or "").strip()).stem
+    if not stem:
+        stem = fallback
+    # Keep the uploaded name visible while avoiding header-breaking characters.
+    stem = re.sub(r"[\\/\r\n\t]+", "_", stem).strip()
+    if not stem:
+        stem = fallback
+    return f"{stem}.{export_format}"
+
+
 def _scan_output_frames(uuid: str):
     output_dir = Path(MEDIA_ROOT) / str(uuid) / "output"
     frames = {}
@@ -314,7 +325,13 @@ def display_cell(request, uuids):
             export_format = request.GET.get('_export', None)
             if TableExport.is_valid_format(export_format) and cell_table is not None:
                 exporter = TableExport(export_format,cell_table)
-                return exporter.response(f"table.{export_format}")
+                return exporter.response(
+                    _build_export_download_name(
+                        image_name,
+                        export_format,
+                        fallback="table",
+                    )
+                )
 
             # Store all image details and statistics for this UUID
             all_files_data[str(uuid)] = {

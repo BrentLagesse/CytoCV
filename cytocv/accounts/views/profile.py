@@ -85,6 +85,17 @@ def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
     return mode
 
 
+def _build_export_download_name(raw_name: Any, export_format: str, fallback: str) -> str:
+    stem = Path(str(raw_name or "").strip()).stem
+    if not stem:
+        stem = fallback
+    # Keep the source name recognizable while avoiding header-breaking characters.
+    stem = re.sub(r"[\\/\r\n\t]+", "_", stem).strip()
+    if not stem:
+        stem = fallback
+    return f"{stem}.{export_format}"
+
+
 def _preferences_redirect(request: HttpRequest, section: str) -> HttpResponse:
     next_url = (request.POST.get("next") or "").strip()
     if next_url and url_has_allowed_host_and_scheme(
@@ -683,8 +694,18 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     if TableExport.is_valid_format(export_format) and export_uuid:
         table = _build_cell_table_for_uuid(request.user, export_uuid)
+        uploaded_name = (
+            UploadedImage.objects.filter(user=request.user, uuid=export_uuid)
+            .values_list("name", flat=True)
+            .first()
+        )
+        download_name = _build_export_download_name(
+            uploaded_name,
+            export_format,
+            fallback=f"dashboard-{export_uuid}",
+        )
         exporter = TableExport(export_format, table)
-        return exporter.response(f"dashboard-{export_uuid}.{export_format}")
+        return exporter.response(download_name)
 
     context = _build_dashboard_payload(request.user)
     return TemplateResponse(request, "dashboard.html", context)
