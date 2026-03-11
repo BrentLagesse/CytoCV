@@ -36,6 +36,7 @@ from core.stats_plugins import (
     CHANNEL_ORDER,
     PLUGIN_DEFINITIONS,
     PLUGIN_ORDER,
+    build_plugin_ui_payload,
     build_requirement_summary,
     normalize_selected_plugins,
 )
@@ -938,24 +939,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
         )
 
     plugin_requirement_summary = build_requirement_summary(selected_plugins)
-    plugin_dependency_payload = {
-        "plugins": [
-            {
-                "id": plugin_id,
-                "label": PLUGIN_DEFINITIONS[plugin_id].label,
-                "required_channels": sorted(
-                    PLUGIN_DEFINITIONS[plugin_id].required_channels,
-                    key=CHANNEL_ORDER.index,
-                ),
-            }
-            for plugin_id in PLUGIN_ORDER
-        ],
-        "channel_order": list(CHANNEL_ORDER),
-        "always_required_channels": sorted(
-            ALWAYS_REQUIRED_CHANNELS,
-            key=CHANNEL_ORDER.index,
-        ),
-    }
+    plugin_dependency_payload = build_plugin_ui_payload()
 
     return TemplateResponse(
         request,

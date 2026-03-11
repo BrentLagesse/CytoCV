@@ -430,7 +430,8 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   } catch (err) {
     payload = {};
   }
-  const pluginMap = new Map((payload.plugins || []).map((plugin) => [plugin.id, plugin]));
+  const pluginCatalog = Array.isArray(payload.plugins) ? payload.plugins : [];
+  const pluginMap = new Map(pluginCatalog.map((plugin) => [plugin.id, plugin]));
   const alwaysRequired = new Set(payload.always_required_channels || []);
   const pluginToggles = [...document.querySelectorAll('.plugin-toggle')];
   const channelToggles = [...document.querySelectorAll('.channel-toggle')];
@@ -543,9 +544,67 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     return required;
   };
 
+  const enforceExclusiveGroup = (pluginId) => {
+    const plugin = pluginMap.get(pluginId);
+    if (!plugin || !plugin.exclusive_group) return;
+    pluginCatalog.forEach((candidate) => {
+      if (
+        candidate.id !== pluginId &&
+        candidate.exclusive_group &&
+        candidate.exclusive_group === plugin.exclusive_group
+      ) {
+        selectedPlugins.delete(candidate.id);
+      }
+    });
+  };
+
+  const normalizeExclusiveSelections = () => {
+    const normalized = new Set();
+    const seenGroups = new Set();
+    pluginCatalog.forEach((plugin) => {
+      if (!selectedPlugins.has(plugin.id)) return;
+      if (plugin.exclusive_group && seenGroups.has(plugin.exclusive_group)) return;
+      if (plugin.exclusive_group) {
+        seenGroups.add(plugin.exclusive_group);
+      }
+      normalized.add(plugin.id);
+    });
+    selectedPlugins.clear();
+    normalized.forEach((pluginId) => selectedPlugins.add(pluginId));
+  };
+
+  const isPluginRequiredBySelection = (pluginId) => {
+    for (const selectedId of selectedPlugins) {
+      if (selectedId === pluginId) continue;
+      const selectedPlugin = pluginMap.get(selectedId);
+      if (!selectedPlugin || !Array.isArray(selectedPlugin.required_plugins)) continue;
+      if (selectedPlugin.required_plugins.includes(pluginId)) return true;
+    }
+    return false;
+  };
+
+  const applyPluginDependencies = (pluginId) => {
+    const plugin = pluginMap.get(pluginId);
+    if (!plugin || !Array.isArray(plugin.required_plugins)) return;
+    plugin.required_plugins.forEach((dependencyId) => {
+      if (!pluginMap.has(dependencyId)) return;
+      selectedPlugins.add(dependencyId);
+      applyPluginDependencies(dependencyId);
+    });
+  };
+
+  const clearOverridesRequiredBySelectedPlugins = () => {
+    selectedPlugins.forEach((pluginId) => {
+      const plugin = pluginMap.get(pluginId);
+      if (!plugin || !Array.isArray(plugin.required_channels)) return;
+      plugin.required_channels.forEach((channel) => overrides.delete(channel));
+    });
+  };
+
   const syncPluginToggles = () => {
     pluginToggles.forEach((toggle) => {
       toggle.checked = selectedPlugins.has(toggle.value);
+      toggle.disabled = isPluginRequiredBySelection(toggle.value);
     });
   };
 
@@ -673,10 +732,12 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     toggle.addEventListener('change', () => {
       if (toggle.checked) {
         selectedPlugins.add(toggle.value);
-        const plugin = pluginMap.get(toggle.value);
-        if (plugin && Array.isArray(plugin.required_channels)) {
-          plugin.required_channels.forEach((channel) => overrides.delete(channel));
-        }
+        enforceExclusiveGroup(toggle.value);
+        applyPluginDependencies(toggle.value);
+        clearOverridesRequiredBySelectedPlugins();
+      } else if (isPluginRequiredBySelection(toggle.value)) {
+        toggle.checked = true;
+        return;
       } else {
         selectedPlugins.delete(toggle.value);
       }
@@ -873,7 +934,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
   const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
-  const pluginOrder = (payload.plugins || []).map((plugin) => plugin.id);
+  const pluginOrder = pluginCatalog.map((plugin) => plugin.id);
   const channelOrder = payload.channel_order || [];
 
   const sanitizePositive = (value, fallback) => {
@@ -1546,6 +1607,9 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     event.returnValue = '';
   });
 
+  normalizeExclusiveSelections();
+  [...selectedPlugins].forEach((pluginId) => applyPluginDependencies(pluginId));
+  clearOverridesRequiredBySelectedPlugins();
   syncPluginToggles();
   syncRows();
   updateMeasurementScaleHelp();

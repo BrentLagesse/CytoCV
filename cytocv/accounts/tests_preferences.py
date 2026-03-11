@@ -960,6 +960,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Confirm Changes")
         self.assertContains(response, "Confirm New")
 
+    def test_preferences_plugin_payload_includes_exclusive_and_dependency_fields(self):
+        response = self.client.get(reverse("preferences"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '"required_plugins"', html=False)
+        self.assertContains(response, '"exclusive_group"', html=False)
+        self.assertContains(response, '"exclusive_group": "nuclear_cellular"', html=False)
+
     def test_advanced_settings_override_reports_and_removes_dependent_plugins(self):
         response = self.client.post(
             reverse("preferences"),
