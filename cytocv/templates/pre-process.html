@@ -129,14 +129,15 @@
         display: flex;
         flex-direction: row;
         width: 100%;
-        min-height: calc(100dvh - var(--nav-height));
-        align-items: stretch;
+        min-height: calc(100dvh - var(--nav-height) - 26px);
+        align-items: flex-start;
         gap: var(--page-shell-gap);
       }
 
       /* SIDEBAR */
       .sidebar {
-        position: relative;
+        position: sticky;
+        top: calc(var(--nav-height) + var(--page-shell-gap));
         width: var(--workspace-sidebar-width);
         background:
             linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 46%),
@@ -150,7 +151,8 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        align-self: stretch;
+        align-self: flex-start;
+        height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
       }
 
       /* Collapsed state: set width to something minimal */
@@ -216,9 +218,23 @@
       /* Sidebar content (file list) */
       .sidebar-content {
         flex-grow: 1;
-        overflow: visible;
+        overflow-x: hidden;
+        overflow-y: auto;
         min-height: 0;       /* allow flex child to shrink and scroll */
-        padding-bottom: 10px;
+        padding-bottom: 12px;
+        scrollbar-gutter: auto;
+        scrollbar-width: auto;
+        scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
+      }
+      .sidebar-content.has-scrollbar {
+        scrollbar-gutter: stable;
+      }
+      .sidebar.has-scrollbar .sidebar-header,
+      .sidebar.has-scrollbar .sidebar-actions {
+        margin-right: 6px;
+      }
+      .sidebar-content.has-scrollbar .file-item {
+        margin-right: 6px;
       }
       .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
       .sidebar-content li { margin: 0; padding: 0; border: none; }
@@ -471,7 +487,9 @@
       .channel-chip {
         background-color: var(--panel-border); color: #fff;
         border: 1px solid var(--border-contrast);
-        padding: 6px 0; border-radius: 6px; cursor: grab; user-select: none;
+        padding: 7px 0; border-radius: 6px; cursor: grab; user-select: none;
+        font-size: 13px;
+        line-height: 1.1;
         flex: 1; box-sizing: border-box; text-align: center;
       }
       .channel-chip:active { cursor: grabbing; }
@@ -516,6 +534,7 @@
       .content-wrapper {
         flex: 1 1 auto;
         min-width: 0;
+        min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
         display: flex;
         flex-direction: column;
         gap: var(--page-shell-gap);
@@ -523,8 +542,12 @@
 
       /* MAIN CONTENT */
       .main-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
         flex-grow: 1;
         min-width: 0;
+        min-height: 0;
         padding: 0;
         text-align: left;
         background: transparent;
@@ -542,8 +565,11 @@
         color: #d3dcf2;
       }
       .preprocess-context-card {
+        width: 100%;
+        margin: 0;
         display: grid;
         gap: 14px;
+        overflow: hidden;
       }
       .preprocess-context-header {
         align-items: flex-start;
@@ -566,11 +592,19 @@
         color: var(--muted);
       }
       .preprocess-image-card {
-        display: grid;
+        width: 100%;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
         gap: 14px;
+        overflow: hidden;
       }
       .preprocess-image-toolbar {
         margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
       }
 
       .main-content > :last-child { margin-bottom: 0 !important; }
@@ -578,21 +612,35 @@
       h1 { margin-bottom: 20px; }
 
       .image-container {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 292px));
         justify-content: center;
-        gap: 10px;
+        justify-items: center;
+        align-items: start;
+        align-content: start;
+        flex: 0 0 auto;
+        min-height: auto;
+        width: 100%;
+        gap: 6px;
         margin: 0;
-        flex-wrap: wrap;
       }
 
       img { border: 1px solid var(--surface-muted); border-radius: 10px; background: var(--surface-media); }
+      .image-container img {
+        width: min(100%, 292px);
+        height: auto;
+        aspect-ratio: 1 / 1;
+        object-fit: contain;
+      }
 
       .navigation {
         display: flex;
         justify-content: center;
+        width: 100%;
         margin-top: 0;
         gap: 12px;
         flex-wrap: wrap;
+        padding-top: 0;
       }
       .navigation .button {
         margin: 0;
@@ -641,15 +689,16 @@
       }
       a:hover { background-color: #0056b3; color: #fff; }
 
-      .analysis { display: block; }
+      .analysis { display: block; width: 100%; }
+      .analysis form { width: 100%; }
 
       .analysis-actions {
         margin: 0;
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
         gap: 12px;
-        width: auto;
+        width: 100%;
         flex-wrap: wrap;
       }
       .analysis-actions .button {
@@ -871,7 +920,21 @@
         }
         .sidebar,
         .sidebar.collapsed {
+          position: relative;
+          top: auto;
+          height: auto;
           width: 100%;
+        }
+        .content-wrapper {
+          min-height: 0;
+        }
+        .preprocess-context-card,
+        .preprocess-image-card {
+          width: 100%;
+        }
+        .image-container {
+          grid-template-columns: repeat(2, minmax(0, 292px));
+          justify-content: center;
         }
       }
       @media (max-width: 900px) {
@@ -888,26 +951,42 @@
           max-width: 320px;
           margin: 0;
         }
+        .image-container {
+          grid-template-columns: 1fr;
+        }
         .image-container img {
           width: min(300px, calc(100vw - 64px));
-          height: auto;
         }
       }
 
       /* Chrome / Edge / Safari */
+      .sidebar-content::-webkit-scrollbar {
+        width: 14px;
+      }
       .sidebar-content::-webkit-scrollbar-track {
-        background: var(--card-bg) !important;
+        background: transparent !important;
+        margin-block: 4px;
       }
 
       /* Firefox */
       .sidebar-content {
         /* first = thumb, second = track */
-        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
+        scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
       }
 
       .sidebar-content::-webkit-scrollbar-thumb {
-        background: var(--scrollbar-thumb);
-        border-radius: 8px;
+        background: rgba(127, 127, 127, 0.24);
+        opacity: 0.62;
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+        transition: background-color 0.18s ease, opacity 0.18s ease;
+      }
+      .sidebar:hover .sidebar-content::-webkit-scrollbar-thumb,
+      .sidebar-content:hover::-webkit-scrollbar-thumb,
+      .sidebar-content:focus-within::-webkit-scrollbar-thumb {
+        background: rgba(127, 127, 127, 0.52);
+        opacity: 1;
       }
     </style>
 
@@ -1004,7 +1083,7 @@
         <!-- MAIN CONTENT -->
         <div class="main-content glass-shell" data-ui-region="preprocess-content-stack">
           <div class="preprocess-context-card glass-card glass-section" data-ui-region="file-context-card">
-            <div class="glass-toolbar preprocess-context-header">
+            <div class="preprocess-context-header">
               <div class="preprocess-context-copy">
                 <p class="section-eyebrow">File Context</p>
                 <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
@@ -1013,27 +1092,27 @@
                 </p>
                 <p class="preprocess-context-meta" id="preprocessScaleSummary">Scale metadata unavailable.</p>
               </div>
-              <div class="analysis">
-                <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
-                  {% csrf_token %}
-                  <div class="analysis-actions">
-                    <button
-                      type="button"
-                      class="button back"
-                      id="preprocessBackButton"
-                      data-href="/image/upload/?restore={{ uuids|urlencode }}"
-                    >
-                      Back
-                    </button>
-                    <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
-                    <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />
-                    <button type="submit" class="button analyze" id="startAnalysisButton">
-                      <span class="spinner" aria-hidden="true"></span>
-                      <span class="btn-text">Start Analysis</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
+            </div>
+            <div class="analysis">
+              <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
+                {% csrf_token %}
+                <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
+                <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />
+                <div class="analysis-actions">
+                  <button
+                    type="button"
+                    class="button back"
+                    id="preprocessBackButton"
+                    data-href="/image/upload/?restore={{ uuids|urlencode }}"
+                  >
+                    Back
+                  </button>
+                  <button type="submit" class="button analyze" id="startAnalysisButton">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span class="btn-text">Start Analysis</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -1929,8 +2008,11 @@
           if (!content) return;
           sidebar.style.maxHeight = '';
           content.style.maxHeight = '';
-          content.style.overflowY = 'visible';
-          content.style.minHeight = '0';
+          content.style.overflowY = '';
+          content.style.minHeight = '';
+          var hasScrollbar = content.scrollHeight > (content.clientHeight + 1);
+          content.classList.toggle('has-scrollbar', hasScrollbar);
+          sidebar.classList.toggle('has-scrollbar', hasScrollbar);
         }
 
         window.addEventListener('load', function () {
@@ -1955,6 +2037,12 @@
         if ('ResizeObserver' in window) {
           var main = document.querySelector('.main-content');
           if (main) new ResizeObserver(clampSidebar).observe(main);
+          var contentEl = document.querySelector('.sidebar-content');
+          if (contentEl) {
+            new ResizeObserver(clampSidebar).observe(contentEl);
+            var fileListEl = contentEl.querySelector('ul');
+            if (fileListEl) new ResizeObserver(clampSidebar).observe(fileListEl);
+          }
         }
       })();
     </script>

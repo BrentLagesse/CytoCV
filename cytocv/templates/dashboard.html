@@ -109,9 +109,23 @@
         /* Sidebar content (file list) */
         .sidebar-content {
             flex-grow: 1;
-            overflow: visible;
+            overflow-x: hidden;
+            overflow-y: auto;
             min-height: 0;       /* critical for flex children to allow scrolling */
-            padding-bottom: 10px;
+            padding-bottom: 12px;
+            scrollbar-gutter: auto;
+            scrollbar-width: auto;
+            scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
+        }
+        .sidebar-content.has-scrollbar {
+            scrollbar-gutter: stable;
+        }
+        .sidebar.has-scrollbar .sidebar-header,
+        .sidebar.has-scrollbar .sidebar-actions {
+            margin-right: 6px;
+        }
+        .sidebar-content.has-scrollbar .file-item {
+            margin-right: 6px;
         }
 
         .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
@@ -148,7 +162,9 @@
         .channel-chip {
             background-color: var(--panel-border); color: #fff;
             border: 1px solid var(--border-contrast);
-            padding: 6px 0; border-radius: 6px; cursor: grab; user-select: none;
+            padding: 7px 0; border-radius: 6px; cursor: grab; user-select: none;
+            font-size: 13px;
+            line-height: 1.1;
             flex: 1; box-sizing: border-box; text-align: center;
         }
         .channel-chip:active { cursor: grabbing; }
@@ -595,8 +611,26 @@
 
 
         /* Chrome / Edge / Safari */
+        .sidebar-content::-webkit-scrollbar {
+            width: 14px;
+        }
         .sidebar-content::-webkit-scrollbar-track {
-            background: var(--card-bg) !important;
+            background: transparent !important;
+            margin-block: 4px;
+        }
+        .sidebar-content::-webkit-scrollbar-thumb {
+            background: rgba(127, 127, 127, 0.24);
+            opacity: 0.62;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+            transition: background-color 0.18s ease, opacity 0.18s ease;
+        }
+        .sidebar:hover .sidebar-content::-webkit-scrollbar-thumb,
+        .sidebar-content:hover::-webkit-scrollbar-thumb,
+        .sidebar-content:focus-within::-webkit-scrollbar-thumb {
+            background: rgba(127, 127, 127, 0.52);
+            opacity: 1;
         }
         .export-buttons {
             display: flex;
@@ -615,7 +649,7 @@
         /* Firefox */
         .sidebar-content {
             /* first = thumb, second = track */
-            scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
+            scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
         }
 
         .sidebar-actions {
@@ -2181,8 +2215,11 @@
             if (!content) return;
             sidebar.style.maxHeight = '';
             content.style.maxHeight = '';
-            content.style.overflowY = 'visible';
-            content.style.minHeight = '0';
+            content.style.overflowY = '';
+            content.style.minHeight = '';
+            var hasScrollbar = content.scrollHeight > (content.clientHeight + 1);
+            content.classList.toggle('has-scrollbar', hasScrollbar);
+            sidebar.classList.toggle('has-scrollbar', hasScrollbar);
         }
 
         window.addEventListener('load', function () {
@@ -2207,6 +2244,12 @@
         if ('ResizeObserver' in window) {
             var main = document.querySelector('.main-content');
             if (main) new ResizeObserver(setSidebarScrollHeight).observe(main);
+            var contentEl = document.querySelector('.sidebar-content');
+            if (contentEl) {
+                new ResizeObserver(setSidebarScrollHeight).observe(contentEl);
+                var fileListEl = contentEl.querySelector('ul');
+                if (fileListEl) new ResizeObserver(setSidebarScrollHeight).observe(fileListEl);
+            }
         }
         })();
     </script>
