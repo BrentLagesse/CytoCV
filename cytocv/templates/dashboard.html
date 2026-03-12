@@ -28,13 +28,14 @@
             flex-direction: row;
             width: 100%;
             min-height: calc(100dvh - var(--nav-height) - 26px);
-            align-items: stretch;
+            align-items: flex-start;
             gap: var(--page-shell-gap);
         }
 
         /* SIDEBAR */
         .sidebar {
-            position: relative;
+            position: sticky;
+            top: calc(var(--nav-height) + var(--page-shell-gap));
             width: var(--workspace-sidebar-width);
             background:
                 linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 46%),
@@ -44,11 +45,14 @@
             box-shadow: var(--glass-glow);
             backdrop-filter: blur(calc(var(--glass-blur) - 2px));
             -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 2px));
-            transition: width 0.3s ease, background-color 0.2s ease; /* animate the color change too */
+            transition: width 0.3s ease, background-color 0.08s ease;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            align-self: stretch;
+            align-self: flex-start;
+            height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            contain: layout paint;
+            isolation: isolate;
         }
 
         /* Collapsed state: set width to something minimal */
@@ -139,7 +143,7 @@
             border-radius: 12px;
             border: 1px solid var(--panel-border);
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.08s ease;
             font-size: 14px;
         }
         .file-item:hover { background-color: #3399ff; }
@@ -176,7 +180,7 @@
             align-items: stretch;
             justify-content: flex-start;
             flex: 1 1 auto;
-            min-height: 0;
+            min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
             min-width: 0;
             width: 100%;
             padding: 0;
@@ -298,6 +302,11 @@
             font-weight: 600; letter-spacing: 0.2px;
         }
         .file-navigation-button:hover { background-color: #0056b3; }
+        .file-navigation-button:disabled {
+            background-color: rgba(86, 104, 128, 0.58);
+            color: rgba(235, 243, 255, 0.72);
+            cursor: not-allowed;
+        }
 
         /* Cell Images Row */
         .cell-images-row {
@@ -503,24 +512,20 @@
             from {
                 opacity: 0.6;
                 transform: translateY(10px) scale(0.985);
-                filter: blur(1.5px);
             }
             to {
                 opacity: 1;
                 transform: translateY(0) scale(1);
-                filter: blur(0);
             }
         }
         @keyframes tableFullscreenExit {
             from {
                 opacity: 1;
                 transform: scale(1);
-                filter: blur(0);
             }
             to {
                 opacity: 0.75;
                 transform: scale(0.988);
-                filter: blur(1px);
             }
         }
 
@@ -698,7 +703,7 @@
             line-height: 1;
             padding: 8px 10px;
             white-space: nowrap;
-            transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.16s ease;
+            transition: background-color 0.08s ease, border-color 0.08s ease, opacity 0.12s ease;
         }
         .channel-visibility-btn.label-fade,
         .scale-visibility-btn.label-fade { opacity: 0.62; }
@@ -944,9 +949,30 @@
         .viewer-content {
             gap: var(--page-shell-gap);
         }
+        .viewer-panel,
+        .viewer-scroll-frame,
+        .viewer-content {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+        .storage-card,
         .top-stage-card {
             display: grid;
             gap: 16px;
+            contain: layout paint;
+            isolation: isolate;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .cell-pairs-card,
+        .table-section {
+            contain: layout paint;
+            isolation: isolate;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
         .top-stage-header {
             align-items: flex-start;
@@ -1067,17 +1093,28 @@
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
+            margin-left: auto;
         }
-        .contour-toolbar {
+        .contour-toolbar,
+        .cell-id-chip {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 4px 10px;
+            min-height: 36px;
+            min-width: 138px;
+            padding: 6px 12px;
             border-radius: 999px;
             border: 1px solid rgba(var(--glass-border-rgb), 0.3);
             background: rgba(18, 28, 40, 0.55);
             font-size: 12px;
             color: #d7e6ff;
+        }
+        .contour-toolbar {
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .cell-id-chip {
+            justify-content: center;
+            gap: 6px;
         }
         .cell-images-row {
             display: grid;
@@ -1085,16 +1122,17 @@
             justify-content: center;
             gap: 18px;
             align-items: start;
-            width: 100%;
+            width: min(100%, 1094px);
+            margin: 0 auto 14px;
             overflow: visible;
             padding-bottom: 0;
         }
         .cell-column {
             display: grid;
-            grid-template-rows: auto auto auto;
+            grid-template-rows: auto auto;
             align-items: start;
             align-content: start;
-            gap: 8px;
+            gap: 10px;
             min-width: 0;
             width: 100%;
         }
@@ -1115,19 +1153,29 @@
             border: 1px solid rgba(var(--glass-border-rgb), 0.24);
             background: rgba(10, 15, 22, 0.76);
         }
-        .info-box {
+        .cell-stats-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: min(100%, 1094px);
+            margin: 0 auto;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.22);
+            border-radius: 12px;
+            background: rgba(14, 20, 29, 0.56);
+            overflow: hidden;
+            contain: layout paint;
+            isolation: isolate;
+        }
+        .cell-stats-section {
             display: grid;
             gap: 8px;
-            width: 100%;
-            height: auto;
-            margin-top: 0;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(var(--glass-border-rgb), 0.22);
-            background: rgba(14, 20, 29, 0.56);
+            min-width: 0;
+            padding: 14px;
             text-align: left;
             font-size: 12px;
-            align-self: start;
+            align-content: start;
+        }
+        .cell-stats-section + .cell-stats-section {
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
         }
         .metric-lead {
             margin: 0;
@@ -1188,7 +1236,9 @@
             background: transparent;
             padding: 0;
             gap: 12px;
-            overflow: hidden;
+            overflow: visible;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
         .table-toolbar {
             width: 100%;
@@ -1262,12 +1312,14 @@
                 linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 42%),
                 rgba(var(--glass-surface-rgb), 0.96);
             box-shadow: none;
-            backdrop-filter: blur(calc(var(--glass-blur) - 1px));
-            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            isolation: isolate;
         }
         .export-buttons {
             justify-content: center;
             padding-top: 14px;
+            border-top: none;
         }
         .export-buttons .export_btn {
             min-width: 170px;
@@ -1278,7 +1330,13 @@
             }
             .sidebar,
             .sidebar.collapsed {
+                position: relative;
+                top: auto;
+                height: auto;
                 width: 100%;
+            }
+            .content-wrapper {
+                min-height: 0;
             }
         }
         @media (max-width: 900px) {
@@ -1292,6 +1350,20 @@
             .cell-images-row {
                 grid-template-columns: repeat(2, minmax(0, 260px));
                 justify-content: center;
+                width: min(100%, 538px);
+            }
+            .cell-stats-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: min(100%, 538px);
+            }
+            .cell-stats-section + .cell-stats-section {
+                border-left: none;
+            }
+            .cell-stats-section:nth-child(odd) {
+                border-right: 1px solid rgba(255, 255, 255, 0.12);
+            }
+            .cell-stats-section:nth-child(n + 3) {
+                border-top: 1px solid rgba(255, 255, 255, 0.12);
             }
             .main-image {
                 width: min(500px, calc(100vw - 64px));
@@ -1319,7 +1391,18 @@
         @media (max-width: 640px) {
             .cell-images-row {
                 grid-template-columns: minmax(0, 320px);
+                width: min(100%, 320px);
                 justify-content: center;
+            }
+            .cell-stats-strip {
+                grid-template-columns: 1fr;
+                width: 100%;
+            }
+            .cell-stats-section:nth-child(odd) {
+                border-right: none;
+            }
+            .cell-stats-section:nth-child(n + 2) {
+                border-top: 1px solid rgba(255, 255, 255, 0.12);
             }
             .cell-toolbar-actions {
                 width: 100%;
@@ -1441,8 +1524,8 @@
                                     </div>
                                 </div>
                                 <div class="top-stage-footer">
-                                    <button class="file-navigation-button" type="button" id="previousFileBtn">Previous File</button>
-                                    <button class="file-navigation-button" type="button" id="nextFileBtn">Next File</button>
+                                    <button class="file-navigation-button" type="button" id="previousFileBtn" {% if file_list|length <= 1 %}disabled aria-disabled="true"{% endif %}>Previous File</button>
+                                    <button class="file-navigation-button" type="button" id="nextFileBtn" {% if file_list|length <= 1 %}disabled aria-disabled="true"{% endif %}>Next File</button>
                                 </div>
                             </div>
 
@@ -1450,7 +1533,6 @@
                                 <div class="glass-toolbar cell-pairs-toolbar">
                                     <p class="section-eyebrow">Cell Pairs</p>
                                     <div class="cell-toolbar-actions">
-                                        <div class="cell-id-chip">Cell ID: <span id="cellID">1</span></div>
                                         <div class="contour-toolbar">
                                             <span>Contours</span>
                                             <label class="switch">
@@ -1458,50 +1540,95 @@
                                                 <span class="slider"></span>
                                             </label>
                                         </div>
+                                        <div class="cell-id-chip">Cell ID: <span id="cellID">1</span></div>
                                     </div>
                                 </div>
                                 <div class="cell-images-row">
                                     <div class="cell-column">
                                         <span class="cell-label dic">DIC</span>
                                         <img id="cellImage1" class="cell-image" src="">
-                                        <div class="info-box">
-                                            <p class="metric-lead">Reference Channel</p>
-                                            <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Contours</span>
-                                                <span class="metric-value" id="contourStateValue">On</span>
-                                            </div>
-                                        </div>
                                     </div>
                                     <div class="cell-column">
                                         <span class="cell-label dapi">DAPI</span>
                                         <img id="cellImage2" class="cell-image" src="">
-                                        <div class="info-box">
-                                            <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
-                                            <div class="tight-info">Measurement channel: <span id="measurementChannel"></span></div>
-                                            <div class="tight-info">Nuclear status: <span id="nuclearStatus"></span></div>
-                                        </div>
                                     </div>
                                     <div class="cell-column">
                                         <span class="cell-label mcherry">mCherry</span>
                                         <img id="cellImage3" class="cell-image" src="">
-                                        <div class="info-box">
-                                            <div class="tight-info">mCherry Line Distance: <span id="distance"></span></div>
-                                            <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
-                                            <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
-                                            <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
-                                            <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
-                                        </div>
                                     </div>
                                     <div class="cell-column">
                                         <span class="cell-label gfp">GFP</span>
                                         <img id="cellImage4" class="cell-image" src="">
-                                        <div class="info-box">
-                                            <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
-                                            <div class="tight-info"><span id="cellularIntensityLabel">Measured Cellular Intensity</span>: <span id="cellularIntensitySum"></span></div>
-                                            <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
-                                            <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
-                                            <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
+                                    </div>
+                                </div>
+                                <div class="cell-stats-strip" data-ui-region="cell-metrics-strip">
+                                    <div class="cell-stats-section">
+                                        <p class="metric-lead">Reference Channel</p>
+                                        <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Contours</span>
+                                            <span class="metric-value" id="contourStateValue">On</span>
+                                        </div>
+                                    </div>
+                                    <div class="cell-stats-section">
+                                        <p class="metric-lead">Nucleus + Measurement</p>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Nucleus contour source</span>
+                                            <span class="metric-value" id="nucleusContourChannel"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Measurement channel</span>
+                                            <span class="metric-value" id="measurementChannel"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Nuclear status</span>
+                                            <span class="metric-value" id="nuclearStatus"></span>
+                                        </div>
+                                    </div>
+                                    <div class="cell-stats-section">
+                                        <p class="metric-lead">Line + Red/Green Metrics</p>
+                                        <div class="metric-row">
+                                            <span class="metric-label">mCherry line distance</span>
+                                            <span class="metric-value" id="distance"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Line GFP intensity</span>
+                                            <span class="metric-value" id="lineGFPIntensity"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green Red intensity 1</span>
+                                            <span class="metric-value" id="greenredIntensity1"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green Red intensity 2</span>
+                                            <span class="metric-value" id="greenredIntensity2"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green Red intensity 3</span>
+                                            <span class="metric-value" id="greenredIntensity3"></span>
+                                        </div>
+                                    </div>
+                                    <div class="cell-stats-section">
+                                        <p class="metric-lead">Intensity + GFP Output</p>
+                                        <div class="metric-row">
+                                            <span class="metric-label"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span></span>
+                                            <span class="metric-value" id="nucleusIntensitySum"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
+                                            <span class="metric-value" id="cellularIntensitySum"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Cytoplasmic intensity</span>
+                                            <span class="metric-value" id="cytoplasmicIntensity"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">GFP dot</span>
+                                            <span class="metric-value" id="gfpDot"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Biorientation</span>
+                                            <span class="metric-value" id="biorientation"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -1596,6 +1723,7 @@
                 return;
             }
             if (fileUUIDs.length > 0) {
+                syncFileNavigationState();
                 loadFile(currentFileIndex);
                 toggleContourOverlays();
             }
@@ -1622,6 +1750,7 @@
             }
             updateTableState(fileUUID, fileData);
             updateSidebarActive();
+            syncFileNavigationState();
             const inferred = inferChannelFromMainImage(fileData.MainImagePath);
             if (inferred) {
                 setActiveChannel(inferred);
@@ -1994,6 +2123,25 @@
             return pairImages[currentCellNumber] || pairImages[String(currentCellNumber)] || null;
         }
 
+        function hasMultipleFiles() {
+            return fileUUIDs.length > 1;
+        }
+
+        function syncFileNavigationState() {
+            const disableNavigation = !hasMultipleFiles();
+            const buttons = [
+                document.getElementById('previousFileBtn'),
+                document.getElementById('nextFileBtn'),
+            ];
+            buttons.forEach((button) => {
+                if (!button) {
+                    return;
+                }
+                button.disabled = disableNavigation;
+                button.setAttribute('aria-disabled', disableNavigation ? 'true' : 'false');
+            });
+        }
+
         function applyContourToggleState(forceShowContours = null) {
             const toggleElement = document.getElementById('toggleContours');
             const showContours = forceShowContours === null
@@ -2018,12 +2166,20 @@
         }
 
         function nextFile() {
+            if (!hasMultipleFiles()) {
+                syncFileNavigationState();
+                return;
+            }
             currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
             loadFile(currentFileIndex);
             applyContourToggleState();
         }
 
         function previousFile() {
+            if (!hasMultipleFiles()) {
+                syncFileNavigationState();
+                return;
+            }
             currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
             loadFile(currentFileIndex);
             applyContourToggleState();

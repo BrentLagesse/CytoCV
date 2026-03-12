@@ -556,9 +556,11 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'data-ui-region="dashboard-content-stack"', html=False)
         self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
         self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-metrics-strip"', html=False)
         self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
         self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
         self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'class="storage-card glass-card glass-section"', html=False)
         self.assertContains(response, 'id="viewerPanel"', html=False)
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
         self.assertContains(response, 'id="toggleContours"', html=False)
@@ -567,6 +569,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
         saved_uuid = self._create_display_file(
@@ -581,6 +585,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'data-ui-region="display-content-stack"', html=False)
         self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
         self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-metrics-strip"', html=False)
         self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
         self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
         self.assertContains(response, 'class="main-content glass-shell"', html=False)
@@ -592,6 +597,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="dic_form"', html=False)
         self.assertContains(response, 'id="dapi_form"', html=False)
         self.assertContains(response, 'id="mCherry_form"', html=False)
