@@ -193,8 +193,6 @@
         margin: var(--page-shell-gap) var(--page-shell-gap) 10px;
         padding: 0;
       }
-      .sidebar-header h2 { margin: 0; font-size: 18px; }
-
       /* Toggle button */
       .toggle-btn {
         position: static;
@@ -556,14 +554,6 @@
         box-shadow: none;
         gap: var(--page-shell-gap);
       }
-      .section-eyebrow {
-        margin: 0;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: #d3dcf2;
-      }
       .preprocess-context-card {
         width: 100%;
         margin: 0;
@@ -724,7 +714,9 @@
         top: 0;
         left: 0;
         width: min(420px, 94vw);
-        background: var(--card-bg);
+        background:
+          var(--liquid-linear-highlight),
+          var(--card-bg);
         border: 1px solid var(--panel-border);
         border-radius: 14px;
         padding: 18px;
@@ -833,7 +825,9 @@
       }
       .nav-exit-modal {
         width: min(440px, 92vw);
-        background: var(--card-bg);
+        background:
+          var(--liquid-linear-highlight),
+          var(--card-bg);
         border: 1px solid var(--panel-border);
         border-radius: 14px;
         padding: 24px;
@@ -1004,9 +998,9 @@
 
     <div class="page-container soft-fade-in">
       <!-- SIDEBAR -->
-      <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
+      <div class="sidebar{% if not sidebar_starts_open %} collapsed{% endif %}{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
         <div class="sidebar-header">
-          <h2>Configuration</h2>
+          <h2 class="section-eyebrow sidebar-title">Configuration</h2>
           <button class="toggle-btn" id="toggleSidebarBtn"></button>
         </div>
         <div class="sidebar-actions">
@@ -1086,7 +1080,7 @@
             <div class="preprocess-context-header">
               <div class="preprocess-context-copy">
                 <p class="section-eyebrow">File Context</p>
-                <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
+                <h1><span id="fileName">{{ file_name }}</span></h1>
                 <p class="preprocess-context-meta" id="currentFileInfo">
                   Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}
                 </p>

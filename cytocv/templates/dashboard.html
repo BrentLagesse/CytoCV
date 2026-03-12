@@ -19,6 +19,11 @@
             margin: 0;
             font-family: var(--app-font);
             background-color: var(--page-bg);
+            background-image: var(--page-bg-gradient);
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center top;
             color: var(--text);
             padding: calc(var(--nav-height) + var(--page-shell-gap)) var(--page-shell-gap) var(--page-shell-gap);
         }
@@ -93,8 +98,6 @@
             margin: var(--page-shell-gap) var(--page-shell-gap) 10px;
             padding: 0;
         }
-        .sidebar-header h2 { margin: 0; font-size: 18px; }
-
         /* Toggle button */
         .toggle-btn {
             position: static;
@@ -109,6 +112,10 @@
         .toggle-btn:hover { color: #ddd; }
         .toggle-btn::before { content: '◀'; }
         .sidebar.collapsed .toggle-btn::before { content: '▶'; }
+        .sidebar.collapsed .toggle-btn {
+            margin-left: 0;
+            margin-right: 0;
+        }
 
         /* Sidebar content (file list) */
         .sidebar-content {
@@ -400,14 +407,6 @@
         .cell-pairs-card,
         .table-section {
             width: 100%;
-        }
-        .section-eyebrow {
-            margin: 0;
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #d3dcf2;
         }
         .main-stage-toolbar,
         .cell-pairs-toolbar {
@@ -848,8 +847,6 @@
         }
         .storage-title {
             margin: 0;
-            font-size: 14px;
-            color: var(--muted);
         }
         .storage-text {
             margin: 0;
@@ -884,7 +881,9 @@
         }
         .delete-modal {
             width: min(420px, 92vw);
-            background: var(--card-bg);
+            background:
+                var(--liquid-linear-highlight),
+                var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 18px;
@@ -1420,9 +1419,9 @@
 
     <div class="page-container soft-fade-in">
         <!-- SIDEBAR -->
-        <div class="sidebar{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
+        <div class="sidebar{% if not sidebar_starts_open %} collapsed{% endif %}{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
             <div class="sidebar-header">
-                <h2>Saved Files</h2>
+                <h2 class="section-eyebrow sidebar-title">Saved Files</h2>
                 <button class="toggle-btn" id="toggleSidebarBtn"></button>
             </div>
             <div class="sidebar-actions">
@@ -1481,7 +1480,7 @@
         <div class="content-wrapper glass-shell" data-ui-region="dashboard-main-shell">
             <div class="storage-card glass-card glass-section">
                 <div class="storage-top">
-                    <p class="storage-title">Storage quota</p>
+                    <p class="section-eyebrow storage-title">Storage quota</p>
                     <p class="storage-text">{{ used_storage_mb|floatformat:2 }} MB out of {{ total_storage_gb|floatformat:2 }} GB</p>
                 </div>
                 <div class="quota-track">

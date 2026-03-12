@@ -12,22 +12,23 @@
     .settings-shell {
         width: min(760px, 100%);
         margin: 0 auto;
-        background: var(--card-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 16px;
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-        padding: 20px;
         display: grid;
         gap: 16px;
     }
-    .settings-header h1 {
-        margin: 0;
-        font-size: 24px;
+    .settings-card {
+        background:
+            var(--liquid-linear-highlight),
+            var(--card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        padding: 18px;
+        display: grid;
+        gap: 14px;
     }
-    .settings-header p {
-        margin: 6px 0 0;
-        color: var(--muted);
-        font-size: 14px;
+    .settings-card-header {
+        display: grid;
+        gap: 8px;
     }
     .profile-grid {
         display: grid;
@@ -36,7 +37,9 @@
     .profile-row {
         border: 1px solid var(--panel-border);
         border-radius: 12px;
-        background: var(--surface-muted);
+        background:
+            var(--liquid-linear-highlight-soft),
+            var(--surface-muted);
         padding: 12px;
         display: grid;
         gap: 4px;
@@ -53,19 +56,24 @@
         font-size: 15px;
         word-break: break-word;
     }
-    .danger-zone {
-        border: 1px solid rgba(239, 68, 68, 0.5);
-        background: rgba(160, 36, 36, 0.12);
-        border-radius: 14px;
-        padding: 14px;
+    .settings-card-danger {
+        border-color: rgba(239, 68, 68, 0.3);
+        background:
+            linear-gradient(148deg,
+                rgba(255, 124, 124, 0.1) 0%,
+                rgba(255, 124, 124, 0.06) 12%,
+                rgba(255, 124, 124, 0.03) 22%,
+                rgba(255, 124, 124, 0.015) 34%,
+                rgba(255, 124, 124, 0.005) 46%,
+                rgba(255, 124, 124, 0.0) 60%
+            ),
+            var(--card-bg);
+    }
+    .settings-card-body {
         display: grid;
         gap: 10px;
     }
-    .danger-zone h2 {
-        margin: 0;
-        font-size: 18px;
-    }
-    .danger-zone p {
+    .account-action-copy {
         margin: 0;
         color: #f9b8b8;
         font-size: 13px;
@@ -95,7 +103,9 @@
     }
     .delete-modal {
         width: min(460px, 92vw);
-        background: var(--card-bg);
+        background:
+            var(--liquid-linear-highlight),
+            var(--card-bg);
         border: 1px solid var(--panel-border);
         border-radius: 14px;
         padding: 22px;
@@ -197,31 +207,35 @@
 
 {% block content %}
 <div class="settings-shell soft-fade-in">
-    <div class="settings-header">
-        <h1>Account Settings</h1>
-        <p>Manage your account profile and security options.</p>
-    </div>
-
-    <div class="profile-grid">
-        <div class="profile-row">
-            <p class="row-label">Name</p>
-            <p class="row-value">{{ account_name }}</p>
+    <section class="settings-card" aria-labelledby="accountInformationTitle">
+        <div class="settings-card-header">
+            <p class="section-eyebrow" id="accountInformationTitle">Account Information</p>
         </div>
-        <div class="profile-row">
-            <p class="row-label">Email</p>
-            <p class="row-value">{{ email }}</p>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <p class="row-label">Name</p>
+                <p class="row-value">{{ account_name }}</p>
+            </div>
+            <div class="profile-row">
+                <p class="row-label">Email</p>
+                <p class="row-value">{{ email }}</p>
+            </div>
         </div>
-    </div>
+    </section>
 
-    <div class="danger-zone">
-        <h2>Delete your account</h2>
-        <p>
-            Deleting your account permanently removes your user profile and experiment data.
-        </p>
-        <button type="button" class="delete-account-btn" id="openDeleteAccountModal">
-            Delete your account
-        </button>
-    </div>
+    <section class="settings-card settings-card-danger" aria-labelledby="accountActionsTitle">
+        <div class="settings-card-header">
+            <p class="section-eyebrow" id="accountActionsTitle">Account Actions</p>
+        </div>
+        <div class="settings-card-body">
+            <p class="account-action-copy">
+                Deleting your account permanently removes your user profile and experiment data.
+            </p>
+            <button type="button" class="delete-account-btn" id="openDeleteAccountModal">
+                Delete your account
+            </button>
+        </div>
+    </section>
 </div>
 
 <div class="delete-modal-backdrop" id="deleteAccountBackdrop" aria-hidden="true">

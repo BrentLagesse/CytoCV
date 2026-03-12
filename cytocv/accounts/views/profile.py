@@ -413,6 +413,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     preferences = get_user_preferences(user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
+    sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -597,6 +598,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "storage_percentage": used_percentage,
         "show_saved_file_channels": show_saved_file_channels,
         "show_saved_file_scales": show_saved_file_scales,
+        "sidebar_starts_open": sidebar_starts_open,
     }
 
 
@@ -930,6 +932,10 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             next_payload["show_saved_file_scales"] = _post_bool(
                 request,
                 "show_saved_file_scales",
+            )
+            next_payload["sidebar_starts_open"] = _post_bool(
+                request,
+                "sidebar_starts_open",
             )
             preferences = update_user_preferences(request.user, next_payload)
             if should_auto_save_experiments(request.user):

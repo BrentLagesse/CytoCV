@@ -2,124 +2,1019 @@
 
 {% block head %}
 <style>
-body{margin:0;font-family:var(--app-font);background-color:var(--page-bg);background-image:var(--page-bg-gradient);background-repeat:no-repeat;background-size:cover;color:var(--text);padding:calc(var(--nav-height) + 18px) 12px 16px}
-.layout{width:100%;max-width:1160px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:12px;min-height:calc(100dvh - var(--nav-height) - 34px)}
-.nav,.main{background:var(--card-bg);border:1px solid var(--panel-border);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,.3)}
-.nav{padding:12px;display:grid;gap:8px;align-content:start}.nav p{margin:4px 6px 8px;color:var(--muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
-.nav button{width:100%;text-align:left;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text);padding:10px 12px;cursor:pointer;font-size:14px}
-.nav button.active{background:var(--surface-muted);border-color:var(--panel-border)}
-.main{padding:18px}.panel[hidden]{display:none!important}.panel{display:grid;gap:14px}
-main.main>section.panel{gap:0}
-main.main>section.panel>.hdr{margin-bottom:14px}
-.panel.fade-enter{animation:panelFadeIn .24s ease both}
-@keyframes panelFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.hdr{display:grid;gap:8px;align-content:start}
-.hdr h1{margin:0;font-size:24px;line-height:1.15}
-.hdr p{margin:0;color:var(--muted);font-size:14px}
-.card{border:1px solid var(--panel-border);border-radius:12px;background:var(--surface-muted);padding:12px;display:grid;gap:10px}.card h2{margin:0;font-size:16px}
-.channel-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.channel-pill{border:1px solid var(--panel-border);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;transition:border-color .2s ease,background-color .2s ease,box-shadow .2s ease,opacity .18s ease}
-.channel-pill.required{border-color:#2a8a50;background:rgba(47,143,78,.14)}
-.channel-pill-left{display:grid;gap:2px;align-content:start}
-.channel-pill-name{font-weight:700;line-height:1.1}
-.channel-pill-meta{font-size:11px;color:var(--muted);line-height:1.2}
-.channel-pill-state{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.02em;text-align:right;white-space:nowrap;opacity:1;transform:translateX(0);transition:color .2s ease,opacity .22s ease,transform .22s ease}
-.channel-pill.required .channel-pill-state{color:#d7ffe4}
-.channel-pill.status-changing{opacity:.56}
-.channel-pill-state.state-enter{opacity:0;transform:translateX(12px)}
-.plugins{display:grid;gap:8px}
-.plugin{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);padding:10px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.plugin-main{display:grid;gap:4px;min-width:0}
-.plugin p{margin:0}.desc{margin-top:4px;color:var(--muted);font-size:12px}.reqtxt{margin-top:5px;color:#c7d2ff;font-size:11px}
-.plugin-inline{opacity:0;max-height:0;overflow:hidden;pointer-events:none;margin-top:0;padding:0;display:grid;gap:8px;transition:opacity .2s ease,max-height .24s ease,margin-top .2s ease}
-.plugin-inline.is-active{opacity:1;max-height:180px;margin-top:6px;padding:0;pointer-events:auto}
-.plugin-measure-line{display:flex;align-items:center;gap:8px;min-width:0}
-.plugin-measure-line>label{font-size:11px;color:#cfcfcf;line-height:1.2}
-.plugin-measure-right{margin-left:6px}
-.length-input-group,.boxed-number-group,.mode-select-group{display:inline-flex;align-items:center;border:1px solid var(--panel-border);border-radius:8px;background:var(--surface-input);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);transition:border-color .2s ease,box-shadow .2s ease}
-.length-input-group:focus-within,.boxed-number-group:focus-within,.mode-select-group:focus-within{border-color:rgba(86,147,220,.75);box-shadow:inset 0 0 0 1px rgba(86,147,220,.32)}
-.length-input-group input[type="number"],.boxed-number-group input[type="number"]{width:74px;height:30px;border:none;background:transparent;color:#fff;padding:4px 8px;outline:none;color-scheme:dark}
-.length-input-group input[type="number"]::-webkit-outer-spin-button,.length-input-group input[type="number"]::-webkit-inner-spin-button,.boxed-number-group input[type="number"]::-webkit-outer-spin-button,.boxed-number-group input[type="number"]::-webkit-inner-spin-button{opacity:1;margin:0;background:var(--surface-input);filter:grayscale(1) brightness(.7)}
-.length-input-group select,.mode-select-group select{height:30px;border:none;background:transparent;color:#efefef;padding:4px 8px;font-size:11px;font-weight:600;font-family:var(--app-font);outline:none}
-.length-input-group select{border-left:1px solid var(--panel-border)}
-.legacy{font-size:10px;color:#f2d1a0;border:1px solid #6a5a3c;border-radius:999px;padding:1px 6px;margin-left:6px}
-.row{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);padding:10px;display:flex;justify-content:space-between;gap:12px;align-items:center}
-.row.locked{border-color:#2a8a50;background:rgba(47,143,78,.14)}.row p{margin:4px 0 0;color:var(--muted);font-size:12px}
-.measurement-scale-copy{display:grid;gap:4px;min-width:0;flex:1 1 auto;width:100%}
-.measurement-scale-copy p{margin:0;color:var(--muted);font-size:12px;line-height:1.35}
-.measurement-scale-entry-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.measurement-scale-fallback{margin:0;color:var(--muted);font-size:12px;line-height:1.35;flex:1 1 auto}
-.measurement-scale-subhead{font-size:11px;color:var(--text);text-transform:uppercase;letter-spacing:.08em;margin-top:6px}
-.measurement-scale-list{margin:0;padding-left:18px;display:grid;gap:3px}
-.measurement-scale-list li{color:var(--muted);font-size:12px;line-height:1.3}
-.measurement-scale-formula-list{display:grid;gap:4px}
-.measurement-scale-formula{margin:0;color:var(--muted);font-size:11px;line-height:1.3;overflow-wrap:anywhere}
-.measurement-scale-live{color:#9fd5af!important}
-.measurement-scale-example{color:#b8c8db!important}
-.measurement-scale-input-group{display:inline-flex;align-items:stretch;flex:0 0 auto}
-.measurement-scale-input-group input[type="number"]{width:86px}
-.measurement-disclosure-stack{display:grid;gap:6px;margin-top:8px;width:min(420px,100%);max-width:100%;min-width:0}
-.measurement-disclosure{display:grid;gap:6px;width:100%}
-.measurement-disclosure-toggle{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;box-sizing:border-box;border:1px solid var(--panel-border);border-radius:8px;background:var(--surface-muted-alt);color:var(--text);padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;transition:border-color .2s ease,background-color .2s ease;appearance:none;-webkit-appearance:none;outline:none}
-.measurement-disclosure-toggle .measurement-scale-subhead{margin-top:0;color:var(--text)}
-.measurement-disclosure-toggle:hover{border-color:var(--panel-border);background:var(--surface-hover-strong)}
-.measurement-disclosure-toggle:focus,.measurement-disclosure-toggle:focus-visible{outline:none;border-color:var(--panel-border);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
-.measurement-disclosure-meta{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
-.measurement-disclosure-chevron{display:inline-flex;transition:transform .2s ease}
-.measurement-disclosure-toggle.is-open .measurement-disclosure-chevron{transform:rotate(180deg)}
-.measurement-disclosure-panel{max-height:0;opacity:0;overflow:hidden;transform:translateY(-4px);transition:max-height .24s ease,opacity .2s ease,transform .2s ease}
-.measurement-disclosure-panel.is-open{max-height:260px;opacity:1;transform:translateY(0)}
-.measurement-disclosure:not(:last-child) .measurement-disclosure-panel.is-open{margin-bottom:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.field{display:grid;gap:6px}.field label{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
-.field input,.field select{height:38px;border-radius:8px;border:1px solid var(--panel-border);background:var(--surface-input);color:var(--text);padding:8px 10px}
-.save{justify-self:start;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer}
-.save-right{justify-self:end}
-.sw{position:relative;display:inline-block;width:44px;height:24px;flex:0 0 auto}.sw input{opacity:0;width:0;height:0}
-.sl{position:absolute;inset:0;border-radius:999px;background:var(--surface-toggle-off)}.sl:before{content:"";position:absolute;width:20px;height:20px;left:2px;top:2px;border-radius:50%;background:#f3f3f3;transition:transform .2s}
-.sw input:checked+.sl{background:#2f8f4e}.sw input:checked+.sl:before{transform:translateX(20px)}.sw input:disabled+.sl{opacity:.65}
-.confirm-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:2200}
-.confirm{width:min(420px,92vw);border-radius:14px;border:1px solid var(--panel-border);background:var(--card-bg);padding:18px;display:grid;gap:10px}
-.confirm h3,.confirm p{margin:0}.confirm p{color:var(--muted);font-size:13px}.confirm ul{margin:0;padding-left:18px;max-height:120px;overflow:auto}
-.confirm-actions{display:flex;justify-content:flex-end;gap:10px}.confirm-actions button{border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer}
-.confirm-actions .cancel{background:var(--accent);color:#fff}.confirm-actions .ok{background:#6a6a6a;color:#fff}
-.popup-backdrop.modal-enter{animation:settingsBackdropIn 150ms ease-out both}
-.popup-backdrop.modal-exit{animation:settingsBackdropOut 120ms ease-in both;pointer-events:none}
-.popup-surface.modal-enter{animation:settingsModalIn 170ms cubic-bezier(0.2,0.8,0.2,1) both}
-.popup-surface.modal-exit{animation:settingsModalOut 120ms ease-in both;pointer-events:none}
-.review-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:2300}
-.review-modal{width:min(500px,94vw);border-radius:14px;border:1px solid var(--panel-border);background:var(--card-bg);padding:18px;display:grid;gap:10px}
-.review-modal h3,.review-modal p{margin:0}
-.review-modal p{color:var(--muted);font-size:13px}
-.review-list-wrap{border:1px solid var(--panel-border);border-radius:10px;background:var(--surface-muted-alt);max-height:176px;overflow-y:auto;padding:8px 10px}
-.review-list{margin:0;padding-left:18px;display:grid;gap:5px;font-size:12px;color:var(--text)}
-.review-list li{line-height:1.35}
-.review-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.review-btn{border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;line-height:1.2;white-space:nowrap;min-width:104px}
-.review-btn.review-keep-old{background:var(--surface-muted-alt);border:1px solid var(--panel-border);color:#fff}
-.review-btn.review-confirm{background:var(--accent);color:#fff}
-.review-btn.review-confirm:hover{background:var(--accent-dark)}
-.review-btn.review-keep-old:hover{background:var(--surface-hover-strong)}
-@keyframes settingsBackdropIn{from{opacity:0}to{opacity:1}}
-@keyframes settingsBackdropOut{from{opacity:1}to{opacity:0}}
-@keyframes settingsModalIn{from{opacity:1;transform:translateY(8px) scale(0.992)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes settingsModalOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:1;transform:translateY(5px) scale(0.994)}}
-@media (max-width:920px){.layout{grid-template-columns:1fr}.channel-summary{grid-template-columns:1fr}.measurement-scale-entry-row{align-items:flex-start}.measurement-disclosure-stack{width:100%;min-width:0}}
+body {
+  margin: 0;
+  font-family: var(--app-font);
+  background-color: var(--page-bg);
+  background-image: var(--page-bg-gradient);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center top;
+  color: var(--text);
+  padding: calc(var(--nav-height) + 18px) 12px 16px;
+}
+
+.layout {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.nav {
+  position: sticky;
+  top: calc(var(--nav-height) + 18px);
+  min-height: calc(100dvh - var(--nav-height) - 34px);
+  max-height: calc(100dvh - var(--nav-height) - 34px);
+  padding: 14px 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  background:
+    var(--liquid-linear-highlight),
+    rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+  border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
+  border-radius: 16px;
+  box-shadow: var(--glass-glow);
+}
+
+.workflow-nav-title {
+  margin: 4px 6px 8px;
+}
+
+.nav button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--surface-muted-alt);
+  color: var(--text);
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.nav button:hover {
+  background: #3399ff;
+  border-color: #3399ff;
+  color: #fff;
+}
+
+.nav button.active {
+  background: #007bff;
+  border-color: #007bff;
+  color: #fff;
+}
+
+.nav button.active:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.main {
+  min-width: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.panel[hidden] {
+  display: none !important;
+}
+
+.panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+main.main > section.panel {
+  gap: 0;
+}
+
+.panel.fade-enter {
+  animation: panelFadeIn 0.24s ease both;
+}
+
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
+  border-radius: 12px;
+  background:
+    var(--liquid-linear-highlight),
+    rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  box-shadow: var(--glass-glow);
+}
+
+.card-title {
+  margin: 0;
+}
+
+.action-card {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.action-card .card-title {
+  align-self: flex-start;
+}
+
+.action-card .save {
+  align-self: flex-end;
+  width: auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.channel-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.channel-pill {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--surface-muted-alt);
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 56px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, opacity 0.18s ease;
+}
+
+.channel-pill.required {
+  border-color: #2a8a50;
+  background: rgba(47, 143, 78, 0.14);
+}
+
+.channel-pill-left {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.channel-pill-name {
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.channel-pill-meta {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.channel-pill-state {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: right;
+  white-space: nowrap;
+  opacity: 1;
+  transform: translateX(0);
+  transition: color 0.2s ease, opacity 0.22s ease, transform 0.22s ease;
+}
+
+.channel-pill.required .channel-pill-state {
+  color: #d7ffe4;
+}
+
+.channel-pill.status-changing {
+  opacity: 0.56;
+}
+
+.channel-pill-state.state-enter {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.plugins {
+  display: grid;
+  gap: 8px;
+}
+
+.plugin {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--surface-muted-alt);
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.plugin-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.plugin p {
+  margin: 0;
+}
+
+.desc {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reqtxt {
+  margin-top: 5px;
+  color: #c7d2ff;
+  font-size: 11px;
+}
+
+.plugin-inline {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  margin-top: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  transition: opacity 0.2s ease, max-height 0.24s ease, margin-top 0.2s ease;
+}
+
+.plugin-inline.is-active {
+  opacity: 1;
+  max-height: 180px;
+  margin-top: 6px;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.plugin-measure-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plugin-measure-line > label {
+  font-size: 11px;
+  color: #cfcfcf;
+  line-height: 1.2;
+}
+
+.plugin-measure-right {
+  margin-left: 6px;
+}
+
+.length-input-group,
+.boxed-number-group,
+.mode-select-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--surface-input);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.length-input-group:focus-within,
+.boxed-number-group:focus-within,
+.mode-select-group:focus-within {
+  border-color: rgba(86, 147, 220, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
+}
+
+.length-input-group input[type="number"],
+.boxed-number-group input[type="number"] {
+  width: 74px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  padding: 4px 8px;
+  outline: none;
+  color-scheme: dark;
+}
+
+.length-input-group input[type="number"]::-webkit-outer-spin-button,
+.length-input-group input[type="number"]::-webkit-inner-spin-button,
+.boxed-number-group input[type="number"]::-webkit-outer-spin-button,
+.boxed-number-group input[type="number"]::-webkit-inner-spin-button {
+  opacity: 1;
+  margin: 0;
+  background: var(--surface-input);
+  filter: grayscale(1) brightness(0.7);
+}
+
+.length-input-group select,
+.mode-select-group select {
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #efefef;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--app-font);
+  outline: none;
+}
+
+.length-input-group select {
+  border-left: 1px solid var(--panel-border);
+}
+
+.legacy {
+  font-size: 10px;
+  color: #f2d1a0;
+  border: 1px solid #6a5a3c;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 6px;
+}
+
+.row {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--surface-muted-alt);
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.row.locked {
+  border-color: #2a8a50;
+  background: rgba(47, 143, 78, 0.14);
+}
+
+.row.disabled {
+  opacity: 0.56;
+}
+
+.row p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.row-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.validation-subgroup {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--panel-border);
+  display: grid;
+  gap: 10px;
+}
+
+.validation-state-note {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.25;
+  color: #b8b8b8;
+  opacity: 1;
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.validation-state-note.on {
+  color: #9fd5af;
+}
+
+.validation-state-note.off {
+  color: #e6d6a7;
+}
+
+.validation-state-note.reveal {
+  animation: workflowValidationNoteFadeIn 0.24s ease;
+}
+
+@keyframes workflowValidationNoteFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row-label-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.prefs-info-dot {
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #d9d9d9;
+  background: var(--surface-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex: 0 0 auto;
+  font-family: var(--app-font);
+}
+
+.prefs-info-dot:hover {
+  background: var(--surface-hover-strong);
+}
+
+.prefs-info-dot:focus-visible {
+  outline: 1px solid #2f8f4e;
+  outline-offset: 1px;
+}
+
+.prefs-warning-dot {
+  width: 20px;
+  height: 20px;
+  border: none !important;
+  border-radius: 3px;
+  background: transparent !important;
+  color: #e3b329;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.74),
+    0 0 3px rgba(0, 0, 0, 0.46);
+}
+
+.prefs-warning-dot:hover {
+  background: transparent !important;
+  color: #f0cb53;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.8),
+    0 0 4px rgba(0, 0, 0, 0.54);
+}
+
+.prefs-warning-dot:focus-visible {
+  outline: 1px solid #e1b71d;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.prefs-info-tooltip {
+  position: fixed;
+  z-index: 4000;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(14, 16, 20, 0.98);
+  color: #e9e9e9;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-line;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.prefs-info-tooltip[hidden] {
+  display: none !important;
+}
+
+.measurement-scale-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+.measurement-scale-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.measurement-scale-entry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.measurement-scale-fallback {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  flex: 1 1 auto;
+}
+
+.measurement-scale-subhead {
+  font-size: 11px;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+
+.measurement-scale-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+}
+
+.measurement-scale-list li {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.measurement-scale-formula-list {
+  display: grid;
+  gap: 4px;
+}
+
+.measurement-scale-formula {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.measurement-scale-live {
+  color: #9fd5af !important;
+}
+
+.measurement-scale-example {
+  color: #b8c8db !important;
+}
+
+.measurement-scale-input-group {
+  display: inline-flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+
+.measurement-scale-input-group input[type="number"] {
+  width: 86px;
+}
+
+.measurement-disclosure-stack {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  width: min(420px, 100%);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.measurement-disclosure {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.measurement-disclosure-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--surface-muted-alt);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+}
+
+.measurement-disclosure-toggle .measurement-scale-subhead {
+  margin-top: 0;
+  color: var(--text);
+}
+
+.measurement-disclosure-toggle:hover {
+  border-color: var(--panel-border);
+  background: var(--surface-hover-strong);
+}
+
+.measurement-disclosure-toggle:focus,
+.measurement-disclosure-toggle:focus-visible {
+  outline: none;
+  border-color: var(--panel-border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.measurement-disclosure-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+}
+
+.measurement-disclosure-chevron {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.measurement-disclosure-toggle.is-open .measurement-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.measurement-disclosure-panel {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-4px);
+  transition: max-height 0.24s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.measurement-disclosure-panel.is-open {
+  max-height: 260px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.measurement-disclosure:not(:last-child) .measurement-disclosure-panel.is-open {
+  margin-bottom: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select {
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--surface-input);
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+.save {
+  justify-self: start;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-right {
+  justify-self: end;
+}
+
+.action-card .save {
+  justify-self: auto;
+}
+
+.sw {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.sw input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sl {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--surface-toggle-off);
+}
+
+.sl:before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 2px;
+  top: 2px;
+  border-radius: 50%;
+  background: #f3f3f3;
+  transition: transform 0.2s;
+}
+
+.sw input:checked + .sl {
+  background: #2f8f4e;
+}
+
+.sw input:checked + .sl:before {
+  transform: translateX(20px);
+}
+
+.sw input:disabled + .sl {
+  opacity: 0.65;
+}
+
+.confirm-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2200;
+}
+
+.confirm {
+  width: min(420px, 92vw);
+  border-radius: 14px;
+  border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
+  background:
+    var(--liquid-linear-highlight),
+    rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.confirm h3,
+.confirm p {
+  margin: 0;
+}
+
+.confirm p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.confirm ul {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirm-actions .cancel {
+  background: var(--accent);
+  color: #fff;
+}
+
+.confirm-actions .ok {
+  background: #6a6a6a;
+  color: #fff;
+}
+
+.popup-backdrop.modal-enter {
+  animation: settingsBackdropIn 150ms ease-out both;
+}
+
+.popup-backdrop.modal-exit {
+  animation: settingsBackdropOut 120ms ease-in both;
+  pointer-events: none;
+}
+
+.popup-surface.modal-enter {
+  animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.popup-surface.modal-exit {
+  animation: settingsModalOut 120ms ease-in both;
+  pointer-events: none;
+}
+
+.review-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2300;
+}
+
+.review-modal {
+  width: min(500px, 94vw);
+  border-radius: 14px;
+  border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
+  background:
+    var(--liquid-linear-highlight),
+    rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.review-modal h3,
+.review-modal p {
+  margin: 0;
+}
+
+.review-modal p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.review-list-wrap {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--surface-muted-alt);
+  max-height: 176px;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+.review-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.review-list li {
+  line-height: 1.35;
+}
+
+.review-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.review-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
+  min-width: 104px;
+}
+
+.review-btn.review-keep-old {
+  background: var(--surface-muted-alt);
+  border: 1px solid var(--panel-border);
+  color: #fff;
+}
+
+.review-btn.review-confirm {
+  background: var(--accent);
+  color: #fff;
+}
+
+.review-btn.review-confirm:hover {
+  background: var(--accent-dark);
+}
+
+.review-btn.review-keep-old:hover {
+  background: var(--surface-hover-strong);
+}
+
+@keyframes settingsBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes settingsBackdropOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes settingsModalIn {
+  from { opacity: 1; transform: translateY(8px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes settingsModalOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 1; transform: translateY(5px) scale(0.994); }
+}
+
+@media (max-width: 920px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nav {
+    position: static;
+    min-height: auto;
+    max-height: none;
+  }
+
+  .channel-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .measurement-scale-entry-row {
+    align-items: flex-start;
+  }
+
+  .measurement-disclosure-stack {
+    width: 100%;
+    min-width: 0;
+  }
+}
 </style>
 {% endblock head %}
 
 {% block content %}
 <div class="layout soft-fade-in">
-  <aside class="nav">
-    <p>Workflow Defaults</p>
+  <aside class="nav" id="workflowDefaultsNav" data-workflow-nav>
+    <p class="section-eyebrow workflow-nav-title">Workflow Defaults</p>
     <button class="active" data-sec="plugins">Plugin Settings</button>
     <button data-sec="advanced">Advanced Settings</button>
     <button data-sec="saving">Preferences</button>
   </aside>
   <main class="main">
-    <section class="panel" id="sec-plugins">
-      <div class="hdr"><h1>Plugin Settings</h1><p>Choose defaults for new experiment workflows.</p></div>
+    <section class="panel" id="sec-plugins" data-workflow-section="plugins">
       <form method="post" class="panel" id="pluginForm" data-review-section="plugins">{% csrf_token %}<input type="hidden" name="action" value="save_plugin_defaults">
-        <div class="card"><h2>Required Channels</h2><div class="channel-summary">
+        <div class="card" data-workflow-card="plugin-required-channels"><p class="section-eyebrow card-title">Required Channels</p><div class="channel-summary">
           {% for channel in channels %}
           <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="plugins">
             <div class="channel-pill-left">
@@ -150,7 +1045,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
           </div>
           {% endfor %}
         </div></div>
-        <div class="card"><h2>Plugin Defaults</h2><div class="plugins">
+        <div class="card" data-workflow-card="plugin-defaults"><p class="section-eyebrow card-title">Plugin Defaults</p><div class="plugins">
           {% for plugin in plugins %}
           <div class="plugin">
             <div class="plugin-main">
@@ -198,8 +1093,8 @@ main.main>section.panel>.hdr{margin-bottom:14px}
           </div>
           {% endfor %}
         </div></div>
-        <div class="card">
-          <h2>Measurement Scale</h2>
+        <div class="card" data-workflow-card="measurement-scale">
+          <p class="section-eyebrow card-title">Measurement Scale</p>
           <div class="row">
             <div>
               <label for="use_metadata_scale">Use metadata scale per file</label>
@@ -264,14 +1159,16 @@ main.main>section.panel>.hdr{margin-bottom:14px}
             </div>
           </div>
         </div>
-        <button class="save save-right" type="submit">Save Plugin Settings</button>
+        <div class="card action-card" data-workflow-action-card="plugins">
+          <p class="section-eyebrow card-title">Save Plugin Settings</p>
+          <button class="save save-right" type="submit">Save Plugin Settings</button>
+        </div>
       </form>
     </section>
 
-    <section class="panel" id="sec-advanced" hidden>
-      <div class="hdr"><h1>Advanced Settings</h1><p>Configure optional validation enforcement and measurement defaults.</p></div>
+    <section class="panel" id="sec-advanced" hidden data-workflow-section="advanced">
       <form method="post" class="panel" id="advancedForm" data-review-section="advanced">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div>
-        <div class="card"><h2>Required Channels</h2><div class="channel-summary">
+        <div class="card" data-workflow-card="advanced-required-channels"><p class="section-eyebrow card-title">Required Channels</p><div class="channel-summary">
           {% for channel in channels %}
           <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins or channel in preferences.experiment_defaults.manual_required_channels %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="advanced">
             <div class="channel-pill-left">
@@ -304,14 +1201,16 @@ main.main>section.panel>.hdr{margin-bottom:14px}
           </div>
           {% endfor %}
         </div></div>
-        <div class="card"><h2>Validation Enforcement</h2>
-          <div class="row"><div><label for="module_enabled">Enable analysis validation module</label><p>Turns optional metadata checks on by default.</p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div><label for="enforce_layer_count">Enforce expected layer count</label></div><label class="sw"><input type="checkbox" id="enforce_layer_count" name="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div><label for="enforce_wavelengths">Enforce required wavelengths</label></div><label class="sw"><input type="checkbox" id="enforce_wavelengths" name="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div><label for="show_legacy_plugins">Show legacy plugins by default</label></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div><label for="gfp_filter_enabled">Enable GFP minimum-size filter</label></div><label class="sw"><input type="checkbox" id="gfp_filter_enabled" name="gfp_filter_enabled" {% if preferences.experiment_defaults.gfp_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+        <div class="card" data-workflow-card="validation-enforcement"><p class="section-eyebrow card-title">Validation Enforcement</p>
+          <div class="row" id="advancedModuleRow"><div class="row-copy"><label for="module_enabled">Enable analysis validation module</label><p>If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced.</p><p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="validation-subgroup" id="advancedOptionalChecksGroup">
+            <div class="row" id="advancedLayerCheckRow"><div class="row-copy"><label for="enforce_layer_count">Enforce expected layer count</label><p>Require exactly four layers before preprocessing.</p></div><label class="sw"><input type="checkbox" id="enforce_layer_count" name="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %}><span class="sl"></span></label></div>
+            <div class="row" id="advancedWavelengthCheckRow"><div class="row-copy"><label for="enforce_wavelengths">Enforce required wavelengths</label><p>Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics.</p></div><label class="sw"><input type="checkbox" id="enforce_wavelengths" name="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %}><span class="sl"></span></label></div>
+          </div>
+          <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show legacy plugins by default</label><p>Reveal DAPI-based plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="gfp_filter_enabled">Enable GFP minimum-size filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filter out low-confidence GFP signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="gfp_filter_enabled" name="gfp_filter_enabled" {% if preferences.experiment_defaults.gfp_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
-        <div class="card"><h2>Channel Requirements</h2>
+        <div class="card" data-workflow-card="channel-requirements"><p class="section-eyebrow card-title">Channel Requirements</p>
           {% for channel in channels %}
           <div class="row{% if channel == 'DIC' %} locked{% endif %}" data-ch-row="{{ channel }}">
             <div><label for="manual_{{ channel }}">Require {{ channel }} wavelength</label><p data-ch-help="{{ channel }}">{% if channel == 'DIC' %}Always required for segmentation.{% else %}Optional.{% endif %}</p></div>
@@ -319,19 +1218,29 @@ main.main>section.panel>.hdr{margin-bottom:14px}
           </div>
           {% endfor %}
         </div>
-        <button class="save save-right" type="submit">Save Advanced Settings</button>
+        <div class="card action-card" data-workflow-action-card="advanced">
+          <p class="section-eyebrow card-title">Save Advanced Settings</p>
+          <button class="save save-right" type="submit">Save Advanced Settings</button>
+        </div>
       </form>
     </section>
 
-    <section class="panel" id="sec-saving" hidden>
-      <div class="hdr"><h1>Preferences</h1><p>Control autosave and dashboard sidebar display defaults.</p></div>
+    <section class="panel" id="sec-saving" hidden data-workflow-section="saving">
       <form method="post" class="panel" id="savingForm" data-review-section="saving">{% csrf_token %}<input type="hidden" name="action" value="save_behavior">
-        <div class="card">
+        <div class="card" data-workflow-card="saving-preferences">
+          <p class="section-eyebrow card-title">Saving Preferences</p>
           <div class="row"><div><label for="auto_save_experiments">Auto-save experiment files to account</label><p>When off, new experiment runs are excluded from dashboard history.</p></div><label class="sw"><input type="checkbox" id="auto_save_experiments" name="auto_save_experiments" {% if preferences.auto_save_experiments %}checked{% endif %}><span class="sl"></span></label></div>
+        </div>
+        <div class="card" data-workflow-card="sidebar-preferences">
+          <p class="section-eyebrow card-title">Sidebar Preferences</p>
           <div class="row"><div><label for="show_saved_file_channels">Show channel tags in dashboard sidebar</label><p>Controls whether DIC/DAPI/mCherry/GFP tags are shown under each saved file.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div><label for="show_saved_file_scales">Show scale details in file sidebars</label><p>Controls whether per-file scale details are shown on dashboard, preprocess, and display sidebars.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_scales" name="show_saved_file_scales" {% if preferences.show_saved_file_scales %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="sidebar_starts_open">Start sidebars open on dashboard, display, and preprocess</label><p>Controls the default sidebar state when those pages first render.</p></div><label class="sw"><input type="checkbox" id="sidebar_starts_open" name="sidebar_starts_open" {% if preferences.sidebar_starts_open %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
-        <button class="save save-right" type="submit">Save Preferences</button>
+        <div class="card action-card" data-workflow-action-card="saving">
+          <p class="section-eyebrow card-title">Save Preferences</p>
+          <button class="save save-right" type="submit">Save Preferences</button>
+        </div>
       </form>
     </section>
   </main>
@@ -375,6 +1284,8 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     </div>
   </div>
 </div>
+
+<div id="prefsInfoTooltip" class="prefs-info-tooltip" role="tooltip" hidden></div>
 
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
 <script>
@@ -469,6 +1380,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   const leaveUnsavedConfirmNew = document.getElementById('leaveUnsavedConfirmNew');
   const leaveUnsavedListWrap = document.getElementById('leaveUnsavedListWrap');
   const leaveUnsavedList = document.getElementById('leaveUnsavedList');
+  const prefsInfoTooltip = document.getElementById('prefsInfoTooltip');
   const POPUP_ENTER_MS = 170;
   const POPUP_EXIT_MS = 120;
   const prefersReducedMotionGlobal = !!(
@@ -478,6 +1390,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   let pendingReview = null;
   let pendingLeaveTarget = null;
   let allowWindowUnloadWithoutPrompt = false;
+  let activePrefsInfoAnchor = null;
   const bypassReviewForSubmit = new WeakSet();
   const baselineSnapshots = {
     plugins: null,
@@ -488,6 +1401,73 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   const clearPopupAnim = (backdrop, panel) => {
     if (backdrop) backdrop.classList.remove('modal-enter', 'modal-exit');
     if (panel) panel.classList.remove('modal-enter', 'modal-exit');
+  };
+
+  const hidePrefsInfoTooltip = () => {
+    activePrefsInfoAnchor = null;
+    if (!prefsInfoTooltip) return;
+    prefsInfoTooltip.hidden = true;
+    prefsInfoTooltip.textContent = '';
+  };
+
+  const positionPrefsInfoTooltip = (anchor) => {
+    if (!prefsInfoTooltip || !anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const margin = 10;
+    const gap = 8;
+
+    prefsInfoTooltip.style.left = '0px';
+    prefsInfoTooltip.style.top = '0px';
+    const width = prefsInfoTooltip.offsetWidth;
+    const height = prefsInfoTooltip.offsetHeight;
+
+    let left = rect.left + (rect.width / 2) - (width / 2);
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+    let top = rect.top - height - gap;
+    if (top < margin) {
+      top = rect.bottom + gap;
+    }
+    if (top + height > window.innerHeight - margin) {
+      top = Math.max(margin, window.innerHeight - height - margin);
+    }
+
+    prefsInfoTooltip.style.left = `${Math.round(left)}px`;
+    prefsInfoTooltip.style.top = `${Math.round(top)}px`;
+  };
+
+  const refreshPrefsInfoTooltipPosition = () => {
+    if (!activePrefsInfoAnchor || !prefsInfoTooltip || prefsInfoTooltip.hidden) return;
+    positionPrefsInfoTooltip(activePrefsInfoAnchor);
+  };
+
+  const showPrefsInfoTooltip = (anchor) => {
+    if (!anchor || !prefsInfoTooltip) return;
+    const text = String(anchor.dataset.infoText || '').trim();
+    if (!text) {
+      hidePrefsInfoTooltip();
+      return;
+    }
+    activePrefsInfoAnchor = anchor;
+    prefsInfoTooltip.textContent = text;
+    prefsInfoTooltip.hidden = false;
+    positionPrefsInfoTooltip(anchor);
+  };
+
+  const attachPrefsInfoTooltipBehavior = (element) => {
+    if (!element) return;
+    element.addEventListener('mouseenter', () => showPrefsInfoTooltip(element));
+    element.addEventListener('focus', () => showPrefsInfoTooltip(element));
+    element.addEventListener('mouseleave', hidePrefsInfoTooltip);
+    element.addEventListener('blur', hidePrefsInfoTooltip);
+    element.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (activePrefsInfoAnchor === element && prefsInfoTooltip && !prefsInfoTooltip.hidden) {
+        hidePrefsInfoTooltip();
+        return;
+      }
+      showPrefsInfoTooltip(element);
+    });
   };
  
   const openPopupModal = (backdrop, panel) => {
@@ -630,6 +1610,40 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     });
   };
 
+  const syncAdvancedValidationUI = () => {
+    const moduleEnabled = !!(moduleEnabledInput && moduleEnabledInput.checked);
+    [
+      [enforceLayerCountInput, advancedLayerCheckRow],
+      [enforceWavelengthsInput, advancedWavelengthCheckRow],
+    ].forEach(([input, row]) => {
+      if (input) input.disabled = !moduleEnabled;
+      if (row) row.classList.toggle('disabled', !moduleEnabled);
+    });
+
+    if (advancedOptionalChecksGroup) {
+      advancedOptionalChecksGroup.classList.toggle('is-disabled', !moduleEnabled);
+    }
+
+    if (!advancedOptionalChecksNote) return;
+    const prevState = advancedOptionalChecksNote.dataset.state || '';
+    const prevText = advancedOptionalChecksNote.textContent || '';
+    const nextState = moduleEnabled ? 'on' : 'off';
+    const nextText = moduleEnabled
+      ? 'Optional checks below are ON. Layer-count and wavelength enforcement will be saved as shown.'
+      : 'Optional checks below are OFF. Saved optional selections are paused until this module is turned back on.';
+    const shouldAnimate = prevState !== nextState || prevText !== nextText;
+
+    advancedOptionalChecksNote.classList.remove('on', 'off');
+    advancedOptionalChecksNote.classList.add(nextState);
+    advancedOptionalChecksNote.dataset.state = nextState;
+    if (shouldAnimate) {
+      advancedOptionalChecksNote.classList.remove('reveal');
+      void advancedOptionalChecksNote.offsetWidth;
+      advancedOptionalChecksNote.classList.add('reveal');
+    }
+    advancedOptionalChecksNote.textContent = nextText;
+  };
+
   const syncChannelSummary = (statsRequired) => {
     const manualRequired = new Set(
       channelToggles
@@ -705,6 +1719,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     syncOverrideInputs();
     syncChannelSummary(statsRequired);
     syncPluginInlineSettings();
+    syncAdvancedValidationUI();
   };
 
   const closeConfirm = () => {
@@ -902,6 +1917,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   }
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
+    hidePrefsInfoTooltip();
     if (leaveUnsavedBackdrop && leaveUnsavedBackdrop.style.display === 'flex') {
       closeLeaveUnsavedModal();
       return;
@@ -915,6 +1931,14 @@ main.main>section.panel>.hdr{margin-bottom:14px}
       syncRows();
     }
   });
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.classList.contains('prefs-info-dot')) {
+      hidePrefsInfoTooltip();
+    }
+  });
+  window.addEventListener('scroll', refreshPrefsInfoTooltipPosition, true);
+  window.addEventListener('resize', refreshPrefsInfoTooltipPosition);
 
   const prefsScaleInput = document.getElementById('microns_per_pixel');
   const prefsScaleLive = document.getElementById('prefsScaleLive');
@@ -929,11 +1953,23 @@ main.main>section.panel>.hdr{margin-bottom:14px}
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
   const enforceWavelengthsInput = document.getElementById('enforce_wavelengths');
+  const advancedOptionalChecksNote = document.getElementById('advancedOptionalChecksNote');
+  const advancedOptionalChecksGroup = document.getElementById('advancedOptionalChecksGroup');
+  const advancedLayerCheckRow = document.getElementById('advancedLayerCheckRow');
+  const advancedWavelengthCheckRow = document.getElementById('advancedWavelengthCheckRow');
   const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
   const gfpFilterEnabledInput = document.getElementById('gfp_filter_enabled');
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
   const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
+  const sidebarStartsOpenInput = document.getElementById('sidebar_starts_open');
+  [moduleEnabledInput, enforceLayerCountInput, enforceWavelengthsInput].forEach((input) => {
+    if (!input) return;
+    input.addEventListener('change', syncAdvancedValidationUI);
+  });
+  document.querySelectorAll('.prefs-info-dot[data-info-text]').forEach((element) => {
+    attachPrefsInfoTooltipBehavior(element);
+  });
   const pluginOrder = pluginCatalog.map((plugin) => plugin.id);
   const channelOrder = payload.channel_order || [];
 
@@ -1094,8 +2130,18 @@ main.main>section.panel>.hdr{margin-bottom:14px}
 
   const captureAdvancedSnapshot = () => ({
     moduleEnabled: !!(moduleEnabledInput && moduleEnabledInput.checked),
-    enforceLayerCount: !!(enforceLayerCountInput && enforceLayerCountInput.checked),
-    enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
+    enforceLayerCount: !!(
+      moduleEnabledInput &&
+      moduleEnabledInput.checked &&
+      enforceLayerCountInput &&
+      enforceLayerCountInput.checked
+    ),
+    enforceWavelengths: !!(
+      moduleEnabledInput &&
+      moduleEnabledInput.checked &&
+      enforceWavelengthsInput &&
+      enforceWavelengthsInput.checked
+    ),
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
     gfpFilterEnabled: !!(gfpFilterEnabledInput && gfpFilterEnabledInput.checked),
     requiredChannels: sortByOrder(
@@ -1114,6 +2160,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     autoSaveExperiments: !!(autoSaveExperimentsInput && autoSaveExperimentsInput.checked),
     showSavedFileChannels: !!(showSavedFileChannelsInput && showSavedFileChannelsInput.checked),
     showSavedFileScales: !!(showSavedFileScalesInput && showSavedFileScalesInput.checked),
+    sidebarStartsOpen: !!(sidebarStartsOpenInput && sidebarStartsOpenInput.checked),
   });
 
   const pushToggleChange = (changes, label, fromValue, toValue) => {
@@ -1266,6 +2313,12 @@ main.main>section.panel>.hdr{margin-bottom:14px}
       fromSnapshot.showSavedFileScales,
       toSnapshot.showSavedFileScales
     );
+    pushToggleChange(
+      changes,
+      'Start sidebars open on dashboard, display, and preprocess',
+      fromSnapshot.sidebarStartsOpen,
+      toSnapshot.sidebarStartsOpen
+    );
     return changes;
   };
 
@@ -1363,6 +2416,7 @@ main.main>section.panel>.hdr{margin-bottom:14px}
     if (autoSaveExperimentsInput) autoSaveExperimentsInput.checked = snapshot.autoSaveExperiments;
     if (showSavedFileChannelsInput) showSavedFileChannelsInput.checked = snapshot.showSavedFileChannels;
     if (showSavedFileScalesInput) showSavedFileScalesInput.checked = snapshot.showSavedFileScales;
+    if (sidebarStartsOpenInput) sidebarStartsOpenInput.checked = snapshot.sidebarStartsOpen;
   };
 
   const captureBaselineSnapshots = () => {

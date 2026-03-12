@@ -42,13 +42,35 @@
             --accent-dark: #0056b3;
             --danger: #a71d2a;
             --nav-height: 52px;
-            --glass-surface-rgb: 31, 31, 31;
-            --glass-surface-alpha: 0.82;
-            --glass-surface-alpha-strong: 0.9;
+            --glass-surface-rgb: 24, 24, 24;
+            --glass-surface-alpha: 0.88;
+            --glass-surface-alpha-strong: 0.94;
             --glass-border-rgb: 112, 134, 158;
             --glass-border-alpha: 0.34;
-            --glass-highlight: rgba(255, 255, 255, 0.07);
-            --glass-glow: 0 0 0 1px rgba(0, 123, 255, 0.08), 0 18px 32px rgba(0, 0, 0, 0.36);
+            --glass-highlight: rgba(255, 255, 255, 0.04);
+            --liquid-linear-highlight:
+                linear-gradient(
+                    150deg,
+                    rgba(255, 255, 255, 0.048) 0%,
+                    rgba(169, 194, 227, 0.034) 8%,
+                    rgba(126, 164, 222, 0.024) 16%,
+                    rgba(126, 164, 222, 0.014) 24%,
+                    rgba(126, 164, 222, 0.008) 31%,
+                    rgba(126, 164, 222, 0.003) 38%,
+                    transparent 48%
+                );
+            --liquid-linear-highlight-soft:
+                linear-gradient(
+                    150deg,
+                    rgba(255, 255, 255, 0.042) 0%,
+                    rgba(169, 194, 227, 0.03) 8%,
+                    rgba(126, 164, 222, 0.021) 16%,
+                    rgba(126, 164, 222, 0.012) 24%,
+                    rgba(126, 164, 222, 0.007) 31%,
+                    rgba(126, 164, 222, 0.003) 38%,
+                    transparent 48%
+                );
+            --glass-glow: 0 0 0 1px rgba(0, 123, 255, 0.05), 0 18px 32px rgba(0, 0, 0, 0.42);
             --glass-blur: 16px;
             --glass-radius-sm: 10px;
             --glass-radius-md: 14px;
@@ -153,7 +175,7 @@
             border-radius: var(--glass-radius-lg);
             border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
             background:
-                linear-gradient(155deg, var(--glass-highlight), transparent 48%),
+                var(--liquid-linear-highlight),
                 rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
             box-shadow: var(--glass-glow);
             backdrop-filter: blur(var(--glass-blur));
@@ -191,6 +213,14 @@
             font-size: 13px;
             color: var(--muted);
         }
+        .section-eyebrow {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+            color: rgba(211, 220, 242, 0.84);
+        }
         .glass-toolbar-actions {
             display: inline-flex;
             align-items: center;
@@ -223,7 +253,7 @@
             justify-content: space-between;
             align-items: center;
             background:
-                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 42%),
+                var(--liquid-linear-highlight),
                 rgba(var(--glass-surface-rgb), 0.88);
             border-bottom: 1px solid rgba(var(--glass-border-rgb), 0.28);
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
@@ -305,7 +335,7 @@
             right: 0;
             min-width: 250px;
             background:
-                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 44%),
+                var(--liquid-linear-highlight),
                 rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
             border: 1px solid rgba(var(--glass-border-rgb), 0.3);
             border-radius: var(--glass-radius-md);
@@ -482,7 +512,7 @@
         .logout-modal {
             width: min(420px, 90vw);
             background:
-                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 44%),
+                var(--liquid-linear-highlight),
                 rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
             border: 1px solid rgba(var(--glass-border-rgb), 0.34);
             border-radius: var(--glass-radius-lg);

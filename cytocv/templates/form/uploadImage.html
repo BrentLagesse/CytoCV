@@ -40,7 +40,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            background: linear-gradient(180deg, var(--panel-bg) 0%, var(--surface-input) 100%);
+            background:
+                var(--liquid-linear-highlight),
+                linear-gradient(180deg, var(--panel-bg) 0%, var(--surface-input) 100%);
             position: relative;
             overflow: hidden;
         }
@@ -245,14 +247,27 @@
         .form-toolbar {
             width: calc(100% + 44px);
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
-            gap: 6px;
-            margin: -22px -22px 8px -22px;
-            padding: 6px 10px 6px 22px;
+            gap: 12px;
+            margin: -22px -22px 14px -22px;
+            padding: 10px 12px 10px 22px;
+            min-height: 48px;
             box-sizing: border-box;
-            border-bottom: 1px solid var(--panel-border);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             background: transparent;
+        }
+        .upload-toolbar-title {
+            margin: 0;
+            white-space: nowrap;
+            flex: 1 1 auto;
+        }
+        .form-toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .settings-btn {
             background-color: var(--surface-nav);
@@ -298,7 +313,9 @@
         }
         .settings-modal {
             width: min(700px, 95vw);
-            background: var(--card-bg);
+            background:
+                var(--liquid-linear-highlight),
+                var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 26px;
@@ -327,7 +344,9 @@
         }
         .reset-modal {
             width: min(420px, 90vw);
-            background: var(--card-bg);
+            background:
+                var(--liquid-linear-highlight),
+                var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 24px;
@@ -383,7 +402,9 @@
         }
         .folder-issue-modal {
             width: min(460px, 92vw);
-            background: var(--card-bg);
+            background:
+                var(--liquid-linear-highlight),
+                var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 22px;
@@ -472,7 +493,9 @@
         }
         .nav-exit-modal {
             width: min(440px, 92vw);
-            background: var(--card-bg);
+            background:
+                var(--liquid-linear-highlight),
+                var(--card-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 24px;
@@ -1260,6 +1283,9 @@
         }
         #statsAdvancedView {
             overflow: hidden;
+            background:
+                var(--liquid-linear-highlight-soft);
+            border-radius: 10px;
         }
         #statsAdvancedView .settings-body {
             flex: 1 1 auto;
@@ -1636,18 +1662,21 @@
 
     <div class="upload-shell soft-fade-in">
         <div class="form-toolbar">
-            <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear selected files" title="Clear selected files">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 20 12h-1.5a6.5 6.5 0 1 1-1.9-4.6L14.5 9.5H20V4l-2.35 2.35Z"/>
-                </svg>
-                <span>Clear Queue</span>
-            </button>
-            <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics plugins" title="Statistics plugins">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
-                </svg>
-                <span>Statistics Plugins</span>
-            </button>
+            <p class="upload-toolbar-title section-eyebrow">Experiment</p>
+            <div class="form-toolbar-actions">
+                <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear selected files" title="Clear selected files">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 20 12h-1.5a6.5 6.5 0 1 1-1.9-4.6L14.5 9.5H20V4l-2.35 2.35Z"/>
+                    </svg>
+                    <span>Clear Queue</span>
+                </button>
+                <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics plugins" title="Statistics plugins">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
+                    </svg>
+                    <span>Statistics Plugins</span>
+                </button>
+            </div>
         </div>
 
         <!-- Display list of selected files -->
