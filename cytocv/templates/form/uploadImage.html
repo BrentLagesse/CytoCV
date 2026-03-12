@@ -269,30 +269,38 @@
             gap: 8px;
             flex-wrap: wrap;
         }
-        .settings-btn {
-            background-color: var(--surface-nav);
-            color: var(--text);
+        .form-toolbar .settings-btn {
+            background-color: transparent;
+            color: var(--muted);
             border: 1px solid transparent;
             border-radius: 6px;
             padding: 6px 10px;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease !important;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 5px;
             white-space: nowrap;
+            box-shadow: none !important;
         }
-        .settings-btn svg {
+        .form-toolbar .settings-btn svg {
             width: 14px;
             height: 14px;
             display: block;
         }
-        .settings-btn:hover {
-            background-color: var(--surface-hover);
+        .form-toolbar .settings-btn:hover {
+            background-color: var(--surface-muted-alt);
             color: #fff;
+            border-color: var(--panel-border);
+            box-shadow: var(--btn-shadow-hover) !important;
+        }
+        .form-toolbar .settings-btn:focus,
+        .form-toolbar .settings-btn:focus-visible,
+        .form-toolbar .settings-btn:active {
+            outline: none;
         }
         .settings-modal-backdrop {
             position: fixed;
