@@ -178,6 +178,19 @@
       .sidebar.is-expanding .sidebar-header h2 {
         display: none;
       }
+      .sidebar.collapsed .sidebar-header,
+      .sidebar.is-expanding .sidebar-header {
+        margin-left: 0;
+        margin-right: 0;
+      }
+      .sidebar.collapsed .toggle-btn,
+      .sidebar.is-expanding .toggle-btn {
+        margin-left: 0;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
       /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
       .sidebar:hover { background-color: var(--card-bg); }
