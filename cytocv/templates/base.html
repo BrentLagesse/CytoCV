@@ -42,6 +42,23 @@
             --accent-dark: #0056b3;
             --danger: #a71d2a;
             --nav-height: 52px;
+            --glass-surface-rgb: 31, 31, 31;
+            --glass-surface-alpha: 0.82;
+            --glass-surface-alpha-strong: 0.9;
+            --glass-border-rgb: 112, 134, 158;
+            --glass-border-alpha: 0.34;
+            --glass-highlight: rgba(255, 255, 255, 0.07);
+            --glass-glow: 0 0 0 1px rgba(0, 123, 255, 0.08), 0 18px 32px rgba(0, 0, 0, 0.36);
+            --glass-blur: 16px;
+            --glass-radius-sm: 10px;
+            --glass-radius-md: 14px;
+            --glass-radius-lg: 18px;
+            --glass-space-sm: 10px;
+            --glass-space-md: 14px;
+            --glass-space-lg: 18px;
+            --page-shell-gap: 12px;
+            --page-shell-gap-mobile: 10px;
+            --workspace-sidebar-width: 400px;
         }
 
         * { box-sizing: border-box; }
@@ -124,6 +141,77 @@
             transition: none !important;
         }
 
+        .glass-shell {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-width: 0;
+            gap: var(--glass-space-lg);
+        }
+        .glass-card {
+            position: relative;
+            border-radius: var(--glass-radius-lg);
+            border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
+            background:
+                linear-gradient(155deg, var(--glass-highlight), transparent 48%),
+                rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+            box-shadow: var(--glass-glow);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            overflow: hidden;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        .glass-section {
+            padding: var(--glass-space-md);
+        }
+        .glass-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .glass-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .glass-title {
+            margin: 0;
+            font-size: 23px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+        .glass-subtitle {
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .glass-toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 900px) {
+            :root {
+                --page-shell-gap: var(--page-shell-gap-mobile);
+            }
+            .glass-shell {
+                gap: var(--glass-space-md);
+            }
+            .glass-section {
+                padding: 12px;
+            }
+            .glass-title {
+                font-size: 20px;
+            }
+        }
+
         .navbar {
             position: fixed;
             top: 0;
@@ -134,9 +222,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: var(--surface-nav);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 0 24px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 42%),
+                rgba(var(--glass-surface-rgb), 0.88);
+            border-bottom: 1px solid rgba(var(--glass-border-rgb), 0.28);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(calc(var(--glass-blur) - 2px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 2px));
+            padding: 0 var(--page-shell-gap);
         }
         .nav-left,
         .nav-right {
@@ -211,11 +304,15 @@
             top: calc(100% + 8px);
             right: 0;
             min-width: 250px;
-            background: var(--panel-bg);
-            border: 1px solid var(--panel-border);
-            border-radius: 12px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 44%),
+                rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            border-radius: var(--glass-radius-md);
             padding: 8px;
-            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+            box-shadow: var(--glass-glow);
+            backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 1px));
             display: none;
             z-index: 1200;
         }
@@ -361,6 +458,9 @@
         @media (prefers-reduced-motion: reduce) {
             .soft-fade-in { animation: none; }
             .message { animation: none; }
+            .glass-card {
+                transition: none;
+            }
         }
 
         .logout-modal-backdrop {
@@ -381,11 +481,15 @@
         }
         .logout-modal {
             width: min(420px, 90vw);
-            background: var(--card-bg);
-            border: 1px solid var(--panel-border);
-            border-radius: 14px;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 44%),
+                rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
+            border: 1px solid rgba(var(--glass-border-rgb), 0.34);
+            border-radius: var(--glass-radius-lg);
             padding: 24px;
-            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+            box-shadow: var(--glass-glow);
+            backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 1px));
         }
         .logout-modal.modal-enter {
             animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;

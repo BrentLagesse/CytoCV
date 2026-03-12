@@ -122,7 +122,7 @@
         font-family: var(--app-font);
         background-color: var(--page-bg);
         color: var(--text);
-        padding: calc(var(--nav-height) + 10px) 10px 10px;
+        padding: calc(var(--nav-height) + var(--page-shell-gap)) var(--page-shell-gap) var(--page-shell-gap);
       }
 
       .page-container {
@@ -131,16 +131,21 @@
         width: 100%;
         min-height: calc(100dvh - var(--nav-height));
         align-items: stretch;
-        gap: 10px;
+        gap: var(--page-shell-gap);
       }
 
       /* SIDEBAR */
       .sidebar {
         position: relative;
-        width: 320px;
-        background-color: var(--card-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 16px;
+        width: var(--workspace-sidebar-width);
+        background:
+            linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 46%),
+            rgba(var(--glass-surface-rgb), 0.84);
+        border: 1px solid rgba(var(--glass-border-rgb), 0.32);
+        border-radius: var(--glass-radius-lg);
+        box-shadow: var(--glass-glow);
+        backdrop-filter: blur(calc(var(--glass-blur) - 2px));
+        -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 2px));
         transition: width 0.3s ease, background-color 0.2s ease; 
         overflow: hidden;
         display: flex;
@@ -183,10 +188,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: var(--surface-input);
-        border-radius: 12px;
-        margin: 10px 12px;
-        padding: 10px;
+        margin: var(--page-shell-gap) var(--page-shell-gap) 10px;
+        padding: 0;
       }
       .sidebar-header h2 { margin: 0; font-size: 18px; }
 
@@ -213,7 +216,7 @@
       /* Sidebar content (file list) */
       .sidebar-content {
         flex-grow: 1;
-        overflow-y: scroll;  /* show scrollbar only when needed */
+        overflow: visible;
         min-height: 0;       /* allow flex child to shrink and scroll */
         padding-bottom: 10px;
       }
@@ -287,11 +290,11 @@
         font-size: 11px;
         color: var(--text-muted);
         font-weight: 600;
-        flex: 1 1 auto;
-        min-width: 0;
+        flex: 0 0 auto;
+        min-width: auto;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        overflow: visible;
+        text-overflow: clip;
       }
       .file-item.active .scale-label {
         color: rgba(255, 255, 255, 0.85);
@@ -510,16 +513,64 @@
       }
       /* ---- END ADDED ---- */
 
+      .content-wrapper {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--page-shell-gap);
+      }
+
       /* MAIN CONTENT */
       .main-content {
         flex-grow: 1;
         min-width: 0;
-        padding: 16px;
-        text-align: center;
-        background: var(--card-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 16px;
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        padding: 0;
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        gap: var(--page-shell-gap);
+      }
+      .section-eyebrow {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #d3dcf2;
+      }
+      .preprocess-context-card {
+        display: grid;
+        gap: 14px;
+      }
+      .preprocess-context-header {
+        align-items: flex-start;
+        gap: 16px;
+      }
+      .preprocess-context-copy {
+        flex: 1 1 320px;
+        min-width: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .preprocess-context-card h1 {
+        margin: 4px 0 0;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+      .preprocess-context-meta {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .preprocess-image-card {
+        display: grid;
+        gap: 14px;
+      }
+      .preprocess-image-toolbar {
+        margin-bottom: 0;
       }
 
       .main-content > :last-child { margin-bottom: 0 !important; }
@@ -529,14 +580,23 @@
       .image-container {
         display: flex;
         justify-content: center;
-        gap: 5px;
-        margin-top: 20px;
-        margin-bottom: 20px;
+        gap: 10px;
+        margin: 0;
+        flex-wrap: wrap;
       }
 
       img { border: 1px solid var(--surface-muted); border-radius: 10px; background: var(--surface-media); }
 
-      .navigation { display: flex; justify-content: center; margin-top: 20px; }
+      .navigation {
+        display: flex;
+        justify-content: center;
+        margin-top: 0;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .navigation .button {
+        margin: 0;
+      }
 
       .button {
         background-color: #007bff; color: white; border: none; padding: 10px 20px;
@@ -572,7 +632,7 @@
 
       .button { transition: background-color 0.3s ease; }
 
-      #currentFileInfo { margin-top: 10px; }
+      #currentFileInfo { margin: 0; }
 
       a {
         background-color: #007bff; color: #fff; text-decoration: none; padding: 10px 16px; border: none;
@@ -581,15 +641,16 @@
       }
       a:hover { background-color: #0056b3; color: #fff; }
 
-      .analysis { display: inline; }
+      .analysis { display: block; }
 
       .analysis-actions {
-        margin: 10px auto 0;
+        margin: 0;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
         gap: 12px;
-        width: min(460px, 100%);
+        width: auto;
+        flex-wrap: wrap;
       }
       .analysis-actions .button {
         margin: 0;
@@ -804,6 +865,34 @@
         from { opacity: 1; transform: translateY(0) scale(1); }
         to { opacity: 0; transform: translateY(6px) scale(0.99); }
       }
+      @media (max-width: 1240px) {
+        .page-container {
+          flex-direction: column;
+        }
+        .sidebar,
+        .sidebar.collapsed {
+          width: 100%;
+        }
+      }
+      @media (max-width: 900px) {
+        .analysis-actions {
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        .analysis-actions .button {
+          width: 100%;
+          max-width: 320px;
+        }
+        .navigation .button {
+          width: 100%;
+          max-width: 320px;
+          margin: 0;
+        }
+        .image-container img {
+          width: min(300px, calc(100vw - 64px));
+          height: auto;
+        }
+      }
 
       /* Chrome / Edge / Safari */
       .sidebar-content::-webkit-scrollbar-track {
@@ -863,7 +952,7 @@
                   {% endfor %}
                 </div>
                 <div class="scale-row">
-                  <label class="scale-label" for="scaleInput_{{ file.uuid }}">Scale (um/px)</label>
+                  <label class="scale-label" for="scaleInput_{{ file.uuid }}">Scale:</label>
                   <input
                     id="scaleInput_{{ file.uuid }}"
                     type="number"
@@ -911,45 +1000,59 @@
         </div>
       </div>
 
-      <!-- MAIN CONTENT -->
-      <div class="main-content">
-        <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
-        <div class="analysis">
-          <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
-            {% csrf_token %}
-            <div class="analysis-actions">
-              <button
-                type="button"
-                class="button back"
-                id="preprocessBackButton"
-                data-href="/image/upload/?restore={{ uuids|urlencode }}"
-              >
-                Back
-              </button>
-              <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
-              <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />
-              <button type="submit" class="button analyze" id="startAnalysisButton">
-                <span class="spinner" aria-hidden="true"></span>
-                <span class="btn-text">Start Analysis</span>
-              </button>
+      <div class="content-wrapper glass-shell" data-ui-region="preprocess-main-shell">
+        <!-- MAIN CONTENT -->
+        <div class="main-content glass-shell" data-ui-region="preprocess-content-stack">
+          <div class="preprocess-context-card glass-card glass-section" data-ui-region="file-context-card">
+            <div class="glass-toolbar preprocess-context-header">
+              <div class="preprocess-context-copy">
+                <p class="section-eyebrow">File Context</p>
+                <h1>Pre-process: <span id="fileName">{{ file_name }}</span></h1>
+                <p class="preprocess-context-meta" id="currentFileInfo">
+                  Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}
+                </p>
+                <p class="preprocess-context-meta" id="preprocessScaleSummary">Scale metadata unavailable.</p>
+              </div>
+              <div class="analysis">
+                <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
+                  {% csrf_token %}
+                  <div class="analysis-actions">
+                    <button
+                      type="button"
+                      class="button back"
+                      id="preprocessBackButton"
+                      data-href="/image/upload/?restore={{ uuids|urlencode }}"
+                    >
+                      Back
+                    </button>
+                    <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
+                    <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />
+                    <button type="submit" class="button analyze" id="startAnalysisButton">
+                      <span class="spinner" aria-hidden="true"></span>
+                      <span class="btn-text">Start Analysis</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
 
-        <div class="image-container" id="imageContainer">
-          {% for image in images %}
-            <img src="{{ image.file_location.url }}" width="300" height="300" />
-          {% endfor %}
-        </div>
+          <div class="preprocess-image-card glass-card glass-section" data-ui-region="main-image-stage">
+            <div class="glass-toolbar preprocess-image-toolbar">
+              <p class="section-eyebrow">Image Stage</p>
+            </div>
+            <div class="image-container" id="imageContainer">
+              {% for image in images %}
+                <img src="{{ image.file_location.url }}" width="300" height="300" />
+              {% endfor %}
+            </div>
 
-        <div class="navigation">
-          <button class="button" id="prevButton">Previous Image</button>
-          <button class="button" id="nextButton">Next Image</button>
+            <div class="navigation">
+              <button class="button" id="prevButton">Previous Image</button>
+              <button class="button" id="nextButton">Next Image</button>
+            </div>
+          </div>
         </div>
-
-        <p id="currentFileInfo">
-          Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}
-        </p>
       </div>
     </div>
     <div class="nav-exit-backdrop" id="navExitBackdrop" aria-hidden="true">
@@ -1328,6 +1431,14 @@
         fileItems.forEach((i) => i.classList.remove("active"));
         const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
         if (active) active.classList.add("active");
+
+        const scaleSummaryLine = document.getElementById("preprocessScaleSummary");
+        if (scaleSummaryLine) {
+          const scaleSummary = active?.querySelector(".scale-summary")?.textContent?.trim() || "";
+          const scaleSource = active?.querySelector(".scale-source-badge")?.textContent?.trim() || "";
+          const combined = [scaleSummary, scaleSource].filter(Boolean).join(" · ");
+          scaleSummaryLine.textContent = combined || "Scale metadata unavailable.";
+        }
       }
       updateSidebarActive();
 
@@ -1814,22 +1925,11 @@
         function clampSidebar() {
           var sidebar = document.getElementById('sidebar');
           if (!sidebar) return;
-          var header  = sidebar.querySelector('.sidebar-header');
           var content = sidebar.querySelector('.sidebar-content');
           if (!content) return;
-
-          var sidebarH = sidebar.getBoundingClientRect().height;
-
-          var headerH = header ? header.getBoundingClientRect().height : 0;
-          var hs = header ? getComputedStyle(header) : null;
-          var headerMargins = hs ? (parseFloat(hs.marginTop) || 0) + (parseFloat(hs.marginBottom) || 0) : 0;
-
-          var cs = getComputedStyle(content);
-          var vPad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-
-          var maxH = Math.max(0, Math.floor(sidebarH - headerH - headerMargins - vPad));
-          content.style.maxHeight = maxH + 'px';
-          content.style.overflowY = 'auto';
+          sidebar.style.maxHeight = '';
+          content.style.maxHeight = '';
+          content.style.overflowY = 'visible';
           content.style.minHeight = '0';
         }
 
@@ -1838,6 +1938,10 @@
           setTimeout(clampSidebar, 0);
         });
         window.addEventListener('resize', clampSidebar);
+        document.addEventListener('fullscreenchange', function () {
+          requestAnimationFrame(clampSidebar);
+          setTimeout(clampSidebar, 0);
+        });
 
         var sidebarEl = document.getElementById('sidebar');
         if (sidebarEl) {

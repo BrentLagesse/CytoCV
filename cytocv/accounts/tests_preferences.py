@@ -543,6 +543,80 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
 
+    def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
+        self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_glass_layout",
+        )
+
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui-region="dashboard-main-shell"', html=False)
+        self.assertContains(response, 'data-ui-region="dashboard-content-stack"', html=False)
+        self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
+        self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
+        self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
+        self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'id="viewerPanel"', html=False)
+        self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
+        self.assertContains(response, 'id="toggleContours"', html=False)
+        self.assertContains(response, 'id="statsTablePanel"', html=False)
+        self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
+        self.assertContains(response, 'id="tableScrollFrame"', html=False)
+        self.assertContains(response, 'id="downloadCsvBtn"', html=False)
+        self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+
+    def test_display_template_renders_glass_layout_and_existing_hooks(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_glass_layout",
+        )
+
+        response = self.client.get(reverse("display", args=[saved_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui-region="display-main-shell"', html=False)
+        self.assertContains(response, 'data-ui-region="display-content-stack"', html=False)
+        self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
+        self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
+        self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
+        self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'id="viewerPanel"', html=False)
+        self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
+        self.assertContains(response, 'id="toggleContours"', html=False)
+        self.assertContains(response, 'id="statsTablePanel"', html=False)
+        self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
+        self.assertContains(response, 'id="tableScrollFrame"', html=False)
+        self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
+        self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="dic_form"', html=False)
+        self.assertContains(response, 'id="dapi_form"', html=False)
+        self.assertContains(response, 'id="mCherry_form"', html=False)
+        self.assertContains(response, 'id="gfp_form"', html=False)
+
+    def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
+        preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
+
+        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui-region="preprocess-main-shell"', html=False)
+        self.assertContains(response, 'data-ui-region="preprocess-content-stack"', html=False)
+        self.assertContains(response, 'data-ui-region="file-context-card"', html=False)
+        self.assertContains(response, 'data-ui-region="main-image-stage"', html=False)
+        self.assertNotContains(response, 'data-ui-region="actions-card"', html=False)
+        self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
+        self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'id="preprocessForm"', html=False)
+        self.assertContains(response, 'id="imageContainer"', html=False)
+        self.assertContains(response, 'id="prevButton"', html=False)
+        self.assertContains(response, 'id="nextButton"', html=False)
+        self.assertContains(response, 'id="currentFileInfo"', html=False)
+        self.assertContains(response, 'id="currentFileIndex"', html=False)
+        self.assertContains(response, 'id="preprocessScaleSummary"', html=False)
+
     def test_dashboard_csv_export_for_file_uuid_returns_attachment(self):
         file_name = "dashboard_csv_export"
         saved_uuid = self._create_display_file(

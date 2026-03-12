@@ -20,7 +20,7 @@
             font-family: var(--app-font);
             background-color: var(--page-bg);
             color: var(--text);
-            padding: calc(var(--nav-height) + 10px) 10px 10px;
+            padding: calc(var(--nav-height) + var(--page-shell-gap)) var(--page-shell-gap) var(--page-shell-gap);
         }
 
         .page-container {
@@ -29,21 +29,26 @@
             width: 100%;
             min-height: calc(100dvh - var(--nav-height));
             align-items: stretch;
-            gap: 10px;
+            gap: var(--page-shell-gap);
         }
 
         /* SIDEBAR */
         .sidebar {
             position: relative;
-            width: 400px;
-            background-color: var(--card-bg);
-            border: 1px solid var(--panel-border);
-            border-radius: 16px;
+            width: var(--workspace-sidebar-width);
+            background:
+                linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 46%),
+                rgba(var(--glass-surface-rgb), 0.84);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.32);
+            border-radius: var(--glass-radius-lg);
+            box-shadow: var(--glass-glow);
+            backdrop-filter: blur(calc(var(--glass-blur) - 2px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 2px));
             transition: width 0.3s ease, background-color 0.2s ease; /* animate the color change too */
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            align-self: stretch; /* ensure it stretches with content column */
+            align-self: stretch;
         }
 
         /* Collapsed state: set width to something minimal */
@@ -81,10 +86,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: var(--surface-input);
-            border-radius: 12px;
-            margin: 10px 12px;
-            padding: 10px;
+            margin: var(--page-shell-gap) var(--page-shell-gap) 10px;
+            padding: 0;
         }
         .sidebar-header h2 { margin: 0; font-size: 18px; }
 
@@ -106,7 +109,7 @@
         /* Sidebar content (file list) */
         .sidebar-content {
             flex-grow: 1;
-            overflow-y: scroll;  /* show scrollbar only when needed */
+            overflow: visible;
             min-height: 0;       /* critical for flex children to allow scrolling */
             padding-bottom: 10px;
         }
@@ -399,23 +402,50 @@
             min-width: 0;
             width: 100%;
             padding: 0;
+            gap: var(--glass-space-lg);
         }
 
         /* MAIN CONTENT */
         .main-content {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             width: 100%;
-            background: var(--card-bg);
-            border: 1px solid var(--panel-border);
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            gap: var(--glass-space-lg);
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+        .display-context-card {
+            display: grid;
+            gap: 6px;
+        }
+        .display-context-title {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.2;
+            letter-spacing: 0.01em;
+            word-break: break-word;
+        }
+        .display-context-meta {
+            margin: 0;
+            color: #d4ddec;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+        .display-context-scale {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
         }
         .viewer-panel {
             width: 100%;
-            display: block;
+            display: flex;
+            flex-direction: column;
+            gap: var(--glass-space-lg);
             border: none;
             border-radius: 0;
             background: transparent;
@@ -427,20 +457,36 @@
             overflow-y: visible;
         }
         .viewer-content {
-            min-width: 1040px;
+            width: 100%;
+            min-width: 0;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 8px;
+            align-items: stretch;
+            gap: var(--glass-space-lg);
         }
 
         /* Reduced top/bottom margin for the main container */
-        .main-container { display: flex; align-items: center; margin: 10px 0; gap: 20px; }
+        .main-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            gap: 20px;
+            width: 100%;
+        }
 
         /* Adjust heading margin so it’s closer to the top */
-        h2#imageTitle { margin: 5px 0 10px 0; }
 
-        .main-image { width: 500px; height: 500px; border: 1px solid var(--surface-muted); border-radius: 12px; background: var(--surface-media); }
+        .main-image {
+            width: min(500px, calc(100vw - 240px));
+            height: min(500px, calc(100vw - 240px));
+            max-width: 100%;
+            max-height: 100%;
+            border: 1px solid var(--surface-muted);
+            border-radius: 12px;
+            background: var(--surface-media);
+            object-fit: contain;
+        }
 
         .file-navigation-button {
             padding: 10px 18px; font-size: 14px; background-color: #007bff; color: #fff;
@@ -452,7 +498,9 @@
         /* Cell Images Row */
         .cell-images-row {
             display: flex; align-items: stretch; justify-content: center;
-            width: 100%; max-width: 1000px; gap: 20px; margin-bottom: 20px;
+            width: 100%; max-width: 100%; gap: 20px; margin-bottom: 0;
+            overflow-x: auto;
+            padding-bottom: 6px;
         }
         .cell-id {
             font-size: 18px; display: flex; align-items: center; justify-content: center;
@@ -520,7 +568,7 @@
             transform: translateX(20px);
         }
 
-        .navigation-buttons { margin-top: 5px; display: flex; justify-content: space-between; width: 300px; }
+        .navigation-buttons { margin-top: 0; display: flex; justify-content: space-between; width: 300px; }
         .navigation-buttons button {
             padding: 10px 16px; font-size: 14px; background-color: #007bff; color: #fff;
             border: none; border-radius: 10px; cursor: pointer; transition: background-color 0.3s;
@@ -535,13 +583,45 @@
         }
         a:hover { background-color: #0056b3; color: #fff; }
 
-        .table-section { margin-top: 15px; margin-bottom: 15px; width: 100%; }
+        .image-stage-card,
+        .cell-pairs-card,
+        .table-section {
+            width: 100%;
+        }
+        .section-eyebrow {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #d3dcf2;
+        }
+        .main-stage-toolbar,
+        .cell-pairs-toolbar {
+            margin-bottom: 12px;
+        }
+        .cell-id-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.35);
+            background: rgba(18, 28, 40, 0.55);
+            font-size: 12px;
+            color: #d7e6ff;
+        }
+        .table-section {
+            margin: 0;
+            display: grid;
+            gap: 12px;
+        }
 
         .table-panel {
             width: 100%;
-            border: 1px solid var(--panel-border);
-            border-radius: 14px;
-            background-color: var(--surface-media);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.32);
+            border-radius: var(--glass-radius-md);
+            background-color: rgba(12, 18, 26, 0.5);
             padding: 12px;
             display: flex;
             flex-direction: column;
@@ -552,7 +632,9 @@
         }
         .table-toolbar {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
             width: 100%;
         }
         .table-fullscreen-btn {
@@ -571,9 +653,9 @@
             max-height: 520px;
             overflow-x: auto;
             overflow-y: auto;
-            border: 1px solid var(--panel-border);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.35);
             border-radius: 10px;
-            background-color: var(--surface-media);
+            background-color: rgba(15, 20, 30, 0.58);
             scrollbar-width: auto;
             scrollbar-color: var(--scrollbar-thumb) transparent;
         }
@@ -726,26 +808,22 @@
 
         /* Chrome / Edge / Safari */
         .sidebar-content::-webkit-scrollbar-track {
-        background: var(--card-bg) !important;
+            background: var(--card-bg) !important;
         }
-
-
-            .popup button:hover {
-                background-color: darkred;
-                color: #fff;
-            }
-            .table-section{
-                margin-bottom: 10px;
-            }
-            .export-buttons {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 10px;
-                margin-top: 30px;
-                width: 100%;
-                flex-wrap: wrap;
-            }
+        .export-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            flex-wrap: wrap;
+            padding-top: 12px;
+            border-top: 1px solid rgba(var(--glass-border-rgb), 0.28);
+        }
+        .export-buttons .export_btn {
+            min-width: 150px;
+            text-align: center;
+        }
         .save-modal-backdrop {
             position: fixed;
             inset: 0;
@@ -824,10 +902,407 @@
             background: var(--accent);
             color: #fff;
         }
+        /* Refined layout overrides */
+        .content-wrapper {
+            gap: var(--page-shell-gap);
+        }
+        .main-content {
+            gap: var(--page-shell-gap);
+        }
+        .viewer-panel,
+        .viewer-content {
+            gap: var(--page-shell-gap);
+        }
+        .top-stage-card {
+            display: grid;
+            gap: 16px;
+        }
+        .top-stage-header {
+            align-items: flex-start;
+            gap: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(var(--glass-border-rgb), 0.24);
+        }
+        .top-stage-copy {
+            flex: 1 1 320px;
+            min-width: 0;
+            display: grid;
+            gap: 6px;
+        }
+        .top-stage-title {
+            margin: 0;
+            font-size: 26px;
+            line-height: 1.14;
+            letter-spacing: 0.01em;
+            word-break: break-word;
+        }
+        .top-stage-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .top-stage-meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .top-stage-meta-separator {
+            width: 4px;
+            height: 4px;
+            border-radius: 999px;
+            background: rgba(214, 230, 255, 0.34);
+            flex: 0 0 auto;
+        }
+        .main-channel-switcher {
+            display: inline-flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+            flex: 0 1 360px;
+        }
+        .main-channel-btn {
+            min-width: 68px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.34);
+            border-radius: 999px;
+            background: rgba(16, 24, 35, 0.6);
+            color: #e7edf8;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: none;
+        }
+        .main-channel-btn:hover {
+            background: rgba(25, 37, 52, 0.72);
+            border-color: rgba(var(--glass-border-rgb), 0.52);
+        }
+        .main-channel-btn.active {
+            color: #fff;
+            border-color: rgba(126, 171, 228, 0.72);
+            box-shadow: inset 0 0 0 1px rgba(126, 171, 228, 0.36);
+        }
+        .main-channel-btn.dic.active {
+            background: rgba(66, 66, 66, 0.7);
+        }
+        .main-channel-btn.dapi.active {
+            background: rgba(33, 74, 212, 0.64);
+        }
+        .main-channel-btn.mcherry.active {
+            background: rgba(173, 46, 46, 0.68);
+        }
+        .main-channel-btn.gfp.active {
+            background: rgba(20, 124, 67, 0.68);
+        }
+        .top-stage-body {
+            display: flex;
+            justify-content: center;
+        }
+        .main-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin: 0;
+        }
+        .main-image {
+            width: min(560px, 100%);
+            height: auto;
+            aspect-ratio: 1 / 1;
+            border-radius: 16px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.28);
+            background: rgba(8, 12, 19, 0.74);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        .top-stage-footer {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .top-stage-footer .file-navigation-button {
+            min-width: 170px;
+        }
+        .cell-pairs-toolbar {
+            margin-bottom: 16px;
+        }
+        .cell-toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .contour-toolbar {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            background: rgba(18, 28, 40, 0.55);
+            font-size: 12px;
+            color: #d7e6ff;
+        }
+        .channel-form {
+            width: 100%;
+            margin: 0;
+        }
+        .cell-images-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 260px));
+            justify-content: center;
+            gap: 18px;
+            align-items: start;
+            width: 100%;
+            overflow: visible;
+            padding-bottom: 0;
+        }
+        .cell-column {
+            display: grid;
+            grid-template-rows: auto auto auto;
+            align-items: start;
+            align-content: start;
+            gap: 8px;
+            min-width: 0;
+            width: 100%;
+        }
+        .cell-label {
+            width: 100%;
+            min-height: 34px;
+            margin: 0;
+            border-radius: 10px;
+            cursor: default;
+            box-shadow: none;
+            pointer-events: none;
+        }
+        .cell-image {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            border-radius: 14px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.24);
+            background: rgba(10, 15, 22, 0.76);
+        }
+        .info-box {
+            display: grid;
+            gap: 8px;
+            width: 100%;
+            height: auto;
+            margin-top: 0;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.22);
+            background: rgba(14, 20, 29, 0.56);
+            text-align: left;
+            font-size: 12px;
+            align-self: start;
+        }
+        .metric-lead {
+            margin: 0;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #d8e4f6;
+        }
+        .metric-note {
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .tight-info,
+        .metric-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: start;
+            margin: 0;
+            line-height: 1.35;
+        }
+        .tight-info span:first-child,
+        .metric-label {
+            color: var(--muted);
+        }
+        .tight-info span:last-child,
+        .metric-value {
+            color: #fff;
+            font-weight: 600;
+            text-align: right;
+        }
+        .navigation-buttons {
+            margin-top: 16px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .navigation-buttons button {
+            min-width: 160px;
+        }
+        .table-section {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            gap: 14px;
+            overflow: hidden;
+        }
+        .table-panel {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            padding: 0;
+            gap: 12px;
+            overflow: hidden;
+        }
+        .table-toolbar {
+            width: 100%;
+            min-width: 0;
+            padding-bottom: 2px;
+        }
+        .table-fullscreen-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+        .table-scroll-frame {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            background: rgba(10, 15, 22, 0.46);
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .table-scroll-frame .celltable {
+            width: max-content;
+            min-width: 100%;
+        }
+        .table-scroll-frame::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 999px;
+        }
+        .table-scroll-frame::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .table-scroll-frame::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .celltable,
+        .table-scroll-frame table,
+        .celltable tbody,
+        .celltable tbody tr:nth-child(odd),
+        .celltable tbody tr:nth-child(even) {
+            background-color: transparent;
+        }
+        .celltable {
+            box-shadow: none;
+        }
+        .celltable th {
+            background-color: rgba(16, 24, 35, 0.88);
+        }
+        .celltable td {
+            background-color: rgba(22, 29, 39, 0.68);
+        }
+        .celltable tbody tr:nth-child(even) td {
+            background-color: rgba(28, 36, 48, 0.78);
+        }
+        .celltable tbody tr:nth-child(odd) td {
+            background-color: rgba(20, 27, 37, 0.66);
+        }
+        .celltable tbody tr:hover td {
+            background-color: rgba(35, 53, 76, 0.88);
+        }
+        .table-panel:fullscreen {
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 42%),
+                rgba(var(--glass-surface-rgb), 0.96);
+            box-shadow: none;
+            backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+        }
+        .export-buttons {
+            justify-content: center;
+            padding-top: 14px;
+        }
+        .export-buttons .export_btn {
+            min-width: 170px;
+        }
+        @media (max-width: 1240px) {
+            .page-container {
+                flex-direction: column;
+            }
+            .sidebar,
+            .sidebar.collapsed {
+                width: 100%;
+            }
+        }
+        @media (max-width: 900px) {
+            .top-stage-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .main-channel-switcher {
+                justify-content: flex-start;
+            }
+            .cell-images-row {
+                grid-template-columns: repeat(2, minmax(0, 260px));
+                justify-content: center;
+            }
+            .main-image {
+                width: min(500px, calc(100vw - 64px));
+            }
+            .top-stage-footer .file-navigation-button,
+            .navigation-buttons {
+                width: 100%;
+                max-width: 320px;
+            }
+            .top-stage-footer,
+            .navigation-buttons {
+                gap: 10px;
+            }
+            .top-stage-footer .file-navigation-button,
+            .navigation-buttons button {
+                width: 100%;
+            }
+            .export-buttons {
+                justify-content: center;
+            }
+            .export-buttons .export_btn {
+                width: 100%;
+            }
+        }
+        @media (max-width: 640px) {
+            .cell-images-row {
+                grid-template-columns: minmax(0, 320px);
+                justify-content: center;
+            }
+            .cell-toolbar-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
         /* Firefox */
         .sidebar-content {
-        /* first = thumb, second = track */
-        scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
+            /* first = thumb, second = track */
+            scrollbar-color: var(--scrollbar-thumb) var(--card-bg);
         }
     </style>
 
@@ -912,88 +1387,126 @@
         </div>
 
         <!-- CONTENT WRAPPER to center everything else -->
-        <div class="content-wrapper">
+        <div class="content-wrapper glass-shell" data-ui-region="display-main-shell">
             <!-- MAIN CONTENT -->
-            <div class="main-content">
-                <div class="viewer-panel" id="viewerPanel">
+            <div class="main-content glass-shell" data-ui-region="display-content-stack">
+                <div class="viewer-panel glass-shell" id="viewerPanel">
                     <div class="viewer-scroll-frame" id="viewerScrollFrame">
                         <div class="viewer-content">
-                            <h2 id="imageTitle">{{ Image_Name }}</h2>
-                            <div class="main-container">
-                                <button class="file-navigation-button" onclick="previousFile()">Previous File</button>
-                                <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
-                                <button class="file-navigation-button" onclick="nextFile()">Next File</button>
-                            </div>
-
-                            <div class="cell-images-row">
-                                <div class="cell-id">Cell ID:<span id="cellID" style="margin-left: 4px;">1</span></div>
-                                <div class="cell-column">
-                                    <form method="post" id="dic_form">
-                                        {% csrf_token %}
-                                        <button name="dic" class="cell-label dic" data-channel="dic" type="button">DIC</button>
-                                    </form>
-                                    <img id="cellImage1" class="cell-image" src="">
-                                    <div class="info-box">
-                                        Toggle contours <br>
-                                        <label class="switch">
-                                            <input type="checkbox" id="toggleContours" checked>
-                                            <span class="slider"></span>
-                                        </label>
+                            <div class="top-stage-card glass-card glass-section" data-ui-region="top-stage-card">
+                                <div class="glass-toolbar top-stage-header">
+                                    <div class="top-stage-copy">
+                                        <p class="section-eyebrow">Main Image</p>
+                                        <h2 id="imageTitle" class="top-stage-title">{{ Image_Name }}</h2>
+                                        <div class="top-stage-meta">
+                                            <span class="top-stage-meta-item" id="fileContextMetaLine">Select a file to view metadata.</span>
+                                            <span class="top-stage-meta-separator" aria-hidden="true"></span>
+                                            <span class="top-stage-meta-item" id="fileContextScaleLine">Scale metadata unavailable.</span>
+                                        </div>
+                                    </div>
+                                    <div class="main-channel-switcher" id="mainChannelSwitcher" aria-label="Main image channel">
+                                        <button class="main-channel-btn dic" type="button" data-main-channel="dic">DIC</button>
+                                        <button class="main-channel-btn dapi" type="button" data-main-channel="dapi">DAPI</button>
+                                        <button class="main-channel-btn mcherry" type="button" data-main-channel="mcherry">mCherry</button>
+                                        <button class="main-channel-btn gfp" type="button" data-main-channel="gfp">GFP</button>
                                     </div>
                                 </div>
-                                <div class="cell-column">
-                                    <form method="post" id="dapi_form">
-                                        {% csrf_token %}
-                                        <button name="dapi" class="cell-label dapi" data-channel="dapi" type="button">DAPI</button>
-                                    </form>
-                                    <img id="cellImage2" class="cell-image" src="">
-                                    <div class="info-box">
-                                        <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
-                                        <div class="tight-info">Measurement channel: <span id="measurementChannel"></span></div>
-                                        <div class="tight-info">Nuclear status: <span id="nuclearStatus"></span></div>
+                                <div class="top-stage-body">
+                                    <div class="main-container">
+                                        <img id="mainImage" class="main-image" src="{{ MainImagePath }}" alt="Main Image">
                                     </div>
                                 </div>
-                                <div class="cell-column">
-                                    <form method="post" id="mCherry_form">
-                                        {% csrf_token %}
-                                        <button name="mCherry" class="cell-label mcherry" data-channel="mcherry" type="button">mCherry</button>
-                                    </form>
-                                    <img id="cellImage3" class="cell-image" src="">
-                                    <div class="info-box">
-                                        <div class="tight-info">mCherry Line Distance: <span id="distance"></span></div>
-                                        <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
-                                        <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
-                                        <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
-                                        <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
-                                    </div>
-                                </div>
-                                <div class="cell-column">
-                                    <form method="post" id="gfp_form">
-                                        {% csrf_token %}
-                                        <button name="gfp" class="cell-label gfp" data-channel="gfp" type="button">GFP</button>
-                                    </form>
-                                    <img id="cellImage4" class="cell-image" src="">
-                                    <div class="info-box">
-                                        <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
-                                        <div class="tight-info"><span id="cellularIntensityLabel">Measured Cellular Intensity</span>: <span id="cellularIntensitySum"></span></div>
-                                        <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
-                                        <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
-                                        <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
-                                    </div>
+                                <div class="top-stage-footer">
+                                    <button class="file-navigation-button" type="button" onclick="previousFile()" id="previousFileBtn">Previous File</button>
+                                    <button class="file-navigation-button" type="button" onclick="nextFile()" id="nextFileBtn">Next File</button>
                                 </div>
                             </div>
 
-                            <div class="navigation-buttons">
-                                <button onclick="previousCell()">Previous Cell</button>
-                                <button onclick="nextCell()">Next Cell</button>
+                            <div class="cell-pairs-card glass-card glass-section" data-ui-region="cell-pairs-card">
+                                <div class="glass-toolbar cell-pairs-toolbar">
+                                    <p class="section-eyebrow">Cell Pairs</p>
+                                    <div class="cell-toolbar-actions">
+                                        <div class="cell-id-chip">Cell ID: <span id="cellID">1</span></div>
+                                        <div class="contour-toolbar">
+                                            <span>Contours</span>
+                                            <label class="switch">
+                                                <input type="checkbox" id="toggleContours" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="cell-images-row">
+                                    <div class="cell-column">
+                                        <form method="post" id="dic_form" class="channel-form">
+                                            {% csrf_token %}
+                                            <span class="cell-label dic">DIC</span>
+                                        </form>
+                                        <img id="cellImage1" class="cell-image" src="">
+                                        <div class="info-box">
+                                            <p class="metric-lead">Reference Channel</p>
+                                            <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Contours</span>
+                                                <span class="metric-value" id="contourStateValue">On</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="cell-column">
+                                        <form method="post" id="dapi_form" class="channel-form">
+                                            {% csrf_token %}
+                                            <span class="cell-label dapi">DAPI</span>
+                                        </form>
+                                        <img id="cellImage2" class="cell-image" src="">
+                                        <div class="info-box">
+                                            <div class="tight-info">Nucleus contour source: <span id="nucleusContourChannel"></span></div>
+                                            <div class="tight-info">Measurement channel: <span id="measurementChannel"></span></div>
+                                            <div class="tight-info">Nuclear status: <span id="nuclearStatus"></span></div>
+                                        </div>
+                                    </div>
+                                    <div class="cell-column">
+                                        <form method="post" id="mCherry_form" class="channel-form">
+                                            {% csrf_token %}
+                                            <span class="cell-label mcherry">mCherry</span>
+                                        </form>
+                                        <img id="cellImage3" class="cell-image" src="">
+                                        <div class="info-box">
+                                            <div class="tight-info">mCherry Line Distance: <span id="distance"></span></div>
+                                            <div class="tight-info">Line GFP Intensity: <span id="lineGFPIntensity"></span></div>
+                                            <div class="tight-info">Green Red Intensity 1: <span id="greenredIntensity1"></span></div>
+                                            <div class="tight-info">Green Red Intensity 2: <span id="greenredIntensity2"></span></div>
+                                            <div class="tight-info">Green Red Intensity 3: <span id="greenredIntensity3"></span></div>
+                                        </div>
+                                    </div>
+                                    <div class="cell-column">
+                                        <form method="post" id="gfp_form" class="channel-form">
+                                            {% csrf_token %}
+                                            <span class="cell-label gfp">GFP</span>
+                                        </form>
+                                        <img id="cellImage4" class="cell-image" src="">
+                                        <div class="info-box">
+                                            <div class="tight-info"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span>: <span id="nucleusIntensitySum"></span></div>
+                                            <div class="tight-info"><span id="cellularIntensityLabel">Measured Cellular Intensity</span>: <span id="cellularIntensitySum"></span></div>
+                                            <div class="tight-info">Cytoplasmic Intensity: <span id="cytoplasmicIntensity"></span></div>
+                                            <div class="tight-info">GFP Dot: <span id="gfpDot"></span></div>
+                                            <div class="tight-info">Biorientation: <span id="biorientation"></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="navigation-buttons">
+                                    <button onclick="previousCell()">Previous Cell</button>
+                                    <button onclick="nextCell()">Next Cell</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="table-section">
+                <div class="table-section glass-card glass-section" id="displayTableSection" data-ui-region="stats-table-card">
                     <div class="table-panel" id="statsTablePanel">
-                        <div class="table-toolbar">
+                        <div class="table-toolbar glass-toolbar">
+                            <p class="section-eyebrow">Statistics Table</p>
                             <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">Enter Fullscreen</button>
                         </div>
                         <div class="table-scroll-frame" id="tableScrollFrame">
@@ -1011,8 +1524,8 @@
                     </div>
                     {% load export_url from django_tables2 %}
                     <div class="export-buttons">
-                        <a class="export_btn" href="{% export_url 'csv' %}">Download CSV</a>
-                        <a class="export_btn" href="{% export_url 'xlsx' %}">Download Excel</a>
+                        <a class="export_btn" id="displayDownloadCsvBtn" href="{% export_url 'csv' %}">Download CSV</a>
+                        <a class="export_btn" id="displayDownloadXlsxBtn" href="{% export_url 'xlsx' %}">Download Excel</a>
                     </div>
 
                 </div>
@@ -1075,6 +1588,7 @@
             const fileData = filesData[fileUUID];
             document.getElementById("mainImage").src = fileData.MainImagePath;
             document.getElementById("imageTitle").textContent = fileData.Image_Name;
+            updateFileContextSummary(fileUUID, fileData);
             for (const channel of channels) {
                 let form = channel + '_form';
                 document.getElementById(form).action = `/image/${fileUUID}/display/`;
@@ -1091,6 +1605,29 @@
             const inferred = inferChannelFromMainImage(fileData.MainImagePath);
             if (inferred) {
                 setActiveChannel(inferred);
+            }
+        }
+
+        function updateFileContextSummary(fileUUID, fileData) {
+            const metaLine = document.getElementById('fileContextMetaLine');
+            const scaleLine = document.getElementById('fileContextScaleLine');
+            if (!metaLine || !scaleLine) {
+                return;
+            }
+
+            const fileItem = Array.from(document.querySelectorAll('.file-item')).find(
+                (item) => item.dataset.uuid === fileUUID
+            );
+            const metaText = fileItem?.querySelector('.file-meta')?.textContent?.trim() || '';
+            const scaleValue = fileItem?.querySelector('.file-scale-line span:first-child')?.textContent?.trim() || '';
+            const scaleSource = fileItem?.querySelector('.file-scale-source')?.textContent?.trim() || '';
+            const cellsFallback = Number(fileData?.NumberOfCells || 0);
+
+            metaLine.textContent = metaText || `${cellsFallback} cells`;
+            if (scaleValue || scaleSource) {
+                scaleLine.textContent = scaleSource ? `${scaleValue} · ${scaleSource}` : scaleValue;
+            } else {
+                scaleLine.textContent = 'Scale metadata unavailable.';
             }
         }
 
@@ -1175,11 +1712,18 @@
         }
 
         function setActiveChannel(channel) {
-            channelButtons.forEach((btn) => {
-                const isActive = btn.dataset.channel === channel;
+            mainChannelButtons.forEach((btn) => {
+                const isActive = btn.dataset.mainChannel === channel;
                 btn.classList.toggle('active', isActive);
                 btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
+        }
+
+        function syncContourStateLabel(showContours) {
+            const contourStateValue = document.getElementById('contourStateValue');
+            if (contourStateValue) {
+                contourStateValue.textContent = showContours ? 'On' : 'Off';
+            }
         }
 
         function normalizeHeader(text) {
@@ -1409,14 +1953,15 @@
         }
 
         function applyContourToggleState(forceShowContours = null) {
-            const imageUrls = getCurrentCellImageUrls();
-            if (!imageUrls) {
-                return;
-            }
             const toggleElement = document.getElementById('toggleContours');
             const showContours = forceShowContours === null
                 ? !!(toggleElement && toggleElement.checked)
                 : !!forceShowContours;
+            syncContourStateLabel(showContours);
+            const imageUrls = getCurrentCellImageUrls();
+            if (!imageUrls) {
+                return;
+            }
             if (showContours) {
                 document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
                 document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
@@ -1482,7 +2027,7 @@
         const sidebar = document.getElementById('sidebar');
         const toggleBtn = document.getElementById('toggleSidebarBtn');
         const fileItems = Array.from(document.querySelectorAll('.file-item[data-uuid]'));
-        const channelButtons = document.querySelectorAll('.cell-label[data-channel]');
+        const mainChannelButtons = document.querySelectorAll('.main-channel-btn[data-main-channel]');
         const selectModeBtn = document.getElementById('selectModeBtn');
         const selectAllBtn = document.getElementById('selectAllBtn');
         const saveSelectedBtn = document.getElementById('saveSelectedBtn');
@@ -2004,10 +2549,10 @@
         syncSelectionUI();
 
         // Main channel switching (async, no page reload)
-        channelButtons.forEach((btn) => {
+        mainChannelButtons.forEach((btn) => {
             btn.addEventListener('click', (event) => {
                 event.preventDefault();
-                const channel = btn.dataset.channel;
+                const channel = btn.dataset.mainChannel;
                 if (!channel) return;
                 switchMainChannel(channel);
             });
@@ -2119,28 +2664,12 @@
         function setSidebarScrollHeight() {
             var sidebar = document.getElementById('sidebar');
             if (!sidebar) return;
-            var header  = sidebar.querySelector('.sidebar-header');
-            var actions = sidebar.querySelector('.sidebar-actions');
             var content = sidebar.querySelector('.sidebar-content');
             if (!content) return;
-
-            // Sidebar height now equals the flex row height (which can exceed the viewport)
-            var sidebarH = sidebar.getBoundingClientRect().height;
-
-            var headerH = header ? header.getBoundingClientRect().height : 0;
-            var hs = header ? getComputedStyle(header) : null;
-            var headerMargins = hs ? (parseFloat(hs.marginTop)||0) + (parseFloat(hs.marginBottom)||0) : 0;
-            var actionsH = actions ? actions.getBoundingClientRect().height : 0;
-            var as = actions ? getComputedStyle(actions) : null;
-            var actionMargins = as ? (parseFloat(as.marginTop)||0) + (parseFloat(as.marginBottom)||0) : 0;
-
-            var cs = getComputedStyle(content);
-            var contentVPad = (parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0);
-
-            var maxH = Math.max(0, sidebarH - headerH - headerMargins - actionsH - actionMargins - contentVPad);
-            content.style.maxHeight = maxH + 'px';
-            content.style.overflowY = 'auto';
-            content.style.minHeight  = '0';
+            sidebar.style.maxHeight = '';
+            content.style.maxHeight = '';
+            content.style.overflowY = 'visible';
+            content.style.minHeight = '0';
         }
 
         window.addEventListener('load', function () {
@@ -2148,6 +2677,10 @@
             setTimeout(setSidebarScrollHeight, 0);
         });
         window.addEventListener('resize', setSidebarScrollHeight);
+        document.addEventListener('fullscreenchange', function () {
+            requestAnimationFrame(setSidebarScrollHeight);
+            setTimeout(setSidebarScrollHeight, 0);
+        });
 
         var sidebarEl = document.getElementById('sidebar');
         if (sidebarEl) {
