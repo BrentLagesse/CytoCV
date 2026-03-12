@@ -122,6 +122,10 @@
         color: var(--muted);
         font-size: 13px;
     }
+    .delete-modal form {
+        display: grid;
+        gap: 18px;
+    }
     .field {
         display: grid;
         gap: 6px;
@@ -176,8 +180,10 @@
     }
     .delete-modal-actions {
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: space-between;
         gap: 10px;
+        padding-top: 6px;
     }
     .delete-modal-btn {
         border: none;
@@ -198,6 +204,7 @@
     .delete-modal-btn.confirm {
         background: #b4232f;
         color: #fff;
+        margin-left: auto;
     }
     .delete-modal-btn.confirm:hover {
         background: #911b25;

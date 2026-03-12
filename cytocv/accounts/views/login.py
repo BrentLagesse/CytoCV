@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import timedelta
 
@@ -37,6 +38,7 @@ RECOVERY_CODE_TTL_SECONDS = VERIFY_CODE_TTL_SECONDS
 RECOVERY_CODE_MAX_ATTEMPTS = VERIFY_CODE_MAX_ATTEMPTS
 RECOVERY_CODE_RESEND_SECONDS = VERIFY_CODE_RESEND_SECONDS
 AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
+logger = logging.getLogger(__name__)
 
 
 def _normalize_email(email: str) -> str:
@@ -337,6 +339,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             email_message.send(fail_silently=False)
             return True
         except Exception:
+            logger.exception("Failed to send password recovery verification email.")
             return False
 
     if request.method == "POST":
@@ -567,6 +570,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 user.set_password(password)
                 user.save(update_fields=["password"])
             except Exception:
+                logger.exception("Failed to save password during recovery reset.")
                 page_error = "Something went wrong. Try again."
                 step = 3
                 return render_current()

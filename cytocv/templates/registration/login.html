@@ -19,13 +19,17 @@
         width: 100%;
         background:
             var(--liquid-linear-highlight),
-            var(--card-bg);
+            var(--glass-card-bg);
         border: 1px solid var(--panel-border);
         border-radius: 18px;
         padding: 30px 34px;
         box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
         display: grid;
         gap: 18px;
+    }
+    .card-intro {
+        display: grid;
+        gap: 6px;
     }
     .section {
         background:
@@ -38,26 +42,33 @@
         gap: 14px;
     }
     .step-indicator {
-        font-size: 12px;
-        letter-spacing: 0.22em;
+        margin: 0;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: var(--muted);
+        color: rgba(211, 220, 242, 0.72);
     }
     h1 {
         margin: 0;
-        font-size: 28px;
+        font-size: 26px;
+        line-height: 1.16;
+        letter-spacing: 0.01em;
         color: var(--text);
     }
     .subtitle {
         margin: 0;
         color: var(--muted);
         font-size: 14px;
+        line-height: 1.45;
     }
     .title {
-        font-size: 14px;
+        margin: 0;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        letter-spacing: 0.22em;
-        color: var(--muted);
+        color: rgba(211, 220, 242, 0.72);
     }
     .form {
         display: grid;
@@ -301,7 +312,6 @@
         display: block;
     }
     .rate-limit-banner,
-    .page-banner,
     .oauth-error-toast {
         background: #3b1a1f;
         border: 1px solid var(--danger);
@@ -333,11 +343,6 @@
     }
     .message-close:hover {
         background: #5a2a31;
-    }
-    .page-banner {
-        padding: 10px 12px;
-        border-radius: 10px;
-        font-size: 13px;
     }
     .message.info {
         background: rgba(0, 123, 255, 0.2);
@@ -452,14 +457,20 @@
 {% endblock head %}
 
 {% block content %}
-{% if recaptcha_gate_error %}
-<div class="message-container">
+{% if recaptcha_gate_error or login_page_notice or login_page_error or recovery_page_error %}
+<div class="message-container auth-message-container">
+    {% if recaptcha_gate_error %}
     <div class="message error auto-dismiss" role="alert">{{ recaptcha_gate_error }}</div>
-</div>
-{% endif %}
-{% if login_page_notice and not recovery_mode %}
-<div class="message-container">
+    {% endif %}
+    {% if login_page_notice and not recovery_mode %}
     <div class="message info" role="status">{{ login_page_notice }}</div>
+    {% endif %}
+    {% if login_page_error and not recovery_mode %}
+    <div class="message error" role="alert">{{ login_page_error }}</div>
+    {% endif %}
+    {% if recovery_mode and recovery_page_error %}
+    <div class="message error" role="alert">{{ recovery_page_error }}</div>
+    {% endif %}
 </div>
 {% endif %}
 <div class="login-page">
@@ -653,71 +664,68 @@
             {% endif %}
 
             <div class="card soft-fade-in">
-                <div>
+                <div class="card-intro">
                     <div class="step-indicator">CytoCV</div>
                     <h1>Sign In</h1>
                     <p class="subtitle">Access your analysis workspace and continue where you left off.</p>
                 </div>
+                <div class="title">Credentials</div>
+                <form method="post" class="form login-form" novalidate>
+                    {% csrf_token %}
+                    <div class="field">
+                        <label for="user_email">Email</label>
+                        <input type="email" id="user_email" name="email" placeholder="Enter your email" autocomplete="email">
+                    </div>
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span class="btn-label">Sign In</span>
+                    </button>
+                </form>
+                <div class="login-footer">
+                    <span>Forgot your password? <a href="{% url 'signin' %}?recover=1&fresh=1">Reset password</a></span>
+                    <span class="footer-separator" aria-hidden="true">|</span>
+                    <span>Don't have an account? <a href="{% url 'signup' %}?fresh=1">Sign up</a></span>
+                </div>
+            </div>
 
-                <div class="section">
-                    <div class="title">Credentials</div>
-                    {% if login_page_error %}
-                        <div class="page-banner" role="alert">{{ login_page_error }}</div>
-                    {% endif %}
-                    <form method="post" class="form login-form" novalidate>
+            <div class="card soft-fade-in">
+                <div class="card-intro">
+                    <div class="title">Single sign-on</div>
+                    <p class="subtitle">Use a connected provider instead of entering credentials directly.</p>
+                </div>
+                <div class="oauth-grid">
+                    <form method="post" action="{% provider_login_url 'google' %}">
                         {% csrf_token %}
-                        <div class="field">
-                            <label for="user_email">Email</label>
-                            <input type="email" id="user_email" name="email" placeholder="Enter your email" autocomplete="email">
-                        </div>
-                        <div class="field">
-                            <label for="password">Password</label>
-                            <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
-                        </div>
-                        <button type="submit" class="primary-btn" id="loginSubmit" {% if rate_limit_active %}disabled{% endif %}>
-                            <span class="spinner" aria-hidden="true"></span>
-                            <span class="btn-label">Sign In</span>
+                        <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
+                            <span class="oauth-icon google" aria-hidden="true">
+                                <svg viewBox="0 0 48 48" role="img">
+                                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.22 9.24 3.22l6.89-6.89C35.75 2.19 30.15 0 24 0 14.64 0 6.61 5.38 2.69 13.22l7.98 6.19C12.64 12.27 17.94 9.5 24 9.5z"/>
+                                    <path fill="#4285F4" d="M46.08 24.55c0-1.64-.15-3.22-.43-4.74H24v9h12.47c-.54 2.85-2.17 5.27-4.64 6.89l7.1 5.52c4.14-3.81 6.15-9.41 6.15-16.67z"/>
+                                    <path fill="#FBBC05" d="M10.67 28.41c-.6-1.8-.94-3.72-.94-5.7 0-1.98.34-3.9.94-5.7l-7.98-6.19C1.13 14.65 0 18.72 0 22.71c0 3.99 1.13 8.06 2.69 11.89l7.98-6.19z"/>
+                                    <path fill="#34A853" d="M24 45.5c6.15 0 11.3-2.04 15.07-5.54l-7.1-5.52c-1.98 1.33-4.51 2.12-7.97 2.12-6.06 0-11.36-2.77-13.33-6.81l-7.98 6.19C6.61 42.62 14.64 48 24 48z"/>
+                                </svg>
+                            </span>
+                            Continue with Google
                         </button>
                     </form>
-                    <div class="login-footer">
-                        <span>Forgot your password? <a href="{% url 'signin' %}?recover=1&fresh=1">Reset password</a></span>
-                        <span class="footer-separator" aria-hidden="true">|</span>
-                        <span>Don't have an account? <a href="{% url 'signup' %}?fresh=1">Sign up</a></span>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div class="title">Single sign-on</div>
-                    <div class="oauth-grid">
-                        <form method="post" action="{% provider_login_url 'google' %}">
-                            {% csrf_token %}
-                            <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
-                                <span class="oauth-icon google" aria-hidden="true">
-                                    <svg viewBox="0 0 48 48" role="img">
-                                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.22 9.24 3.22l6.89-6.89C35.75 2.19 30.15 0 24 0 14.64 0 6.61 5.38 2.69 13.22l7.98 6.19C12.64 12.27 17.94 9.5 24 9.5z"/>
-                                        <path fill="#4285F4" d="M46.08 24.55c0-1.64-.15-3.22-.43-4.74H24v9h12.47c-.54 2.85-2.17 5.27-4.64 6.89l7.1 5.52c4.14-3.81 6.15-9.41 6.15-16.67z"/>
-                                        <path fill="#FBBC05" d="M10.67 28.41c-.6-1.8-.94-3.72-.94-5.7 0-1.98.34-3.9.94-5.7l-7.98-6.19C1.13 14.65 0 18.72 0 22.71c0 3.99 1.13 8.06 2.69 11.89l7.98-6.19z"/>
-                                        <path fill="#34A853" d="M24 45.5c6.15 0 11.3-2.04 15.07-5.54l-7.1-5.52c-1.98 1.33-4.51 2.12-7.97 2.12-6.06 0-11.36-2.77-13.33-6.81l-7.98 6.19C6.61 42.62 14.64 48 24 48z"/>
-                                    </svg>
-                                </span>
-                                Continue with Google
-                            </button>
-                        </form>
-                        <form method="post" action="{% provider_login_url 'microsoft' %}">
-                            {% csrf_token %}
-                            <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
-                                <span class="oauth-icon microsoft" aria-hidden="true">
-                                    <svg viewBox="0 0 23 23" role="img">
-                                        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-                                        <rect x="13" y="1" width="9" height="9" fill="#7FBA00"/>
-                                        <rect x="1" y="13" width="9" height="9" fill="#00A4EF"/>
-                                        <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
-                                    </svg>
-                                </span>
-                                Continue with Microsoft
-                            </button>
-                        </form>
-                    </div>
+                    <form method="post" action="{% provider_login_url 'microsoft' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="oauth-btn" {% if rate_limit_active %}disabled{% endif %}>
+                            <span class="oauth-icon microsoft" aria-hidden="true">
+                                <svg viewBox="0 0 23 23" role="img">
+                                    <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                    <rect x="13" y="1" width="9" height="9" fill="#7FBA00"/>
+                                    <rect x="1" y="13" width="9" height="9" fill="#00A4EF"/>
+                                    <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
+                                </svg>
+                            </span>
+                            Continue with Microsoft
+                        </button>
+                    </form>
                 </div>
             </div>
         {% endif %}
@@ -727,12 +735,6 @@
 {% if recovery_mode and recovery_code_notice %}
     <div class="notice-toast">
         <div class="notice-banner">{{ recovery_code_notice }}</div>
-    </div>
-{% endif %}
-
-{% if recovery_mode and recovery_page_error %}
-    <div class="message-container">
-        <div class="message error" role="alert">{{ recovery_page_error }}</div>
     </div>
 {% endif %}
 

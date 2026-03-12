@@ -694,9 +694,8 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const messageContainer = document.querySelector('.message-container');
-            if (messageContainer) {
-                const messages = Array.from(messageContainer.querySelectorAll('.message'));
+            const initializeMessages = () => {
+                const messages = Array.from(document.querySelectorAll('.message-container .message'));
                 const seen = new Set();
                 messages.forEach((msg) => {
                     const key = `${msg.className}|${msg.textContent.trim()}`;
@@ -714,13 +713,17 @@
                         close.addEventListener('click', () => msg.remove());
                         msg.appendChild(close);
                     }
-                    if (msg.classList.contains('auto-dismiss')) {
+                    if (msg.classList.contains('auto-dismiss') && msg.dataset.autoDismissScheduled !== '1') {
+                        msg.dataset.autoDismissScheduled = '1';
                         setTimeout(() => {
                             msg.remove();
                         }, 15000);
                     }
                 });
-            }
+            };
+
+            window.initializeMessages = initializeMessages;
+            initializeMessages();
 
             const logoutLink = document.getElementById('logoutLink');
             const logoutBackdrop = document.getElementById('logoutBackdrop');

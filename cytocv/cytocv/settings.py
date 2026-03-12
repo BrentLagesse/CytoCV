@@ -10,10 +10,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
 
 
-def _load_env_file(path: Path) -> None:
-    """Load simple KEY=VALUE pairs from a .env file without overriding os.environ."""
+def _read_env_file(path: Path) -> dict[str, str]:
+    """Read simple KEY=VALUE pairs from a .env file."""
+    values: dict[str, str] = {}
     if not path.exists():
-        return
+        return values
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -21,22 +22,54 @@ def _load_env_file(path: Path) -> None:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip()
-        if not key or key in os.environ:
+        if not key:
             continue
         if (value.startswith('"') and value.endswith('"')) or (
             value.startswith("'") and value.endswith("'")
         ):
             value = value[1:-1]
+        values[key] = value
+    return values
+
+
+def _load_env_file(path: Path) -> None:
+    """Load simple KEY=VALUE pairs from a .env file without overriding os.environ."""
+    for key, value in _read_env_file(path).items():
+        if key in os.environ:
+            continue
         os.environ[key] = value
+
+
+_ENV_FILE_VALUES: dict[str, str] = {}
+for env_path in (PROJECT_ROOT / ".env", BASE_DIR / ".env"):
+    for env_key, env_value in _read_env_file(env_path).items():
+        _ENV_FILE_VALUES.setdefault(env_key, env_value)
 
 
 _load_env_file(PROJECT_ROOT / ".env")
 _load_env_file(BASE_DIR / ".env")
 
 
-def _parse_env_bool(var_name: str, default: bool = False) -> bool:
+def _get_env(
+    var_name: str,
+    default: str | None = None,
+    *,
+    prefer_env_file: bool = False,
+) -> str | None:
+    """Return a setting from the process environment, optionally preferring .env."""
+    if prefer_env_file and var_name in _ENV_FILE_VALUES:
+        return _ENV_FILE_VALUES[var_name]
+    return os.getenv(var_name, default)
+
+
+def _parse_env_bool(
+    var_name: str,
+    default: bool = False,
+    *,
+    prefer_env_file: bool = False,
+) -> bool:
     """Parse common boolean env values with strict validation."""
-    raw_value = os.getenv(var_name)
+    raw_value = _get_env(var_name, prefer_env_file=prefer_env_file)
     if raw_value is None:
         return default
     value = raw_value.strip().lower()
@@ -49,9 +82,14 @@ def _parse_env_bool(var_name: str, default: bool = False) -> bool:
     )
 
 
-def _parse_env_int(var_name: str, default: int) -> int:
+def _parse_env_int(
+    var_name: str,
+    default: int,
+    *,
+    prefer_env_file: bool = False,
+) -> int:
     """Parse integer env values with strict validation."""
-    raw_value = os.getenv(var_name)
+    raw_value = _get_env(var_name, prefer_env_file=prefer_env_file)
     if raw_value is None or raw_value.strip() == "":
         return default
     try:
@@ -339,24 +377,45 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email
-EMAIL_BACKEND = os.getenv(
+EMAIL_BACKEND = (_get_env(
     "CYTOCV_EMAIL_BACKEND",
     "django.core.mail.backends.smtp.EmailBackend",
-).strip() or "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("CYTOCV_EMAIL_HOST", "smtp.gmail.com")
-EMAIL_HOST_USER = os.getenv("CYTOCV_EMAIL_HOST_USER", "cytocv@gmail.com")
-EMAIL_HOST_PASSWORD = os.getenv("CYTOCV_EMAIL_HOST_PASSWORD", "")
-EMAIL_PORT = _parse_env_int("CYTOCV_EMAIL_PORT", 587)
-EMAIL_USE_TLS = _parse_env_bool("CYTOCV_EMAIL_USE_TLS", True)
-EMAIL_USE_SSL = _parse_env_bool("CYTOCV_EMAIL_USE_SSL", False)
+    prefer_env_file=True,
+) or "").strip() or "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = _get_env("CYTOCV_EMAIL_HOST", "smtp.gmail.com", prefer_env_file=True)
+EMAIL_HOST_USER = _get_env(
+    "CYTOCV_EMAIL_HOST_USER",
+    "cytocv@gmail.com",
+    prefer_env_file=True,
+)
+EMAIL_HOST_PASSWORD = _get_env(
+    "CYTOCV_EMAIL_HOST_PASSWORD",
+    "",
+    prefer_env_file=True,
+)
+EMAIL_PORT = _parse_env_int("CYTOCV_EMAIL_PORT", 587, prefer_env_file=True)
+EMAIL_USE_TLS = _parse_env_bool("CYTOCV_EMAIL_USE_TLS", True, prefer_env_file=True)
+EMAIL_USE_SSL = _parse_env_bool("CYTOCV_EMAIL_USE_SSL", False, prefer_env_file=True)
 if EMAIL_USE_TLS and EMAIL_USE_SSL:
     raise ImproperlyConfigured(
         "CYTOCV_EMAIL_USE_TLS and CYTOCV_EMAIL_USE_SSL cannot both be enabled."
     )
-_email_timeout_raw = os.getenv("CYTOCV_EMAIL_TIMEOUT", "").strip()
-EMAIL_TIMEOUT = _parse_env_int("CYTOCV_EMAIL_TIMEOUT", 0) if _email_timeout_raw else None
-DEFAULT_FROM_EMAIL = os.getenv("CYTOCV_DEFAULT_FROM_EMAIL", "no-reply@noreply.x.edu")
-EMAIL_REPLY_TO = os.getenv("CYTOCV_EMAIL_REPLY_TO", "no-reply@noreply.x.edu")
+_email_timeout_raw = (_get_env("CYTOCV_EMAIL_TIMEOUT", "", prefer_env_file=True) or "").strip()
+EMAIL_TIMEOUT = (
+    _parse_env_int("CYTOCV_EMAIL_TIMEOUT", 0, prefer_env_file=True)
+    if _email_timeout_raw
+    else None
+)
+DEFAULT_FROM_EMAIL = _get_env(
+    "CYTOCV_DEFAULT_FROM_EMAIL",
+    "no-reply@noreply.x.edu",
+    prefer_env_file=True,
+)
+EMAIL_REPLY_TO = _get_env(
+    "CYTOCV_EMAIL_REPLY_TO",
+    "no-reply@noreply.x.edu",
+    prefer_env_file=True,
+)
 
 # Google reCAPTCHA
 RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"
