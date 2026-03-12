@@ -16,8 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
-from django.urls import include, path, re_path
-from django.views.generic import RedirectView
+from django.urls import include, path
 
 from accounts.views import (
     account_settings_view,
@@ -27,47 +26,34 @@ from accounts.views import (
     dashboard_channel_visibility_view,
     dashboard_view,
     preferences_view,
-    profile_view,
     signup,
 )
 from core.views import (
+    cancel_progress,
     convert_to_image,
     display,
-    homepage,
-    pre_process_step,
-    segment_image,
-    upload_images,
-)
-from core.views.media import serve_media
-from core.views.pre_process_step import (
-    cancel_progress,
+    experiment,
     get_progress,
+    home,
+    main_image_channel,
+    pre_process,
+    save_display_files,
+    segment_image,
     set_progress,
+    sync_display_file_selection,
+    unsave_display_files,
     update_channel_order,
 )
+from core.views.media import serve_media
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', homepage, name="homepage"),
+    path('', home, name="home"),
     path('signin/', auth_login, name="signin"),
-    path(
-        'login/',
-        RedirectView.as_view(pattern_name="signin", permanent=False, query_string=True),
-        name="login",
-    ),
-    path('login/oauth/', include('allauth.urls')),
-    re_path(
-        r'^signin/oauth/?(?P<path>.*)$',
-        RedirectView.as_view(
-            url="/login/oauth/%(path)s",
-            permanent=False,
-            query_string=True,
-        ),
-    ),
+    path('signin/oauth/', include('allauth.urls')),
     path('logout/', auth_logout, name="logout"),
     path('signup/', signup, name="signup"),
-    path('profile/', login_required(profile_view), name="profile"),
-    path('settings/', login_required(account_settings_view), name="account_settings"),
+    path('account-settings/', login_required(account_settings_view), name="account_settings"),
     path('dashboard/', login_required(dashboard_view), name="dashboard"),
     path(
         'dashboard/files/delete/',
@@ -79,29 +65,48 @@ urlpatterns = [
         login_required(dashboard_channel_visibility_view),
         name="dashboard_channel_visibility",
     ),
-    path('preferences/', login_required(preferences_view), name="preferences"),
-    path('image/upload/', login_required(upload_images), name="image_upload"),
-    path('image/preprocess/', login_required(pre_process_step), name="pre_process_step"),
-    path('image/preprocess/<str:uuids>/', login_required(pre_process_step), name="pre_process_step"),
-    path('image/<str:uuids>/convert/', login_required(convert_to_image.convert_to_image)),
-    path('image/<str:uuids>/segment/', login_required(segment_image.segment_image)),
-    path('image/<str:uuids>/display/', login_required(display.display_cell), name='display'),
+    path('workflow-defaults/', login_required(preferences_view), name="workflow_defaults"),
+    path('experiment/', login_required(experiment), name="experiment"),
     path(
-        'image/display/files/save/',
-        login_required(display.save_display_files),
+        'experiment/<str:uuids>/pre-process/',
+        login_required(pre_process),
+        name="pre_process",
+    ),
+    path(
+        'experiment/<str:uuids>/convert/',
+        login_required(convert_to_image),
+        name="experiment_convert",
+    ),
+    path(
+        'experiment/<str:uuids>/segment/',
+        login_required(segment_image),
+        name="experiment_segment",
+    ),
+    path(
+        'experiment/<str:uuids>/display/',
+        login_required(display),
+        name='display',
+    ),
+    path(
+        'experiment/display/files/save/',
+        login_required(save_display_files),
         name='display_save_files',
     ),
     path(
-        'image/display/files/unsave/',
-        login_required(display.unsave_display_files),
+        'experiment/display/files/unsave/',
+        login_required(unsave_display_files),
         name='display_unsave_files',
     ),
     path(
-        'image/display/files/sync-selection/',
-        login_required(display.sync_display_file_selection),
+        'experiment/display/files/sync-selection/',
+        login_required(sync_display_file_selection),
         name='display_sync_file_selection',
     ),
-    path('image/<str:uuid>/main-channel/', login_required(display.main_image_channel), name='main_image_channel'),
+    path(
+        'experiment/<str:uuid>/main-channel/',
+        login_required(main_image_channel),
+        name='main_image_channel',
+    ),
     path('api/update-channel-order/<str:uuid>/', login_required(update_channel_order), name='update_channel_order'),
     path('api/progress/<str:uuids>/', login_required(get_progress), name='analysis_progress'),
     path('api/progress/<str:key>/set/', login_required(set_progress), name='set_progress'),

@@ -177,6 +177,11 @@ main.main > section.panel {
   background: rgba(47, 143, 78, 0.14);
 }
 
+.channel-pill.paused {
+  border-color: rgba(187, 154, 62, 0.62);
+  background: rgba(187, 154, 62, 0.12);
+}
+
 .channel-pill-left {
   display: grid;
   gap: 2px;
@@ -208,6 +213,10 @@ main.main > section.panel {
 
 .channel-pill.required .channel-pill-state {
   color: #d7ffe4;
+}
+
+.channel-pill.paused .channel-pill-state {
+  color: #f0ddb0;
 }
 
 .channel-pill.status-changing {
@@ -398,6 +407,11 @@ main.main > section.panel {
   margin-left: 10px;
   padding-left: 10px;
   border-left: 2px solid var(--panel-border);
+  display: grid;
+  gap: 10px;
+}
+
+.validation-channel-list {
   display: grid;
   gap: 10px;
 }
@@ -1015,33 +1029,13 @@ main.main > section.panel {
     <section class="panel" id="sec-plugins" data-workflow-section="plugins">
       <form method="post" class="panel" id="pluginForm" data-review-section="plugins">{% csrf_token %}<input type="hidden" name="action" value="save_plugin_defaults">
         <div class="card" data-workflow-card="plugin-required-channels"><p class="section-eyebrow card-title">Required Channels</p><div class="channel-summary">
-          {% for channel in channels %}
-          <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="plugins">
+          {% for row in required_channel_rows %}
+          <div class="channel-pill{% if row.summary_required %} required{% elif row.summary_paused %} paused{% endif %}" data-req-row="{{ row.channel }}" data-summary-scope="plugins">
             <div class="channel-pill-left">
-              <span class="channel-pill-name">{{ channel }}</span>
-              <span class="channel-pill-meta">
-                {% if channel == 'DIC' %}
-                  Brightfield morphology reference
-                {% elif channel == 'DAPI' %}
-                  Nucleus contour reference channel
-                {% elif channel == 'mCherry' %}
-                  Red fluorescence signal channel
-                {% elif channel == 'GFP' %}
-                  Green fluorescence signal channel
-                {% else %}
-                  Channel data used in analysis
-                {% endif %}
-              </span>
+              <span class="channel-pill-name">{{ row.channel }}</span>
+              <span class="channel-pill-meta">{{ row.summary_meta }}</span>
             </div>
-            <span class="channel-pill-state">
-              {% if channel == 'DIC' %}
-                Always required
-              {% elif channel in required_channels_by_plugins %}
-                Required by stats
-              {% else %}
-                Optional
-              {% endif %}
-            </span>
+            <span class="channel-pill-state">{{ row.summary_label }}</span>
           </div>
           {% endfor %}
         </div></div>
@@ -1167,56 +1161,34 @@ main.main > section.panel {
     </section>
 
     <section class="panel" id="sec-advanced" hidden data-workflow-section="advanced">
-      <form method="post" class="panel" id="advancedForm" data-review-section="advanced">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div>
+      <form method="post" class="panel" id="advancedForm" data-review-section="advanced">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div><div id="manualRequiredChannels" hidden>{% for row in required_channel_rows %}{% if row.manual_selected %}<input type="hidden" name="manual_required_channels" value="{{ row.channel }}" data-manual-required-input>{% endif %}{% endfor %}</div>
         <div class="card" data-workflow-card="advanced-required-channels"><p class="section-eyebrow card-title">Required Channels</p><div class="channel-summary">
-          {% for channel in channels %}
-          <div class="channel-pill{% if channel == 'DIC' or channel in required_channels_by_plugins or channel in preferences.experiment_defaults.manual_required_channels %} required{% endif %}" data-req-row="{{ channel }}" data-summary-scope="advanced">
+          {% for row in required_channel_rows %}
+          <div class="channel-pill{% if row.summary_required %} required{% elif row.summary_paused %} paused{% endif %}" data-req-row="{{ row.channel }}" data-summary-scope="advanced">
             <div class="channel-pill-left">
-              <span class="channel-pill-name">{{ channel }}</span>
-              <span class="channel-pill-meta">
-                {% if channel == 'DIC' %}
-                  Brightfield morphology reference
-                {% elif channel == 'DAPI' %}
-                  Nucleus contour reference channel
-                {% elif channel == 'mCherry' %}
-                  Red fluorescence signal channel
-                {% elif channel == 'GFP' %}
-                  Green fluorescence signal channel
-                {% else %}
-                  Channel data used in analysis
-                {% endif %}
-              </span>
+              <span class="channel-pill-name">{{ row.channel }}</span>
+              <span class="channel-pill-meta">{{ row.summary_meta }}</span>
             </div>
-            <span class="channel-pill-state">
-              {% if channel == 'DIC' %}
-                Always required
-              {% elif channel in required_channels_by_plugins %}
-                Required by stats
-              {% elif channel in preferences.experiment_defaults.manual_required_channels %}
-                Required manually
-              {% else %}
-                Optional
-              {% endif %}
-            </span>
+            <span class="channel-pill-state">{{ row.summary_label }}</span>
           </div>
           {% endfor %}
         </div></div>
         <div class="card" data-workflow-card="validation-enforcement"><p class="section-eyebrow card-title">Validation Enforcement</p>
-          <div class="row" id="advancedModuleRow"><div class="row-copy"><label for="module_enabled">Enable analysis validation module</label><p>If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced.</p><p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="validation-subgroup" id="advancedOptionalChecksGroup">
-            <div class="row" id="advancedLayerCheckRow"><div class="row-copy"><label for="enforce_layer_count">Enforce expected layer count</label><p>Require exactly four layers before preprocessing.</p></div><label class="sw"><input type="checkbox" id="enforce_layer_count" name="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %}><span class="sl"></span></label></div>
-            <div class="row" id="advancedWavelengthCheckRow"><div class="row-copy"><label for="enforce_wavelengths">Enforce required wavelengths</label><p>Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics.</p></div><label class="sw"><input type="checkbox" id="enforce_wavelengths" name="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row" id="advancedModuleRow"><div class="row-copy"><label for="module_enabled">Enable analysis validation module</label><p>Stats-required channels always stay enforced. Manual channel requirements and all-wavelength enforcement are saved here and pause when this module is OFF.</p><p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="validation-subgroup{% if not preferences.experiment_defaults.module_enabled %} is-disabled{% endif %}" id="advancedOptionalChecksGroup">
+            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedLayerCheckRow"><div class="row-copy"><label for="enforce_layer_count">Enforce expected layer count</label><p>Require exactly four layers before preprocessing.</p></div><input type="hidden" id="enforce_layer_count_state" name="enforce_layer_count" value="{% if preferences.experiment_defaults.enforce_layer_count %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
+            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedWavelengthCheckRow"><div class="row-copy"><label for="enforce_wavelengths">Enforce required wavelengths</label><p>Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics.</p></div><input type="hidden" id="enforce_wavelengths_state" name="enforce_wavelengths" value="{% if preferences.experiment_defaults.enforce_wavelengths %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
+            <div class="validation-channel-list" id="advancedManualChannelsGroup">
+              {% for row in required_channel_rows %}
+              <div class="row{% if row.row_locked %} locked{% endif %}{% if row.row_disabled and not row.row_locked %} disabled{% endif %}" data-ch-row="{{ row.channel }}">
+                <div><label for="manual_{{ row.channel }}">Require {{ row.channel }} wavelength</label><p data-ch-help="{{ row.channel }}">{{ row.row_help }}</p></div>
+                <label class="sw"><input type="checkbox" id="manual_{{ row.channel }}" class="channel-toggle" value="{{ row.channel }}" data-channel="{{ row.channel }}" {% if row.row_checked %}checked{% endif %} {% if row.toggle_disabled %}disabled{% endif %}><span class="sl"></span></label>
+              </div>
+              {% endfor %}
+            </div>
           </div>
           <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show legacy plugins by default</label><p>Reveal DAPI-based plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><span class="row-label-line"><label for="gfp_filter_enabled">Enable GFP minimum-size filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filter out low-confidence GFP signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="gfp_filter_enabled" name="gfp_filter_enabled" {% if preferences.experiment_defaults.gfp_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
-        </div>
-        <div class="card" data-workflow-card="channel-requirements"><p class="section-eyebrow card-title">Channel Requirements</p>
-          {% for channel in channels %}
-          <div class="row{% if channel == 'DIC' %} locked{% endif %}" data-ch-row="{{ channel }}">
-            <div><label for="manual_{{ channel }}">Require {{ channel }} wavelength</label><p data-ch-help="{{ channel }}">{% if channel == 'DIC' %}Always required for segmentation.{% else %}Optional.{% endif %}</p></div>
-            <label class="sw"><input type="checkbox" id="manual_{{ channel }}" class="channel-toggle" name="manual_required_channels" value="{{ channel }}" data-channel="{{ channel }}" {% if channel == 'DIC' or channel in preferences.experiment_defaults.manual_required_channels %}checked{% endif %} {% if channel == 'DIC' %}disabled{% endif %}><span class="sl"></span></label>
-          </div>
-          {% endfor %}
         </div>
         <div class="card action-card" data-workflow-action-card="advanced">
           <p class="section-eyebrow card-title">Save Advanced Settings</p>
@@ -1346,6 +1318,12 @@ main.main > section.panel {
   const alwaysRequired = new Set(payload.always_required_channels || []);
   const pluginToggles = [...document.querySelectorAll('.plugin-toggle')];
   const channelToggles = [...document.querySelectorAll('.channel-toggle')];
+  const manualRequiredBox = document.getElementById('manualRequiredChannels');
+  const manualRequiredChannels = new Set(
+    [...(manualRequiredBox ? manualRequiredBox.querySelectorAll('input[name="manual_required_channels"]') : [])]
+      .map((input) => input.value)
+      .filter((value) => value && !alwaysRequired.has(value))
+  );
   const selectedPlugins = new Set(
     pluginToggles.filter((toggle) => toggle.checked).map((toggle) => toggle.value)
   );
@@ -1600,6 +1578,21 @@ main.main > section.panel {
     });
   };
 
+  const syncManualRequiredInputs = () => {
+    if (!manualRequiredBox) return;
+    manualRequiredBox.innerHTML = '';
+    sortByOrder([...manualRequiredChannels], channelOrder)
+      .filter((channel) => channel && !alwaysRequired.has(channel))
+      .forEach((channel) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'manual_required_channels';
+        input.value = channel;
+        input.dataset.manualRequiredInput = 'true';
+        manualRequiredBox.appendChild(input);
+      });
+  };
+
   const syncPluginInlineSettings = () => {
     [...document.querySelectorAll('[data-plugin-inline]')].forEach((panel) => {
       const pluginId = panel.dataset.pluginInline;
@@ -1608,6 +1601,101 @@ main.main > section.panel {
       panel.classList.toggle('is-active', isActive);
       panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
+  };
+
+  const resolveChannelState = (channel, statsRequired) => {
+    const moduleEnabled = !!(moduleEnabledInput && moduleEnabledInput.checked);
+    const enforceAllWavelengths = !!(enforceWavelengthsInput && enforceWavelengthsInput.checked);
+    const manualRequired = manualRequiredChannels.has(channel);
+
+    if (alwaysRequired.has(channel)) {
+      return {
+        summaryLabel: 'Always required',
+        summaryRequired: true,
+        summaryPaused: false,
+        rowChecked: true,
+        toggleDisabled: true,
+        rowDisabled: true,
+        rowLocked: true,
+        helpText: 'Always required for segmentation.',
+      };
+    }
+
+    if (statsRequired.has(channel)) {
+      return {
+        summaryLabel: 'Required by stats',
+        summaryRequired: true,
+        summaryPaused: false,
+        rowChecked: true,
+        toggleDisabled: false,
+        rowDisabled: false,
+        rowLocked: true,
+        helpText: 'Required because selected statistical plugins need this channel.',
+      };
+    }
+
+    if (moduleEnabled && enforceAllWavelengths) {
+      return {
+        summaryLabel: 'Required by all-wavelengths',
+        summaryRequired: true,
+        summaryPaused: false,
+        rowChecked: true,
+        toggleDisabled: true,
+        rowDisabled: true,
+        rowLocked: false,
+        helpText: 'Required because "Enforce required wavelengths" is enabled.',
+      };
+    }
+
+    if (moduleEnabled && manualRequired) {
+      return {
+        summaryLabel: 'Required manually',
+        summaryRequired: true,
+        summaryPaused: false,
+        rowChecked: true,
+        toggleDisabled: false,
+        rowDisabled: false,
+        rowLocked: false,
+        helpText: 'Optional advanced enforcement is enabled.',
+      };
+    }
+
+    if (enforceAllWavelengths) {
+      return {
+        summaryLabel: 'Paused by all-wavelengths',
+        summaryRequired: false,
+        summaryPaused: true,
+        rowChecked: true,
+        toggleDisabled: true,
+        rowDisabled: true,
+        rowLocked: false,
+        helpText: 'Paused because "Enforce required wavelengths" is saved while the validation module is OFF.',
+      };
+    }
+
+    if (manualRequired) {
+      return {
+        summaryLabel: 'Paused manually',
+        summaryRequired: false,
+        summaryPaused: true,
+        rowChecked: true,
+        toggleDisabled: true,
+        rowDisabled: true,
+        rowLocked: false,
+        helpText: 'Paused until the validation module is turned back on.',
+      };
+    }
+
+    return {
+      summaryLabel: 'Optional',
+      summaryRequired: false,
+      summaryPaused: false,
+      rowChecked: false,
+      toggleDisabled: !moduleEnabled,
+      rowDisabled: !moduleEnabled,
+      rowLocked: false,
+      helpText: moduleEnabled ? 'Optional.' : 'Optional. Turn the validation module on to edit.',
+    };
   };
 
   const syncAdvancedValidationUI = () => {
@@ -1620,6 +1708,13 @@ main.main > section.panel {
       if (row) row.classList.toggle('disabled', !moduleEnabled);
     });
 
+    if (enforceLayerCountStateInput && enforceLayerCountInput) {
+      enforceLayerCountStateInput.value = enforceLayerCountInput.checked ? '1' : '0';
+    }
+    if (enforceWavelengthsStateInput && enforceWavelengthsInput) {
+      enforceWavelengthsStateInput.value = enforceWavelengthsInput.checked ? '1' : '0';
+    }
+
     if (advancedOptionalChecksGroup) {
       advancedOptionalChecksGroup.classList.toggle('is-disabled', !moduleEnabled);
     }
@@ -1629,8 +1724,8 @@ main.main > section.panel {
     const prevText = advancedOptionalChecksNote.textContent || '';
     const nextState = moduleEnabled ? 'on' : 'off';
     const nextText = moduleEnabled
-      ? 'Optional checks below are ON. Layer-count and wavelength enforcement will be saved as shown.'
-      : 'Optional checks below are OFF. Saved optional selections are paused until this module is turned back on.';
+      ? 'Optional validations below are ON. Stats-required channels stay enforced, and saved manual or all-wavelength requirements are active as shown.'
+      : 'Optional validations below are OFF. Stats-required channels stay enforced; saved manual and all-wavelength requirements are paused until this module is turned back on.';
     const shouldAnimate = prevState !== nextState || prevText !== nextText;
 
     advancedOptionalChecksNote.classList.remove('on', 'off');
@@ -1645,33 +1740,20 @@ main.main > section.panel {
   };
 
   const syncChannelSummary = (statsRequired) => {
-    const manualRequired = new Set(
-      channelToggles
-        .filter((toggle) => toggle.checked)
-        .map((toggle) => toggle.dataset.channel)
-        .filter((channel) => channel)
-    );
     [...document.querySelectorAll('[data-req-row][data-summary-scope]')].forEach((row) => {
       const channel = row.dataset.reqRow;
-      const scope = row.dataset.summaryScope;
       const statusEl = row.querySelector('.channel-pill-state');
       const wasRequired = row.classList.contains('required');
+      const wasPaused = row.classList.contains('paused');
       const previousLabel = statusEl ? statusEl.textContent.trim() : '';
-      let label = 'Optional';
-      let required = false;
-      if (alwaysRequired.has(channel)) {
-        label = 'Always required';
-        required = true;
-      } else if (statsRequired.has(channel)) {
-        label = 'Required by stats';
-        required = true;
-      } else if (scope === 'advanced' && manualRequired.has(channel)) {
-        label = 'Required manually';
-        required = true;
-      }
-      const changed = wasRequired !== required || previousLabel !== label;
+      const state = resolveChannelState(channel, statsRequired);
+      const label = state.summaryLabel;
+      const required = state.summaryRequired;
+      const paused = state.summaryPaused;
+      const changed = wasRequired !== required || wasPaused !== paused || previousLabel !== label;
       if (changed) row.classList.add('status-changing');
       row.classList.toggle('required', required);
+      row.classList.toggle('paused', paused);
       if (statusEl) {
         if (changed) {
           statusEl.classList.add('state-enter');
@@ -1697,26 +1779,18 @@ main.main > section.panel {
       if (!channel) return;
       const row = document.querySelector(`[data-ch-row=\"${channel}\"]`);
       const help = document.querySelector(`[data-ch-help=\"${channel}\"]`);
+      const state = resolveChannelState(channel, statsRequired);
 
-      if (alwaysRequired.has(channel)) {
-        toggle.checked = true;
-        toggle.disabled = true;
-        if (row) row.classList.add('locked');
-        if (help) help.textContent = 'Always required for segmentation.';
-        return;
+      toggle.checked = state.rowChecked;
+      toggle.disabled = state.toggleDisabled;
+      if (row) {
+        row.classList.toggle('locked', state.rowLocked);
+        row.classList.toggle('disabled', state.rowDisabled && !state.rowLocked);
       }
-
-      const requiredByStats = statsRequired.has(channel);
-      if (requiredByStats) {
-        toggle.checked = true;
-        if (row) row.classList.add('locked');
-        if (help) help.textContent = 'Required because selected statistical plugins need this channel.';
-      } else {
-        if (row) row.classList.remove('locked');
-        if (help) help.textContent = toggle.checked ? 'Optional enforcement enabled.' : 'Optional.';
-      }
+      if (help) help.textContent = state.helpText;
     });
     syncOverrideInputs();
+    syncManualRequiredInputs();
     syncChannelSummary(statsRequired);
     syncPluginInlineSettings();
     syncAdvancedValidationUI();
@@ -1768,6 +1842,12 @@ main.main > section.panel {
         toggle.checked = true;
         return;
       }
+      const statsRequired = requiredByStatsChannels();
+      const state = resolveChannelState(channel, statsRequired);
+      if (state.rowDisabled) {
+        syncRows();
+        return;
+      }
       if (!toggle.checked) {
         const deps = pluginDependents(channel);
         if (deps.length) {
@@ -1775,6 +1855,9 @@ main.main > section.panel {
           openConfirm(channel, deps);
           return;
         }
+        manualRequiredChannels.delete(channel);
+      } else {
+        manualRequiredChannels.add(channel);
       }
       overrides.delete(channel);
       syncRows();
@@ -1792,6 +1875,7 @@ main.main > section.panel {
       if (!pending) return;
       pending.deps.forEach((pluginId) => selectedPlugins.delete(pluginId));
       overrides.add(pending.channel);
+      manualRequiredChannels.delete(pending.channel);
       syncPluginToggles();
       const toggle = document.querySelector(`.channel-toggle[data-channel=\"${pending.channel}\"]`);
       if (toggle) toggle.checked = false;
@@ -1953,6 +2037,8 @@ main.main > section.panel {
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
   const enforceWavelengthsInput = document.getElementById('enforce_wavelengths');
+  const enforceLayerCountStateInput = document.getElementById('enforce_layer_count_state');
+  const enforceWavelengthsStateInput = document.getElementById('enforce_wavelengths_state');
   const advancedOptionalChecksNote = document.getElementById('advancedOptionalChecksNote');
   const advancedOptionalChecksGroup = document.getElementById('advancedOptionalChecksGroup');
   const advancedLayerCheckRow = document.getElementById('advancedLayerCheckRow');
@@ -1965,7 +2051,7 @@ main.main > section.panel {
   const sidebarStartsOpenInput = document.getElementById('sidebar_starts_open');
   [moduleEnabledInput, enforceLayerCountInput, enforceWavelengthsInput].forEach((input) => {
     if (!input) return;
-    input.addEventListener('change', syncAdvancedValidationUI);
+    input.addEventListener('change', syncRows);
   });
   document.querySelectorAll('.prefs-info-dot[data-info-text]').forEach((element) => {
     attachPrefsInfoTooltipBehavior(element);
@@ -2130,29 +2216,11 @@ main.main > section.panel {
 
   const captureAdvancedSnapshot = () => ({
     moduleEnabled: !!(moduleEnabledInput && moduleEnabledInput.checked),
-    enforceLayerCount: !!(
-      moduleEnabledInput &&
-      moduleEnabledInput.checked &&
-      enforceLayerCountInput &&
-      enforceLayerCountInput.checked
-    ),
-    enforceWavelengths: !!(
-      moduleEnabledInput &&
-      moduleEnabledInput.checked &&
-      enforceWavelengthsInput &&
-      enforceWavelengthsInput.checked
-    ),
+    enforceLayerCount: !!(enforceLayerCountInput && enforceLayerCountInput.checked),
+    enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
     gfpFilterEnabled: !!(gfpFilterEnabledInput && gfpFilterEnabledInput.checked),
-    requiredChannels: sortByOrder(
-      channelToggles
-        .filter((toggle) => {
-          const channel = toggle.dataset.channel;
-          return channel && !alwaysRequired.has(channel) && toggle.checked;
-        })
-        .map((toggle) => toggle.dataset.channel),
-      channelOrder
-    ),
+    requiredChannels: sortByOrder([...manualRequiredChannels], channelOrder),
     overrideChannels: sortByOrder([...overrides], channelOrder),
   });
 
@@ -2397,14 +2465,11 @@ main.main > section.panel {
     if (enforceWavelengthsInput) enforceWavelengthsInput.checked = snapshot.enforceWavelengths;
     if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
     if (gfpFilterEnabledInput) gfpFilterEnabledInput.checked = snapshot.gfpFilterEnabled;
-    const required = new Set(snapshot.requiredChannels || []);
-    channelToggles.forEach((toggle) => {
-      const channel = toggle.dataset.channel;
-      if (!channel || alwaysRequired.has(channel)) {
-        toggle.checked = true;
-        return;
+    manualRequiredChannels.clear();
+    (snapshot.requiredChannels || []).forEach((channel) => {
+      if (channel && !alwaysRequired.has(channel)) {
+        manualRequiredChannels.add(channel);
       }
-      toggle.checked = required.has(channel);
     });
     overrides.clear();
     (snapshot.overrideChannels || []).forEach((channel) => overrides.add(channel));

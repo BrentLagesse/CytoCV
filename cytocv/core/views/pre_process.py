@@ -1,11 +1,8 @@
 from django.shortcuts import get_object_or_404, get_list_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.template.response import TemplateResponse
-from django.utils import inspect
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
-from django.contrib import messages
-import sys, pkgutil, importlib, inspect
 import math
 from uuid import UUID
 
@@ -22,13 +19,11 @@ from .utils import (
     clear_cancelled,
 )
 from core.metadata_processing.dv_channel_parser import extract_channel_config
-from core.cell_analysis import Analysis
 
-from cytocv.settings import MEDIA_ROOT, BASE_DIR
+from cytocv.settings import MEDIA_ROOT
 from pathlib import Path
 import json
 import re
-import hashlib
 
 from accounts.preferences import get_user_preferences
 from core.scale import (
@@ -112,37 +107,6 @@ def _parse_file_scale_revert_payload(
     return parsed, None, 200
 
 
-def load_analyses(path:str) -> list:
-    """
-    This function dynamically load the list of analyses from the path folder
-    :param path: Path the analysis folder
-    :return: List of the name of the analyses
-    """
-    analyses = []
-    sys.path.append(str(path))
-    print(path)
-
-    modules = pkgutil.iter_modules(path=[path])
-    for loader, mod_name, ispkg in modules:
-        # Ensure that module isn't already loaded
-        loaded_mod = None
-        if mod_name not in sys.modules:
-            # Import module
-            loaded_mod = importlib.import_module('.cell_analysis','core')
-        if loaded_mod is None: continue
-        if mod_name != 'Analysis':
-            loaded_class = getattr(loaded_mod, mod_name)
-            instanceOfClass = loaded_class()
-            if isinstance(instanceOfClass, Analysis):
-                print('Added Plugin -- ' + mod_name)
-                analyses.append(mod_name)
-            else:
-                print
-                mod_name + " was not an instance of Analysis"
-
-    return analyses
-
-
 @require_GET
 def get_progress(request, uuids):
     try:
@@ -158,7 +122,7 @@ def get_progress(request, uuids):
         return JsonResponse({"phase": "idle"})
 
 
-def pre_process_step(request, uuids):
+def pre_process(request, uuids):
     """
     GET: Render previews + sidebar (with auto-detected channel order).
     POST: Run preprocess + inference on every UUID, then redirect.
@@ -370,7 +334,7 @@ def pre_process_step(request, uuids):
                 clear_cancelled(uuids)
                 return cancel_response()
 
-        return redirect(f'/image/{uuids}/convert/')
+        return redirect("experiment_convert", uuids=uuids)
 
     # AJAX navigation
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -384,7 +348,7 @@ def pre_process_step(request, uuids):
         })
 
     # Normal render
-    return TemplateResponse(request, "pre-process.html", {
+    return TemplateResponse(request, "pre_process.html", {
         'images': preview_images,
         'file_name': uploaded_image.name,
         'current_file_index': current_file_index,

@@ -2,8 +2,8 @@ import math, cv2
 import numpy as np
 from core.contour_processing import get_contour_center
 from core.image_processing import calculate_intensity_mask,create_circular_mask
-from core.image_processing.GrayImage import GrayImage
-from .Analysis import Analysis
+from core.image_processing import GrayImage
+from .analysis import Analysis
 
 class RedBlueIntensity(Analysis):
     name = 'Red in Blue Intensity'

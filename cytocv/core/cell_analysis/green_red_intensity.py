@@ -3,7 +3,7 @@ import math
 import cv2
 
 from core.image_processing import calculate_intensity_mask, create_circular_mask
-from .Analysis import Analysis
+from .analysis import Analysis
 
 
 class GreenRedIntensity(Analysis):

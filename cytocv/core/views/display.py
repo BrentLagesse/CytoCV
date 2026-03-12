@@ -147,7 +147,7 @@ def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
     return uploaded_image.user_id == guest_id and segmented_image.user_id == guest_id
 
 
-def display_cell(request, uuids):
+def display(request, uuids):
     """Render cell display data for one or more uploaded image UUIDs.
 
     Args:
@@ -355,7 +355,7 @@ def display_cell(request, uuids):
     # Convert the files_data to JSON to be used in the template
     json_files_data = json.dumps(_sanitize_for_json(all_files_data), allow_nan=False)
 
-    return render(request, "display_cell.html", {
+    return render(request, "display.html", {
         'files_data': json_files_data,  # Pass all file data to the template
         'file_list': file_list,  # Pass sidebar file list data to the template
         'cell_table': cell_table,

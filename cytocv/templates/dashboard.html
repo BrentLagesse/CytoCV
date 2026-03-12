@@ -1661,7 +1661,7 @@
                     <div class="empty-dashboard">
                         <h2>No files saved</h2>
                         <p>Start an experiment to upload and analyze your first files.</p>
-                        <a class="start-link" href="{% url 'image_upload' %}">Start Experiment</a>
+                        <a class="start-link" href="{% url 'experiment' %}">Start Experiment</a>
                     </div>
                 {% endif %}
             </div> <!-- end main-content -->
@@ -1828,7 +1828,7 @@
             if (!fileUUID) return;
             const requestId = ++activeChannelRequest;
             try {
-                const response = await fetch(`/image/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
+                const response = await fetch(`/experiment/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',
                 });
@@ -2094,16 +2094,16 @@
                 ? categories[categoryIndex]
                 : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
-            document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
-            document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
-            document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
-            document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";
-            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.nucleus_intensity_sum;
-            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cellular_intensity_sum;
-            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cytoplasmic_intensity;
+            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
+            document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);
+            document.getElementById("greenredIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null);
+            document.getElementById("greenredIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null);
+            document.getElementById("greenredIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null);
+            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);
+            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cellular_intensity_sum);
+            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);
             document.getElementById("gfpDot").textContent = category;
-            document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
+            document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
             const labels = getNuclearLabelPair(mode);
             document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;

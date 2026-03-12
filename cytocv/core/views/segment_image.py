@@ -2,12 +2,9 @@
 # Standard library imports
 # =========================
 import csv
-import importlib
 import logging
 import math
 import os
-import pkgutil
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -50,7 +47,7 @@ from django.utils import timezone
 # =========================
 # Local application imports
 # =========================
-from cytocv.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
+from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from .utils import write_progress, is_cancelled, clear_cancelled
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
@@ -70,8 +67,7 @@ from core.contour_processing import (
     get_neighbor_count,
     merge_contour,
 )
-from core.cell_analysis import Analysis
-from core.stats_plugins import build_requirement_summary
+from core.stats_plugins import build_requirement_summary, instantiate_selected_plugins
 from accounts.preferences import should_auto_save_experiments
 from core.scale import (
     convert_length_to_pixels,
@@ -112,36 +108,6 @@ def set_options(opt):
     kernel_deviation_input = opt['kernel_deviation']
     choice_var = opt['arrested']
     return kernel_size_input, mcherry_line_width_input, kernel_deviation_input, choice_var
-
-def import_analyses(path:str, selected_analysis:list) -> list:
-    """
-    This function dynamically load the list of analyses from the path folder
-    :param path: Path the analysis folder
-    :return: List of the object of the analyses
-    """
-    analyses = []
-    sys.path.append(str(path))
-    print(path)
-
-    modules = pkgutil.iter_modules(path=[path])
-    for loader, mod_name, ispkg in modules:
-        # Ensure that module isn't already loaded
-        loaded_mod = None
-        if mod_name not in sys.modules:
-            # Import module
-            loaded_mod = importlib.import_module('.cell_analysis','core')
-        if loaded_mod is None: continue
-        if mod_name != 'Analysis' and mod_name in selected_analysis:
-            loaded_class = getattr(loaded_mod, mod_name)
-            instanceOfClass = loaded_class()
-            if isinstance(instanceOfClass, Analysis):
-                print('Imported Plugin -- ' + mod_name)
-                analyses.append(instanceOfClass)
-            else:
-                print
-                mod_name + " was not an instance of Analysis"
-
-    return analyses
 
 def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled=False):
     # loading configuration
@@ -247,8 +213,7 @@ def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_thre
         cv2.drawContours(edit_GFP_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
         cv2.drawContours(edit_DAPI_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
 
-    import_path = BASE_DIR / 'core/cell_analysis'
-    analyses = import_analyses(import_path, selected_analysis)
+    analyses = instantiate_selected_plugins(selected_analysis)
     dapi_contour_required_plugins = {"NucleusIntensity", "DAPI_NucleusIntensity"}
     for analysis in analyses:
         analysis_name = analysis.__class__.__name__
@@ -1015,4 +980,4 @@ def segment_image(request, uuids):
 
     write_progress(uuids, "Completed")
     clear_cancelled(uuids)
-    return redirect(f'/image/{uuids}/display/')
+    return redirect("display", uuids=uuids)

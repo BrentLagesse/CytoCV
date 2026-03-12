@@ -13,6 +13,7 @@ import skimage.exposure
 import json
 from django.contrib import messages
 from django.http import JsonResponse
+from django.urls import reverse
 from ..metadata_processing.dv_channel_parser import extract_channel_config
 from ..metadata_processing.dv_scale_parser import extract_dv_scale_metadata
 from ..metadata_processing.error_handling import (
@@ -170,7 +171,7 @@ def _upload_view_context(
     return context
 
 
-def upload_images(request):
+def experiment(request):
     """
     Uploads and processes each image in the selected folder individually.
     Generates a unique UUID for each image and applies the same process to each one.
@@ -201,7 +202,7 @@ def upload_images(request):
             print("No files received")
             return render(
                 request,
-                'form/uploadImage.html',
+                'form/experiment.html',
                 _upload_view_context(
                     form=UploadImageForm(),
                     progress_key=progress_key,
@@ -423,7 +424,10 @@ def upload_images(request):
         preprocess_url = None
         if image_uuids:
             request.session["last_experiment_uuids"] = image_uuids
-            preprocess_url = f'/image/preprocess/{",".join(map(str, image_uuids))}/'
+            preprocess_url = reverse(
+                "pre_process",
+                kwargs={"uuids": ",".join(map(str, image_uuids))},
+            )
 
         # Case 3: no valid files
         if not image_uuids:
@@ -469,7 +473,7 @@ def upload_images(request):
             )
     return render(
         request,
-        'form/uploadImage.html',
+        'form/experiment.html',
         _upload_view_context(
             form=form,
             progress_key=progress_key,

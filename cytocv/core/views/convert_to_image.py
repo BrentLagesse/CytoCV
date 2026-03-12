@@ -159,4 +159,4 @@ def convert_to_image(request, uuids):
                 logging.info(f"Completed conversion for {f} in UUID {uuid} in {time.time() - start_time} seconds")
 
     # Redirect after processing all UUIDs
-    return redirect(f'/image/{uuids}/segment/')
+    return redirect("experiment_segment", uuids=uuids)

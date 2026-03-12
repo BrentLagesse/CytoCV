@@ -225,7 +225,7 @@
             {% else %}
                 <a href="{% url 'signup' %}?fresh=1" class="cta-button">Sign up</a>
             {% endif %}
-            <a href="/image/upload/" id="uploadImageButton" class="cta-button">
+            <a href="{% url 'experiment' %}" id="uploadImageButton" class="cta-button">
                 <span class="cta-spinner" aria-hidden="true"></span>
                 <span class="cta-label">Experiment</span>
             </a>

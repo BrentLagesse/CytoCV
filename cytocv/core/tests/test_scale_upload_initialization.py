@@ -44,25 +44,25 @@ class UploadScaleInitializationTests(TestCase):
 
         with TemporaryDirectory() as temp_media:
             with override_settings(MEDIA_ROOT=temp_media):
-                with patch("core.views.upload_images.MEDIA_ROOT", temp_media):
+                with patch("core.views.experiment.MEDIA_ROOT", temp_media):
                     with patch(
-                        "core.views.upload_images.validate_dv_file",
+                        "core.views.experiment.validate_dv_file",
                         return_value=valid_result,
                     ):
                         with patch(
-                            "core.views.upload_images.extract_dv_scale_metadata",
+                            "core.views.experiment.extract_dv_scale_metadata",
                             return_value=metadata_payload,
                         ):
                             with patch(
-                                "core.views.upload_images.extract_channel_config",
+                                "core.views.experiment.extract_channel_config",
                                 return_value={"DIC": 0, "DAPI": 1, "mCherry": 2, "GFP": 3},
                             ):
                                 with patch(
-                                    "core.views.upload_images.generate_tif_preview_images",
+                                    "core.views.experiment.generate_tif_preview_images",
                                     return_value=None,
                                 ):
                                     response = self.client.post(
-                                        reverse("image_upload"),
+                                        reverse("experiment"),
                                         data={
                                             "files": [upload_file],
                                             "selected_analysis": ["MCherryLine"],

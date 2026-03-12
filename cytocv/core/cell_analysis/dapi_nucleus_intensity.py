@@ -1,4 +1,4 @@
-from .Analysis import Analysis
+from .analysis import Analysis
 import numpy as np
 import cv2, os, csv
 from core.models import Contour
@@ -64,5 +64,4 @@ class DAPI_NucleusIntensity(Analysis):
         # self.cp.cellular_intensity_sum = float(cell_intensity_sum)
         #
         self.cp.cytoplasmic_intensity_DAPI = float(cell_intensity_sum) - float(intensity_sum)
-
 

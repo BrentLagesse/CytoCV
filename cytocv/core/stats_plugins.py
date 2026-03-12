@@ -10,8 +10,9 @@ Both frontend (upload settings UI) and backend (DV validation) consume this data
 
 from __future__ import annotations
 
+from importlib import import_module
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Any, Iterable
 
 
 CHANNEL_ORDER: tuple[str, ...] = ("DIC", "DAPI", "mCherry", "GFP")
@@ -31,6 +32,8 @@ class StatsPluginDefinition:
     plugin_id: str
     label: str
     description: str
+    module_name: str
+    class_name: str
     required_channels: frozenset[str] = field(default_factory=frozenset)
     required_plugins: frozenset[str] = field(default_factory=frozenset)
     is_legacy: bool = False
@@ -54,18 +57,24 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         plugin_id="MCherryLine",
         label="mCherry Line Intensity",
         description="Draws a line between red dot centers and measures GFP intensity along that line.",
+        module_name="core.cell_analysis.mcherry_line",
+        class_name="MCherryLine",
         required_channels=frozenset({"mCherry", "GFP"}),
     ),
     "GFPDot": StatsPluginDefinition(
         plugin_id="GFPDot",
         label="GFP Dot Classification",
         description="Classifies GFP-dot category/biorientation relative to paired red dots.",
+        module_name="core.cell_analysis.gfp_dot",
+        class_name="GFPDot",
         required_channels=frozenset({"mCherry", "GFP"}),
     ),
     "GreenRedIntensity": StatsPluginDefinition(
         plugin_id="GreenRedIntensity",
         label="Green/Red Intensity Ratio",
         description="Computes per-contour intensity combinations across red and green channels.",
+        module_name="core.cell_analysis.green_red_intensity",
+        class_name="GreenRedIntensity",
         required_channels=frozenset({"mCherry", "GFP"}),
     ),
     "NuclearCellularIntensity": StatsPluginDefinition(
@@ -75,6 +84,8 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
             "Uses selected channel as nucleus contour source and measures intensity in the opposite "
             "channel within nucleus and whole-cell regions."
         ),
+        module_name="core.cell_analysis.nuclear_cellular_intensity",
+        class_name="NuclearCellularIntensity",
         required_channels=frozenset({"mCherry", "GFP"}),
         exclusive_group="nuclear_cellular",
     ),
@@ -82,6 +93,8 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         plugin_id="NucleusIntensity",
         label="Nucleus GFP Intensity",
         description="Measures GFP intensity in nuclear vs cellular regions using DAPI contour reference.",
+        module_name="core.cell_analysis.nucleus_intensity",
+        class_name="NucleusIntensity",
         required_channels=frozenset({"DAPI", "GFP"}),
         is_legacy=True,
         exclusive_group="nuclear_cellular",
@@ -90,6 +103,8 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         plugin_id="DAPI_NucleusIntensity",
         label="Nucleus DAPI Intensity",
         description="Measures DAPI intensity in nucleus/cytoplasm using DAPI contour reference.",
+        module_name="core.cell_analysis.dapi_nucleus_intensity",
+        class_name="DAPI_NucleusIntensity",
         required_channels=frozenset({"DAPI"}),
         is_legacy=True,
         exclusive_group="nuclear_cellular",
@@ -98,6 +113,8 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         plugin_id="RedBlueIntensity",
         label="Red-in-Blue Intensity",
         description="Measures DAPI intensity around red-dot contour locations.",
+        module_name="core.cell_analysis.red_blue_intensity",
+        class_name="RedBlueIntensity",
         required_channels=frozenset({"mCherry", "DAPI"}),
         is_legacy=True,
         exclusive_group="nuclear_cellular",
@@ -203,3 +220,23 @@ def build_plugin_ui_payload() -> dict:
         "always_required_channels": sorted(ALWAYS_REQUIRED_CHANNELS, key=_channel_sort_key),
         "channel_info": CHANNEL_INFO,
     }
+
+
+def load_available_plugin_ids() -> list[str]:
+    """Return stable plugin IDs independent of module filenames."""
+
+    return list(PLUGIN_ORDER)
+
+
+def get_plugin_class(plugin_id: str) -> type[Any]:
+    """Resolve a plugin's class from explicit module metadata."""
+
+    definition = PLUGIN_DEFINITIONS[plugin_id]
+    module = import_module(definition.module_name)
+    return getattr(module, definition.class_name)
+
+
+def instantiate_selected_plugins(selected_plugins: Iterable[str]) -> list[Any]:
+    """Instantiate selected plugins using explicit module/class mappings."""
+
+    return [get_plugin_class(plugin_id)() for plugin_id in expand_selected_plugins(selected_plugins)]

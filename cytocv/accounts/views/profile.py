@@ -104,7 +104,7 @@ def _preferences_redirect(request: HttpRequest, section: str) -> HttpResponse:
         require_https=request.is_secure(),
     ):
         return redirect(next_url)
-    return redirect(f"{reverse('preferences')}?section={section}")
+    return redirect(f"{reverse('workflow_defaults')}?section={section}")
 
 
 def _extract_measurement_defaults(
@@ -193,6 +193,149 @@ def _extract_measurement_defaults(
         ),
         "use_metadata_scale": use_metadata_scale,
     }
+
+
+def _channel_summary_meta(channel: str) -> str:
+    if channel == "DIC":
+        return "Brightfield morphology reference"
+    if channel == "DAPI":
+        return "Nucleus contour reference channel"
+    if channel == "mCherry":
+        return "Red fluorescence signal channel"
+    if channel == "GFP":
+        return "Green fluorescence signal channel"
+    return "Channel data used in analysis"
+
+
+def _resolve_required_channel_state(
+    *,
+    channel: str,
+    stats_required: set[str],
+    manual_required: set[str],
+    module_enabled: bool,
+    enforce_wavelengths: bool,
+) -> dict[str, Any]:
+    if channel in ALWAYS_REQUIRED_CHANNELS:
+        return {
+            "summary_label": "Always required",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": True,
+            "row_help": "Always required for segmentation.",
+        }
+
+    if channel in stats_required:
+        return {
+            "summary_label": "Required by stats",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": False,
+            "row_disabled": False,
+            "row_locked": True,
+            "row_help": "Required because selected statistical plugins need this channel.",
+        }
+
+    if module_enabled and enforce_wavelengths:
+        return {
+            "summary_label": "Required by all-wavelengths",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": False,
+            "row_help": 'Required because "Enforce required wavelengths" is enabled.',
+        }
+
+    if module_enabled and channel in manual_required:
+        return {
+            "summary_label": "Required manually",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": False,
+            "row_disabled": False,
+            "row_locked": False,
+            "row_help": "Optional advanced enforcement is enabled.",
+        }
+
+    if enforce_wavelengths:
+        return {
+            "summary_label": "Paused by all-wavelengths",
+            "summary_required": False,
+            "summary_paused": True,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": False,
+            "row_help": 'Paused because "Enforce required wavelengths" is saved while the validation module is OFF.',
+        }
+
+    if channel in manual_required:
+        return {
+            "summary_label": "Paused manually",
+            "summary_required": False,
+            "summary_paused": True,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": False,
+            "row_help": "Paused until the validation module is turned back on.",
+        }
+
+    return {
+        "summary_label": "Optional",
+        "summary_required": False,
+        "summary_paused": False,
+        "row_checked": False,
+        "toggle_disabled": not module_enabled,
+        "row_disabled": not module_enabled,
+        "row_locked": False,
+        "row_help": (
+            "Optional."
+            if module_enabled
+            else "Optional. Turn the validation module on to edit."
+        ),
+    }
+
+
+def _build_required_channel_rows(
+    defaults: dict[str, Any],
+    selected_plugins: list[str],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    requirement_summary = build_requirement_summary(selected_plugins)
+    stats_required = set(requirement_summary["required_channels"])
+    manual_required = {
+        channel
+        for channel in defaults.get("manual_required_channels", [])
+        if channel in CHANNEL_ORDER and channel not in ALWAYS_REQUIRED_CHANNELS
+    }
+    module_enabled = bool(defaults.get("module_enabled", False))
+    enforce_wavelengths = bool(defaults.get("enforce_wavelengths", False))
+
+    rows: list[dict[str, Any]] = []
+    for channel in CHANNEL_ORDER:
+        state = _resolve_required_channel_state(
+            channel=channel,
+            stats_required=stats_required,
+            manual_required=manual_required,
+            module_enabled=module_enabled,
+            enforce_wavelengths=enforce_wavelengths,
+        )
+        rows.append(
+            {
+                "channel": channel,
+                "summary_meta": _channel_summary_meta(channel),
+                "manual_selected": channel in manual_required,
+                **state,
+            }
+        )
+
+    return rows, requirement_summary
 
 
 def _normalize_uuid_list(raw_values: Any) -> list[str]:
@@ -812,7 +955,7 @@ def account_settings_view(request: HttpRequest) -> HttpResponse:
             _delete_user_and_media(request.user)
             logout(request)
             messages.success(request, "Your account was deleted.")
-            return redirect("homepage")
+            return redirect("home")
 
     full_name = " ".join(
         part for part in [request.user.first_name, request.user.last_name] if part
@@ -822,7 +965,7 @@ def account_settings_view(request: HttpRequest) -> HttpResponse:
 
     return TemplateResponse(
         request,
-        "settings.html",
+        "account_settings.html",
         {
             "account_name": full_name,
             "email": request.user.email,
@@ -856,14 +999,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
 
         if action == "save_advanced_settings":
             module_enabled = _post_bool(request, "module_enabled")
-            enforce_layer_count = module_enabled and _post_bool(
-                request,
-                "enforce_layer_count",
-            )
-            enforce_wavelengths = module_enabled and _post_bool(
-                request,
-                "enforce_wavelengths",
-            )
+            enforce_layer_count = _post_bool(request, "enforce_layer_count")
+            enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
             gfp_filter_enabled = _post_bool(request, "gfp_filter_enabled")
             manual_required_channels = [
@@ -965,24 +1102,22 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             }
         )
 
-    plugin_requirement_summary = build_requirement_summary(selected_plugins)
+    required_channel_rows, plugin_requirement_summary = _build_required_channel_rows(
+        defaults,
+        list(selected_plugins),
+    )
     plugin_dependency_payload = build_plugin_ui_payload()
 
     return TemplateResponse(
         request,
-        "preferences.html",
+        "workflow_defaults.html",
         {
             "preferences": preferences,
             "plugins": plugin_rows,
             "channels": CHANNEL_ORDER,
             "channel_info": CHANNEL_INFO,
+            "required_channel_rows": required_channel_rows,
             "required_channels_by_plugins": plugin_requirement_summary["required_channels"],
             "plugin_dependency_payload_json": json.dumps(plugin_dependency_payload),
         },
     )
-
-
-@login_required
-def profile_view(request: HttpRequest) -> HttpResponse:
-    """Compatibility alias for existing ``/profile/`` links."""
-    return account_settings_view(request)

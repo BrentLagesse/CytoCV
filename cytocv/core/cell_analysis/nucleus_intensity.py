@@ -1,7 +1,7 @@
 import cv2, os, csv
 import numpy as np
 from core.models import Contour
-from .Analysis import Analysis
+from .analysis import Analysis
 
 class NucleusIntensity(Analysis):
     name = 'Nucleus Intensity'
@@ -55,5 +55,4 @@ class NucleusIntensity(Analysis):
         self.cp.cellular_intensity_sum = float(cell_intensity_sum)
 
         self.cp.cytoplasmic_intensity = float(cell_intensity_sum) - float(intensity_sum)
-
 

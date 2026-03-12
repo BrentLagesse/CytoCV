@@ -5,7 +5,7 @@ import tempfile
 from django.test import SimpleTestCase
 import numpy as np
 
-from core.cell_analysis.NuclearCellularIntensity import NuclearCellularIntensity
+from core.cell_analysis import NuclearCellularIntensity
 from core.image_processing import GrayImage
 
 

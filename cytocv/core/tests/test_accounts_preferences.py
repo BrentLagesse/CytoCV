@@ -99,7 +99,7 @@ class AccountAreaAccessTests(TestCase):
         )
 
     def test_account_area_requires_authentication(self):
-        for name in ("dashboard", "account_settings", "preferences"):
+        for name in ("dashboard", "account_settings", "workflow_defaults"):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 302)
             self.assertIn(reverse("signin"), response["Location"])
@@ -149,7 +149,7 @@ class AccountAreaAccessTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], reverse("homepage"))
+        self.assertEqual(response["Location"], reverse("home"))
         self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
 
 
@@ -238,7 +238,7 @@ class AccountDeletionIntegrationTests(TestCase):
                 )
 
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(response["Location"], reverse("homepage"))
+            self.assertEqual(response["Location"], reverse("home"))
             self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
             self.assertFalse(UploadedImage.objects.filter(uuid=owned_uuid).exists())
             self.assertFalse(SegmentedImage.objects.filter(UUID=owned_uuid).exists())
@@ -623,7 +623,7 @@ class DisplayManualSaveTests(TestCase):
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
         preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
 
-        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-ui-region="preprocess-main-shell"', html=False)
         self.assertContains(response, 'data-ui-region="preprocess-content-stack"', html=False)
@@ -1017,7 +1017,7 @@ class DisplayManualSaveTests(TestCase):
         prefs["show_saved_file_channels"] = False
         update_user_preferences(self.user, prefs)
 
-        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'class="sidebar channels-hidden"')
         self.assertContains(response, "Show Channels")
@@ -1043,7 +1043,7 @@ class DisplayManualSaveTests(TestCase):
         prefs["show_saved_file_scales"] = False
         update_user_preferences(self.user, prefs)
 
-        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'class="sidebar scales-hidden"')
         self.assertContains(response, "Show Scale")
@@ -1053,7 +1053,7 @@ class DisplayManualSaveTests(TestCase):
         outside_uuid = self._create_preprocess_file(filename="outside_preprocess")
 
         response = self.client.post(
-            reverse("pre_process_step", args=[preprocess_uuid]),
+            reverse("pre_process", args=[preprocess_uuid]),
             data={"file_scale_map": json.dumps({outside_uuid: 0.2})},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
@@ -1065,16 +1065,16 @@ class DisplayManualSaveTests(TestCase):
         outside_uuid = self._create_preprocess_file(filename="outside_revert_preprocess")
 
         response = self.client.post(
-            reverse("pre_process_step", args=[preprocess_uuid]),
+            reverse("pre_process", args=[preprocess_uuid]),
             data={"file_scale_revert_uuids": json.dumps([outside_uuid])},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
 
         self.assertEqual(response.status_code, 403)
 
-    @patch("core.views.pre_process_step.preprocess_images", return_value=("stub_prep", ["stub_image"]))
-    @patch("core.views.pre_process_step.predict_images", return_value=True)
-    @patch("core.views.pre_process_step.tif_to_jpg", return_value=None)
+    @patch("core.views.pre_process.preprocess_images", return_value=("stub_prep", ["stub_image"]))
+    @patch("core.views.pre_process.predict_images", return_value=True)
+    @patch("core.views.pre_process.tif_to_jpg", return_value=None)
     def test_preprocess_post_persists_manual_scale_override_before_analysis(
         self,
         _mock_tif_to_jpg,
@@ -1084,7 +1084,7 @@ class DisplayManualSaveTests(TestCase):
         preprocess_uuid = self._create_preprocess_file(filename="scale_override_preprocess")
 
         response = self.client.post(
-            reverse("pre_process_step", args=[preprocess_uuid]),
+            reverse("pre_process", args=[preprocess_uuid]),
             data={"file_scale_map": json.dumps({preprocess_uuid: 0.27})},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
@@ -1096,9 +1096,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(scale_info.get("source"), "manual_override")
         self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.27, places=6)
 
-    @patch("core.views.pre_process_step.preprocess_images", return_value=("stub_prep", ["stub_image"]))
-    @patch("core.views.pre_process_step.predict_images", return_value=True)
-    @patch("core.views.pre_process_step.tif_to_jpg", return_value=None)
+    @patch("core.views.pre_process.preprocess_images", return_value=("stub_prep", ["stub_image"]))
+    @patch("core.views.pre_process.predict_images", return_value=True)
+    @patch("core.views.pre_process.tif_to_jpg", return_value=None)
     def test_preprocess_post_reverts_manual_override_to_metadata_scale(
         self,
         _mock_tif_to_jpg,
@@ -1119,7 +1119,7 @@ class DisplayManualSaveTests(TestCase):
         uploaded.save(update_fields=["scale_info"])
 
         response = self.client.post(
-            reverse("pre_process_step", args=[preprocess_uuid]),
+            reverse("pre_process", args=[preprocess_uuid]),
             data={"file_scale_revert_uuids": json.dumps([preprocess_uuid])},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
@@ -1180,7 +1180,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         return str(file_uuid)
 
     def test_preferences_page_renders_review_modal_and_form_review_hooks(self):
-        response = self.client.get(reverse("preferences"))
+        response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="workflowDefaultsNav"', html=False)
         self.assertContains(response, "Workflow Defaults")
@@ -1196,17 +1196,20 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'data-workflow-action-card="saving"', html=False)
         self.assertContains(response, 'id="advancedOptionalChecksNote"', html=False)
         self.assertContains(response, 'id="advancedOptionalChecksGroup"', html=False)
+        self.assertContains(response, 'id="advancedManualChannelsGroup"', html=False)
+        self.assertContains(response, 'id="manualRequiredChannels"', html=False)
         self.assertContains(response, 'id="advancedLayerCheckRow"', html=False)
         self.assertContains(response, 'id="advancedWavelengthCheckRow"', html=False)
         self.assertContains(response, 'id="sidebar_starts_open"', html=False)
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
+        self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
         self.assertContains(
             response,
             "Start sidebars open on dashboard, display, and preprocess",
         )
         self.assertContains(
             response,
-            "If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced.",
+            "Stats-required channels always stay enforced. Manual channel requirements and all-wavelength enforcement are saved here and pause when this module is OFF.",
         )
         self.assertContains(
             response,
@@ -1236,7 +1239,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Confirm New")
 
     def test_preferences_plugin_payload_includes_exclusive_and_dependency_fields(self):
-        response = self.client.get(reverse("preferences"))
+        response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '"required_plugins"', html=False)
         self.assertContains(response, '"exclusive_group"', html=False)
@@ -1244,7 +1247,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
     def test_advanced_settings_override_reports_and_removes_dependent_plugins(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_advanced_settings",
                 "override_required_channels": ["mCherry"],
@@ -1303,21 +1306,21 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
     def test_behavior_form_persists_channel_visibility_toggle(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_behavior",
                 "auto_save_experiments": "on",
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=saving")
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=saving")
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
 
     def test_behavior_form_persists_sidebar_start_preference(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_behavior",
                 "auto_save_experiments": "on",
@@ -1331,7 +1334,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
     def test_behavior_form_honors_safe_next_redirect(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_behavior",
                 "next": "/dashboard/",
@@ -1342,18 +1345,18 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
     def test_behavior_form_rejects_external_next_redirect(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_behavior",
                 "next": "https://example.com/phish",
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=saving")
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=saving")
 
     def test_behavior_form_disables_auto_save_when_toggle_is_off(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_behavior",
                 "show_saved_file_channels": "on",
@@ -1380,7 +1383,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(should_auto_save_experiments(self.user))
 
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_behavior",
                 "auto_save_experiments": "on",
@@ -1410,7 +1413,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         dashboard_response = self.client.get(reverse("dashboard"))
         display_response = self.client.get(reverse("display", args=[saved_uuid]))
-        preprocess_response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
 
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertEqual(display_response.status_code, 200)
@@ -1429,7 +1432,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         dashboard_response = self.client.get(reverse("dashboard"))
         display_response = self.client.get(reverse("display", args=[saved_uuid]))
-        preprocess_response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
 
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertEqual(display_response.status_code, 200)
@@ -1453,7 +1456,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_plugin_defaults",
                 "selected_plugins": ["MCherryLine"],
@@ -1468,7 +1471,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=plugins")
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=plugins")
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -1499,7 +1502,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         update_user_preferences(self.user, payload)
 
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_advanced_settings",
                 "module_enabled": "on",
@@ -1508,7 +1511,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=advanced")
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -1523,7 +1526,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(
-            reverse("preferences"),
+            reverse("workflow_defaults"),
             {
                 "action": "save_advanced_settings",
                 "enforce_layer_count": "on",
@@ -1531,10 +1534,94 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=advanced")
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
         self.assertFalse(defaults["module_enabled"])
-        self.assertFalse(defaults["enforce_layer_count"])
+        self.assertTrue(defaults["enforce_layer_count"])
+        self.assertTrue(defaults["enforce_wavelengths"])
+
+    def test_workflow_defaults_summary_marks_manual_channels_active_in_both_sections(self):
+        preferences = get_user_preferences(self.user)
+        preferences["experiment_defaults"]["module_enabled"] = True
+        preferences["experiment_defaults"]["manual_required_channels"] = ["DAPI"]
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.get(reverse("workflow_defaults"))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertEqual(content.count(">Required manually<"), 2)
+        self.assertIn('data-req-row="DAPI" data-summary-scope="plugins"', content)
+        self.assertIn('data-req-row="DAPI" data-summary-scope="advanced"', content)
+
+    def test_workflow_defaults_summary_marks_manual_channels_paused_in_both_sections(self):
+        preferences = get_user_preferences(self.user)
+        preferences["experiment_defaults"]["module_enabled"] = False
+        preferences["experiment_defaults"]["manual_required_channels"] = ["DAPI"]
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.get(reverse("workflow_defaults"))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertEqual(content.count(">Paused manually<"), 2)
+        self.assertContains(
+            response,
+            'id="manual_DAPI" class="channel-toggle" value="DAPI" data-channel="DAPI" checked disabled',
+            html=False,
+        )
+
+    def test_workflow_defaults_summary_marks_paused_all_wavelengths_in_both_sections(self):
+        preferences = get_user_preferences(self.user)
+        preferences["experiment_defaults"]["module_enabled"] = False
+        preferences["experiment_defaults"]["enforce_wavelengths"] = True
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.get(reverse("workflow_defaults"))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertEqual(content.count(">Paused by all-wavelengths<"), 2)
+
+    def test_workflow_defaults_renders_optional_validation_controls_disabled_when_module_is_off(self):
+        preferences = get_user_preferences(self.user)
+        preferences["experiment_defaults"]["module_enabled"] = False
+        preferences["experiment_defaults"]["enforce_layer_count"] = True
+        preferences["experiment_defaults"]["enforce_wavelengths"] = True
+        preferences["experiment_defaults"]["manual_required_channels"] = ["DAPI"]
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.get(reverse("workflow_defaults"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="advancedOptionalChecksGroup"', html=False)
+        self.assertContains(response, 'id="enforce_layer_count" checked disabled', html=False)
+        self.assertContains(response, 'id="enforce_wavelengths" checked disabled', html=False)
+        self.assertContains(
+            response,
+            'id="manual_DAPI" class="channel-toggle" value="DAPI" data-channel="DAPI" checked disabled',
+            html=False,
+        )
+
+    def test_advanced_settings_save_preserves_manual_required_channels_when_module_is_off(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_advanced_settings",
+                "enforce_layer_count": "1",
+                "manual_required_channels": ["DAPI"],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertFalse(defaults["module_enabled"])
+        self.assertTrue(defaults["enforce_layer_count"])
         self.assertFalse(defaults["enforce_wavelengths"])
+        self.assertEqual(defaults["manual_required_channels"], ["DAPI"])
+
+        response = self.client.get(reverse("workflow_defaults"))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertEqual(content.count(">Paused manually<"), 2)
+
