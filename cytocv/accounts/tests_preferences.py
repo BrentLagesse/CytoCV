@@ -46,6 +46,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
+        self.assertTrue(normalized["sidebar_starts_open"])
 
     def test_normalize_preferences_filters_invalid_values(self):
         normalized = normalize_preferences_payload(
@@ -117,6 +118,21 @@ class AccountAreaAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Incorrect email address entered.")
         self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+
+    def test_account_settings_page_renders_information_and_actions_cards(self):
+        self.assertTrue(
+            self.client.login(
+                email="preference-tests@example.com",
+                password="TestPass123!",
+            )
+        )
+        response = self.client.get(reverse("account_settings"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="accountInformationTitle"', html=False)
+        self.assertContains(response, 'id="accountActionsTitle"', html=False)
+        self.assertContains(response, "Account Information")
+        self.assertContains(response, "Account Actions")
+        self.assertContains(response, "Delete your account")
 
     def test_delete_account_removes_user_on_match(self):
         self.assertTrue(
@@ -542,6 +558,87 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
+
+    def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
+        self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_glass_layout",
+        )
+
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui-region="dashboard-main-shell"', html=False)
+        self.assertContains(response, 'data-ui-region="dashboard-content-stack"', html=False)
+        self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-metrics-strip"', html=False)
+        self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
+        self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
+        self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'class="storage-card glass-card glass-section"', html=False)
+        self.assertContains(response, 'id="viewerPanel"', html=False)
+        self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
+        self.assertContains(response, 'id="toggleContours"', html=False)
+        self.assertContains(response, 'id="statsTablePanel"', html=False)
+        self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
+        self.assertContains(response, 'id="tableScrollFrame"', html=False)
+        self.assertContains(response, 'id="downloadCsvBtn"', html=False)
+        self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
+
+    def test_display_template_renders_glass_layout_and_existing_hooks(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_glass_layout",
+        )
+
+        response = self.client.get(reverse("display", args=[saved_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui-region="display-main-shell"', html=False)
+        self.assertContains(response, 'data-ui-region="display-content-stack"', html=False)
+        self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
+        self.assertContains(response, 'data-ui-region="cell-metrics-strip"', html=False)
+        self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
+        self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
+        self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'id="viewerPanel"', html=False)
+        self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
+        self.assertContains(response, 'id="toggleContours"', html=False)
+        self.assertContains(response, 'id="statsTablePanel"', html=False)
+        self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
+        self.assertContains(response, 'id="tableScrollFrame"', html=False)
+        self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
+        self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(response, 'id="dic_form"', html=False)
+        self.assertContains(response, 'id="dapi_form"', html=False)
+        self.assertContains(response, 'id="mCherry_form"', html=False)
+        self.assertContains(response, 'id="gfp_form"', html=False)
+
+    def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
+        preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
+
+        response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui-region="preprocess-main-shell"', html=False)
+        self.assertContains(response, 'data-ui-region="preprocess-content-stack"', html=False)
+        self.assertContains(response, 'data-ui-region="file-context-card"', html=False)
+        self.assertContains(response, 'data-ui-region="main-image-stage"', html=False)
+        self.assertNotContains(response, 'data-ui-region="actions-card"', html=False)
+        self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
+        self.assertContains(response, 'class="main-content glass-shell"', html=False)
+        self.assertContains(response, 'id="preprocessForm"', html=False)
+        self.assertContains(response, 'id="imageContainer"', html=False)
+        self.assertContains(response, 'id="prevButton"', html=False)
+        self.assertContains(response, 'id="nextButton"', html=False)
+        self.assertContains(response, 'id="currentFileInfo"', html=False)
+        self.assertContains(response, 'id="currentFileIndex"', html=False)
+        self.assertContains(response, 'id="preprocessScaleSummary"', html=False)
 
     def test_dashboard_csv_export_for_file_uuid_returns_attachment(self):
         file_name = "dashboard_csv_export"
@@ -1049,12 +1146,80 @@ class ChannelVisibilityPreferenceTests(TestCase):
             )
         )
 
+    def _create_saved_sidebar_file(self, filename: str = "sidebar_saved") -> str:
+        file_uuid = uuid4()
+        UploadedImage.objects.create(
+            user=self.user,
+            name=filename,
+            uuid=file_uuid,
+            file_location=f"{file_uuid}/{filename}.dv",
+        )
+        SegmentedImage.objects.create(
+            user=self.user,
+            UUID=file_uuid,
+            file_location=f"user_{file_uuid}/{filename}.png",
+            ImagePath=f"{file_uuid}/output/{filename}_frame_0.png",
+            CellPairPrefix=f"{file_uuid}/segmented/cell_",
+            NumCells=1,
+        )
+        return str(file_uuid)
+
+    def _create_preprocess_sidebar_file(self, filename: str = "sidebar_preprocess") -> str:
+        file_uuid = uuid4()
+        uploaded = UploadedImage.objects.create(
+            user=self.user,
+            name=filename,
+            uuid=file_uuid,
+            file_location=f"{file_uuid}/{filename}.dv",
+        )
+        DVLayerTifPreview.objects.create(
+            uploaded_image_uuid=uploaded,
+            wavelength="DAPI",
+            file_location=f"{file_uuid}/{filename}_preview.png",
+        )
+        return str(file_uuid)
+
     def test_preferences_page_renders_review_modal_and_form_review_hooks(self):
         response = self.client.get(reverse("preferences"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="workflowDefaultsNav"', html=False)
+        self.assertContains(response, "Workflow Defaults")
         self.assertContains(response, 'id="pluginForm" data-review-section="plugins"', html=False)
         self.assertContains(response, 'id="advancedForm" data-review-section="advanced"', html=False)
         self.assertContains(response, 'id="savingForm" data-review-section="saving"', html=False)
+        self.assertContains(response, 'data-workflow-card="plugin-required-channels"', html=False)
+        self.assertContains(response, 'data-workflow-card="validation-enforcement"', html=False)
+        self.assertContains(response, 'data-workflow-card="saving-preferences"', html=False)
+        self.assertContains(response, 'data-workflow-card="sidebar-preferences"', html=False)
+        self.assertContains(response, 'data-workflow-action-card="plugins"', html=False)
+        self.assertContains(response, 'data-workflow-action-card="advanced"', html=False)
+        self.assertContains(response, 'data-workflow-action-card="saving"', html=False)
+        self.assertContains(response, 'id="advancedOptionalChecksNote"', html=False)
+        self.assertContains(response, 'id="advancedOptionalChecksGroup"', html=False)
+        self.assertContains(response, 'id="advancedLayerCheckRow"', html=False)
+        self.assertContains(response, 'id="advancedWavelengthCheckRow"', html=False)
+        self.assertContains(response, 'id="sidebar_starts_open"', html=False)
+        self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
+        self.assertContains(
+            response,
+            "Start sidebars open on dashboard, display, and preprocess",
+        )
+        self.assertContains(
+            response,
+            "If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced.",
+        )
+        self.assertContains(
+            response,
+            "Require exactly four layers before preprocessing.",
+        )
+        self.assertContains(
+            response,
+            "Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics.",
+        )
+        self.assertContains(
+            response,
+            "Filter out low-confidence GFP signal contours in challenging images.",
+        )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
         self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
         self.assertContains(response, 'class="review-modal popup-surface"', html=False)
@@ -1150,6 +1315,20 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
 
+    def test_behavior_form_persists_sidebar_start_preference(self):
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
+                "sidebar_starts_open": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(get_user_preferences(self.user)["sidebar_starts_open"])
+
     def test_behavior_form_honors_safe_next_redirect(self):
         response = self.client.post(
             reverse("preferences"),
@@ -1207,6 +1386,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "auto_save_experiments": "on",
                 "show_saved_file_channels": "on",
                 "show_saved_file_scales": "on",
+                "sidebar_starts_open": "on",
             },
             follow=True,
         )
@@ -1221,7 +1401,42 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(preferences["auto_save_experiments"])
         self.assertTrue(preferences["show_saved_file_channels"])
         self.assertTrue(preferences["show_saved_file_scales"])
+        self.assertTrue(preferences["sidebar_starts_open"])
         self.assertTrue(should_auto_save_experiments(self.user))
+
+    def test_dashboard_display_and_preprocess_sidebars_start_open_by_default(self):
+        saved_uuid = self._create_saved_sidebar_file()
+        preprocess_uuid = self._create_preprocess_sidebar_file()
+
+        dashboard_response = self.client.get(reverse("dashboard"))
+        display_response = self.client.get(reverse("display", args=[saved_uuid]))
+        preprocess_response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertEqual(display_response.status_code, 200)
+        self.assertEqual(preprocess_response.status_code, 200)
+        self.assertNotContains(dashboard_response, 'class="sidebar collapsed"', html=False)
+        self.assertNotContains(display_response, 'class="sidebar collapsed"', html=False)
+        self.assertNotContains(preprocess_response, 'class="sidebar collapsed"', html=False)
+
+    def test_dashboard_display_and_preprocess_sidebars_render_collapsed_when_preference_is_off(self):
+        prefs = get_user_preferences(self.user)
+        prefs["sidebar_starts_open"] = False
+        update_user_preferences(self.user, prefs)
+
+        saved_uuid = self._create_saved_sidebar_file(filename="sidebar_saved_closed")
+        preprocess_uuid = self._create_preprocess_sidebar_file(filename="sidebar_preprocess_closed")
+
+        dashboard_response = self.client.get(reverse("dashboard"))
+        display_response = self.client.get(reverse("display", args=[saved_uuid]))
+        preprocess_response = self.client.get(reverse("pre_process_step", args=[preprocess_uuid]))
+
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertEqual(display_response.status_code, 200)
+        self.assertEqual(preprocess_response.status_code, 200)
+        self.assertContains(dashboard_response, 'class="sidebar collapsed"', html=False)
+        self.assertContains(display_response, 'class="sidebar collapsed"', html=False)
+        self.assertContains(preprocess_response, 'class="sidebar collapsed"', html=False)
 
     def test_new_user_has_default_selected_plugins(self):
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -1305,3 +1520,21 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
+
+    def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
+        response = self.client.post(
+            reverse("preferences"),
+            {
+                "action": "save_advanced_settings",
+                "enforce_layer_count": "on",
+                "enforce_wavelengths": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('preferences')}?section=advanced")
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertFalse(defaults["module_enabled"])
+        self.assertFalse(defaults["enforce_layer_count"])
+        self.assertFalse(defaults["enforce_wavelengths"])

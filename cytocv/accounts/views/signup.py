@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import timedelta
 
@@ -24,6 +25,7 @@ VERIFY_CODE_TTL_SECONDS = 30 * 60
 VERIFY_CODE_MAX_ATTEMPTS = 5
 VERIFY_CODE_RESEND_SECONDS = 10 if settings.DEBUG else 60
 AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
+logger = logging.getLogger(__name__)
 
 
 def _generate_verify_code() -> str:
@@ -461,6 +463,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 )
                 email_message.send(fail_silently=False)
             except Exception:
+                logger.exception("Failed to send signup verification email.")
                 page_error = "Something went wrong. Try again."
                 step = 2
                 return render_current()
@@ -514,6 +517,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 )
                 email_message.send(fail_silently=False)
             except Exception:
+                logger.exception("Failed to resend signup verification email.")
                 page_error = "Something went wrong. Try again."
                 step = 3
                 return render_current()
@@ -657,6 +661,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 session["signup_step"] = 2
                 return render_current()
             except Exception:
+                logger.exception("Failed to create user during signup.")
                 page_error = "Something went wrong. Try again."
                 step = 4
                 return render_current()
