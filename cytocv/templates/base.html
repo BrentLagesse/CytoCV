@@ -45,6 +45,8 @@
             --glass-surface-rgb: 24, 24, 24;
             --glass-surface-alpha: 0.88;
             --glass-surface-alpha-strong: 0.94;
+            --glass-card-bg: rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+            --glass-card-bg-strong: rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
             --glass-border-rgb: 112, 134, 158;
             --glass-border-alpha: 0.34;
             --glass-highlight: rgba(255, 255, 255, 0.04);
@@ -176,7 +178,7 @@
             border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
             background:
                 var(--liquid-linear-highlight),
-                rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
+                var(--glass-card-bg);
             box-shadow: var(--glass-glow);
             backdrop-filter: blur(var(--glass-blur));
             -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -336,7 +338,7 @@
             min-width: 250px;
             background:
                 var(--liquid-linear-highlight),
-                rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
+                var(--glass-card-bg-strong);
             border: 1px solid rgba(var(--glass-border-rgb), 0.3);
             border-radius: var(--glass-radius-md);
             padding: 8px;
@@ -513,7 +515,7 @@
             width: min(420px, 90vw);
             background:
                 var(--liquid-linear-highlight),
-                rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
+                var(--glass-card-bg-strong);
             border: 1px solid rgba(var(--glass-border-rgb), 0.34);
             border-radius: var(--glass-radius-lg);
             padding: 24px;
