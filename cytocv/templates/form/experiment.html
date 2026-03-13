@@ -60,8 +60,8 @@
             text-align: left;
             margin-top: 10px;
 
-            background-color: var(--surface-mid);
-            border: 1px solid var(--panel-border);
+            background: transparent;
+            border: none;
             border-radius: 8px;
             padding: 8px;
 
@@ -270,7 +270,7 @@
             flex-wrap: wrap;
         }
         .form-toolbar .settings-btn {
-            background-color: transparent;
+            background: transparent;
             color: var(--muted);
             border: 1px solid transparent;
             border-radius: 6px;
@@ -321,9 +321,7 @@
         }
         .settings-modal {
             width: min(700px, 95vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--card-bg);
+            background: var(--popup-surface-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 26px;
@@ -352,9 +350,7 @@
         }
         .reset-modal {
             width: min(420px, 90vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--card-bg);
+            background: var(--popup-surface-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 24px;
@@ -410,9 +406,7 @@
         }
         .folder-issue-modal {
             width: min(460px, 92vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--card-bg);
+            background: var(--popup-surface-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 22px;
@@ -501,9 +495,7 @@
         }
         .nav-exit-modal {
             width: min(440px, 92vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--card-bg);
+            background: var(--popup-surface-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 24px;

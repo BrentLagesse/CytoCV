@@ -47,6 +47,9 @@
             --glass-surface-alpha-strong: 0.94;
             --glass-card-bg: rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
             --glass-card-bg-strong: rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
+            --popup-surface-bg:
+                var(--liquid-linear-highlight),
+                var(--glass-card-bg);
             --glass-border-rgb: 112, 134, 158;
             --glass-border-alpha: 0.34;
             --glass-highlight: rgba(255, 255, 255, 0.04);
@@ -513,9 +516,7 @@
         }
         .logout-modal {
             width: min(420px, 90vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--glass-card-bg-strong);
+            background: var(--popup-surface-bg);
             border: 1px solid rgba(var(--glass-border-rgb), 0.34);
             border-radius: var(--glass-radius-lg);
             padding: 24px;
