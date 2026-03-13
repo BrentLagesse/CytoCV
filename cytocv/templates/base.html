@@ -3,6 +3,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}CytoCV{% endblock title %}</title>
     <link rel="icon" type="image/x-icon" href="{% static 'assets/UWBSTEM.ico' %}?v=3">
     <link rel="shortcut icon" type="image/x-icon" href="{% static 'assets/UWBSTEM.ico' %}?v=3">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap">
@@ -89,6 +91,11 @@
         }
 
         * { box-sizing: border-box; }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
 
         html, body {
             margin: 0;

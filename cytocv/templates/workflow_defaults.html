@@ -20,7 +20,7 @@ body {
   max-width: 1160px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -30,6 +30,7 @@ body {
   top: calc(var(--nav-height) + 18px);
   min-height: calc(100dvh - var(--nav-height) - 34px);
   max-height: calc(100dvh - var(--nav-height) - 34px);
+  overflow: auto;
   padding: 14px 12px;
   display: grid;
   gap: 8px;

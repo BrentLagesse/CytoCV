@@ -96,6 +96,28 @@ def _current_owner_filter(request) -> dict:
     return {"user_id": get_guest_user()}
 
 
+def _resolve_uploaded_dv_path(uploaded_image: UploadedImage) -> Path:
+    """Return the on-disk DV path recorded for an uploaded file."""
+
+    file_field = uploaded_image.file_location
+    if not file_field:
+        raise FileNotFoundError(
+            f"Uploaded image {uploaded_image.pk} has no stored file location."
+        )
+
+    try:
+        dv_path = Path(file_field.path)
+    except (AttributeError, NotImplementedError, ValueError):
+        dv_path = Path(MEDIA_ROOT) / str(file_field.name)
+
+    if not dv_path.exists():
+        raise FileNotFoundError(
+            f"Stored DV file not found for upload {uploaded_image.pk}: {dv_path}"
+        )
+
+    return dv_path
+
+
 def set_options(opt):
     """
     This function sets global variables based on parsed arguments (like the old legacy code).
@@ -291,12 +313,12 @@ def segment_image(request, uuids):
             return HttpResponse("Cancelled")
         uploaded_image = get_object_or_404(UploadedImage, pk=uuid, **owner_filter)
         DV_Name = uploaded_image.name
+        DV_path = _resolve_uploaded_dv_path(uploaded_image)
         image_dict = dict()
         image_dict[DV_Name] = list()
 
         # Need to grab the original DV file
         # Load the original raw image and rescale its intensity values
-        DV_path = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/' + DV_Name + '.dv'
         f = DVFile(DV_path)
         try:
             im = f.asarray()
@@ -893,7 +915,7 @@ def segment_image(request, uuids):
                     'green_red_intensity_3': 0.0,
 
                     # Store file path information
-                    'dv_file_path': DV_path,
+                    'dv_file_path': str(DV_path),
                     'image_name': DV_Name + '.dv',
                 }
             )

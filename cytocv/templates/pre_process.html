@@ -1,7 +1,8 @@
-<!-- Navigation bar -->
 {% extends 'base.html' %}
-<!-- Template specific content -->
-{% block content %}
+
+{% block title %}Pre-process{% endblock title %}
+
+{% block head %}
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const raw = sessionStorage.getItem("dvErrors");
@@ -99,13 +100,6 @@
     setTimeout(() => message.remove(), 60000);
   });
 </script>
-
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pre-process</title>
     <style>
       .channel-chip.dic { background-color: black; }
       .channel-chip.dapi { background-color: blue; }
@@ -130,6 +124,7 @@
         flex-direction: row;
         width: 100%;
         min-height: calc(100dvh - var(--nav-height) - 26px);
+        min-width: 0;
         align-items: flex-start;
         gap: var(--page-shell-gap);
       }
@@ -138,7 +133,9 @@
       .sidebar {
         position: sticky;
         top: calc(var(--nav-height) + var(--page-shell-gap));
-        width: var(--workspace-sidebar-width);
+        width: min(100%, var(--workspace-sidebar-width));
+        max-width: 100%;
+        min-width: 0;
         background:
             linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 46%),
             rgba(var(--glass-surface-rgb), 0.84);
@@ -152,7 +149,9 @@
         display: flex;
         flex-direction: column;
         align-self: flex-start;
-        height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+        min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+        height: auto;
+        max-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
       }
 
       /* Collapsed state: set width to something minimal */
@@ -547,6 +546,7 @@
         flex: 1 1 auto;
         min-width: 0;
         min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+        align-self: stretch;
         display: flex;
         flex-direction: column;
         gap: var(--page-shell-gap);
@@ -559,7 +559,7 @@
         flex: 1 1 auto;
         flex-grow: 1;
         min-width: 0;
-        min-height: 0;
+        min-height: 100%;
         padding: 0;
         text-align: left;
         background: transparent;
@@ -622,8 +622,8 @@
         justify-items: center;
         align-items: start;
         align-content: start;
-        flex: 0 0 auto;
-        min-height: auto;
+        flex: 1 1 auto;
+        min-height: 0;
         width: 100%;
         gap: 6px;
         margin: 0;
@@ -928,11 +928,13 @@
         .sidebar.collapsed {
           position: relative;
           top: auto;
-          height: auto;
+          min-height: 0;
+          max-height: none;
           width: 100%;
         }
         .content-wrapper {
           min-height: 0;
+          align-self: auto;
         }
         .preprocess-context-card,
         .preprocess-image-card {
@@ -961,7 +963,7 @@
           grid-template-columns: 1fr;
         }
         .image-container img {
-          width: min(300px, calc(100vw - 64px));
+          width: min(100%, 300px);
         }
       }
 
@@ -998,8 +1000,9 @@
 
     <!-- Sortable.js for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  </head>
-  <body>
+{% endblock head %}
+
+{% block content %}
     {% if messages %} {% for msg in messages %}
     <div
       style="background: #f8d7da; color: #721c24; padding: 8px; border-radius: 4px; margin: 10px 0;"
@@ -2052,6 +2055,4 @@
         }
       })();
     </script>
-  </body>
-</html>
 {% endblock content %}

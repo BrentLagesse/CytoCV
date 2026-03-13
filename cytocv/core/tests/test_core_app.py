@@ -20,6 +20,7 @@ from core.stats_plugins import (
     instantiate_selected_plugins,
     load_available_plugin_ids,
 )
+from core.views.segment_image import _resolve_uploaded_dv_path
 
 
 @contextmanager
@@ -85,6 +86,25 @@ class RouteSurfaceRefactorTests(TestCase):
             CellPairPrefix=f"{uuid_value}/segmented/cell_",
             NumCells=0,
         )
+
+    def test_segment_image_uses_stored_file_location_for_dv_path(self):
+        uuid_value = str(uuid4())
+        display_name = "220720_M2129_020_PRJ - Copy"
+        stored_name = "220720_M2129_020_PRJ_-_Copy.dv"
+        with temporary_media_root() as media_root:
+            stored_path = media_root / uuid_value / stored_name
+            stored_path.parent.mkdir(parents=True, exist_ok=True)
+            stored_path.write_bytes(b"dv")
+            uploaded = UploadedImage.objects.create(
+                user=self.user,
+                uuid=uuid_value,
+                name=display_name,
+                file_location=f"{uuid_value}/{stored_name}",
+            )
+
+            resolved = _resolve_uploaded_dv_path(uploaded)
+
+        self.assertEqual(resolved, stored_path)
 
     def test_reverse_uses_new_public_routes(self):
         uuid_value = str(uuid4())

@@ -1,13 +1,8 @@
-<!-- Navigation bar -->
 {% extends 'base.html' %}
-<!-- Template specific content -->
-{% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CytoCV</title>
+
+{% block title %}CytoCV{% endblock title %}
+
+{% block head %}
     <style>
         body {
             font-family: var(--app-font);
@@ -15,7 +10,7 @@
             color: var(--text);
             margin: 0;
             padding: calc(var(--nav-height) + 10px) 10px 10px;
-            min-height: 100vh;
+            min-height: 100dvh;
         }
         .home-layout {
             --left-width: 70%;
@@ -23,12 +18,11 @@
             width: 100%;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: minmax(320px, var(--left-width)) var(--divider-width) minmax(260px, 1fr);
+            grid-template-columns: minmax(280px, var(--left-width)) var(--divider-width) minmax(240px, 1fr);
             align-items: stretch;
             justify-items: stretch;
             gap: 10px;
-            height: calc(100vh - var(--nav-height) - 20px);
-            height: calc(100dvh - var(--nav-height) - 20px);
+            min-height: calc(100dvh - var(--nav-height) - 20px);
         }
         .module-card {
             background:
@@ -189,7 +183,7 @@
         @media (max-width: 900px) {
             .home-layout {
                 grid-template-columns: 1fr;
-                height: auto;
+                min-height: 0;
             }
             .splitter { display: none; }
         }
@@ -197,9 +191,9 @@
             to { transform: rotate(360deg); }
         }
     </style>
-</head>
-<body>
+{% endblock head %}
 
+{% block content %}
 <div class="home-layout">
     <section class="module-card overview-card soft-fade-in">
         <div class="overview-header">
@@ -252,8 +246,8 @@
     const homeDivider = document.getElementById('homeDivider');
     if (homeLayout && homeDivider) {
         let dragging = false;
-        const minLeft = 320;
-        const minRight = 260;
+        const minLeft = 280;
+        const minRight = 240;
         const getGap = () => {
             const styles = getComputedStyle(homeLayout);
             const columnGap = styles.columnGap || styles.gap || '0px';
@@ -261,11 +255,33 @@
             return Number.isNaN(gapValue) ? 0 : gapValue;
         };
 
+        const clampColumns = () => {
+            if (window.matchMedia('(max-width: 900px)').matches) {
+                homeLayout.style.removeProperty('--left-width');
+                return;
+            }
+            const currentValue = homeLayout.style.getPropertyValue('--left-width').trim();
+            if (!currentValue) {
+                return;
+            }
+            const rect = homeLayout.getBoundingClientRect();
+            const dividerWidth = homeDivider.offsetWidth;
+            const gap = getGap();
+            const available = Math.max(rect.width - dividerWidth - gap * 2, minLeft + minRight);
+            const maxLeft = available - minRight;
+            const current = parseFloat(currentValue);
+            if (Number.isNaN(current)) {
+                return;
+            }
+            const safeLeft = Math.max(minLeft, Math.min(current, maxLeft));
+            homeLayout.style.setProperty('--left-width', `${safeLeft}px`);
+        };
+
         const updateColumns = (clientX) => {
             const rect = homeLayout.getBoundingClientRect();
             const dividerWidth = homeDivider.offsetWidth;
             const gap = getGap();
-            const available = rect.width - dividerWidth - gap * 2;
+            const available = Math.max(rect.width - dividerWidth - gap * 2, minLeft + minRight);
             const maxLeft = available - minRight;
             const nextLeft = Math.max(minLeft, Math.min(clientX - rect.left - gap - dividerWidth / 2, maxLeft));
             homeLayout.style.setProperty('--left-width', `${nextLeft}px`);
@@ -300,9 +316,9 @@
                 homeDivider.releasePointerCapture(event.pointerId);
             }
         });
+
+        window.addEventListener('resize', clampColumns);
+        clampColumns();
     }
 </script>
-
-</body>
-</html>
 {% endblock content %}
