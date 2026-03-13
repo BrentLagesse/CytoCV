@@ -2,11 +2,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% static 'assets/UWBSTEM.ico' as uwb_favicon_ico %}
+    {% static 'assets/UWBSTEM.png' as uwb_logo_png %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}CytoCV{% endblock title %}</title>
-    <link rel="icon" type="image/x-icon" href="{% static 'assets/UWBSTEM.ico' %}?v=3">
-    <link rel="shortcut icon" type="image/x-icon" href="{% static 'assets/UWBSTEM.ico' %}?v=3">
+    <meta name="description" content="{% block meta_description %}CytoCV image analysis platform.{% endblock meta_description %}">
+    <link rel="icon" type="image/x-icon" href="{{ uwb_favicon_ico }}?v=4">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ uwb_favicon_ico }}?v=4">
+    <link rel="apple-touch-icon" href="{{ uwb_logo_png }}?v=4">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="CytoCV">
+    <meta property="og:title" content="{% block og_title %}CytoCV{% endblock og_title %}">
+    <meta property="og:description" content="{% block og_description %}CytoCV image analysis platform.{% endblock og_description %}">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ uwb_logo_png }}?v=4">
+    <meta property="og:image:alt" content="UWB logo">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{% block twitter_title %}CytoCV{% endblock twitter_title %}">
+    <meta name="twitter:description" content="{% block twitter_description %}CytoCV image analysis platform.{% endblock twitter_description %}">
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ uwb_logo_png }}?v=4">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap">
     <style>
 
