@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404, get_list_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.template.response import TemplateResponse
 from django.views.decorators.http import require_POST, require_GET
@@ -6,11 +6,12 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 import math
 from uuid import UUID
 
-from core.models import DVLayerTifPreview, UploadedImage, get_guest_user
+from core.models import UploadedImage, get_guest_user
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 from .utils import (
     tif_to_jpg,
+    prune_experiment_session_state,
     write_progress,
     progress_path,
     read_progress,
@@ -31,6 +32,12 @@ from core.scale import (
     clear_manual_override_scale,
     get_scale_sidebar_payload,
 )
+from core.services.artifact_storage import (
+    cleanup_transient_processing_artifacts,
+    delete_uploaded_run_by_uuid,
+    ensure_preview_assets,
+    sweep_user_run_artifacts,
+)
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
 
@@ -41,6 +48,22 @@ def _current_owner_filter(request) -> dict:
     if request.user.is_authenticated:
         return {"user": request.user}
     return {"user_id": get_guest_user()}
+
+
+def _delete_cancelled_runs(request, uuid_values: list[str]) -> None:
+    """Hard-delete the current user's cancelled experiment runs."""
+
+    owner_filter = _current_owner_filter(request)
+    owned_uuids = {
+        str(value)
+        for value in UploadedImage.objects.filter(
+            uuid__in=uuid_values,
+            **owner_filter,
+        ).values_list("uuid", flat=True)
+    }
+    for run_uuid in owned_uuids:
+        delete_uploaded_run_by_uuid(run_uuid)
+    prune_experiment_session_state(request, owned_uuids)
 
 
 def _parse_file_scale_map_payload(
@@ -131,6 +154,13 @@ def pre_process(request, uuids):
     uuid_list = uuids.split(',')
     owner_filter = _current_owner_filter(request)
     total_files = len(uuid_list)
+    protected_uuids = {
+        str(value)
+        for value in request.session.get("transient_experiment_uuids", [])
+        if str(value)
+    }
+    protected_uuids.update(str(value) for value in uuid_list if str(value))
+    sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
@@ -177,7 +207,7 @@ def pre_process(request, uuids):
     # current file previews
     current_uuid = uuid_list[current_file_index]
     uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid, **owner_filter)
-    preview_images = get_list_or_404(DVLayerTifPreview, uploaded_image_uuid=uploaded_image)
+    preview_images = ensure_preview_assets(uploaded_image)
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
@@ -293,6 +323,7 @@ def pre_process(request, uuids):
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         def cancel_response():
+            _delete_cancelled_runs(request, uuid_list)
             if is_ajax:
                 return JsonResponse({"status": "cancelled"})
             return HttpResponse("Cancelled", status=409)
@@ -318,7 +349,6 @@ def pre_process(request, uuids):
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
                 return cancel_response()
-            tif_to_jpg(Path(prep_path), out_dir)
 
             if not detection_marked:
                 write_progress(uuids, "Detecting Cells")
@@ -387,9 +417,11 @@ def cancel_progress(request, uuids):
     try:
         if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
             return JsonResponse({"status": "invalid"}, status=400)
+        uuid_list = [value for value in uuids.split(",") if value]
         data = read_progress(uuids)
         phase = data.get("phase", "idle")
         if phase in ("idle", "Completed", "Cancelled"):
+            _delete_cancelled_runs(request, uuid_list)
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
             return JsonResponse({"status": "cancelled"})

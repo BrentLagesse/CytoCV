@@ -42,13 +42,12 @@ from skimage import io
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.utils import timezone
 
 # =========================
 # Local application imports
 # =========================
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
-from .utils import write_progress, is_cancelled, clear_cancelled
+from .utils import write_progress, is_cancelled, clear_cancelled, prune_experiment_session_state
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
     get_channel_config_for_uuid,
@@ -75,6 +74,14 @@ from core.scale import (
     normalize_scale_info,
     resolve_scale_context,
 )
+from core.services.artifact_storage import (
+    cleanup_transient_processing_artifacts,
+    delete_uploaded_run_by_uuid,
+    optimize_png_file,
+    resolve_uploaded_file_path,
+    save_png_array,
+    save_png_image,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -99,23 +106,7 @@ def _current_owner_filter(request) -> dict:
 def _resolve_uploaded_dv_path(uploaded_image: UploadedImage) -> Path:
     """Return the on-disk DV path recorded for an uploaded file."""
 
-    file_field = uploaded_image.file_location
-    if not file_field:
-        raise FileNotFoundError(
-            f"Uploaded image {uploaded_image.pk} has no stored file location."
-        )
-
-    try:
-        dv_path = Path(file_field.path)
-    except (AttributeError, NotImplementedError, ValueError):
-        dv_path = Path(MEDIA_ROOT) / str(file_field.name)
-
-    if not dv_path.exists():
-        raise FileNotFoundError(
-            f"Stored DV file not found for upload {uploaded_image.pk}: {dv_path}"
-        )
-
-    return dv_path
+    return resolve_uploaded_file_path(uploaded_image)
 
 
 def set_options(opt):
@@ -287,10 +278,16 @@ def segment_image(request, uuids):
         else True
     )
 
+    def cancel_response():
+        for cleanup_uuid in uuid_list:
+            delete_uploaded_run_by_uuid(cleanup_uuid)
+        prune_experiment_session_state(request, uuid_list)
+        return HttpResponse("Cancelled")
+
     if cancelled():
         write_progress(uuids, "Cancelled")
         clear_cancelled(uuids)
-        return HttpResponse("Cancelled")
+        return cancel_response()
 
     # Initialize some variables that would normally be a part of config
     choice_var = "Metaphase Arrested" # We need to be able to change this
@@ -310,7 +307,7 @@ def segment_image(request, uuids):
         if cancelled():
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
         uploaded_image = get_object_or_404(UploadedImage, pk=uuid, **owner_filter)
         DV_Name = uploaded_image.name
         DV_path = _resolve_uploaded_dv_path(uploaded_image)
@@ -658,6 +655,7 @@ def segment_image(request, uuids):
             output_file = os.path.join(outputdirectory, f"{DV_Name}_frame_{frame_idx}.png")
             fig.savefig(output_file, dpi=600, bbox_inches='tight', pad_inches=0)
             plt.close(fig)
+            optimize_png_file(Path(output_file))
 
         #plt.show()
 
@@ -679,7 +677,7 @@ def segment_image(request, uuids):
             cell_image_path = segmented_directory / f"cell_{cell_number}.png"
 
             # Save each cell image as PNG
-            Image.fromarray(cell_image.astype(np.uint8)).save(cell_image_path)
+            save_png_array(cell_image.astype(np.uint8), cell_image_path)
         
         os.makedirs(segmented_directory, exist_ok=True)
         f = DVFile(DV_path)
@@ -695,7 +693,7 @@ def segment_image(request, uuids):
             if cancelled():
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return HttpResponse("Cancelled")
+                return cancel_response()
             # images = os.path.split(full_path)[1]  # we start in separate directories, but need to end up in the same one
             # # don't overlay if it isn't the right base image
             # if base_image_name not in images:
@@ -763,32 +761,31 @@ def segment_image(request, uuids):
                 cellpair_image = image_outlined[min_x: max_x, min_y:max_y]
                 not_outlined_image = image[min_x: max_x, min_y:max_y]
                 if not os.path.exists(segmented_directory / cell_tif_image) or not use_cache:  # don't redo things we already have
-                    plt.imsave(segmented_directory / cell_tif_image, cellpair_image, dpi=600, format='PNG')
-                    plt.clf()
+                    save_png_array(cellpair_image, segmented_directory / cell_tif_image)
                 if not os.path.exists(segmented_directory / no_outline_image) or not use_cache:  # don't redo things we already have
-                    plt.imsave(segmented_directory / no_outline_image, not_outlined_image, dpi=600, format='PNG')
-                    plt.clf()
-
-            # Assign SegmentedImage to a user
-            num_cells = max(int(np.max(seg)), 0)
-            segmented_owner_id = (
-                request.user.id
-                if request.user.is_authenticated and auto_save_experiments
-                else get_guest_user()
-            )
-            instance = SegmentedImage(
-                UUID=uuid,
-                user_id=segmented_owner_id,
-                ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
-                CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                NumCells=num_cells,
-                uploaded_date=timezone.now(),
-            )
-            instance.save()
+                    save_png_array(not_outlined_image, segmented_directory / no_outline_image)
 
         # ================================================
         # Calculate statistics for each cell only once after the loop
         # ================================================
+
+        num_cells = max(int(np.max(seg)), 0)
+        segmented_owner_id = (
+            request.user.id
+            if request.user.is_authenticated and auto_save_experiments
+            else get_guest_user()
+        )
+        instance, _ = SegmentedImage.objects.update_or_create(
+            UUID=uuid,
+            defaults={
+                "user_id": segmented_owner_id,
+                "file_location": f"user_{uuid}/{DV_Name}.png",
+                "ImagePath": f"{MEDIA_URL}{uuid}/output/{DV_Name}_frame_0.png",
+                "CellPairPrefix": f"{MEDIA_URL}{uuid}/segmented/cell_",
+                "NumCells": num_cells,
+            },
+        )
+        CellStatistics.objects.filter(segmented_image=instance).delete()
 
         configuration = DEFAULT_PROCESS_CONFIG
         if request.user.is_authenticated:
@@ -889,7 +886,7 @@ def segment_image(request, uuids):
         if cancelled():
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
 
         # Mark accurate phase for UI only if user selected analyses
         if selected_analysis:
@@ -950,9 +947,9 @@ def segment_image(request, uuids):
             debug_gfp_path = segmented_directory / f"{DV_Name}-{cell_number}-GFP_debug.png"
             debug_dapi_path = segmented_directory / f"{DV_Name}-{cell_number}-DAPI_debug.png"
 
-            debug_mcherry.save(debug_mcherry_path)
-            debug_gfp.save(debug_gfp_path)
-            debug_dapi.save(debug_dapi_path)
+            save_png_image(debug_mcherry, debug_mcherry_path)
+            save_png_image(debug_gfp, debug_gfp_path)
+            save_png_image(debug_dapi, debug_dapi_path)
 
             # Save the updated fields to the DB
             cp.save()
@@ -960,7 +957,12 @@ def segment_image(request, uuids):
         if cancelled():
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
+
+        cleanup_transient_processing_artifacts(
+            uuid,
+            remove_preview_assets=True,
+        )
 
         # if the image_dict is empty, then we didn't get anything interesting from the directory
         #print("image_dict123", image_dict)

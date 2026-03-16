@@ -29,6 +29,7 @@ from accounts.preferences import (
 )
 from core.config import get_channel_config_for_uuid
 from core.models import CellStatistics, SegmentedImage, UploadedImage
+from core.services.artifact_storage import sweep_user_run_artifacts
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -835,6 +836,13 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 
 @login_required
 def dashboard_view(request: HttpRequest) -> HttpResponse:
+    cleanup_summary = sweep_user_run_artifacts(
+        request.user,
+        protected_uuids=request.session.get("transient_experiment_uuids", []),
+    )
+    if cleanup_summary["cleaned_saved_runs"]:
+        _recalculate_user_storage_usage(request.user)
+
     export_format = request.GET.get("_export")
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     if TableExport.is_valid_format(export_format) and export_uuid:

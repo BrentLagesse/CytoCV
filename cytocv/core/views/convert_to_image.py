@@ -3,7 +3,10 @@ from django.shortcuts import redirect
 from pathlib import Path
 from PIL import Image
 from cytocv.settings import MEDIA_ROOT
-from .utils import write_progress, is_cancelled, clear_cancelled
+from .utils import write_progress, is_cancelled, clear_cancelled, prune_experiment_session_state
+from core.services.artifact_storage import (
+    delete_uploaded_run_by_uuid,
+)
 
 import csv
 import numpy as np
@@ -38,10 +41,16 @@ def convert_to_image(request, uuids):
     # Split the `uuids` string into a list of individual UUIDs
     uuid_list = uuids.split(',')
 
+    def cancel_response():
+        for cleanup_uuid in uuid_list:
+            delete_uploaded_run_by_uuid(cleanup_uuid)
+        prune_experiment_session_state(request, uuid_list)
+        return HttpResponse("Cancelled")
+
     if is_cancelled(uuids):
         write_progress(uuids, "Cancelled")
         clear_cancelled(uuids)
-        return HttpResponse("Cancelled")
+        return cancel_response()
 
     write_progress(uuids, "Converting Images")
 
@@ -49,7 +58,7 @@ def convert_to_image(request, uuids):
         if is_cancelled(uuids):
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
         # Define paths for each UUID
         rle_file = Path(MEDIA_ROOT) / str(uuid) / "compressed_masks.csv"
         image_list_file = Path(MEDIA_ROOT) / str(uuid) / "preprocessed_images_list.csv"
@@ -100,7 +109,7 @@ def convert_to_image(request, uuids):
             if is_cancelled(uuids):
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return HttpResponse("Cancelled")
+                return cancel_response()
             if verbose:
                 start_time = time.time()
             logging.info(f"Converting {f} to mask for UUID {uuid}...")
@@ -131,7 +140,7 @@ def convert_to_image(request, uuids):
                 if is_cancelled(uuids):
                     write_progress(uuids, "Cancelled")
                     clear_cancelled(uuids)
-                    return HttpResponse("Cancelled")
+                    return cancel_response()
                 logging.info(f"Processing RLE data for object {currobj} in UUID {uuid}")
                 try:
                     currimg = rleToMask(rle[i, 1], new_height, new_width)

@@ -1,15 +1,10 @@
 from django.shortcuts import render, redirect
 from core.forms import UploadImageForm
-from core.models import UploadedImage, DVLayerTifPreview, get_guest_user
-from .utils import tif_to_jpg, write_progress
+from core.models import UploadedImage, get_guest_user
+from .utils import write_progress
 from pathlib import Path    
 from cytocv.settings import MEDIA_ROOT
-from .variables import PRE_PROCESS_FOLDER_NAME
-from mrc import DVFile
-from PIL import Image
 import uuid
-import numpy as np
-import skimage.exposure
 import json
 from django.contrib import messages
 from django.http import JsonResponse
@@ -36,6 +31,11 @@ from core.scale import (
     convert_length_to_pixels,
     normalize_length_unit,
     parse_microns_per_pixel,
+)
+from core.services.artifact_storage import (
+    delete_uploaded_run,
+    generate_preview_assets,
+    sweep_user_run_artifacts,
 )
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
@@ -197,6 +197,13 @@ def experiment(request):
 
         files = request.FILES.getlist('files')
         existing_uuids = _parse_restore_uuids(request.POST.getlist("existing_uuids"))
+        protected_uuids = set(existing_uuids)
+        protected_uuids.update(
+            str(value)
+            for value in request.session.get("transient_experiment_uuids", [])
+            if str(value)
+        )
+        sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
 
         if not files and not existing_uuids:
             print("No files received")
@@ -378,7 +385,7 @@ def experiment(request):
             validation_result = validate_dv_file(dv_file_path, validation_options)
             if not validation_result.is_valid:
                 validation_failures.append((name, validation_result))
-                instance.delete()
+                delete_uploaded_run(instance)
                 continue
 
             metadata_scale = extract_dv_scale_metadata(dv_file_path)
@@ -408,17 +415,13 @@ def experiment(request):
             with open(config_json_path, "w") as config_file:
                 json.dump(channel_config, config_file)
 
-            # Define the directory for storing preprocessed images
-            pre_processed_dir = output_dir / PRE_PROCESS_FOLDER_NAME
-            stored_dv_path = Path(str(MEDIA_ROOT), str(instance.file_location))
-
             print(f"Processing file: {name}, UUID: {image_uuid}")
 
             # Apply the preprocessing step to each image
             if not preprocess_marked:
                 write_progress(progress_key, "Preprocessing Images")
                 preprocess_marked = True
-            generate_tif_preview_images(stored_dv_path, pre_processed_dir, instance, 4)
+            generate_preview_assets(instance, expected_layers=4)
 
         error_lines = build_dv_error_messages(validation_failures, validation_options)
         preprocess_url = None
@@ -456,6 +459,13 @@ def experiment(request):
         form = UploadImageForm()
         restore_param = request.GET.get("restore", "")
         restore_uuids = _parse_restore_uuids(restore_param)
+        protected_uuids = set(restore_uuids)
+        protected_uuids.update(
+            str(value)
+            for value in request.session.get("transient_experiment_uuids", [])
+            if str(value)
+        )
+        sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
         restored_map = {
             str(item.uuid): item
             for item in UploadedImage.objects.filter(uuid__in=restore_uuids, **owner_filter)
@@ -481,55 +491,3 @@ def experiment(request):
             user_preference_defaults=user_preferences.get("experiment_defaults", {}),
         ),
     )
-
-def generate_tif_preview_images(dv_path :Path, save_path :Path, uploaded_image : UploadedImage, n_layers : int ):
-    """
-        Converts DV's layers into tif files
-    """
-    dv_file = DVFile(dv_path)
-    try:
-        arr = dv_file.asarray()
-    finally:
-        dv_file.close()
-
-    if arr.ndim == 2:
-        layers = np.expand_dims(arr, axis=0)
-    elif arr.ndim == 3:
-        # Use the smallest axis as the Z dimension for layer extraction.
-        z_axis = int(np.argmin(arr.shape))
-        layers = np.moveaxis(arr, z_axis, 0)
-    else:
-        print(f"Unexpected DV array rank {arr.ndim} for {dv_path}")
-        return
-
-    actual_layers = layers.shape[0]
-    if actual_layers != n_layers:
-        # Prevent huge loops when DV files don't match the expected layer count.
-        print(f'Uploaded Dv file layers do not match n_layers {n_layers}')
-        n_layers = actual_layers
-
-    for i in range(n_layers):
-        dv = layers[i]
-        # using the pre_preprocess methods from mrcnn because else the dv layers are essentially entirely black to the eye
-        image = Image.fromarray(dv)
-        # Preprocessing operations
-        image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
-        image = np.round(image * 255).astype(np.uint8)        #convert to 8 bit
-        image = np.expand_dims(image, axis=-1)
-        rgb_image = np.tile(image, 3)                          #convert to RGB
-        #rgbimage = skimage.filters.gaussian(rgbimage, sigma=(1,1))   # blur it first?
-
-        rgb_image = Image.fromarray(rgb_image)
-        save_path.mkdir(parents=True, exist_ok=True)
-        tif_path = save_path / f"preprocess-image{i}.tif"
-        rgb_image.save(str(tif_path))
-        jpg_path = tif_to_jpg(output_dir=save_path, tif_path=tif_path)
-        # gets path relative to MEDIA ROOT for django
-        # Ex. 0c51afb4-d8cb-43e5-a75c-8d4cc0f31a14\preprocessed_images\preprocess-image0.jpg
-        file_location = jpg_path.relative_to(MEDIA_ROOT)
-        instance = DVLayerTifPreview(
-            wavelength='',
-            uploaded_image_uuid=uploaded_image,
-            file_location=str(file_location),
-        )
-        instance.save()

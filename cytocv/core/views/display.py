@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from accounts.preferences import get_user_preferences
 from core.config import get_channel_config_for_uuid
 from core.models import UploadedImage, SegmentedImage, CellStatistics, get_guest_user
+from core.services.artifact_storage import sweep_user_run_artifacts
 from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
@@ -159,6 +160,9 @@ def display(request, uuids):
     """
     # Split the comma-separated UUIDs into a list
     uuid_list = [value for value in uuids.split(',') if value]
+    protected_uuids = _current_transient_uuid_set(request)
+    protected_uuids.update(uuid_list)
+    sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
 
     # Keep table output bound to the first UUID that has statistics.
     first_table_uuid = None
