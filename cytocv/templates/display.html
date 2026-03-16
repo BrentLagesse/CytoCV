@@ -2325,33 +2325,14 @@
         }
 
         function showSidebarMessage(message, tone = 'error') {
-            let container = document.querySelector('.message-container.channel-switch');
-            if (!container) {
-                container = document.createElement('div');
-                container.className = 'message-container channel-switch';
-                container.style.top = 'calc(var(--nav-height) + 8px)';
-                container.style.left = '50%';
-                container.style.transform = 'translateX(-50%)';
-                container.style.width = 'min(720px, calc(100% - 32px))';
-                container.style.margin = '0';
-                container.style.zIndex = '1500';
-                container.style.pointerEvents = 'none';
-                document.body.appendChild(container);
+            if (window.showGlobalMessage) {
+                window.showGlobalMessage(message, tone, {
+                    scope: 'channel-switch',
+                    top: 'calc(var(--nav-height) + 8px)',
+                    timeoutMs: 7000,
+                });
+                return;
             }
-
-            const msg = document.createElement('div');
-            msg.className = tone === 'success' ? 'message success' : 'message';
-            msg.style.pointerEvents = 'auto';
-            msg.textContent = message;
-            const close = document.createElement('button');
-            close.type = 'button';
-            close.className = 'message-close';
-            close.setAttribute('aria-label', 'Dismiss');
-            close.innerHTML = '&times;';
-            close.addEventListener('click', () => msg.remove());
-            msg.appendChild(close);
-            container.appendChild(msg);
-            setTimeout(() => msg.remove(), 7000);
         }
 
         function updateSavedStateClasses() {

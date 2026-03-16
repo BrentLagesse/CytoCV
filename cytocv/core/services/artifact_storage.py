@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import errno
+import logging
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -17,6 +19,8 @@ from PIL import Image
 
 from core.artifact_constants import PRE_PROCESS_FOLDER_NAME, PREVIEW_FOLDER_NAME
 from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
+
+logger = logging.getLogger(__name__)
 
 PNG_SAVE_OPTIONS = {
     "format": "PNG",
@@ -42,6 +46,86 @@ LEGACY_PREVIEW_PATTERNS = (
     "preprocess-image*.tif",
     "preprocess-image*.tiff",
 )
+STORAGE_FULL_ERRNOS = {
+    errno.ENOSPC,
+    getattr(errno, "EDQUOT", errno.ENOSPC),
+}
+STORAGE_FULL_MESSAGE_PATTERNS = (
+    "no space left",
+    "disk quota exceeded",
+    "quota exceeded",
+    "storage is full",
+)
+
+
+class StorageQuotaExceeded(Exception):
+    """Raised when saving runs would exceed a user's retained storage quota."""
+
+    def __init__(
+        self,
+        *,
+        required_bytes: int,
+        available_bytes: int,
+        reclaimed_bytes: int = 0,
+    ) -> None:
+        self.required_bytes = max(int(required_bytes), 0)
+        self.available_bytes = max(int(available_bytes), 0)
+        self.reclaimed_bytes = max(int(reclaimed_bytes), 0)
+        super().__init__(
+            "Storage quota exceeded "
+            f"(required={self.required_bytes}, available={self.available_bytes}, reclaimed={self.reclaimed_bytes})."
+        )
+
+
+class MediaStorageFullError(Exception):
+    """Raised when the backing media filesystem cannot accept more writes."""
+
+
+def is_storage_full_error(exc: BaseException | None) -> bool:
+    """Return whether an exception chain represents a disk-full condition."""
+
+    current = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, OSError):
+            if current.errno in STORAGE_FULL_ERRNOS:
+                return True
+            strerror = str(current).lower()
+            if any(pattern in strerror for pattern in STORAGE_FULL_MESSAGE_PATTERNS):
+                return True
+        else:
+            message = str(current).lower()
+            if any(pattern in message for pattern in STORAGE_FULL_MESSAGE_PATTERNS):
+                return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def log_storage_capacity_failure(
+    *,
+    stage: str,
+    user: object | None,
+    uuids: Iterable[str] = (),
+    required_bytes: int | None = None,
+    available_bytes: int | None = None,
+    exc: BaseException | None = None,
+) -> None:
+    """Log a quota or media-capacity failure with stable context."""
+
+    normalized_uuids = [str(value) for value in uuids if str(value)]
+    user_id = getattr(user, "id", None)
+    payload = {
+        "stage": stage,
+        "user_id": str(user_id) if user_id is not None else None,
+        "uuids": normalized_uuids,
+        "required_bytes": None if required_bytes is None else int(required_bytes),
+        "available_bytes": None if available_bytes is None else int(available_bytes),
+    }
+    if exc is None:
+        logger.warning("Storage capacity failure: %s", payload)
+        return
+    logger.warning("Storage capacity failure: %s (%s)", payload, exc, exc_info=exc)
 
 
 def media_root_path() -> Path:
@@ -84,6 +168,92 @@ def user_media_path(run_uuid: str) -> Path:
     """Return the user-scoped file namespace for a run UUID."""
 
     return media_root_path() / f"user_{run_uuid}"
+
+
+def _media_path_size(path: Path) -> int:
+    """Return the total file size at a media path without raising on access errors."""
+
+    if not path.exists():
+        return 0
+    if path.is_file():
+        try:
+            return int(path.stat().st_size)
+        except OSError:
+            return 0
+
+    total = 0
+    try:
+        for candidate in path.rglob("*"):
+            if not candidate.is_file():
+                continue
+            try:
+                total += int(candidate.stat().st_size)
+            except OSError:
+                continue
+    except OSError:
+        return total
+    return total
+
+
+def get_run_storage_bytes(run_uuid: str) -> int:
+    """Return the retained media size for a run across shared and user namespaces."""
+
+    normalized_uuid = str(run_uuid)
+    return _media_path_size(run_media_path(normalized_uuid)) + _media_path_size(
+        user_media_path(normalized_uuid)
+    )
+
+
+def refresh_user_storage_usage(user: object) -> dict[str, int]:
+    """Recalculate and persist retained storage usage for an authenticated user."""
+
+    if not getattr(user, "is_authenticated", False):
+        return {"used_storage": 0, "available_storage": 0, "total_storage": 0}
+
+    saved_uuids = {
+        str(value)
+        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
+    }
+    used_storage = sum(get_run_storage_bytes(run_uuid) for run_uuid in saved_uuids)
+    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
+    user.used_storage = max(0, int(used_storage))
+    user.available_storage = max(0, int(total_storage - user.used_storage))
+    user.save(update_fields=["used_storage", "available_storage"])
+    return {
+        "used_storage": int(user.used_storage),
+        "available_storage": int(user.available_storage),
+        "total_storage": int(total_storage),
+    }
+
+
+def assert_user_can_save_runs(
+    user: object,
+    to_save: Iterable[str],
+    to_unsave: Iterable[str] = (),
+) -> None:
+    """Raise when saving a run set would exceed the user's remaining quota."""
+
+    if not getattr(user, "is_authenticated", False):
+        return
+
+    save_set = {str(value) for value in to_save if str(value)}
+    unsave_set = {str(value) for value in to_unsave if str(value)}
+    if not save_set:
+        return
+    unsave_set.difference_update(save_set)
+
+    storage_usage = refresh_user_storage_usage(user)
+    required_bytes = sum(get_run_storage_bytes(run_uuid) for run_uuid in save_set)
+    reclaimed_bytes = sum(get_run_storage_bytes(run_uuid) for run_uuid in unsave_set)
+    net_required_bytes = max(required_bytes - reclaimed_bytes, 0)
+    available_bytes = int(storage_usage.get("available_storage", 0))
+
+    if net_required_bytes > available_bytes:
+        raise StorageQuotaExceeded(
+            required_bytes=net_required_bytes,
+            available_bytes=available_bytes,
+            reclaimed_bytes=reclaimed_bytes,
+        )
 
 
 def _safe_remove_path(path: Path) -> bool:
@@ -363,6 +533,18 @@ def cleanup_processing_results(run_uuid: str) -> bool:
     changed = _safe_remove_path(output_media_path(run_uuid)) or changed
     changed = _safe_remove_path(segmented_media_path(run_uuid)) or changed
     changed = _safe_remove_path(user_media_path(run_uuid)) or changed
+    return changed
+
+
+def cleanup_failed_processing_artifacts(run_uuid: str) -> bool:
+    """Delete partial processing outputs while preserving the source upload and previews."""
+
+    normalized_uuid = str(run_uuid)
+    changed = cleanup_processing_results(normalized_uuid)
+    changed = cleanup_transient_processing_artifacts(
+        normalized_uuid,
+        remove_preview_assets=False,
+    ) or changed
     return changed
 
 

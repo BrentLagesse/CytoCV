@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 from contextlib import ExitStack, contextmanager
 from datetime import timedelta
@@ -9,9 +10,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import numpy as np
+from django.contrib.messages import get_messages
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
@@ -22,10 +26,23 @@ from core.mrcnn.preprocess_images import preprocess_images
 from core.services.artifact_storage import (
     PRE_PROCESS_FOLDER_NAME,
     PREVIEW_FOLDER_NAME,
+    StorageQuotaExceeded,
+    assert_user_can_save_runs,
     cleanup_transient_processing_artifacts,
     ensure_preview_assets,
     generate_preview_assets,
+    get_run_storage_bytes,
+    is_storage_full_error,
+    refresh_user_storage_usage,
     sweep_user_run_artifacts,
+)
+from core.views.convert_to_image import PROCESSING_STORAGE_FULL_MESSAGE as CONVERT_STORAGE_FULL_MESSAGE
+from core.views.experiment import PROCESSING_STORAGE_FULL_MESSAGE as UPLOAD_STORAGE_FULL_MESSAGE
+from core.views.pre_process import PROCESSING_STORAGE_FULL_MESSAGE as PREPROCESS_STORAGE_FULL_MESSAGE
+from core.views.segment_image import (
+    AUTOSAVE_STORAGE_FULL_MESSAGE,
+    PROCESSING_STORAGE_FULL_MESSAGE as SEGMENT_STORAGE_FULL_MESSAGE,
+    finalize_segmented_run_batch,
 )
 
 
@@ -61,6 +78,7 @@ class ArtifactStorageTestCase(TestCase):
             email="artifact-tests@example.com",
             password="TestPass123!",
         )
+        self.factory = RequestFactory()
         self.client.login(email=self.user.email, password="TestPass123!")
 
     @staticmethod
@@ -116,6 +134,11 @@ class ArtifactStorageTestCase(TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (4, 4), color=color).save(path, format="PNG")
 
+    @staticmethod
+    def _write_bytes(path: Path, size: int) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x" * size)
+
     def _create_preview_row(self, media_root: Path, uploaded: UploadedImage, file_name: str) -> DVLayerTifPreview:
         preview_path = media_root / str(uploaded.uuid) / PREVIEW_FOLDER_NAME / file_name
         self._create_png(preview_path)
@@ -124,6 +147,15 @@ class ArtifactStorageTestCase(TestCase):
             uploaded_image_uuid=uploaded,
             file_location=str(preview_path.relative_to(media_root)),
         )
+
+    def _build_request(self, path: str = "/") -> object:
+        request = self.factory.get(path)
+        request.user = self.user
+        middleware = SessionMiddleware(lambda inner_request: None)
+        middleware.process_request(request)
+        request.session.save()
+        request._messages = FallbackStorage(request)
+        return request
 
 
 class PreviewArtifactTests(ArtifactStorageTestCase):
@@ -219,6 +251,33 @@ class CleanupHelperTests(ArtifactStorageTestCase):
             self.assertTrue((run_dir / "cleanup.dv").exists())
 
 
+class StorageCapacityHelperTests(ArtifactStorageTestCase):
+    def test_is_storage_full_error_detects_enospc(self):
+        exc = OSError(errno.ENOSPC, "No space left on device")
+        self.assertTrue(is_storage_full_error(exc))
+
+    def test_is_storage_full_error_detects_quota_message(self):
+        exc = OSError(getattr(errno, "EDQUOT", errno.ENOSPC), "Disk quota exceeded")
+        self.assertTrue(is_storage_full_error(exc))
+
+    def test_assert_user_can_save_runs_raises_when_run_exceeds_available_storage(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="quota_run")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=get_guest_user(),
+                name="quota_run",
+            )
+            self._write_bytes(media_root / str(uploaded.uuid) / "output" / "frame.png", 96)
+            self.user.total_storage = 64
+            self.user.save(update_fields=["total_storage"])
+
+            with self.assertRaises(StorageQuotaExceeded):
+                assert_user_can_save_runs(self.user, [str(uploaded.uuid)])
+
+            self.assertEqual(get_run_storage_bytes(str(uploaded.uuid)), 98)
+
+
 class ArtifactSweepTests(ArtifactStorageTestCase):
     def test_sweep_user_run_artifacts_cleans_saved_run_transients_without_deleting_run(self):
         with temporary_media_root() as media_root:
@@ -309,6 +368,75 @@ class ArtifactSweepTests(ArtifactStorageTestCase):
             self.assertTrue(SegmentedImage.objects.filter(UUID=uploaded.uuid).exists())
 
 
+class SegmentAutosaveFinalizationTests(ArtifactStorageTestCase):
+    def test_finalize_segmented_run_batch_saves_when_quota_allows(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="autosave_ok")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=get_guest_user(),
+                name="autosave_ok",
+            )
+            self._write_bytes(media_root / str(uploaded.uuid) / "output" / "frame.png", 64)
+            self.user.total_storage = 512
+            self.user.save(update_fields=["total_storage"])
+
+            request = self._build_request("/segment/")
+            request.session["transient_experiment_uuids"] = [str(uploaded.uuid)]
+            request.session.save()
+
+            finalize_segmented_run_batch(
+                request,
+                [str(uploaded.uuid)],
+                auto_save_experiments=True,
+            )
+
+            self.assertEqual(
+                SegmentedImage.objects.get(UUID=uploaded.uuid).user_id,
+                self.user.id,
+            )
+            self.assertNotIn(
+                str(uploaded.uuid),
+                request.session.get("transient_experiment_uuids", []),
+            )
+            self.assertEqual(list(get_messages(request)), [])
+            self.user.refresh_from_db()
+            self.assertEqual(self.user.used_storage, 66)
+
+    def test_finalize_segmented_run_batch_keeps_run_transient_when_quota_is_full(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="autosave_full")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=get_guest_user(),
+                name="autosave_full",
+            )
+            self._write_bytes(media_root / str(uploaded.uuid) / "output" / "frame.png", 96)
+            self.user.total_storage = 32
+            self.user.save(update_fields=["total_storage"])
+
+            request = self._build_request("/segment/")
+            request.session["transient_experiment_uuids"] = []
+            request.session.save()
+
+            finalize_segmented_run_batch(
+                request,
+                [str(uploaded.uuid)],
+                auto_save_experiments=True,
+            )
+
+            self.assertEqual(
+                SegmentedImage.objects.get(UUID=uploaded.uuid).user_id,
+                get_guest_user(),
+            )
+            self.assertIn(
+                str(uploaded.uuid),
+                request.session.get("transient_experiment_uuids", []),
+            )
+            queued_messages = [message.message for message in get_messages(request)]
+            self.assertIn(AUTOSAVE_STORAGE_FULL_MESSAGE, queued_messages)
+
+
 class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
     def test_experiment_invalid_upload_removes_saved_source_file(self):
         with temporary_media_root() as media_root:
@@ -383,3 +511,189 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
             self.assertFalse((run_dir / PRE_PROCESS_FOLDER_NAME).exists())
             self.assertFalse((run_dir / "preprocessed_images_list.csv").exists())
             self.assertFalse(run_dir.exists())
+
+    def test_experiment_upload_storage_full_cleans_partial_batch_and_reports_error(self):
+        with temporary_media_root() as media_root:
+            valid_result = type(
+                "ValidationResult",
+                (),
+                {
+                    "is_valid": True,
+                    "layer_count": 4,
+                    "missing_channels": set(),
+                    "required_channels": set(),
+                    "error_message": "",
+                },
+            )()
+
+            with patch("core.views.experiment.validate_dv_file", return_value=valid_result), patch(
+                "core.views.experiment.extract_channel_config",
+                return_value=DEFAULT_CHANNEL_CONFIG,
+            ), patch(
+                "core.views.experiment.extract_dv_scale_metadata",
+                return_value={},
+            ), patch(
+                "core.views.experiment.generate_preview_assets",
+                side_effect=OSError(errno.ENOSPC, "No space left on device"),
+            ):
+                response = self.client.post(
+                    reverse("experiment"),
+                    {"files": SimpleUploadedFile("full.dv", b"valid")},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 507)
+            self.assertEqual(response.json()["errors"], [UPLOAD_STORAGE_FULL_MESSAGE])
+            self.assertFalse(UploadedImage.objects.exists())
+            self.assertFalse(any(media_root.rglob("*.dv")))
+
+    def test_pre_process_storage_full_redirects_back_with_cleanup(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="preprocess_full")
+            self._write_channel_config(media_root, str(uploaded.uuid))
+            preview_row = self._create_preview_row(media_root, uploaded, "preview-layer0.png")
+            run_dir = media_root / str(uploaded.uuid)
+
+            def fake_preprocess(*args, **kwargs):
+                prep_dir = run_dir / PRE_PROCESS_FOLDER_NAME
+                prep_dir.mkdir(parents=True, exist_ok=True)
+                prep_path = prep_dir / "partial.png"
+                listing_path = run_dir / "preprocessed_images_list.csv"
+                self._create_png(prep_path)
+                listing_path.write_text("ImageId, EncodedRLE\n", encoding="utf-8")
+                raise OSError(errno.ENOSPC, "No space left on device")
+
+            response = None
+            with patch("core.views.pre_process.preprocess_images", side_effect=fake_preprocess):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    follow=True,
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, PREPROCESS_STORAGE_FULL_MESSAGE)
+            self.assertTrue(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
+            self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
+            self.assertFalse((run_dir / PRE_PROCESS_FOLDER_NAME).exists())
+            self.assertFalse((run_dir / "preprocessed_images_list.csv").exists())
+
+    def test_inference_storage_full_redirects_back_with_cleanup(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="inference_full")
+            self._write_channel_config(media_root, str(uploaded.uuid))
+            preview_row = self._create_preview_row(media_root, uploaded, "preview-layer0.png")
+            run_dir = media_root / str(uploaded.uuid)
+
+            def fake_preprocess(*args, **kwargs):
+                prep_dir = run_dir / PRE_PROCESS_FOLDER_NAME
+                prep_dir.mkdir(parents=True, exist_ok=True)
+                prep_path = prep_dir / "prepared.png"
+                listing_path = run_dir / "preprocessed_images_list.csv"
+                self._create_png(prep_path)
+                listing_path.write_text("ImageId, EncodedRLE\nsample, 4 4\n", encoding="utf-8")
+                return str(prep_path), listing_path
+
+            def fake_predict(*args, **kwargs):
+                (run_dir / "logs").mkdir(parents=True, exist_ok=True)
+                (run_dir / "compressed_masks.csv").write_text(
+                    "ImageId, EncodedPixels\nsample, 1 1\n",
+                    encoding="utf-8",
+                )
+                raise OSError(errno.ENOSPC, "No space left on device")
+
+            with patch("core.views.pre_process.preprocess_images", side_effect=fake_preprocess), patch(
+                "core.views.pre_process.predict_images",
+                side_effect=fake_predict,
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    follow=True,
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, PREPROCESS_STORAGE_FULL_MESSAGE)
+            self.assertTrue(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
+            self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
+            self.assertFalse((run_dir / PRE_PROCESS_FOLDER_NAME).exists())
+            self.assertFalse((run_dir / "compressed_masks.csv").exists())
+            self.assertFalse((run_dir / "logs").exists())
+
+    def test_convert_storage_full_redirects_back_with_cleanup(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="convert_full")
+            self._write_channel_config(media_root, str(uploaded.uuid))
+            preview_row = self._create_preview_row(media_root, uploaded, "preview-layer0.png")
+            run_dir = media_root / str(uploaded.uuid)
+            (run_dir / "compressed_masks.csv").write_text(
+                "ImageId, EncodedPixels\nsample, 1 1\n",
+                encoding="utf-8",
+            )
+            (run_dir / "preprocessed_images_list.csv").write_text(
+                "ImageId, EncodedRLE\nsample, 4 4\n",
+                encoding="utf-8",
+            )
+
+            with patch("PIL.Image.Image.save", side_effect=OSError(errno.ENOSPC, "No space left on device")):
+                response = self.client.get(
+                    reverse("experiment_convert", args=[str(uploaded.uuid)]),
+                    follow=True,
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, CONVERT_STORAGE_FULL_MESSAGE)
+            self.assertTrue(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
+            self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
+            self.assertFalse((run_dir / "output").exists())
+            self.assertFalse((run_dir / "compressed_masks.csv").exists())
+            self.assertFalse((run_dir / "preprocessed_images_list.csv").exists())
+
+    def test_segment_storage_full_redirects_back_with_cleanup(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="segment_full")
+            self._write_channel_config(media_root, str(uploaded.uuid))
+            preview_row = self._create_preview_row(media_root, uploaded, "preview-layer0.png")
+            run_dir = media_root / str(uploaded.uuid)
+            output_dir = run_dir / "output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            Image.fromarray(
+                np.array(
+                    [
+                        [1, 1, 0, 0],
+                        [1, 1, 0, 0],
+                        [0, 0, 0, 0],
+                        [0, 0, 0, 0],
+                    ],
+                    dtype=np.uint8,
+                )
+            ).save(
+                output_dir / "mask.tif",
+                format="TIFF",
+            )
+
+            class DummyDVFile:
+                def __init__(self, *_args, **_kwargs):
+                    self._array = np.ones((1, 4, 4), dtype=np.uint8)
+
+                def asarray(self):
+                    return self._array
+
+                def close(self):
+                    return None
+
+            with patch("core.views.segment_image.DVFile", DummyDVFile), patch(
+                "matplotlib.figure.Figure.savefig",
+                side_effect=OSError(errno.ENOSPC, "No space left on device"),
+            ):
+                response = self.client.get(
+                    reverse("experiment_segment", args=[str(uploaded.uuid)]),
+                    follow=True,
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, SEGMENT_STORAGE_FULL_MESSAGE)
+            self.assertTrue(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
+            self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
+            self.assertFalse((run_dir / "output").exists())
+            self.assertFalse((run_dir / "segmented").exists())

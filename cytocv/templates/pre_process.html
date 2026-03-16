@@ -1942,7 +1942,9 @@
           btn.classList.remove("loading");
           if (textEl) textEl.textContent = "Start Analysis";
           setAnalysisLocked(false);
-          alert('Failed to start analysis. Please try again.');
+          if (window.showGlobalMessage) {
+            window.showGlobalMessage('Failed to start analysis. Please try again.');
+          }
         }
       });
 

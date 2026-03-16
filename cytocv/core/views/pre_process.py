@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
+from django.contrib import messages
 from django.template.response import TemplateResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
@@ -33,13 +34,18 @@ from core.scale import (
     get_scale_sidebar_payload,
 )
 from core.services.artifact_storage import (
-    cleanup_transient_processing_artifacts,
+    cleanup_failed_processing_artifacts,
     delete_uploaded_run_by_uuid,
     ensure_preview_assets,
+    is_storage_full_error,
+    log_storage_capacity_failure,
     sweep_user_run_artifacts,
 )
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+PROCESSING_STORAGE_FULL_MESSAGE = (
+    "Files could not be saved because storage is full. Free up space and try again."
+)
 
 
 def _current_owner_filter(request) -> dict:
@@ -328,41 +334,60 @@ def pre_process(request, uuids):
                 return JsonResponse({"status": "cancelled"})
             return HttpResponse("Cancelled", status=409)
 
-        for image_uuid in uuid_list:
-            if cancel_check():
-                write_progress(uuids, "Cancelled")
-                clear_cancelled(uuids)
-                return cancel_response()
-            img_obj = get_object_or_404(UploadedImage, uuid=image_uuid, **owner_filter)
-            out_dir = Path(MEDIA_ROOT) / image_uuid
-
-            if not preprocess_marked:
-                write_progress(uuids, "Preprocessing Images")
-                preprocess_marked = True
-            prep_path, prep_list = preprocess_images(
-                image_uuid,
-                img_obj,
-                out_dir,
-                cancel_check=cancel_check,
+        def storage_full_response(exc: Exception):
+            log_storage_capacity_failure(
+                stage="preprocess_pipeline",
+                user=request.user,
+                uuids=uuid_list,
+                exc=exc,
             )
-            if cancel_check() or not prep_path or not prep_list:
-                write_progress(uuids, "Cancelled")
-                clear_cancelled(uuids)
-                return cancel_response()
+            for cleanup_uuid in uuid_list:
+                cleanup_failed_processing_artifacts(cleanup_uuid)
+            write_progress(uuids, "Idle")
+            clear_cancelled(uuids)
+            messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
+            return redirect("pre_process", uuids=uuids)
 
-            if not detection_marked:
-                write_progress(uuids, "Detecting Cells")
-                detection_marked = True
-            prediction_result = predict_images(
-                prep_path,
-                prep_list,
-                out_dir,
-                cancel_check=cancel_check,
-            )
-            if prediction_result is None or cancel_check():
-                write_progress(uuids, "Cancelled")
-                clear_cancelled(uuids)
-                return cancel_response()
+        try:
+            for image_uuid in uuid_list:
+                if cancel_check():
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return cancel_response()
+                img_obj = get_object_or_404(UploadedImage, uuid=image_uuid, **owner_filter)
+                out_dir = Path(MEDIA_ROOT) / image_uuid
+
+                if not preprocess_marked:
+                    write_progress(uuids, "Preprocessing Images")
+                    preprocess_marked = True
+                prep_path, prep_list = preprocess_images(
+                    image_uuid,
+                    img_obj,
+                    out_dir,
+                    cancel_check=cancel_check,
+                )
+                if cancel_check() or not prep_path or not prep_list:
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return cancel_response()
+
+                if not detection_marked:
+                    write_progress(uuids, "Detecting Cells")
+                    detection_marked = True
+                prediction_result = predict_images(
+                    prep_path,
+                    prep_list,
+                    out_dir,
+                    cancel_check=cancel_check,
+                )
+                if prediction_result is None or cancel_check():
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return cancel_response()
+        except Exception as exc:
+            if not is_storage_full_error(exc):
+                raise
+            return storage_full_response(exc)
 
         return redirect("experiment_convert", uuids=uuids)
 

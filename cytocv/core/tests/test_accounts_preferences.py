@@ -9,7 +9,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.preferences import (
@@ -471,6 +471,12 @@ class DisplayManualSaveTests(TestCase):
         )
         return str(file_uuid)
 
+    @staticmethod
+    def _write_run_bytes(media_root: str, uuid_value: str, *, size: int) -> None:
+        target = Path(media_root) / uuid_value / "output" / "frame.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"x" * size)
+
     def test_display_save_endpoint_rejects_invalid_payload(self):
         response = self.client.post(
             reverse("display_save_files"),
@@ -785,6 +791,41 @@ class DisplayManualSaveTests(TestCase):
         session = self.client.session
         self.assertNotIn(transient_uuid, session.get("transient_experiment_uuids", []))
 
+    def test_display_save_endpoint_rejects_when_storage_quota_is_exceeded(self):
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="quota_transient",
+        )
+        self._set_transient_uuids([transient_uuid])
+        self.user.total_storage = 32
+        self.user.save(update_fields=["total_storage"])
+
+        with TemporaryDirectory() as temp_media:
+            with override_settings(MEDIA_ROOT=temp_media):
+                self._write_run_bytes(temp_media, transient_uuid, size=96)
+                response = self.client.post(
+                    reverse("display_save_files"),
+                    data=json.dumps({"uuids": [transient_uuid]}),
+                    content_type="application/json",
+                )
+
+        self.assertEqual(response.status_code, 507)
+        payload = response.json()
+        self.assertEqual(payload["code"], "storage_full")
+        self.assertEqual(
+            payload["error"],
+            "Selected files could not be saved because your storage is full. Free up space and try again.",
+        )
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.guest_user_id,
+        )
+        self.assertIn(
+            transient_uuid,
+            self.client.session.get("transient_experiment_uuids", []),
+        )
+
     def test_display_unsave_endpoint_rejects_invalid_payload(self):
         response = self.client.post(
             reverse("display_unsave_files"),
@@ -970,6 +1011,94 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertContains(dashboard_response, "sync_transient")
         self.assertNotContains(dashboard_response, "sync_saved")
+
+    def test_display_sync_selection_allows_net_save_when_unsave_frees_space(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="sync_saved_quota",
+        )
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="sync_transient_quota",
+        )
+        self._set_transient_uuids([transient_uuid])
+        self.user.total_storage = 80
+        self.user.save(update_fields=["total_storage"])
+
+        with TemporaryDirectory() as temp_media:
+            with override_settings(MEDIA_ROOT=temp_media):
+                self._write_run_bytes(temp_media, saved_uuid, size=80)
+                self._write_run_bytes(temp_media, transient_uuid, size=60)
+                response = self.client.post(
+                    reverse("display_sync_file_selection"),
+                    data=json.dumps(
+                        {
+                            "visible_uuids": [saved_uuid, transient_uuid],
+                            "selected_uuids": [transient_uuid],
+                        }
+                    ),
+                    content_type="application/json",
+                )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["saved_count"], 1)
+        self.assertEqual(payload["unsaved_count"], 1)
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.user.id,
+        )
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.guest_user_id,
+        )
+
+    def test_display_sync_selection_rejects_atomically_when_net_quota_is_exceeded(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="sync_saved_atomic",
+        )
+        transient_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.guest_user_id,
+            filename="sync_transient_atomic",
+        )
+        self._set_transient_uuids([transient_uuid])
+        self.user.total_storage = 30
+        self.user.save(update_fields=["total_storage"])
+
+        with TemporaryDirectory() as temp_media:
+            with override_settings(MEDIA_ROOT=temp_media):
+                self._write_run_bytes(temp_media, saved_uuid, size=20)
+                self._write_run_bytes(temp_media, transient_uuid, size=60)
+                response = self.client.post(
+                    reverse("display_sync_file_selection"),
+                    data=json.dumps(
+                        {
+                            "visible_uuids": [saved_uuid, transient_uuid],
+                            "selected_uuids": [transient_uuid],
+                        }
+                    ),
+                    content_type="application/json",
+                )
+
+        self.assertEqual(response.status_code, 507)
+        payload = response.json()
+        self.assertEqual(payload["code"], "storage_full")
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=transient_uuid).user_id,
+            self.guest_user_id,
+        )
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id,
+            self.user.id,
+        )
+        transient_session = set(self.client.session.get("transient_experiment_uuids", []))
+        self.assertIn(transient_uuid, transient_session)
+        self.assertNotIn(saved_uuid, transient_session)
 
     def test_display_sync_selection_rejects_foreign_visible_file(self):
         owned_uuid = self._create_display_file(

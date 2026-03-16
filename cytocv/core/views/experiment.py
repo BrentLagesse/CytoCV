@@ -34,11 +34,17 @@ from core.scale import (
 )
 from core.services.artifact_storage import (
     delete_uploaded_run,
+    delete_uploaded_run_by_uuid,
     generate_preview_assets,
+    is_storage_full_error,
+    log_storage_capacity_failure,
     sweep_user_run_artifacts,
 )
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+PROCESSING_STORAGE_FULL_MESSAGE = (
+    "Files could not be saved because storage is full. Free up space and try again."
+)
 
 
 def _parse_bool(value, default=False):
@@ -366,62 +372,82 @@ def experiment(request):
             existing_image.save(update_fields=["scale_info"])
             image_uuids.append(str(existing_uuid))
 
+        def storage_full_response():
+            if is_ajax:
+                return JsonResponse({"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507)
+            messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
+            return redirect(request.path)
+
         # Iterate through each newly uploaded file and assign a unique UUID
         preprocess_marked = False
+        new_upload_uuids: list[str] = []
         for image_location in files:
             name = image_location.name
             name = Path(name).stem
 
             # Generate a UUID for the image
             image_uuid = uuid.uuid4()
+            try:
+                # Save the image instance with the generated UUID
+                instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location, user_id=owner_id)
+                instance.save()
+                new_upload_uuids.append(str(image_uuid))
 
-            # Save the image instance with the generated UUID
-            instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location, user_id=owner_id)
-            instance.save()
+                # Validate metadata before any preprocessing setup.
+                dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
+                validation_result = validate_dv_file(dv_file_path, validation_options)
+                if not validation_result.is_valid:
+                    validation_failures.append((name, validation_result))
+                    delete_uploaded_run(instance)
+                    new_upload_uuids.remove(str(image_uuid))
+                    continue
 
+                metadata_scale = extract_dv_scale_metadata(dv_file_path)
+                instance.scale_info = build_scale_info(
+                    manual_um_per_px=posted_microns_per_pixel,
+                    prefer_metadata=stats_use_metadata_scale,
+                    metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
+                    status=metadata_scale.get("status"),
+                    dx=metadata_scale.get("dx"),
+                    dy=metadata_scale.get("dy"),
+                    dz=metadata_scale.get("dz"),
+                    note=metadata_scale.get("note"),
+                )
+                instance.save(update_fields=["scale_info"])
 
-            # Validate metadata before any preprocessing setup.
-            dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
-            validation_result = validate_dv_file(dv_file_path, validation_options)
-            if not validation_result.is_valid:
-                validation_failures.append((name, validation_result))
-                delete_uploaded_run(instance)
-                continue
+                # only valid files make it into the queue
+                image_uuids.append(str(image_uuid))
 
-            metadata_scale = extract_dv_scale_metadata(dv_file_path)
-            instance.scale_info = build_scale_info(
-                manual_um_per_px=posted_microns_per_pixel,
-                prefer_metadata=stats_use_metadata_scale,
-                metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
-                status=metadata_scale.get("status"),
-                dx=metadata_scale.get("dx"),
-                dy=metadata_scale.get("dy"),
-                dz=metadata_scale.get("dz"),
-                note=metadata_scale.get("note"),
-            )
-            instance.save(update_fields=["scale_info"])
+                # Create a directory for each image based on its UUID
+                output_dir = Path(MEDIA_ROOT, str(image_uuid))
+                output_dir.mkdir(parents=True, exist_ok=True)
 
-            # only valid files make it into the queue
-            image_uuids.append(str(image_uuid))
+                # Extract and save the per-file channel configuration
+                dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
+                channel_config = extract_channel_config(dv_file_path)
+                config_json_path = output_dir / "channel_config.json"
+                with open(config_json_path, "w", encoding="utf-8") as config_file:
+                    json.dump(channel_config, config_file)
 
-            # Create a directory for each image based on its UUID
-            output_dir = Path(MEDIA_ROOT, str(image_uuid))
-            output_dir.mkdir(parents=True, exist_ok=True)
+                print(f"Processing file: {name}, UUID: {image_uuid}")
 
-            # Extract and save the per-file channel configuration
-            dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
-            channel_config = extract_channel_config(dv_file_path)
-            config_json_path = output_dir / "channel_config.json"
-            with open(config_json_path, "w") as config_file:
-                json.dump(channel_config, config_file)
-
-            print(f"Processing file: {name}, UUID: {image_uuid}")
-
-            # Apply the preprocessing step to each image
-            if not preprocess_marked:
-                write_progress(progress_key, "Preprocessing Images")
-                preprocess_marked = True
-            generate_preview_assets(instance, expected_layers=4)
+                # Apply the preprocessing step to each image
+                if not preprocess_marked:
+                    write_progress(progress_key, "Preprocessing Images")
+                    preprocess_marked = True
+                generate_preview_assets(instance, expected_layers=4)
+            except Exception as exc:
+                if not is_storage_full_error(exc):
+                    raise
+                log_storage_capacity_failure(
+                    stage="experiment_upload",
+                    user=request.user,
+                    uuids=new_upload_uuids,
+                    exc=exc,
+                )
+                for cleanup_uuid in list(new_upload_uuids):
+                    delete_uploaded_run_by_uuid(cleanup_uuid)
+                return storage_full_response()
 
         error_lines = build_dv_error_messages(validation_failures, validation_options)
         preprocess_url = None

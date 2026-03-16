@@ -29,7 +29,7 @@ from accounts.preferences import (
 )
 from core.config import get_channel_config_for_uuid
 from core.models import CellStatistics, SegmentedImage, UploadedImage
-from core.services.artifact_storage import sweep_user_run_artifacts
+from core.services.artifact_storage import refresh_user_storage_usage, sweep_user_run_artifacts
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -356,45 +356,8 @@ def _normalize_uuid_list(raw_values: Any) -> list[str]:
     return normalized
 
 
-def _media_path_size(path: Path) -> int:
-    if not path.exists():
-        return 0
-    if path.is_file():
-        try:
-            return int(path.stat().st_size)
-        except OSError:
-            return 0
-
-    total = 0
-    try:
-        for candidate in path.rglob("*"):
-            if not candidate.is_file():
-                continue
-            try:
-                total += int(candidate.stat().st_size)
-            except OSError:
-                continue
-    except OSError:
-        return total
-    return total
-
-
 def _recalculate_user_storage_usage(user: Any) -> None:
-    if not getattr(user, "is_authenticated", False):
-        return
-    uuids = {
-        str(value)
-        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
-    }
-    media_root = Path(MEDIA_ROOT)
-    used_storage = 0
-    for uuid_value in uuids:
-        used_storage += _media_path_size(media_root / uuid_value)
-        used_storage += _media_path_size(media_root / f"user_{uuid_value}")
-    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
-    user.used_storage = max(0, int(used_storage))
-    user.available_storage = max(0, int(total_storage - user.used_storage))
-    user.save(update_fields=["used_storage", "available_storage"])
+    refresh_user_storage_usage(user)
 
 
 def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
