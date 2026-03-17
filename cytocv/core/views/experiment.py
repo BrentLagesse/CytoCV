@@ -36,6 +36,7 @@ from core.services.artifact_storage import (
     delete_uploaded_run,
     delete_uploaded_run_by_uuid,
     generate_preview_assets,
+    get_user_storage_projection,
     is_storage_full_error,
     log_storage_capacity_failure,
     sweep_user_run_artifacts,
@@ -162,6 +163,7 @@ def _upload_view_context(
     error=None,
     restored_queue_items=None,
     user_preference_defaults=None,
+    upload_quota_payload=None,
 ):
     """Build template context for the upload page."""
 
@@ -171,10 +173,32 @@ def _upload_view_context(
         "stats_plugin_payload_json": json.dumps(build_plugin_ui_payload()),
         "restored_queue_payload_json": json.dumps(restored_queue_items or []),
         "user_preference_defaults_json": json.dumps(user_preference_defaults or {}),
+        "upload_quota_payload_json": json.dumps(upload_quota_payload or {}),
     }
     if error:
         context["error"] = error
     return context
+
+
+def _build_upload_quota_payload(user, user_preferences: dict | None = None) -> dict[str, object]:
+    """Build predictive autosave quota data for the upload queue UI."""
+
+    preferences = user_preferences or {}
+    storage_projection = get_user_storage_projection(user)
+    return {
+        "is_authenticated": bool(getattr(user, "is_authenticated", False)),
+        "auto_save_experiments": bool(preferences.get("auto_save_experiments", True)),
+        "used_storage": int(storage_projection.get("used_storage", 0) or 0),
+        "available_storage": int(storage_projection.get("available_storage", 0) or 0),
+        "total_storage": int(storage_projection.get("total_storage", 0) or 0),
+        "average_saved_run_bytes": float(
+            storage_projection.get("average_saved_run_bytes", 0.0) or 0.0
+        ),
+        "additional_files_possible": int(
+            storage_projection.get("additional_files_possible", 0) or 0
+        ),
+        "projection_ready": bool(storage_projection.get("projection_ready", False)),
+    }
 
 
 def experiment(request):
@@ -190,6 +214,7 @@ def experiment(request):
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
     user_preferences = get_user_preferences(request.user)
     experiment_defaults = user_preferences.get("experiment_defaults", {})
+    upload_quota_payload = _build_upload_quota_payload(request.user, user_preferences)
     default_microns_per_pixel = parse_microns_per_pixel(
         experiment_defaults.get("microns_per_pixel"),
         default=DEFAULT_MICRONS_PER_PIXEL,
@@ -221,6 +246,7 @@ def experiment(request):
                     progress_key=progress_key,
                     error='No files received.',
                     user_preference_defaults=user_preferences.get("experiment_defaults", {}),
+                    upload_quota_payload=upload_quota_payload,
                 ),
             )
 
@@ -515,5 +541,6 @@ def experiment(request):
             progress_key=progress_key,
             restored_queue_items=restored_queue_items if request.method != "POST" else None,
             user_preference_defaults=user_preferences.get("experiment_defaults", {}),
+            upload_quota_payload=upload_quota_payload,
         ),
     )

@@ -204,25 +204,108 @@ def get_run_storage_bytes(run_uuid: str) -> int:
     )
 
 
-def refresh_user_storage_usage(user: object) -> dict[str, int]:
-    """Recalculate and persist retained storage usage for an authenticated user."""
+def _saved_run_uuids_for_user(user: object) -> set[str]:
+    """Return the saved run UUIDs retained by an authenticated user."""
 
     if not getattr(user, "is_authenticated", False):
-        return {"used_storage": 0, "available_storage": 0, "total_storage": 0}
-
-    saved_uuids = {
+        return set()
+    return {
         str(value)
         for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
     }
-    used_storage = sum(get_run_storage_bytes(run_uuid) for run_uuid in saved_uuids)
+
+
+def _calculate_user_storage_usage(
+    user: object,
+    *,
+    saved_uuids: Iterable[str] | None = None,
+) -> dict[str, int]:
+    """Calculate retained storage totals for an authenticated user."""
+
+    if not getattr(user, "is_authenticated", False):
+        return {
+            "used_storage": 0,
+            "available_storage": 0,
+            "total_storage": 0,
+            "saved_run_count": 0,
+        }
+
+    normalized_saved_uuids = {
+        str(value)
+        for value in (saved_uuids if saved_uuids is not None else _saved_run_uuids_for_user(user))
+        if str(value)
+    }
+    used_storage = sum(get_run_storage_bytes(run_uuid) for run_uuid in normalized_saved_uuids)
     total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
-    user.used_storage = max(0, int(used_storage))
-    user.available_storage = max(0, int(total_storage - user.used_storage))
-    user.save(update_fields=["used_storage", "available_storage"])
     return {
-        "used_storage": int(user.used_storage),
-        "available_storage": int(user.available_storage),
+        "used_storage": max(0, int(used_storage)),
+        "available_storage": max(0, int(total_storage - used_storage)),
         "total_storage": int(total_storage),
+        "saved_run_count": len(normalized_saved_uuids),
+    }
+
+
+def _persist_user_storage_usage(user: object, storage_usage: dict[str, int]) -> None:
+    """Persist calculated storage usage back onto the authenticated user row."""
+
+    if not getattr(user, "is_authenticated", False):
+        return
+    user.used_storage = max(int(storage_usage.get("used_storage", 0) or 0), 0)
+    user.available_storage = max(int(storage_usage.get("available_storage", 0) or 0), 0)
+    user.save(update_fields=["used_storage", "available_storage"])
+
+
+def refresh_user_storage_usage(user: object) -> dict[str, int]:
+    """Recalculate and persist retained storage usage for an authenticated user."""
+
+    storage_usage = _calculate_user_storage_usage(user)
+    _persist_user_storage_usage(user, storage_usage)
+    return {
+        "used_storage": int(storage_usage["used_storage"]),
+        "available_storage": int(storage_usage["available_storage"]),
+        "total_storage": int(storage_usage["total_storage"]),
+    }
+
+
+def get_user_storage_projection(user: object) -> dict[str, int | float | bool]:
+    """Return storage totals plus queue-capacity estimates for saved runs."""
+
+    if not getattr(user, "is_authenticated", False):
+        return {
+            "used_storage": 0,
+            "available_storage": 0,
+            "total_storage": 0,
+            "average_saved_run_bytes": 0.0,
+            "additional_files_possible": 0,
+            "projection_ready": False,
+        }
+
+    saved_uuids = _saved_run_uuids_for_user(user)
+    storage_usage = _calculate_user_storage_usage(user, saved_uuids=saved_uuids)
+    _persist_user_storage_usage(user, storage_usage)
+
+    saved_run_count = int(storage_usage.get("saved_run_count", 0))
+    used_storage = int(storage_usage.get("used_storage", 0))
+    available_storage = int(storage_usage.get("available_storage", 0))
+    average_saved_run_bytes = (
+        float(used_storage) / saved_run_count
+        if saved_run_count > 0 and used_storage > 0
+        else 0.0
+    )
+    projection_ready = average_saved_run_bytes > 0
+    additional_files_possible = (
+        max(0, int(available_storage / average_saved_run_bytes))
+        if projection_ready
+        else 0
+    )
+
+    return {
+        "used_storage": used_storage,
+        "available_storage": available_storage,
+        "total_storage": int(storage_usage.get("total_storage", 0)),
+        "average_saved_run_bytes": average_saved_run_bytes,
+        "additional_files_possible": additional_files_possible,
+        "projection_ready": projection_ready,
     }
 
 

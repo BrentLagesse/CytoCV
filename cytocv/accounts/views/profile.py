@@ -29,7 +29,11 @@ from accounts.preferences import (
 )
 from core.config import get_channel_config_for_uuid
 from core.models import CellStatistics, SegmentedImage, UploadedImage
-from core.services.artifact_storage import refresh_user_storage_usage, sweep_user_run_artifacts
+from core.services.artifact_storage import (
+    get_user_storage_projection,
+    refresh_user_storage_usage,
+    sweep_user_run_artifacts,
+)
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -665,26 +669,20 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
 
     saved_file_count = len(file_list)
-    stored_used_storage = max(int(getattr(user, "used_storage", 0) or 0), 0)
-    if saved_file_count > 0 and stored_used_storage <= 0:
-        _recalculate_user_storage_usage(user)
-        user.refresh_from_db(fields=["used_storage", "total_storage", "available_storage"])
-        stored_used_storage = max(int(getattr(user, "used_storage", 0) or 0), 0)
-
-    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 1)
-    used_storage = stored_used_storage
+    storage_projection = get_user_storage_projection(user)
+    total_storage = max(int(storage_projection.get("total_storage", 0) or 0), 1)
+    used_storage = max(int(storage_projection.get("used_storage", 0) or 0), 0)
     used_percentage = min(100, max(0, (used_storage / total_storage) * 100))
-    remaining_storage = max(total_storage - used_storage, 0)
-    average_file_size = 0.0
-    additional_files_possible = 0
+    remaining_storage = max(int(storage_projection.get("available_storage", 0) or 0), 0)
+    average_file_size = float(storage_projection.get("average_saved_run_bytes", 0.0) or 0.0)
+    additional_files_possible = max(
+        int(storage_projection.get("additional_files_possible", 0) or 0),
+        0,
+    )
     max_files_at_current_average = saved_file_count
-    file_capacity_projection_ready = False
-    if saved_file_count > 0 and used_storage > 0:
-        average_file_size = used_storage / saved_file_count
-        if average_file_size > 0:
-            file_capacity_projection_ready = True
-            additional_files_possible = max(0, int(remaining_storage / average_file_size))
-            max_files_at_current_average = saved_file_count + additional_files_possible
+    file_capacity_projection_ready = bool(storage_projection.get("projection_ready", False))
+    if file_capacity_projection_ready:
+        max_files_at_current_average = saved_file_count + additional_files_possible
     files_data_json = json.dumps(_sanitize_for_json(files_data), allow_nan=False)
 
     return {

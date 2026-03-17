@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import errno
 import json
+import re
 from contextlib import ExitStack, contextmanager
 from datetime import timedelta
 from pathlib import Path
@@ -13,6 +14,7 @@ import numpy as np
 from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
@@ -20,8 +22,9 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
+from accounts.preferences import get_user_preferences, update_user_preferences
 from core.config import DEFAULT_CHANNEL_CONFIG
-from core.models import DVLayerTifPreview, SegmentedImage, UploadedImage, get_guest_user
+from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage, get_guest_user
 from core.mrcnn.preprocess_images import preprocess_images
 from core.services.artifact_storage import (
     PRE_PROCESS_FOLDER_NAME,
@@ -32,12 +35,14 @@ from core.services.artifact_storage import (
     ensure_preview_assets,
     generate_preview_assets,
     get_run_storage_bytes,
+    get_user_storage_projection,
     is_storage_full_error,
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
 from core.views.convert_to_image import PROCESSING_STORAGE_FULL_MESSAGE as CONVERT_STORAGE_FULL_MESSAGE
 from core.views.experiment import PROCESSING_STORAGE_FULL_MESSAGE as UPLOAD_STORAGE_FULL_MESSAGE
+from core.views.experiment import experiment
 from core.views.pre_process import PROCESSING_STORAGE_FULL_MESSAGE as PREPROCESS_STORAGE_FULL_MESSAGE
 from core.views.segment_image import (
     AUTOSAVE_STORAGE_FULL_MESSAGE,
@@ -277,6 +282,69 @@ class StorageCapacityHelperTests(ArtifactStorageTestCase):
 
             self.assertEqual(get_run_storage_bytes(str(uploaded.uuid)), 98)
 
+    def test_get_user_storage_projection_returns_average_and_capacity(self):
+        with temporary_media_root() as media_root:
+            first = self._create_uploaded_image(media_root, name="projection_first")
+            second = self._create_uploaded_image(media_root, name="projection_second")
+            self._create_segmented_image(
+                uuid_value=str(first.uuid),
+                owner_id=self.user.id,
+                name="projection_first",
+            )
+            self._create_segmented_image(
+                uuid_value=str(second.uuid),
+                owner_id=self.user.id,
+                name="projection_second",
+            )
+            self._write_bytes(media_root / str(first.uuid) / "output" / "frame.png", 98)
+            self._write_bytes(media_root / str(second.uuid) / "output" / "frame.png", 48)
+            self.user.total_storage = 300
+            self.user.save(update_fields=["total_storage"])
+
+            projection = get_user_storage_projection(self.user)
+
+            self.assertEqual(projection["used_storage"], 150)
+            self.assertEqual(projection["available_storage"], 150)
+            self.assertEqual(projection["total_storage"], 300)
+            self.assertEqual(projection["average_saved_run_bytes"], 75.0)
+            self.assertEqual(projection["additional_files_possible"], 2)
+            self.assertTrue(projection["projection_ready"])
+
+            self.user.refresh_from_db()
+            self.assertEqual(self.user.used_storage, 150)
+            self.assertEqual(self.user.available_storage, 150)
+
+    def test_get_user_storage_projection_returns_zero_capacity_when_full(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="projection_full")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=self.user.id,
+                name="projection_full",
+            )
+            self._write_bytes(media_root / str(uploaded.uuid) / "output" / "frame.png", 98)
+            self.user.total_storage = 100
+            self.user.save(update_fields=["total_storage"])
+
+            projection = get_user_storage_projection(self.user)
+
+            self.assertEqual(projection["used_storage"], 100)
+            self.assertEqual(projection["available_storage"], 0)
+            self.assertEqual(projection["additional_files_possible"], 0)
+            self.assertTrue(projection["projection_ready"])
+
+    def test_get_user_storage_projection_is_not_ready_without_saved_history(self):
+        self.user.total_storage = 2048
+        self.user.save(update_fields=["total_storage"])
+
+        projection = get_user_storage_projection(self.user)
+
+        self.assertEqual(projection["used_storage"], 0)
+        self.assertEqual(projection["available_storage"], 2048)
+        self.assertEqual(projection["average_saved_run_bytes"], 0.0)
+        self.assertEqual(projection["additional_files_possible"], 0)
+        self.assertFalse(projection["projection_ready"])
+
 
 class ArtifactSweepTests(ArtifactStorageTestCase):
     def test_sweep_user_run_artifacts_cleans_saved_run_transients_without_deleting_run(self):
@@ -435,6 +503,129 @@ class SegmentAutosaveFinalizationTests(ArtifactStorageTestCase):
             )
             queued_messages = [message.message for message in get_messages(request)]
             self.assertIn(AUTOSAVE_STORAGE_FULL_MESSAGE, queued_messages)
+
+
+class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
+    def test_dashboard_uses_shared_storage_projection_summary(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="dashboard_projection")
+            segmented = self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=self.user.id,
+                name="dashboard_projection",
+            )
+            CellStatistics.objects.create(
+                segmented_image=segmented,
+                cell_id=1,
+                distance=1.0,
+                line_gfp_intensity=2.0,
+                nucleus_intensity_sum=3.0,
+                cellular_intensity_sum=4.0,
+            )
+
+            with patch(
+                "accounts.views.profile.get_user_storage_projection",
+                return_value={
+                    "used_storage": 100,
+                    "available_storage": 200,
+                    "total_storage": 300,
+                    "average_saved_run_bytes": 100.0,
+                    "additional_files_possible": 2,
+                    "projection_ready": True,
+                },
+            ):
+                response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1 out of 3 files saved.")
+        self.assertContains(
+            response,
+            "2 additional files can be saved before quota at your current average file size.",
+        )
+
+    def test_experiment_upload_page_includes_quota_projection_for_autosave_users(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="upload_projection")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=self.user.id,
+                name="upload_projection",
+            )
+            self._write_bytes(media_root / str(uploaded.uuid) / "output" / "frame.png", 98)
+            self.user.total_storage = 250
+            self.user.save(update_fields=["total_storage"])
+
+            response = self.client.get(reverse("experiment"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.context["upload_quota_payload_json"])
+        self.assertTrue(payload["is_authenticated"])
+        self.assertTrue(payload["auto_save_experiments"])
+        self.assertEqual(payload["used_storage"], 100)
+        self.assertEqual(payload["available_storage"], 150)
+        self.assertEqual(payload["additional_files_possible"], 1)
+        self.assertTrue(payload["projection_ready"])
+        self.assertContains(response, 'id="uploadQuotaStatus"', html=False)
+        self.assertContains(response, 'id="uploadQuotaProjection"', html=False)
+        self.assertContains(response, "window.clearGlobalMessages", html=False)
+        self.assertContains(response, "This queued workflow is estimated not to autosave", html=False)
+
+    def test_experiment_upload_page_disables_quota_warning_when_autosave_is_off(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="upload_projection_off")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=self.user.id,
+                name="upload_projection_off",
+            )
+            self._write_bytes(media_root / str(uploaded.uuid) / "output" / "frame.png", 98)
+            preferences = get_user_preferences(self.user)
+            preferences["auto_save_experiments"] = False
+            update_user_preferences(self.user, preferences)
+
+            response = self.client.get(reverse("experiment"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.context["upload_quota_payload_json"])
+        self.assertTrue(payload["is_authenticated"])
+        self.assertFalse(payload["auto_save_experiments"])
+        self.assertContains(response, "Autosave off", html=False)
+        self.assertContains(response, "queueExceedsEstimate && autoSaveExperiments", html=False)
+
+    def test_experiment_upload_page_uses_no_warning_payload_for_guests(self):
+        request = self.factory.get(reverse("experiment"))
+        request.user = AnonymousUser()
+        middleware = SessionMiddleware(lambda inner_request: None)
+        middleware.process_request(request)
+        request.session.save()
+        response = experiment(request)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        match = re.search(
+            r'<script id="uploadQuotaProjection" type="application/json">(.*?)</script>',
+            html,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        payload = json.loads(match.group(1))
+        self.assertFalse(payload["is_authenticated"])
+        self.assertTrue(payload["auto_save_experiments"])
+        self.assertFalse(payload["projection_ready"])
+        self.assertEqual(payload["available_storage"], 0)
+
+    def test_experiment_upload_page_preserves_restored_queue_payload_with_quota_payload(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="restored_queue")
+
+            response = self.client.get(reverse("experiment"), {"restore": str(uploaded.uuid)})
+
+        self.assertEqual(response.status_code, 200)
+        restored_payload = json.loads(response.context["restored_queue_payload_json"])
+        self.assertEqual(restored_payload, [{"uuid": str(uploaded.uuid), "name": "restored_queue"}])
+        quota_payload = json.loads(response.context["upload_quota_payload_json"])
+        self.assertTrue(quota_payload["is_authenticated"])
+        self.assertContains(response, "restored_queue", html=False)
 
 
 class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):

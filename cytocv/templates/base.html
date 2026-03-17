@@ -797,6 +797,21 @@
                 }
                 return window.showGlobalMessage(normalized.join('\n'), tone, options);
             };
+
+            window.clearGlobalMessages = (options = {}) => {
+                const { scope = 'global' } = options;
+                const container = document.querySelector(`.message-container[data-scope="${scope}"]`)
+                    || (scope === 'global' ? document.querySelector('.message-container') : null);
+                if (!container) {
+                    return 0;
+                }
+                const messages = Array.from(container.querySelectorAll('.message'));
+                messages.forEach((msg) => msg.remove());
+                if (scope !== 'global' && !container.querySelector('.message')) {
+                    container.remove();
+                }
+                return messages.length;
+            };
         })();
 
         document.addEventListener('DOMContentLoaded', () => {

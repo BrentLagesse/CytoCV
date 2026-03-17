@@ -76,6 +76,21 @@
             display: block;
         }
 
+        .upload-quota-status {
+            width: calc(100% + 44px);
+            margin: -8px -22px 8px -22px;
+            padding: 0 22px 10px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.35;
+            letter-spacing: 0.01em;
+            text-align: center;
+        }
+        .upload-quota-status.is-warning {
+            color: #ef9b9b;
+        }
+
         /* WebKit/Chromium/Safari scrollbars */
         #fileList::-webkit-scrollbar { width: 16px; }
         #fileList::-webkit-scrollbar-track { background: inherit; } /* no white box */
@@ -1680,6 +1695,7 @@
                 </button>
             </div>
         </div>
+        <div id="uploadQuotaStatus" class="upload-quota-status" aria-live="polite" hidden></div>
 
         <!-- Display list of selected files -->
         <div id="fileList"></div>
@@ -1710,6 +1726,7 @@
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 <script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>
+<script id="uploadQuotaProjection" type="application/json">{{ upload_quota_payload_json|safe }}</script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -1744,6 +1761,7 @@
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
     const serverPreferenceDefaultsElement = document.getElementById('serverPreferenceDefaults');
+    const uploadQuotaProjectionElement = document.getElementById('uploadQuotaProjection');
     let restoredQueueItems = [];
     try {
         const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
@@ -1797,6 +1815,16 @@
         serverPreferenceDefaults = JSON.parse(defaultsRaw || '{}');
     } catch (err) {
         serverPreferenceDefaults = {};
+    }
+    const UPLOAD_QUOTA_WARNING_SCOPE = 'upload-quota-warning';
+    let uploadQuotaProjection = {};
+    try {
+        const uploadQuotaRaw = uploadQuotaProjectionElement
+            ? uploadQuotaProjectionElement.textContent
+            : '{}';
+        uploadQuotaProjection = JSON.parse(uploadQuotaRaw || '{}');
+    } catch (err) {
+        uploadQuotaProjection = {};
     }
 
     const statsState = {
@@ -1903,6 +1931,90 @@
             }
         });
         return names;
+    }
+
+    function formatStorageBytes(rawBytes) {
+        const bytes = Number(rawBytes);
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+            return '0 B';
+        }
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let value = bytes;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex += 1;
+        }
+        const decimals = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+        return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+    }
+
+    function updateUploadQuotaStatus() {
+        const statusElement = document.getElementById('uploadQuotaStatus');
+        if (!statusElement) {
+            return;
+        }
+
+        const isAuthenticated = !!uploadQuotaProjection?.is_authenticated;
+        const autoSaveExperiments = !!uploadQuotaProjection?.auto_save_experiments;
+        if (!isAuthenticated) {
+            statusElement.hidden = true;
+            statusElement.textContent = '';
+            statusElement.classList.remove('is-warning');
+            if (window.clearGlobalMessages) {
+                window.clearGlobalMessages({ scope: UPLOAD_QUOTA_WARNING_SCOPE });
+            }
+            return;
+        }
+
+        const availableStorage = Math.max(0, Number(uploadQuotaProjection.available_storage) || 0);
+        const additionalFilesPossible = Math.max(
+            0,
+            Number(uploadQuotaProjection.additional_files_possible) || 0
+        );
+        const projectionReady = !!uploadQuotaProjection.projection_ready;
+        const queuedCount = getQueuedCount();
+        const queuedLabel = queuedCount === 1 ? 'file' : 'files';
+        const separator = ' \u2022 ';
+        const autosaveLabel = autoSaveExperiments ? 'Autosave on' : 'Autosave off';
+        let statusMessage = `${queuedCount} ${queuedLabel} queued • Autosave on • ${formatStorageBytes(availableStorage)} left`;
+        if (projectionReady) {
+            statusMessage += ` • Est. ${additionalFilesPossible} ${additionalFilesPossible === 1 ? 'file' : 'files'}`;
+        } else {
+            statusMessage += ' • Estimate after first saved run';
+        }
+
+        statusMessage = `${queuedCount} ${queuedLabel} queued${separator}${autosaveLabel}${separator}${formatStorageBytes(availableStorage)} left`;
+        if (projectionReady) {
+            statusMessage += `${separator}Est. ${additionalFilesPossible} ${additionalFilesPossible === 1 ? 'file' : 'files'}`;
+        } else {
+            statusMessage += `${separator}Estimate after first saved run`;
+        }
+
+        statusElement.textContent = statusMessage;
+        statusElement.hidden = false;
+        statusElement.classList.remove('is-warning');
+
+        if (window.clearGlobalMessages) {
+            window.clearGlobalMessages({ scope: UPLOAD_QUOTA_WARNING_SCOPE });
+        }
+
+        const queueExceedsEstimate = projectionReady && queuedCount > additionalFilesPossible;
+        if (queueExceedsEstimate) {
+            statusElement.classList.add('is-warning');
+        }
+        if (queueExceedsEstimate && autoSaveExperiments && window.showGlobalMessage) {
+            const warningPlural = additionalFilesPossible === 1 ? '' : 's';
+            window.showGlobalMessage(
+                `This queued workflow is estimated not to autosave because your storage quota would be exceeded. At your current average saved file size, you can autosave up to ${additionalFilesPossible} queued file${warningPlural} without freeing storage.`,
+                'error',
+                {
+                    scope: UPLOAD_QUOTA_WARNING_SCOPE,
+                    timeoutMs: 0,
+                    dedupe: true,
+                }
+            );
+        }
     }
     const POPUP_ENTER_MS = 170;
     const POPUP_EXIT_MS = 120;
@@ -3917,6 +4029,8 @@
             listItem.appendChild(removeButton);
             fileList.appendChild(listItem);
         });
+
+        updateUploadQuotaStatus();
     }
 
     function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
