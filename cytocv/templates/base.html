@@ -2,9 +2,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% static 'assets/UWBSTEM.ico' as uwb_favicon_ico %}
+    {% static 'assets/UWBSTEM.png' as uwb_logo_png %}
     <meta charset="UTF-8">
-    <link rel="icon" type="image/x-icon" href="{% static 'assets/UWBSTEM.ico' %}?v=3">
-    <link rel="shortcut icon" type="image/x-icon" href="{% static 'assets/UWBSTEM.ico' %}?v=3">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}CytoCV{% endblock title %}</title>
+    <meta name="description" content="{% block meta_description %}CytoCV image analysis platform.{% endblock meta_description %}">
+    <link rel="icon" type="image/x-icon" href="{{ uwb_favicon_ico }}?v=4">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ uwb_favicon_ico }}?v=4">
+    <link rel="apple-touch-icon" href="{{ uwb_logo_png }}?v=4">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="CytoCV">
+    <meta property="og:title" content="{% block og_title %}CytoCV{% endblock og_title %}">
+    <meta property="og:description" content="{% block og_description %}CytoCV image analysis platform.{% endblock og_description %}">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ uwb_logo_png }}?v=4">
+    <meta property="og:image:alt" content="UWB logo">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{% block twitter_title %}CytoCV{% endblock twitter_title %}">
+    <meta name="twitter:description" content="{% block twitter_description %}CytoCV image analysis platform.{% endblock twitter_description %}">
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ uwb_logo_png }}?v=4">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap">
     <style>
 
@@ -47,6 +64,9 @@
             --glass-surface-alpha-strong: 0.94;
             --glass-card-bg: rgba(var(--glass-surface-rgb), var(--glass-surface-alpha));
             --glass-card-bg-strong: rgba(var(--glass-surface-rgb), var(--glass-surface-alpha-strong));
+            --popup-surface-bg:
+                var(--liquid-linear-highlight),
+                var(--glass-card-bg);
             --glass-border-rgb: 112, 134, 158;
             --glass-border-alpha: 0.34;
             --glass-highlight: rgba(255, 255, 255, 0.04);
@@ -86,6 +106,11 @@
         }
 
         * { box-sizing: border-box; }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
 
         html, body {
             margin: 0;
@@ -513,9 +538,7 @@
         }
         .logout-modal {
             width: min(420px, 90vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--glass-card-bg-strong);
+            background: var(--popup-surface-bg);
             border: 1px solid rgba(var(--glass-border-rgb), 0.34);
             border-radius: var(--glass-radius-lg);
             padding: 24px;
@@ -644,8 +667,8 @@
                             </div>
                             <a href="{% url 'account_settings' %}" class="account-action" role="menuitem">Account</a>
                             <a href="{% url 'dashboard' %}" class="account-action" role="menuitem">Dashboard</a>
-                            <a href="{% url 'image_upload' %}" class="account-action" role="menuitem">Experiment</a>
-                            <a href="{% url 'preferences' %}" class="account-action" role="menuitem">Workflow Defaults</a>
+                            <a href="{% url 'experiment' %}" class="account-action" role="menuitem">Experiment</a>
+                            <a href="{% url 'workflow_defaults' %}" class="account-action" role="menuitem">Workflow Defaults</a>
                             <div class="account-divider" aria-hidden="true"></div>
                             <a href="/logout/" id="logoutLink" class="account-action account-signout" role="menuitem">Sign Out</a>
                         </div>
@@ -693,6 +716,104 @@
     </div>
 
     <script>
+        (() => {
+            const ensureMessageContainer = (scope = 'global', top = 'calc(var(--nav-height) + 12px)') => {
+                let container = document.querySelector(`.message-container[data-scope="${scope}"]`);
+                if (container) {
+                    return container;
+                }
+                if (scope === 'global') {
+                    container = document.querySelector('.message-container');
+                    if (container && !container.dataset.scope) {
+                        container.dataset.scope = scope;
+                    }
+                    if (container) {
+                        return container;
+                    }
+                }
+
+                container = document.createElement('div');
+                container.className = 'message-container';
+                container.dataset.scope = scope;
+                container.style.top = top;
+                document.body.appendChild(container);
+                return container;
+            };
+
+            const createMessageElement = (message, tone = 'error') => {
+                const msg = document.createElement('div');
+                msg.className = tone === 'success' ? 'message success' : 'message';
+                msg.style.whiteSpace = 'pre-line';
+                msg.textContent = String(message ?? '').trim();
+                const close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'message-close';
+                close.setAttribute('aria-label', 'Dismiss');
+                close.innerHTML = '&times;';
+                close.addEventListener('click', () => msg.remove());
+                msg.appendChild(close);
+                return msg;
+            };
+
+            window.showGlobalMessage = (message, tone = 'error', options = {}) => {
+                const normalized = String(message ?? '').trim();
+                if (!normalized) {
+                    return null;
+                }
+                const {
+                    scope = 'global',
+                    top = 'calc(var(--nav-height) + 12px)',
+                    timeoutMs = 7000,
+                    dedupe = true,
+                } = options;
+                const container = ensureMessageContainer(scope, top);
+                const dedupeKey = `${tone}|${normalized}`;
+                if (dedupe) {
+                    const existing = Array.from(container.querySelectorAll('.message')).find(
+                        (item) => item.dataset.messageKey === dedupeKey
+                    );
+                    if (existing) {
+                        existing.remove();
+                    }
+                }
+                const msg = createMessageElement(normalized, tone);
+                msg.dataset.messageKey = dedupeKey;
+                container.appendChild(msg);
+                if (timeoutMs > 0) {
+                    window.setTimeout(() => msg.remove(), timeoutMs);
+                }
+                return msg;
+            };
+
+            window.showGlobalMessages = (messages, tone = 'error', options = {}) => {
+                if (!Array.isArray(messages)) {
+                    return null;
+                }
+                const normalized = messages
+                    .map((item) => String(item ?? '').trim())
+                    .filter((item) => item);
+                if (!normalized.length) {
+                    return null;
+                }
+                return window.showGlobalMessage(normalized.join('\n'), tone, options);
+            };
+
+            window.clearGlobalMessages = (options = {}) => {
+                const { scope = 'global' } = options;
+                const container = document.querySelector(`.message-container[data-scope="${scope}"]`)
+                    || (scope === 'global' ? document.querySelector('.message-container') : null);
+                if (!container) {
+                    return 0;
+                }
+                const messages = Array.from(container.querySelectorAll('.message'));
+                messages.forEach((msg) => msg.remove());
+                if (scope !== 'global' && !container.querySelector('.message')) {
+                    container.remove();
+                }
+                return messages.length;
+            };
+        })();
+
         document.addEventListener('DOMContentLoaded', () => {
             const initializeMessages = () => {
                 const messages = Array.from(document.querySelectorAll('.message-container .message'));

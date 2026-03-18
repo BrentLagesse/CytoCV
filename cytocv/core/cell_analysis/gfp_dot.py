@@ -1,6 +1,6 @@
 import math, cv2
 import numpy as np
-from .Analysis import Analysis
+from .analysis import Analysis
 from core.contour_processing import get_contour_center
 from core.scale import convert_pixel_delta_to_microns, normalize_length_unit
 

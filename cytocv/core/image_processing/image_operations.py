@@ -2,7 +2,7 @@ import cv2
 from PIL import Image
 import numpy as np
 from cv2_rolling_ball import subtract_background_rolling_ball
-from core.image_processing import GrayImage
+from .grey_image import GrayImage
 
 
 

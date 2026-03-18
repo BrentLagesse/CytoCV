@@ -1,14 +1,14 @@
 import numpy as np
 from PIL import Image
-import os
 import skimage.exposure
 import skimage.filters
 from mrc import DVFile
 from cytocv.settings import MEDIA_ROOT
+from core.artifact_constants import PRE_PROCESS_FOLDER_NAME
 from core.models import UploadedImage
 from core.config import get_channel_config_for_uuid
 from pathlib import Path
-from core.views.variables import PRE_PROCESS_FOLDER_NAME
+from core.services.artifact_storage import save_png_image
 #Original header
 # def preprocess_images(inputdirectory, mask_dir, outputdirectory, outputfile, verbose = False, use_cache=True):
 def preprocess_images(
@@ -102,14 +102,14 @@ def preprocess_images(
     if cancel_check and cancel_check():
         return None, None
 
-    image_name = uploaded_image.name.split(".")[0] + ".tif"
-    pre_process_image_path = os.path.join(pre_process_dir_path, image_name)
-    rgb_image.save(pre_process_image_path)
+    image_name = uploaded_image.name.split(".")[0] + ".png"
+    pre_process_image_path = pre_process_dir_path / image_name
+    save_png_image(rgb_image, pre_process_image_path)
     
     preprocessed_image_list = open(preprocessed_image_list_path, "a")
     preprocessed_image_list.write(uploaded_image.name + ", " + str(height) + " " + str(width) + "\n")
     preprocessed_image_list.close()
     print('Pre-process completed FINISHED')
-    return pre_process_image_path, preprocessed_image_list_path
+    return str(pre_process_image_path), preprocessed_image_list_path
     # except IOError:
     #     pass

@@ -668,6 +668,6 @@ def signup(request: HttpRequest) -> HttpResponse:
 
             login(request, user, backend="accounts.backends.EmailBackend")
             _clear_signup_session(request)
-            return redirect("homepage")
+            return redirect("home")
 
     return render_current()

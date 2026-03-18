@@ -1,1 +1,1 @@
-PRE_PROCESS_FOLDER_NAME = "preprocessed_images"
+from core.artifact_constants import PRE_PROCESS_FOLDER_NAME, PREVIEW_FOLDER_NAME

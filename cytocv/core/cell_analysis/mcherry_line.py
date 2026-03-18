@@ -1,4 +1,4 @@
-from .Analysis import Analysis
+from .analysis import Analysis
 from core.contour_processing import get_contour_center
 
 import math, cv2

@@ -191,7 +191,7 @@ def _render_recovery(
     """Render the sign-in template in password recovery mode."""
     return TemplateResponse(
         request,
-        "registration/login.html",
+        "registration/signin.html",
         {
             "recovery_mode": True,
             "recovery_step": step,
@@ -604,7 +604,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
             gate_error = "Please complete the reCAPTCHA challenge."
         return TemplateResponse(
             request,
-            "registration/login.html",
+            "registration/signin.html",
             {
                 "recovery_mode": False,
                 "recaptcha_gate_mode": True,
@@ -634,7 +634,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         next_url = (request.GET.get("next") or "").strip()
         if not next_url:
             return None
-        if next_url.startswith("/image/") or next_url.startswith("/api/"):
+        if next_url.startswith("/experiment/") or next_url.startswith("/api/"):
             return "Please sign in to use the experiment workflow."
         return "Please sign in to continue."
 
@@ -648,7 +648,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
         """Render the sign-in page with rate-limit context."""
         return TemplateResponse(
             request,
-            "registration/login.html",
+            "registration/signin.html",
             {
                 "recovery_mode": False,
                 "rate_limit_active": rate_limit_active,
@@ -728,6 +728,6 @@ def auth_login(request: HttpRequest) -> HttpResponse:
 
 
 def auth_logout(request: HttpRequest) -> HttpResponse:
-    """Log out the current user and return to the homepage."""
+    """Log out the current user and return to the home page."""
     logout(request)
-    return redirect("homepage")
+    return redirect("home")

@@ -1,9 +1,16 @@
 from django.http import HttpResponse
+from django.contrib import messages
 from django.shortcuts import redirect
 from pathlib import Path
 from PIL import Image
 from cytocv.settings import MEDIA_ROOT
-from .utils import write_progress, is_cancelled, clear_cancelled
+from .utils import write_progress, is_cancelled, clear_cancelled, prune_experiment_session_state
+from core.services.artifact_storage import (
+    cleanup_failed_processing_artifacts,
+    delete_uploaded_run_by_uuid,
+    is_storage_full_error,
+    log_storage_capacity_failure,
+)
 
 import csv
 import numpy as np
@@ -14,6 +21,9 @@ import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+PROCESSING_STORAGE_FULL_MESSAGE = (
+    "Files could not be saved because storage is full. Free up space and try again."
+)
 
 def rleToMask(rleString, height, width):
     rows, cols = height, width
@@ -38,125 +48,152 @@ def convert_to_image(request, uuids):
     # Split the `uuids` string into a list of individual UUIDs
     uuid_list = uuids.split(',')
 
+    def cancel_response():
+        for cleanup_uuid in uuid_list:
+            delete_uploaded_run_by_uuid(cleanup_uuid)
+        prune_experiment_session_state(request, uuid_list)
+        return HttpResponse("Cancelled")
+
+    def storage_full_response(exc: Exception):
+        log_storage_capacity_failure(
+            stage="convert_masks",
+            user=request.user,
+            uuids=uuid_list,
+            exc=exc,
+        )
+        for cleanup_uuid in uuid_list:
+            cleanup_failed_processing_artifacts(cleanup_uuid)
+        write_progress(uuids, "Idle")
+        clear_cancelled(uuids)
+        messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
+        return redirect("pre_process", uuids=uuids)
+
     if is_cancelled(uuids):
         write_progress(uuids, "Cancelled")
         clear_cancelled(uuids)
-        return HttpResponse("Cancelled")
+        return cancel_response()
 
     write_progress(uuids, "Converting Images")
 
-    for uuid in uuid_list:
-        if is_cancelled(uuids):
-            write_progress(uuids, "Cancelled")
-            clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
-        # Define paths for each UUID
-        rle_file = Path(MEDIA_ROOT) / str(uuid) / "compressed_masks.csv"
-        image_list_file = Path(MEDIA_ROOT) / str(uuid) / "preprocessed_images_list.csv"
-        outputdirectory = Path(MEDIA_ROOT) / str(uuid) / "output"
-
-        # Debugging log for file paths
-        logging.info(f"Checking paths for UUID: {uuid}")
-        logging.info(f"RLE file path: {rle_file}")
-        logging.info(f"Image list file path: {image_list_file}")
-        logging.info(f"Output directory: {outputdirectory}")
-
-        # Check if files exist
-        if not rle_file.exists():
-            logging.error(f"RLE file not found for UUID {uuid}: {rle_file}")
-            continue
-
-        if not image_list_file.exists():
-            logging.error(f"Image list file not found for UUID {uuid}: {image_list_file}")
-            continue
-
-        logging.info(f"Both RLE and image list files found for UUID {uuid}, proceeding...")
-
-        # Create output directory if it doesn't exist
-        outputdirectory.mkdir(parents=True, exist_ok=True)
-
-        # Check if output directory is writable
-        if not os.access(outputdirectory, os.W_OK):
-            logging.error(f"Cannot write to output directory for UUID {uuid}: {outputdirectory}")
-            continue
-
-        # Read the RLE and image list files
-        try:
-            rle = csv.reader(open(rle_file), delimiter=',')
-            rle = np.array([row for row in rle])[1:, :]
-        except Exception as e:
-            logging.error(f"Error reading RLE file for UUID {uuid}: {e}")
-            continue
-
-        try:
-            image_list = csv.reader(open(image_list_file), delimiter=',')
-            image_list = np.array([row for row in image_list])[1:, :]
-        except Exception as e:
-            logging.error(f"Error reading image list file for UUID {uuid}: {e}")
-            continue
-
-        files = np.unique(rle[:, 0])
-        for f in files:
+    try:
+        for uuid in uuid_list:
             if is_cancelled(uuids):
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return HttpResponse("Cancelled")
-            if verbose:
-                start_time = time.time()
-            logging.info(f"Converting {f} to mask for UUID {uuid}...")
+                return cancel_response()
+            # Define paths for each UUID
+            rle_file = Path(MEDIA_ROOT) / str(uuid) / "compressed_masks.csv"
+            image_list_file = Path(MEDIA_ROOT) / str(uuid) / "preprocessed_images_list.csv"
+            outputdirectory = Path(MEDIA_ROOT) / str(uuid) / "output"
 
-            try:
-                list_index = np.where(image_list[:, 0] == f)[0][0]
-            except IndexError:
-                logging.error(f"Image {f} not found in image list for UUID {uuid}.")
+            # Debugging log for file paths
+            logging.info(f"Checking paths for UUID: {uuid}")
+            logging.info(f"RLE file path: {rle_file}")
+            logging.info(f"Image list file path: {image_list_file}")
+            logging.info(f"Output directory: {outputdirectory}")
+
+            # Check if files exist
+            if not rle_file.exists():
+                logging.error(f"RLE file not found for UUID {uuid}: {rle_file}")
                 continue
 
-            file_string = image_list[list_index, 1]
-            size = file_string.split(" ")
-            height = int(size[1])
-            width = int(size[2])
+            if not image_list_file.exists():
+                logging.error(f"Image list file not found for UUID {uuid}: {image_list_file}")
+                continue
 
-            logging.info(f"Image size for {f}: height={height}, width={width}")
+            logging.info(f"Both RLE and image list files found for UUID {uuid}, proceeding...")
 
-            new_height = height
-            new_width = width
-            if rescale:
-                new_height = height // scale_factor
-                new_width = width // scale_factor
+            # Create output directory if it doesn't exist
+            outputdirectory.mkdir(parents=True, exist_ok=True)
 
-            image = np.zeros((new_height, new_width)).astype(np.float32)
-            columns = np.where(rle[:, 0] == f)
-            currobj = 1
-            for i in columns[0]:
+            # Check if output directory is writable
+            if not os.access(outputdirectory, os.W_OK):
+                logging.error(f"Cannot write to output directory for UUID {uuid}: {outputdirectory}")
+                continue
+
+            # Read the RLE and image list files
+            try:
+                rle = csv.reader(open(rle_file), delimiter=',')
+                rle = np.array([row for row in rle])[1:, :]
+            except Exception as e:
+                logging.error(f"Error reading RLE file for UUID {uuid}: {e}")
+                continue
+
+            try:
+                image_list = csv.reader(open(image_list_file), delimiter=',')
+                image_list = np.array([row for row in image_list])[1:, :]
+            except Exception as e:
+                logging.error(f"Error reading image list file for UUID {uuid}: {e}")
+                continue
+
+            files = np.unique(rle[:, 0])
+            for f in files:
                 if is_cancelled(uuids):
                     write_progress(uuids, "Cancelled")
                     clear_cancelled(uuids)
-                    return HttpResponse("Cancelled")
-                logging.info(f"Processing RLE data for object {currobj} in UUID {uuid}")
+                    return cancel_response()
+                if verbose:
+                    start_time = time.time()
+                logging.info(f"Converting {f} to mask for UUID {uuid}...")
+
                 try:
-                    currimg = rleToMask(rle[i, 1], new_height, new_width)
-                    currimg = currimg > 1
-                    image = image + (currimg * currobj)
-                    currobj += 1
-                except Exception as e:
-                    logging.error(f"Error generating mask for {f} in UUID {uuid}: {e}")
+                    list_index = np.where(image_list[:, 0] == f)[0][0]
+                except IndexError:
+                    logging.error(f"Image {f} not found in image list for UUID {uuid}.")
                     continue
 
-            if rescale:
-                image = skimage.transform.resize(image, output_shape=(height, width), order=0, preserve_range=True)
+                file_string = image_list[list_index, 1]
+                size = file_string.split(" ")
+                height = int(size[1])
+                width = int(size[2])
 
-            # Save the image
-            mask_path = outputdirectory / "mask.tif"
-            try:
-                image = Image.fromarray(image.astype(np.uint8))
-                image.save(mask_path)
-                logging.info(f"Saved mask for UUID {uuid} to: {mask_path}")
-            except Exception as e:
-                logging.error(f"Error saving mask for UUID {uuid}: {e}")
-                continue
+                logging.info(f"Image size for {f}: height={height}, width={width}")
 
-            if verbose:
-                logging.info(f"Completed conversion for {f} in UUID {uuid} in {time.time() - start_time} seconds")
+                new_height = height
+                new_width = width
+                if rescale:
+                    new_height = height // scale_factor
+                    new_width = width // scale_factor
+
+                image = np.zeros((new_height, new_width)).astype(np.float32)
+                columns = np.where(rle[:, 0] == f)
+                currobj = 1
+                for i in columns[0]:
+                    if is_cancelled(uuids):
+                        write_progress(uuids, "Cancelled")
+                        clear_cancelled(uuids)
+                        return cancel_response()
+                    logging.info(f"Processing RLE data for object {currobj} in UUID {uuid}")
+                    try:
+                        currimg = rleToMask(rle[i, 1], new_height, new_width)
+                        currimg = currimg > 1
+                        image = image + (currimg * currobj)
+                        currobj += 1
+                    except Exception as e:
+                        logging.error(f"Error generating mask for {f} in UUID {uuid}: {e}")
+                        continue
+
+                if rescale:
+                    image = skimage.transform.resize(image, output_shape=(height, width), order=0, preserve_range=True)
+
+                # Save the image
+                mask_path = outputdirectory / "mask.tif"
+                try:
+                    image = Image.fromarray(image.astype(np.uint8))
+                    image.save(mask_path)
+                    logging.info(f"Saved mask for UUID {uuid} to: {mask_path}")
+                except Exception as e:
+                    if is_storage_full_error(e):
+                        raise
+                    logging.error(f"Error saving mask for UUID {uuid}: {e}")
+                    continue
+
+                if verbose:
+                    logging.info(f"Completed conversion for {f} in UUID {uuid} in {time.time() - start_time} seconds")
+    except Exception as exc:
+        if not is_storage_full_error(exc):
+            raise
+        return storage_full_response(exc)
 
     # Redirect after processing all UUIDs
-    return redirect(f'/image/{uuids}/segment/')
+    return redirect("experiment_segment", uuids=uuids)

@@ -2,12 +2,9 @@
 # Standard library imports
 # =========================
 import csv
-import importlib
 import logging
 import math
 import os
-import pkgutil
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -43,15 +40,16 @@ from skimage import io
 # Django imports
 # =========================
 from django.conf import settings
+from django.contrib import messages
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.utils import timezone
 
 # =========================
 # Local application imports
 # =========================
-from cytocv.settings import BASE_DIR, MEDIA_ROOT, MEDIA_URL
-from .utils import write_progress, is_cancelled, clear_cancelled
+from cytocv.settings import MEDIA_ROOT, MEDIA_URL
+from .utils import write_progress, is_cancelled, clear_cancelled, prune_experiment_session_state
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
     get_channel_config_for_uuid,
@@ -70,14 +68,27 @@ from core.contour_processing import (
     get_neighbor_count,
     merge_contour,
 )
-from core.cell_analysis import Analysis
-from core.stats_plugins import build_requirement_summary
+from core.stats_plugins import build_requirement_summary, instantiate_selected_plugins
 from accounts.preferences import should_auto_save_experiments
 from core.scale import (
     convert_length_to_pixels,
     normalize_length_unit,
     normalize_scale_info,
     resolve_scale_context,
+)
+from core.services.artifact_storage import (
+    StorageQuotaExceeded,
+    assert_user_can_save_runs,
+    cleanup_failed_processing_artifacts,
+    cleanup_transient_processing_artifacts,
+    delete_uploaded_run_by_uuid,
+    is_storage_full_error,
+    log_storage_capacity_failure,
+    optimize_png_file,
+    refresh_user_storage_usage,
+    resolve_uploaded_file_path,
+    save_png_array,
+    save_png_image,
 )
 
 # Configure logging
@@ -90,6 +101,13 @@ logging.basicConfig(
     ]
 )
 
+AUTOSAVE_STORAGE_FULL_MESSAGE = (
+    "Analysis finished, but these files were not saved to your account because your storage is full."
+)
+PROCESSING_STORAGE_FULL_MESSAGE = (
+    "Files could not be saved because storage is full. Free up space and try again."
+)
+
 ## progress helpers moved to core.views.utils
 
 def _current_owner_filter(request) -> dict:
@@ -98,6 +116,12 @@ def _current_owner_filter(request) -> dict:
     if request.user.is_authenticated:
         return {"user": request.user}
     return {"user_id": get_guest_user()}
+
+
+def _resolve_uploaded_dv_path(uploaded_image: UploadedImage) -> Path:
+    """Return the on-disk DV path recorded for an uploaded file."""
+
+    return resolve_uploaded_file_path(uploaded_image)
 
 
 def set_options(opt):
@@ -112,36 +136,6 @@ def set_options(opt):
     kernel_deviation_input = opt['kernel_deviation']
     choice_var = opt['arrested']
     return kernel_size_input, mcherry_line_width_input, kernel_deviation_input, choice_var
-
-def import_analyses(path:str, selected_analysis:list) -> list:
-    """
-    This function dynamically load the list of analyses from the path folder
-    :param path: Path the analysis folder
-    :return: List of the object of the analyses
-    """
-    analyses = []
-    sys.path.append(str(path))
-    print(path)
-
-    modules = pkgutil.iter_modules(path=[path])
-    for loader, mod_name, ispkg in modules:
-        # Ensure that module isn't already loaded
-        loaded_mod = None
-        if mod_name not in sys.modules:
-            # Import module
-            loaded_mod = importlib.import_module('.cell_analysis','core')
-        if loaded_mod is None: continue
-        if mod_name != 'Analysis' and mod_name in selected_analysis:
-            loaded_class = getattr(loaded_mod, mod_name)
-            instanceOfClass = loaded_class()
-            if isinstance(instanceOfClass, Analysis):
-                print('Imported Plugin -- ' + mod_name)
-                analyses.append(instanceOfClass)
-            else:
-                print
-                mod_name + " was not an instance of Analysis"
-
-    return analyses
 
 def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled=False):
     # loading configuration
@@ -247,8 +241,7 @@ def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_thre
         cv2.drawContours(edit_GFP_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
         cv2.drawContours(edit_DAPI_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
 
-    import_path = BASE_DIR / 'core/cell_analysis'
-    analyses = import_analyses(import_path, selected_analysis)
+    analyses = instantiate_selected_plugins(selected_analysis)
     dapi_contour_required_plugins = {"NucleusIntensity", "DAPI_NucleusIntensity"}
     for analysis in analyses:
         analysis_name = analysis.__class__.__name__
@@ -272,19 +265,50 @@ def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_thre
 
     return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb), Image.fromarray(edit_DAPI_img_rgb)
 
-'''Get file size of a directory recursively'''
-def get_dir_size(path):
-    """
-    Calculate the size of a directory recursively
-    """
-    total = 0
-    with os.scandir(path) as it:
-        for entry in it:
-            if entry.is_file():
-                total += entry.stat().st_size
-            elif entry.is_dir():
-                total += get_dir_size(entry.path)
-    return total
+def finalize_segmented_run_batch(request, uuid_list: list[str], *, auto_save_experiments: bool) -> None:
+    """Persist a completed batch when quota allows, otherwise keep it transient."""
+
+    if not getattr(request.user, "is_authenticated", False):
+        return
+
+    current_uuids = {str(item) for item in uuid_list if str(item)}
+    transient = {
+        str(item)
+        for item in request.session.get("transient_experiment_uuids", [])
+        if str(item)
+    }
+    guest_id = get_guest_user()
+
+    if not auto_save_experiments:
+        transient.update(current_uuids)
+        request.session["transient_experiment_uuids"] = sorted(transient)
+        return
+
+    try:
+        assert_user_can_save_runs(request.user, current_uuids)
+    except StorageQuotaExceeded as exc:
+        log_storage_capacity_failure(
+            stage="segment_autosave",
+            user=request.user,
+            uuids=current_uuids,
+            required_bytes=exc.required_bytes,
+            available_bytes=exc.available_bytes,
+            exc=exc,
+        )
+        messages.error(request, AUTOSAVE_STORAGE_FULL_MESSAGE)
+        SegmentedImage.objects.filter(UUID__in=current_uuids).update(user_id=guest_id)
+        transient.update(current_uuids)
+        request.session["transient_experiment_uuids"] = sorted(transient)
+        refresh_user_storage_usage(request.user)
+        return
+
+    with transaction.atomic():
+        SegmentedImage.objects.filter(UUID__in=current_uuids, user_id=guest_id).update(
+            user=request.user
+        )
+    transient.difference_update(current_uuids)
+    request.session["transient_experiment_uuids"] = sorted(transient)
+    refresh_user_storage_usage(request.user)
 
 '''Creates image "segments" from the desired image'''
 def segment_image(request, uuids):
@@ -300,10 +324,30 @@ def segment_image(request, uuids):
         else True
     )
 
+    def cancel_response():
+        for cleanup_uuid in uuid_list:
+            delete_uploaded_run_by_uuid(cleanup_uuid)
+        prune_experiment_session_state(request, uuid_list)
+        return HttpResponse("Cancelled")
+
+    def storage_full_response(exc: Exception):
+        log_storage_capacity_failure(
+            stage="segment_analysis",
+            user=request.user,
+            uuids=uuid_list,
+            exc=exc,
+        )
+        for cleanup_uuid in uuid_list:
+            cleanup_failed_processing_artifacts(cleanup_uuid)
+        write_progress(uuids, "Idle")
+        clear_cancelled(uuids)
+        messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
+        return redirect("pre_process", uuids=uuids)
+
     if cancelled():
         write_progress(uuids, "Cancelled")
         clear_cancelled(uuids)
-        return HttpResponse("Cancelled")
+        return cancel_response()
 
     # Initialize some variables that would normally be a part of config
     choice_var = "Metaphase Arrested" # We need to be able to change this
@@ -323,15 +367,15 @@ def segment_image(request, uuids):
         if cancelled():
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
         uploaded_image = get_object_or_404(UploadedImage, pk=uuid, **owner_filter)
         DV_Name = uploaded_image.name
+        DV_path = _resolve_uploaded_dv_path(uploaded_image)
         image_dict = dict()
         image_dict[DV_Name] = list()
 
         # Need to grab the original DV file
         # Load the original raw image and rescale its intensity values
-        DV_path = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/' + DV_Name + '.dv'
         f = DVFile(DV_path)
         try:
             im = f.asarray()
@@ -587,7 +631,12 @@ def segment_image(request, uuids):
             # now seg has the updated masks, so lets save them so we don't have to do this every time
             outputdirectory = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/output/'
             seg_image = Image.fromarray(seg)
-            seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
+            try:
+                seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
+            except Exception as exc:
+                if is_storage_full_error(exc):
+                    return storage_full_response(exc)
+                raise
         else:   #g1 arrested
             pass
 
@@ -669,8 +718,20 @@ def segment_image(request, uuids):
                     print('could not find cell id ' + str(i))
 
             output_file = os.path.join(outputdirectory, f"{DV_Name}_frame_{frame_idx}.png")
-            fig.savefig(output_file, dpi=600, bbox_inches='tight', pad_inches=0)
+            try:
+                fig.savefig(output_file, dpi=600, bbox_inches='tight', pad_inches=0)
+            except Exception as exc:
+                plt.close(fig)
+                if is_storage_full_error(exc):
+                    return storage_full_response(exc)
+                raise
             plt.close(fig)
+            try:
+                optimize_png_file(Path(output_file))
+            except Exception as exc:
+                if is_storage_full_error(exc):
+                    return storage_full_response(exc)
+                raise
 
         #plt.show()
 
@@ -681,7 +742,12 @@ def segment_image(request, uuids):
         #filter_dir = input_dir  + base_image_name + '_PRJ_TIFFS/'
         segmented_directory = Path(MEDIA_ROOT) / str(uuid) / 'segmented'
         # Ensure directory exists
-        segmented_directory.mkdir(parents=True, exist_ok=True)
+        try:
+            segmented_directory.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            if is_storage_full_error(exc):
+                return storage_full_response(exc)
+            raise
 
         # Iterate over the segmented cells
         for cell_number in range(1, int(np.max(seg)) + 1):
@@ -692,9 +758,19 @@ def segment_image(request, uuids):
             cell_image_path = segmented_directory / f"cell_{cell_number}.png"
 
             # Save each cell image as PNG
-            Image.fromarray(cell_image.astype(np.uint8)).save(cell_image_path)
+            try:
+                save_png_array(cell_image.astype(np.uint8), cell_image_path)
+            except Exception as exc:
+                if is_storage_full_error(exc):
+                    return storage_full_response(exc)
+                raise
         
-        os.makedirs(segmented_directory, exist_ok=True)
+        try:
+            os.makedirs(segmented_directory, exist_ok=True)
+        except Exception as exc:
+            if is_storage_full_error(exc):
+                return storage_full_response(exc)
+            raise
         f = DVFile(DV_path)
         try:
             image_stack = f.asarray()
@@ -708,7 +784,7 @@ def segment_image(request, uuids):
             if cancelled():
                 write_progress(uuids, "Cancelled")
                 clear_cancelled(uuids)
-                return HttpResponse("Cancelled")
+                return cancel_response()
             # images = os.path.split(full_path)[1]  # we start in separate directories, but need to end up in the same one
             # # don't overlay if it isn't the right base image
             # if base_image_name not in images:
@@ -769,39 +845,48 @@ def segment_image(request, uuids):
                 #convert from absolute location to relative location for later use
 
                 if not os.path.exists(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline')  or not use_cache:
-                    with open(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline', 'w') as csvfile:
-                        csvwriter = csv.writer(csvfile, lineterminator='\n')
-                        csvwriter.writerows(zip(a[0] - min_x, a[1] - min_y))
+                    try:
+                        with open(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline', 'w') as csvfile:
+                            csvwriter = csv.writer(csvfile, lineterminator='\n')
+                            csvwriter.writerows(zip(a[0] - min_x, a[1] - min_y))
+                    except Exception as exc:
+                        if is_storage_full_error(exc):
+                            return storage_full_response(exc)
+                        raise
 
                 cellpair_image = image_outlined[min_x: max_x, min_y:max_y]
                 not_outlined_image = image[min_x: max_x, min_y:max_y]
                 if not os.path.exists(segmented_directory / cell_tif_image) or not use_cache:  # don't redo things we already have
-                    plt.imsave(segmented_directory / cell_tif_image, cellpair_image, dpi=600, format='PNG')
-                    plt.clf()
+                    try:
+                        save_png_array(cellpair_image, segmented_directory / cell_tif_image)
+                    except Exception as exc:
+                        if is_storage_full_error(exc):
+                            return storage_full_response(exc)
+                        raise
                 if not os.path.exists(segmented_directory / no_outline_image) or not use_cache:  # don't redo things we already have
-                    plt.imsave(segmented_directory / no_outline_image, not_outlined_image, dpi=600, format='PNG')
-                    plt.clf()
-
-            # Assign SegmentedImage to a user
-            num_cells = max(int(np.max(seg)), 0)
-            segmented_owner_id = (
-                request.user.id
-                if request.user.is_authenticated and auto_save_experiments
-                else get_guest_user()
-            )
-            instance = SegmentedImage(
-                UUID=uuid,
-                user_id=segmented_owner_id,
-                ImagePath=(MEDIA_URL + str(uuid) + '/output/' + DV_Name + '.png'),
-                CellPairPrefix=(MEDIA_URL + str(uuid) + '/segmented/cell_'),
-                NumCells=num_cells,
-                uploaded_date=timezone.now(),
-            )
-            instance.save()
+                    try:
+                        save_png_array(not_outlined_image, segmented_directory / no_outline_image)
+                    except Exception as exc:
+                        if is_storage_full_error(exc):
+                            return storage_full_response(exc)
+                        raise
 
         # ================================================
         # Calculate statistics for each cell only once after the loop
         # ================================================
+
+        num_cells = max(int(np.max(seg)), 0)
+        instance, _ = SegmentedImage.objects.update_or_create(
+            UUID=uuid,
+            defaults={
+                "user_id": get_guest_user(),
+                "file_location": f"user_{uuid}/{DV_Name}.png",
+                "ImagePath": f"{MEDIA_URL}{uuid}/output/{DV_Name}_frame_0.png",
+                "CellPairPrefix": f"{MEDIA_URL}{uuid}/segmented/cell_",
+                "NumCells": num_cells,
+            },
+        )
+        CellStatistics.objects.filter(segmented_image=instance).delete()
 
         configuration = DEFAULT_PROCESS_CONFIG
         if request.user.is_authenticated:
@@ -902,7 +987,7 @@ def segment_image(request, uuids):
         if cancelled():
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
 
         # Mark accurate phase for UI only if user selected analyses
         if selected_analysis:
@@ -928,7 +1013,7 @@ def segment_image(request, uuids):
                     'green_red_intensity_3': 0.0,
 
                     # Store file path information
-                    'dv_file_path': DV_path,
+                    'dv_file_path': str(DV_path),
                     'image_name': DV_Name + '.dv',
                 }
             )
@@ -963,9 +1048,14 @@ def segment_image(request, uuids):
             debug_gfp_path = segmented_directory / f"{DV_Name}-{cell_number}-GFP_debug.png"
             debug_dapi_path = segmented_directory / f"{DV_Name}-{cell_number}-DAPI_debug.png"
 
-            debug_mcherry.save(debug_mcherry_path)
-            debug_gfp.save(debug_gfp_path)
-            debug_dapi.save(debug_dapi_path)
+            try:
+                save_png_image(debug_mcherry, debug_mcherry_path)
+                save_png_image(debug_gfp, debug_gfp_path)
+                save_png_image(debug_dapi, debug_dapi_path)
+            except Exception as exc:
+                if is_storage_full_error(exc):
+                    return storage_full_response(exc)
+                raise
 
             # Save the updated fields to the DB
             cp.save()
@@ -973,24 +1063,12 @@ def segment_image(request, uuids):
         if cancelled():
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
-            return HttpResponse("Cancelled")
+            return cancel_response()
 
-        # if the image_dict is empty, then we didn't get anything interesting from the directory
-        #print("image_dict123", image_dict)
-        #if len(image_dict) > 0:
-        #    k, v = list(image_dict.items())[0]
-        #    print("displaycell",k,v[0])
-        #    display_cell(k, v[0])
-        #else: show error message'''
-
-        # calculate storage size for this uuid
-        if request.user.is_authenticated and auto_save_experiments:
-            stored_path = Path(str(MEDIA_ROOT), str(uuid))
-            storing_size = get_dir_size(stored_path)
-            user = request.user
-            user.available_storage -= storing_size
-            user.used_storage += storing_size
-            user.save()
+        cleanup_transient_processing_artifacts(
+            uuid,
+            remove_preview_assets=True,
+        )
 
     # saving processing time
     duration = time.time() - start_time
@@ -999,20 +1077,12 @@ def segment_image(request, uuids):
         user.processing_used += duration
         user.save()
 
-    if request.user.is_authenticated:
-        current_uuids = {str(item) for item in uuid_list}
-        transient = {
-            str(item)
-            for item in request.session.get("transient_experiment_uuids", [])
-            if str(item)
-        }
-        if auto_save_experiments:
-            transient.difference_update(current_uuids)
-        else:
-            transient.update(current_uuids)
-        request.session["transient_experiment_uuids"] = sorted(transient)
-
+    finalize_segmented_run_batch(
+        request,
+        uuid_list,
+        auto_save_experiments=auto_save_experiments,
+    )
 
     write_progress(uuids, "Completed")
     clear_cancelled(uuids)
-    return redirect(f'/image/{uuids}/display/')
+    return redirect("display", uuids=uuids)

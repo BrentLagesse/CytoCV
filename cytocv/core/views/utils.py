@@ -73,3 +73,24 @@ def write_progress(key: str, phase: str) -> None:
         progress_path(key).write_text(json.dumps({"phase": phase}))
     except (OSError, IOError, PermissionError):
         pass
+
+
+def prune_experiment_session_state(request, uuids) -> None:
+    """Remove cancelled or deleted run UUIDs from session tracking."""
+
+    normalized = {str(value) for value in uuids if str(value)}
+    if not normalized:
+        return
+
+    changed = False
+    for session_key in ("last_experiment_uuids", "transient_experiment_uuids"):
+        existing = request.session.get(session_key, [])
+        if not isinstance(existing, list):
+            continue
+        filtered = [str(value) for value in existing if str(value) not in normalized]
+        if filtered != existing:
+            request.session[session_key] = filtered
+            changed = True
+
+    if changed:
+        request.session.modified = True

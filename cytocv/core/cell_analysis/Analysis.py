@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from core.image_processing.GrayImage import GrayImage
+from core.image_processing import GrayImage
 
 from core.models import CellStatistics
 

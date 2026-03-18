@@ -1,19 +1,18 @@
-from django.shortcuts import get_object_or_404, get_list_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
+from django.contrib import messages
 from django.template.response import TemplateResponse
-from django.utils import inspect
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
-from django.contrib import messages
-import sys, pkgutil, importlib, inspect
 import math
 from uuid import UUID
 
-from core.models import DVLayerTifPreview, UploadedImage, get_guest_user
+from core.models import UploadedImage, get_guest_user
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 from .utils import (
     tif_to_jpg,
+    prune_experiment_session_state,
     write_progress,
     progress_path,
     read_progress,
@@ -22,13 +21,11 @@ from .utils import (
     clear_cancelled,
 )
 from core.metadata_processing.dv_channel_parser import extract_channel_config
-from core.cell_analysis import Analysis
 
-from cytocv.settings import MEDIA_ROOT, BASE_DIR
+from cytocv.settings import MEDIA_ROOT
 from pathlib import Path
 import json
 import re
-import hashlib
 
 from accounts.preferences import get_user_preferences
 from core.scale import (
@@ -36,8 +33,19 @@ from core.scale import (
     clear_manual_override_scale,
     get_scale_sidebar_payload,
 )
+from core.services.artifact_storage import (
+    cleanup_failed_processing_artifacts,
+    delete_uploaded_run_by_uuid,
+    ensure_preview_assets,
+    is_storage_full_error,
+    log_storage_capacity_failure,
+    sweep_user_run_artifacts,
+)
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+PROCESSING_STORAGE_FULL_MESSAGE = (
+    "Files could not be saved because storage is full. Free up space and try again."
+)
 
 
 def _current_owner_filter(request) -> dict:
@@ -46,6 +54,22 @@ def _current_owner_filter(request) -> dict:
     if request.user.is_authenticated:
         return {"user": request.user}
     return {"user_id": get_guest_user()}
+
+
+def _delete_cancelled_runs(request, uuid_values: list[str]) -> None:
+    """Hard-delete the current user's cancelled experiment runs."""
+
+    owner_filter = _current_owner_filter(request)
+    owned_uuids = {
+        str(value)
+        for value in UploadedImage.objects.filter(
+            uuid__in=uuid_values,
+            **owner_filter,
+        ).values_list("uuid", flat=True)
+    }
+    for run_uuid in owned_uuids:
+        delete_uploaded_run_by_uuid(run_uuid)
+    prune_experiment_session_state(request, owned_uuids)
 
 
 def _parse_file_scale_map_payload(
@@ -112,37 +136,6 @@ def _parse_file_scale_revert_payload(
     return parsed, None, 200
 
 
-def load_analyses(path:str) -> list:
-    """
-    This function dynamically load the list of analyses from the path folder
-    :param path: Path the analysis folder
-    :return: List of the name of the analyses
-    """
-    analyses = []
-    sys.path.append(str(path))
-    print(path)
-
-    modules = pkgutil.iter_modules(path=[path])
-    for loader, mod_name, ispkg in modules:
-        # Ensure that module isn't already loaded
-        loaded_mod = None
-        if mod_name not in sys.modules:
-            # Import module
-            loaded_mod = importlib.import_module('.cell_analysis','core')
-        if loaded_mod is None: continue
-        if mod_name != 'Analysis':
-            loaded_class = getattr(loaded_mod, mod_name)
-            instanceOfClass = loaded_class()
-            if isinstance(instanceOfClass, Analysis):
-                print('Added Plugin -- ' + mod_name)
-                analyses.append(mod_name)
-            else:
-                print
-                mod_name + " was not an instance of Analysis"
-
-    return analyses
-
-
 @require_GET
 def get_progress(request, uuids):
     try:
@@ -158,7 +151,7 @@ def get_progress(request, uuids):
         return JsonResponse({"phase": "idle"})
 
 
-def pre_process_step(request, uuids):
+def pre_process(request, uuids):
     """
     GET: Render previews + sidebar (with auto-detected channel order).
     POST: Run preprocess + inference on every UUID, then redirect.
@@ -167,6 +160,13 @@ def pre_process_step(request, uuids):
     uuid_list = uuids.split(',')
     owner_filter = _current_owner_filter(request)
     total_files = len(uuid_list)
+    protected_uuids = {
+        str(value)
+        for value in request.session.get("transient_experiment_uuids", [])
+        if str(value)
+    }
+    protected_uuids.update(str(value) for value in uuid_list if str(value))
+    sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
@@ -213,7 +213,7 @@ def pre_process_step(request, uuids):
     # current file previews
     current_uuid = uuid_list[current_file_index]
     uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid, **owner_filter)
-    preview_images = get_list_or_404(DVLayerTifPreview, uploaded_image_uuid=uploaded_image)
+    preview_images = ensure_preview_assets(uploaded_image)
 
     # POST: preprocess + predict all, then redirect
     if request.method == "POST":
@@ -329,48 +329,67 @@ def pre_process_step(request, uuids):
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         def cancel_response():
+            _delete_cancelled_runs(request, uuid_list)
             if is_ajax:
                 return JsonResponse({"status": "cancelled"})
             return HttpResponse("Cancelled", status=409)
 
-        for image_uuid in uuid_list:
-            if cancel_check():
-                write_progress(uuids, "Cancelled")
-                clear_cancelled(uuids)
-                return cancel_response()
-            img_obj = get_object_or_404(UploadedImage, uuid=image_uuid, **owner_filter)
-            out_dir = Path(MEDIA_ROOT) / image_uuid
-
-            if not preprocess_marked:
-                write_progress(uuids, "Preprocessing Images")
-                preprocess_marked = True
-            prep_path, prep_list = preprocess_images(
-                image_uuid,
-                img_obj,
-                out_dir,
-                cancel_check=cancel_check,
+        def storage_full_response(exc: Exception):
+            log_storage_capacity_failure(
+                stage="preprocess_pipeline",
+                user=request.user,
+                uuids=uuid_list,
+                exc=exc,
             )
-            if cancel_check() or not prep_path or not prep_list:
-                write_progress(uuids, "Cancelled")
-                clear_cancelled(uuids)
-                return cancel_response()
-            tif_to_jpg(Path(prep_path), out_dir)
+            for cleanup_uuid in uuid_list:
+                cleanup_failed_processing_artifacts(cleanup_uuid)
+            write_progress(uuids, "Idle")
+            clear_cancelled(uuids)
+            messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
+            return redirect("pre_process", uuids=uuids)
 
-            if not detection_marked:
-                write_progress(uuids, "Detecting Cells")
-                detection_marked = True
-            prediction_result = predict_images(
-                prep_path,
-                prep_list,
-                out_dir,
-                cancel_check=cancel_check,
-            )
-            if prediction_result is None or cancel_check():
-                write_progress(uuids, "Cancelled")
-                clear_cancelled(uuids)
-                return cancel_response()
+        try:
+            for image_uuid in uuid_list:
+                if cancel_check():
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return cancel_response()
+                img_obj = get_object_or_404(UploadedImage, uuid=image_uuid, **owner_filter)
+                out_dir = Path(MEDIA_ROOT) / image_uuid
 
-        return redirect(f'/image/{uuids}/convert/')
+                if not preprocess_marked:
+                    write_progress(uuids, "Preprocessing Images")
+                    preprocess_marked = True
+                prep_path, prep_list = preprocess_images(
+                    image_uuid,
+                    img_obj,
+                    out_dir,
+                    cancel_check=cancel_check,
+                )
+                if cancel_check() or not prep_path or not prep_list:
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return cancel_response()
+
+                if not detection_marked:
+                    write_progress(uuids, "Detecting Cells")
+                    detection_marked = True
+                prediction_result = predict_images(
+                    prep_path,
+                    prep_list,
+                    out_dir,
+                    cancel_check=cancel_check,
+                )
+                if prediction_result is None or cancel_check():
+                    write_progress(uuids, "Cancelled")
+                    clear_cancelled(uuids)
+                    return cancel_response()
+        except Exception as exc:
+            if not is_storage_full_error(exc):
+                raise
+            return storage_full_response(exc)
+
+        return redirect("experiment_convert", uuids=uuids)
 
     # AJAX navigation
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -384,7 +403,7 @@ def pre_process_step(request, uuids):
         })
 
     # Normal render
-    return TemplateResponse(request, "pre-process.html", {
+    return TemplateResponse(request, "pre_process.html", {
         'images': preview_images,
         'file_name': uploaded_image.name,
         'current_file_index': current_file_index,
@@ -423,9 +442,11 @@ def cancel_progress(request, uuids):
     try:
         if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
             return JsonResponse({"status": "invalid"}, status=400)
+        uuid_list = [value for value in uuids.split(",") if value]
         data = read_progress(uuids)
         phase = data.get("phase", "idle")
         if phase in ("idle", "Completed", "Cancelled"):
+            _delete_cancelled_runs(request, uuid_list)
             write_progress(uuids, "Cancelled")
             clear_cancelled(uuids)
             return JsonResponse({"status": "cancelled"})

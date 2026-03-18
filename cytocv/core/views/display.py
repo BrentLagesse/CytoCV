@@ -12,6 +12,13 @@ from django.views.decorators.http import require_POST
 from accounts.preferences import get_user_preferences
 from core.config import get_channel_config_for_uuid
 from core.models import UploadedImage, SegmentedImage, CellStatistics, get_guest_user
+from core.services.artifact_storage import (
+    StorageQuotaExceeded,
+    assert_user_can_save_runs,
+    log_storage_capacity_failure,
+    refresh_user_storage_usage,
+    sweep_user_run_artifacts,
+)
 from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
@@ -90,46 +97,21 @@ def _normalize_uuid_list(raw_values):
     return normalized
 
 
-def _media_path_size(path: Path):
-    if not path.exists():
-        return 0
-    if path.is_file():
-        try:
-            return int(path.stat().st_size)
-        except OSError:
-            return 0
-
-    total = 0
-    try:
-        for candidate in path.rglob("*"):
-            if not candidate.is_file():
-                continue
-            try:
-                total += int(candidate.stat().st_size)
-            except OSError:
-                continue
-    except OSError:
-        return total
-    return total
+MANUAL_SAVE_STORAGE_FULL_MESSAGE = (
+    "Selected files could not be saved because your storage is full. Free up space and try again."
+)
 
 
-def _recalculate_user_storage_usage(user):
-    if not getattr(user, "is_authenticated", False):
-        return
-    saved_uuids = {
-        str(value)
-        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
-    }
-    media_root = Path(MEDIA_ROOT)
-    used_storage = 0
-    for uuid_value in saved_uuids:
-        used_storage += _media_path_size(media_root / uuid_value)
-        used_storage += _media_path_size(media_root / f"user_{uuid_value}")
-
-    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
-    user.used_storage = max(0, int(used_storage))
-    user.available_storage = max(0, int(total_storage - user.used_storage))
-    user.save(update_fields=["used_storage", "available_storage"])
+def _storage_full_json_response(exc: StorageQuotaExceeded) -> JsonResponse:
+    return JsonResponse(
+        {
+            "error": MANUAL_SAVE_STORAGE_FULL_MESSAGE,
+            "code": "storage_full",
+            "required_bytes": exc.required_bytes,
+            "available_bytes": exc.available_bytes,
+        },
+        status=507,
+    )
 
 
 def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
@@ -147,7 +129,7 @@ def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
     return uploaded_image.user_id == guest_id and segmented_image.user_id == guest_id
 
 
-def display_cell(request, uuids):
+def display(request, uuids):
     """Render cell display data for one or more uploaded image UUIDs.
 
     Args:
@@ -159,6 +141,9 @@ def display_cell(request, uuids):
     """
     # Split the comma-separated UUIDs into a list
     uuid_list = [value for value in uuids.split(',') if value]
+    protected_uuids = _current_transient_uuid_set(request)
+    protected_uuids.update(uuid_list)
+    sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
 
     # Keep table output bound to the first UUID that has statistics.
     first_table_uuid = None
@@ -355,7 +340,7 @@ def display_cell(request, uuids):
     # Convert the files_data to JSON to be used in the template
     json_files_data = json.dumps(_sanitize_for_json(all_files_data), allow_nan=False)
 
-    return render(request, "display_cell.html", {
+    return render(request, "display.html", {
         'files_data': json_files_data,  # Pass all file data to the template
         'file_list': file_list,  # Pass sidebar file list data to the template
         'cell_table': cell_table,
@@ -423,6 +408,19 @@ def save_display_files(request):
             status=403,
         )
 
+    try:
+        assert_user_can_save_runs(request.user, to_save)
+    except StorageQuotaExceeded as exc:
+        log_storage_capacity_failure(
+            stage="display_save",
+            user=request.user,
+            uuids=to_save,
+            required_bytes=exc.required_bytes,
+            available_bytes=exc.available_bytes,
+            exc=exc,
+        )
+        return _storage_full_json_response(exc)
+
     if to_save:
         with transaction.atomic():
             SegmentedImage.objects.filter(UUID__in=to_save, user_id=guest_id).update(
@@ -433,7 +431,7 @@ def save_display_files(request):
         transient_uuids.difference_update(to_save)
         request.session["transient_experiment_uuids"] = sorted(transient_uuids)
 
-    _recalculate_user_storage_usage(request.user)
+    refresh_user_storage_usage(request.user)
     saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
     total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
     used_storage = max(int(getattr(request.user, "used_storage", 0) or 0), 0)
@@ -519,7 +517,7 @@ def unsave_display_files(request):
         transient_uuids.update(to_unsave)
         request.session["transient_experiment_uuids"] = sorted(transient_uuids)
 
-    _recalculate_user_storage_usage(request.user)
+    refresh_user_storage_usage(request.user)
     saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
     total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
     used_storage = max(int(getattr(request.user, "used_storage", 0) or 0), 0)
@@ -604,6 +602,19 @@ def sync_display_file_selection(request):
     to_save = sorted(selected_set.difference(current_saved))
     to_unsave = sorted(current_saved.difference(selected_set))
 
+    try:
+        assert_user_can_save_runs(request.user, to_save, to_unsave)
+    except StorageQuotaExceeded as exc:
+        log_storage_capacity_failure(
+            stage="display_sync_selection",
+            user=request.user,
+            uuids=[*to_save, *to_unsave],
+            required_bytes=exc.required_bytes,
+            available_bytes=exc.available_bytes,
+            exc=exc,
+        )
+        return _storage_full_json_response(exc)
+
     with transaction.atomic():
         if to_save:
             SegmentedImage.objects.filter(UUID__in=to_save, user_id=guest_id).update(
@@ -619,7 +630,7 @@ def sync_display_file_selection(request):
         transient_uuids.update(to_unsave)
         request.session["transient_experiment_uuids"] = sorted(transient_uuids)
 
-    _recalculate_user_storage_usage(request.user)
+    refresh_user_storage_usage(request.user)
     saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
     total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
     used_storage = max(int(getattr(request.user, "used_storage", 0) or 0), 0)

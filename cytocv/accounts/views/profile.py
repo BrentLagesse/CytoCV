@@ -29,6 +29,11 @@ from accounts.preferences import (
 )
 from core.config import get_channel_config_for_uuid
 from core.models import CellStatistics, SegmentedImage, UploadedImage
+from core.services.artifact_storage import (
+    get_user_storage_projection,
+    refresh_user_storage_usage,
+    sweep_user_run_artifacts,
+)
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -104,7 +109,7 @@ def _preferences_redirect(request: HttpRequest, section: str) -> HttpResponse:
         require_https=request.is_secure(),
     ):
         return redirect(next_url)
-    return redirect(f"{reverse('preferences')}?section={section}")
+    return redirect(f"{reverse('workflow_defaults')}?section={section}")
 
 
 def _extract_measurement_defaults(
@@ -195,6 +200,149 @@ def _extract_measurement_defaults(
     }
 
 
+def _channel_summary_meta(channel: str) -> str:
+    if channel == "DIC":
+        return "Brightfield morphology reference"
+    if channel == "DAPI":
+        return "Nucleus contour reference channel"
+    if channel == "mCherry":
+        return "Red fluorescence signal channel"
+    if channel == "GFP":
+        return "Green fluorescence signal channel"
+    return "Channel data used in analysis"
+
+
+def _resolve_required_channel_state(
+    *,
+    channel: str,
+    stats_required: set[str],
+    manual_required: set[str],
+    module_enabled: bool,
+    enforce_wavelengths: bool,
+) -> dict[str, Any]:
+    if channel in ALWAYS_REQUIRED_CHANNELS:
+        return {
+            "summary_label": "Always required",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": True,
+            "row_help": "Always required for segmentation.",
+        }
+
+    if channel in stats_required:
+        return {
+            "summary_label": "Required by stats",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": False,
+            "row_disabled": False,
+            "row_locked": True,
+            "row_help": "Required because selected statistical plugins need this channel.",
+        }
+
+    if module_enabled and enforce_wavelengths:
+        return {
+            "summary_label": "Required by all-wavelengths",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": False,
+            "row_help": 'Required because "Enforce required wavelengths" is enabled.',
+        }
+
+    if module_enabled and channel in manual_required:
+        return {
+            "summary_label": "Required manually",
+            "summary_required": True,
+            "summary_paused": False,
+            "row_checked": True,
+            "toggle_disabled": False,
+            "row_disabled": False,
+            "row_locked": False,
+            "row_help": "Optional advanced enforcement is enabled.",
+        }
+
+    if enforce_wavelengths:
+        return {
+            "summary_label": "Paused by all-wavelengths",
+            "summary_required": False,
+            "summary_paused": True,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": False,
+            "row_help": 'Paused because "Enforce required wavelengths" is saved while the validation module is OFF.',
+        }
+
+    if channel in manual_required:
+        return {
+            "summary_label": "Paused manually",
+            "summary_required": False,
+            "summary_paused": True,
+            "row_checked": True,
+            "toggle_disabled": True,
+            "row_disabled": True,
+            "row_locked": False,
+            "row_help": "Paused until the validation module is turned back on.",
+        }
+
+    return {
+        "summary_label": "Optional",
+        "summary_required": False,
+        "summary_paused": False,
+        "row_checked": False,
+        "toggle_disabled": not module_enabled,
+        "row_disabled": not module_enabled,
+        "row_locked": False,
+        "row_help": (
+            "Optional."
+            if module_enabled
+            else "Optional. Turn the validation module on to edit."
+        ),
+    }
+
+
+def _build_required_channel_rows(
+    defaults: dict[str, Any],
+    selected_plugins: list[str],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    requirement_summary = build_requirement_summary(selected_plugins)
+    stats_required = set(requirement_summary["required_channels"])
+    manual_required = {
+        channel
+        for channel in defaults.get("manual_required_channels", [])
+        if channel in CHANNEL_ORDER and channel not in ALWAYS_REQUIRED_CHANNELS
+    }
+    module_enabled = bool(defaults.get("module_enabled", False))
+    enforce_wavelengths = bool(defaults.get("enforce_wavelengths", False))
+
+    rows: list[dict[str, Any]] = []
+    for channel in CHANNEL_ORDER:
+        state = _resolve_required_channel_state(
+            channel=channel,
+            stats_required=stats_required,
+            manual_required=manual_required,
+            module_enabled=module_enabled,
+            enforce_wavelengths=enforce_wavelengths,
+        )
+        rows.append(
+            {
+                "channel": channel,
+                "summary_meta": _channel_summary_meta(channel),
+                "manual_selected": channel in manual_required,
+                **state,
+            }
+        )
+
+    return rows, requirement_summary
+
+
 def _normalize_uuid_list(raw_values: Any) -> list[str]:
     if not isinstance(raw_values, list):
         return []
@@ -212,45 +360,8 @@ def _normalize_uuid_list(raw_values: Any) -> list[str]:
     return normalized
 
 
-def _media_path_size(path: Path) -> int:
-    if not path.exists():
-        return 0
-    if path.is_file():
-        try:
-            return int(path.stat().st_size)
-        except OSError:
-            return 0
-
-    total = 0
-    try:
-        for candidate in path.rglob("*"):
-            if not candidate.is_file():
-                continue
-            try:
-                total += int(candidate.stat().st_size)
-            except OSError:
-                continue
-    except OSError:
-        return total
-    return total
-
-
 def _recalculate_user_storage_usage(user: Any) -> None:
-    if not getattr(user, "is_authenticated", False):
-        return
-    uuids = {
-        str(value)
-        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
-    }
-    media_root = Path(MEDIA_ROOT)
-    used_storage = 0
-    for uuid_value in uuids:
-        used_storage += _media_path_size(media_root / uuid_value)
-        used_storage += _media_path_size(media_root / f"user_{uuid_value}")
-    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 0)
-    user.used_storage = max(0, int(used_storage))
-    user.available_storage = max(0, int(total_storage - user.used_storage))
-    user.save(update_fields=["used_storage", "available_storage"])
+    refresh_user_storage_usage(user)
 
 
 def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
@@ -558,26 +669,20 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
 
     saved_file_count = len(file_list)
-    stored_used_storage = max(int(getattr(user, "used_storage", 0) or 0), 0)
-    if saved_file_count > 0 and stored_used_storage <= 0:
-        _recalculate_user_storage_usage(user)
-        user.refresh_from_db(fields=["used_storage", "total_storage", "available_storage"])
-        stored_used_storage = max(int(getattr(user, "used_storage", 0) or 0), 0)
-
-    total_storage = max(int(getattr(user, "total_storage", 0) or 0), 1)
-    used_storage = stored_used_storage
+    storage_projection = get_user_storage_projection(user)
+    total_storage = max(int(storage_projection.get("total_storage", 0) or 0), 1)
+    used_storage = max(int(storage_projection.get("used_storage", 0) or 0), 0)
     used_percentage = min(100, max(0, (used_storage / total_storage) * 100))
-    remaining_storage = max(total_storage - used_storage, 0)
-    average_file_size = 0.0
-    additional_files_possible = 0
+    remaining_storage = max(int(storage_projection.get("available_storage", 0) or 0), 0)
+    average_file_size = float(storage_projection.get("average_saved_run_bytes", 0.0) or 0.0)
+    additional_files_possible = max(
+        int(storage_projection.get("additional_files_possible", 0) or 0),
+        0,
+    )
     max_files_at_current_average = saved_file_count
-    file_capacity_projection_ready = False
-    if saved_file_count > 0 and used_storage > 0:
-        average_file_size = used_storage / saved_file_count
-        if average_file_size > 0:
-            file_capacity_projection_ready = True
-            additional_files_possible = max(0, int(remaining_storage / average_file_size))
-            max_files_at_current_average = saved_file_count + additional_files_possible
+    file_capacity_projection_ready = bool(storage_projection.get("projection_ready", False))
+    if file_capacity_projection_ready:
+        max_files_at_current_average = saved_file_count + additional_files_possible
     files_data_json = json.dumps(_sanitize_for_json(files_data), allow_nan=False)
 
     return {
@@ -692,6 +797,13 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 
 @login_required
 def dashboard_view(request: HttpRequest) -> HttpResponse:
+    cleanup_summary = sweep_user_run_artifacts(
+        request.user,
+        protected_uuids=request.session.get("transient_experiment_uuids", []),
+    )
+    if cleanup_summary["cleaned_saved_runs"]:
+        _recalculate_user_storage_usage(request.user)
+
     export_format = request.GET.get("_export")
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     if TableExport.is_valid_format(export_format) and export_uuid:
@@ -812,7 +924,7 @@ def account_settings_view(request: HttpRequest) -> HttpResponse:
             _delete_user_and_media(request.user)
             logout(request)
             messages.success(request, "Your account was deleted.")
-            return redirect("homepage")
+            return redirect("home")
 
     full_name = " ".join(
         part for part in [request.user.first_name, request.user.last_name] if part
@@ -822,7 +934,7 @@ def account_settings_view(request: HttpRequest) -> HttpResponse:
 
     return TemplateResponse(
         request,
-        "settings.html",
+        "account_settings.html",
         {
             "account_name": full_name,
             "email": request.user.email,
@@ -856,14 +968,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
 
         if action == "save_advanced_settings":
             module_enabled = _post_bool(request, "module_enabled")
-            enforce_layer_count = module_enabled and _post_bool(
-                request,
-                "enforce_layer_count",
-            )
-            enforce_wavelengths = module_enabled and _post_bool(
-                request,
-                "enforce_wavelengths",
-            )
+            enforce_layer_count = _post_bool(request, "enforce_layer_count")
+            enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
             gfp_filter_enabled = _post_bool(request, "gfp_filter_enabled")
             manual_required_channels = [
@@ -965,24 +1071,22 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             }
         )
 
-    plugin_requirement_summary = build_requirement_summary(selected_plugins)
+    required_channel_rows, plugin_requirement_summary = _build_required_channel_rows(
+        defaults,
+        list(selected_plugins),
+    )
     plugin_dependency_payload = build_plugin_ui_payload()
 
     return TemplateResponse(
         request,
-        "preferences.html",
+        "workflow_defaults.html",
         {
             "preferences": preferences,
             "plugins": plugin_rows,
             "channels": CHANNEL_ORDER,
             "channel_info": CHANNEL_INFO,
+            "required_channel_rows": required_channel_rows,
             "required_channels_by_plugins": plugin_requirement_summary["required_channels"],
             "plugin_dependency_payload_json": json.dumps(plugin_dependency_payload),
         },
     )
-
-
-@login_required
-def profile_view(request: HttpRequest) -> HttpResponse:
-    """Compatibility alias for existing ``/profile/`` links."""
-    return account_settings_view(request)

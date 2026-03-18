@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import numpy as np
 
-from core.cell_analysis.GreenRedIntensity import GreenRedIntensity
+from core.cell_analysis import GreenRedIntensity
 from core.image_processing import GrayImage
 from core.metadata_processing.error_handling.dv_validation import (
     DVValidationOptions,

@@ -17,7 +17,7 @@ from core.scale import (
     parse_microns_per_pixel,
     resolve_scale_context,
 )
-from core.views.upload_images import (
+from core.views.experiment import (
     _convert_length_to_pixels,
     _normalize_length_unit,
     _parse_positive_float,

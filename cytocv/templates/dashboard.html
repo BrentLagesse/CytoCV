@@ -1,9 +1,8 @@
 {% extends 'base.html' %}
 
+{% block title %}Display Cell Images{% endblock title %}
+
 {% block head %}
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Display Cell Images</title>
     <style>
         .channel-chip.dic { background-color: black; }
         .channel-chip.dapi { background-color: blue; }
@@ -33,6 +32,7 @@
             flex-direction: row;
             width: 100%;
             min-height: calc(100dvh - var(--nav-height) - 26px);
+            min-width: 0;
             align-items: flex-start;
             gap: var(--page-shell-gap);
         }
@@ -41,7 +41,9 @@
         .sidebar {
             position: sticky;
             top: calc(var(--nav-height) + var(--page-shell-gap));
-            width: var(--workspace-sidebar-width);
+            width: min(100%, var(--workspace-sidebar-width));
+            max-width: 100%;
+            min-width: 0;
             background:
                 linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 46%),
                 rgba(var(--glass-surface-rgb), 0.84);
@@ -55,7 +57,9 @@
             display: flex;
             flex-direction: column;
             align-self: flex-start;
-            height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            height: auto;
+            max-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
             contain: layout paint;
             isolation: isolate;
         }
@@ -187,7 +191,7 @@
             align-items: stretch;
             justify-content: flex-start;
             flex: 1 1 auto;
-            min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            min-height: 0;
             min-width: 0;
             width: 100%;
             padding: 0;
@@ -293,8 +297,9 @@
         /* Adjust heading margin so it’s closer to the top */
 
         .main-image {
-            width: min(500px, calc(100vw - 240px));
-            height: min(500px, calc(100vw - 240px));
+            width: min(100%, 500px);
+            height: auto;
+            aspect-ratio: 1 / 1;
             max-width: 100%;
             max-height: 100%;
             border: 1px solid var(--surface-muted);
@@ -447,6 +452,7 @@
             justify-content: space-between;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
             width: 100%;
         }
         .table-fullscreen-btn {
@@ -491,8 +497,8 @@
             margin-top: 0;
         }
         .table-panel:fullscreen {
-            width: 100vw;
-            height: 100dvh;
+            width: 100%;
+            height: 100%;
             border-radius: 0;
             border: none;
             padding: 16px;
@@ -503,7 +509,8 @@
         .table-panel:fullscreen .table-scroll-frame {
             flex: 1 1 auto;
             max-height: none;
-            height: calc(100dvh - 96px);
+            min-height: 0;
+            height: auto;
             overflow-x: auto;
             overflow-y: auto;
         }
@@ -881,9 +888,7 @@
         }
         .delete-modal {
             width: min(420px, 92vw);
-            background:
-                var(--liquid-linear-highlight),
-                var(--card-bg);
+            background: var(--popup-surface-bg);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
             padding: 18px;
@@ -1063,6 +1068,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            flex-wrap: wrap;
             width: 100%;
             margin: 0;
         }
@@ -1082,7 +1088,9 @@
             flex-wrap: wrap;
         }
         .top-stage-footer .file-navigation-button {
-            min-width: 170px;
+            flex: 1 1 170px;
+            min-width: 0;
+            max-width: 240px;
         }
         .cell-pairs-toolbar {
             margin-bottom: 16px;
@@ -1214,10 +1222,13 @@
             display: flex;
             justify-content: center;
             gap: 12px;
+            flex-wrap: wrap;
             width: 100%;
         }
         .navigation-buttons button {
-            min-width: 160px;
+            flex: 1 1 160px;
+            min-width: 0;
+            max-width: 240px;
         }
         .table-section {
             width: 100%;
@@ -1331,11 +1342,16 @@
             .sidebar.collapsed {
                 position: relative;
                 top: auto;
-                height: auto;
+                min-height: 0;
+                max-height: none;
                 width: 100%;
             }
             .content-wrapper {
                 min-height: 0;
+            }
+            .main-channel-switcher {
+                justify-content: flex-start;
+                flex: 1 1 100%;
             }
         }
         @media (max-width: 900px) {
@@ -1365,7 +1381,7 @@
                 border-top: 1px solid rgba(255, 255, 255, 0.12);
             }
             .main-image {
-                width: min(500px, calc(100vw - 64px));
+                width: min(100%, 500px);
             }
             .top-stage-footer .file-navigation-button,
             .navigation-buttons {
@@ -1379,6 +1395,7 @@
             .top-stage-footer .file-navigation-button,
             .navigation-buttons button {
                 width: 100%;
+                max-width: none;
             }
             .export-buttons {
                 justify-content: center;
@@ -1661,7 +1678,7 @@
                     <div class="empty-dashboard">
                         <h2>No files saved</h2>
                         <p>Start an experiment to upload and analyze your first files.</p>
-                        <a class="start-link" href="{% url 'image_upload' %}">Start Experiment</a>
+                        <a class="start-link" href="{% url 'experiment' %}">Start Experiment</a>
                     </div>
                 {% endif %}
             </div> <!-- end main-content -->
@@ -1828,7 +1845,7 @@
             if (!fileUUID) return;
             const requestId = ++activeChannelRequest;
             try {
-                const response = await fetch(`/image/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
+                const response = await fetch(`/experiment/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',
                 });
@@ -2094,16 +2111,16 @@
                 ? categories[categoryIndex]
                 : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            document.getElementById("distance").textContent = cellStats ? cellStats.distance : "N/A";
-            document.getElementById("lineGFPIntensity").textContent = cellStats ? cellStats.line_gfp_intensity : "N/A";
-            document.getElementById("greenredIntensity1").textContent = cellStats ? cellStats.green_red_intensity_1 : "N/A";
-            document.getElementById("greenredIntensity2").textContent = cellStats ? cellStats.green_red_intensity_2 : "N/A";
-            document.getElementById("greenredIntensity3").textContent = cellStats ? cellStats.green_red_intensity_3 : "N/A";
-            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.nucleus_intensity_sum;
-            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cellular_intensity_sum;
-            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : cellStats.cytoplasmic_intensity;
+            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
+            document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);
+            document.getElementById("greenredIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null);
+            document.getElementById("greenredIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null);
+            document.getElementById("greenredIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null);
+            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);
+            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cellular_intensity_sum);
+            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);
             document.getElementById("gfpDot").textContent = category;
-            document.getElementById("biorientation").textContent = cellStats ? cellStats.biorientation : "N/A";
+            document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
             const labels = getNuclearLabelPair(mode);
             document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;

@@ -4,7 +4,7 @@ import os
 import cv2
 import numpy as np
 
-from .Analysis import Analysis
+from .analysis import Analysis
 
 
 class NuclearCellularIntensity(Analysis):

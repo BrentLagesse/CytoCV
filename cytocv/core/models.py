@@ -62,6 +62,7 @@ class UploadedImage(models.Model):
         to_field="id",
         default=get_guest_user,
     )
+    created_at = models.DateTimeField(auto_now_add=True)
     name = models.TextField()
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file_location = models.FileField(upload_to=upload_to)
