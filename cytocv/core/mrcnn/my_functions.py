@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
-from scipy import ndimage
+
+from .mask_processing import (
+    DEFAULT_MASK_DUPLICATE_THRESHOLD,
+    postprocess_prediction_masks,
+    remove_duplicate_masks,
+)
 
 def run_length_encoding(x):
     dots = np.where(x.T.flatten() == 1)[0]
@@ -15,29 +20,18 @@ def run_length_encoding(x):
 
 
 
-def remove_duplicate(mask,threshold=0.7,scores =None):
-    if scores is None:
-        scores = np.sum(mask,axis=(0,1)) ## Use size of nucleus as score... 
-    order = np.argsort(scores)[::-1] + 1  # 1-based descending
-    flat_mask = np.max(mask * np.reshape(order, [1, 1, -1]), -1)
-    for i in np.arange(len(order)):
-        mask[:,:,i]= mask[:,:,i]*(flat_mask == order[i])
-
-    new_scores = np.sum(mask,axis=(0,1))
-    diff_pix = scores-new_scores
-    reduccion = diff_pix/scores
-    # if we have reduced particle size in more than xx percent, remove particle
-    ## This only has some effect during the test time augmentation merge
-    mask[:,:,reduccion > threshold] = 0
-    return mask
+def remove_duplicate(mask,threshold=DEFAULT_MASK_DUPLICATE_THRESHOLD,scores =None):
+    return remove_duplicate_masks(mask, threshold=threshold, scores=scores)
     
 
     
-def numpy2encoding(predicts, img_name, scores=None,threshold=0.7,dilation=False):
-    if dilation:
-        for i in range(predicts.shape[2]): 
-            predicts[:,:,i] = ndimage.binary_dilation(predicts[:,:,i])
-    predicts = remove_duplicate(predicts,threshold=threshold,scores=scores)
+def numpy2encoding(predicts, img_name, scores=None,threshold=DEFAULT_MASK_DUPLICATE_THRESHOLD,dilation=False):
+    predicts = postprocess_prediction_masks(
+        predicts,
+        scores=scores,
+        threshold=threshold,
+        dilation=dilation,
+    )
     ImageId = []
     EncodedPixels = []
     for i in range(predicts.shape[2]): 

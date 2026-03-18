@@ -1,3 +1,5 @@
+import os
+
 import cv2
 from PIL import Image
 import numpy as np
@@ -6,13 +8,19 @@ from .grey_image import GrayImage
 
 
 
-def load_image(cp, output_dir, required_channels=None):
+def _copy_cached_image(image_array):
+    cached_array = np.array(image_array, copy=True)
+    return Image.fromarray(cached_array.copy()), cached_array
+
+
+def load_image(cp, output_dir, required_channels=None, cached_images=None):
     """
     This function loads an image from a file path and returns it as a numpy array.
     :param cp: A CellStatistics object
     :return: A dictionary consist of mCherry, GFP, DAPI image along with their version in numpy array
     """
     requested = set(required_channels or {"mCherry", "GFP", "DAPI"})
+    cached_images = cached_images or {}
     channel_map = {
         "mCherry": ("im_mCherry", "mCherry"),
         "GFP": ("im_GFP", "GFP"),
@@ -26,16 +34,22 @@ def load_image(cp, output_dir, required_channels=None):
         if not mapping:
             continue
         im_key, mat_key = mapping
+        if channel in cached_images and cached_images[channel] is not None:
+            cached_image, cached_array = _copy_cached_image(cached_images[channel])
+            loaded[im_key] = cached_image
+            loaded[mat_key] = cached_array
+            continue
         image_name = cp.get_image(channel, use_id=True, outline=False)
         if not image_name or "None" in str(image_name):
             continue
-        image_path = output_dir + '/segmented/' + image_name
+        image_path = os.path.join(output_dir, "segmented", image_name)
         try:
-            image = Image.open(image_path)
+            with Image.open(image_path) as image:
+                image_array = np.array(image)
         except FileNotFoundError:
             continue
-        loaded[im_key] = image
-        loaded[mat_key] = np.array(image)
+        loaded[im_key] = Image.fromarray(np.array(image_array, copy=True))
+        loaded[mat_key] = image_array
 
     return loaded
 

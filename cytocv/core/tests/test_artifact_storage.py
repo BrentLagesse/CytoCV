@@ -25,7 +25,7 @@ from PIL import Image
 from accounts.preferences import get_user_preferences, update_user_preferences
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage, get_guest_user
-from core.mrcnn.preprocess_images import preprocess_images
+from core.mrcnn.preprocess_images import PreprocessedImageArtifact, preprocess_images
 from core.services.artifact_storage import (
     PRE_PROCESS_FOLDER_NAME,
     PREVIEW_FOLDER_NAME,
@@ -40,7 +40,6 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
-from core.views.convert_to_image import PROCESSING_STORAGE_FULL_MESSAGE as CONVERT_STORAGE_FULL_MESSAGE
 from core.views.experiment import PROCESSING_STORAGE_FULL_MESSAGE as UPLOAD_STORAGE_FULL_MESSAGE
 from core.views.experiment import experiment
 from core.views.pre_process import PROCESSING_STORAGE_FULL_MESSAGE as PREPROCESS_STORAGE_FULL_MESSAGE
@@ -140,6 +139,15 @@ class ArtifactStorageTestCase(TestCase):
         Image.new("RGB", (4, 4), color=color).save(path, format="PNG")
 
     @staticmethod
+    def _build_preprocessed_artifact(path: Path, *, image_id: str = "sample.dv") -> PreprocessedImageArtifact:
+        return PreprocessedImageArtifact(
+            image_id=image_id,
+            preprocessed_path=path,
+            original_height=4,
+            original_width=4,
+        )
+
+    @staticmethod
     def _write_bytes(path: Path, size: int) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"x" * size)
@@ -213,16 +221,16 @@ class PreprocessEncodingTests(ArtifactStorageTestCase):
 
             with patch("core.mrcnn.preprocess_images.DVFile") as dv_file_cls:
                 dv_file_cls.return_value.asarray.return_value = np.ones((4, 8, 8), dtype=np.uint16)
-                preprocessed_path, listing_path = preprocess_images(
+                artifact = preprocess_images(
                     str(uploaded.uuid),
                     uploaded,
                     media_root / str(uploaded.uuid),
                 )
 
-            self.assertIsNotNone(preprocessed_path)
-            self.assertTrue(str(preprocessed_path).endswith(".png"))
-            self.assertTrue(Path(preprocessed_path).exists())
-            self.assertTrue(Path(listing_path).exists())
+            self.assertIsNotNone(artifact)
+            self.assertTrue(str(artifact.preprocessed_path).endswith(".png"))
+            self.assertTrue(artifact.preprocessed_path.exists())
+            self.assertFalse((media_root / str(uploaded.uuid) / "preprocessed_images_list.csv").exists())
             self.assertFalse(any((media_root / str(uploaded.uuid) / PRE_PROCESS_FOLDER_NAME).glob("*.tif")))
 
 
@@ -682,10 +690,11 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 prep_dir = run_dir / PRE_PROCESS_FOLDER_NAME
                 prep_dir.mkdir(parents=True, exist_ok=True)
                 prep_path = prep_dir / "cancelled_pre.png"
-                listing_path = run_dir / "preprocessed_images_list.csv"
                 self._create_png(prep_path)
-                listing_path.write_text("ImageId, EncodedRLE\n", encoding="utf-8")
-                return str(prep_path), listing_path
+                return self._build_preprocessed_artifact(
+                    prep_path,
+                    image_id="cancelled_pre.dv",
+                )
 
             with patch("core.views.pre_process.preprocess_images", side_effect=fake_preprocess), patch(
                 "core.views.pre_process.predict_images",
@@ -749,9 +758,7 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 prep_dir = run_dir / PRE_PROCESS_FOLDER_NAME
                 prep_dir.mkdir(parents=True, exist_ok=True)
                 prep_path = prep_dir / "partial.png"
-                listing_path = run_dir / "preprocessed_images_list.csv"
                 self._create_png(prep_path)
-                listing_path.write_text("ImageId, EncodedRLE\n", encoding="utf-8")
                 raise OSError(errno.ENOSPC, "No space left on device")
 
             response = None
@@ -780,17 +787,15 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 prep_dir = run_dir / PRE_PROCESS_FOLDER_NAME
                 prep_dir.mkdir(parents=True, exist_ok=True)
                 prep_path = prep_dir / "prepared.png"
-                listing_path = run_dir / "preprocessed_images_list.csv"
                 self._create_png(prep_path)
-                listing_path.write_text("ImageId, EncodedRLE\nsample, 4 4\n", encoding="utf-8")
-                return str(prep_path), listing_path
+                return self._build_preprocessed_artifact(
+                    prep_path,
+                    image_id="sample.dv",
+                )
 
             def fake_predict(*args, **kwargs):
                 (run_dir / "logs").mkdir(parents=True, exist_ok=True)
-                (run_dir / "compressed_masks.csv").write_text(
-                    "ImageId, EncodedPixels\nsample, 1 1\n",
-                    encoding="utf-8",
-                )
+                (run_dir / "output").mkdir(parents=True, exist_ok=True)
                 raise OSError(errno.ENOSPC, "No space left on device")
 
             with patch("core.views.pre_process.preprocess_images", side_effect=fake_preprocess), patch(
@@ -808,37 +813,22 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
             self.assertTrue(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
             self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
             self.assertFalse((run_dir / PRE_PROCESS_FOLDER_NAME).exists())
-            self.assertFalse((run_dir / "compressed_masks.csv").exists())
+            self.assertFalse((run_dir / "output").exists())
             self.assertFalse((run_dir / "logs").exists())
 
-    def test_convert_storage_full_redirects_back_with_cleanup(self):
+    def test_convert_route_redirects_directly_to_segment(self):
         with temporary_media_root() as media_root:
-            uploaded = self._create_uploaded_image(media_root, name="convert_full")
-            self._write_channel_config(media_root, str(uploaded.uuid))
-            preview_row = self._create_preview_row(media_root, uploaded, "preview-layer0.png")
-            run_dir = media_root / str(uploaded.uuid)
-            (run_dir / "compressed_masks.csv").write_text(
-                "ImageId, EncodedPixels\nsample, 1 1\n",
-                encoding="utf-8",
-            )
-            (run_dir / "preprocessed_images_list.csv").write_text(
-                "ImageId, EncodedRLE\nsample, 4 4\n",
-                encoding="utf-8",
+            uploaded = self._create_uploaded_image(media_root, name="convert_redirect")
+
+            response = self.client.get(
+                reverse("experiment_convert", args=[str(uploaded.uuid)]),
             )
 
-            with patch("PIL.Image.Image.save", side_effect=OSError(errno.ENOSPC, "No space left on device")):
-                response = self.client.get(
-                    reverse("experiment_convert", args=[str(uploaded.uuid)]),
-                    follow=True,
-                )
-
-            self.assertEqual(response.status_code, 200)
-            self.assertContains(response, CONVERT_STORAGE_FULL_MESSAGE)
-            self.assertTrue(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
-            self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
-            self.assertFalse((run_dir / "output").exists())
-            self.assertFalse((run_dir / "compressed_masks.csv").exists())
-            self.assertFalse((run_dir / "preprocessed_images_list.csv").exists())
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            reverse("experiment_segment", args=[str(uploaded.uuid)]),
+        )
 
     def test_segment_storage_full_redirects_back_with_cleanup(self):
         with temporary_media_root() as media_root:

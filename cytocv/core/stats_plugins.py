@@ -40,6 +40,17 @@ class StatsPluginDefinition:
     exclusive_group: str | None = None
 
 
+@dataclass(frozen=True)
+class StatsExecutionPlan:
+    """Run-scoped statistics setup reused across cells in one image."""
+
+    normalized_plugins: tuple[str, ...] = field(default_factory=tuple)
+    selected_plugins: tuple[str, ...] = field(default_factory=tuple)
+    required_channels: tuple[str, ...] = field(default_factory=tuple)
+    required_channel_set: frozenset[str] = field(default_factory=frozenset)
+    analyses: tuple[Any, ...] = field(default_factory=tuple)
+
+
 # Keep order stable for UI rendering.
 PLUGIN_ORDER: tuple[str, ...] = (
     "MCherryLine",
@@ -147,10 +158,10 @@ def normalize_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
     return normalized
 
 
-def expand_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
-    """Include dependency plugins and return stable ordered IDs."""
+def _expand_normalized_plugins(normalized_plugins: Iterable[str]) -> list[str]:
+    """Include dependency plugins for a pre-normalized plugin selection."""
 
-    queue = list(normalize_selected_plugins(selected_plugins))
+    queue = list(normalized_plugins)
     resolved: set[str] = set(queue)
     while queue:
         plugin_id = queue.pop(0)
@@ -161,15 +172,30 @@ def expand_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
     return [plugin_id for plugin_id in PLUGIN_ORDER if plugin_id in resolved]
 
 
+def _get_required_channels_for_expanded_plugins(
+    expanded_plugins: Iterable[str],
+) -> list[str]:
+    required_channels = set(ALWAYS_REQUIRED_CHANNELS)
+    for plugin_id in expanded_plugins:
+        required_channels.update(PLUGIN_DEFINITIONS[plugin_id].required_channels)
+    return sorted(required_channels, key=_channel_sort_key)
+
+
+def _instantiate_plugin_ids(plugin_ids: Iterable[str]) -> list[Any]:
+    return [get_plugin_class(plugin_id)() for plugin_id in plugin_ids]
+
+
+def expand_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
+    """Include dependency plugins and return stable ordered IDs."""
+
+    return _expand_normalized_plugins(normalize_selected_plugins(selected_plugins))
+
+
 def get_required_channels_for_plugins(selected_plugins: Iterable[str]) -> tuple[list[str], list[str]]:
     """Return sorted required channels and normalized+expanded plugin IDs."""
 
     expanded_plugins = expand_selected_plugins(selected_plugins)
-    required_channels = set(ALWAYS_REQUIRED_CHANNELS)
-    for plugin_id in expanded_plugins:
-        required_channels.update(PLUGIN_DEFINITIONS[plugin_id].required_channels)
-    sorted_channels = sorted(required_channels, key=_channel_sort_key)
-    return sorted_channels, expanded_plugins
+    return _get_required_channels_for_expanded_plugins(expanded_plugins), expanded_plugins
 
 
 def build_requirement_summary(selected_plugins: Iterable[str]) -> dict:
@@ -194,6 +220,21 @@ def build_requirement_summary(selected_plugins: Iterable[str]) -> dict:
         "required_channel_set": required_channel_set,
         "required_sources": required_sources,
     }
+
+
+def build_stats_execution_plan(selected_plugins: Iterable[str]) -> StatsExecutionPlan:
+    """Build normalized stats setup once for reuse across all cells in a run."""
+
+    normalized_plugins = normalize_selected_plugins(selected_plugins)
+    expanded_plugins = _expand_normalized_plugins(normalized_plugins)
+    required_channels = _get_required_channels_for_expanded_plugins(expanded_plugins)
+    return StatsExecutionPlan(
+        normalized_plugins=tuple(normalized_plugins),
+        selected_plugins=tuple(expanded_plugins),
+        required_channels=tuple(required_channels),
+        required_channel_set=frozenset(required_channels),
+        analyses=tuple(_instantiate_plugin_ids(expanded_plugins)),
+    )
 
 
 def build_plugin_ui_payload() -> dict:
@@ -239,4 +280,4 @@ def get_plugin_class(plugin_id: str) -> type[Any]:
 def instantiate_selected_plugins(selected_plugins: Iterable[str]) -> list[Any]:
     """Instantiate selected plugins using explicit module/class mappings."""
 
-    return [get_plugin_class(plugin_id)() for plugin_id in expand_selected_plugins(selected_plugins)]
+    return _instantiate_plugin_ids(expand_selected_plugins(selected_plugins))

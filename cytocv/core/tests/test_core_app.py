@@ -16,6 +16,7 @@ from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
 from core.models import DVLayerTifPreview, SegmentedImage, UploadedImage
 from core.stats_plugins import (
+    build_stats_execution_plan,
     get_plugin_class,
     instantiate_selected_plugins,
     load_available_plugin_ids,
@@ -298,3 +299,16 @@ class PluginMappingRegressionTests(TestCase):
             ["MCherryLine", "GFPDot"],
         )
         self.assertEqual(GrayImage.__name__, "GrayImage")
+
+    def test_build_stats_execution_plan_normalizes_raw_plugin_selection(self):
+        plan = build_stats_execution_plan(
+            ["UnknownPlugin", "NucleusIntensity", "NuclearCellularIntensity", "DAPI_NucleusIntensity"]
+        )
+
+        self.assertEqual(plan.normalized_plugins, ("NuclearCellularIntensity",))
+        self.assertEqual(plan.selected_plugins, ("NuclearCellularIntensity",))
+        self.assertEqual(plan.required_channels, ("DIC", "mCherry", "GFP"))
+        self.assertEqual(
+            [instance.__class__.__name__ for instance in plan.analyses],
+            ["NuclearCellularIntensity"],
+        )
