@@ -84,7 +84,7 @@ You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are 
 
 5. Activate virtual environment:
    ```bash
-   source cyto_cv/Scripts/activate
+   source cyto_cv/bin/activate
    ```
    or
    ```bash
@@ -120,6 +120,7 @@ Due to the machine learning part only works on certain versions of packages, we 
    pip install -r ./requirements.txt --no-cache-dir
    ```
    PostgreSQL support uses `psycopg` (psycopg3) only.
+   `tensorflow-intel` is installed only on Windows; Linux uses `tensorflow`.
 
 5. Remove the temporary list of requirements:
    ```bash
@@ -141,6 +142,7 @@ You must have your virtual environment activated to make the respective migratio
 
 3. Create migrations for specific apps (accounts, core):
    ```bash
+   cd cytocv
    python manage.py makemigrations accounts core
    ```
 
@@ -154,7 +156,7 @@ You must have your virtual environment activated to make the respective migratio
 
 1. Navigate to the project directory:
    ```bash
-   cd <repo-root>
+   cd <repo-root>/cytocv
    ```
 
 2. Run the application:
@@ -393,13 +395,14 @@ Caching can reuse artifacts when `use_cache=True`.
 ```bash
 python -m venv cyto_cv
 # bash
-source cyto_cv/Scripts/activate
+source cyto_cv/bin/activate
 # PowerShell alternative:
 # .\cyto_cv\Scripts\Activate.ps1
 
 python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt --no-cache-dir
 
+cd cytocv
 python manage.py makemigrations accounts core
 python manage.py migrate
 python manage.py runserver
