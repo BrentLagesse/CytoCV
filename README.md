@@ -47,7 +47,7 @@ The project is a tool to automatically analyze WIDE-fluorescent microscopy image
 ## Key features
 - **DV ingestion** with strict validation (exactly 4 layers).
 - **Previews** and channel mapping (writes `channel_config.json`).
-- **Mask R-CNN inference** (CPU), **RLE→TIFF** conversion.
+- **Mask R-CNN inference** (CPU) with direct `mask.tif` output.
 - **Segmentation** with Gaussian blur, Otsu, rolling-ball BG subtraction, region merges.
 - **Per-cell metrics** stored in DB:
   - `distance` (mCherry dot distance)
@@ -293,7 +293,7 @@ Entry points: `manage.py` (CLI), `cytocv/urls.py` (routes), `wsgi.py/asgi.py` (s
 - **Inputs**: DV `.dv` with **exactly** 4 layers (DIC + three fluorescence).
 - **Storage**: `MEDIA_ROOT/<uuid>/<original>.dv` (UUID per upload).
 - **Metadata**: `channel_config.json` (wavelengths/order).
-- **Preprocessing**: `preprocessed_images/`, `preprocessed_images_list.csv`, `compressed_masks.csv`, `output/mask.tif`.
+- **Preprocessing**: `preprocessed_images/`, direct mask generation to `output/mask.tif`.
 - **Segmentation**: per-cell PNGs in `segmented/`, outline CSVs, debug overlays.
 - **DB**: `CellStatistics` rows for per-cell metrics.
 - **Samples**: `example-dv-file/`.
@@ -303,7 +303,7 @@ Entry points: `manage.py` (CLI), `cytocv/urls.py` (routes), `wsgi.py/asgi.py` (s
 ## Workflow
 1. **Upload** DV stack(s): `/image/upload/`  
 2. **Preprocess** and choose analyses: `/image/preprocess/<uuids>/`  
-3. **Inference** (Mask R-CNN) and **RLE→TIFF** conversion  
+3. **Inference** (Mask R-CNN) and direct `mask.tif` generation  
 4. **Segmentation & analysis**: `/image/<uuids>/segment/`  
 5. **Display & export**: `/image/<uuids>/display/`
 
@@ -334,15 +334,15 @@ Caching can reuse artifacts when `use_cache=True`.
 
 **Preprocessing**
 - Intensity rescale, RGB TIFF previews
-- Write `preprocessed_images_list.csv` (dimensions, metadata)
+- Write preprocessed PNG inputs for inference
 
 **Mask R-CNN (CPU)**
 - Min dim 512, anchors 8–128, confidence ≥ 0.9
 - Weights: `core/mrcnn/weights/deepretina_final.h5`
 - `CUDA_VISIBLE_DEVICES` disabled
 
-**RLE to TIFF**
-- Convert to binary TIFFs (optional rescale)
+**Mask output**
+- Write `output/mask.tif` directly from predicted instance masks
 
 **Segmentation**
 - Gaussian blur + Canny/Otsu threshold
@@ -368,8 +368,6 @@ Caching can reuse artifacts when `use_cache=True`.
 ```
 
 **CSV schemas (typical)**
-- `preprocessed_images_list.csv`: `image_id, width, height, channel, dtype, path`
-- `compressed_masks.csv`: `image_id, EncodedRLE`
 - Outline/metrics CSVs: `cell_id, x/y coords, area, intensity, distance, notes`
 
 **Table export (UI)**
@@ -423,8 +421,6 @@ media/<uuid>/
 │  ├─ DAPI.tif
 │  ├─ mCherry.tif
 │  └─ GFP.tif
-├─ preprocessed_images_list.csv
-├─ compressed_masks.csv
 ├─ output/
 │  └─ mask.tif
 └─ segmented/
@@ -452,7 +448,7 @@ print("Next:", r.headers.get("Location") or r.text[:2000])  # open this URL in a
 ## Testing
 Recommended:
 - **Fixtures**: tiny DV stacks for unit tests.
-- **Units**: channel parser, preprocessing transforms, RLE mask conversions.
+- **Units**: channel parser, preprocessing transforms, direct mask generation.
 - **Integration**: upload, to preprocess, to segment, to display (mock weights).
 - **CI**: Windows/Linux, Python 3.11.5.
 
@@ -476,7 +472,7 @@ python manage.py test
 - **TensorFlow or import errors**: Use **Python 3.11.5** in a clean venv.
 - **Missing weights**: Put `core/mrcnn/weights/deepretina_final.h5`.
 - **DV rejected**: File must have exactly 4 layers.
-- **No outputs / blank display**: Check console and `debug.log`. Confirm `compressed_masks.csv` and `preprocessed_images_list.csv`.
+- **No outputs / blank display**: Check console and `debug.log`. Confirm `output/mask.tif` was written.
 - **Cache mismatch**: Turn off `use_cache` if parameters changed.
 - **401 on display**: You are not the owner of the data.
 

@@ -16,7 +16,12 @@ from core.mrcnn.inference_runtime import (
     clear_inference_runtime_cache,
     get_inference_runtime,
 )
+from core.mrcnn.mask_processing import (
+    build_labeled_mask_image,
+    postprocess_prediction_masks,
+)
 from core.mrcnn.my_inference import predict_images
+from core.mrcnn.preprocess_images import PreprocessedImageArtifact
 
 
 class InferenceRuntimeCacheTests(SimpleTestCase):
@@ -90,31 +95,16 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
         super().tearDown()
 
     @staticmethod
-    def _write_listing(listing_path: Path, image_id: str | None = None) -> None:
-        lines = ["ImageId, EncodedRLE"]
-        if image_id is not None:
-            lines.append(f"{image_id}, 4 4")
-        listing_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    @staticmethod
-    def _write_png(image_path: Path) -> None:
+    def _build_artifact(output_dir: Path, *, image_name: str) -> PreprocessedImageArtifact:
+        image_path = output_dir / image_name
         image_path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (4, 4), color=(12, 34, 56)).save(image_path, format="PNG")
-
-    @staticmethod
-    def _append_rle_rows(csv_path: Path, image_ids: list[str], encoded_pixels: list[str]) -> None:
-        with Path(csv_path).open("a", encoding="utf-8") as handle:
-            for image_id, encoded in zip(image_ids, encoded_pixels):
-                handle.write(f"{image_id},{encoded}\n")
-
-    @staticmethod
-    def _fake_numpy2encoding(
-        _pred_masks,
-        image_id: str,
-        scores=None,
-        dilation: bool = True,
-    ) -> tuple[list[str], list[str], None]:
-        return [image_id], ["1 1"], None
+        return PreprocessedImageArtifact(
+            image_id=image_name,
+            preprocessed_path=image_path,
+            original_height=4,
+            original_width=4,
+        )
 
     @staticmethod
     def _build_fake_runtime(cache_key: InferenceRuntimeKey) -> SimpleNamespace:
@@ -132,35 +122,99 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
             detect_lock=threading.Lock(),
         )
 
-    def test_predict_images_returns_none_for_empty_listing_without_loading_runtime(self):
+    def test_postprocess_prediction_masks_applies_dilation_and_duplicate_removal_without_mutation(self):
+        pred_masks = np.zeros((5, 5, 2), dtype=np.uint8)
+        pred_masks[2, 2, 0] = 1
+        pred_masks[2, 2, 1] = 1
+        original_masks = np.array(pred_masks, copy=True)
+
+        processed_masks = postprocess_prediction_masks(
+            pred_masks,
+            scores=np.array([0.1, 0.9], dtype=np.float32),
+            dilation=True,
+        )
+
+        self.assertTrue(np.array_equal(pred_masks, original_masks))
+        self.assertGreater(int(processed_masks[:, :, 0].sum()), 1)
+        self.assertFalse(np.any(processed_masks[:, :, 1]))
+
+    def test_build_labeled_mask_image_preserves_surviving_original_order(self):
+        pred_masks = np.zeros((4, 4, 3), dtype=np.uint8)
+        pred_masks[1, 1, 0] = 1
+        pred_masks[1, 1, 1] = 1
+        pred_masks[3, 3, 2] = 1
+
+        label_image = build_labeled_mask_image(
+            pred_masks,
+            scores=np.array([0.1, 0.9, 0.8], dtype=np.float32),
+        )
+
+        self.assertEqual(label_image.dtype, np.uint16)
+        self.assertEqual(int(label_image[1, 1]), 1)
+        self.assertEqual(int(label_image[3, 3]), 2)
+
+    def test_build_labeled_mask_image_returns_blank_uint16_for_empty_predictions(self):
+        label_image = build_labeled_mask_image(np.zeros((4, 4, 0), dtype=np.uint8))
+
+        self.assertEqual(label_image.dtype, np.uint16)
+        self.assertTrue(np.array_equal(label_image, np.zeros((4, 4), dtype=np.uint16)))
+
+    def test_predict_images_writes_blank_mask_when_model_returns_no_detections(self):
         with TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "run-empty"
             output_dir.mkdir(parents=True, exist_ok=True)
-            image_path = output_dir / "sample.png"
-            listing_path = output_dir / "preprocessed_images_list.csv"
-            self._write_png(image_path)
-            self._write_listing(listing_path)
+            artifact = self._build_artifact(output_dir, image_name="sample.png")
+            runtime = SimpleNamespace(
+                tensorflow=SimpleNamespace(random=SimpleNamespace(set_seed=Mock())),
+                model=SimpleNamespace(
+                    detect=Mock(
+                        return_value=[
+                            {
+                                "masks": np.zeros((4, 4, 0), dtype=np.uint8),
+                                "scores": np.array([], dtype=np.float32),
+                                "class_ids": np.array([], dtype=np.int32),
+                            }
+                        ]
+                    )
+                ),
+                detect_lock=threading.Lock(),
+            )
 
-            with patch("core.mrcnn.my_inference.get_inference_runtime") as get_runtime:
+            with patch(
+                "core.mrcnn.my_inference.get_inference_runtime",
+                return_value=runtime,
+            ) as get_runtime:
                 result = predict_images(
-                    image_path,
-                    listing_path,
+                    artifact,
                     output_dir,
                     verbose=False,
                 )
 
-        self.assertIsNone(result)
-        get_runtime.assert_not_called()
+            self.assertIsNotNone(result)
+            self.assertTrue(result.exists())
+            self.assertEqual(np.array(Image.open(result)).dtype, np.uint16)
+            self.assertTrue(
+                np.array_equal(
+                    np.array(Image.open(result)),
+                    np.zeros((4, 4), dtype=np.uint16),
+                )
+            )
+            get_runtime.assert_called_once()
 
     def test_predict_images_returns_none_when_cancelled_before_runtime_load(self):
         with TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "run-cancelled"
             output_dir.mkdir(parents=True, exist_ok=True)
+            artifact = PreprocessedImageArtifact(
+                image_id="cancelled.png",
+                preprocessed_path=output_dir / "unused.png",
+                original_height=4,
+                original_width=4,
+            )
 
             with patch("core.mrcnn.my_inference.get_inference_runtime") as get_runtime:
                 result = predict_images(
-                    output_dir / "unused.png",
-                    output_dir / "unused.csv",
+                    artifact,
                     output_dir,
                     verbose=False,
                     cancel_check=lambda: True,
@@ -177,15 +231,8 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
             first_output_dir.mkdir(parents=True, exist_ok=True)
             second_output_dir.mkdir(parents=True, exist_ok=True)
 
-            first_image_path = first_output_dir / "sample-one.png"
-            second_image_path = second_output_dir / "sample-two.png"
-            first_listing_path = first_output_dir / "preprocessed_images_list.csv"
-            second_listing_path = second_output_dir / "preprocessed_images_list.csv"
-
-            self._write_png(first_image_path)
-            self._write_png(second_image_path)
-            self._write_listing(first_listing_path, "sample-one.png")
-            self._write_listing(second_listing_path, "sample-two.png")
+            first_artifact = self._build_artifact(first_output_dir, image_name="sample-one.png")
+            second_artifact = self._build_artifact(second_output_dir, image_name="sample-two.png")
 
             cache_key = InferenceRuntimeKey(Path("C:/weights/deepretina_final.h5"), 1, 2)
             runtime = self._build_fake_runtime(cache_key)
@@ -196,33 +243,21 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
             ), patch(
                 "core.mrcnn.inference_runtime._build_inference_runtime",
                 return_value=runtime,
-            ) as build_runtime, patch(
-                "core.mrcnn.my_inference.f.numpy2encoding",
-                side_effect=self._fake_numpy2encoding,
-            ), patch(
-                "core.mrcnn.my_inference.f.write2csv",
-                side_effect=self._append_rle_rows,
-            ):
+            ) as build_runtime:
                 first_result = predict_images(
-                    first_image_path,
-                    first_listing_path,
+                    first_artifact,
                     first_output_dir,
                     verbose=False,
                 )
                 second_result = predict_images(
-                    second_image_path,
-                    second_listing_path,
+                    second_artifact,
                     second_output_dir,
                     verbose=False,
                 )
 
             self.assertEqual(build_runtime.call_count, 1)
             self.assertEqual(runtime.model.detect.call_count, 2)
-            self.assertEqual(
-                first_result.read_text(encoding="utf-8").splitlines(),
-                ["ImageId, EncodedPixels", "sample-one.png,1 1"],
-            )
-            self.assertEqual(
-                second_result.read_text(encoding="utf-8").splitlines(),
-                ["ImageId, EncodedPixels", "sample-two.png,1 1"],
-            )
+            self.assertEqual(first_result.name, "mask.tif")
+            self.assertEqual(second_result.name, "mask.tif")
+            self.assertTrue(np.array_equal(np.array(Image.open(first_result)), np.ones((4, 4), dtype=np.uint16)))
+            self.assertTrue(np.array_equal(np.array(Image.open(second_result)), np.ones((4, 4), dtype=np.uint16)))

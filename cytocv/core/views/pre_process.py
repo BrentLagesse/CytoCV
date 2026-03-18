@@ -360,13 +360,13 @@ def pre_process(request, uuids):
                 if not preprocess_marked:
                     write_progress(uuids, "Preprocessing Images")
                     preprocess_marked = True
-                prep_path, prep_list = preprocess_images(
+                preprocessed_image = preprocess_images(
                     image_uuid,
                     img_obj,
                     out_dir,
                     cancel_check=cancel_check,
                 )
-                if cancel_check() or not prep_path or not prep_list:
+                if cancel_check() or preprocessed_image is None:
                     write_progress(uuids, "Cancelled")
                     clear_cancelled(uuids)
                     return cancel_response()
@@ -375,8 +375,7 @@ def pre_process(request, uuids):
                     write_progress(uuids, "Detecting Cells")
                     detection_marked = True
                 prediction_result = predict_images(
-                    prep_path,
-                    prep_list,
+                    preprocessed_image,
                     out_dir,
                     cancel_check=cancel_check,
                 )
@@ -389,7 +388,7 @@ def pre_process(request, uuids):
                 raise
             return storage_full_response(exc)
 
-        return redirect("experiment_convert", uuids=uuids)
+        return redirect("experiment_segment", uuids=uuids)
 
     # AJAX navigation
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

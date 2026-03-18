@@ -1,14 +1,52 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
 import skimage.exposure
-import skimage.filters
 from mrc import DVFile
+
 from cytocv.settings import MEDIA_ROOT
 from core.artifact_constants import PRE_PROCESS_FOLDER_NAME
-from core.models import UploadedImage
 from core.config import get_channel_config_for_uuid
-from pathlib import Path
+from core.models import UploadedImage
 from core.services.artifact_storage import save_png_image
+
+
+@dataclass(frozen=True, slots=True)
+class PreprocessedImageArtifact:
+    image_id: str
+    preprocessed_path: Path
+    original_height: int
+    original_width: int
+
+
+def _select_dic_image_layer(image_stack: np.ndarray, dic_index: int) -> np.ndarray | None:
+    """Return the DIC layer to use for preprocessing."""
+
+    if image_stack.ndim == 2:
+        return image_stack
+    if image_stack.ndim != 3:
+        return None
+    if dic_index >= image_stack.shape[0]:
+        dic_index = 0
+    return image_stack[dic_index]
+
+
+def _preprocess_grayscale_image(image: np.ndarray) -> Image.Image:
+    """Normalize the grayscale DIC image to an RGB PNG-ready preview."""
+
+    if image.ndim > 2:
+        image = image[:, :, 0]
+    image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
+    image = np.round(image * 255).astype(np.uint8)
+    image = np.expand_dims(image, axis=-1)
+    rgb_image = np.tile(image, 3)
+    return Image.fromarray(rgb_image)
+
+
 #Original header
 # def preprocess_images(inputdirectory, mask_dir, outputdirectory, outputfile, verbose = False, use_cache=True):
 def preprocess_images(
@@ -16,22 +54,15 @@ def preprocess_images(
     uploaded_image: UploadedImage,
     output_dir: Path,
     cancel_check=None,
-) -> tuple[str | None, str | None]:
+) -> PreprocessedImageArtifact | None:
     """
         Most commented lines are from the old code base. Have kept until we have the entire product working
     """
     if cancel_check and cancel_check():
-        return None, None
+        return None
 
     # constants, easily can be changed 
     print("output_directory", output_dir)
-
-    # Creates csv file and writes in first 2 columns ImageId and EncodedRLE for each image
-    CSV_NAME = 'preprocessed_images_list.csv'
-    preprocessed_image_list_path = Path(output_dir, CSV_NAME)
-    preprocessed_image_list = open(preprocessed_image_list_path, "w")
-    preprocessed_image_list.write("ImageId, EncodedRLE" + "\n")
-    preprocessed_image_list.close()
     
     #converts windows file path to linux path and joins 
     image_path = Path(MEDIA_ROOT, str(uploaded_image.file_location)) #.replace("/", "\\")
@@ -44,15 +75,9 @@ def preprocess_images(
     # gets raw image from uploaded dv file
     channel_config = get_channel_config_for_uuid(str(uuid))
     dic_index = channel_config.get("DIC", 3)
-    if image_stack.ndim == 2:
-        image = image_stack
-    elif image_stack.ndim == 3:
-        if dic_index >= image_stack.shape[0]:
-            # Fall back to first layer when metadata index is out of bounds.
-            dic_index = 0
-        image = image_stack[dic_index]
-    else:
-        return None, None
+    image = _select_dic_image_layer(image_stack, dic_index)
+    if image is None:
+        return None
     # fileSize = os.path.getsize(uploaded_image.file_location)
     # if fileSize > 8230000:
         #File is a live cell imaging that has more than 4 images
@@ -76,23 +101,17 @@ def preprocess_images(
     # outputdirectory = imagePath
     # grabs only file name
  
-    if len(image.shape) > 2:
-        image = image[:, :, 0]
     height = image.shape[0]
     width = image.shape[1]
 
     # Preprocessing operations
-    image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
-    image = np.round(image * 255).astype(np.uint8)        #convert to 8 bit
-    image = np.expand_dims(image, axis=-1)
-    rgb_image = np.tile(image, 3)                          #convert to RGB
+    rgb_image = _preprocess_grayscale_image(image)
     #rgbimage = skimage.filters.gaussian(rgbimage, sigma=(1,1))   # blur it first?
 
     # if not os.path.exists(outputdirectory + imagename) or not use_cache:
     # if not os.path.exists(outputdirectory + imagename):
     # os.makedirs(outputdirectory + imagename)
     # os.makedirs(outputdirectory + imagename + "/images/")
-    rgb_image = Image.fromarray(rgb_image)
     # pre_process_dir_path = os.path.join(output_directory, PRE_PROCESS_FOLDER_NAME)
     pre_process_dir_path = Path(output_dir / PRE_PROCESS_FOLDER_NAME)
     # makes dir if it already doesn't exist
@@ -100,16 +119,17 @@ def preprocess_images(
     # if not pre_process_dir_path.is_dir():
     # os.makedirs(pre_process_dir_path)
     if cancel_check and cancel_check():
-        return None, None
+        return None
 
-    image_name = uploaded_image.name.split(".")[0] + ".png"
+    image_name = Path(uploaded_image.name).stem + ".png"
     pre_process_image_path = pre_process_dir_path / image_name
     save_png_image(rgb_image, pre_process_image_path)
-    
-    preprocessed_image_list = open(preprocessed_image_list_path, "a")
-    preprocessed_image_list.write(uploaded_image.name + ", " + str(height) + " " + str(width) + "\n")
-    preprocessed_image_list.close()
     print('Pre-process completed FINISHED')
-    return str(pre_process_image_path), preprocessed_image_list_path
+    return PreprocessedImageArtifact(
+        image_id=uploaded_image.name,
+        preprocessed_path=pre_process_image_path,
+        original_height=int(height),
+        original_width=int(width),
+    )
     # except IOError:
     #     pass

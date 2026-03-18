@@ -25,6 +25,7 @@ from core.models import (
     UploadedImage,
     get_guest_user,
 )
+from core.mrcnn.preprocess_images import PreprocessedImageArtifact
 from core.scale import apply_manual_override_scale, build_scale_info
 from core.stats_plugins import PLUGIN_DEFINITIONS
 
@@ -1201,7 +1202,15 @@ class DisplayManualSaveTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    @patch("core.views.pre_process.preprocess_images", return_value=("stub_prep", ["stub_image"]))
+    @patch(
+        "core.views.pre_process.preprocess_images",
+        return_value=PreprocessedImageArtifact(
+            image_id="stub_image.dv",
+            preprocessed_path=Path("stub_prep.png"),
+            original_height=1,
+            original_width=1,
+        ),
+    )
     @patch("core.views.pre_process.predict_images", return_value=True)
     @patch("core.views.pre_process.tif_to_jpg", return_value=None)
     def test_preprocess_post_persists_manual_scale_override_before_analysis(
@@ -1219,13 +1228,21 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/convert/", response["Location"])
+        self.assertIn("/segment/", response["Location"])
         uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
         scale_info = uploaded.scale_info or {}
         self.assertEqual(scale_info.get("source"), "manual_override")
         self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.27, places=6)
 
-    @patch("core.views.pre_process.preprocess_images", return_value=("stub_prep", ["stub_image"]))
+    @patch(
+        "core.views.pre_process.preprocess_images",
+        return_value=PreprocessedImageArtifact(
+            image_id="stub_image.dv",
+            preprocessed_path=Path("stub_prep.png"),
+            original_height=1,
+            original_width=1,
+        ),
+    )
     @patch("core.views.pre_process.predict_images", return_value=True)
     @patch("core.views.pre_process.tif_to_jpg", return_value=None)
     def test_preprocess_post_reverts_manual_override_to_metadata_scale(
