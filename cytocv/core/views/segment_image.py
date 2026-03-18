@@ -68,7 +68,7 @@ from core.contour_processing import (
     get_neighbor_count,
     merge_contour,
 )
-from core.stats_plugins import build_requirement_summary, instantiate_selected_plugins
+from core.stats_plugins import StatsExecutionPlan, build_stats_execution_plan
 from accounts.preferences import should_auto_save_experiments
 from core.scale import (
     convert_length_to_pixels,
@@ -107,8 +107,24 @@ AUTOSAVE_STORAGE_FULL_MESSAGE = (
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
+STATS_CACHE_CHANNELS = frozenset({"mCherry", "GFP", "DAPI", "DIC"})
 
 ## progress helpers moved to core.views.utils
+
+
+def _build_layer_channel_lookup(channel_config: dict[str, object]) -> dict[int, str]:
+    """Invert a channel config so layer indices can be mapped to stats channels."""
+
+    layer_channel_lookup: dict[int, str] = {}
+    for channel_name, raw_index in (channel_config or {}).items():
+        if channel_name not in STATS_CACHE_CHANNELS:
+            continue
+        try:
+            layer_index = int(raw_index)
+        except (TypeError, ValueError):
+            continue
+        layer_channel_lookup[layer_index] = channel_name
+    return layer_channel_lookup
 
 def _current_owner_filter(request) -> dict:
     """Return queryset filter args for the current upload owner."""
@@ -137,20 +153,36 @@ def set_options(opt):
     choice_var = opt['arrested']
     return kernel_size_input, mcherry_line_width_input, kernel_deviation_input, choice_var
 
-def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled=False):
+def get_stats(
+    cp,
+    conf,
+    execution_plan: StatsExecutionPlan | None,
+    mcherry_width,
+    gfp_distance,
+    gfp_threshold,
+    gfp_filter_enabled=False,
+    cached_images=None,
+):
     # loading configuration
     kernel_size_input, mcherry_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
     cp.properties = dict(cp.properties or {})
     cp.properties["nuclear_cellular_mode"] = nuclear_cellular_mode
 
-    requirement_summary = build_requirement_summary(selected_analysis)
+    if execution_plan is None:
+        execution_plan = build_stats_execution_plan(conf.get("analysis", []))
     stats_required_channels = {
-        channel for channel in requirement_summary["required_channels"] if channel in {"mCherry", "GFP", "DAPI"}
+        channel for channel in execution_plan.required_channels if channel in {"mCherry", "GFP", "DAPI"}
     }
+
     # Always try to load all analysis channels if present so debug images remain available.
     channels_to_load = {"mCherry", "GFP", "DAPI", "DIC"} | stats_required_channels
-    images = load_image(cp, output_dir, required_channels=channels_to_load)
+    images = load_image(
+        cp,
+        output_dir,
+        required_channels=channels_to_load,
+        cached_images=cached_images,
+    )
 
     available_image_keys = [key for key in ("mCherry", "GFP", "DAPI", "DIC") if key in images]
     if not available_image_keys:
@@ -167,7 +199,7 @@ def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_thre
     edit_GFP_img = _canvas_for("GFP")
     edit_DAPI_img = _canvas_for("DAPI")
 
-    if not selected_analysis:
+    if not execution_plan.selected_plugins:
         # No selected statistics: keep defaults and return plain debug frames.
         edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
         edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
@@ -241,9 +273,8 @@ def get_stats(cp, conf, selected_analysis, mcherry_width, gfp_distance, gfp_thre
         cv2.drawContours(edit_GFP_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
         cv2.drawContours(edit_DAPI_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
 
-    analyses = instantiate_selected_plugins(selected_analysis)
     dapi_contour_required_plugins = {"NucleusIntensity", "DAPI_NucleusIntensity"}
-    for analysis in analyses:
+    for analysis in execution_plan.analyses:
         analysis_name = analysis.__class__.__name__
         if analysis_name in dapi_contour_required_plugins and "DAPI" not in best_contour_data:
             continue
@@ -371,6 +402,8 @@ def segment_image(request, uuids):
         uploaded_image = get_object_or_404(UploadedImage, pk=uuid, **owner_filter)
         DV_Name = uploaded_image.name
         DV_path = _resolve_uploaded_dv_path(uploaded_image)
+        channel_config = get_channel_config_for_uuid(uuid)
+        layer_channel_lookup = _build_layer_channel_lookup(channel_config)
         image_dict = dict()
         image_dict[DV_Name] = list()
 
@@ -474,7 +507,6 @@ def segment_image(request, uuids):
                 # Which file are we trying to find here?
                 f = DVFile(DV_path)
                 try:
-                    channel_config = get_channel_config_for_uuid(uuid)
                     mcherry_index = channel_config.get("mCherry")
                     mcherry_image = f.asarray()[mcherry_index]
                 finally:
@@ -776,6 +808,7 @@ def segment_image(request, uuids):
             image_stack = f.asarray()
         finally:
             f.close()
+        cell_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
 
         if image_stack.ndim == 2:
             image_stack = np.expand_dims(image_stack, axis=0)
@@ -809,6 +842,7 @@ def segment_image(request, uuids):
 
             # Trying to figure out why we're only seeing one wave length represented
             # plt.imsave(str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/' + DV_Name + '-' + str(image_num) + '.tif', image, dpi=600, format='TIFF')
+            cached_channel_name = layer_channel_lookup.get(image_num)
 
             outlines = np.zeros(seg.shape)
             # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
@@ -856,6 +890,8 @@ def segment_image(request, uuids):
 
                 cellpair_image = image_outlined[min_x: max_x, min_y:max_y]
                 not_outlined_image = image[min_x: max_x, min_y:max_y]
+                if cached_channel_name:
+                    cell_image_cache[i][cached_channel_name] = np.array(not_outlined_image, copy=True)
                 if not os.path.exists(segmented_directory / cell_tif_image) or not use_cache:  # don't redo things we already have
                     try:
                         save_png_array(cellpair_image, segmented_directory / cell_tif_image)
@@ -894,7 +930,10 @@ def segment_image(request, uuids):
         else:
             configuration = settings.DEFAULT_SEGMENT_CONFIG
 
-        selected_analysis = request.session.get('selected_analysis', [])
+        execution_plan = build_stats_execution_plan(
+            request.session.get('selected_analysis', [])
+        )
+        selected_analysis = list(execution_plan.selected_plugins)
         raw_mcherry_width = request.session.get(
             'stats_mcherry_width_value',
             request.session.get('mCherryWidth', 1),
@@ -1020,7 +1059,6 @@ def segment_image(request, uuids):
 
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
-            selected_analysis = request.session.get('selected_analysis',[])
             cp.properties = dict(cp.properties or {})
             cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
@@ -1041,7 +1079,16 @@ def segment_image(request, uuids):
             cp.properties["stats_mcherry_width_unit"] = mcherry_width_unit
             cp.properties["stats_gfp_distance_unit"] = gfp_distance_unit
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp, debug_dapi = get_stats(cp, conf,selected_analysis, mcherry_width, gfp_distance, gfp_threshold, gfp_filter_enabled)
+            debug_mcherry, debug_gfp, debug_dapi = get_stats(
+                cp,
+                conf,
+                execution_plan,
+                mcherry_width,
+                gfp_distance,
+                gfp_threshold,
+                gfp_filter_enabled,
+                cached_images=cell_image_cache.get(cell_number),
+            )
 
             # Save the debug images so we can view them later
             debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"
