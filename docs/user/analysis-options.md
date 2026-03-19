@@ -6,50 +6,63 @@ This guide explains the user-visible analysis controls that affect validation, s
 
 ## Prerequisites
 
-- access to the upload or workflow defaults interface
-- familiarity with the four active channels: `DIC`, `DAPI`, `mCherry`, and `GFP`
+- access to the upload page or workflow defaults interface
+- familiarity with the logical channel roles `DIC`, `DAPI`, `mCherry`, and `GFP`
 
-## Plugin Selection
+## Default Plugin Configuration
 
-CytoCV exposes the following plugin identifiers in the current implementation:
+The current default modern plugin set is:
 
 - `MCherryLine`
 - `GFPDot`
 - `GreenRedIntensity`
 - `NuclearCellularIntensity`
+
+These defaults require `DIC`, `mCherry`, and `GFP`. They do not require `DAPI`.
+
+Legacy plugins remain available when legacy visibility is enabled:
+
 - `NucleusIntensity`
 - `DAPI_NucleusIntensity`
 - `RedBlueIntensity`
 
-The first four are the main modern workflow options. The last three are legacy DAPI-related measurements.
+## Channel Requirement Model
 
-## Channel Requirements
+CytoCV derives required channels in layers:
 
-`DIC` is always required for segmentation.
+1. `DIC` is always required because segmentation and CNN preprocessing depend on it.
+2. Each selected plugin contributes its own required channels.
+3. Manual required channels are added only when the validation module is enabled.
+4. `enforce_wavelengths` expands the requirement to all four logical roles: `DIC`, `DAPI`, `mCherry`, and `GFP`.
+5. `enforce_layer_count` requires exactly four layers only when it is enabled.
 
-Plugin-driven required channels:
+If no plugins are selected and no validation overrides are enabled, the enforced requirement set is `DIC` only.
 
-- `MCherryLine`: `mCherry`, `GFP`
-- `GFPDot`: `mCherry`, `GFP`
-- `GreenRedIntensity`: `mCherry`, `GFP`
-- `NuclearCellularIntensity`: `mCherry`, `GFP`
-- `NucleusIntensity`: `DAPI`, `GFP`
-- `DAPI_NucleusIntensity`: `DAPI`
-- `RedBlueIntensity`: `mCherry`, `DAPI`
+### Plugin-Specific Channel Requirements
 
-If the validation module is enabled, user-selected manual required channels can add to the enforced set.
+| Plugin | Required channels beyond `DIC` | Legacy | Included in modern defaults |
+| --- | --- | --- | --- |
+| `MCherryLine` | `mCherry`, `GFP` | No | Yes |
+| `GFPDot` | `mCherry`, `GFP` | No | Yes |
+| `GreenRedIntensity` | `mCherry`, `GFP` | No | Yes |
+| `NuclearCellularIntensity` | `mCherry`, `GFP` | No | Yes |
+| `NucleusIntensity` | `DAPI`, `GFP` | Yes | No |
+| `DAPI_NucleusIntensity` | `DAPI` | Yes | No |
+| `RedBlueIntensity` | `mCherry`, `DAPI` | Yes | No |
+
+The nuclear or cellular plugin family is exclusive in the current implementation. If multiple plugins from that family are selected, the first one in the stable plugin order remains active.
 
 ## Validation Module Controls
 
 Advanced settings can turn on:
 
 - the validation module itself
-- layer-count enforcement
-- wavelength enforcement
-- manual channel requirements
-- display of legacy plugins
+- exact layer-count enforcement
+- all-wavelength enforcement
+- manual required channels
+- legacy plugin visibility
 
-If wavelength enforcement is enabled while the module is disabled, the requirement can remain saved but paused.
+The validation module does not replace plugin-driven requirements. It augments them.
 
 ## Scale Controls
 
@@ -87,19 +100,19 @@ The nuclear or cellular mode currently supports:
 The selected options influence:
 
 - upload validation outcomes
-- required channel enforcement
+- effective required channel enforcement
 - scale information saved to `UploadedImage.scale_info`
 - `CellStatistics.properties`
 - per-cell plugin execution and debug imagery
 
 ## Common Errors
 
-- plugin removed by advanced settings
-  This happens when a manually overridden required channel conflicts with a selected plugin.
-- invalid unit or negative numeric values
-  The application normalizes or falls back to safe defaults.
 - missing required wavelengths
   Upload validation rejects the run before it enters the processing queue.
+- unexpected DAPI requirement
+  A legacy plugin or all-wavelength enforcement is active.
+- invalid unit or negative numeric values
+  The application normalizes or falls back to safe defaults.
 
 ## Related Documents
 

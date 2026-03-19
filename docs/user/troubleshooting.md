@@ -27,7 +27,9 @@ The upload page reports invalid DV files or rejects files immediately.
 - verify the file is a supported `.dv` file
 - verify the current plugin selection
 - disable unneeded validation controls
-- confirm the run uses the intended DIC, DAPI, mCherry, and GFP mapping
+- confirm that `DIC` is present
+- confirm that any plugin-required channels are present
+- if all-wavelength enforcement is enabled, confirm that all four logical channel roles are present
 
 ## Preprocess And Inference Failures
 
@@ -38,12 +40,14 @@ The preprocess step does not advance or returns to the preprocess page.
 ### Likely Causes
 
 - missing or incompatible model weights
+- incompatible TensorFlow or CPU environment, including missing `AVX` support
 - a filesystem storage-full condition
 - user cancellation
 
 ### Corrective Action
 
 - confirm the expected model weights exist under `cytocv/core/weights`
+- confirm the analysis host exposes `AVX` if TensorFlow fails with `Illegal instruction`
 - free disk space
 - rerun the pipeline from preprocess
 

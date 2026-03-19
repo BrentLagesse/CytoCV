@@ -19,7 +19,7 @@ CytoCV produces outputs in four broad categories:
 
 ## Preview Assets
 
-For each valid upload, CytoCV can generate four preview images under the run preview directory. These are browser-friendly PNG representations of the raw DV layers and are used in the preprocess page.
+For each valid upload, CytoCV generates preview images under the run preview directory. The exact count depends on the detected layer structure and validation settings. These previews are browser-friendly PNG representations of the raw DV layers and are used in the preprocess page.
 
 ## Full-Frame Result Images
 
@@ -32,9 +32,9 @@ The segmentation stage also writes:
 - `cell_<n>.png` binary cell masks
 - outlined per-cell channel crops
 - no-outline per-cell channel crops
-- debug overlays for `mCherry`, `GFP`, and `DAPI`
+- plugin-dependent debug overlays
 
-The DIC channel generally provides the structural crop view, while fluorescence channels may use debug overlays to show contour and analysis decisions.
+The `DIC` channel generally provides the structural crop view. `mCherry` and `GFP` debug overlays are common in the modern workflow. `DAPI` debug overlays are associated with legacy DAPI-centered measurements or DAPI contour-dependent paths.
 
 ## Database Outputs
 
@@ -50,7 +50,7 @@ Important `CellStatistics` fields include:
 - `nucleus_intensity_sum`
 - `cellular_intensity_sum`
 - `cytoplasmic_intensity`
-- legacy DAPI and red/green intensity fields
+- legacy DAPI-derived and red-in-blue fields
 - GFP dot classification fields
 
 `CellStatistics.properties` also stores contextual information such as:
@@ -75,6 +75,7 @@ After a fully successful run you should expect:
 - one mask file
 - one or more outlined output frames
 - segmented cell imagery
+- plugin-dependent debug overlays
 - a populated statistics table when cells were found
 
 ## Common Errors

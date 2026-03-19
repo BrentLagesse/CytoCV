@@ -8,19 +8,19 @@ A microscopy file format used as the primary CytoCV input type.
 
 ### DIC
 
-Differential Interference Contrast. In CytoCV, this is the structural brightfield-like channel used for segmentation.
+Differential Interference Contrast. In CytoCV, this is the structural brightfield-like channel used for segmentation and is the only universally required channel.
 
 ### DAPI
 
-Blue fluorescence channel used for nucleus-related reference and some legacy intensity measurements.
+Blue fluorescence channel used for legacy nucleus-related reference and legacy intensity measurements.
 
 ### mCherry
 
-Red fluorescence channel used for spindle pole body or red-signal measurements.
+Red fluorescence channel used for spindle pole body or other red-signal measurements in the modern workflow.
 
 ### GFP
 
-Green fluorescence channel used for GFP-related measurements and dot classification.
+Green fluorescence channel used for GFP-related measurements and dot classification in the modern workflow.
 
 ### Microns Per Pixel
 

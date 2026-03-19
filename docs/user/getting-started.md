@@ -14,21 +14,22 @@ This guide explains how to reach the first successful CytoCV run from a fresh lo
 - the required Mask R-CNN weights file under `cytocv/core/weights`
 - at least one supported DeltaVision `.dv` file
 
-## Supported Input Expectations
+## Supported Input Model
 
-CytoCV expects DeltaVision files that can be interpreted as a four-layer imaging stack. The active workflow assumes these channels are available and can be mapped correctly:
+CytoCV supports four logical channel roles:
 
 - `DIC`
 - `DAPI`
 - `mCherry`
 - `GFP`
 
-Validation behavior depends on the upload settings and saved workflow defaults. The validation module can enforce:
+Only `DIC` is universally required because the segmentation and CNN preprocessing path depends on it. Additional channels are conditional:
 
-- exact layer count
-- required wavelength presence
-- plugin-driven required channels
-- manually required channels
+- the default modern plugin set requires `mCherry` and `GFP` in addition to `DIC`
+- legacy DAPI plugins require `DAPI`
+- manual required channels are added only when the validation module is enabled
+- exact four-layer enforcement occurs only when `enforce_layer_count` is enabled
+- all-four-role enforcement occurs only when `enforce_wavelengths` is enabled
 
 ## Local Startup Procedure
 
@@ -59,16 +60,14 @@ python manage.py runserver
 
 1. Open the `Experiment` page.
 2. Upload one or more `.dv` files.
-3. Choose the desired analysis plugins.
-4. Confirm channel requirements and scale settings.
-5. Continue to preprocessing.
-6. Review previews and per-file detected channel order.
-7. Run preprocessing and inference.
-8. Continue to segmentation and statistics.
-9. Open the display view and verify:
-   - the main outlined frame loads
-   - cell crops exist
-   - the statistics table is populated when cells were found
+3. Leave the default modern plugins enabled unless you are intentionally testing a legacy DAPI workflow.
+4. Confirm that the file provides `DIC` plus any channels required by the selected plugin set.
+5. Review scale settings and, if needed, advanced validation toggles.
+6. Continue to preprocessing.
+7. Review previews and per-file detected channel order.
+8. Run preprocessing and inference.
+9. Continue to segmentation and statistics.
+10. Open the display view and verify that the outlined frame, cell crops, and statistics table load as expected.
 
 ## Expected Outputs
 
@@ -80,7 +79,7 @@ After a successful run, CytoCV should produce:
 - `mask.tif`
 - outlined output frames
 - segmented cell crops
-- per-cell debug overlays for fluorescence channels
+- plugin-dependent debug overlays
 - `SegmentedImage` and `CellStatistics` database rows
 
 ## Common Errors
@@ -90,7 +89,7 @@ After a successful run, CytoCV should produce:
 - `SQLite is not allowed when CYTOCV_DEBUG=0`
   Production-like mode requires PostgreSQL.
 - invalid or missing channels during upload
-  The file does not satisfy the selected validation rules or selected plugin requirements.
+  The file does not satisfy the selected plugin requirements or enabled validation rules.
 - missing weights file
   The ML inference path cannot run until the expected weights are present.
 

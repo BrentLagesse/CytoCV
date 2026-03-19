@@ -11,18 +11,26 @@ flowchart LR
     mcherry[mCherry]
     gfp[GFP]
 
-    seg[Segmentation rule]
-    p1[MCherryLine]
-    p2[GFPDot]
-    p3[GreenRedIntensity]
-    p4[NuclearCellularIntensity<br/>modern]
-    p5[NucleusIntensity<br/>legacy]
-    p6[DAPI_NucleusIntensity<br/>legacy]
-    p7[RedBlueIntensity<br/>legacy]
-    summary[Requirement summary]
-    validate[File validation]
+    base[Base required channels<br/>DIC plus selected plugin inputs]
+    manual[Manual required channels<br/>module enabled only]
+    fullset[All-wavelength enforcement<br/>adds DIC, DAPI, mCherry, GFP]
+    effective[Effective required channel set]
+    validate[Upload validation]
 
-    dic --> seg --> summary
+    subgraph modern[Modern plugins]
+        p1[MCherryLine]
+        p2[GFPDot]
+        p3[GreenRedIntensity]
+        p4[NuclearCellularIntensity]
+    end
+
+    subgraph legacygroup[Legacy DAPI plugins]
+        p5[NucleusIntensity<br/>legacy]
+        p6[DAPI_NucleusIntensity<br/>legacy]
+        p7[RedBlueIntensity<br/>legacy]
+    end
+
+    dic --> base
     mcherry --> p1
     gfp --> p1
     mcherry --> p2
@@ -36,16 +44,19 @@ flowchart LR
     dapi --> p6
     mcherry --> p7
     dapi --> p7
-    p1 --> summary
-    p2 --> summary
-    p3 --> summary
-    p4 --> summary
-    p5 --> summary
-    p6 --> summary
-    p7 --> summary
-    summary --> validate
+    p1 --> base
+    p2 --> base
+    p3 --> base
+    p4 --> base
+    p5 --> base
+    p6 --> base
+    p7 --> base
+    base --> effective
+    manual --> effective
+    fullset --> effective
+    effective --> validate
 
     class dic,dapi,mcherry,gfp channel
-    class seg,summary,validate process
+    class base,manual,fullset,effective,validate process
     class p1,p2,p3,p4 plugin
     class p5,p6,p7 legacy

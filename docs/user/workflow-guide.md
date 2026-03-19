@@ -16,6 +16,7 @@ Use the `Experiment` page to submit one or more `.dv` files. During upload, Cyto
 
 - creates a UUID for each run
 - stores the source file under the run media namespace
+- derives the required channel set from `DIC`, the selected plugins, and any enabled validation overrides
 - validates the DV structure according to the selected validation options
 - extracts a channel configuration file
 - extracts scale metadata when available
@@ -37,6 +38,8 @@ The upload step also captures the active analysis configuration. This includes:
 
 These selections are stored in session state and reused in later steps.
 
+At the default modern settings, the run requires `DIC`, `mCherry`, and `GFP`. `DAPI` becomes required only when a legacy plugin or all-wavelength enforcement is active.
+
 ## Step 3: Review Preprocess Sidebar
 
 The preprocess view shows:
@@ -46,13 +49,13 @@ The preprocess view shows:
 - preview images for the current file
 - per-file scale state and optional manual override controls
 
-Use this stage to confirm that each file has the expected channel interpretation before inference runs.
+Use this stage to confirm that each file has the expected `DIC` mapping and any additional channels needed by the selected workflow.
 
 ## Step 4: Run Preprocessing And Inference
 
 When preprocessing starts, CytoCV:
 
-- converts the selected input into the model-ready representation
+- converts the structural input into the model-ready representation
 - writes progress updates
 - supports cancellation through the progress API
 - runs Mask R-CNN inference
@@ -68,8 +71,8 @@ During segmentation, CytoCV:
 - builds outlined full-frame result images
 - writes segmented cell crops
 - caches per-cell channel imagery when possible
-- computes selected statistics plugins
-- writes per-cell debug images
+- computes the selected statistics plugins
+- writes per-cell debug images when the active plugins need them
 - persists `SegmentedImage` and `CellStatistics` rows
 
 If autosave is enabled and the account has remaining storage, finished runs are retained under the user account. Otherwise, finished runs remain transient and can still be viewed in the current session.

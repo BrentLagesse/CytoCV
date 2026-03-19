@@ -1,17 +1,17 @@
 # CytoCV
 
-CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) fluorescent microscopy stacks of mitotic yeast cells. The system ingests four-channel image sets, performs preprocessing and Mask R-CNN-based segmentation, computes per-cell measurements, and presents results through a web interface for review and export.
+CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of mitotic yeast cells. The application supports four logical channel roles (`DIC`, `DAPI`, `mCherry`, and `GFP`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
 > **Version:** 1.0  
 > **Python:** 3.11.5  
 > **Database:** PostgreSQL in production; SQLite for local development only  
-> **Platform:** Windows native development and Linux-compatible deployment
+> **Platform:** Windows-native development and Linux-compatible deployment
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [System Scope](#system-scope)
-- [Quick Start](#quick-start)
+- [Local Installation](#local-installation)
 - [Documentation Map](#documentation-map)
 - [Deployment](#deployment)
 - [Runtime Requirements](#runtime-requirements)
@@ -20,64 +20,143 @@ CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) fluorescent m
 
 ## Overview
 
-CytoCV supports microscopy workflows built around these channels:
+CytoCV combines:
 
-- `DIC`
-- `DAPI`
-- `mCherry`
-- `GFP`
+- upload-time DeltaVision validation and preview generation
+- Mask R-CNN-driven segmentation built around the `DIC` structural channel
+- plugin-based per-cell quantification
+- database-backed review, retention, and export workflows
 
-At a high level, the platform provides:
+The code-defined default modern workflow enables these plugins:
 
-- upload-time validation and preview generation for DeltaVision files
-- preprocessing artifacts and segmentation masks per run
-- per-cell crops, overlays, and derived measurements
-- database-backed review and export workflows through the web UI
+- `MCherryLine`
+- `GFPDot`
+- `GreenRedIntensity`
+- `NuclearCellularIntensity`
+
+That default set requires `DIC`, `mCherry`, and `GFP`. `DAPI` remains supported for legacy measurements and for optional full-wavelength validation.
 
 ## System Scope
 
-CytoCV is intended for research workflows in which a DeltaVision stack contains one structural image channel and three fluorescence channels. The application coordinates:
+CytoCV is intended for research workflows built around DeltaVision microscopy of mitotic yeast cells. The application can process anything from a DIC-only structural run to a full four-role stack, depending on the selected plugin set and validation policy. In the current implementation, the platform coordinates:
 
-- ingestion of four-layer DeltaVision image sets
-- channel interpretation and preprocessing
+- DeltaVision ingestion and configurable validation
+- channel interpretation and preview generation
 - machine-learning-driven cell segmentation
-- downstream per-cell analysis and export
+- plugin-scoped downstream measurements
+- result review, export, and retention
 
 The primary scientific workflow is documented in:
 
 - [docs/user/workflow-guide.md](docs/user/workflow-guide.md)
 - [docs/research/methods-and-system-description.md](docs/research/methods-and-system-description.md)
 
-## Quick Start
+## Local Installation
 
-The root README is intentionally concise. For detailed environment and deployment instructions, use the documentation linked below.
+The root README is intentionally concise, but the local installation path should remain explicit.
 
-Local development quick start:
-
-1. Clone the repository.
-2. Create and activate a Python `3.11.5` virtual environment.
-3. Install `requirements.txt`.
-4. Copy `.env.example` to `.env`.
-5. Set `CYTOCV_DB_BACKEND=sqlite` for local development.
-6. Download the required Mask R-CNN weights file into `cytocv/core/weights/`.
-7. From `cytocv/`, run migrations and start the server.
-
-Typical local commands:
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/BrentLagesse/CytoCV.git
 cd CytoCV
+```
+
+### 2. Create and Activate the Python Environment
+
+CytoCV expects Python `3.11.5`.
+
+Create the virtual environment:
+
+```bash
 python -m venv cyto_cv
+```
+
+Activate it on macOS or Linux:
+
+```bash
 source cyto_cv/bin/activate
+```
+
+Activate it on Windows PowerShell:
+
+```powershell
+.\cyto_cv\Scripts\Activate.ps1
+```
+
+Upgrade the base packaging tools:
+
+```bash
 python -m pip install --upgrade pip setuptools wheel
+```
+
+### 3. Install Project Requirements
+
+Install the pinned Python dependencies:
+
+```bash
 python -m pip install -r requirements.txt --no-cache-dir
+```
+
+### 4. Create the Local Environment File
+
+Copy the example configuration:
+
+```bash
 cp .env.example .env
+```
+
+For Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Then edit `.env` and confirm the local database backend is SQLite:
+
+```env
+CYTOCV_DB_BACKEND=sqlite
+```
+
+### 5. Download the Required Model Weights
+
+Place the Mask R-CNN weights file at:
+
+```text
+cytocv/core/weights/deepretina_final.h5
+```
+
+The weights file is required for preprocessing and inference.
+
+### 6. Apply Database Migrations
+
+Move into the Django project directory:
+
+```bash
 cd cytocv
+```
+
+Apply the database schema:
+
+```bash
 python manage.py migrate
+```
+
+### 7. Start the Local Development Server
+
+Run the application:
+
+```bash
 python manage.py runserver
 ```
 
-For production or VM deployment, do not rely on the quick start above. Use the dedicated deployment documentation.
+The default local URL is:
+
+```text
+http://127.0.0.1:8000/
+```
+
+For production or VM deployment, use the dedicated operational documentation instead of the local workflow above.
 
 ## Documentation Map
 
@@ -108,7 +187,7 @@ For operational deployment material, use these documents:
 - March 2026 VM step-by-step guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
 - March 2026 VM rollout record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
 
-The VM-specific documents are especially important if you are deploying to infrastructure similar to the UWB VM used during the March 2026 rollout.
+The VM-specific documents are especially important for infrastructure similar to the UWB VM used during the March 2026 rollout.
 
 ## Runtime Requirements
 
@@ -116,7 +195,7 @@ The following requirements are operationally significant:
 
 - Python must remain at `3.11.5` unless the scientific stack is revalidated.
 - Production should use PostgreSQL, not SQLite.
-- The Mask R-CNN workflow requires the `deepretina_final.h5` weights file under `cytocv/core/weights/`.
+- The Mask R-CNN workflow requires `deepretina_final.h5` under `cytocv/core/weights/`.
 - TensorFlow-based analysis requires a CPU that exposes `AVX`. A server can host the web application without `AVX`, but the analysis pipeline will fail with `Illegal instruction` if the CPU does not support the required instruction set.
 
 If you are deploying to a new VM, check CPU flags before treating the system as analysis-capable:

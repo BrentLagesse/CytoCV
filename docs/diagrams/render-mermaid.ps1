@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$diagramDir = Join-Path $root "paper-diagrams"
+$diagramDir = $PSScriptRoot
 $cacheDir = Join-Path $root ".npm-cache"
 
 New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
