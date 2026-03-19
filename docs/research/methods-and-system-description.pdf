@@ -1,0 +1,245 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 2725 >>
+stream
+BT
+/F2 18 Tf
+1 0 0 1 54 744 Tm
+(Methods And System Description) Tj
+/F1 11 Tf
+1 0 0 1 54 714 Tm
+() Tj
+1 0 0 1 54 700 Tm
+(Abstract) Tj
+1 0 0 1 54 686 Tm
+() Tj
+1 0 0 1 54 672 Tm
+(CytoCV is a web-based analysis system for four-channel DeltaVision microscopy stacks of) Tj
+1 0 0 1 54 658 Tm
+(mitotic yeast cells. The software combines authenticated web workflows, DV-specific metadata) Tj
+1 0 0 1 54 644 Tm
+(parsing, Mask R-CNN-based segmentation, per-cell measurement plugins, and retention-aware) Tj
+1 0 0 1 54 630 Tm
+(result management in a single Django application.) Tj
+1 0 0 1 54 616 Tm
+() Tj
+1 0 0 1 54 602 Tm
+(System Objective) Tj
+1 0 0 1 54 588 Tm
+() Tj
+1 0 0 1 54 574 Tm
+(The system is designed to reduce manual analysis effort when processing mitotic yeast) Tj
+1 0 0 1 54 560 Tm
+(microscopy data. It provides a structured path from raw DV upload to per-cell statistical) Tj
+1 0 0 1 54 546 Tm
+(output while preserving the relationship between source image stacks, channel mapping,) Tj
+1 0 0 1 54 532 Tm
+(segmentation products, and exported measurements.) Tj
+1 0 0 1 54 518 Tm
+() Tj
+1 0 0 1 54 504 Tm
+(Input Assumptions) Tj
+1 0 0 1 54 490 Tm
+() Tj
+1 0 0 1 54 476 Tm
+(The active workflow assumes a four-channel stack composed of:) Tj
+1 0 0 1 54 462 Tm
+() Tj
+1 0 0 1 54 448 Tm
+(- DIC) Tj
+1 0 0 1 54 434 Tm
+(- DAPI) Tj
+1 0 0 1 54 420 Tm
+(- mCherry) Tj
+1 0 0 1 54 406 Tm
+(- GFP) Tj
+1 0 0 1 54 392 Tm
+() Tj
+1 0 0 1 54 378 Tm
+(The software can enforce exact layer count, required wavelengths, and plugin-driven channel) Tj
+1 0 0 1 54 364 Tm
+(requirements during upload.) Tj
+1 0 0 1 54 350 Tm
+() Tj
+1 0 0 1 54 336 Tm
+(Computational Workflow) Tj
+1 0 0 1 54 322 Tm
+() Tj
+1 0 0 1 54 308 Tm
+(1. Upload And Validation) Tj
+1 0 0 1 54 294 Tm
+() Tj
+1 0 0 1 54 280 Tm
+(The upload stage creates a run UUID, persists the source file, validates the DV structure,) Tj
+1 0 0 1 54 266 Tm
+(extracts channel mapping information, and stores scale metadata when available.) Tj
+1 0 0 1 54 252 Tm
+() Tj
+1 0 0 1 54 238 Tm
+(2. Preview Generation) Tj
+1 0 0 1 54 224 Tm
+() Tj
+1 0 0 1 54 210 Tm
+(Browser-friendly PNG previews are generated per layer so that the operator can review) Tj
+1 0 0 1 54 196 Tm
+(channel ordering and file state before inference.) Tj
+1 0 0 1 54 182 Tm
+() Tj
+1 0 0 1 54 168 Tm
+(3. Preprocessing And Inference) Tj
+1 0 0 1 54 154 Tm
+() Tj
+1 0 0 1 54 140 Tm
+(The preprocess stage converts the relevant structural data into the inference-ready) Tj
+1 0 0 1 54 126 Tm
+(representation and invokes the Mask R-CNN pipeline, producing a segmentation mask for) Tj
+1 0 0 1 54 112 Tm
+(downstream analysis.) Tj
+1 0 0 1 54 98 Tm
+() Tj
+1 0 0 1 54 84 Tm
+(4. Segmentation Product Assembly) Tj
+1 0 0 1 54 70 Tm
+() Tj
+1 0 0 1 512 30 Tm
+(Page 1) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 3034 >>
+stream
+BT
+/F2 18 Tf
+1 0 0 1 54 744 Tm
+(Methods And System Description) Tj
+/F1 11 Tf
+1 0 0 1 54 714 Tm
+(The segmentation stage combines the generated mask with the original DV stack to produce) Tj
+1 0 0 1 54 700 Tm
+(outlined full-frame views, per-cell cropped outputs, and channel-specific debug overlays.) Tj
+1 0 0 1 54 686 Tm
+() Tj
+1 0 0 1 54 672 Tm
+(5. Per-Cell Quantification) Tj
+1 0 0 1 54 658 Tm
+() Tj
+1 0 0 1 54 644 Tm
+(A plugin-based measurement layer computes cell-level values such as red-dot distance, line) Tj
+1 0 0 1 54 630 Tm
+(GFP intensity, nuclear and cellular intensity summaries, and GFP dot classification outputs.) Tj
+1 0 0 1 54 616 Tm
+() Tj
+1 0 0 1 54 602 Tm
+(6. Review, Export, And Retention) Tj
+1 0 0 1 54 588 Tm
+() Tj
+1 0 0 1 54 574 Tm
+(The display and dashboard views expose the run outputs, table exports, and) Tj
+1 0 0 1 54 560 Tm
+(save-versus-transient retention model.) Tj
+1 0 0 1 54 546 Tm
+() Tj
+1 0 0 1 54 532 Tm
+(Software Architecture) Tj
+1 0 0 1 54 518 Tm
+() Tj
+1 0 0 1 54 504 Tm
+(The application is implemented as a Django project with two main application domains:) Tj
+1 0 0 1 54 490 Tm
+() Tj
+1 0 0 1 54 476 Tm
+(- accounts for identity, preferences, dashboard behavior, and account lifecycle) Tj
+1 0 0 1 54 462 Tm
+(- core for upload handling, processing, storage, segmentation, display, and scientific) Tj
+1 0 0 1 54 448 Tm
+(measurement) Tj
+1 0 0 1 54 434 Tm
+() Tj
+1 0 0 1 54 420 Tm
+(Persistent state is divided between database rows and filesystem-backed media artifacts.) Tj
+1 0 0 1 54 406 Tm
+() Tj
+1 0 0 1 54 392 Tm
+(Reproducibility-Relevant Characteristics) Tj
+1 0 0 1 54 378 Tm
+() Tj
+1 0 0 1 54 364 Tm
+(- exact Python version expectation: 3.11.5) Tj
+1 0 0 1 54 350 Tm
+(- explicit database backend selection) Tj
+1 0 0 1 54 336 Tm
+(- fail-fast environment validation) Tj
+1 0 0 1 54 322 Tm
+(- deterministic plugin metadata registration) Tj
+1 0 0 1 54 308 Tm
+(- per-run saved scale context in UploadedImage.scale_info) Tj
+1 0 0 1 54 294 Tm
+(- per-cell contextual measurement metadata in CellStatistics.properties) Tj
+1 0 0 1 54 280 Tm
+() Tj
+1 0 0 1 54 266 Tm
+(Limitations) Tj
+1 0 0 1 54 252 Tm
+() Tj
+1 0 0 1 54 238 Tm
+(- the active workflow is tightly centered on the four expected channel roles) Tj
+1 0 0 1 54 224 Tm
+(- inference depends on external project-specific weights) Tj
+1 0 0 1 54 210 Tm
+(- artifact retention depends on available filesystem capacity and account storage quota) Tj
+1 0 0 1 54 196 Tm
+(- some legacy measurement paths coexist with a newer nuclear/cellular workflow and require) Tj
+1 0 0 1 54 182 Tm
+(careful interpretation) Tj
+1 0 0 1 54 168 Tm
+() Tj
+1 0 0 1 54 154 Tm
+(Conclusion) Tj
+1 0 0 1 54 140 Tm
+() Tj
+1 0 0 1 54 126 Tm
+(CytoCV is best understood as a domain-specific analysis platform rather than a generic) Tj
+1 0 0 1 54 112 Tm
+(microscopy framework. Its architecture is optimized around the concrete imaging assumptions,) Tj
+1 0 0 1 54 98 Tm
+(channel semantics, and review or export needs present in the current yeast mitosis workflow.) Tj
+1 0 0 1 512 30 Tm
+(Page 2) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+8 0 obj
+<< /Type /Catalog /Pages 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000002931 00000 n 
+0000003067 00000 n 
+0000006153 00000 n 
+0000006289 00000 n 
+0000006352 00000 n 
+trailer
+<< /Size 9 /Root 8 0 R >>
+startxref
+6401
+%%EOF

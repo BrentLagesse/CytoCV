@@ -1,0 +1,24 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"14px"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":26,"rankSpacing":38}}}%%
+flowchart LR
+    classDef entity fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef support fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef note fill:#f1f5f9,stroke:#64748b,color:#334155,stroke-width:1.1px,stroke-dasharray: 4 3;
+
+    user["<b>CustomUser</b><br/>id (PK)<br/>email<br/>storage quotas<br/>processing_used<br/>config"]
+    upload["<b>UploadedImage</b><br/>uuid (PK)<br/>user_id (FK)<br/>name<br/>file_location<br/>scale_info<br/>created_at"]
+    preview["<b>DVLayerTifPreview</b><br/>id (PK)<br/>uploaded_image_uuid (FK)<br/>wavelength<br/>file_location"]
+    result["<b>SegmentedImage</b><br/>UUID (PK)<br/>user_id<br/>file_location<br/>ImagePath<br/>CellPairPrefix<br/>NumCells<br/>uploaded_date"]
+    stats["<b>CellStatistics</b><br/>id (PK)<br/>segmented_image_id (FK)<br/>cell_id<br/>distance<br/>line_gfp_intensity<br/>nucleus_intensity_sum<br/>cellular_intensity_sum<br/>properties"]
+    uuid_link["Uploaded and segmented runs are linked<br/>operationally by a shared UUID namespace"]
+
+    user -- "1 to many uploads" --> upload
+    upload -- "1 to many previews" --> preview
+    user -- "1 to many saved runs" --> result
+    result -- "1 to many cells" --> stats
+    upload -. "shared UUID" .-> result
+    uuid_link -.-> upload
+    uuid_link -.-> result
+
+    class user,upload,result,stats entity
+    class preview support
+    class uuid_link note

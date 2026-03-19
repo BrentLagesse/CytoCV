@@ -1,0 +1,209 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 2616 >>
+stream
+BT
+/F2 18 Tf
+1 0 0 1 54 744 Tm
+(Figure Catalog) Tj
+/F1 11 Tf
+1 0 0 1 54 714 Tm
+() Tj
+1 0 0 1 54 700 Tm
+(Purpose) Tj
+1 0 0 1 54 686 Tm
+() Tj
+1 0 0 1 54 672 Tm
+(This catalog maps the current diagram set to manuscript or report usage.) Tj
+1 0 0 1 54 658 Tm
+() Tj
+1 0 0 1 54 644 Tm
+(Primary Figures) Tj
+1 0 0 1 54 630 Tm
+() Tj
+1 0 0 1 54 616 Tm
+(Figure 1: System Architecture) Tj
+1 0 0 1 54 602 Tm
+() Tj
+1 0 0 1 54 588 Tm
+(- Source: docs/diagrams/01-system-architecture.mmd) Tj
+1 0 0 1 54 574 Tm
+(- Rendered: docs/diagrams/01-system-architecture.png) Tj
+1 0 0 1 54 560 Tm
+(- Use: overall software architecture) Tj
+1 0 0 1 54 546 Tm
+(- Suggested caption: Layered architecture of CytoCV showing the web tier, scientific) Tj
+1 0 0 1 54 532 Tm
+(processing services, and persistence boundaries.) Tj
+1 0 0 1 54 518 Tm
+() Tj
+1 0 0 1 54 504 Tm
+(Figure 2: End-To-End Workflow) Tj
+1 0 0 1 54 490 Tm
+() Tj
+1 0 0 1 54 476 Tm
+(- Source: docs/diagrams/02-end-to-end-workflow.mmd) Tj
+1 0 0 1 54 462 Tm
+(- Rendered: docs/diagrams/02-end-to-end-workflow.png) Tj
+1 0 0 1 54 448 Tm
+(- Use: methods overview) Tj
+1 0 0 1 54 434 Tm
+(- Suggested caption: End-to-end workflow from DV ingestion through validation, segmentation,) Tj
+1 0 0 1 54 420 Tm
+(quantification, and review.) Tj
+1 0 0 1 54 406 Tm
+() Tj
+1 0 0 1 54 392 Tm
+(Figure 3: Cell Analysis Flow) Tj
+1 0 0 1 54 378 Tm
+() Tj
+1 0 0 1 54 364 Tm
+(- Source: docs/diagrams/03-cell-analysis-flow.mmd) Tj
+1 0 0 1 54 350 Tm
+(- Rendered: docs/diagrams/03-cell-analysis-flow.png) Tj
+1 0 0 1 54 336 Tm
+(- Use: per-cell measurement subsection) Tj
+1 0 0 1 54 322 Tm
+(- Suggested caption: Per-cell analysis pipeline used to derive contour, distance, and) Tj
+1 0 0 1 54 308 Tm
+(intensity measurements from segmented cell crops.) Tj
+1 0 0 1 54 294 Tm
+() Tj
+1 0 0 1 54 280 Tm
+(Figure 4: Data Model) Tj
+1 0 0 1 54 266 Tm
+() Tj
+1 0 0 1 54 252 Tm
+(- Source: docs/diagrams/11-data-model.mmd) Tj
+1 0 0 1 54 238 Tm
+(- Rendered: docs/diagrams/11-data-model.png) Tj
+1 0 0 1 54 224 Tm
+(- Use: implementation or reproducibility section) Tj
+1 0 0 1 54 210 Tm
+(- Suggested caption: Core persistent entities for uploads, previews, segmented runs, and) Tj
+1 0 0 1 54 196 Tm
+(cell-level statistics.) Tj
+1 0 0 1 54 182 Tm
+() Tj
+1 0 0 1 54 168 Tm
+(Extended Figures) Tj
+1 0 0 1 54 154 Tm
+() Tj
+1 0 0 1 54 140 Tm
+(Upload And Validation) Tj
+1 0 0 1 54 126 Tm
+() Tj
+1 0 0 1 54 112 Tm
+(- docs/diagrams/06-upload-validation-flow.mmd) Tj
+1 0 0 1 54 98 Tm
+(- docs/diagrams/05-plugin-channel-map.mmd) Tj
+1 0 0 1 54 84 Tm
+(- docs/diagrams/07-scale-channel-resolution.mmd) Tj
+1 0 0 1 54 70 Tm
+() Tj
+1 0 0 1 512 30 Tm
+(Page 1) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 1544 >>
+stream
+BT
+/F2 18 Tf
+1 0 0 1 54 744 Tm
+(Figure Catalog) Tj
+/F1 11 Tf
+1 0 0 1 54 714 Tm
+(Processing And Output) Tj
+1 0 0 1 54 700 Tm
+() Tj
+1 0 0 1 54 686 Tm
+(- docs/diagrams/08-preprocess-inference-flow.mmd) Tj
+1 0 0 1 54 672 Tm
+(- docs/diagrams/09-segmentation-output-flow.mmd) Tj
+1 0 0 1 54 658 Tm
+(- docs/diagrams/10-display-export-flow.mmd) Tj
+1 0 0 1 54 644 Tm
+() Tj
+1 0 0 1 54 630 Tm
+(Retention And Control Flow) Tj
+1 0 0 1 54 616 Tm
+() Tj
+1 0 0 1 54 602 Tm
+(- docs/diagrams/04-artifact-lifecycle.mmd) Tj
+1 0 0 1 54 588 Tm
+(- docs/diagrams/12-progress-cancellation-state.mmd) Tj
+1 0 0 1 54 574 Tm
+(- docs/diagrams/13-run-ownership-retention-state.mmd) Tj
+1 0 0 1 54 560 Tm
+() Tj
+1 0 0 1 54 546 Tm
+(Authentication And Legacy Behavior) Tj
+1 0 0 1 54 532 Tm
+() Tj
+1 0 0 1 54 518 Tm
+(- docs/diagrams/14-authentication-account-flow.mmd) Tj
+1 0 0 1 54 504 Tm
+(- docs/diagrams/15-legacy-dapi-measurements.mmd) Tj
+1 0 0 1 54 490 Tm
+() Tj
+1 0 0 1 54 476 Tm
+(Figure Usage Notes) Tj
+1 0 0 1 54 462 Tm
+() Tj
+1 0 0 1 54 448 Tm
+(- Use the first four figures for the main narrative.) Tj
+1 0 0 1 54 434 Tm
+(- Use the extended figures for supplements, appendices, or implementation details.) Tj
+1 0 0 1 54 420 Tm
+(- Keep Markdown captions as the editable source of truth.) Tj
+1 0 0 1 54 406 Tm
+(- Regenerate PNGs when the underlying flow or model changes.) Tj
+1 0 0 1 54 392 Tm
+() Tj
+1 0 0 1 54 378 Tm
+(Regeneration) Tj
+1 0 0 1 54 364 Tm
+() Tj
+1 0 0 1 54 350 Tm
+(Diagram PNG regeneration is documented in ../diagrams/README.md.) Tj
+1 0 0 1 512 30 Tm
+(Page 2) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+8 0 obj
+<< /Type /Catalog /Pages 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000002822 00000 n 
+0000002958 00000 n 
+0000004554 00000 n 
+0000004690 00000 n 
+0000004753 00000 n 
+trailer
+<< /Size 9 /Root 8 0 R >>
+startxref
+4802
+%%EOF

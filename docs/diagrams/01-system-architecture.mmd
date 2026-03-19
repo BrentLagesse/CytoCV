@@ -1,0 +1,73 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":44}}}%%
+flowchart TD
+    classDef actor fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef presentation fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
+    classDef application fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef control fill:#f1f5f9,stroke:#64748b,color:#334155,stroke-width:1.2px;
+    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+
+    user[User]
+
+    subgraph layer1[Layer 1. Presentation]
+        direction LR
+        ui[Browser interface]
+    end
+
+    subgraph layer2[Layer 2. Application and control]
+        direction LR
+        workflow[Workflow views]
+        auth[Authentication and<br/>access control]
+        progress_api[Progress and<br/>cancellation control]
+    end
+
+    subgraph layer3[Layer 3. Scientific processing]
+        direction LR
+        metadata[DV metadata parsing<br/>and validation]
+        preview[Preview generation]
+        ml[Preprocessing and<br/>Mask R-CNN inference]
+        segmentation[Mask reconstruction<br/>and segmentation]
+        analysis[Plugin-based<br/>quantitative analysis]
+        retention[Artifact retention<br/>and cleanup]
+    end
+
+    subgraph layer4[Layer 4. Persistence]
+        direction LR
+        db[(Database records<br/>UploadedImage, SegmentedImage,<br/>CellStatistics)]
+        media[(Run artifacts<br/>under MEDIA_ROOT)]
+        progress[(Progress and<br/>cancel files)]
+        weights[(Model weights)]
+    end
+
+    user --> ui
+    ui --> workflow
+    ui --> auth
+    auth --> workflow
+    auth --> media
+    auth --> progress_api
+
+    workflow --> metadata
+    workflow --> preview
+    workflow --> ml
+    ml --> segmentation
+    segmentation --> analysis
+    workflow --> retention
+
+    workflow --> db
+    preview --> media
+    ml --> media
+    ml --> weights
+    segmentation --> media
+    analysis --> db
+    analysis --> media
+    progress_api --> progress
+    retention --> db
+    retention --> media
+
+    class user actor
+    class ui presentation
+    class workflow presentation
+    class auth,progress_api application
+    class metadata,preview,ml,segmentation,analysis process
+    class retention control
+    class db,media,progress,weights data

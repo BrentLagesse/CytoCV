@@ -1,0 +1,36 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":26,"rankSpacing":40}}}%%
+flowchart LR
+    classDef channel fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef modern fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
+    classDef legacy fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+
+    gfp[GFP contours or signal]
+    mcherry[mCherry dot contours]
+    dapi[DAPI contour or DAPI image]
+
+    modern[NuclearCellularIntensity<br/>preferred modern path]
+    legacy1[NucleusIntensity<br/>legacy, DAPI contour plus GFP]
+    legacy2[DAPI_NucleusIntensity<br/>legacy, DAPI contour plus DAPI]
+    legacy3[RedBlueIntensity<br/>legacy, mCherry dots in DAPI]
+    compat[Backward-compatible<br/>legacy DAPI analyses]
+
+    gfp --> modern
+    mcherry --> modern
+
+    dapi --> legacy1
+    gfp --> legacy1
+
+    dapi --> legacy2
+
+    mcherry --> legacy3
+    dapi --> legacy3
+
+    legacy1 --> compat
+    legacy2 --> compat
+    legacy3 --> compat
+
+    class gfp,mcherry,dapi channel
+    class modern output
+    class legacy1,legacy2,legacy3 legacy
+    class compat output

@@ -1,0 +1,42 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
+flowchart LR
+    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef decision fill:#fef3c7,stroke:#f59e0b,color:#92400e,stroke-width:1.2px;
+    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+    classDef legacy fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
+
+    crops[Per-cell channel crops]
+    gray[Grayscale conversion,<br/>blur, and background subtraction]
+    contours[Contour extraction for<br/>mCherry dots, GFP regions,<br/>and optional DAPI nuclei]
+    scale[Scale-aware threshold<br/>resolution]
+    plugins[Selected plugins]
+    dapi{DAPI contour needed by a<br/>selected legacy plugin?}
+    run_all[Run modern plugins and<br/>selected legacy plugins]
+    run_partial[Run modern and other<br/>non-DAPI plugins only]
+    debug[Debug overlays]
+    save[(CellStatistics row)]
+
+    crops --> gray --> contours --> scale --> plugins --> dapi
+    dapi -- yes --> run_all --> debug --> save
+    dapi -- no --> run_partial --> debug --> save
+
+    subgraph families[Plugin families]
+        p1[mCherry line]
+        p2[GFP dot]
+        p3[Green and red intensity]
+        p4[Modern nuclear or cellular<br/>GFP or mCherry contour]
+        p5[Legacy DAPI contour<br/>measurements]
+    end
+
+    plugins --> p1
+    plugins --> p2
+    plugins --> p3
+    plugins --> p4
+    plugins --> p5
+
+    class crops,gray,contours,scale,plugins,run_all,run_partial process
+    class dapi decision
+    class save data
+    class debug,p1,p2,p3,p4 output
+    class p5 legacy

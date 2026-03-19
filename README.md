@@ -1,168 +1,81 @@
 # CytoCV
-Automated analysis of **DeltaVision (DV)** fluorescent microscopy stacks of yeast cells in mitosis. Quantifies points of interest across **DIC, DAPI, mCherry, GFP** channels with a Django web UI and a ML segmentation workflow (Mask R-CNN).
+
+CytoCV is a Django-based analysis system for DeltaVision (`.dv`) fluorescent microscopy stacks of mitotic yeast cells. It ingests four-channel image sets, runs preprocessing and Mask R-CNN segmentation, computes per-cell measurements, and presents the results through a web interface for review and export.
 
 > **Version:** 1.0  
-> **Repo:** https://github.com/BrentLagesse/CytoCV  
-> **Python:** **3.11.5** (exact)  
-> **DB:** PostgreSQL in production; SQLite for local dev/test only  
-> **OS:** Windows (native) / Linux (via Docker)
+> **Python:** 3.11.5  
+> **Database:** PostgreSQL in production; SQLite for local development only  
+> **Platform:** Windows native development and Linux-compatible deployment
 
+Deployment documentation:
+- [`docs/vm-deployment-guide/README.md`](docs/vm-deployment-guide/README.md)
+- [`docs/vm-deployment-record/README.md`](docs/vm-deployment-record/README.md)
 
-<details open>
-<summary><h2>Table of Contents</h2></summary>
-   
-- [Overview](#overview)
-- [Key features](#key-features)
-- [Local deployment & installation](#local-deployment--installation)
-  - [Environment setup](#environment-setup)
-  - [Installing dependencies](#installing-dependencies)
-  - [Migrations](#migrations)
-  - [Launching project](#launching-project)
-- [Configuration](#configuration)
-- [Architecture](#architecture)
-  - [Project layout](#project-layout)
-- [Data & artifacts](#data--artifacts)
-- [Workflow](#workflow)
-  - [Uploading (UI & API)](#uploading-ui--api)
-  - [Image processing](#image-processing)
-  - [Outputs & schemas](#outputs--schemas)
-- [HTTP routes](#http-routes)
-- [Examples](#examples)
-- [Testing](#testing)
-- [Security](#security)
-- [Troubleshooting](#troubleshooting)
-- [Roadmap](#roadmap)
-- [License](#license)
+## Scope
 
+CytoCV currently targets workflows built around these channels:
 
-</details>
+- `DIC`
+- `DAPI`
+- `mCherry`
+- `GFP`
 
-## Overview
-The project is a tool to automatically analyze WIDE-fluorescent microscopy images of yeast cells undergoing mitosis. The biologist uses yeast cells that have a controlled mutation in them. The biologists then use fluorescent labeling to point of interest (POI) like a specific protein and this program automatically analyzes those POI to collect useful data that can maybe be used to find the cause of cellular mutation. The user will upload a special DV (Delta Vision) file that has multiple images that are taken at the same time; thus, allowing them to be overlapped. One of them is a Differential interference contrast (DIC) image, which basically is a clear image of the cells, and multiple images of the cells through different wavelengths which excite the fluorescent labels separately, leading to the POI being brightened (small dots). Currently, the fluorescent labels being used are DAPI, mcherry, and GFP.
+High-level outputs include:
 
-| DIC | DAPI | mCherry | GFP |
-|:--:|:--:|:--:|:--:|
-| <img width="250" alt="DIC" src="https://github.com/user-attachments/assets/1830b15d-d0cf-4558-ba3f-7d45462e0a13" /> | <img width="250" alt="DAPI" src="https://github.com/user-attachments/assets/0b6dc954-ed78-4abf-b9c9-436ded7551fa" /> | <img width="250" alt="mCherry" src="https://github.com/user-attachments/assets/68767176-2aec-4634-9b74-de8c085e32a4" /> | <img width="250" alt="GFP" src="https://github.com/user-attachments/assets/67e9c4f4-f520-422e-9a0b-48fa9fd370c0" /> |
+- upload preview images
+- per-run segmentation masks and outlined frames
+- per-cell crops and debug overlays
+- database-backed cell statistics
+- exportable tables from the display and dashboard views
 
-## Key features
-- **DV ingestion** with strict validation (exactly 4 layers).
-- **Previews** and channel mapping (writes `channel_config.json`).
-- **Mask R-CNN inference** (CPU) with direct `mask.tif` output.
-- **Segmentation** with Gaussian blur, Otsu, rolling-ball BG subtraction, region merges.
-- **Per-cell metrics** stored in DB:
-  - `distance` (mCherry dot distance)
-  - `line_gfp_intensity` (sum along mCherry line)
-  - `nucleus_intensity_sum`
-  - `cellular_intensity_sum`
-- **Web UI** to upload, preprocess, select analyses, display, and export tables.
+## Quickstart
 
-## Local deployment & installation 
-You need to make sure git, virtualenv, and python3 (currently using 3.11.5) are installed and are in the $PATH (you can type those command names on the commandline and your computer finds them).
+1. Use Python `3.11.5`.
+2. Create and activate a virtual environment.
+3. Install `requirements.txt`.
+4. Copy `.env.example` to `.env`.
+5. Set `CYTOCV_DB_BACKEND=sqlite` for local development or `postgres` for production.
+6. From `cytocv/`, run:
 
-1. Download the file "deepretina_final.h5" in the link below and place it in the weights directory under `cytocv/core/weights` (may need to create the folder manually):
+```powershell
+python manage.py migrate
+python manage.py runserver
+```
 
-   https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing
+## Documentation
 
+Detailed documentation is organized under [`docs/README.md`](docs/README.md).
 
-### Environment setup
+Primary entrypoints:
 
-1. Confirm Python is exactly 3.11.5; Python version  **NEEDS TO BE 3.11.5** or else it will not work:
-   ```bash
-   python --version
+- User docs: [`docs/user/getting-started.md`](docs/user/getting-started.md)
+- Developer docs: [`docs/developer/architecture-overview.md`](docs/developer/architecture-overview.md)
+- Deployment and environment: [`docs/ops/deployment-guide.md`](docs/ops/deployment-guide.md)
+- Environment variable reference: [`docs/ops/environment-reference.md`](docs/ops/environment-reference.md)
+- Route and API reference: [`docs/reference/routes-and-endpoints.md`](docs/reference/routes-and-endpoints.md)
+- Diagram catalog: [`docs/diagrams/README.md`](docs/diagrams/README.md)
 
-2. Clone the Github repository:
-   ```bash
-   git clone https://github.com/BrentLagesse/CytoCV.git
+Formal research-style documents:
 
-3. Navigate to the Directory:
-   ```bash
-   cd <repo-root>
+- [`docs/research/methods-and-system-description.md`](docs/research/methods-and-system-description.md)
+- [`docs/research/reproducibility-and-validation.md`](docs/research/reproducibility-and-validation.md)
+- [`docs/research/figure-catalog.md`](docs/research/figure-catalog.md)
 
-4. Create virtual environment:
-    ```bash
-   python -m venv cyto_cv
+Generated PDF deliverables:
 
-5. Activate virtual environment:
-   ```bash
-   source cyto_cv/bin/activate
-   ```
-   or
-   ```bash
-   cyto_cv\Scripts\activate
-   ```
-6. Make sure pip exists in the virtual environment:
-    ```bash
-   python -m ensurepip --upgrade
+- [`docs/research/methods-and-system-description.pdf`](docs/research/methods-and-system-description.pdf)
+- [`docs/research/reproducibility-and-validation.pdf`](docs/research/reproducibility-and-validation.pdf)
+- [`docs/research/figure-catalog.pdf`](docs/research/figure-catalog.pdf)
 
-7. Upgrade base tools:
-    ```bash
-   python -m pip install --upgrade pip setuptools wheel
+Historical deployment record for the March 2026 UWB VM rollout:
 
-8. Check that pip is from the virtual environment:
-   ```bash
-   python -m pip --version   # path should point into <repo-root>/cyto_cv
+- [`docs/vm-deployment-record/README.md`](docs/vm-deployment-record/README.md)
 
+## Notes
 
-### Installing dependencies
-Due to the machine learning part only works on certain versions of packages, we have to specifically use them. The easiest way do to do is to delete all your personal pip packages and reinstall them.
-
-
-1. Export all personal packages into deleteRequirements.txt:
-   ```bash
-   pip freeze --all > deleteRequirements.txt
-
-2. Uninstall all packages listed:
-   ```bash
-   pip uninstall -r deleteRequirements.txt
-   
-3. Install this repository's dependencies. If this fails, you may be using the wrong Python version or try deleting the line with pip in deleteRequirements.txt and trying again:
-    ```bash
-   pip install -r ./requirements.txt --no-cache-dir
-   ```
-   PostgreSQL support uses `psycopg` (psycopg3) only.
-   `tensorflow-intel` is installed only on Windows; Linux uses `tensorflow`.
-
-5. Remove the temporary list of requirements:
-   ```bash
-   del deleteRequirements.txt
-
-### Migrations
-You must have your virtual environment activated to make the respective migrations. Please refer to the previous steps under **Environment setup**.
-
-
-1. Ensure your `.env` includes `CYTOCV_DB_BACKEND`:
-   - Local dev quickstart: `CYTOCV_DB_BACKEND=sqlite`
-   - VM/prod: `CYTOCV_DB_BACKEND=postgres` with PostgreSQL credentials
-   - Detailed Postgres provisioning steps: see `POSTGRES_SETUP.md`
-
-2. Optional SQLite reset (only if using `CYTOCV_DB_BACKEND=sqlite`):
-   ```bash
-   Remove-Item .\db.sqlite3 -Force
-   ```
-
-3. Create migrations for specific apps (accounts, core):
-   ```bash
-   cd cytocv
-   python manage.py makemigrations accounts core
-   ```
-
-4. Apply migrations to build the schema:
-   ```bash
-   python manage.py migrate
-   ```
-
-
-## Launching project
-
-1. Navigate to the project directory:
-   ```bash
-   cd <repo-root>/cytocv
-   ```
-
-2. Run the application:
-   ```bash
-   python manage.py runserver
-   ```
+- The Mask R-CNN workflow depends on project-specific weights under `cytocv/core/weights`.
+- PostgreSQL setup details are documented in [`docs/ops/postgres-setup.md`](docs/ops/postgres-setup.md).
+- Markdown documents are the maintained source of truth. PDF documents in `docs/research/` are derived formal deliverables.
 
 
 

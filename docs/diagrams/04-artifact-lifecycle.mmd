@@ -1,0 +1,38 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":40}}}%%
+flowchart LR
+    classDef source fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef control fill:#f1f5f9,stroke:#64748b,color:#334155,stroke-width:1.2px;
+
+    src[name.dv]
+    cfg[channel_config.json]
+    preview[preview_images]
+    prep[preprocessed_images]
+    rle[compressed_masks.csv]
+    output[output frames and mask.tif]
+    segmented[segmented crops<br/>and debug PNGs]
+    rows[(UploadedImage<br/>SegmentedImage<br/>CellStatistics)]
+    cleanup[Cleanup rules]
+    keep[Keep saved outputs,<br/>drop transient intermediates]
+    delete[Delete stale transient runs]
+
+    src --> cfg
+    src --> preview
+    src --> prep --> rle --> output --> segmented
+    src --> rows
+    output --> rows
+    segmented --> rows
+    preview --> cleanup
+    prep --> cleanup
+    rle --> cleanup
+    output --> cleanup
+    segmented --> cleanup
+    rows --> cleanup
+    cleanup --> keep
+    cleanup --> delete
+
+    class src source
+    class cfg,preview,prep,rle,output,segmented,rows data
+    class cleanup control
+    class keep,delete process

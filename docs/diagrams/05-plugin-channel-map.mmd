@@ -1,0 +1,51 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":24,"rankSpacing":40}}}%%
+flowchart LR
+    classDef channel fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef plugin fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
+    classDef legacy fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
+    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+
+    dic[DIC]
+    dapi[DAPI]
+    mcherry[mCherry]
+    gfp[GFP]
+
+    seg[Segmentation rule]
+    p1[MCherryLine]
+    p2[GFPDot]
+    p3[GreenRedIntensity]
+    p4[NuclearCellularIntensity<br/>modern]
+    p5[NucleusIntensity<br/>legacy]
+    p6[DAPI_NucleusIntensity<br/>legacy]
+    p7[RedBlueIntensity<br/>legacy]
+    summary[Requirement summary]
+    validate[File validation]
+
+    dic --> seg --> summary
+    mcherry --> p1
+    gfp --> p1
+    mcherry --> p2
+    gfp --> p2
+    mcherry --> p3
+    gfp --> p3
+    mcherry --> p4
+    gfp --> p4
+    dapi --> p5
+    gfp --> p5
+    dapi --> p6
+    mcherry --> p7
+    dapi --> p7
+    p1 --> summary
+    p2 --> summary
+    p3 --> summary
+    p4 --> summary
+    p5 --> summary
+    p6 --> summary
+    p7 --> summary
+    summary --> validate
+
+    class dic,dapi,mcherry,gfp channel
+    class seg,summary,validate process
+    class p1,p2,p3,p4 plugin
+    class p5,p6,p7 legacy

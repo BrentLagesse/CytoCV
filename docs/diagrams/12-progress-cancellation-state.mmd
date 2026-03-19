@@ -1,0 +1,31 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px"}}}%%
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Preprocessing : pre_process POST
+    Preprocessing --> Detecting : predict_images
+    Detecting --> Converting : convert_to_image
+    Converting --> Segmenting : segment_image
+    Segmenting --> Calculating : selected statistics
+    Segmenting --> Completed : no statistics selected
+    Calculating --> Completed
+
+    Preprocessing --> Cancelling : cancel_progress
+    Detecting --> Cancelling : cancel_progress
+    Converting --> Cancelling : cancel_progress
+    Segmenting --> Cancelling : cancel_progress
+    Calculating --> Cancelling : cancel_progress
+    Idle --> Cancelled : cancel before work starts
+    Cancelling --> Cancelled : delete runs and clear session state
+
+    note right of Preprocessing
+      Progress phases are written to
+      media/progress/sha256.json
+    end note
+
+    note right of Cancelling
+      Cancel requests also create
+      media/progress/sha256.cancel
+    end note
+
+    Completed --> [*]
+    Cancelled --> [*]

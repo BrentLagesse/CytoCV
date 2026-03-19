@@ -1,0 +1,40 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
+flowchart LR
+    classDef actor fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef app fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
+    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+
+    subgraph intake[1. Acquisition]
+        dv[DV stacks]
+        options[Plugin, channel,<br/>and scale settings]
+    end
+
+    subgraph curation[2. Validation and setup]
+        validate[DV validation]
+        config[Channel mapping<br/>and scale metadata]
+        previews[Preview images]
+    end
+
+    subgraph compute[3. Computation]
+        preprocess[DIC preprocessing]
+        infer[Mask R-CNN inference]
+        mask[Mask reconstruction]
+        segment[Segmentation and<br/>cell crop export]
+        measure[Per-cell statistics]
+    end
+
+    subgraph results[4. Outputs]
+        display[Interactive display]
+        export[Table export]
+        save[Saved or transient run]
+    end
+
+    dv --> validate
+    options --> validate
+    validate --> config --> previews --> preprocess --> infer --> mask --> segment --> measure --> display --> export
+    display --> save
+
+    class dv,options actor
+    class validate,config,previews,preprocess,infer,mask,segment,measure process
+    class display,export,save output

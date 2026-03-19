@@ -1,0 +1,229 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 2535 >>
+stream
+BT
+/F2 18 Tf
+1 0 0 1 54 744 Tm
+(Reproducibility And Validation) Tj
+/F1 11 Tf
+1 0 0 1 54 714 Tm
+() Tj
+1 0 0 1 54 700 Tm
+(Abstract) Tj
+1 0 0 1 54 686 Tm
+() Tj
+1 0 0 1 54 672 Tm
+(This document summarizes the practical requirements and limits on reproducing CytoCV results) Tj
+1 0 0 1 54 658 Tm
+(and deployments.) Tj
+1 0 0 1 54 644 Tm
+() Tj
+1 0 0 1 54 630 Tm
+(Environment Constraints) Tj
+1 0 0 1 54 616 Tm
+() Tj
+1 0 0 1 54 602 Tm
+(CytoCV is currently sensitive to environment consistency. The codebase expects:) Tj
+1 0 0 1 54 588 Tm
+() Tj
+1 0 0 1 54 574 Tm
+(- Python 3.11.5) Tj
+1 0 0 1 54 560 Tm
+(- the dependency set in requirements.txt) Tj
+1 0 0 1 54 546 Tm
+(- project-specific ML weights present in the expected weights directory) Tj
+1 0 0 1 54 532 Tm
+(- a valid .env configuration) Tj
+1 0 0 1 54 518 Tm
+() Tj
+1 0 0 1 54 504 Tm
+(SQLite is allowed for local development and testing. PostgreSQL is required for production) Tj
+1 0 0 1 54 490 Tm
+(operation.) Tj
+1 0 0 1 54 476 Tm
+() Tj
+1 0 0 1 54 462 Tm
+(Configuration Validation) Tj
+1 0 0 1 54 448 Tm
+() Tj
+1 0 0 1 54 434 Tm
+(The settings layer performs fail-fast validation for:) Tj
+1 0 0 1 54 420 Tm
+() Tj
+1 0 0 1 54 406 Tm
+(- database backend selection) Tj
+1 0 0 1 54 392 Tm
+(- required PostgreSQL credentials) Tj
+1 0 0 1 54 378 Tm
+(- production secret-key safety) Tj
+1 0 0 1 54 364 Tm
+(- email transport toggle consistency) Tj
+1 0 0 1 54 350 Tm
+(- allowed account email verification modes) Tj
+1 0 0 1 54 336 Tm
+() Tj
+1 0 0 1 54 322 Tm
+(This reduces configuration ambiguity and improves reproducibility across deployments.) Tj
+1 0 0 1 54 308 Tm
+() Tj
+1 0 0 1 54 294 Tm
+(Data And Scale Reproducibility) Tj
+1 0 0 1 54 280 Tm
+() Tj
+1 0 0 1 54 266 Tm
+(Reproducibility of measurements depends on:) Tj
+1 0 0 1 54 252 Tm
+() Tj
+1 0 0 1 54 238 Tm
+(- the original DV input) Tj
+1 0 0 1 54 224 Tm
+(- the resolved channel mapping) Tj
+1 0 0 1 54 210 Tm
+(- the effective scale selected for the run) Tj
+1 0 0 1 54 196 Tm
+(- the selected plugin set) Tj
+1 0 0 1 54 182 Tm
+(- threshold and length parameters saved in session and ultimately copied into per-cell) Tj
+1 0 0 1 54 168 Tm
+(properties) Tj
+1 0 0 1 54 154 Tm
+() Tj
+1 0 0 1 54 140 Tm
+(CytoCV stores scale context and measurement context directly alongside run data, which helps) Tj
+1 0 0 1 54 126 Tm
+(preserve interpretability after processing completes.) Tj
+1 0 0 1 54 112 Tm
+() Tj
+1 0 0 1 54 98 Tm
+(Validation Coverage In Code) Tj
+1 0 0 1 54 84 Tm
+() Tj
+1 0 0 1 54 70 Tm
+(Existing automated coverage includes:) Tj
+1 0 0 1 512 30 Tm
+(Page 1) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 2221 >>
+stream
+BT
+/F2 18 Tf
+1 0 0 1 54 744 Tm
+(Reproducibility And Validation) Tj
+/F1 11 Tf
+1 0 0 1 54 714 Tm
+() Tj
+1 0 0 1 54 700 Tm
+(- upload-time scale initialization) Tj
+1 0 0 1 54 686 Tm
+(- preferences normalization) Tj
+1 0 0 1 54 672 Tm
+(- artifact storage behavior) Tj
+1 0 0 1 54 658 Tm
+(- inference and stats-related logic) Tj
+1 0 0 1 54 644 Tm
+(- table behavior) Tj
+1 0 0 1 54 630 Tm
+(- validation-related unit tests) Tj
+1 0 0 1 54 616 Tm
+() Tj
+1 0 0 1 54 602 Tm
+(This is useful but not exhaustive. End-to-end reproducibility still depends on the exact) Tj
+1 0 0 1 54 588 Tm
+(runtime environment and the presence of the same model weights and input data.) Tj
+1 0 0 1 54 574 Tm
+() Tj
+1 0 0 1 54 560 Tm
+(Known Limits) Tj
+1 0 0 1 54 546 Tm
+() Tj
+1 0 0 1 54 532 Tm
+(- external model weights are required and are not embedded into the repository) Tj
+1 0 0 1 54 518 Tm
+(- transient artifacts may be cleaned automatically and are not a stable archival record) Tj
+1 0 0 1 54 504 Tm
+(- some outputs are graphical derivatives, not raw numerical primitives) Tj
+1 0 0 1 54 490 Tm
+(- local and production environments differ in database backend and security profile) Tj
+1 0 0 1 54 476 Tm
+() Tj
+1 0 0 1 54 462 Tm
+(Recommended Reproducibility Practice) Tj
+1 0 0 1 54 448 Tm
+() Tj
+1 0 0 1 54 434 Tm
+(For any formal result package, preserve:) Tj
+1 0 0 1 54 420 Tm
+() Tj
+1 0 0 1 54 406 Tm
+(- exact commit hash) Tj
+1 0 0 1 54 392 Tm
+(- .env policy with secrets removed but settings retained) Tj
+1 0 0 1 54 378 Tm
+(- Python version) Tj
+1 0 0 1 54 364 Tm
+(- dependency set) Tj
+1 0 0 1 54 350 Tm
+(- model weight identifier) Tj
+1 0 0 1 54 336 Tm
+(- selected plugin set) Tj
+1 0 0 1 54 322 Tm
+(- run scale context) Tj
+1 0 0 1 54 308 Tm
+(- exported table output) Tj
+1 0 0 1 54 294 Tm
+() Tj
+1 0 0 1 54 280 Tm
+(Conclusion) Tj
+1 0 0 1 54 266 Tm
+() Tj
+1 0 0 1 54 252 Tm
+(CytoCV is reproducible when environment, model, input, and run configuration are treated as) Tj
+1 0 0 1 54 238 Tm
+(part of the result definition. The application already stores some of this context) Tj
+1 0 0 1 54 224 Tm
+(internally, but disciplined deployment and archival practice remain necessary for formal) Tj
+1 0 0 1 54 210 Tm
+(reproducibility.) Tj
+1 0 0 1 512 30 Tm
+(Page 2) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+8 0 obj
+<< /Type /Catalog /Pages 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000002741 00000 n 
+0000002877 00000 n 
+0000005150 00000 n 
+0000005286 00000 n 
+0000005349 00000 n 
+trailer
+<< /Size 9 /Root 8 0 R >>
+startxref
+5398
+%%EOF

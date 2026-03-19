@@ -1,0 +1,27 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":40}}}%%
+flowchart LR
+    classDef source fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+
+    dic[DIC layer]
+    png[Normalize and save<br/>preprocessed PNG]
+    list[preprocessed_images_list.csv]
+    model[Mask R-CNN inference]
+    weights[deepretina_final.h5]
+    rle[compressed_masks.csv]
+    decode[RLE to mask conversion]
+    mask[output/mask.tif]
+
+    dic --> png
+    png --> list
+    png --> model
+    list --> model
+    weights --> model
+    model --> rle --> decode --> mask
+
+    class dic,weights source
+    class png,model,decode process
+    class list,rle data
+    class mask output

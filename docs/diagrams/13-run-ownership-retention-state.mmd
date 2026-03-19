@@ -1,0 +1,27 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px"}}}%%
+stateDiagram-v2
+    [*] --> ResultCreated
+    ResultCreated --> SavedRun : auto_save_experiments = true
+    ResultCreated --> TransientRun : guest or autosave off
+
+    TransientRun --> SavedRun : save_display_files
+    TransientRun --> SavedRun : sync selection
+    SavedRun --> TransientRun : unsave_display_files
+    SavedRun --> TransientRun : sync selection
+
+    SavedRun --> SavedRun : clean preview and preprocess assets
+    TransientRun --> Deleted : retention cutoff exceeded
+    TransientRun --> Deleted : explicit delete or cancel
+
+    note right of SavedRun
+      SegmentedImage.user is the
+      authenticated account
+    end note
+
+    note right of TransientRun
+      Results remain accessible in the
+      current session but are eligible
+      for later cleanup
+    end note
+
+    Deleted --> [*]
