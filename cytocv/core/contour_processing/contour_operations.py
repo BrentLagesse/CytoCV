@@ -20,12 +20,25 @@ def find_contours(images:GrayImage, gfp_filter_enabled=False):
 
     dot_contours = []
     if gray_mcherry_3 is not None:
-        _, bright_thresh = cv2.threshold(
+        # Use a two-step process with the Otsu thresholding to tighten the contours, also 
+        low_val, _ = cv2.threshold(
             gray_mcherry_3,
             0.65,
-            1,
-            cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
+        _, bright_thresh = cv2.threshold(
+            gray_mcherry_3,
+            low_val + 11,
+            255,
+            cv2.THRESH_BINARY,
+        )
+        # _, bright_thresh = cv2.threshold(
+        #     gray_mcherry_3,
+        #     0.65,
+        #     255,
+        #     cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+        # )
         dot_contours, _ = cv2.findContours(bright_thresh, 1, 2)
         dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]  # remove border contour
 
@@ -43,18 +56,27 @@ def find_contours(images:GrayImage, gfp_filter_enabled=False):
     bestContours_mcherry = []
     if gray_mcherry_3 is not None and gray_mcherry is not None:
         thresh_mcherry = cv2.Canny(gray_mcherry_3, 50, 150)
+        # TODO: thresh seems to always be empty; are thresh and thresh_mcherry even being used?
         thresh = cv2.Canny(gray_mcherry, 50, 150)
 
         # Try again with less restrictive thresholding if nothing was found
         if np.max(thresh) == 0:
-            _, thresh_mcherry = cv2.threshold(
-                gray_mcherry_3,
+            # _, thresh_mcherry = cv2.threshold(
+            #     gray_mcherry_3,
+            #     0,
+            #     1,
+            #     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+            # )
+            _, thresh = cv2.threshold(
+                gray_mcherry,
                 0,
                 1,
                 cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
             )
-            _, thresh = cv2.threshold(
-                gray_mcherry,
+        
+        if np.max(thresh_mcherry) == 0:
+            _, thresh_mcherry = cv2.threshold(
+                gray_mcherry_3,
                 0,
                 1,
                 cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
