@@ -160,7 +160,22 @@ def find_contours(images:GrayImage, gfp_filter_enabled=False):
 
     contours_gfp = []
     if gray_gfp is not None:
-        thresh_gfp = cv2.Canny(gray_gfp, 50, 150)
+        # gray_gfp = cv2.GaussianBlur(gray_gfp, (3, 3), 0)
+        # thresh_gfp = cv2.Canny(gray_gfp, 50, 150)
+        
+        # Use two-step Otsu process to recognize more signals -- can use the optional filtering to get rid of extra if too much is found
+        low_val, _ = cv2.threshold(
+            gray_gfp,
+            0.65,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        _, thresh_gfp = cv2.threshold(
+            gray_gfp,
+            low_val + 13,
+            255,
+            cv2.THRESH_BINARY,
+        )
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
         contours_gfp, _ = cv2.findContours(thresh_gfp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
