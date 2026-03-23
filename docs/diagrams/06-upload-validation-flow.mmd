@@ -11,7 +11,7 @@ flowchart TD
     input[New files and<br/>restored queue UUIDs]
     select[Normalize plugins and<br/>required channels]
     create[Create UploadedImage row<br/>for each new file]
-    validate[Recognized DV,<br/>layer count, wavelengths]
+    validate[Recognized DV,<br/>configured layer-count policy,<br/>effective required channels]
     ok{Valid?}
     reject[Delete invalid run and<br/>collect error message]
     scale[Extract scale metadata]

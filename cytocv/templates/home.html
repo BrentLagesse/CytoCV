@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 
 {% block title %}CytoCV{% endblock title %}
+{% block meta_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock meta_description %}
+{% block og_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock og_description %}
+{% block twitter_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock twitter_description %}
 
 {% block head %}
     <style>
@@ -25,73 +28,286 @@
             min-height: calc(100dvh - var(--nav-height) - 20px);
         }
         .module-card {
-            background:
-                var(--liquid-linear-highlight),
-                var(--glass-card-bg);
-            border: 1px solid var(--panel-border);
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            position: relative;
             display: flex;
             flex-direction: column;
             min-width: 0;
+            min-height: 0;
+            padding: 18px;
         }
-        .overview-card {
+        .overview-panel {
+            gap: 14px;
+            padding: 0;
+            overflow: visible;
+        }
+        .overview-intro {
+            display: grid;
+            gap: 12px;
+        }
+        .overview-header {
+            display: grid;
             gap: 14px;
         }
         .overview-header h1 {
-            margin: 0 0 6px 0;
-            font-size: 28px;
-            letter-spacing: 0.2px;
+            margin: 2px 0 6px;
+            font-size: clamp(30px, 4.4vw, 44px);
+            font-weight: 600;
+            letter-spacing: 0.015em;
+            line-height: 0.98;
+            color: rgba(247, 250, 255, 0.98);
         }
         .overview-header p {
             margin: 0;
             color: var(--muted);
             font-size: 14px;
+            line-height: 1.55;
+            max-width: 60ch;
         }
-        .overview-scroll {
-            flex: 1 1 auto;
-            overflow-y: auto;
-            padding-right: 6px;
+        .overview-summary {
+            display: block;
+            align-self: flex-start;
+            color: rgba(189, 206, 228, 0.82);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+        .story-viewport {
+            min-width: 0;
+            overflow: visible;
+            padding-right: 0;
+        }
+        .story-track {
             display: grid;
-            gap: 16px;
+            gap: 14px;
         }
-        .overview-section h3 {
-            margin: 0 0 8px 0;
-            font-size: 16px;
+        .story-card {
+            display: grid;
+            gap: 14px;
+            opacity: 0;
+            transform: translateY(8px);
+            animation: storyCardIn 0.36s ease-out forwards;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        .overview-section p {
-            margin: 0 0 10px 0;
-            color: var(--text);
-            line-height: 1.5;
+        .story-card:nth-child(1) { animation-delay: 0.02s; }
+        .story-card:nth-child(2) { animation-delay: 0.07s; }
+        .story-card:nth-child(3) { animation-delay: 0.12s; }
+        .story-card:nth-child(4) { animation-delay: 0.17s; }
+        .story-card:nth-child(5) { animation-delay: 0.22s; }
+        .story-card-head {
+            display: grid;
+            gap: 8px;
+        }
+        .story-card-title {
+            margin: 0;
+            font-size: 20px;
+            line-height: 1.15;
+            letter-spacing: 0.01em;
+        }
+        .story-card-copy {
+            display: grid;
+            gap: 10px;
+        }
+        .story-card-copy p {
+            margin: 0;
             font-size: 14px;
+            line-height: 1.65;
+            color: rgba(241, 245, 252, 0.96);
         }
-        .overview-list,
-        .upload-list {
+        .story-card-copy code {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.24);
+            border-radius: 6px;
+            padding: 1px 5px;
+            font-size: 0.95em;
+        }
+        .story-channel-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .story-channel-list li {
+            display: grid;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(16, 24, 35, 0.58);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.28);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        }
+        .story-channel-list li.dic {
+            background: linear-gradient(135deg, rgba(66, 66, 66, 0.28), rgba(16, 24, 35, 0.58));
+            border-color: rgba(128, 128, 128, 0.34);
+        }
+        .story-channel-list li.dapi {
+            background: linear-gradient(135deg, rgba(33, 74, 212, 0.26), rgba(16, 24, 35, 0.58));
+            border-color: rgba(83, 118, 255, 0.34);
+        }
+        .story-channel-list li.mcherry {
+            background: linear-gradient(135deg, rgba(173, 46, 46, 0.28), rgba(16, 24, 35, 0.58));
+            border-color: rgba(224, 102, 102, 0.34);
+        }
+        .story-channel-list li.gfp {
+            background: linear-gradient(135deg, rgba(20, 124, 67, 0.28), rgba(16, 24, 35, 0.58));
+            border-color: rgba(74, 196, 124, 0.34);
+        }
+        .story-channel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-width: 0;
+        }
+        .story-channel-hint {
+            color: rgba(221, 228, 242, 0.78);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .story-channel-copy {
+            color: rgba(233, 240, 255, 0.96);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .channel-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 74px;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            user-select: none;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .channel-chip.dic { background-color: #3d4756; }
+        .channel-chip.dapi { background-color: #456af0; }
+        .channel-chip.mcherry { background-color: #d85a64; }
+        .channel-chip.gfp { background-color: #309f63; }
+        .channel-chip.dic:hover { background-color: #4a5567; }
+        .channel-chip.dapi:hover { background-color: #5a7cff; }
+        .channel-chip.mcherry:hover { background-color: #e56f78; }
+        .channel-chip.gfp:hover { background-color: #42b775; }
+        .story-output-label {
+            margin: 0 0 2px 0;
+            color: rgba(221, 228, 242, 0.92);
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .story-tag-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .story-tag-list li {
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: rgba(0, 123, 255, 0.12);
+            border: 1px solid rgba(80, 153, 255, 0.34);
+            color: rgba(226, 238, 255, 0.96);
+            font-size: 12px;
+            letter-spacing: 0.03em;
+        }
+        .story-detail-list {
             list-style: none;
             padding: 0;
             margin: 0;
             display: grid;
             gap: 10px;
         }
-        .overview-list li,
-        .upload-list li {
-            background-color: var(--surface-muted);
-            border: 1px solid var(--panel-border);
-            border-radius: 12px;
-            padding: 12px;
+        .story-detail-list li {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.08), rgba(255, 255, 255, 0.04));
+            border: 1px solid rgba(98, 160, 255, 0.22);
             display: grid;
-            gap: 6px;
-            font-size: 14px;
+            gap: 4px;
         }
-        .upload-list img {
-            width: 100%;
-            max-width: 220px;
-            height: auto;
-            display: block;
-            margin-top: 6px;
-            border-radius: 8px;
+        .story-detail-list strong {
+            color: #ffffff;
+            font-size: 13px;
+        }
+        .story-detail-list span {
+            color: rgba(226, 233, 245, 0.92);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .story-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            align-self: flex-start;
+            padding: 8px 11px;
+            border-radius: 999px;
+            border: 1px solid rgba(237, 178, 93, 0.24);
+            background: rgba(237, 178, 93, 0.08);
+            color: #ffdba4;
+            font-size: 12px;
+        }
+        .story-mobile-meta {
+            display: none;
+        }
+        .story-mobile-meta.is-visible {
+            display: none;
+        }
+        .story-swipe-hint {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        .story-dots {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .story-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.4);
+            background: rgba(255, 255, 255, 0.14);
+            cursor: pointer;
+            padding: 0;
+            box-shadow: none;
+        }
+        .story-dot.is-active {
+            background: var(--accent);
+            border-color: rgba(255, 255, 255, 0.45);
+            transform: scale(1.08);
+        }
+        .story-dot:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, 0.72);
+            outline-offset: 3px;
+        }
+        .cta-panel {
+            background:
+                var(--liquid-linear-highlight),
+                var(--glass-card-bg);
             border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: calc(var(--nav-height) + 10px);
+            align-self: flex-start;
+            min-height: calc(100dvh - var(--nav-height) - 20px);
         }
         .cta-card {
             justify-content: center;
@@ -106,6 +322,7 @@
             margin: 0;
             color: var(--muted);
             font-size: 14px;
+            line-height: 1.55;
         }
         .cta-buttons {
             display: flex;
@@ -180,12 +397,89 @@
             background: var(--surface-hover);
             border-color: var(--panel-border);
         }
+        @media (hover: hover) and (pointer: fine) {
+            .story-card:hover {
+                transform: translateY(-2px);
+                box-shadow:
+                    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+                    0 18px 34px rgba(0, 0, 0, 0.28);
+            }
+        }
         @media (max-width: 900px) {
             .home-layout {
                 grid-template-columns: 1fr;
                 min-height: 0;
             }
-            .splitter { display: none; }
+            .module-card {
+                padding: 16px;
+            }
+            .splitter {
+                display: none;
+            }
+            .story-viewport {
+                overflow-y: visible;
+                padding-right: 0;
+            }
+            .story-viewport.is-carousel-ready {
+                overflow: hidden;
+                touch-action: pan-y;
+                padding-right: 0;
+                cursor: grab;
+            }
+            .story-viewport.is-carousel-ready:active {
+                cursor: grabbing;
+            }
+            .story-track.is-carousel-ready {
+                display: flex;
+                gap: 0;
+                align-items: stretch;
+                will-change: transform;
+            }
+            .story-track.is-carousel-ready .story-card {
+                flex: 0 0 100%;
+                min-width: 100%;
+            }
+            .story-mobile-meta.is-visible {
+                display: grid;
+                gap: 10px;
+            }
+            .story-card {
+                min-height: 100%;
+                animation-delay: 0s !important;
+            }
+            .cta-panel {
+                position: static;
+                min-height: 0;
+            }
+        }
+        @media (max-width: 640px) {
+            .story-channel-list {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .story-card {
+                animation: none;
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
+            .story-track.is-carousel-ready {
+                transition: none !important;
+            }
+            .story-dot.is-active {
+                transform: none;
+            }
+        }
+        @keyframes storyCardIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -195,22 +489,145 @@
 
 {% block content %}
 <div class="home-layout">
-    <section class="module-card overview-card soft-fade-in">
-        <div class="overview-header">
-            <h1>CytoCV</h1>
-            <p>Research platform built by the UWB STEM team for University of Utah collaborators.</p>
+    <section class="module-card overview-panel soft-fade-in">
+        <div class="overview-intro glass-card glass-section">
+            <div class="overview-header">
+                <div class="overview-summary">Mitotic yeast image analysis</div>
+                <div>
+                    <h1>CytoCV</h1>
+                    <p>Structured analysis for DeltaVision microscopy workflows, built through a University of Washington Bothell and University of Utah research collaboration.</p>
+                </div>
+            </div>
         </div>
-        <div class="overview-scroll">
-            <div class="overview-section">
-                <h3>Project overview</h3>
-                <p>The project is a tool to automatically analyze WIDE-fluorescent microscopy images of yeast cells undergoing mitosis. The biologist uses yeast cells that have a controlled mutation in them. The biologists then use fluorescent labeling for points of interest (POIs), such as specific proteins, and this program automatically analyzes those POIs to collect useful data that may be used to find the cause of cellular mutation. The user will upload a special DV (Delta Vision) file that has multiple images that are taken at the same time; thus, allowing them to be overlapped. One of them is a Differential interference contrast (DIC) image, which basically is a clear image of the cells, and multiple images of the cells through different wavelengths which excite the fluorescent labels separately, leading to the POI being brightened (small dots). Currently, the fluorescent labels being used are DAPI, mCherry, and GFP.</p>
+
+        <div class="story-viewport" id="storyViewport">
+            <div class="story-track" id="storyTrack">
+                <article class="story-card glass-card glass-section" data-story-index="0">
+                    <div class="story-card-head">
+                        <p class="section-eyebrow">Overview</p>
+                        <h2 class="story-card-title">What CytoCV Is</h2>
+                    </div>
+                    <div class="story-card-copy">
+                        <p>CytoCV is a web-based analysis platform for DeltaVision <code>.dv</code> microscopy of mitotic yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one browser-based workflow.</p>
+                        <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older DAPI-based workflows available as legacy paths when they are needed.</p>
+                    </div>
+                    <ul class="story-channel-list" aria-label="Channel roles">
+                        <li class="dic">
+                            <div class="story-channel-head">
+                                <span class="channel-chip dic">DIC</span>
+                                <span class="story-channel-hint">Structure</span>
+                            </div>
+                            <span class="story-channel-copy">Structural channel used for segmentation.</span>
+                        </li>
+                        <li class="mcherry">
+                            <div class="story-channel-head">
+                                <span class="channel-chip mcherry">mCherry</span>
+                                <span class="story-channel-hint">Red</span>
+                            </div>
+                            <span class="story-channel-copy">Red-signal contour and distance context.</span>
+                        </li>
+                        <li class="gfp">
+                            <div class="story-channel-head">
+                                <span class="channel-chip gfp">GFP</span>
+                                <span class="story-channel-hint">Green</span>
+                            </div>
+                            <span class="story-channel-copy">Green intensity and dot measurements.</span>
+                        </li>
+                        <li class="dapi">
+                            <div class="story-channel-head">
+                                <span class="channel-chip dapi">DAPI</span>
+                                <span class="story-channel-hint">Legacy</span>
+                            </div>
+                            <span class="story-channel-copy">Legacy nucleus-related analysis path.</span>
+                        </li>
+                    </ul>
+                </article>
+
+                <article class="story-card glass-card glass-section" data-story-index="1">
+                    <div class="story-card-head">
+                        <p class="section-eyebrow">Research Need</p>
+                        <h2 class="story-card-title">Why Researchers Need It</h2>
+                    </div>
+                    <div class="story-card-copy">
+                        <p>Microscopy studies often require researchers to inspect many cells, compare fluorescent signals, and record measurements across repeated experiments. Doing that cell by cell by eye can take time, scale poorly as datasets grow, and introduce inconsistency in how cells are selected or measured.</p>
+                        <p>CytoCV is designed to reduce manual analysis time and help researchers quantify more cells more consistently, while preserving the connection between the original image stack and the numbers produced from it.</p>
+                    </div>
+                </article>
+
+                <article class="story-card glass-card glass-section" data-story-index="2">
+                    <div class="story-card-head">
+                        <p class="section-eyebrow">Workflow</p>
+                        <h2 class="story-card-title">How the Workflow Works</h2>
+                    </div>
+                    <div class="story-card-copy">
+                        <p>Researchers upload DeltaVision <code>.dv</code> files, and CytoCV validates the channels required for the selected workflow before analysis proceeds. Preview images are generated first so the file can be checked before segmentation and measurement begin.</p>
+                        <p>The platform then uses <code>DIC</code>, a structural brightfield-like channel, as the input for Mask R-CNN-based cell segmentation. After cells are segmented, CytoCV computes per-cell measurements and presents the results for review and export.</p>
+                    </div>
+                    <p class="story-output-label">Workflow outputs</p>
+                    <ul class="story-tag-list" aria-label="Workflow outputs">
+                        <li>Validation</li>
+                        <li>Preview images</li>
+                        <li>Segmentation</li>
+                        <li>Per-cell measurements</li>
+                        <li>Review</li>
+                        <li>Export</li>
+                    </ul>
+                </article>
+
+                <article class="story-card glass-card glass-section" data-story-index="3">
+                    <div class="story-card-head">
+                        <p class="section-eyebrow">Measurements</p>
+                        <h2 class="story-card-title">What CytoCV Measures</h2>
+                    </div>
+                    <ul class="story-detail-list">
+                        <li>
+                            <strong>mCherry line intensity</strong>
+                            <span>Measures GFP intensity along the line drawn between paired red dot centers.</span>
+                        </li>
+                        <li>
+                            <strong>GFP dot classification and biorientation</strong>
+                            <span>Classifies GFP-dot behavior relative to paired red signals in the modern workflow.</span>
+                        </li>
+                        <li>
+                            <strong>Green and red contour intensity summaries</strong>
+                            <span>Calculates contour-based intensity combinations across red and green channels.</span>
+                        </li>
+                        <li>
+                            <strong>Nuclear and cellular intensity</strong>
+                            <span>Uses either a red-defined or green-defined nucleus contour and measures the opposite channel inside the nucleus and across the whole cell.</span>
+                        </li>
+                    </ul>
+                    <div class="story-note">DAPI-based measurements remain available as legacy workflows, not the main default path.</div>
+                </article>
+
+                <article class="story-card glass-card glass-section" data-story-index="4">
+                    <div class="story-card-head">
+                        <p class="section-eyebrow">Biological Value</p>
+                        <h2 class="story-card-title">Why This Matters Biologically</h2>
+                    </div>
+                    <div class="story-card-copy">
+                        <p>These measurements help researchers compare signal localization between the nucleus and the whole cell, examine how paired red and green signals relate to one another, and evaluate patterns across yeast populations or mutant conditions.</p>
+                        <p>That makes CytoCV useful for studies where the question depends on where a fluorescent signal is located, how paired markers behave together, or how to compare more cells through a more repeatable analysis process than manual review alone.</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+
+        <div class="story-mobile-meta" id="storyMobileMeta">
+            <p class="story-swipe-hint">Swipe to explore</p>
+            <div class="story-dots" aria-label="Story card navigation">
+                <button type="button" class="story-dot is-active" data-story-dot="0" aria-label="Go to What CytoCV Is" aria-pressed="true"></button>
+                <button type="button" class="story-dot" data-story-dot="1" aria-label="Go to Why Researchers Need It" aria-pressed="false"></button>
+                <button type="button" class="story-dot" data-story-dot="2" aria-label="Go to How the Workflow Works" aria-pressed="false"></button>
+                <button type="button" class="story-dot" data-story-dot="3" aria-label="Go to What CytoCV Measures" aria-pressed="false"></button>
+                <button type="button" class="story-dot" data-story-dot="4" aria-label="Go to Why This Matters Biologically" aria-pressed="false"></button>
             </div>
         </div>
     </section>
 
     <div class="splitter" id="homeDivider" role="separator" aria-orientation="vertical" aria-label="Resize panels"></div>
 
-    <section class="module-card cta-card soft-fade-in">
+    <section class="module-card cta-panel cta-card soft-fade-in">
         <h2>Get started</h2>
         <p>Choose how you want to access the analysis workflow.</p>
         <div class="cta-buttons">
@@ -230,14 +647,13 @@
     </section>
 </div>
 
-<!-- Add JavaScript here -->
 <script>
     const uploadImageButton = document.getElementById('uploadImageButton');
     if (uploadImageButton) {
         uploadImageButton.addEventListener('click', function () {
             uploadImageButton.classList.add('loading');
-            uploadImageButton.style.pointerEvents = 'none'; // Disable pointer interactions
-            uploadImageButton.style.cursor = 'not-allowed'; // Change the cursor to not-allowed
+            uploadImageButton.style.pointerEvents = 'none';
+            uploadImageButton.style.cursor = 'not-allowed';
             uploadImageButton.setAttribute('aria-busy', 'true');
         });
     }
@@ -309,6 +725,7 @@
                 homeDivider.releasePointerCapture(event.pointerId);
             }
         });
+
         homeDivider.addEventListener('pointercancel', (event) => {
             dragging = false;
             homeDivider.classList.remove('dragging');
@@ -319,6 +736,242 @@
 
         window.addEventListener('resize', clampColumns);
         clampColumns();
+    }
+
+    const storyViewport = document.getElementById('storyViewport');
+    const storyTrack = document.getElementById('storyTrack');
+    const storyMobileMeta = document.getElementById('storyMobileMeta');
+    const storyDots = Array.from(document.querySelectorAll('[data-story-dot]'));
+
+    if (storyViewport && storyTrack && storyDots.length) {
+        const mobileQuery = window.matchMedia('(max-width: 900px)');
+        const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const totalStories = storyDots.length;
+        let currentIndex = 1;
+        let isCarouselReady = false;
+        let dragState = null;
+
+        const getOriginalSlides = () => Array.from(storyTrack.querySelectorAll('.story-card:not([data-story-clone="true"])'));
+        const getViewportWidth = () => storyViewport.getBoundingClientRect().width || storyViewport.offsetWidth || 1;
+        const mod = (value, size) => ((value % size) + size) % size;
+
+        const setTrackTransition = (enabled) => {
+            storyTrack.style.transition = enabled && !reducedMotionQuery.matches
+                ? 'transform 0.34s cubic-bezier(0.22, 0.8, 0.2, 1)'
+                : 'none';
+        };
+
+        const updateDots = (logicalIndex) => {
+            storyDots.forEach((dot, index) => {
+                const isActive = index === logicalIndex;
+                dot.classList.toggle('is-active', isActive);
+                dot.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        };
+
+        const applyTransform = (extraOffset = 0) => {
+            if (!isCarouselReady) {
+                storyTrack.style.removeProperty('transform');
+                return;
+            }
+            const offset = (-currentIndex * getViewportWidth()) + extraOffset;
+            storyTrack.style.transform = `translate3d(${offset}px, 0, 0)`;
+        };
+
+        const syncDotsFromCurrentIndex = () => {
+            updateDots(mod(currentIndex - 1, totalStories));
+        };
+
+        const removeClones = () => {
+            storyTrack.querySelectorAll('[data-story-clone="true"]').forEach((node) => node.remove());
+        };
+
+        const destroyCarousel = () => {
+            removeClones();
+            isCarouselReady = false;
+            dragState = null;
+            storyViewport.classList.remove('is-carousel-ready');
+            storyTrack.classList.remove('is-carousel-ready');
+            storyMobileMeta.classList.remove('is-visible');
+            storyTrack.style.removeProperty('transform');
+            storyTrack.style.removeProperty('transition');
+            updateDots(0);
+        };
+
+        const buildCarousel = () => {
+            removeClones();
+            const originals = getOriginalSlides();
+            if (!mobileQuery.matches || originals.length < 2) {
+                destroyCarousel();
+                return;
+            }
+
+            const firstClone = originals[0].cloneNode(true);
+            const lastClone = originals[originals.length - 1].cloneNode(true);
+            firstClone.dataset.storyClone = 'true';
+            lastClone.dataset.storyClone = 'true';
+            firstClone.setAttribute('aria-hidden', 'true');
+            lastClone.setAttribute('aria-hidden', 'true');
+
+            storyTrack.insertBefore(lastClone, originals[0]);
+            storyTrack.appendChild(firstClone);
+
+            isCarouselReady = true;
+            currentIndex = 1;
+            storyViewport.classList.add('is-carousel-ready');
+            storyTrack.classList.add('is-carousel-ready');
+            storyMobileMeta.classList.add('is-visible');
+
+            setTrackTransition(false);
+            requestAnimationFrame(() => {
+                applyTransform();
+                syncDotsFromCurrentIndex();
+            });
+        };
+
+        const goToIndex = (nextIndex, animate = true) => {
+            if (!isCarouselReady) return;
+            currentIndex = nextIndex;
+            setTrackTransition(animate);
+            applyTransform();
+            syncDotsFromCurrentIndex();
+        };
+
+        const handleBoundaryReset = () => {
+            if (!isCarouselReady) return;
+            if (currentIndex === 0) {
+                currentIndex = totalStories;
+            } else if (currentIndex === totalStories + 1) {
+                currentIndex = 1;
+            } else {
+                return;
+            }
+
+            setTrackTransition(false);
+            applyTransform();
+        };
+
+        storyTrack.addEventListener('transitionend', () => {
+            handleBoundaryReset();
+            syncDotsFromCurrentIndex();
+        });
+
+        storyDots.forEach((dot, index) => {
+            dot.addEventListener('click', () => {
+                if (!isCarouselReady) return;
+                goToIndex(index + 1, true);
+            });
+        });
+
+        storyViewport.addEventListener('pointerdown', (event) => {
+            if (!isCarouselReady) return;
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+            dragState = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                deltaX: 0,
+                deltaY: 0,
+                axisLocked: null,
+            };
+
+            setTrackTransition(false);
+            if (event.pointerType === 'mouse' && storyViewport.setPointerCapture) {
+                storyViewport.setPointerCapture(event.pointerId);
+            }
+        });
+
+        storyViewport.addEventListener('pointermove', (event) => {
+            if (!dragState || !isCarouselReady || event.pointerId !== dragState.pointerId) return;
+
+            dragState.deltaX = event.clientX - dragState.startX;
+            dragState.deltaY = event.clientY - dragState.startY;
+
+            if (!dragState.axisLocked) {
+                if (Math.abs(dragState.deltaX) < 6 && Math.abs(dragState.deltaY) < 6) {
+                    return;
+                }
+                dragState.axisLocked = Math.abs(dragState.deltaX) > Math.abs(dragState.deltaY) ? 'x' : 'y';
+            }
+
+            if (dragState.axisLocked !== 'x') {
+                return;
+            }
+
+            applyTransform(dragState.deltaX);
+        });
+
+        const finishDrag = (event) => {
+            if (!dragState || (event && event.pointerId !== dragState.pointerId)) return;
+
+            const activeDrag = dragState;
+            dragState = null;
+
+            if (
+                event &&
+                storyViewport.releasePointerCapture &&
+                storyViewport.hasPointerCapture &&
+                storyViewport.hasPointerCapture(event.pointerId)
+            ) {
+                try {
+                    storyViewport.releasePointerCapture(event.pointerId);
+                } catch (error) {
+                    // Ignore pointer release errors caused by browser timing differences.
+                }
+            }
+
+            if (!isCarouselReady) {
+                return;
+            }
+
+            if (activeDrag.axisLocked !== 'x') {
+                setTrackTransition(true);
+                applyTransform();
+                return;
+            }
+
+            const threshold = Math.max(42, getViewportWidth() * 0.14);
+            if (Math.abs(activeDrag.deltaX) > threshold) {
+                currentIndex += activeDrag.deltaX < 0 ? 1 : -1;
+            }
+
+            setTrackTransition(true);
+            applyTransform();
+            syncDotsFromCurrentIndex();
+        };
+
+        storyViewport.addEventListener('pointerup', finishDrag);
+        storyViewport.addEventListener('pointercancel', finishDrag);
+        storyViewport.addEventListener('pointerleave', (event) => {
+            if (!dragState || event.pointerType !== 'mouse') return;
+            finishDrag(event);
+        });
+
+        const handleResponsiveCarousel = () => {
+            if (mobileQuery.matches) {
+                buildCarousel();
+            } else {
+                destroyCarousel();
+            }
+        };
+
+        const handleResize = () => {
+            if (!isCarouselReady) return;
+            setTrackTransition(false);
+            applyTransform();
+        };
+
+        if (mobileQuery.addEventListener) {
+            mobileQuery.addEventListener('change', handleResponsiveCarousel);
+            reducedMotionQuery.addEventListener('change', handleResize);
+        } else if (mobileQuery.addListener) {
+            mobileQuery.addListener(handleResponsiveCarousel);
+            reducedMotionQuery.addListener(handleResize);
+        }
+
+        window.addEventListener('resize', handleResize);
+        handleResponsiveCarousel();
     }
 </script>
 {% endblock content %}

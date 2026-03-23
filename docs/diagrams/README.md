@@ -47,7 +47,7 @@ They are based on the current implementation in:
 
 5. `03-cell-analysis-flow.mmd`
    Use for: feature extraction subsection.
-   Caption idea: "Per-cell analysis pipeline used to derive distances, intensities, and nuclear measurements from segmented crops."
+   Caption idea: "Per-cell analysis pipeline used to derive distances, intensities, and optional legacy DAPI measurements from segmented crops."
 
 6. `11-data-model.mmd`
    Use for: implementation or reproducibility section.
@@ -59,10 +59,10 @@ They are based on the current implementation in:
    Focus: file lifecycle and cleanup.
 
 8. `05-plugin-channel-map.mmd`
-   Focus: plugin dependencies and validation requirements.
+   Focus: `DIC` baseline requirements, plugin-driven fluorescence dependencies, legacy DAPI paths, and validation overrides.
 
 9. `06-upload-validation-flow.mmd`
-   Focus: upload handling and DV validation logic.
+   Focus: upload handling and configurable DV validation logic.
 
 10. `07-scale-channel-resolution.mmd`
     Focus: scale metadata, overrides, and threshold conversion.
@@ -80,7 +80,7 @@ They are based on the current implementation in:
     Focus: reCAPTCHA-gated authentication, provider SSO, signup, recovery, and account areas.
 
 15. `15-legacy-dapi-measurements.mmd`
-    Focus: legacy DAPI-driven measurements versus the modern nuclear or cellular path.
+    Focus: legacy DAPI-driven measurements versus the modern `mCherry` and `GFP` path.
 
 ## Rendered PNGs
 

@@ -6,240 +6,251 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<< /Length 2725 >>
-stream
-BT
-/F2 18 Tf
-1 0 0 1 54 744 Tm
-(Methods And System Description) Tj
-/F1 11 Tf
-1 0 0 1 54 714 Tm
-() Tj
-1 0 0 1 54 700 Tm
-(Abstract) Tj
-1 0 0 1 54 686 Tm
-() Tj
-1 0 0 1 54 672 Tm
-(CytoCV is a web-based analysis system for four-channel DeltaVision microscopy stacks of) Tj
-1 0 0 1 54 658 Tm
-(mitotic yeast cells. The software combines authenticated web workflows, DV-specific metadata) Tj
-1 0 0 1 54 644 Tm
-(parsing, Mask R-CNN-based segmentation, per-cell measurement plugins, and retention-aware) Tj
-1 0 0 1 54 630 Tm
-(result management in a single Django application.) Tj
-1 0 0 1 54 616 Tm
-() Tj
-1 0 0 1 54 602 Tm
-(System Objective) Tj
-1 0 0 1 54 588 Tm
-() Tj
-1 0 0 1 54 574 Tm
-(The system is designed to reduce manual analysis effort when processing mitotic yeast) Tj
-1 0 0 1 54 560 Tm
-(microscopy data. It provides a structured path from raw DV upload to per-cell statistical) Tj
-1 0 0 1 54 546 Tm
-(output while preserving the relationship between source image stacks, channel mapping,) Tj
-1 0 0 1 54 532 Tm
-(segmentation products, and exported measurements.) Tj
-1 0 0 1 54 518 Tm
-() Tj
-1 0 0 1 54 504 Tm
-(Input Assumptions) Tj
-1 0 0 1 54 490 Tm
-() Tj
-1 0 0 1 54 476 Tm
-(The active workflow assumes a four-channel stack composed of:) Tj
-1 0 0 1 54 462 Tm
-() Tj
-1 0 0 1 54 448 Tm
-(- DIC) Tj
-1 0 0 1 54 434 Tm
-(- DAPI) Tj
-1 0 0 1 54 420 Tm
-(- mCherry) Tj
-1 0 0 1 54 406 Tm
-(- GFP) Tj
-1 0 0 1 54 392 Tm
-() Tj
-1 0 0 1 54 378 Tm
-(The software can enforce exact layer count, required wavelengths, and plugin-driven channel) Tj
-1 0 0 1 54 364 Tm
-(requirements during upload.) Tj
-1 0 0 1 54 350 Tm
-() Tj
-1 0 0 1 54 336 Tm
-(Computational Workflow) Tj
-1 0 0 1 54 322 Tm
-() Tj
-1 0 0 1 54 308 Tm
-(1. Upload And Validation) Tj
-1 0 0 1 54 294 Tm
-() Tj
-1 0 0 1 54 280 Tm
-(The upload stage creates a run UUID, persists the source file, validates the DV structure,) Tj
-1 0 0 1 54 266 Tm
-(extracts channel mapping information, and stores scale metadata when available.) Tj
-1 0 0 1 54 252 Tm
-() Tj
-1 0 0 1 54 238 Tm
-(2. Preview Generation) Tj
-1 0 0 1 54 224 Tm
-() Tj
-1 0 0 1 54 210 Tm
-(Browser-friendly PNG previews are generated per layer so that the operator can review) Tj
-1 0 0 1 54 196 Tm
-(channel ordering and file state before inference.) Tj
-1 0 0 1 54 182 Tm
-() Tj
-1 0 0 1 54 168 Tm
-(3. Preprocessing And Inference) Tj
-1 0 0 1 54 154 Tm
-() Tj
-1 0 0 1 54 140 Tm
-(The preprocess stage converts the relevant structural data into the inference-ready) Tj
-1 0 0 1 54 126 Tm
-(representation and invokes the Mask R-CNN pipeline, producing a segmentation mask for) Tj
-1 0 0 1 54 112 Tm
-(downstream analysis.) Tj
-1 0 0 1 54 98 Tm
-() Tj
-1 0 0 1 54 84 Tm
-(4. Segmentation Product Assembly) Tj
-1 0 0 1 54 70 Tm
-() Tj
-1 0 0 1 512 30 Tm
-(Page 1) Tj
-ET
-endstream
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
 endobj
 4 0 obj
-<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
-endobj
-5 0 obj
-<< /Length 3034 >>
+<< /Length 3826 >>
 stream
-BT
-/F2 18 Tf
-1 0 0 1 54 744 Tm
-(Methods And System Description) Tj
-/F1 11 Tf
-1 0 0 1 54 714 Tm
-(The segmentation stage combines the generated mask with the original DV stack to produce) Tj
-1 0 0 1 54 700 Tm
-(outlined full-frame views, per-cell cropped outputs, and channel-specific debug overlays.) Tj
-1 0 0 1 54 686 Tm
-() Tj
-1 0 0 1 54 672 Tm
-(5. Per-Cell Quantification) Tj
-1 0 0 1 54 658 Tm
-() Tj
-1 0 0 1 54 644 Tm
-(A plugin-based measurement layer computes cell-level values such as red-dot distance, line) Tj
-1 0 0 1 54 630 Tm
-(GFP intensity, nuclear and cellular intensity summaries, and GFP dot classification outputs.) Tj
-1 0 0 1 54 616 Tm
-() Tj
-1 0 0 1 54 602 Tm
-(6. Review, Export, And Retention) Tj
-1 0 0 1 54 588 Tm
-() Tj
-1 0 0 1 54 574 Tm
-(The display and dashboard views expose the run outputs, table exports, and) Tj
-1 0 0 1 54 560 Tm
-(save-versus-transient retention model.) Tj
-1 0 0 1 54 546 Tm
-() Tj
-1 0 0 1 54 532 Tm
-(Software Architecture) Tj
-1 0 0 1 54 518 Tm
-() Tj
-1 0 0 1 54 504 Tm
-(The application is implemented as a Django project with two main application domains:) Tj
-1 0 0 1 54 490 Tm
-() Tj
-1 0 0 1 54 476 Tm
-(- accounts for identity, preferences, dashboard behavior, and account lifecycle) Tj
-1 0 0 1 54 462 Tm
-(- core for upload handling, processing, storage, segmentation, display, and scientific) Tj
-1 0 0 1 54 448 Tm
-(measurement) Tj
-1 0 0 1 54 434 Tm
-() Tj
-1 0 0 1 54 420 Tm
-(Persistent state is divided between database rows and filesystem-backed media artifacts.) Tj
-1 0 0 1 54 406 Tm
-() Tj
-1 0 0 1 54 392 Tm
-(Reproducibility-Relevant Characteristics) Tj
-1 0 0 1 54 378 Tm
-() Tj
-1 0 0 1 54 364 Tm
-(- exact Python version expectation: 3.11.5) Tj
-1 0 0 1 54 350 Tm
-(- explicit database backend selection) Tj
-1 0 0 1 54 336 Tm
-(- fail-fast environment validation) Tj
-1 0 0 1 54 322 Tm
-(- deterministic plugin metadata registration) Tj
-1 0 0 1 54 308 Tm
-(- per-run saved scale context in UploadedImage.scale_info) Tj
-1 0 0 1 54 294 Tm
-(- per-cell contextual measurement metadata in CellStatistics.properties) Tj
-1 0 0 1 54 280 Tm
-() Tj
-1 0 0 1 54 266 Tm
-(Limitations) Tj
-1 0 0 1 54 252 Tm
-() Tj
-1 0 0 1 54 238 Tm
-(- the active workflow is tightly centered on the four expected channel roles) Tj
-1 0 0 1 54 224 Tm
-(- inference depends on external project-specific weights) Tj
-1 0 0 1 54 210 Tm
-(- artifact retention depends on available filesystem capacity and account storage quota) Tj
-1 0 0 1 54 196 Tm
-(- some legacy measurement paths coexist with a newer nuclear/cellular workflow and require) Tj
-1 0 0 1 54 182 Tm
-(careful interpretation) Tj
-1 0 0 1 54 168 Tm
-() Tj
-1 0 0 1 54 154 Tm
-(Conclusion) Tj
-1 0 0 1 54 140 Tm
-() Tj
-1 0 0 1 54 126 Tm
-(CytoCV is best understood as a domain-specific analysis platform rather than a generic) Tj
-1 0 0 1 54 112 Tm
-(microscopy framework. Its architecture is optimized around the concrete imaging assumptions,) Tj
-1 0 0 1 54 98 Tm
-(channel semantics, and review or export needs present in the current yeast mitosis workflow.) Tj
-1 0 0 1 512 30 Tm
-(Page 2) Tj
-ET
+BT /F2 22.00 Tf 1 0 0 1 54.00 720.00 Tm (Methods And System Description) Tj ET
+BT /F3 10.00 Tf 1 0 0 1 54.00 700.00 Tm (CytoCV Research Documentation) Tj ET
+q 1.00 w 0.68 0.72 0.80 RG 54.00 688.00 m 558.00 688.00 l S Q
+BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (1) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 650.00 Tm (Abstract) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 620.00 Tm (CytoCV is a web-based analysis system for DeltaVision microscopy of mitotic yeast cells. The) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 606.00 Tm (platform integrates authenticated web workflows, DeltaVision-specific metadata parsing, Mask) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 592.00 Tm (R-CNN-based segmentation, plugin-scoped per-cell quantification, and retention-aware result) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 578.00 Tm (management in a single Django application. The current codebase supports four logical) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 564.00 Tm (channel roles \(DIC, DAPI, mCherry, and GFP\), but only DIC is universally required.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 550.00 Tm (Additional fluorescence requirements are derived from the selected analysis plugins and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 536.00 Tm (optional upload-time validation policy.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 500.00 Tm (System Objective) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 470.00 Tm (The system is designed to reduce manual analysis effort while preserving the relationship) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 456.00 Tm (between source microscopy stacks, derived segmentation artifacts, and exported measurements.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 442.00 Tm (CytoCV therefore treats run configuration, channel mapping, scale context, and plugin) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 428.00 Tm (selection as first-class workflow state rather than transient UI detail.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 392.00 Tm (Input Model) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 362.00 Tm (CytoCV ingests DeltaVision \(.dv\) files that can be interpreted as channel stacks. The) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 348.00 Tm (implementation recognizes four logical channel roles:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 326.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 326.00 Tm (DIC, used for structural segmentation and CNN preprocessing) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 308.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 308.00 Tm (DAPI, used for legacy nucleus-related measurements) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 290.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 290.00 Tm (mCherry, used for red-signal contour and intensity measurements) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 272.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 272.00 Tm (GFP, used for green-signal contour, intensity, and dot-classification measurements) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 252.00 Tm (The software does not require all four roles in every run. The minimum baseline requirement) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 238.00 Tm (is DIC. The default modern configuration requires DIC, mCherry, and GFP. DAPI becomes) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 224.00 Tm (required only when a legacy DAPI-centered plugin is selected or when full-wavelength) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 210.00 Tm (validation is enabled.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 174.00 Tm (Validation Logic) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 144.00 Tm (Upload-time validation is controlled by the effective requirement set assembled in) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 130.00 Tm (core.views.experiment and core.metadata_processing.error_handling.dv_validation.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 106.00 Tm (The effective required channels are formed as:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 84.00 Tm (1. ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 84.00 Tm (the baseline segmentation requirement DIC) Tj ET
 endstream
 endobj
+5 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
 6 0 obj
-<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+<< /Length 5975 >>
+stream
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Methods And System Description) Tj ET
+q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
+BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (2) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 718.00 Tm (2. ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (the union of required channels declared by the selected plugins) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 700.00 Tm (3. ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 700.00 Tm (any manual required channels, if the validation module is enabled) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 682.00 Tm (4. ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 682.00 Tm (all four logical roles, if enforce_wavelengths=True) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 662.00 Tm (Exact four-layer validation is separate. It is applied only when enforce_layer_count=True.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 638.00 Tm (This distinction matters scientifically and operationally. The codebase supports four) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 624.00 Tm (logical roles, but the baseline workflow does not equate "supported" with "universally) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 610.00 Tm (required.") Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 574.00 Tm (Measurement Model) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 544.00 Tm (Per-cell quantification is plugin driven. The current implementation exposes the following) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 530.00 Tm (plugin definitions.) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 54.00 482.00 134.40 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 60.00 490.50 Tm (Plugin) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 188.40 482.00 168.00 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 194.40 490.50 Tm (Additional channels beyond DIC) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 356.40 482.00 44.80 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 362.40 490.50 Tm (Legacy) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 401.20 482.00 156.80 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 407.20 490.50 Tm (Default modern configuration) Tj ET
+q 0.72 0.76 0.84 RG 54.00 456.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 464.50 Tm (MCherryLine) Tj ET
+q 0.72 0.76 0.84 RG 188.40 456.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 464.50 Tm (mCherry, GFP) Tj ET
+q 0.72 0.76 0.84 RG 356.40 456.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 464.50 Tm (No) Tj ET
+q 0.72 0.76 0.84 RG 401.20 456.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 464.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 54.00 430.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 438.50 Tm (GFPDot) Tj ET
+q 0.72 0.76 0.84 RG 188.40 430.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 438.50 Tm (mCherry, GFP) Tj ET
+q 0.72 0.76 0.84 RG 356.40 430.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 438.50 Tm (No) Tj ET
+q 0.72 0.76 0.84 RG 401.20 430.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 438.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 54.00 404.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 412.50 Tm (GreenRedIntensity) Tj ET
+q 0.72 0.76 0.84 RG 188.40 404.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 412.50 Tm (mCherry, GFP) Tj ET
+q 0.72 0.76 0.84 RG 356.40 404.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 412.50 Tm (No) Tj ET
+q 0.72 0.76 0.84 RG 401.20 404.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 412.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 54.00 378.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 386.50 Tm (NuclearCellularIntensity) Tj ET
+q 0.72 0.76 0.84 RG 188.40 378.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 386.50 Tm (mCherry, GFP) Tj ET
+q 0.72 0.76 0.84 RG 356.40 378.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 386.50 Tm (No) Tj ET
+q 0.72 0.76 0.84 RG 401.20 378.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 386.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 54.00 352.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 360.50 Tm (NucleusIntensity) Tj ET
+q 0.72 0.76 0.84 RG 188.40 352.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 360.50 Tm (DAPI, GFP) Tj ET
+q 0.72 0.76 0.84 RG 356.40 352.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 360.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 401.20 352.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 360.50 Tm (No) Tj ET
+q 0.72 0.76 0.84 RG 54.00 326.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 334.50 Tm (DAPI_NucleusIntensity) Tj ET
+q 0.72 0.76 0.84 RG 188.40 326.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 334.50 Tm (DAPI) Tj ET
+q 0.72 0.76 0.84 RG 356.40 326.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 334.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 401.20 326.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 334.50 Tm (No) Tj ET
+q 0.72 0.76 0.84 RG 54.00 300.00 134.40 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 308.50 Tm (RedBlueIntensity) Tj ET
+q 0.72 0.76 0.84 RG 188.40 300.00 168.00 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 194.40 308.50 Tm (mCherry, DAPI) Tj ET
+q 0.72 0.76 0.84 RG 356.40 300.00 44.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 362.40 308.50 Tm (Yes) Tj ET
+q 0.72 0.76 0.84 RG 401.20 300.00 156.80 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 407.20 308.50 Tm (No) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 288.00 Tm (The default modern workflow is therefore centered on DIC, mCherry, and GFP. DAPI-dependent) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 274.00 Tm (analyses remain available for backward compatibility, but they are legacy paths rather than) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 260.00 Tm (the primary current workflow.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 224.00 Tm (Computational Workflow) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 188.00 Tm (1. Upload And Validation) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 163.00 Tm (The upload stage creates a run UUID, persists the source file, resolves the effective) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 149.00 Tm (required channel set, validates the DV structure, extracts channel-mapping information, and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 135.00 Tm (stores scale metadata when available.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 105.00 Tm (2. Preview Generation) Tj ET
+endstream
 endobj
 7 0 obj
-<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
 endobj
 8 0 obj
-<< /Type /Catalog /Pages 7 0 R >>
+<< /Length 3689 >>
+stream
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Methods And System Description) Tj ET
+q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
+BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (3) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 716.00 Tm (Browser-friendly PNG previews are generated per detected layer so that the operator can) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 702.00 Tm (review channel ordering and file state before inference.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 672.00 Tm (3. Preprocessing And Inference) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 647.00 Tm (The preprocess stage converts the structural channel input into the inference-ready) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 633.00 Tm (representation and invokes the Mask R-CNN pipeline, producing a segmentation mask for) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 619.00 Tm (downstream analysis.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 589.00 Tm (4. Segmentation Product Assembly) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 564.00 Tm (The segmentation stage combines the generated mask with the original DV stack to produce) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 550.00 Tm (outlined full-frame views, per-cell cropped outputs, and plugin-dependent debug overlays.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 520.00 Tm (5. Per-Cell Quantification) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 495.00 Tm (The plugin layer computes cell-level values such as red-dot distance, line GFP intensity,) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 481.00 Tm (green and red contour summaries, nuclear or cellular intensity measurements, and GFP dot) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 467.00 Tm (classification outputs.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 437.00 Tm (6. Review, Export, And Retention) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 412.00 Tm (The display and dashboard views expose run outputs, table exports, and the) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 398.00 Tm (save-versus-transient retention model.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 362.00 Tm (Software Architecture) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 332.00 Tm (The application is implemented as a Django project with two main application domains:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 310.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 310.00 Tm (accounts, responsible for identity, preferences, dashboard behavior, and account) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 296.00 Tm (lifecycle) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 278.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 278.00 Tm (core, responsible for upload handling, processing, storage, segmentation, display, and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 264.00 Tm (scientific measurement) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 244.00 Tm (Persistent state is divided between database rows and filesystem-backed media artifacts.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 208.00 Tm (Reproducibility-Relevant Characteristics) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 178.00 Tm (The current codebase captures several features that support reproducible interpretation:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 156.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 156.00 Tm (a fixed Python target of 3.11.5) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 138.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 138.00 Tm (explicit database backend selection) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 120.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 120.00 Tm (fail-fast environment validation) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 102.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 102.00 Tm (deterministic plugin metadata registration in core.stats_plugins) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 84.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 84.00 Tm (per-run saved scale context in UploadedImage.scale_info) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 1743 >>
+stream
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Methods And System Description) Tj ET
+q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
+BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (4) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 718.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (per-cell contextual metadata in CellStatistics.properties) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 686.00 Tm (Limitations) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 658.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 658.00 Tm (inference depends on external project-specific weights) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 640.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 640.00 Tm (the TensorFlow-based analysis path requires a host with AVX CPU support) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 622.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 622.00 Tm (artifact retention depends on filesystem capacity and account storage quotas) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 604.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 604.00 Tm (DAPI-centered measurements coexist with a newer modern workflow and must be interpreted) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 590.00 Tm (as legacy analyses) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 558.00 Tm (Conclusion) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 528.00 Tm (CytoCV is best understood as a domain-specific analysis platform rather than a generic) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 514.00 Tm (microscopy framework. Its architecture is optimized around the current yeast mitosis) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 500.00 Tm (workflow, with DIC-driven segmentation, modern mCherry and GFP measurements as the default) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 486.00 Tm (path, and legacy DAPI analyses preserved for backward compatibility.) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R] /Count 4 >>
+endobj
+13 0 obj
+<< /Type /Catalog /Pages 12 0 R >>
 endobj
 xref
-0 9
+0 14
 0000000000 65535 f 
 0000000009 00000 n 
 0000000079 00000 n 
 0000000154 00000 n 
-0000002931 00000 n 
-0000003067 00000 n 
-0000006153 00000 n 
-0000006289 00000 n 
-0000006352 00000 n 
+0000000232 00000 n 
+0000004110 00000 n 
+0000004257 00000 n 
+0000010284 00000 n 
+0000010431 00000 n 
+0000014172 00000 n 
+0000014319 00000 n 
+0000016115 00000 n 
+0000016264 00000 n 
+0000016341 00000 n 
 trailer
-<< /Size 9 /Root 8 0 R >>
+<< /Size 14 /Root 13 0 R >>
 startxref
-6401
+16392
 %%EOF

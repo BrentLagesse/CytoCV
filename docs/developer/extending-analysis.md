@@ -40,6 +40,8 @@ Any plugin added to the metadata table automatically participates in:
 
 This means channel requirements must be correct at registration time.
 
+`DIC` remains part of the baseline requirement through `ALWAYS_REQUIRED_CHANNELS`, and plugin registration is responsible only for the additional channels beyond that baseline.
+
 ## Statistics Output Implications
 
 If a plugin writes new values into `CellStatistics`, decide whether those values belong in:

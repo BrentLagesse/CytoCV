@@ -86,8 +86,8 @@ Important direct fields include:
 - `cytoplasmic_intensity`
 - contour sizes
 - red, green, and mixed intensity fields
-- DAPI legacy fields
-- GFP dot classification fields
+- legacy DAPI-derived fields when corresponding legacy plugins are selected
+- GFP dot classification fields when `GFPDot` is selected
 - `properties`
 
 `properties` carries dynamic run context such as:

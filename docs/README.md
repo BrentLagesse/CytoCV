@@ -60,3 +60,4 @@ Formal PDF deliverables:
 
 - Diagram catalog: [`diagrams/README.md`](diagrams/README.md)
 - Documentation standards: [`templates/document-style-guide.md`](templates/document-style-guide.md)
+- License: [`license/README.md`](license/README.md)

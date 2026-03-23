@@ -1,411 +1,233 @@
 # CytoCV
 
-CytoCV is a Django-based analysis system for DeltaVision (`.dv`) fluorescent microscopy stacks of mitotic yeast cells. It ingests four-channel image sets, runs preprocessing and Mask R-CNN segmentation, computes per-cell measurements, and presents the results through a web interface for review and export.
+CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of mitotic yeast cells. The application supports four logical channel roles (`DIC`, `DAPI`, `mCherry`, and `GFP`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
 > **Version:** 1.0  
 > **Python:** 3.11.5  
 > **Database:** PostgreSQL in production; SQLite for local development only  
-> **Platform:** Windows native development and Linux-compatible deployment
+> **Platform:** Windows-native development and Linux-compatible deployment
 
-Deployment documentation:
-- [`docs/vm-deployment-guide/README.md`](docs/vm-deployment-guide/README.md)
-- [`docs/vm-deployment-record/README.md`](docs/vm-deployment-record/README.md)
+## Table of Contents
 
-## Scope
+- [Overview](#overview)
+- [System Scope](#system-scope)
+- [Local Installation](#local-installation)
+- [Documentation Map](#documentation-map)
+- [Deployment](#deployment)
+- [Runtime Requirements](#runtime-requirements)
+- [Security Notes](#security-notes)
+- [License](#license)
 
-CytoCV currently targets workflows built around these channels:
+## Overview
 
-- `DIC`
-- `DAPI`
-- `mCherry`
-- `GFP`
+CytoCV combines:
 
-High-level outputs include:
+- upload-time DeltaVision validation and preview generation
+- Mask R-CNN-driven segmentation built around the `DIC` structural channel
+- plugin-based per-cell quantification
+- database-backed review, retention, and export workflows
 
-- upload preview images
-- per-run segmentation masks and outlined frames
-- per-cell crops and debug overlays
-- database-backed cell statistics
-- exportable tables from the display and dashboard views
+The code-defined default modern workflow enables these plugins:
 
-## Quickstart
+- `MCherryLine`
+- `GFPDot`
+- `GreenRedIntensity`
+- `NuclearCellularIntensity`
 
-1. Use Python `3.11.5`.
-2. Create and activate a virtual environment.
-3. Install `requirements.txt`.
-4. Copy `.env.example` to `.env`.
-5. Set `CYTOCV_DB_BACKEND=sqlite` for local development or `postgres` for production.
-6. From `cytocv/`, run:
+That default set requires `DIC`, `mCherry`, and `GFP`. `DAPI` remains supported for legacy measurements and for optional full-wavelength validation.
 
-```powershell
-python manage.py migrate
-python manage.py runserver
-```
+## System Scope
 
-## Documentation
+CytoCV is intended for research workflows built around DeltaVision microscopy of mitotic yeast cells. The application can process anything from a DIC-only structural run to a full four-role stack, depending on the selected plugin set and validation policy. In the current implementation, the platform coordinates:
 
-Detailed documentation is organized under [`docs/README.md`](docs/README.md).
+- DeltaVision ingestion and configurable validation
+- channel interpretation and preview generation
+- machine-learning-driven cell segmentation
+- plugin-scoped downstream measurements
+- result review, export, and retention
 
-Primary entrypoints:
+The primary scientific workflow is documented in:
 
-- User docs: [`docs/user/getting-started.md`](docs/user/getting-started.md)
-- Developer docs: [`docs/developer/architecture-overview.md`](docs/developer/architecture-overview.md)
-- Deployment and environment: [`docs/ops/deployment-guide.md`](docs/ops/deployment-guide.md)
-- Environment variable reference: [`docs/ops/environment-reference.md`](docs/ops/environment-reference.md)
-- Route and API reference: [`docs/reference/routes-and-endpoints.md`](docs/reference/routes-and-endpoints.md)
-- Diagram catalog: [`docs/diagrams/README.md`](docs/diagrams/README.md)
+- [docs/user/workflow-guide.md](docs/user/workflow-guide.md)
+- [docs/research/methods-and-system-description.md](docs/research/methods-and-system-description.md)
 
-Formal research-style documents:
+## Local Installation
 
-- [`docs/research/methods-and-system-description.md`](docs/research/methods-and-system-description.md)
-- [`docs/research/reproducibility-and-validation.md`](docs/research/reproducibility-and-validation.md)
-- [`docs/research/figure-catalog.md`](docs/research/figure-catalog.md)
+The root README is intentionally concise, but the local installation path should remain explicit.
 
-Generated PDF deliverables:
+### 1. Clone the Repository
 
-- [`docs/research/methods-and-system-description.pdf`](docs/research/methods-and-system-description.pdf)
-- [`docs/research/reproducibility-and-validation.pdf`](docs/research/reproducibility-and-validation.pdf)
-- [`docs/research/figure-catalog.pdf`](docs/research/figure-catalog.pdf)
-
-Historical deployment record for the March 2026 UWB VM rollout:
-
-- [`docs/vm-deployment-record/README.md`](docs/vm-deployment-record/README.md)
-
-## Notes
-
-- The Mask R-CNN workflow depends on project-specific weights under `cytocv/core/weights`.
-- PostgreSQL setup details are documented in [`docs/ops/postgres-setup.md`](docs/ops/postgres-setup.md).
-- Markdown documents are the maintained source of truth. PDF documents in `docs/research/` are derived formal deliverables.
-
-
-
-## Configuration
-Create a `.env` file in the repository root. `cytocv/cytocv/settings.py` loads this file automatically.
-
-Database policy:
-- Production backend: PostgreSQL
-- Local development/testing convenience: SQLite
-- Enforcement: SQLite is blocked when `CYTOCV_DEBUG=0`
-
-Required core keys:
 ```bash
-CYTOCV_SECRET_KEY=change-me
-CYTOCV_DEBUG=1
-CYTOCV_ALLOWED_HOSTS=localhost,127.0.0.1
-CYTOCV_DB_BACKEND=sqlite
+git clone https://github.com/BrentLagesse/CytoCV.git
+cd CytoCV
 ```
 
-Database backend selection:
-```bash
-# Required selector (must be one of: sqlite, postgres)
-CYTOCV_DB_BACKEND=sqlite
-```
-For full Postgres setup commands, see `POSTGRES_SETUP.md`.
+### 2. Create and Activate the Python Environment
 
-Local development (SQLite, explicit):
-```bash
-CYTOCV_DB_BACKEND=sqlite
-```
+CytoCV expects Python `3.11.5`.
 
-VM / production (PostgreSQL):
-```bash
-CYTOCV_DB_BACKEND=postgres
-CYTOCV_DB_NAME=cytocv
-CYTOCV_DB_USER=cytocv_user
-CYTOCV_DB_PASSWORD=change-me
-CYTOCV_DB_HOST=127.0.0.1
-CYTOCV_DB_PORT=5432
-CYTOCV_DB_CONN_MAX_AGE=60
-CYTOCV_DB_ATOMIC_REQUESTS=0
-CYTOCV_DB_SSLMODE=prefer
-```
-Driver policy:
-- Use `psycopg` (psycopg3) only.
+Create the virtual environment:
 
-Fail-fast behavior:
-- If `CYTOCV_DB_BACKEND` is missing or invalid, startup fails immediately.
-- If `CYTOCV_DB_BACKEND=postgres` and required DB credentials are missing, startup fails immediately.
-- If `CYTOCV_DEBUG=0` and `CYTOCV_DB_BACKEND=sqlite`, startup fails (SQLite is blocked in production mode).
-- If `CYTOCV_DEBUG=0` and `CYTOCV_SECRET_KEY` is blank/default/placeholder, startup fails immediately.
-
-OAuth / provider keys:
-```bash
-CYTOCV_GOOGLE_CLIENT_ID=
-CYTOCV_GOOGLE_CLIENT_SECRET=
-CYTOCV_MICROSOFT_CLIENT_ID=
-CYTOCV_MICROSOFT_CLIENT_SECRET=
-CYTOCV_MICROSOFT_TENANT=organizations
-CYTOCV_MICROSOFT_LOGIN_URL=https://login.microsoftonline.com
-```
-
-Email keys:
-```bash
-CYTOCV_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-CYTOCV_EMAIL_HOST=smtp.gmail.com
-CYTOCV_EMAIL_HOST_USER=
-CYTOCV_EMAIL_HOST_PASSWORD=
-CYTOCV_EMAIL_PORT=587
-CYTOCV_EMAIL_USE_TLS=1
-CYTOCV_EMAIL_USE_SSL=0
-CYTOCV_EMAIL_TIMEOUT=
-CYTOCV_ACCOUNT_EMAIL_VERIFICATION=optional
-CYTOCV_DEFAULT_FROM_EMAIL=no-reply@noreply.x.edu
-CYTOCV_EMAIL_REPLY_TO=no-reply@noreply.x.edu
-```
-Notes:
-- `CYTOCV_EMAIL_USE_TLS` and `CYTOCV_EMAIL_USE_SSL` cannot both be `1`.
-- Use `CYTOCV_ACCOUNT_EMAIL_VERIFICATION=mandatory` for stricter production policy.
-
-Use `.env.example` as the template.
-
-
-
-## Architecture
-The server follows a layered architecture:
-
-```
-┌──────────────────────────────┐
-│       Presentation/UI        │  Django templates and JS  
-├──────────────────────────────┤
-│     Web/Application Layer    │  Request handlers  
-├──────────────────────────────┤
-│    Domain/Service Layer      │  Scientific/processing modules
-├──────────────────────────────┤
-│  Data & Infrastructure Layer │  Django models 
-└──────────────────────────────┘
-```
-**Flow**
-- UI
-- Views
-- Processing services
-- Models, database, and media
-
-
-
-### Project Layout
-```
-<repo-root>/
-├─ Dockerfile         # python:3.11.5-slim
-├─ compose.yml
-├─ start.sh           # run migrations, launch gunicorn
-└─ cytocv/
-   ├─ accounts/       # auth, profile, config UI
-   ├─ core/           # upload, preprocess, convert, segment, display, stats
-   │  ├─ image_processing/
-   │  ├─ contour_processing/
-   │  ├─ cell_analysis/
-   │  └─ mrcnn/
-   │     ├─ weights/deepretina_final.h5
-   │     └─ my_inference.py
-   ├─ templates/      # upload/preprocess/display pages
-   └─ cytocv/       # settings, urls, wsgi, asgi
-```
-
-Entry points: `manage.py` (CLI), `cytocv/urls.py` (routes), `wsgi.py/asgi.py` (servers)
-
-
-## Data & artifacts
-- **Inputs**: DV `.dv` with **exactly** 4 layers (DIC + three fluorescence).
-- **Storage**: `MEDIA_ROOT/<uuid>/<original>.dv` (UUID per upload).
-- **Metadata**: `channel_config.json` (wavelengths/order).
-- **Preprocessing**: `preprocessed_images/`, direct mask generation to `output/mask.tif`.
-- **Segmentation**: per-cell PNGs in `segmented/`, outline CSVs, debug overlays.
-- **DB**: `CellStatistics` rows for per-cell metrics.
-- **Samples**: `example-dv-file/`.
-
-
-
-## Workflow
-1. **Upload** DV stack(s): `/image/upload/`  
-2. **Preprocess** and choose analyses: `/image/preprocess/<uuids>/`  
-3. **Inference** (Mask R-CNN) and direct `mask.tif` generation  
-4. **Segmentation & analysis**: `/image/<uuids>/segment/`  
-5. **Display & export**: `/image/<uuids>/display/`
-
-Progress is tracked under `MEDIA_ROOT/progress/<hash>.json`.  
-Caching can reuse artifacts when `use_cache=True`.
-
-
-
-## Uploading (UI & API)
-
-**UI**
-- Drag/drop or folder input
-- Duplicate suppression
-- Client-side polling keyed by session
-
-**Server**
-- Requires minimum 1 file and rejects wrong layer counts with details
-- UUID partitioning, original filenames preserved
-- Heavy preprocessing happens after user confirms settings
-
-
-
-## Image processing
-
-**Channel mapping**
-- Parse DV headers
-- Write `channel_config.json`
-
-**Preprocessing**
-- Intensity rescale, RGB TIFF previews
-- Write preprocessed PNG inputs for inference
-
-**Mask R-CNN (CPU)**
-- Min dim 512, anchors 8–128, confidence ≥ 0.9
-- Weights: `core/mrcnn/weights/deepretina_final.h5`
-- `CUDA_VISIBLE_DEVICES` disabled
-
-**Mask output**
-- Write `output/mask.tif` directly from predicted instance masks
-
-**Segmentation**
-- Gaussian blur + Canny/Otsu threshold
-- Rolling-ball background subtraction
-- Neighbor merges, plugin analyses
-
-**Per-cell metrics (DB)**
-- `distance`, `line_gfp_intensity`, `nucleus_intensity_sum`, `cellular_intensity_sum`
-
-
-
-## Outputs & schemas
-
-**Folder layout (per UUID)**
-```
-<MEDIA_ROOT>/<uuid>/
-  original.dv
-  channel_config.json
-  preprocessed_images/
-  segmented/
-  output/
-  progress/
-```
-
-**CSV schemas (typical)**
-- Outline/metrics CSVs: `cell_id, x/y coords, area, intensity, distance, notes`
-
-**Table export (UI)**
-- `django-tables2` supports CSV/XLSX via `_export` query param.
-
-
-
-## HTTP routes
-- **Core**:  
-  - `/image/upload/`  
-  - `/image/preprocess/<uuids>/`  
-  - `/image/<uuids>/segment/`  
-  - `/image/<uuids>/display/`
-- **Auth**: `/signin/`, `/signup/`, OAuth (Google/Microsoft) if configured.  
-- Internal JSON endpoints are CSRF-protected. No versioned public REST API.
-
-
-
-## Examples
-### 1) UI Upload (UI, single/multi file)
-
-**Start server**
 ```bash
 python -m venv cyto_cv
-# bash
+```
+
+Activate it on macOS or Linux:
+
+```bash
 source cyto_cv/bin/activate
-# PowerShell alternative:
-# .\cyto_cv\Scripts\Activate.ps1
+```
 
+Activate it on Windows PowerShell:
+
+```powershell
+.\cyto_cv\Scripts\Activate.ps1
+```
+
+Upgrade the base packaging tools:
+
+```bash
 python -m pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt --no-cache-dir
+```
 
+### 3. Install Project Requirements
+
+Install the pinned Python dependencies:
+
+```bash
+python -m pip install -r requirements.txt --no-cache-dir
+```
+
+### 4. Create the Local Environment File
+
+Copy the example configuration:
+
+```bash
+cp .env.example .env
+```
+
+For Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Then edit `.env` and confirm the local database backend is SQLite:
+
+```env
+CYTOCV_DB_BACKEND=sqlite
+```
+
+### 5. Download the Required Model Weights
+
+Place the Mask R-CNN weights file at:
+
+```text
+cytocv/core/weights/deepretina_final.h5
+```
+
+The weights file is required for preprocessing and inference.
+
+### 6. Apply Database Migrations
+
+Move into the Django project directory:
+
+```bash
 cd cytocv
-python manage.py makemigrations accounts core
+```
+
+Apply the database schema:
+
+```bash
 python manage.py migrate
+```
+
+### 7. Start the Local Development Server
+
+Run the application:
+
+```bash
 python manage.py runserver
 ```
 
-**Process the sample**
-1. Open http://localhost:8000/image/upload/
-2. Upload `example-dv-file/M3850/M3850_001_PRJ.dv`
-3. On **Preprocess**: verify channel order (DIC, DAPI, mCherry, GFP), then continue
-4. On **Display**: inspect per-cell outputs; export CSV/XLSX from the table
+The default local URL is:
 
-**Expected artifacts**
-```
-media/<uuid>/
-├─ M3850_001_PRJ.dv
-├─ channel_config.json
-├─ preprocessed_images/
-│  ├─ DIC.tif
-│  ├─ DAPI.tif
-│  ├─ mCherry.tif
-│  └─ GFP.tif
-├─ output/
-│  └─ mask.tif
-└─ segmented/
-   ├─ cell_0001.png
-   ├─ cell_0002.png
-   ├─ ...
-   └─ overlay_debug_*.png
+```text
+http://127.0.0.1:8000/
 ```
 
-### 2) Programmatic Upload (Python)
+For production or VM deployment, use the dedicated operational documentation instead of the local workflow above.
 
-```python
-# save as upload_sample.py and run with the server up
-import requests
+## Documentation Map
 
-url = "http://localhost:8000/image/upload/"
-with open("example-dv-file/250307_M2472_N1_5_002_PRJ.dv", "rb") as f:
-    r = requests.post(url, files={"files": ("250307_M2472_N1_5_002_PRJ.dv", f, "application/octet-stream")}, allow_redirects=False)
+The canonical documentation home is [docs/README.md](docs/README.md).
 
-print("Status:", r.status_code)
-print("Next:", r.headers.get("Location") or r.text[:2000])  # open this URL in a browser to continue
-```
+Primary entry points:
 
+- User documentation: [docs/user/getting-started.md](docs/user/getting-started.md)
+- Developer architecture: [docs/developer/architecture-overview.md](docs/developer/architecture-overview.md)
+- Developer codebase map: [docs/developer/codebase-map.md](docs/developer/codebase-map.md)
+- Operations deployment guide: [docs/ops/deployment-guide.md](docs/ops/deployment-guide.md)
+- Operations environment reference: [docs/ops/environment-reference.md](docs/ops/environment-reference.md)
+- Route and endpoint reference: [docs/reference/routes-and-endpoints.md](docs/reference/routes-and-endpoints.md)
+- Diagram catalog: [docs/diagrams/README.md](docs/diagrams/README.md)
 
-## Testing
-Recommended:
-- **Fixtures**: tiny DV stacks for unit tests.
-- **Units**: channel parser, preprocessing transforms, direct mask generation.
-- **Integration**: upload, to preprocess, to segment, to display (mock weights).
-- **CI**: Windows/Linux, Python 3.11.5.
+Research-oriented documents:
 
-Run:
+- [docs/research/methods-and-system-description.md](docs/research/methods-and-system-description.md)
+- [docs/research/reproducibility-and-validation.md](docs/research/reproducibility-and-validation.md)
+- [docs/research/figure-catalog.md](docs/research/figure-catalog.md)
+
+## Deployment
+
+For operational deployment material, use these documents:
+
+- General deployment guide: [docs/ops/deployment-guide.md](docs/ops/deployment-guide.md)
+- PostgreSQL setup: [docs/ops/postgres-setup.md](docs/ops/postgres-setup.md)
+- March 2026 VM step-by-step guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
+- March 2026 VM rollout record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
+
+The VM-specific documents are especially important for infrastructure similar to the UWB VM used during the March 2026 rollout.
+
+## Runtime Requirements
+
+The following requirements are operationally significant:
+
+- Python must remain at `3.11.5` unless the scientific stack is revalidated.
+- Production should use PostgreSQL, not SQLite.
+- The Mask R-CNN workflow requires `deepretina_final.h5` under `cytocv/core/weights/`.
+- TensorFlow-based analysis requires a CPU that exposes `AVX`. A server can host the web application without `AVX`, but the analysis pipeline will fail with `Illegal instruction` if the CPU does not support the required instruction set.
+
+If you are deploying to a new VM, check CPU flags before treating the system as analysis-capable:
+
 ```bash
-python manage.py test
+lscpu | grep -i avx
 ```
 
+If that command returns nothing, review the AVX section in [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md) before proceeding.
 
+## Security Notes
 
-## Security
-- If deploying, move secrets out of the repo (env vars or secret store) and rotate existing keys.
-- Set `CYTOCV_DEBUG=0` in production and populate `CYTOCV_ALLOWED_HOSTS`.
-- Enforce HTTPS at the proxy. Add HSTS and a strict CSP.
-- Add signup rate-limits or CAPTCHA.
-- Enable dependency and secret scanning.
-- Verify access control on display routes (already checks ownership).
+For production use:
 
+- set `CYTOCV_DEBUG=0`
+- configure `CYTOCV_ALLOWED_HOSTS` explicitly
+- keep secrets out of the repository and rotate exposed values
+- use PostgreSQL with least-privileged credentials
+- terminate traffic over HTTPS
+- configure provider credentials and reCAPTCHA only for approved production domains
+- enable mandatory email verification only after SMTP is configured correctly
 
-## Troubleshooting
-- **TensorFlow or import errors**: Use **Python 3.11.5** in a clean venv.
-- **Missing weights**: Put `core/mrcnn/weights/deepretina_final.h5`.
-- **DV rejected**: File must have exactly 4 layers.
-- **No outputs / blank display**: Check console and `debug.log`. Confirm `output/mask.tif` was written.
-- **Cache mismatch**: Turn off `use_cache` if parameters changed.
-- **401 on display**: You are not the owner of the data.
+Detailed operational guidance is documented in:
 
-
-
-## Roadmap
-- Metrics endpoints and dashboards.
-- Object storage support.
-- Replace file-based progress with Redis/DB for better scale.
-- Accessibility review and responsive UI fixes.
-
-
+- [docs/ops/security-and-privacy.md](docs/ops/security-and-privacy.md)
+- [docs/ops/environment-reference.md](docs/ops/environment-reference.md)
 
 ## License
 
+CytoCV is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
 
+License reference:
 
-### Notes
-- **Exact Python** is non-negotiable here. If you must change TF/NumPy pins, expect breakage.  
-- Keep the weights path and Mask R-CNN config consistent unless you also update docs and sample results.
+- [docs/license/README.md](docs/license/README.md)
+- <https://creativecommons.org/licenses/by-nc-sa/4.0/>

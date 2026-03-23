@@ -2,74 +2,107 @@
 
 ## Abstract
 
-CytoCV is a web-based analysis system for four-channel DeltaVision microscopy stacks of mitotic yeast cells. The software combines authenticated web workflows, DV-specific metadata parsing, Mask R-CNN-based segmentation, per-cell measurement plugins, and retention-aware result management in a single Django application.
+CytoCV is a web-based analysis system for DeltaVision microscopy of mitotic yeast cells. The platform integrates authenticated web workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, plugin-scoped per-cell quantification, and retention-aware result management in a single Django application. The current codebase supports four logical channel roles (`DIC`, `DAPI`, `mCherry`, and `GFP`), but only `DIC` is universally required. Additional fluorescence requirements are derived from the selected analysis plugins and optional upload-time validation policy.
 
 ## System Objective
 
-The system is designed to reduce manual analysis effort when processing mitotic yeast microscopy data. It provides a structured path from raw DV upload to per-cell statistical output while preserving the relationship between source image stacks, channel mapping, segmentation products, and exported measurements.
+The system is designed to reduce manual analysis effort while preserving the relationship between source microscopy stacks, derived segmentation artifacts, and exported measurements. CytoCV therefore treats run configuration, channel mapping, scale context, and plugin selection as first-class workflow state rather than transient UI detail.
 
-## Input Assumptions
+## Input Model
 
-The active workflow assumes a four-channel stack composed of:
+CytoCV ingests DeltaVision (`.dv`) files that can be interpreted as channel stacks. The implementation recognizes four logical channel roles:
 
-- DIC
-- DAPI
-- mCherry
-- GFP
+- `DIC`, used for structural segmentation and CNN preprocessing
+- `DAPI`, used for legacy nucleus-related measurements
+- `mCherry`, used for red-signal contour and intensity measurements
+- `GFP`, used for green-signal contour, intensity, and dot-classification measurements
 
-The software can enforce exact layer count, required wavelengths, and plugin-driven channel requirements during upload.
+The software does not require all four roles in every run. The minimum baseline requirement is `DIC`. The default modern configuration requires `DIC`, `mCherry`, and `GFP`. `DAPI` becomes required only when a legacy DAPI-centered plugin is selected or when full-wavelength validation is enabled.
+
+## Validation Logic
+
+Upload-time validation is controlled by the effective requirement set assembled in `core.views.experiment` and `core.metadata_processing.error_handling.dv_validation`.
+
+The effective required channels are formed as:
+
+1. the baseline segmentation requirement `DIC`
+2. the union of required channels declared by the selected plugins
+3. any manual required channels, if the validation module is enabled
+4. all four logical roles, if `enforce_wavelengths=True`
+
+Exact four-layer validation is separate. It is applied only when `enforce_layer_count=True`.
+
+This distinction matters scientifically and operationally. The codebase supports four logical roles, but the baseline workflow does not equate "supported" with "universally required."
+
+## Measurement Model
+
+Per-cell quantification is plugin driven. The current implementation exposes the following plugin definitions.
+
+| Plugin | Additional channels beyond `DIC` | Legacy | Default modern configuration |
+| --- | --- | --- | --- |
+| `MCherryLine` | `mCherry`, `GFP` | No | Yes |
+| `GFPDot` | `mCherry`, `GFP` | No | Yes |
+| `GreenRedIntensity` | `mCherry`, `GFP` | No | Yes |
+| `NuclearCellularIntensity` | `mCherry`, `GFP` | No | Yes |
+| `NucleusIntensity` | `DAPI`, `GFP` | Yes | No |
+| `DAPI_NucleusIntensity` | `DAPI` | Yes | No |
+| `RedBlueIntensity` | `mCherry`, `DAPI` | Yes | No |
+
+The default modern workflow is therefore centered on `DIC`, `mCherry`, and `GFP`. DAPI-dependent analyses remain available for backward compatibility, but they are legacy paths rather than the primary current workflow.
 
 ## Computational Workflow
 
 ### 1. Upload And Validation
 
-The upload stage creates a run UUID, persists the source file, validates the DV structure, extracts channel mapping information, and stores scale metadata when available.
+The upload stage creates a run UUID, persists the source file, resolves the effective required channel set, validates the DV structure, extracts channel-mapping information, and stores scale metadata when available.
 
 ### 2. Preview Generation
 
-Browser-friendly PNG previews are generated per layer so that the operator can review channel ordering and file state before inference.
+Browser-friendly PNG previews are generated per detected layer so that the operator can review channel ordering and file state before inference.
 
 ### 3. Preprocessing And Inference
 
-The preprocess stage converts the relevant structural data into the inference-ready representation and invokes the Mask R-CNN pipeline, producing a segmentation mask for downstream analysis.
+The preprocess stage converts the structural channel input into the inference-ready representation and invokes the Mask R-CNN pipeline, producing a segmentation mask for downstream analysis.
 
 ### 4. Segmentation Product Assembly
 
-The segmentation stage combines the generated mask with the original DV stack to produce outlined full-frame views, per-cell cropped outputs, and channel-specific debug overlays.
+The segmentation stage combines the generated mask with the original DV stack to produce outlined full-frame views, per-cell cropped outputs, and plugin-dependent debug overlays.
 
 ### 5. Per-Cell Quantification
 
-A plugin-based measurement layer computes cell-level values such as red-dot distance, line GFP intensity, nuclear and cellular intensity summaries, and GFP dot classification outputs.
+The plugin layer computes cell-level values such as red-dot distance, line GFP intensity, green and red contour summaries, nuclear or cellular intensity measurements, and GFP dot classification outputs.
 
 ### 6. Review, Export, And Retention
 
-The display and dashboard views expose the run outputs, table exports, and save-versus-transient retention model.
+The display and dashboard views expose run outputs, table exports, and the save-versus-transient retention model.
 
 ## Software Architecture
 
 The application is implemented as a Django project with two main application domains:
 
-- `accounts` for identity, preferences, dashboard behavior, and account lifecycle
-- `core` for upload handling, processing, storage, segmentation, display, and scientific measurement
+- `accounts`, responsible for identity, preferences, dashboard behavior, and account lifecycle
+- `core`, responsible for upload handling, processing, storage, segmentation, display, and scientific measurement
 
 Persistent state is divided between database rows and filesystem-backed media artifacts.
 
 ## Reproducibility-Relevant Characteristics
 
-- exact Python version expectation: `3.11.5`
+The current codebase captures several features that support reproducible interpretation:
+
+- a fixed Python target of `3.11.5`
 - explicit database backend selection
 - fail-fast environment validation
-- deterministic plugin metadata registration
+- deterministic plugin metadata registration in `core.stats_plugins`
 - per-run saved scale context in `UploadedImage.scale_info`
-- per-cell contextual measurement metadata in `CellStatistics.properties`
+- per-cell contextual metadata in `CellStatistics.properties`
 
 ## Limitations
 
-- the active workflow is tightly centered on the four expected channel roles
 - inference depends on external project-specific weights
-- artifact retention depends on available filesystem capacity and account storage quota
-- some legacy measurement paths coexist with a newer nuclear/cellular workflow and require careful interpretation
+- the TensorFlow-based analysis path requires a host with `AVX` CPU support
+- artifact retention depends on filesystem capacity and account storage quotas
+- DAPI-centered measurements coexist with a newer modern workflow and must be interpreted as legacy analyses
 
 ## Conclusion
 
-CytoCV is best understood as a domain-specific analysis platform rather than a generic microscopy framework. Its architecture is optimized around the concrete imaging assumptions, channel semantics, and review or export needs present in the current yeast mitosis workflow.
+CytoCV is best understood as a domain-specific analysis platform rather than a generic microscopy framework. Its architecture is optimized around the current yeast mitosis workflow, with `DIC`-driven segmentation, modern `mCherry` and `GFP` measurements as the default path, and legacy DAPI analyses preserved for backward compatibility.
