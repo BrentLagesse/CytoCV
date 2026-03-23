@@ -6,7 +6,7 @@ import scipy.ndimage as ndi
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 
-def find_contours(images:GrayImage, gfp_filter_enabled=False):
+def find_contours(images:GrayImage, gfp_filter_enabled=False, alternate_mcherry_detection=False):
     """
     This function finds contours in an image and returns them as a numpy array.
     :param images: Gray scale image list
@@ -19,73 +19,111 @@ def find_contours(images:GrayImage, gfp_filter_enabled=False):
     gray_gfp = images.get_image('GFP')
 
     dot_contours = []
-    if gray_mcherry_3 is not None:
-        # Use a two-step process with Otsu thresholding to tighten the contours
-        low_val, _ = cv2.threshold(
-            gray_mcherry_3,
-            0.65,
-            255,
-            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
-        )
-        _, bright_thresh = cv2.threshold(
-            gray_mcherry_3,
-            low_val + 11,
-            255,
-            cv2.THRESH_BINARY,
-        )
-        # _, bright_thresh = cv2.threshold(
-        #     gray_mcherry_3,
-        #     0.65,
-        #     255,
-        #     cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
-        # )
-        dot_contours, _ = cv2.findContours(bright_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]  # remove border contour
-
-    # finding threshold
-    # ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
-    #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    # ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
-    #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-
-    thresh_mcherry = None
-    thresh = None
     contours = []
     contours_mcherry = []
     bestContours = []
     bestContours_mcherry = []
-    if gray_mcherry_3 is not None and gray_mcherry is not None:
-        thresh_mcherry = cv2.Canny(gray_mcherry_3, 50, 150)
-        # TODO: thresh seems to always be empty; are thresh and thresh_mcherry even being used?
-        thresh = cv2.Canny(gray_mcherry, 50, 150)
-
-        # Try again with less restrictive thresholding if nothing was found
-        if np.max(thresh) == 0:
-            # _, thresh_mcherry = cv2.threshold(
+    if not alternate_mcherry_detection:
+        if gray_mcherry_3 is not None:
+            # Use a two-step process with Otsu thresholding to tighten the contours
+            low_val, _ = cv2.threshold(
+                gray_mcherry_3,
+                0.65,
+                255,
+                cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+            )
+            _, bright_thresh = cv2.threshold(
+                gray_mcherry_3,
+                low_val + 11,
+                255,
+                cv2.THRESH_BINARY,
+            )
+            # _, bright_thresh = cv2.threshold(
             #     gray_mcherry_3,
-            #     0,
-            #     1,
-            #     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+            #     0.65,
+            #     255,
+            #     cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
             # )
+            dot_contours, _ = cv2.findContours(bright_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]  # remove border contour
+
+        # finding threshold
+        # ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
+        #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+        # ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
+        #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
+
+        thresh_mcherry = None
+        thresh = None
+        contours = []
+        contours_mcherry = []
+        bestContours = []
+        bestContours_mcherry = []
+        if gray_mcherry_3 is not None and gray_mcherry is not None:
+            thresh_mcherry = cv2.Canny(gray_mcherry_3, 50, 150)
+            # TODO: thresh seems to always be empty; are thresh and thresh_mcherry even being used?
+            thresh = cv2.Canny(gray_mcherry, 50, 150)
+
+            # Try again with less restrictive thresholding if nothing was found
+            if np.max(thresh) == 0:
+                # _, thresh_mcherry = cv2.threshold(
+                #     gray_mcherry_3,
+                #     0,
+                #     1,
+                #     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+                # )
+                _, thresh = cv2.threshold(
+                    gray_mcherry,
+                    0,
+                    1,
+                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+                )
+            
+            if np.max(thresh_mcherry) == 0:
+                _, thresh_mcherry = cv2.threshold(
+                    gray_mcherry_3,
+                    0,
+                    1,
+                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+                )
+
+            contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            bestContours = get_largest(contours)
+            bestContours_mcherry = get_largest(contours_mcherry)
+    else:
+        # Alternate mCherry detection mode where we try to find one contour that surrounds all the speckles
+        gray_mcherry_3 = cv2.GaussianBlur(gray_mcherry_3, (9, 9), 0)
+        if gray_mcherry_3 is not None:
+            _, bright_thresh = cv2.threshold(
+                gray_mcherry_3,
+                3,
+                255,
+                cv2.THRESH_BINARY,
+            )
+            dot_contours, _ = cv2.findContours(bright_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]  # remove border contour
+
+        thresh_mcherry = None
+        thresh = None
+        contours = []
+        contours_mcherry = []
+        bestContours = []
+        bestContours_mcherry = []
+        if gray_mcherry_3 is not None and gray_mcherry is not None:
             _, thresh = cv2.threshold(
                 gray_mcherry,
-                0,
-                1,
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+                5,
+                255,
+                cv2.THRESH_BINARY,
             )
-        
-        if np.max(thresh_mcherry) == 0:
-            _, thresh_mcherry = cv2.threshold(
-                gray_mcherry_3,
-                0,
-                1,
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
-            )
+            
+            thresh_mcherry = bright_thresh
 
-        contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        bestContours = get_largest(contours)
-        bestContours_mcherry = get_largest(contours_mcherry)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            bestContours = get_largest(contours)
+            bestContours_mcherry = get_largest(contours_mcherry)
 
     # finding threshold
     # ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,

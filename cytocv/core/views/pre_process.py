@@ -295,6 +295,8 @@ def pre_process(request, uuids):
             nuclear_cellular_mode = "green_nucleus"
         gfp_filter_enabled_raw = request.POST.get('gfpFilterEnabled', request.session.get('gfpFilterEnabled', 'False'))
         gfp_filter_enabled = gfp_filter_enabled_raw == 'true'
+        alternate_mcherry_detection_raw = request.POST.get('alternateMCherryDetection', request.session.get('alternateMCherryDetection', 'False'))
+        alternate_mcherry_detection = alternate_mcherry_detection_raw == 'true'
         try:
             mcherry_width = int(mcherry_width_raw)
         except (TypeError, ValueError):
@@ -320,6 +322,7 @@ def pre_process(request, uuids):
         request.session['threshold'] = gfp_threshold
         request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
         request.session['gfpFilterEnabled'] = gfp_filter_enabled
+        request.session['alternateMCherryDetection'] = alternate_mcherry_detection
 
         # Track when we first enter phases to mark progress once
         preprocess_marked = False

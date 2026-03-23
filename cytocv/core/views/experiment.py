@@ -314,6 +314,7 @@ def experiment(request):
             gfp_threshold = 66
 
         gfp_filter_enabled = request.POST.get("gfpFilterEnabled", False)
+        alternate_mcherry_detection = request.POST.get("alternateMCherryDetection", False)
 
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
@@ -331,6 +332,7 @@ def experiment(request):
             default="green_nucleus",
         )
         request.session["gfpFilterEnabled"] = gfp_filter_enabled
+        request.session["alternateMCherryDetection"] = alternate_mcherry_detection
 
         module_enabled = _parse_bool(request.POST.get("cytocv_analysis_enabled"), default=False)
         enforce_layer_count = module_enabled and _parse_bool(

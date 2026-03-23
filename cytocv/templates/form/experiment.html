@@ -1587,6 +1587,24 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row" id="alternateMCherryRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label-row">
+                                <span class="toggle-label">Enable Alternate mCherry Detection</span>
+                                <button
+                                    type="button"
+                                    class="info-dot compact advanced-info-dot"
+                                    id="alternateMCherryInfoDot"
+                                    data-info-text="Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles."
+                                    aria-label="Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles."
+                                >i</button>
+                            </span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="alternateMCherryDetection">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1839,6 +1857,7 @@
         gfpThreshold: 66,
         nuclearCellularMode: 'green_nucleus',
         gfpFilterEnabled: false,
+        alternateMCherryDetection: false,
         mCherryWidthUnit: 'px',
         gfpDistanceUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
@@ -1886,6 +1905,7 @@
             showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
             manualRequiredChannels: manualChannels,
             gfpFilterEnabled: !!serverPreferenceDefaults.gfp_filter_enabled,
+            alternateMCherryDetection: !!serverPreferenceDefaults.alternate_mcherry_detection,
         };
         localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
 
@@ -3157,6 +3177,7 @@
         });
 
         const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
+        const alternateMCherryDetection = document.getElementById('alternateMCherryDetection');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
@@ -3164,6 +3185,13 @@
         if (gfpFilterEnabled) {
             gfpFilterEnabled.addEventListener('change', () => {
                 statsState.gfpFilterEnabled = gfpFilterEnabled.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+        if (alternateMCherryDetection) {
+            alternateMCherryDetection.addEventListener('change', () => {
+                statsState.alternateMCherryDetection = alternateMCherryDetection.checked;
                 persistAdvancedSettings();
                 syncStatsUI();
             });
@@ -3244,6 +3272,7 @@
         }
 
         statsState.gfpFilterEnabled = typeof stored.gfpFilterEnabled === 'boolean' ? stored.gfpFilterEnabled : false;
+        statsState.alternateMCherryDetection = typeof stored.alternateMCherryDetection === 'boolean' ? stored.alternateMCherryDetection : false;
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
         statsState.enforceAllWavelengths = typeof stored.enforceAllWavelengths === 'boolean' ? stored.enforceAllWavelengths : false;
@@ -3314,6 +3343,7 @@
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
             gfpFilterEnabled: !!statsState.gfpFilterEnabled,
+            alternateMCherryDetection: !!statsState.alternateMCherryDetection,
         }));
     }
 
@@ -3396,7 +3426,9 @@
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
         const optionalChecksNote = document.getElementById('optionalChecksNote');
         const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
+        const alternateMCherryDetection = document.getElementById('alternateMCherryDetection');
         const gfpFilterRow = document.getElementById('gfpFilterRow');
+        const alternateMCherryRow = document.getElementById('alternateMCherryRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
             toggle.checked = statsState.selectedPlugins.has(pluginId);
@@ -3443,6 +3475,18 @@
                 gfpFilterRow.classList.add('disabled');
                 gfpFilterEnabled.checked = false;
                 statsState.gfpFilterEnabled = gfpFilterEnabled.checked;
+            }
+        }
+        if (alternateMCherryDetection) {
+            alternateMCherryDetection.checked = !!statsState.alternateMCherryDetection;
+            const mCherryUsed = isChannelUsed('mCherry');
+            alternateMCherryDetection.disabled = !mCherryUsed;
+            if (mCherryUsed) {
+                alternateMCherryRow.classList.remove('disabled');
+            } else {
+                alternateMCherryRow.classList.add('disabled');
+                alternateMCherryDetection.checked = false;
+                statsState.alternateMCherryDetection = alternateMCherryDetection.checked;
             }
         }
 
@@ -3607,6 +3651,7 @@
             gfpThreshold: Number.isFinite(Number(statsState.gfpThreshold)) ? Number(statsState.gfpThreshold) : 66,
             nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             gfpFilterEnabled: !!statsState.gfpFilterEnabled,
+            alternateMCherryDetection: !!statsState.alternateMCherryDetection,
             mCherryWidthUnit: normalizeLengthUnit(statsState.mCherryWidthUnit),
             gfpDistanceUnit: normalizeLengthUnit(statsState.gfpDistanceUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
@@ -3648,6 +3693,7 @@
             statsState.gfpThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
             statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.gfpFilterEnabled = !!snapshot.gfpFilterEnabled;
+            statsState.alternateMCherryDetection = !!snapshot.alternateMCherryDetection;
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
                     if (plugin.is_legacy) {
@@ -4332,6 +4378,7 @@
             formData.append('threshold', String(statsState.gfpThreshold));
             formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
             formData.append('gfpFilterEnabled', String(statsState.gfpFilterEnabled));
+            formData.append('alternateMCherryDetection', String(statsState.alternateMCherryDetection));
             const sharedLengthUnit = statsState.mCherryWidthUnit === statsState.gfpDistanceUnit
                 ? statsState.mCherryWidthUnit
                 : 'mixed';

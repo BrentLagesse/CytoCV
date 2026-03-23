@@ -1369,6 +1369,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
             response,
             "Filter out low-confidence GFP signal contours in challenging images.",
         )
+        self.assertContains(
+            response,
+            "Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles.",
+        )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
         self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
         self.assertContains(response, 'class="review-modal popup-surface"', html=False)

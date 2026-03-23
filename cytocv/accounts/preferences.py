@@ -29,6 +29,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "gfp_threshold": 66,
         "nuclear_cellular_mode": "green_nucleus",
         "gfp_filter_enabled": False,
+        "alternate_mcherry_detection": False,
         "mcherry_width_unit": "px",
         "gfp_distance_unit": "px",
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
@@ -115,6 +116,9 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     )
     normalized["experiment_defaults"]["gfp_filter_enabled"] = _as_bool(
         defaults_payload.get("gfp_filter_enabled"), default=False
+    )
+    normalized["experiment_defaults"]["alternate_mcherry_detection"] = _as_bool(
+        defaults_payload.get("alternate_mcherry_detection"), default=False
     )
 
     raw_required_channels = defaults_payload.get("manual_required_channels", [])
