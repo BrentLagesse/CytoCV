@@ -972,6 +972,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
             gfp_filter_enabled = _post_bool(request, "gfp_filter_enabled")
+            alternate_mcherry_detection = _post_bool(request, "alternate_mcherry_detection")
             manual_required_channels = [
                 channel
                 for channel in request.POST.getlist("manual_required_channels")
@@ -1006,6 +1007,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     "show_legacy_plugins": show_legacy_plugins,
                     "manual_required_channels": manual_required_channels,
                     "gfp_filter_enabled": gfp_filter_enabled,
+                    "alternate_mcherry_detection": alternate_mcherry_detection,
                 }
             )
             next_defaults.update(measurement_defaults)

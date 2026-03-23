@@ -161,6 +161,7 @@ def get_stats(
     gfp_distance,
     gfp_threshold,
     gfp_filter_enabled=False,
+    alternate_mcherry_detection=False,
     cached_images=None,
 ):
     # loading configuration
@@ -207,7 +208,7 @@ def get_stats(
         return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb), Image.fromarray(edit_DAPI_img_rgb)
 
     preprocessed_images = preprocess_image_to_gray(images, kernel_deviation_input, kernel_size_input)
-    contours_data = find_contours(preprocessed_images, gfp_filter_enabled)
+    contours_data = find_contours(preprocessed_images, gfp_filter_enabled, alternate_mcherry_detection)
 
     best_contour_data = {}
     best_contour_dapi = None
@@ -1009,6 +1010,7 @@ def segment_image(request, uuids):
         if gfp_threshold < 0:
             gfp_threshold = 66
         gfp_filter_enabled = request.session.get('gfpFilterEnabled', 'False')
+        alternate_mcherry_detection = request.session.get('alternateMCherryDetection', 'False')
 
         # Build a proper 'conf' dict with required keys for get_stats
         conf = {
@@ -1021,6 +1023,7 @@ def segment_image(request, uuids):
             'analysis' : selected_analysis,
             'nuclear_cellular_mode': request.session.get("nuclear_cellular_mode", "green_nucleus"),
             'gfp_filter_enabled': request.session.get("gfpFilterEnabled", "False"),
+            'alternate_mcherry_detection': request.session.get("alternateMCherryDetection", "False"),
         }
 
         if cancelled():
@@ -1087,6 +1090,7 @@ def segment_image(request, uuids):
                 gfp_distance,
                 gfp_threshold,
                 gfp_filter_enabled,
+                alternate_mcherry_detection,
                 cached_images=cell_image_cache.get(cell_number),
             )
 

@@ -1186,6 +1186,7 @@ main.main > section.panel {
           </div>
           <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show legacy plugins by default</label><p>Reveal DAPI-based plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><span class="row-label-line"><label for="gfp_filter_enabled">Enable GFP minimum-size filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filter out low-confidence GFP signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="gfp_filter_enabled" name="gfp_filter_enabled" {% if preferences.experiment_defaults.gfp_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="alternate_mcherry_detection">Enable alternate mCherry detection where a contour surrounds all speckles</label></span><p>Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles.</p></div><label class="sw"><input type="checkbox" id="alternate_mcherry_detection" name="alternate_mcherry_detection" {% if preferences.experiment_defaults.alternate_mcherry_detection %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
         <div class="card action-card" data-workflow-action-card="advanced">
           <p class="section-eyebrow card-title">Save Advanced Settings</p>
@@ -2042,6 +2043,7 @@ main.main > section.panel {
   const advancedWavelengthCheckRow = document.getElementById('advancedWavelengthCheckRow');
   const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
   const gfpFilterEnabledInput = document.getElementById('gfp_filter_enabled');
+  const alternateMCherryDetectionInput = document.getElementById('alternate_mcherry_detection');
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
   const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
@@ -2217,6 +2219,7 @@ main.main > section.panel {
     enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
     gfpFilterEnabled: !!(gfpFilterEnabledInput && gfpFilterEnabledInput.checked),
+    alternateMCherryDetection: !!(alternateMCherryDetectionInput && alternateMCherryDetectionInput.checked),
     requiredChannels: sortByOrder([...manualRequiredChannels], channelOrder),
     overrideChannels: sortByOrder([...overrides], channelOrder),
   });
@@ -2335,6 +2338,12 @@ main.main > section.panel {
       'Enable GFP minimum-size filter',
       fromSnapshot.gfpFilterEnabled,
       toSnapshot.gfpFilterEnabled
+    );
+    pushToggleChange(
+      changes,
+      'Enable alternate mCherry detection where a contour surrounds all speckles',
+      fromSnapshot.alternateMCherryDetection,
+      toSnapshot.alternateMCherryDetection
     );
 
     const beforeRequired = new Set(fromSnapshot.requiredChannels || []);
@@ -2462,6 +2471,7 @@ main.main > section.panel {
     if (enforceWavelengthsInput) enforceWavelengthsInput.checked = snapshot.enforceWavelengths;
     if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
     if (gfpFilterEnabledInput) gfpFilterEnabledInput.checked = snapshot.gfpFilterEnabled;
+    if (alternateMCherryDetectionInput) alternateMCherryDetectionInput.checked = snapshot.alternateMCherryDetection;
     manualRequiredChannels.clear();
     (snapshot.requiredChannels || []).forEach((channel) => {
       if (channel && !alwaysRequired.has(channel)) {
