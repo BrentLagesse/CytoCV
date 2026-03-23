@@ -152,14 +152,14 @@ This document is the authoritative reference for environment variables consumed 
 
 - Required: no
 - Type: string
-- Default: `smtp.gmail.com`
+- Default: `127.0.0.1`
 - Effect: SMTP host
 
 ### `CYTOCV_EMAIL_HOST_USER`
 
 - Required: no
 - Type: string
-- Default: `cytocv@gmail.com` in settings fallback
+- Default: empty
 - Effect: SMTP username
 
 ### `CYTOCV_EMAIL_HOST_PASSWORD`
@@ -173,14 +173,14 @@ This document is the authoritative reference for environment variables consumed 
 
 - Required: no
 - Type: integer
-- Default: `587`
+- Default: `25`
 - Effect: SMTP port
 
 ### `CYTOCV_EMAIL_USE_TLS`
 
 - Required: no
 - Type: boolean-like string
-- Default: `1`
+- Default: `0`
 - Effect: enables TLS
 - Notes: cannot be enabled together with `CYTOCV_EMAIL_USE_SSL`
 
@@ -202,14 +202,14 @@ This document is the authoritative reference for environment variables consumed 
 
 - Required: no
 - Type: string
-- Default: `no-reply@noreply.x.edu`
+- Default: empty, then falls back to `CYTOCV_EMAIL_HOST_USER`
 - Effect: default sender
 
 ### `CYTOCV_EMAIL_REPLY_TO`
 
 - Required: no
 - Type: string
-- Default: `no-reply@noreply.x.edu`
+- Default: empty, then falls back to `CYTOCV_DEFAULT_FROM_EMAIL`
 - Effect: reply-to address
 
 ## reCAPTCHA Settings

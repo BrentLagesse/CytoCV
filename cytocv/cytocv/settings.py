@@ -382,19 +382,19 @@ EMAIL_BACKEND = (_get_env(
     "django.core.mail.backends.smtp.EmailBackend",
     prefer_env_file=True,
 ) or "").strip() or "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = _get_env("CYTOCV_EMAIL_HOST", "smtp.gmail.com", prefer_env_file=True)
-EMAIL_HOST_USER = _get_env(
+EMAIL_HOST = (_get_env("CYTOCV_EMAIL_HOST", "127.0.0.1", prefer_env_file=True) or "").strip()
+EMAIL_HOST_USER = (_get_env(
     "CYTOCV_EMAIL_HOST_USER",
-    "cytocv@gmail.com",
+    "",
     prefer_env_file=True,
-)
-EMAIL_HOST_PASSWORD = _get_env(
+) or "").strip()
+EMAIL_HOST_PASSWORD = (_get_env(
     "CYTOCV_EMAIL_HOST_PASSWORD",
     "",
     prefer_env_file=True,
-)
-EMAIL_PORT = _parse_env_int("CYTOCV_EMAIL_PORT", 587, prefer_env_file=True)
-EMAIL_USE_TLS = _parse_env_bool("CYTOCV_EMAIL_USE_TLS", True, prefer_env_file=True)
+) or "").strip()
+EMAIL_PORT = _parse_env_int("CYTOCV_EMAIL_PORT", 25, prefer_env_file=True)
+EMAIL_USE_TLS = _parse_env_bool("CYTOCV_EMAIL_USE_TLS", False, prefer_env_file=True)
 EMAIL_USE_SSL = _parse_env_bool("CYTOCV_EMAIL_USE_SSL", False, prefer_env_file=True)
 if EMAIL_USE_TLS and EMAIL_USE_SSL:
     raise ImproperlyConfigured(
@@ -406,16 +406,23 @@ EMAIL_TIMEOUT = (
     if _email_timeout_raw
     else None
 )
-DEFAULT_FROM_EMAIL = _get_env(
+_default_from_email = (_get_env(
     "CYTOCV_DEFAULT_FROM_EMAIL",
-    "no-reply@noreply.x.edu",
+    "",
     prefer_env_file=True,
-)
-EMAIL_REPLY_TO = _get_env(
+) or "").strip()
+DEFAULT_FROM_EMAIL = _default_from_email or EMAIL_HOST_USER
+EMAIL_REPLY_TO = ((_get_env(
     "CYTOCV_EMAIL_REPLY_TO",
-    "no-reply@noreply.x.edu",
+    "",
     prefer_env_file=True,
-)
+) or "").strip()) or DEFAULT_FROM_EMAIL
+
+if ACCOUNT_EMAIL_VERIFICATION != "none" and not DEFAULT_FROM_EMAIL:
+    raise ImproperlyConfigured(
+        "Configure CYTOCV_DEFAULT_FROM_EMAIL or CYTOCV_EMAIL_HOST_USER "
+        "when email verification is enabled."
+    )
 
 # Google reCAPTCHA
 RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"

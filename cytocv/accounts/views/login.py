@@ -100,7 +100,16 @@ def _recovery_resend_wait_seconds(request: HttpRequest) -> int:
 
 def _recovery_sender_email() -> str:
     """Return the sender address used for password recovery emails."""
-    return settings.EMAIL_HOST_USER
+    return (
+        (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+        or (getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
+    )
+
+
+def _recovery_reply_to_list() -> list[str] | None:
+    """Return a normalized reply-to list for recovery emails."""
+    reply_to = (getattr(settings, "EMAIL_REPLY_TO", "") or "").strip()
+    return [reply_to] if reply_to else None
 
 
 def _add_error(errors: dict[str, list[str]], field: str, message: str) -> None:
@@ -325,9 +334,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             minutes_valid=RECOVERY_CODE_TTL_SECONDS // 60,
             recipient_name=recipient_name,
         )
-        from_email = settings.EMAIL_HOST_USER
-        reply_to = getattr(settings, "EMAIL_REPLY_TO", None)
-        reply_to_list = [reply_to] if reply_to else None
+        from_email = _recovery_sender_email()
+        reply_to_list = _recovery_reply_to_list()
         try:
             email_message = EmailMessage(
                 subject,

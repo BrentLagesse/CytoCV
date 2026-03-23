@@ -171,7 +171,16 @@ def _resend_wait_seconds(request: HttpRequest) -> int:
 
 def _sender_email() -> str:
     """Return the from address used for verification emails."""
-    return settings.EMAIL_HOST_USER
+    return (
+        (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+        or (getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
+    )
+
+
+def _reply_to_list() -> list[str] | None:
+    """Return a normalized reply-to list for outbound auth emails."""
+    reply_to = (getattr(settings, "EMAIL_REPLY_TO", "") or "").strip()
+    return [reply_to] if reply_to else None
 
 
 def _summarize_password_errors(messages: list[str]) -> str:
@@ -449,9 +458,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 recipient_name=values.get("first_name", ""),
             )
 
-            from_email = settings.EMAIL_HOST_USER
-            reply_to = getattr(settings, "EMAIL_REPLY_TO", None)
-            reply_to_list = [reply_to] if reply_to else None
+            from_email = _sender_email()
+            reply_to_list = _reply_to_list()
 
             try:
                 email_message = EmailMessage(
@@ -503,9 +511,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 recipient_name=values.get("first_name", ""),
             )
 
-            from_email = settings.EMAIL_HOST_USER
-            reply_to = getattr(settings, "EMAIL_REPLY_TO", None)
-            reply_to_list = [reply_to] if reply_to else None
+            from_email = _sender_email()
+            reply_to_list = _reply_to_list()
 
             try:
                 email_message = EmailMessage(

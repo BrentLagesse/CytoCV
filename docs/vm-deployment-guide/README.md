@@ -157,16 +157,16 @@ CYTOCV_MICROSOFT_CLIENT_SECRET=
 CYTOCV_MICROSOFT_TENANT=organizations
 CYTOCV_MICROSOFT_LOGIN_URL=https://login.microsoftonline.com
 CYTOCV_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-CYTOCV_EMAIL_HOST=smtp.gmail.com
+CYTOCV_EMAIL_HOST=127.0.0.1
 CYTOCV_EMAIL_HOST_USER=
 CYTOCV_EMAIL_HOST_PASSWORD=
-CYTOCV_EMAIL_PORT=587
-CYTOCV_EMAIL_USE_TLS=1
+CYTOCV_EMAIL_PORT=25
+CYTOCV_EMAIL_USE_TLS=0
 CYTOCV_EMAIL_USE_SSL=0
-CYTOCV_EMAIL_TIMEOUT=
+CYTOCV_EMAIL_TIMEOUT=30
 CYTOCV_ACCOUNT_EMAIL_VERIFICATION=optional
-CYTOCV_DEFAULT_FROM_EMAIL=no-reply@cytocv.uwb.edu
-CYTOCV_EMAIL_REPLY_TO=no-reply@cytocv.uwb.edu
+CYTOCV_DEFAULT_FROM_EMAIL=cytocv@uw.edu
+CYTOCV_EMAIL_REPLY_TO=cytocv@uw.edu
 CYTOCV_RECAPTCHA_ENABLED=1
 CYTOCV_RECAPTCHA_SITE_KEY=
 CYTOCV_RECAPTCHA_SECRET_KEY=
@@ -520,25 +520,25 @@ If SMTP is not ready yet, keep:
 
 ```env
 CYTOCV_ACCOUNT_EMAIL_VERIFICATION=optional
-CYTOCV_DEFAULT_FROM_EMAIL=no-reply@cytocv.uwb.edu
-CYTOCV_EMAIL_REPLY_TO=no-reply@cytocv.uwb.edu
+CYTOCV_DEFAULT_FROM_EMAIL=cytocv@uw.edu
+CYTOCV_EMAIL_REPLY_TO=cytocv@uw.edu
 ```
 
 Do not set `mandatory` until you have:
 
 - an approved sender address
-- SMTP host
-- SMTP port
-- TLS/SSL requirements
-- service account username
-- SMTP password or app password
+- either local Postfix relay on the VM or direct SMTP settings
+- any SMTP credential required by the relay you are using
 
-Once UW IT provides those, update:
+For the local Postfix relay setup, keep Django on localhost and configure Postfix separately:
 
 ```env
-CYTOCV_EMAIL_HOST=<smtp host>
-CYTOCV_EMAIL_HOST_USER=<smtp username>
-CYTOCV_EMAIL_HOST_PASSWORD=<smtp password>
+CYTOCV_EMAIL_HOST=127.0.0.1
+CYTOCV_EMAIL_HOST_USER=
+CYTOCV_EMAIL_HOST_PASSWORD=
+CYTOCV_EMAIL_PORT=25
+CYTOCV_EMAIL_USE_TLS=0
+CYTOCV_EMAIL_USE_SSL=0
 CYTOCV_ACCOUNT_EMAIL_VERIFICATION=mandatory
 ```
 
