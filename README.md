@@ -223,6 +223,10 @@ Detailed operational guidance is documented in:
 - [docs/ops/security-and-privacy.md](docs/ops/security-and-privacy.md)
 - [docs/ops/environment-reference.md](docs/ops/environment-reference.md)
 
+## Historical Notes
+
+This tool derived from the python application found at https://github.com/BrentLagesse/YeastAnalysisTool.  That tool is no longer maintained, but is still available for historical development purposes.
+
 ## License
 
 CytoCV is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
