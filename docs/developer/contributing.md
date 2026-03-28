@@ -53,5 +53,6 @@ Documentation must be updated when any of these change:
 ## Related Documents
 
 - [`local-installation-and-troubleshooting.md`](local-installation-and-troubleshooting.md)
+- [`windows-local-installer-design.md`](windows-local-installer-design.md)
 - [`testing-guide.md`](testing-guide.md)
 - [`../templates/document-style-guide.md`](../templates/document-style-guide.md)

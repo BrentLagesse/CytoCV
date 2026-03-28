@@ -24,6 +24,7 @@ This directory is the canonical documentation home for CytoCV. The root `README.
 - [`developer/architecture-overview.md`](developer/architecture-overview.md)
 - [`developer/codebase-map.md`](developer/codebase-map.md)
 - [`developer/local-installation-and-troubleshooting.md`](developer/local-installation-and-troubleshooting.md)
+- [`developer/windows-local-installer-design.md`](developer/windows-local-installer-design.md)
 - [`developer/request-flows.md`](developer/request-flows.md)
 - [`developer/data-flow-and-artifacts.md`](developer/data-flow-and-artifacts.md)
 - [`developer/extending-analysis.md`](developer/extending-analysis.md)
