@@ -56,6 +56,53 @@ Installer state:
 
 If the script stops on a migration failure, fix the issue manually using the documented recovery path in this guide and then rerun the same installer command.
 
+## Smart Windows Run Script
+
+For day-to-day local startup on native Windows, the repo now includes:
+
+```bash
+./scripts/run-local-windows.sh
+```
+
+And for PowerShell, use the wrapper:
+
+```powershell
+.\scripts\run-local-windows.ps1
+```
+
+Do not rely on `bash scripts/run-local-windows.sh` from PowerShell. On many Windows machines, `bash` resolves to the WSL launcher instead of Git Bash.
+
+What it does:
+
+- can be launched from any directory inside the CytoCV repo tree
+- walks upward until it finds the repo root
+- detects either `cyto_cv/Scripts/python.exe` or `cytocv_venv/Scripts/python.exe`
+- validates repo-root `.env`
+- checks that the venv is using Python `3.11.5`
+- warns if the weights file is missing
+- switches internally to `cytocv/`
+- runs `manage.py runserver` in the foreground with the correct venv Python
+
+What it does not do:
+
+- it does not activate the venv in your parent shell
+- it does not search the whole machine for the repo
+- it does not repair missing setup; it tells you to run the installer first
+
+Examples:
+
+```bash
+./scripts/run-local-windows.sh
+./scripts/run-local-windows.sh --noreload
+./scripts/run-local-windows.sh 0.0.0.0:8000
+```
+
+```powershell
+.\scripts\run-local-windows.ps1
+.\scripts\run-local-windows.ps1 --noreload
+.\scripts\run-local-windows.ps1 0.0.0.0:8000
+```
+
 ## Fresh Local Install
 
 ### 1. Create and activate a virtual environment
@@ -88,6 +135,18 @@ Windows Git Bash shortcut:
 
 ```bash
 bash scripts/local-install-windows.sh
+```
+
+Windows Git Bash day-to-day run shortcut:
+
+```bash
+./scripts/run-local-windows.sh
+```
+
+Windows PowerShell day-to-day run shortcut:
+
+```powershell
+.\scripts\run-local-windows.ps1
 ```
 
 ### 2. Install dependencies
@@ -447,6 +506,18 @@ For Windows Git Bash users, the installer can be rerun after any resolved error:
 
 ```bash
 bash scripts/local-install-windows.sh
+```
+
+For Windows Git Bash users, the run script can be launched from any repo subdirectory:
+
+```bash
+./scripts/run-local-windows.sh
+```
+
+For Windows PowerShell users, use:
+
+```powershell
+.\scripts\run-local-windows.ps1
 ```
 
 ## Related Documents

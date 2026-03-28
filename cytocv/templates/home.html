@@ -26,6 +26,7 @@
             justify-items: stretch;
             gap: 10px;
             min-height: calc(100dvh - var(--nav-height) - 20px);
+            isolation: isolate;
         }
         .module-card {
             position: relative;
@@ -39,6 +40,7 @@
             gap: 14px;
             padding: 0;
             overflow: visible;
+            z-index: 2;
         }
         .overview-intro {
             display: grid;
@@ -308,6 +310,7 @@
             top: calc(var(--nav-height) + 10px);
             align-self: flex-start;
             min-height: calc(100dvh - var(--nav-height) - 20px);
+            z-index: 1;
         }
         .cta-card {
             justify-content: center;
@@ -375,7 +378,12 @@
         }
         .text-link:hover { text-decoration: underline; }
         .splitter {
+            position: sticky;
+            top: calc(var(--nav-height) + 10px);
+            z-index: 3;
             width: var(--divider-width);
+            height: calc(100dvh - var(--nav-height) - 20px);
+            align-self: flex-start;
             background: var(--surface-muted-alt);
             border: 1px solid var(--panel-border);
             border-radius: 999px;
@@ -397,12 +405,25 @@
             background: var(--surface-hover);
             border-color: var(--panel-border);
         }
+        .home-layout.is-resizing .story-viewport {
+            overflow: hidden;
+        }
+        .home-layout.is-resizing .glass-card {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            transition: none;
+        }
         @media (hover: hover) and (pointer: fine) {
             .story-card:hover {
                 transform: translateY(-2px);
                 box-shadow:
                     inset 0 1px 0 rgba(255, 255, 255, 0.03),
                     0 18px 34px rgba(0, 0, 0, 0.28);
+            }
+            .home-layout.is-resizing .story-card:hover {
+                transform: none;
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22);
             }
         }
         @media (max-width: 900px) {
@@ -662,29 +683,66 @@
     const homeDivider = document.getElementById('homeDivider');
     if (homeLayout && homeDivider) {
         let dragging = false;
+        let pendingClientX = null;
+        let resizeFrame = 0;
+        let resizeCooldownTimer = 0;
         const minLeft = 280;
         const minRight = 240;
+        const minLeftRatio = 0.3;
+        const minRightRatio = 0.25;
+        const resizeCooldownMs = 180;
         const getGap = () => {
             const styles = getComputedStyle(homeLayout);
             const columnGap = styles.columnGap || styles.gap || '0px';
             const gapValue = parseFloat(columnGap);
             return Number.isNaN(gapValue) ? 0 : gapValue;
         };
+        const setResizeState = (isResizing) => {
+            homeLayout.classList.toggle('is-resizing', isResizing);
+        };
+        const clearResizeCooldown = () => {
+            if (resizeCooldownTimer) {
+                window.clearTimeout(resizeCooldownTimer);
+                resizeCooldownTimer = 0;
+            }
+        };
+        const scheduleResizeCooldown = () => {
+            clearResizeCooldown();
+            resizeCooldownTimer = window.setTimeout(() => {
+                setResizeState(false);
+                resizeCooldownTimer = 0;
+            }, resizeCooldownMs);
+        };
+
+        const getColumnBounds = () => {
+            const rect = homeLayout.getBoundingClientRect();
+            const dividerWidth = homeDivider.offsetWidth;
+            const gap = getGap();
+            const rawAvailable = rect.width - dividerWidth - gap * 2;
+            const baseAvailable = Math.max(rawAvailable, minLeft + minRight);
+            const effectiveMinLeft = Math.max(minLeft, baseAvailable * minLeftRatio);
+            const effectiveMinRight = Math.max(minRight, baseAvailable * minRightRatio);
+            const available = Math.max(baseAvailable, effectiveMinLeft + effectiveMinRight);
+            return {
+                rect,
+                dividerWidth,
+                gap,
+                minLeft: effectiveMinLeft,
+                maxLeft: available - effectiveMinRight,
+            };
+        };
 
         const clampColumns = () => {
             if (window.matchMedia('(max-width: 900px)').matches) {
                 homeLayout.style.removeProperty('--left-width');
+                setResizeState(false);
                 return;
             }
             const currentValue = homeLayout.style.getPropertyValue('--left-width').trim();
             if (!currentValue) {
                 return;
             }
-            const rect = homeLayout.getBoundingClientRect();
-            const dividerWidth = homeDivider.offsetWidth;
-            const gap = getGap();
-            const available = Math.max(rect.width - dividerWidth - gap * 2, minLeft + minRight);
-            const maxLeft = available - minRight;
+            const { minLeft, maxLeft } = getColumnBounds();
             const current = parseFloat(currentValue);
             if (Number.isNaN(current)) {
                 return;
@@ -694,44 +752,64 @@
         };
 
         const updateColumns = (clientX) => {
-            const rect = homeLayout.getBoundingClientRect();
-            const dividerWidth = homeDivider.offsetWidth;
-            const gap = getGap();
-            const available = Math.max(rect.width - dividerWidth - gap * 2, minLeft + minRight);
-            const maxLeft = available - minRight;
+            const { rect, dividerWidth, gap, minLeft, maxLeft } = getColumnBounds();
             const nextLeft = Math.max(minLeft, Math.min(clientX - rect.left - gap - dividerWidth / 2, maxLeft));
             homeLayout.style.setProperty('--left-width', `${nextLeft}px`);
+        };
+        const flushPendingResize = () => {
+            resizeFrame = 0;
+            if (pendingClientX === null) {
+                return;
+            }
+            updateColumns(pendingClientX);
+            pendingClientX = null;
+        };
+        const scheduleColumnUpdate = (clientX) => {
+            pendingClientX = clientX;
+            if (resizeFrame) {
+                return;
+            }
+            resizeFrame = window.requestAnimationFrame(flushPendingResize);
+        };
+        const finishDragging = (event) => {
+            if (!dragging) return;
+            dragging = false;
+            homeDivider.classList.remove('dragging');
+            if (resizeFrame) {
+                window.cancelAnimationFrame(resizeFrame);
+                flushPendingResize();
+            }
+            clampColumns();
+            scheduleResizeCooldown();
+            if (homeDivider.releasePointerCapture) {
+                homeDivider.releasePointerCapture(event.pointerId);
+            }
         };
 
         homeDivider.addEventListener('pointerdown', (event) => {
             if (window.matchMedia('(max-width: 900px)').matches) return;
+            event.preventDefault();
             dragging = true;
+            clearResizeCooldown();
+            setResizeState(true);
             homeDivider.classList.add('dragging');
             if (homeDivider.setPointerCapture) {
                 homeDivider.setPointerCapture(event.pointerId);
             }
-            updateColumns(event.clientX);
+            scheduleColumnUpdate(event.clientX);
         });
 
         homeDivider.addEventListener('pointermove', (event) => {
             if (!dragging) return;
-            updateColumns(event.clientX);
+            scheduleColumnUpdate(event.clientX);
         });
 
         homeDivider.addEventListener('pointerup', (event) => {
-            dragging = false;
-            homeDivider.classList.remove('dragging');
-            if (homeDivider.releasePointerCapture) {
-                homeDivider.releasePointerCapture(event.pointerId);
-            }
+            finishDragging(event);
         });
 
         homeDivider.addEventListener('pointercancel', (event) => {
-            dragging = false;
-            homeDivider.classList.remove('dragging');
-            if (homeDivider.releasePointerCapture) {
-                homeDivider.releasePointerCapture(event.pointerId);
-            }
+            finishDragging(event);
         });
 
         window.addEventListener('resize', clampColumns);
