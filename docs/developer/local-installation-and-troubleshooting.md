@@ -58,17 +58,25 @@ If the script stops on a migration failure, fix the issue manually using the doc
 
 ## Smart Windows Run Script
 
-For day-to-day local startup on native Windows with Git Bash, the repo now includes:
+For day-to-day local startup on native Windows, the repo now includes:
 
 ```bash
-bash scripts/run-local-windows.sh
+./scripts/run-local-windows.sh
 ```
+
+And for PowerShell, use the wrapper:
+
+```powershell
+.\scripts\run-local-windows.ps1
+```
+
+Do not rely on `bash scripts/run-local-windows.sh` from PowerShell. On many Windows machines, `bash` resolves to the WSL launcher instead of Git Bash.
 
 What it does:
 
 - can be launched from any directory inside the CytoCV repo tree
 - walks upward until it finds the repo root
-- validates `cyto_cv/Scripts/python.exe`
+- detects either `cyto_cv/Scripts/python.exe` or `cytocv_venv/Scripts/python.exe`
 - validates repo-root `.env`
 - checks that the venv is using Python `3.11.5`
 - warns if the weights file is missing
@@ -84,9 +92,15 @@ What it does not do:
 Examples:
 
 ```bash
-bash scripts/run-local-windows.sh
-bash scripts/run-local-windows.sh --noreload
-bash scripts/run-local-windows.sh 0.0.0.0:8000
+./scripts/run-local-windows.sh
+./scripts/run-local-windows.sh --noreload
+./scripts/run-local-windows.sh 0.0.0.0:8000
+```
+
+```powershell
+.\scripts\run-local-windows.ps1
+.\scripts\run-local-windows.ps1 --noreload
+.\scripts\run-local-windows.ps1 0.0.0.0:8000
 ```
 
 ## Fresh Local Install
@@ -126,7 +140,13 @@ bash scripts/local-install-windows.sh
 Windows Git Bash day-to-day run shortcut:
 
 ```bash
-bash scripts/run-local-windows.sh
+./scripts/run-local-windows.sh
+```
+
+Windows PowerShell day-to-day run shortcut:
+
+```powershell
+.\scripts\run-local-windows.ps1
 ```
 
 ### 2. Install dependencies
@@ -491,7 +511,13 @@ bash scripts/local-install-windows.sh
 For Windows Git Bash users, the run script can be launched from any repo subdirectory:
 
 ```bash
-bash scripts/run-local-windows.sh
+./scripts/run-local-windows.sh
+```
+
+For Windows PowerShell users, use:
+
+```powershell
+.\scripts\run-local-windows.ps1
 ```
 
 ## Related Documents
