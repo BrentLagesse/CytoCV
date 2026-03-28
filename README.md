@@ -62,6 +62,12 @@ git clone https://github.com/BrentLagesse/CytoCV.git
 cd CytoCV
 ```
 
+On native Windows with Git Bash, you can use the rerunnable local installer:
+
+```bash
+bash scripts/local-install-windows.sh
+```
+
 ### 2. Create and Activate the Python Environment
 
 CytoCV expects Python `3.11.5`.
@@ -167,6 +173,7 @@ Primary entry points:
 - User documentation: [docs/user/getting-started.md](docs/user/getting-started.md)
 - Developer architecture: [docs/developer/architecture-overview.md](docs/developer/architecture-overview.md)
 - Local installation and troubleshooting: [docs/developer/local-installation-and-troubleshooting.md](docs/developer/local-installation-and-troubleshooting.md)
+- Windows installer design: [docs/developer/windows-local-installer-design.md](docs/developer/windows-local-installer-design.md)
 - Developer codebase map: [docs/developer/codebase-map.md](docs/developer/codebase-map.md)
 - Operations deployment guide: [docs/ops/deployment-guide.md](docs/ops/deployment-guide.md)
 - Operations environment reference: [docs/ops/environment-reference.md](docs/ops/environment-reference.md)

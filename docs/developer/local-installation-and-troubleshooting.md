@@ -22,6 +22,40 @@ Use this as the default local configuration:
 
 SQLite is the intended local-development database. PostgreSQL should be treated as an explicit local validation path, not the default local setup.
 
+## Smart Windows Installer
+
+For native Windows development, the repo now includes a rerunnable Git Bash installer:
+
+```bash
+bash scripts/local-install-windows.sh
+```
+
+What it does:
+
+- requires Git Bash on a native Windows checkout
+- checks for exact Python `3.11.5`
+- bootstraps Python `3.11.5` with `winget` if it is missing
+- creates `cyto_cv/` only if a valid `3.11.5` environment is not already present
+- installs dependencies only when the venv or `requirements.txt` state requires it
+- creates `.env` if missing and patches only missing local-safe keys
+- auto-downloads `cytocv/core/weights/deepretina_final.h5` if needed
+- runs `python manage.py migrate` and `python manage.py check`
+- validates `cv2` and `tensorflow` imports at the end
+
+What it does not do:
+
+- it does not support WSL
+- it does not configure local PostgreSQL in v1
+- it does not auto-repair tracked migration files if Django migrations fail
+
+Installer state:
+
+- rerun-safe logs and step summaries are written under `.cytocv-local-install/`
+- reruns use real checks instead of trusting checkpoints blindly
+- steps are skipped only when the current environment still validates
+
+If the script stops on a migration failure, fix the issue manually using the documented recovery path in this guide and then rerun the same installer command.
+
 ## Fresh Local Install
 
 ### 1. Create and activate a virtual environment
@@ -49,6 +83,12 @@ Python 3.11.5
 ```
 
 If your default interpreter is not `3.11.5`, stop and fix that first.
+
+Windows Git Bash shortcut:
+
+```bash
+bash scripts/local-install-windows.sh
+```
 
 ### 2. Install dependencies
 
@@ -282,6 +322,7 @@ Important:
 
 - this is a local recovery workaround
 - it does not fix the underlying repository migration-tracking problem
+- the smart Windows installer intentionally stops here and asks you to resolve this manually before rerunning it
 
 ### 6. `no such table: accounts_customuser`
 
@@ -402,9 +443,16 @@ Then verify:
 - one local `.dv` test file can reach preprocess
 - the weights file is found and inference can start
 
+For Windows Git Bash users, the installer can be rerun after any resolved error:
+
+```bash
+bash scripts/local-install-windows.sh
+```
+
 ## Related Documents
 
 - [`contributing.md`](contributing.md)
+- [`windows-local-installer-design.md`](windows-local-installer-design.md)
 - [`testing-guide.md`](testing-guide.md)
 - [`../user/getting-started.md`](../user/getting-started.md)
 - [`../user/troubleshooting.md`](../user/troubleshooting.md)
