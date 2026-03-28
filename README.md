@@ -166,6 +166,7 @@ Primary entry points:
 
 - User documentation: [docs/user/getting-started.md](docs/user/getting-started.md)
 - Developer architecture: [docs/developer/architecture-overview.md](docs/developer/architecture-overview.md)
+- Local installation and troubleshooting: [docs/developer/local-installation-and-troubleshooting.md](docs/developer/local-installation-and-troubleshooting.md)
 - Developer codebase map: [docs/developer/codebase-map.md](docs/developer/codebase-map.md)
 - Operations deployment guide: [docs/ops/deployment-guide.md](docs/ops/deployment-guide.md)
 - Operations environment reference: [docs/ops/environment-reference.md](docs/ops/environment-reference.md)
@@ -186,6 +187,7 @@ For operational deployment material, use these documents:
 - PostgreSQL setup: [docs/ops/postgres-setup.md](docs/ops/postgres-setup.md)
 - March 2026 VM step-by-step guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
 - March 2026 VM rollout record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
+- Replacement `cytocv2.uwb.edu` VM rollout record: [docs/vm-deployment-record-cytocv2/README.md](docs/vm-deployment-record-cytocv2/README.md)
 
 The VM-specific documents are especially important for infrastructure similar to the UWB VM used during the March 2026 rollout.
 

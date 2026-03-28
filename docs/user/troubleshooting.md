@@ -107,6 +107,7 @@ Login, signup, or password recovery fails.
 
 ## Related Documents
 
+- [`../developer/local-installation-and-troubleshooting.md`](../developer/local-installation-and-troubleshooting.md)
 - [`getting-started.md`](getting-started.md)
 - [`../ops/environment-reference.md`](../ops/environment-reference.md)
 - [`../ops/security-and-privacy.md`](../ops/security-and-privacy.md)

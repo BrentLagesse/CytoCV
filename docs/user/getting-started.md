@@ -95,6 +95,7 @@ After a successful run, CytoCV should produce:
 
 ## Related Documents
 
+- [`../developer/local-installation-and-troubleshooting.md`](../developer/local-installation-and-troubleshooting.md)
 - [`workflow-guide.md`](workflow-guide.md)
 - [`analysis-options.md`](analysis-options.md)
 - [`troubleshooting.md`](troubleshooting.md)

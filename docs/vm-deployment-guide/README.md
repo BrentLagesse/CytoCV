@@ -6,8 +6,9 @@ This is the clean deployment guide for bringing CytoCV up on a fresh Ubuntu VM. 
 
 Use this guide for the intended command sequence.
 
-Use the historical record for the exact March 2026 rollout, dead ends, and recovery work:
+Use the historical records for the exact March 2026 rollouts, dead ends, and recovery work:
 - [`../vm-deployment-record/README.md`](../vm-deployment-record/README.md)
+- [`../vm-deployment-record-cytocv2/README.md`](../vm-deployment-record-cytocv2/README.md)
 
 ## Before You Start
 
@@ -99,9 +100,38 @@ Ignoring tensorflow-intel: markers 'sys_platform == "win32"' don't match your en
 
 That is correct. `tensorflow-intel` is Windows-only.
 
+### Ubuntu 24.04 Note: `python3.11` Package May Be Missing
+
+On Ubuntu `24.04.4`, the default system Python may be `3.12.x`, and `apt` may not provide `python3.11` or `python3.11-venv` directly.
+
+If that happens, do not continue with Python `3.12` for this deployment. Build Python `3.11.5` from source and create the venv from that interpreter instead:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential curl wget git nginx postgresql postgresql-contrib certbot python3-certbot-nginx \
+  libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev \
+  libncurses-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev \
+  libffi-dev liblzma-dev uuid-dev
+
+cd /tmp
+wget https://www.python.org/ftp/python/3.11.5/Python-3.11.5.tgz
+tar -xzf Python-3.11.5.tgz
+cd Python-3.11.5
+./configure --prefix=/opt/python3115 --enable-optimizations
+make -j"$(nproc)"
+sudo make altinstall
+
+/opt/python3115/bin/python3.11 --version
+cd ~/CytoCV
+/opt/python3115/bin/python3.11 -m venv cyto_cv
+source cyto_cv/bin/activate
+python --version
+```
+
 ## 4. Download the Model Weights
 
-The app requires `deepretina_final.h5` under `cytocv/core/weights/`.
+The current deployed runtime expects `deepretina_final.h5` under `cytocv/core/weights/`.
 
 If `gdown` is not already installed in the venv:
 
@@ -114,6 +144,15 @@ Download the weights:
 ```bash
 gdown --fuzzy "https://drive.google.com/file/d/1moUKvWFYQoWg0z63F0JcSd3WaEPa4UY7/view?usp=sharing" -O ~/CytoCV/cytocv/core/weights/deepretina_final.h5
 ls -lh ~/CytoCV/cytocv/core/weights/deepretina_final.h5
+```
+
+Important:
+
+- do not assume that placing the file only under `cytocv/core/mrcnn/weights/` is sufficient
+- the runtime used during the `cytocv2` rollout looked specifically for:
+
+```text
+~/CytoCV/cytocv/core/weights/deepretina_final.h5
 ```
 
 ## 5. Generate Secret Values
@@ -280,6 +319,30 @@ python manage.py check
 
 This is a deployment workaround, not the real long-term repository fix.
 
+### Linux Case-Sensitivity Caveat
+
+The repo also contains a Linux-sensitive import path in `cytocv/core/cell_analysis/`.
+
+Imports currently expect:
+
+```python
+from .analysis import Analysis
+```
+
+That means the file must be named:
+
+```text
+cytocv/core/cell_analysis/analysis.py
+```
+
+If the file is named `Analysis.py`, Windows development may appear to work, but Linux deployment can fail with:
+
+```text
+ModuleNotFoundError: No module named 'core.cell_analysis.analysis'
+```
+
+If that happens on the VM, rename the file to lowercase before retrying the workflow.
+
 ## 10. Smoke Test With Django `runserver`
 
 Before introducing Gunicorn and Nginx, verify that Django boots and can serve requests:
@@ -324,6 +387,11 @@ Once confirmed, stop the manual Gunicorn process with:
 ```bash
 Ctrl+C
 ```
+
+Important:
+
+- do not leave the manual Gunicorn process running before starting the `systemd` service
+- if it is still bound to `0.0.0.0:8000`, the `cytocv` service can fail with `Address already in use`
 
 ## 12. Create the Gunicorn `systemd` Service
 
@@ -401,6 +469,49 @@ Important:
 - do not add a `location /media/ { alias ... }` block here
 - CytoCV serves `/media/...` through Django, not directly through Nginx
 
+### Static Files in Production
+
+If the site loads but favicon or static assets return `404`, configure Django static collection explicitly.
+
+In `cytocv/cytocv/settings.py`, make sure you have:
+
+```python
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+```
+
+Then collect static files:
+
+```bash
+cd ~/CytoCV/cytocv
+source ~/CytoCV/cyto_cv/bin/activate
+python manage.py collectstatic --noinput
+```
+
+Add this block inside the active HTTPS Nginx `server { ... }` block:
+
+```nginx
+location /static/ {
+    alias /home/NETID/ngioanni/CytoCV/cytocv/staticfiles/;
+}
+```
+
+If the browser is also requesting `/favicon.ico`, you may need to serve that explicitly:
+
+```nginx
+location = /favicon.ico {
+    alias /home/NETID/ngioanni/CytoCV/cytocv/staticfiles/favicon.ico;
+}
+```
+
+If Nginx still returns `403` for `/static/...`, inspect filesystem traversal permissions on every parent directory. During the `cytocv2` rollout, the blocking path was:
+
+```text
+/home/NETID/ngioanni
+```
+
+and the fix was to allow directory traversal so Nginx could reach the collected static files.
+
 Enable the site:
 
 ```bash
@@ -436,6 +547,24 @@ Verify:
 
 ```bash
 curl -I https://cytocv.uwb.edu
+```
+
+### Firewall and Certbot Troubleshooting
+
+If Certbot times out while trying to validate `http://<host>/.well-known/acme-challenge/...`, first check whether the VM firewall is blocking HTTP:
+
+```bash
+sudo ufw status
+sudo ufw allow 'Nginx Full'
+sudo ufw status
+```
+
+If UFW is already open and Certbot still times out, the remaining blocker is likely upstream network/firewall policy outside the VM.
+
+If Certbot successfully issues the certificate but fails to install it automatically, make sure the Nginx site has an exact matching `server_name` for the target host, then retry:
+
+```bash
+sudo certbot install --cert-name cytocv.uwb.edu
 ```
 
 ## 15. OAuth and reCAPTCHA Production Values
@@ -548,6 +677,8 @@ Then restart:
 sudo systemctl restart cytocv
 ```
 
+The `cytocv2` redeploy still did not have final SMTP credentials from UW IT. Until those details are provided, email sign-up, verification, and recovery flows should still be treated as incomplete even if the rest of the deployment stack is healthy.
+
 ## 17. Verification Commands
 
 Run these after deployment:
@@ -566,6 +697,8 @@ curl -I http://127.0.0.1:8000
 curl -I http://127.0.0.1
 curl -I http://140.142.158.14
 ```
+
+If you intentionally lock `CYTOCV_ALLOWED_HOSTS` to the production hostname only, raw IP access may correctly fail with `DisallowedHost`. That is expected and safer than allowing the public IP unnecessarily.
 
 ## 18. Known Blocker: TensorFlow and Non-AVX CPUs
 
@@ -594,7 +727,35 @@ lscpu
 
 If `AVX` is absent, the deployment can host the website, but analysis cannot run on that VM. The fix is infrastructure, not Django configuration.
 
-## 19. Recommended Deployment Order Summary
+## 19. Additional Runtime Troubleshooting
+
+### OpenCV Import Fails With `libGL.so.1`
+
+If `python manage.py migrate` or app startup fails with:
+
+```text
+ImportError: libGL.so.1: cannot open shared object file: No such file or directory
+```
+
+install the OpenCV runtime libraries:
+
+```bash
+sudo apt install -y libgl1 libglib2.0-0
+```
+
+Then rerun the Django command.
+
+### Browser Tab Icon Still Missing After Staticfiles Are Working
+
+Even after `collectstatic` and Nginx aliasing are fixed, favicon behavior can still be affected by:
+
+- browser cache
+- requests to `/favicon.ico` instead of the template-linked asset path
+- an icon file that is visually too subtle at favicon size
+
+If the icon asset is correct but still does not appear, test the direct URLs in the browser and consider using a PNG favicon link instead of the ICO file.
+
+## 20. Recommended Deployment Order Summary
 
 Use this order:
 
@@ -615,7 +776,7 @@ Use this order:
 15. Configure reCAPTCHA and OAuth providers
 16. Configure SMTP and tighten email verification when ready
 
-## 20. Post-Deployment Recommendations
+## 21. Post-Deployment Recommendations
 
 After the server is up:
 

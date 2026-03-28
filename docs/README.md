@@ -8,7 +8,7 @@ This directory is the canonical documentation home for CytoCV. The root `README.
 - PDFs in `docs/research/` are derived formal deliverables.
 - Diagrams live in `docs/diagrams/`.
 - Obsolete or superseded material should move to `docs/archive/`.
-- Historical project records that should remain readable but are not part of the active doc system may remain in dedicated subfolders such as `docs/vm-deployment-record/`.
+- Historical project records that should remain readable but are not part of the active doc system may remain in dedicated subfolders such as `docs/vm-deployment-record/` and `docs/vm-deployment-record-cytocv2/`.
 
 ## User Documentation
 
@@ -23,6 +23,7 @@ This directory is the canonical documentation home for CytoCV. The root `README.
 
 - [`developer/architecture-overview.md`](developer/architecture-overview.md)
 - [`developer/codebase-map.md`](developer/codebase-map.md)
+- [`developer/local-installation-and-troubleshooting.md`](developer/local-installation-and-troubleshooting.md)
 - [`developer/request-flows.md`](developer/request-flows.md)
 - [`developer/data-flow-and-artifacts.md`](developer/data-flow-and-artifacts.md)
 - [`developer/extending-analysis.md`](developer/extending-analysis.md)
@@ -61,3 +62,5 @@ Formal PDF deliverables:
 - Diagram catalog: [`diagrams/README.md`](diagrams/README.md)
 - Documentation standards: [`templates/document-style-guide.md`](templates/document-style-guide.md)
 - License: [`license/README.md`](license/README.md)
+- Historical deployment record (first UWB VM): [`vm-deployment-record/README.md`](vm-deployment-record/README.md)
+- Historical deployment record (replacement `cytocv2` VM): [`vm-deployment-record-cytocv2/README.md`](vm-deployment-record-cytocv2/README.md)
