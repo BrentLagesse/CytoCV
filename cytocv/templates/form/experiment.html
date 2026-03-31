@@ -51,20 +51,26 @@
         
         /* Upload list – hidden when empty, auto-grow, custom scrollbar */
         #fileList {
-            display: none;                    /* take no space when empty */
             width: 100%;
             text-align: left;
-            margin-top: 10px;
+            margin-top: 0;
 
             background: transparent;
             border: none;
             border-radius: 8px;
-            padding: 8px;
+            padding: 0 8px;
 
             max-height: min(40vh, 320px);     /* cap height; then scroll */
-            overflow-y: auto;
+            height: 0;
+            overflow: hidden;
             scrollbar-gutter: stable;
             overscroll-behavior: contain;
+            opacity: 0;
+            pointer-events: none;
+            transition:
+                opacity 120ms ease,
+                margin-top 150ms ease,
+                padding 150ms ease;
 
             /* Firefox scrollbar */
             scrollbar-width: auto;
@@ -72,8 +78,21 @@
         }
 
         /* Reveal the list only when it has at least one row */
-        #fileList:has(.file-item) {
-            display: block;
+        #fileList.is-active {
+            height: auto;
+            margin-top: 10px;
+            padding: 8px;
+            opacity: 1;
+            pointer-events: auto;
+            overflow-y: auto;
+        }
+        #fileList.is-resizing {
+            overflow: hidden;
+            transition:
+                height 150ms ease,
+                opacity 120ms ease,
+                margin-top 150ms ease,
+                padding 150ms ease;
         }
 
         .upload-quota-status {
@@ -131,6 +150,17 @@
             margin-top: 8px;
             border-radius: 10px;
             font-size: 13px;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .file-item.is-entering {
+            animation: queueItemFadeIn 120ms ease-out both;
+        }
+        .file-item.is-exiting {
+            opacity: 0;
+            transform: translateY(-2px);
+            transition: opacity 110ms ease, transform 110ms ease;
+            pointer-events: none;
         }
 
         /* Long filenames don't shove the X button */
@@ -153,6 +183,16 @@
         }
         .remove-btn:hover {
             background-color: #c0392b;
+        }
+        @keyframes queueItemFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .buttons-container {
             display: flex;
@@ -1498,6 +1538,14 @@
             .settings-view.anim-exit-backward {
                 animation: none !important;
             }
+            #fileList,
+            #fileList.is-resizing,
+            .file-item.is-exiting {
+                transition: none !important;
+            }
+            .file-item.is-entering {
+                animation: none !important;
+            }
         }
         a {
             background-color: #007bff; /* Full blue background */
@@ -2041,6 +2089,9 @@
     const prefersReducedMotionGlobal = !!(
         window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     );
+    const QUEUE_ROW_FADE_MS = prefersReducedMotionGlobal ? 0 : 110;
+    const QUEUE_PANEL_ANIM_MS = prefersReducedMotionGlobal ? 0 : 150;
+    const QUEUE_PANEL_MAX_HEIGHT_PX = 320;
 
     function clearPopupAnim(backdrop, panel) {
         if (backdrop) {
@@ -2103,7 +2154,7 @@
         setupResetModal();
         setupFileInputs();
         setupUploadSubmit();
-        displayFileQueue();
+        displayFileQueue({ skipAnimation: true });
         window.addEventListener('scroll', refreshInfoTooltipPosition, true);
         window.addEventListener('resize', refreshInfoTooltipPosition);
         document.addEventListener('click', (event) => {
@@ -3985,6 +4036,209 @@
         });
     }
 
+    function getQueuePanelHeightLimit() {
+        return Math.min(window.innerHeight * 0.4, QUEUE_PANEL_MAX_HEIGHT_PX);
+    }
+
+    function getQueueEntries() {
+        const entries = [];
+
+        restoredQueueItems.forEach((item) => {
+            entries.push({
+                key: `restored:${item.uuid}`,
+                label: item.name,
+                remove: () => {
+                    restoredQueueItems = restoredQueueItems.filter((queued) => queued.uuid !== item.uuid);
+                },
+            });
+        });
+
+        selectedFiles.forEach((file, fileName) => {
+            entries.push({
+                key: `selected:${fileName}`,
+                label: file.webkitRelativePath || file.name,
+                remove: () => {
+                    selectedFiles.delete(fileName);
+                },
+            });
+        });
+
+        return entries;
+    }
+
+    function finalizeQueuePanelState(fileList, hasItems) {
+        fileList.classList.remove('is-resizing');
+        fileList.classList.toggle('is-active', hasItems);
+        fileList.style.height = hasItems ? '' : '0px';
+        fileList.style.overflowY = '';
+        fileList.style.opacity = '';
+        fileList.setAttribute('aria-hidden', hasItems ? 'false' : 'true');
+        fileList._queuePanelCleanupTimer = 0;
+        fileList._queuePanelFrame = 0;
+    }
+
+    function clearQueuePanelAnimation(fileList) {
+        if (fileList._queuePanelFrame) {
+            window.cancelAnimationFrame(fileList._queuePanelFrame);
+            fileList._queuePanelFrame = 0;
+        }
+        if (fileList._queuePanelCleanupTimer) {
+            window.clearTimeout(fileList._queuePanelCleanupTimer);
+            fileList._queuePanelCleanupTimer = 0;
+        }
+    }
+
+    function queueNeedsScrollbar(fileList, renderedHeight) {
+        if (!fileList || renderedHeight <= 0) {
+            return false;
+        }
+        return fileList.scrollHeight > renderedHeight + 1;
+    }
+
+    function animateQueuePanelUpdate(fileList, mutateDom) {
+        if (!fileList) {
+            mutateDom();
+            updateUploadQuotaStatus();
+            return;
+        }
+
+        clearQueuePanelAnimation(fileList);
+
+        const startHeight = Math.round(fileList.getBoundingClientRect().height);
+        const startHasItems = fileList.children.length > 0;
+        const startHasScrollbar = queueNeedsScrollbar(fileList, startHeight);
+
+        mutateDom();
+
+        const hasItems = fileList.children.length > 0;
+        fileList.classList.toggle('is-active', hasItems);
+        const targetScrollHeight = fileList.scrollHeight;
+        const targetHeight = hasItems
+            ? Math.min(targetScrollHeight, getQueuePanelHeightLimit())
+            : 0;
+        const targetHasScrollbar = hasItems && targetScrollHeight > targetHeight + 1;
+        const shouldAnimatePanel =
+            QUEUE_PANEL_ANIM_MS > 0 &&
+            (startHeight !== targetHeight || startHasItems !== hasItems || startHasScrollbar !== targetHasScrollbar);
+
+        if (!shouldAnimatePanel) {
+            fileList.style.height = hasItems ? '' : '0px';
+            fileList.style.overflowY = '';
+            fileList.style.opacity = '';
+            finalizeQueuePanelState(fileList, hasItems);
+            updateUploadQuotaStatus();
+            return;
+        }
+
+        fileList.style.height = `${startHeight}px`;
+        fileList.style.overflowY = startHasScrollbar && targetHasScrollbar ? 'auto' : 'hidden';
+        fileList.style.opacity = startHeight > 0 ? '0.94' : '0';
+        fileList.classList.add('is-resizing');
+
+        fileList.offsetHeight;
+        fileList._queuePanelFrame = window.requestAnimationFrame(() => {
+            fileList.classList.toggle('is-active', hasItems);
+            fileList.style.height = `${targetHeight}px`;
+            fileList.style.opacity = hasItems ? '1' : '0';
+        });
+        fileList._queuePanelCleanupTimer = window.setTimeout(() => {
+            finalizeQueuePanelState(fileList, hasItems);
+        }, QUEUE_PANEL_ANIM_MS + 40);
+
+        updateUploadQuotaStatus();
+    }
+
+    function animateQueueRowRemoval(listItem, removeItem) {
+        if (typeof removeItem !== 'function') return;
+        if (!listItem || QUEUE_ROW_FADE_MS === 0) {
+            removeItem();
+            displayFileQueue();
+            return;
+        }
+        if (listItem.dataset.removing === 'true') {
+            return;
+        }
+        listItem.dataset.removing = 'true';
+        listItem.classList.add('is-exiting');
+        window.setTimeout(() => {
+            removeItem();
+            displayFileQueue();
+        }, QUEUE_ROW_FADE_MS);
+    }
+
+    function animateQueueClear(clearQueue) {
+        const fileList = document.getElementById('fileList');
+        if (typeof clearQueue !== 'function') return;
+        if (!fileList || QUEUE_ROW_FADE_MS === 0) {
+            clearQueue();
+            displayFileQueue();
+            return;
+        }
+        const rows = Array.from(fileList.querySelectorAll('.file-item'));
+        if (!rows.length) {
+            clearQueue();
+            displayFileQueue();
+            return;
+        }
+        rows.forEach((row) => row.classList.add('is-exiting'));
+        window.setTimeout(() => {
+            clearQueue();
+            displayFileQueue();
+        }, QUEUE_ROW_FADE_MS);
+    }
+
+    function createQueueRow(entry, enteringKeys) {
+        const listItem = document.createElement('div');
+        listItem.className = 'file-item';
+        listItem.dataset.queueKey = entry.key;
+        if (enteringKeys && enteringKeys.has(entry.key) && !prefersReducedMotionGlobal) {
+            listItem.classList.add('is-entering');
+        }
+
+        const fileNameSpan = document.createElement('span');
+        fileNameSpan.textContent = entry.label;
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.textContent = 'X';
+        removeButton.className = 'remove-btn';
+        removeButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            animateQueueRowRemoval(listItem, entry.remove);
+        });
+
+        listItem.appendChild(fileNameSpan);
+        listItem.appendChild(removeButton);
+        return listItem;
+    }
+
+    function displayFileQueue(options = {}) {
+        const { enteringKeys = new Set(), skipAnimation = false } = options;
+        const fileList = document.getElementById('fileList');
+        if (!fileList) {
+            updateUploadQuotaStatus();
+            return;
+        }
+
+        const renderQueueRows = () => {
+            fileList.innerHTML = '';
+            getQueueEntries().forEach((entry) => {
+                fileList.appendChild(createQueueRow(entry, enteringKeys));
+            });
+        };
+
+        if (skipAnimation) {
+            clearQueuePanelAnimation(fileList);
+            renderQueueRows();
+            finalizeQueuePanelState(fileList, fileList.children.length > 0);
+            updateUploadQuotaStatus();
+            return;
+        }
+
+        animateQueuePanelUpdate(fileList, renderQueueRows);
+    }
+
     function setupResetModal() {
         const clearQueueButton = document.getElementById('clearQueueButton');
         const resetBackdrop = document.getElementById('resetBackdrop');
@@ -4009,9 +4263,10 @@
         }
         if (resetConfirm) {
             resetConfirm.addEventListener('click', () => {
-                selectedFiles.clear();
-                restoredQueueItems = [];
-                displayFileQueue();
+                animateQueueClear(() => {
+                    selectedFiles.clear();
+                    restoredQueueItems = [];
+                });
                 closeResetModal();
             });
         }
@@ -4030,53 +4285,6 @@
                 closeResetModal();
             }
         });
-    }
-
-    function displayFileQueue() {
-        const fileList = document.getElementById('fileList');
-        fileList.innerHTML = '';
-
-        restoredQueueItems.forEach((item) => {
-            const listItem = document.createElement('div');
-            listItem.className = 'file-item';
-
-            const fileNameSpan = document.createElement('span');
-            fileNameSpan.textContent = item.name;
-
-            const removeButton = document.createElement('button');
-            removeButton.textContent = 'X';
-            removeButton.className = 'remove-btn';
-            removeButton.onclick = () => {
-                restoredQueueItems = restoredQueueItems.filter((queued) => queued.uuid !== item.uuid);
-                displayFileQueue();
-            };
-
-            listItem.appendChild(fileNameSpan);
-            listItem.appendChild(removeButton);
-            fileList.appendChild(listItem);
-        });
-
-        selectedFiles.forEach((file, fileName) => {
-            const listItem = document.createElement('div');
-            listItem.className = 'file-item';
-
-            const fileNameSpan = document.createElement('span');
-            fileNameSpan.textContent = file.webkitRelativePath || file.name;
-
-            const removeButton = document.createElement('button');
-            removeButton.textContent = 'X';
-            removeButton.className = 'remove-btn';
-            removeButton.onclick = () => {
-                selectedFiles.delete(fileName);
-                displayFileQueue();
-            };
-
-            listItem.appendChild(fileNameSpan);
-            listItem.appendChild(removeButton);
-            fileList.appendChild(listItem);
-        });
-
-        updateUploadQuotaStatus();
     }
 
     function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
@@ -4195,8 +4403,10 @@
             }
         }
 
+        const enteringKeys = new Set();
         filesToAdd.forEach(([fileName, file]) => {
             selectedFiles.set(fileName, file);
+            enteringKeys.add(`selected:${fileName}`);
         });
 
         if (!isFolderSelection) {
@@ -4228,7 +4438,9 @@
             }
         }
 
-        displayFileQueue();
+        if (enteringKeys.size > 0) {
+            displayFileQueue({ enteringKeys });
+        }
 
         // Clear the input value to allow re-adding the same file
         event.target.value = '';
