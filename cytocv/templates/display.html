@@ -1018,6 +1018,34 @@
         .ui-blend-text-overlay.is-exiting {
             opacity: 0;
         }
+        .ui-blend-text-target {
+            position: relative;
+            min-width: 0;
+        }
+        .ui-blend-text-target.is-pre-blend-text {
+            opacity: 0;
+            transition: opacity var(--ui-blend-duration, 0.17s) ease;
+        }
+        .ui-blend-text-target::after {
+            content: attr(data-blend-old);
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--ui-blend-duration, 0.17s) ease;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+            letter-spacing: inherit;
+            white-space: inherit;
+            text-align: inherit;
+        }
+        .ui-blend-text-target[data-blend-old]::after {
+            opacity: 1;
+        }
+        .ui-blend-text-target.is-exiting-old::after {
+            opacity: 0;
+        }
         .top-stage-title {
             margin: 0;
             font-size: 26px;
@@ -1258,6 +1286,12 @@
             color: #fff;
             font-weight: 600;
             text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1;
+        }
+        #cellID {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1;
         }
         .navigation-buttons {
             margin-top: 16px;
@@ -1843,7 +1877,8 @@
                 element._uiBlendTextOverlay.remove();
                 element._uiBlendTextOverlay = null;
             }
-            element.classList.remove('is-pre-blend-text', 'is-pre-blend-image');
+            element.classList.remove('is-pre-blend-text', 'is-pre-blend-image', 'is-exiting-old');
+            element.removeAttribute('data-blend-old');
         }
 
         function stripOverlayIds(node) {
@@ -1970,23 +2005,25 @@
                 return null;
             }
 
-            if (!element._uiBlendCurrent) {
-                const computed = window.getComputedStyle(element);
-                const currentNode = document.createElement('span');
-                currentNode.className = 'ui-blend-current';
-                currentNode.textContent = element.textContent || '';
-
-                element.textContent = '';
-                element.classList.add('ui-blend-text-host');
-                element.style.setProperty('--ui-blend-duration', `${duration}ms`);
-                element.style.display = ['block', 'grid', 'flex'].includes(computed.display) ? 'grid' : 'inline-grid';
-                element.appendChild(currentNode);
-                element._uiBlendCurrent = currentNode;
-            } else {
-                element.style.setProperty('--ui-blend-duration', `${duration}ms`);
+            if (element._uiBlendCurrent) {
+                element.textContent = element._uiBlendCurrent.textContent || element.textContent || '';
+                element._uiBlendCurrent = null;
             }
 
-            return element._uiBlendCurrent;
+            const computed = window.getComputedStyle(element);
+            element.classList.add('ui-blend-text-target');
+            element.style.setProperty('--ui-blend-duration', `${duration}ms`);
+            if (!element.dataset.uiBlendPrepared) {
+                if (computed.display === 'inline') {
+                    element.style.display = 'inline-block';
+                    element.style.verticalAlign = computed.verticalAlign || 'baseline';
+                } else if (computed.display !== 'none') {
+                    element.style.display = computed.display;
+                }
+                element.dataset.uiBlendPrepared = '1';
+            }
+
+            return element;
         }
 
         function setTextWithBlend(element, nextText, { duration = FILE_BLEND_TEXT_MS, blend = true } = {}) {
@@ -1994,45 +2031,36 @@
                 return Promise.resolve();
             }
 
-            const currentNode = prepareTextBlendElement(element, duration);
+            const target = prepareTextBlendElement(element, duration);
             const normalized = String(nextText ?? '');
-            if ((currentNode.textContent || '') === normalized) {
+            if ((target.textContent || '') === normalized) {
                 return Promise.resolve();
             }
 
-            clearElementBlend(element);
+            clearElementBlend(target);
 
             const shouldBlend = blend && !REDUCED_MOTION && hasInitializedDisplayFile;
             if (!shouldBlend) {
-                currentNode.textContent = normalized;
+                target.textContent = normalized;
                 return Promise.resolve();
             }
 
-            const overlay = document.createElement('span');
-            overlay.className = 'ui-blend-text-overlay';
-            overlay.setAttribute('aria-hidden', 'true');
-            overlay.textContent = currentNode.textContent || '';
-            element.appendChild(overlay);
-            element._uiBlendTextOverlay = overlay;
-
-            currentNode.textContent = normalized;
-            element.classList.add('is-pre-blend-text');
+            target.setAttribute('data-blend-old', target.textContent || '');
+            target.textContent = normalized;
+            target.classList.add('is-pre-blend-text');
 
             return new Promise((resolve) => {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
-                        overlay.classList.add('is-exiting');
-                        element.classList.remove('is-pre-blend-text');
+                        target.classList.add('is-exiting-old');
+                        target.classList.remove('is-pre-blend-text');
                     });
                 });
 
-                element._uiBlendTimer = window.setTimeout(() => {
-                    if (element._uiBlendTextOverlay === overlay) {
-                        overlay.remove();
-                        element._uiBlendTextOverlay = null;
-                    }
-                    element._uiBlendTimer = null;
-                    element.classList.remove('is-pre-blend-text');
+                target._uiBlendTimer = window.setTimeout(() => {
+                    target.removeAttribute('data-blend-old');
+                    target._uiBlendTimer = null;
+                    target.classList.remove('is-pre-blend-text', 'is-exiting-old');
                     resolve();
                 }, duration + 55);
             });
