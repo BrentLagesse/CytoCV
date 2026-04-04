@@ -65,6 +65,13 @@ class CustomUserManager(BaseUserManager):
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     """User model with storage and processing quota tracking."""
 
+    class QuotaOverrideMode(models.TextChoices):
+        """Available admin override strategies for effective storage quota."""
+
+        DEFAULT = "default", "Use policy default"
+        BONUS = "bonus", "Add bonus"
+        FIXED = "fixed", "Use fixed quota"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # Email is the unique identifier for authentication.
     email = models.EmailField(unique=True)
@@ -73,9 +80,18 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(default=timezone.now)
-    total_storage = models.PositiveIntegerField(default=1024 * 1024 * 1024)  # 1 GB
-    available_storage = models.IntegerField(default=1024 * 1024 * 1024)  # 1 GB
-    used_storage = models.IntegerField(default=0)
+    total_storage = models.PositiveBigIntegerField(default=0)
+    available_storage = models.PositiveBigIntegerField(default=0)
+    used_storage = models.PositiveBigIntegerField(default=0)
+    quota_override_mode = models.CharField(
+        max_length=16,
+        choices=QuotaOverrideMode.choices,
+        default=QuotaOverrideMode.DEFAULT,
+    )
+    quota_override_bytes = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+    )
     processing_used = models.FloatField(default=0)  # in seconds
     config = models.JSONField(default=default_process_config)
 
@@ -88,4 +104,3 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self) -> str:
         """Return the primary identifier for display."""
         return self.email
-

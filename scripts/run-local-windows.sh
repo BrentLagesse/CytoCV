@@ -97,6 +97,24 @@ validate_local_setup() {
     fi
 }
 
+require_applied_migrations() {
+    local repo_root="$1"
+    local venv_python
+
+    venv_python="$(resolve_venv_python "${repo_root}" || true)"
+    [[ -n "${venv_python}" ]] || fail "Local virtual environment is missing. Expected one of: ${VENV_CANDIDATES[*]}."
+
+    local migration_plan
+    migration_plan="$(
+        cd "${repo_root}/cytocv" &&
+        "${venv_python}" manage.py migrate --plan 2>&1
+    )" || fail "Could not inspect Django migrations. ${migration_plan}"
+
+    if grep -Eq '^\s{2}Apply ' <<<"${migration_plan}"; then
+        fail "Unapplied Django migrations detected. Run '${venv_python} ${repo_root}/cytocv/manage.py migrate' before starting the local server."
+    fi
+}
+
 main() {
     local repo_root venv_python django_dir
 
@@ -110,6 +128,7 @@ main() {
     django_dir="${repo_root}/cytocv"
 
     validate_local_setup "${repo_root}"
+    require_applied_migrations "${repo_root}"
 
     log "Discovered repo root: ${repo_root}"
     log "Using Python: ${venv_python}"

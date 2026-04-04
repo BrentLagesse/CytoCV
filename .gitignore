@@ -15,7 +15,8 @@ deepretina_final.h5
 # Migrations and cache
 cytocv/core/migrations/*
 !cytocv/core/migrations/0007_uploadedimage_scale_info.py
-cytocv/accounts/migrations/
+cytocv/accounts/migrations/*
+!cytocv/accounts/migrations/0005_customuser_quota_policy.py
 cytocv/cache/
 cytocv/media/
 

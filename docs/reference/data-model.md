@@ -23,6 +23,8 @@ Important fields:
 - `total_storage`
 - `available_storage`
 - `used_storage`
+- `quota_override_mode`
+- `quota_override_bytes`
 - `processing_used`
 - `config`
 

@@ -9,3 +9,8 @@ class AccountsConfig(AppConfig):
     """Accounts app configuration."""
 
     name = "accounts"
+
+    def ready(self) -> None:
+        """Register account-related signal handlers."""
+
+        import accounts.signals  # noqa: F401
