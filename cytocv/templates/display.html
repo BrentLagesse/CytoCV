@@ -157,23 +157,30 @@
             border-radius: 12px;
             border: 1px solid var(--panel-border);
             cursor: pointer;
-            transition: background-color 0.08s ease;
+            transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
             font-size: 14px;
             position: relative;
             display: grid;
             gap: 4px;
         }
         .file-item:hover { background-color: #3399ff; }
-        .file-item.active { background-color: #007bff; color: #fff; }
+        .file-item.active {
+            background-color: #007bff;
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(0, 123, 255, 0.18);
+            border-color: rgba(90, 170, 255, 0.78);
+        }
         .file-item.active:hover { background-color: #0056b3; }
         .file-title {
             padding-right: 58px;
             font-weight: 600;
             word-break: break-word;
+            transition: color 0.12s ease;
         }
         .file-meta {
             color: var(--muted);
             font-size: 11px;
+            transition: color 0.12s ease;
         }
         .file-item.active .file-meta {
             color: #d5e8ff;
@@ -189,7 +196,7 @@
             max-height: 80px;
             overflow: hidden;
             transform: translateY(0);
-            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease, color 0.12s ease;
         }
         .file-item.active .file-scale-line {
             color: #e5f0ff;
@@ -203,6 +210,7 @@
             font-size: 10px;
             font-weight: 700;
             letter-spacing: 0.02em;
+            transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
         }
         .file-scale-source.warning {
             border-color: rgba(193, 147, 51, 0.72);
@@ -217,7 +225,7 @@
             max-height: 48px;
             overflow: hidden;
             transform: translateY(0);
-            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease, color 0.12s ease;
         }
         .file-item.active .file-scale-note {
             color: #ffe2a8;
@@ -968,6 +976,76 @@
             display: grid;
             gap: 6px;
         }
+        .blend-host-anchor {
+            position: relative !important;
+        }
+        .ui-blend-overlay {
+            position: absolute;
+            pointer-events: none;
+            opacity: 1;
+            z-index: 2;
+            transition: opacity var(--ui-blend-duration, 0.17s) ease;
+            margin: 0 !important;
+        }
+        .ui-blend-overlay.is-exiting {
+            opacity: 0;
+        }
+        .is-pre-blend-text {
+            opacity: 1;
+        }
+        .is-pre-blend-image {
+            opacity: 0.16;
+        }
+        .ui-blend-text-host {
+            position: relative;
+        }
+        .ui-blend-text-host > .ui-blend-current,
+        .ui-blend-text-host > .ui-blend-text-overlay {
+            grid-area: 1 / 1;
+            min-width: 0;
+        }
+        .ui-blend-text-host > .ui-blend-current {
+            opacity: 1;
+        }
+        .ui-blend-text-host.is-pre-blend-text > .ui-blend-current {
+            opacity: 1;
+        }
+        .ui-blend-text-overlay {
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity var(--ui-blend-duration, 0.17s) ease;
+        }
+        .ui-blend-text-overlay.is-exiting {
+            opacity: 0;
+        }
+        .ui-blend-text-target {
+            position: relative;
+            min-width: 0;
+        }
+        .ui-blend-text-target.is-pre-blend-text {
+            opacity: 0;
+            transition: opacity var(--ui-blend-duration, 0.17s) ease;
+        }
+        .ui-blend-text-target::after {
+            content: attr(data-blend-old);
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--ui-blend-duration, 0.17s) ease;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+            letter-spacing: inherit;
+            white-space: inherit;
+            text-align: inherit;
+        }
+        .ui-blend-text-target[data-blend-old]::after {
+            opacity: 1;
+        }
+        .ui-blend-text-target.is-exiting-old::after {
+            opacity: 0;
+        }
         .top-stage-title {
             margin: 0;
             font-size: 26px;
@@ -1142,6 +1220,16 @@
             border: 1px solid rgba(var(--glass-border-rgb), 0.24);
             background: rgba(10, 15, 22, 0.76);
         }
+        #imageTitle,
+        #fileContextMetaLine,
+        #fileContextScaleLine,
+        #cellID,
+        .metric-value,
+        .main-image,
+        .cell-image {
+            transition: opacity 0.17s ease;
+            will-change: opacity;
+        }
         .cell-stats-strip {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1198,6 +1286,12 @@
             color: #fff;
             font-weight: 600;
             text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1;
+        }
+        #cellID {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1;
         }
         .navigation-buttons {
             margin-top: 16px;
@@ -1312,6 +1406,25 @@
         }
         .export-buttons .export_btn {
             min-width: 170px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .file-item,
+            .file-title,
+            .file-meta,
+            .file-scale-line,
+            .file-scale-source,
+            .file-scale-note,
+            .ui-blend-overlay,
+            #imageTitle,
+            #fileContextMetaLine,
+            #fileContextScaleLine,
+            #cellID,
+            .metric-value,
+            .main-image,
+            .cell-image {
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+            }
         }
         @media (max-width: 1240px) {
             .page-container {
@@ -1726,37 +1839,420 @@
                 '<text x="50%" y="58%" fill="#6f859d" font-size="12" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">Check channel mapping and rerun segmentation</text>' +
                 '</svg>'
             );
+        const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const FILE_BLEND_TEXT_MS = 170;
+        const FILE_BLEND_IMAGE_MS = 190;
+        const BLEND_METRIC_IDS = [
+            'distance',
+            'lineGFPIntensity',
+            'greenredIntensity1',
+            'greenredIntensity2',
+            'greenredIntensity3',
+            'nucleusIntensitySum',
+            'cellularIntensitySum',
+            'cytoplasmicIntensity',
+            'gfpDot',
+            'biorientation',
+            'nucleusContourChannel',
+            'measurementChannel',
+            'nuclearStatus',
+        ];
+        let activeFileLoadToken = 0;
+        let activeCellRenderToken = 0;
+        let hasInitializedDisplayFile = false;
 
-        window.onload = function () {
+        function clearElementBlend(element) {
+            if (!element) {
+                return;
+            }
+            if (element._uiBlendTimer) {
+                clearTimeout(element._uiBlendTimer);
+                element._uiBlendTimer = null;
+            }
+            if (element._uiBlendOverlay) {
+                element._uiBlendOverlay.remove();
+                element._uiBlendOverlay = null;
+            }
+            if (element._uiBlendTextOverlay) {
+                element._uiBlendTextOverlay.remove();
+                element._uiBlendTextOverlay = null;
+            }
+            element.classList.remove('is-pre-blend-text', 'is-pre-blend-image', 'is-exiting-old');
+            element.removeAttribute('data-blend-old');
+        }
+
+        function stripOverlayIds(node) {
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+            if (node.id) {
+                node.removeAttribute('id');
+            }
+            node.querySelectorAll('[id]').forEach((child) => child.removeAttribute('id'));
+        }
+
+        function createBlendOverlay(element, durationMs) {
+            if (!element) {
+                return null;
+            }
+            const rect = element.getBoundingClientRect();
+            if (!rect.width || !rect.height) {
+                return null;
+            }
+
+            const overlay = element.cloneNode(true);
+            stripOverlayIds(overlay);
+            overlay.classList.add('ui-blend-overlay');
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.style.position = 'fixed';
+            overlay.style.left = `${rect.left}px`;
+            overlay.style.top = `${rect.top}px`;
+            overlay.style.width = `${rect.width}px`;
+            overlay.style.height = `${rect.height}px`;
+            overlay.style.margin = '0';
+            overlay.style.setProperty('--ui-blend-duration', `${durationMs}ms`);
+            return overlay;
+        }
+
+        function createTextBlendOverlay(element, durationMs) {
+            if (!element || !element.parentElement) {
+                return null;
+            }
+
+            const anchor = element.parentElement;
+            const rect = element.getBoundingClientRect();
+            const anchorRect = anchor.getBoundingClientRect();
+            if (!rect.width || !rect.height) {
+                return null;
+            }
+
+            anchor.classList.add('blend-host-anchor');
+
+            const overlay = element.cloneNode(true);
+            const computed = window.getComputedStyle(element);
+            stripOverlayIds(overlay);
+            overlay.classList.add('ui-blend-overlay');
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.style.position = 'absolute';
+            overlay.style.left = `${rect.left - anchorRect.left + anchor.scrollLeft}px`;
+            overlay.style.top = `${rect.top - anchorRect.top + anchor.scrollTop}px`;
+            overlay.style.width = `${rect.width}px`;
+            overlay.style.height = `${rect.height}px`;
+            overlay.style.display = computed.display === 'inline' ? 'block' : computed.display;
+            overlay.style.lineHeight = computed.lineHeight;
+            overlay.style.whiteSpace = computed.whiteSpace;
+            overlay.style.margin = '0';
+            overlay.style.setProperty('--ui-blend-duration', `${durationMs}ms`);
+
+            return {
+                overlay,
+                mountTarget: anchor,
+            };
+        }
+
+        function runBlendTransition(element, applyUpdate, { duration = FILE_BLEND_TEXT_MS, type = 'text', blend = true } = {}) {
+            if (!element) {
+                applyUpdate();
+                return Promise.resolve();
+            }
+
+            clearElementBlend(element);
+
+            const shouldBlend = blend && !REDUCED_MOTION && hasInitializedDisplayFile;
+            const overlayConfig = shouldBlend
+                ? (type === 'text'
+                    ? createTextBlendOverlay(element, duration)
+                    : { overlay: createBlendOverlay(element, duration), mountTarget: document.body })
+                : null;
+
+            const preBlendClass = type === 'image' ? 'is-pre-blend-image' : 'is-pre-blend-text';
+            if (overlayConfig?.overlay) {
+                element.classList.add(preBlendClass);
+            }
+            applyUpdate();
+
+            if (!overlayConfig?.overlay) {
+                element.classList.remove(preBlendClass);
+                return Promise.resolve();
+            }
+
+            const { overlay, mountTarget } = overlayConfig;
+            mountTarget.appendChild(overlay);
+            element._uiBlendOverlay = overlay;
+
+            return new Promise((resolve) => {
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                        overlay.classList.add('is-exiting');
+                        element.classList.remove(preBlendClass);
+                    });
+                });
+
+                element._uiBlendTimer = window.setTimeout(() => {
+                    if (element._uiBlendOverlay === overlay) {
+                        overlay.remove();
+                        element._uiBlendOverlay = null;
+                    }
+                    element._uiBlendTimer = null;
+                    element.classList.remove(preBlendClass);
+                    resolve();
+                }, duration + 55);
+            });
+        }
+
+        function prepareTextBlendElement(element, duration = FILE_BLEND_TEXT_MS) {
+            if (!element) {
+                return null;
+            }
+
+            if (element._uiBlendCurrent) {
+                element.textContent = element._uiBlendCurrent.textContent || element.textContent || '';
+                element._uiBlendCurrent = null;
+            }
+
+            const computed = window.getComputedStyle(element);
+            element.classList.add('ui-blend-text-target');
+            element.style.setProperty('--ui-blend-duration', `${duration}ms`);
+            if (!element.dataset.uiBlendPrepared) {
+                if (computed.display === 'inline') {
+                    element.style.display = 'inline-block';
+                    element.style.verticalAlign = computed.verticalAlign || 'baseline';
+                } else if (computed.display !== 'none') {
+                    element.style.display = computed.display;
+                }
+                element.dataset.uiBlendPrepared = '1';
+            }
+
+            return element;
+        }
+
+        function setTextWithBlend(element, nextText, { duration = FILE_BLEND_TEXT_MS, blend = true } = {}) {
+            if (!element) {
+                return Promise.resolve();
+            }
+
+            const target = prepareTextBlendElement(element, duration);
+            const normalized = String(nextText ?? '');
+            if ((target.textContent || '') === normalized) {
+                return Promise.resolve();
+            }
+
+            clearElementBlend(target);
+
+            const shouldBlend = blend && !REDUCED_MOTION && hasInitializedDisplayFile;
+            if (!shouldBlend) {
+                target.textContent = normalized;
+                return Promise.resolve();
+            }
+
+            target.setAttribute('data-blend-old', target.textContent || '');
+            target.textContent = normalized;
+            target.classList.add('is-pre-blend-text');
+
+            return new Promise((resolve) => {
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                        target.classList.add('is-exiting-old');
+                        target.classList.remove('is-pre-blend-text');
+                    });
+                });
+
+                target._uiBlendTimer = window.setTimeout(() => {
+                    target.removeAttribute('data-blend-old');
+                    target._uiBlendTimer = null;
+                    target.classList.remove('is-pre-blend-text', 'is-exiting-old');
+                    resolve();
+                }, duration + 55);
+            });
+        }
+
+        function setImageWithBlend(element, nextSrc, { duration = FILE_BLEND_IMAGE_MS, blend = true } = {}) {
+            if (!element) {
+                return Promise.resolve();
+            }
+            const normalized = nextSrc || noCellPlaceholder;
+            if ((element.getAttribute('src') || '') === normalized) {
+                return Promise.resolve();
+            }
+            return runBlendTransition(
+                element,
+                () => {
+                    element.src = normalized;
+                },
+                { duration, type: 'image', blend },
+            );
+        }
+
+        function getContourToggleState(forceShowContours = null) {
+            if (forceShowContours !== null) {
+                return !!forceShowContours;
+            }
+            const toggleElement = document.getElementById('toggleContours');
+            return !!(toggleElement && toggleElement.checked);
+        }
+
+        function getVisibleCellImageUrls(imageUrls, showContours = getContourToggleState()) {
+            if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+                return [noCellPlaceholder, noCellPlaceholder, noCellPlaceholder, noCellPlaceholder];
+            }
+            const indices = showContours ? [0, 2, 4, 6] : [1, 3, 5, 7];
+            return indices.map((index) => imageUrls[index] || noCellPlaceholder);
+        }
+
+        function getCellDisplayState(cellPairImages, statistics, { showContours = getContourToggleState(), cellNumber = currentCellNumber } = {}) {
+            const safeCellPairImages = cellPairImages || {};
+            const safeStatistics = statistics || {};
+            const imageUrls = safeCellPairImages[cellNumber] || safeCellPairImages[String(cellNumber)] || null;
+            const visibleImageUrls = getVisibleCellImageUrls(imageUrls, showContours);
+            const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
+            const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
+            const categoryIndex = cellStats ? Number(cellStats.category_GFP_dot) - 1 : -1;
+            const category = categoryIndex >= 0 && categoryIndex < categories.length
+                ? categories[categoryIndex]
+                : 'N/A';
+            const nuclearUnavailable = hasNoNucleusContour(cellStats);
+            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            const labels = getNuclearLabelPair(mode);
+
+            return {
+                visibleImageUrls,
+                cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
+                metricValues: {
+                    distance: formatStatValue(cellStats ? cellStats.distance : null),
+                    lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),
+                    greenredIntensity1: formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null),
+                    greenredIntensity2: formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null),
+                    greenredIntensity3: formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null),
+                    nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
+                    cellularIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cellular_intensity_sum),
+                    cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
+                    gfpDot: category,
+                    biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),
+                    nucleusContourChannel: cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour,
+                    measurementChannel: cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement,
+                    nuclearStatus: cellStats ? (cellStats.nuclear_cellular_status || 'unknown') : 'N/A',
+                },
+                labels: {
+                    nucleusIntensityLabel: labels.nuclear,
+                    cellularIntensityLabel: labels.cellular,
+                },
+            };
+        }
+
+        function renderCellDisplayState(state, { blendImages = false, blendText = false } = {}) {
+            if (!state) {
+                return Promise.resolve();
+            }
+
+            document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
+            document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
+
+            const imageIds = ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'];
+            const imageUpdates = imageIds.map((id, index) =>
+                setImageWithBlend(document.getElementById(id), state.visibleImageUrls[index], {
+                    duration: FILE_BLEND_IMAGE_MS,
+                    blend: blendImages,
+                })
+            );
+
+            const textUpdates = [
+                setTextWithBlend(document.getElementById('cellID'), state.cellId, { blend: blendText }),
+                ...BLEND_METRIC_IDS.map((metricId) =>
+                    setTextWithBlend(document.getElementById(metricId), state.metricValues[metricId] ?? 'N/A', { blend: blendText })
+                ),
+            ];
+
+            return Promise.all([...imageUpdates, ...textUpdates]);
+        }
+
+        window.onload = async function () {
             syncFileNavigationState();
-            loadFile(currentFileIndex);
+            await loadFile(currentFileIndex);
             toggleContourOverlays();
         };
 
-        function loadFile(fileIndex) {
-            const fileUUID = fileUUIDs[fileIndex];
-            const fileData = filesData[fileUUID];
-            document.getElementById("mainImage").src = fileData.MainImagePath;
-            document.getElementById("imageTitle").textContent = fileData.Image_Name;
-            updateFileContextSummary(fileUUID, fileData);
-            for (const channel of channels) {
-                let form = channel + '_form';
-                document.getElementById(form).action = `/experiment/${fileUUID}/display/`;
+        async function loadFile(fileIndex) {
+            const normalizedIndex = Number(fileIndex);
+            if (Number.isNaN(normalizedIndex) || normalizedIndex < 0 || normalizedIndex >= fileUUIDs.length) {
+                return false;
             }
-            maxCells = Number(fileData.NumberOfCells);
+
+            const fileUUID = fileUUIDs[normalizedIndex];
+            const fileData = filesData[fileUUID];
+            if (!fileData) {
+                return false;
+            }
+
+            const requestToken = ++activeFileLoadToken;
+            currentFileIndex = normalizedIndex;
+            maxCells = Number(fileData.NumberOfCells || 0);
+            if (!Number.isFinite(maxCells) || maxCells < 0) {
+                maxCells = 0;
+            }
             currentCellNumber = 1;
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-            applyContourToggleState();
+
+            const mainImagePath = fileData.MainImagePath || noCellPlaceholder;
+            const showContours = getContourToggleState();
+            const initialCellState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
+                showContours,
+                cellNumber: currentCellNumber,
+            });
+
+            if (hasInitializedDisplayFile) {
+                await Promise.all([
+                    preloadImage(mainImagePath),
+                    preloadImageSet(initialCellState.visibleImageUrls),
+                ]);
+                if (requestToken !== activeFileLoadToken) {
+                    return false;
+                }
+            }
+
+            for (const channel of channels) {
+                const form = `${channel}_form`;
+                const formElement = document.getElementById(form);
+                if (formElement) {
+                    formElement.action = `/experiment/${fileUUID}/display/`;
+                }
+            }
+
+            await Promise.all([
+                setImageWithBlend(document.getElementById('mainImage'), mainImagePath, {
+                    duration: FILE_BLEND_IMAGE_MS,
+                    blend: hasInitializedDisplayFile,
+                }),
+                setTextWithBlend(document.getElementById('imageTitle'), fileData.Image_Name || '', {
+                    duration: FILE_BLEND_TEXT_MS,
+                    blend: hasInitializedDisplayFile,
+                }),
+                updateFileContextSummary(fileUUID, fileData, { blend: hasInitializedDisplayFile }),
+                updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                    blendImages: hasInitializedDisplayFile,
+                    blendText: hasInitializedDisplayFile,
+                    forceShowContours: showContours,
+                    preload: false,
+                    fileToken: requestToken,
+                }),
+            ]);
+
+            if (requestToken !== activeFileLoadToken) {
+                return false;
+            }
+
             if (fileData.NoCellsWarning) {
                 showChannelError(fileData.NoCellsWarning);
             }
             updateTableState(fileUUID, fileData);
             updateSidebarActive();
             syncFileNavigationState();
-            const inferred = inferChannelFromMainImage(fileData.MainImagePath);
+
+            const inferred = inferChannelFromMainImage(mainImagePath);
             if (inferred) {
                 setActiveChannel(inferred);
             }
+
+            hasInitializedDisplayFile = true;
+            return true;
         }
 
         function updateFileContextSummary(fileUUID, fileData) {
@@ -1780,6 +2276,31 @@
             } else {
                 scaleLine.textContent = 'Scale metadata unavailable.';
             }
+        }
+
+        function updateFileContextSummary(fileUUID, fileData, { blend = false } = {}) {
+            const metaLine = document.getElementById('fileContextMetaLine');
+            const scaleLine = document.getElementById('fileContextScaleLine');
+            if (!metaLine || !scaleLine) {
+                return Promise.resolve();
+            }
+
+            const fileItem = Array.from(document.querySelectorAll('.file-item')).find(
+                (item) => item.dataset.uuid === fileUUID
+            );
+            const metaText = fileItem?.querySelector('.file-meta')?.textContent?.trim() || '';
+            const scaleValue = fileItem?.querySelector('.file-scale-line span:first-child')?.textContent?.trim() || '';
+            const scaleSource = fileItem?.querySelector('.file-scale-source')?.textContent?.trim() || '';
+            const cellsFallback = Number(fileData?.NumberOfCells || 0);
+            const nextMetaText = metaText || `${cellsFallback} cells`;
+            const nextScaleText = (scaleValue || scaleSource)
+                ? (scaleSource ? `${scaleValue} · ${scaleSource}` : scaleValue)
+                : 'Scale metadata unavailable.';
+
+            return Promise.all([
+                setTextWithBlend(metaLine, nextMetaText, { blend }),
+                setTextWithBlend(scaleLine, nextScaleText, { blend }),
+            ]);
         }
 
         function ensureChannelMessageContainer() {
@@ -1824,6 +2345,45 @@
             });
         }
 
+        function preloadImage(url) {
+            return new Promise((resolve) => {
+                if (!url) {
+                    resolve(url);
+                    return;
+                }
+
+                const img = new Image();
+                let settled = false;
+                const finish = () => {
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    resolve(url);
+                };
+
+                img.onload = finish;
+                img.onerror = finish;
+                img.src = url;
+
+                if (typeof img.decode === 'function') {
+                    img.decode().then(finish).catch(finish);
+                }
+
+                if (img.complete) {
+                    finish();
+                }
+            });
+        }
+
+        function preloadImageSet(urls) {
+            const uniqueUrls = [...new Set((urls || []).filter(Boolean))];
+            if (!uniqueUrls.length) {
+                return Promise.resolve();
+            }
+            return Promise.all(uniqueUrls.map((url) => preloadImage(url)));
+        }
+
         async function switchMainChannel(channel) {
             const mainImage = document.getElementById('mainImage');
             if (!mainImage) return;
@@ -1847,6 +2407,39 @@
                     return;
                 }
                 mainImage.src = data.image_url;
+                setActiveChannel(channel);
+            } catch (error) {
+                if (error && error.name === 'AbortError') return;
+                showChannelError('Unable to load that channel image. Please try again.');
+            }
+        }
+
+        async function switchMainChannel(channel) {
+            const mainImage = document.getElementById('mainImage');
+            if (!mainImage) return;
+            const fileUUID = fileUUIDs[currentFileIndex];
+            if (!fileUUID) return;
+            const requestId = ++activeChannelRequest;
+            try {
+                const response = await fetch(`/experiment/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    throw new Error(`Channel request failed (${response.status})`);
+                }
+                const data = await response.json();
+                if (!data || !data.image_url) {
+                    throw new Error('Missing image URL');
+                }
+                await preloadImage(data.image_url);
+                if (requestId !== activeChannelRequest) {
+                    return;
+                }
+                await setImageWithBlend(mainImage, data.image_url, {
+                    duration: FILE_BLEND_IMAGE_MS,
+                    blend: hasInitializedDisplayFile,
+                });
                 setActiveChannel(channel);
             } catch (error) {
                 if (error && error.name === 'AbortError') return;
@@ -2183,6 +2776,106 @@
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             updateCellImages(fileData.CellPairImages, fileData.Statistics);
             applyContourToggleState();
+        }
+
+        async function updateCellImages(cellPairImages, statistics, options = {}) {
+            const renderToken = ++activeCellRenderToken;
+            const blendImages = !!options.blendImages;
+            const blendText = !!options.blendText;
+            const showContours = getContourToggleState(options.forceShowContours ?? null);
+            const state = getCellDisplayState(cellPairImages, statistics, {
+                showContours,
+                cellNumber: options.cellNumber ?? currentCellNumber,
+            });
+
+            if (blendImages && options.preload !== false) {
+                await preloadImageSet(state.visibleImageUrls);
+                if (renderToken !== activeCellRenderToken) {
+                    return false;
+                }
+                if (options.fileToken && options.fileToken !== activeFileLoadToken) {
+                    return false;
+                }
+            }
+
+            if (renderToken !== activeCellRenderToken) {
+                return false;
+            }
+            if (options.fileToken && options.fileToken !== activeFileLoadToken) {
+                return false;
+            }
+
+            await renderCellDisplayState(state, { blendImages, blendText });
+
+            if (renderToken !== activeCellRenderToken) {
+                return false;
+            }
+            if (options.fileToken && options.fileToken !== activeFileLoadToken) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function applyContourToggleState(forceShowContours = null) {
+            const showContours = getContourToggleState(forceShowContours);
+            syncContourStateLabel(showContours);
+
+            const visibleImageUrls = getVisibleCellImageUrls(getCurrentCellImageUrls(), showContours);
+            ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'].forEach((id, index) => {
+                const imageElement = document.getElementById(id);
+                if (imageElement) {
+                    imageElement.src = visibleImageUrls[index];
+                }
+            });
+        }
+
+        function nextFile() {
+            if (!hasMultipleFiles()) {
+                syncFileNavigationState();
+                return;
+            }
+            const nextIndex = (currentFileIndex + 1) % fileUUIDs.length;
+            loadFile(nextIndex);
+        }
+
+        function previousFile() {
+            if (!hasMultipleFiles()) {
+                syncFileNavigationState();
+                return;
+            }
+            const nextIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
+            loadFile(nextIndex);
+        }
+
+        async function nextCell() {
+            if (maxCells < 1) {
+                return;
+            }
+            currentCellNumber = (currentCellNumber % maxCells) + 1;
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            if (!fileData) {
+                return;
+            }
+            await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                blendImages: true,
+                blendText: true,
+            });
+        }
+
+        async function previousCell() {
+            if (maxCells < 1) {
+                return;
+            }
+            currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            if (!fileData) {
+                return;
+            }
+            await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                blendImages: true,
+                blendText: true,
+            });
         }
 
         let contourToggleBound = false;
@@ -2635,7 +3328,6 @@
                     syncSelectionUI();
                     return;
                 }
-                currentFileIndex = idx;
                 loadFile(idx);
             });
         });

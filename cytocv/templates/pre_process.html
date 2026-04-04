@@ -288,15 +288,22 @@
         border-radius: 12px;
         border: 1px solid var(--panel-border);
         cursor: pointer;
-        transition: background-color 0.08s ease;
+        transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
         font-size: 14px;
+        box-shadow: 0 0 0 rgba(0, 0, 0, 0);
       }
       .file-title {
         font-weight: 700;
         letter-spacing: 0.2px;
+        transition: color 0.12s ease;
       }
       .file-item:hover { background-color: #3399ff; }
-      .file-item.active { background-color: #007bff; color: #fff; }
+      .file-item.active {
+        background-color: #007bff;
+        color: #fff;
+        border-color: rgba(90, 170, 255, 0.78);
+        box-shadow: 0 10px 24px rgba(0, 123, 255, 0.18);
+      }
       .file-item.active:hover { background-color: #0056b3; }
       .file-item {
         --scale-input-bg: var(--surface-input);
@@ -322,6 +329,7 @@
         white-space: nowrap;
         overflow: visible;
         text-overflow: clip;
+        transition: color 0.12s ease;
       }
       .file-item.active .scale-label {
         color: rgba(255, 255, 255, 0.85);
@@ -381,7 +389,7 @@
         max-width: 82px;
         overflow: hidden;
         text-overflow: ellipsis;
-        transition: opacity 0.22s ease, transform 0.22s ease;
+        transition: opacity 0.22s ease, transform 0.22s ease, color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
       }
       .scale-source-badge.warning {
         border-color: rgba(193, 147, 51, 0.72);
@@ -433,7 +441,7 @@
         overflow-wrap: anywhere;
         flex: 1 1 auto;
         min-width: 0;
-        transition: opacity 0.22s ease, transform 0.22s ease;
+        transition: opacity 0.22s ease, transform 0.22s ease, color 0.12s ease;
       }
       .scale-note {
         margin-top: 6px;
@@ -445,7 +453,7 @@
         max-height: 72px;
         overflow: hidden;
         transform: translateY(0);
-        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease, color 0.12s ease;
       }
       .scale-note.is-empty {
         display: none;
@@ -476,7 +484,14 @@
         .scale-revert-btn,
         .scale-source-badge,
         .scale-summary,
-        .scale-note {
+        .scale-note,
+        .file-item,
+        .file-title,
+        .scale-label,
+        .image-container,
+        .preprocess-blend-target,
+        .preprocess-blend-overlay,
+        .image-container-overlay {
           transition: none !important;
           transform: none !important;
         }
@@ -551,6 +566,9 @@
         flex-direction: column;
         gap: var(--page-shell-gap);
       }
+      .content-wrapper.is-file-switching {
+        isolation: isolate;
+      }
 
       /* MAIN CONTENT */
       .main-content {
@@ -590,6 +608,43 @@
         font-size: 28px;
         line-height: 1.2;
       }
+      .preprocess-blend-host {
+        position: relative;
+        display: block;
+      }
+      .preprocess-inline-blend-host {
+        position: relative;
+        display: inline-block;
+        vertical-align: baseline;
+      }
+      .preprocess-blend-target {
+        display: block;
+        opacity: 1;
+        transition: opacity 0.17s ease;
+      }
+      .preprocess-inline-blend-host .preprocess-blend-target {
+        display: inline-block;
+      }
+      .preprocess-blend-target.is-pre-blend {
+        opacity: 0;
+      }
+      .preprocess-blend-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 0.17s ease;
+        color: inherit;
+        white-space: inherit;
+      }
+      .preprocess-blend-overlay.is-exiting {
+        opacity: 0;
+      }
+      #fileName,
+      #currentFileIndex,
+      #preprocessScaleSummary {
+        will-change: opacity;
+      }
       .preprocess-context-meta {
         margin: 0;
         font-size: 13px;
@@ -615,6 +670,12 @@
 
       h1 { margin-bottom: 20px; }
 
+      .image-container-stage {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+      }
       .image-container {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 292px));
@@ -627,6 +688,23 @@
         width: 100%;
         gap: 6px;
         margin: 0;
+        opacity: 1;
+        transition: opacity 0.19s ease;
+        will-change: opacity;
+      }
+      .image-container.is-pre-blend {
+        opacity: 0.08;
+      }
+      .image-container-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 1;
+        z-index: 1;
+        transition: opacity 0.19s ease;
+      }
+      .image-container-overlay.is-exiting {
+        opacity: 0;
       }
 
       img { border: 1px solid var(--surface-muted); border-radius: 10px; background: var(--surface-media); }
@@ -1095,11 +1173,11 @@
             <div class="preprocess-context-header">
               <div class="preprocess-context-copy">
                 <p class="section-eyebrow">File Context</p>
-                <h1><span id="fileName">{{ file_name }}</span></h1>
+                <h1 class="preprocess-blend-host"><span id="fileName" class="preprocess-blend-target">{{ file_name }}</span></h1>
                 <p class="preprocess-context-meta" id="currentFileInfo">
-                  Viewing file <span id="currentFileIndex">{{ current_file_index|add:1 }}</span> of {{ total_files }}
+                  Viewing file <span class="preprocess-inline-blend-host"><span id="currentFileIndex" class="preprocess-blend-target">{{ current_file_index|add:1 }}</span></span> of {{ total_files }}
                 </p>
-                <p class="preprocess-context-meta" id="preprocessScaleSummary">Scale metadata unavailable.</p>
+                <p class="preprocess-context-meta preprocess-blend-host"><span id="preprocessScaleSummary" class="preprocess-blend-target">Scale metadata unavailable.</span></p>
               </div>
             </div>
             <div class="analysis">
@@ -1129,10 +1207,12 @@
             <div class="glass-toolbar preprocess-image-toolbar">
               <p class="section-eyebrow">Image Stage</p>
             </div>
-            <div class="image-container" id="imageContainer">
-              {% for image in images %}
-                <img src="{{ image.file_location.url }}" width="300" height="300" />
-              {% endfor %}
+            <div class="image-container-stage" id="imageContainerStage">
+              <div class="image-container" id="imageContainer">
+                {% for image in images %}
+                  <img src="{{ image.file_location.url }}" width="300" height="300" />
+                {% endfor %}
+              </div>
             </div>
 
             <div class="navigation">
@@ -1171,6 +1251,11 @@
       const channelVisibilityBtn = document.getElementById("toggleChannelVisibilityBtn");
       const scaleVisibilityBtn = document.getElementById("toggleScaleVisibilityBtn");
       const fileItems = document.querySelectorAll(".file-item");
+      const preprocessMainShell = document.querySelector('[data-ui-region="preprocess-main-shell"]');
+      const imageContainerStage = document.getElementById("imageContainerStage");
+      const imageContainer = document.getElementById("imageContainer");
+      const fileNameElement = document.getElementById("fileName");
+      const currentFileIndexElement = document.getElementById("currentFileIndex");
       const fileScaleMapInput = document.getElementById("fileScaleMapInput");
       const fileScaleRevertInput = document.getElementById("fileScaleRevertInput");
       const fileScaleInputs = Array.from(document.querySelectorAll(".file-scale-input"));
@@ -1182,6 +1267,12 @@
       let scaleLabelFadeTimer = null;
       const SCALE_TOLERANCE = 1e-6;
       const SCALE_MATCH_TOLERANCE = 5e-5;
+      const FILE_SWITCH_TEXT_FADE_MS = 170;
+      const FILE_SWITCH_IMAGE_FADE_MS = 190;
+      const REDUCED_MOTION = !!(
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      );
+      let latestImageLoadToken = 0;
 
       function getSidebarCsrfToken() {
         let value = null;
@@ -1350,7 +1441,161 @@
           }
           element.classList.remove("is-fading");
           element._scaleFadeTimer = null;
-        }, 115);
+        }, FILE_SWITCH_TEXT_FADE_MS);
+      }
+
+      function setFileSwitchState(active) {
+        if (!preprocessMainShell) return;
+        preprocessMainShell.classList.toggle("is-file-switching", !!active);
+      }
+
+      function clearTextBlend(host) {
+        if (!host) return;
+        if (host._blendTimer) {
+          clearTimeout(host._blendTimer);
+          host._blendTimer = null;
+        }
+        if (host._blendOverlay) {
+          host._blendOverlay.remove();
+          host._blendOverlay = null;
+        }
+      }
+
+      function blendTextContent(element, nextText) {
+        if (!element) return;
+        const normalized = typeof nextText === "string" ? nextText : String(nextText ?? "");
+        if ((element.textContent || "") === normalized) {
+          return;
+        }
+        if (REDUCED_MOTION) {
+          element.textContent = normalized;
+          element.classList.remove("is-pre-blend");
+          return;
+        }
+
+        const host = element.closest(".preprocess-inline-blend-host, .preprocess-blend-host");
+        if (!host) {
+          element.textContent = normalized;
+          return;
+        }
+
+        clearTextBlend(host);
+
+        const overlay = document.createElement("span");
+        overlay.className = "preprocess-blend-overlay";
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.textContent = element.textContent || "";
+        host.appendChild(overlay);
+        host._blendOverlay = overlay;
+
+        element.textContent = normalized;
+        element.classList.add("is-pre-blend");
+
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            overlay.classList.add("is-exiting");
+            element.classList.remove("is-pre-blend");
+          });
+        });
+
+        host._blendTimer = window.setTimeout(() => {
+          if (host._blendOverlay === overlay) {
+            overlay.remove();
+            host._blendOverlay = null;
+          }
+          host._blendTimer = null;
+        }, FILE_SWITCH_TEXT_FADE_MS + 45);
+      }
+
+      function preloadPreviewImages(images) {
+        const urls = Array.isArray(images)
+          ? images.map((img) => img?.file_location?.url).filter(Boolean)
+          : [];
+        return Promise.all(
+          urls.map(
+            (url) =>
+              new Promise((resolve) => {
+                const preloadImage = new Image();
+                let settled = false;
+                const finish = () => {
+                  if (settled) return;
+                  settled = true;
+                  resolve(url);
+                };
+                preloadImage.onload = finish;
+                preloadImage.onerror = finish;
+                preloadImage.src = url;
+                if (typeof preloadImage.decode === "function") {
+                  preloadImage.decode().then(finish).catch(finish);
+                }
+                if (preloadImage.complete) {
+                  finish();
+                }
+              }),
+          ),
+        );
+      }
+
+      function buildPreviewImageFragment(images) {
+        const fragment = document.createDocumentFragment();
+        (images || []).forEach((img) => {
+          const image = document.createElement("img");
+          image.src = img.file_location.url;
+          image.width = 300;
+          image.height = 300;
+          fragment.appendChild(image);
+        });
+        return fragment;
+      }
+
+      function transitionImageContainer(nextImages, requestToken) {
+        if (!imageContainer || !imageContainerStage) return Promise.resolve();
+
+        if (imageContainerStage._blendTimer) {
+          clearTimeout(imageContainerStage._blendTimer);
+          imageContainerStage._blendTimer = null;
+        }
+        if (imageContainerStage._blendOverlay) {
+          imageContainerStage._blendOverlay.remove();
+          imageContainerStage._blendOverlay = null;
+        }
+
+        if (REDUCED_MOTION) {
+          imageContainer.replaceChildren(buildPreviewImageFragment(nextImages));
+          imageContainer.classList.remove("is-pre-blend");
+          return Promise.resolve();
+        }
+
+        const overlay = imageContainer.cloneNode(true);
+        overlay.removeAttribute("id");
+        overlay.classList.add("image-container-overlay");
+        imageContainerStage.appendChild(overlay);
+        imageContainerStage._blendOverlay = overlay;
+
+        imageContainer.replaceChildren(buildPreviewImageFragment(nextImages));
+        imageContainer.classList.add("is-pre-blend");
+
+        return new Promise((resolve) => {
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+              if (requestToken !== latestImageLoadToken) {
+                resolve();
+                return;
+              }
+              overlay.classList.add("is-exiting");
+              imageContainer.classList.remove("is-pre-blend");
+            });
+          });
+
+          imageContainerStage._blendTimer = window.setTimeout(() => {
+            if (imageContainerStage._blendOverlay === overlay) {
+              overlay.remove();
+              imageContainerStage._blendOverlay = null;
+            }
+            imageContainerStage._blendTimer = null;
+            resolve();
+          }, FILE_SWITCH_IMAGE_FADE_MS + 55);
+        });
       }
 
       const initialScalePayload = parseScalePayload();
@@ -1515,7 +1760,7 @@
       }
 
       // Highlight active
-      function updateSidebarActive() {
+      function updateSidebarActive(animate = false) {
         fileItems.forEach((i) => i.classList.remove("active"));
         const active = document.querySelector(`.file-item[data-index="${currentFileIndex}"]`);
         if (active) active.classList.add("active");
@@ -1525,10 +1770,15 @@
           const scaleSummary = active?.querySelector(".scale-summary")?.textContent?.trim() || "";
           const scaleSource = active?.querySelector(".scale-source-badge")?.textContent?.trim() || "";
           const combined = [scaleSummary, scaleSource].filter(Boolean).join(" · ");
-          scaleSummaryLine.textContent = combined || "Scale metadata unavailable.";
+          const nextSummary = combined || "Scale metadata unavailable.";
+          if (animate) {
+            blendTextContent(scaleSummaryLine, nextSummary);
+          } else {
+            setScaleText(scaleSummaryLine, nextSummary, { direction: "top" });
+          }
         }
       }
-      updateSidebarActive();
+      updateSidebarActive(false);
 
       function applyChannelVisibility(visible, persist) {
         sidebar.classList.toggle('channels-hidden', !visible);
@@ -1949,28 +2199,43 @@
       });
 
       // AJAX load
-      function loadImage(newIndex) {
+      async function loadImage(newIndex) {
+        if (!Number.isFinite(newIndex)) return;
         if (newIndex < 0) newIndex = totalFiles - 1;
         if (newIndex >= totalFiles) newIndex = 0;
-        fetch(`?file_index=${newIndex}&total_files=${totalFiles}`, {
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            const container = document.getElementById("imageContainer");
-            container.innerHTML = "";
-            data.images.forEach((img, i) => {
-              const el = document.createElement("img");
-              el.src = img.file_location.url;
-              el.width = 300;
-              el.height = 300;
-              container.appendChild(el);
-            });
-            document.getElementById("fileName").textContent = data.file_name;
-            document.getElementById("currentFileIndex").textContent = data.current_file_index + 1;
-            currentFileIndex = data.current_file_index;
-            updateSidebarActive();
+        if (newIndex === currentFileIndex) return;
+
+        const requestToken = ++latestImageLoadToken;
+        setFileSwitchState(true);
+
+        try {
+          const response = await fetch(`?file_index=${newIndex}&total_files=${totalFiles}`, {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
           });
+          if (!response.ok) {
+            throw new Error(`Failed to load preprocess preview (${response.status})`);
+          }
+
+          const data = await response.json();
+          await preloadPreviewImages(data.images);
+          if (requestToken !== latestImageLoadToken) {
+            return;
+          }
+
+          blendTextContent(fileNameElement, data.file_name);
+          blendTextContent(currentFileIndexElement, String(data.current_file_index + 1));
+          currentFileIndex = data.current_file_index;
+          updateSidebarActive(true);
+          await transitionImageContainer(data.images, requestToken);
+        } catch (error) {
+          if (requestToken === latestImageLoadToken) {
+            console.error("Failed to switch preprocess preview", error);
+          }
+        } finally {
+          if (requestToken === latestImageLoadToken) {
+            setFileSwitchState(false);
+          }
+        }
       }
     </script>
 
