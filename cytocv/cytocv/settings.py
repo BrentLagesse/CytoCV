@@ -3,6 +3,12 @@
 from pathlib import Path
 import os
 
+from accounts.quota_config import (
+    BYTES_PER_MB,
+    parse_quota_mb_value,
+    parse_quota_suffixes,
+    parse_user_fixed_quota_map,
+)
 from django.core.exceptions import ImproperlyConfigured
 
 # Paths
@@ -423,6 +429,24 @@ if ACCOUNT_EMAIL_VERIFICATION != "none" and not DEFAULT_FROM_EMAIL:
         "Configure CYTOCV_DEFAULT_FROM_EMAIL or CYTOCV_EMAIL_HOST_USER "
         "when email verification is enabled."
     )
+
+# Storage quota policy
+STORAGE_QUOTA_DEFAULT_MB = parse_quota_mb_value(
+    raw_value=_get_env("CYTOCV_QUOTA_DEFAULT_MB", "100", prefer_env_file=True),
+    var_name="CYTOCV_QUOTA_DEFAULT_MB",
+)
+STORAGE_QUOTA_EDU_MB = parse_quota_mb_value(
+    raw_value=_get_env("CYTOCV_QUOTA_EDU_MB", "1024", prefer_env_file=True),
+    var_name="CYTOCV_QUOTA_EDU_MB",
+)
+STORAGE_QUOTA_DEFAULT_BYTES = STORAGE_QUOTA_DEFAULT_MB * BYTES_PER_MB
+STORAGE_QUOTA_EDU_BYTES = STORAGE_QUOTA_EDU_MB * BYTES_PER_MB
+STORAGE_QUOTA_EDU_SUFFIXES = parse_quota_suffixes(
+    _get_env("CYTOCV_QUOTA_EDU_SUFFIXES", ".edu", prefer_env_file=True),
+)
+STORAGE_QUOTA_USER_FIXED_BYTES = parse_user_fixed_quota_map(
+    _get_env("CYTOCV_QUOTA_USER_FIXED_MB", "", prefer_env_file=True),
+)
 
 # Google reCAPTCHA
 RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"

@@ -212,6 +212,38 @@ This document is the authoritative reference for environment variables consumed 
 - Default: empty, then falls back to `CYTOCV_DEFAULT_FROM_EMAIL`
 - Effect: reply-to address
 
+## Storage Quota Settings
+
+### `CYTOCV_QUOTA_DEFAULT_MB`
+
+- Required: no
+- Type: non-negative integer
+- Default: `100`
+- Effect: saved-storage quota in MB for accounts that do not match an education suffix
+
+### `CYTOCV_QUOTA_EDU_MB`
+
+- Required: no
+- Type: non-negative integer
+- Default: `1024`
+- Effect: saved-storage quota in MB for accounts whose domain matches `CYTOCV_QUOTA_EDU_SUFFIXES`
+
+### `CYTOCV_QUOTA_EDU_SUFFIXES`
+
+- Required: no
+- Type: comma-separated suffix list
+- Default: `.edu`
+- Effect: domain suffixes that receive the education quota
+- Notes: matching is case-insensitive and treats each suffix as a domain ending
+
+### `CYTOCV_QUOTA_USER_FIXED_MB`
+
+- Required: no
+- Type: comma-separated `email:mb` list
+- Default: empty
+- Effect: assigns fixed total quotas in MB to specific email addresses before any admin override applies
+- Notes: matching is case-insensitive and invalid or duplicate entries fail startup
+
 ## reCAPTCHA Settings
 
 ### `CYTOCV_RECAPTCHA_ENABLED`
@@ -312,6 +344,9 @@ Startup fails when:
 - `CYTOCV_DEBUG=0` and the secret key remains insecure
 - both `CYTOCV_EMAIL_USE_TLS` and `CYTOCV_EMAIL_USE_SSL` are enabled
 - `CYTOCV_ACCOUNT_EMAIL_VERIFICATION` has an invalid value
+- any storage quota MB value is negative or not an integer
+- `CYTOCV_QUOTA_EDU_SUFFIXES` is empty
+- `CYTOCV_QUOTA_USER_FIXED_MB` contains an invalid, malformed, or duplicate `email:mb` entry
 
 ## Related Documents
 

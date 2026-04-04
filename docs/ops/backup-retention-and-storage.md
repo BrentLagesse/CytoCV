@@ -56,6 +56,13 @@ Authenticated users have:
 
 Quota checks are enforced before converting transient runs into retained saved runs.
 
+Quota totals can be derived from:
+
+- env-wide defaults for non-education accounts
+- env-wide defaults for matching education domains
+- env-configured fixed-email quotas for selected accounts
+- admin overrides that add a bonus or set a fixed total for a specific user
+
 ## Backup Priorities
 
 Highest backup priority:
