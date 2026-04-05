@@ -10,6 +10,7 @@ from enum import Enum
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.db.models import Q
 from mrc import DVFile
 from PIL import Image
 
@@ -98,6 +99,62 @@ class SegmentedImage(models.Model):
         return (
             f"UUID: {self.UUID} Path: {self.ImagePath} "
             f"Prefix: {self.CellPairPrefix} Number of Cells: {self.NumCells}"
+        )
+
+
+class AnalysisJob(models.Model):
+    """Stores background analysis job metadata for a batch of uploaded runs."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+        CANCELLING = "cancelling", "Cancelling"
+        CANCELLED = "cancelled", "Cancelled"
+
+    job_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    batch_key = models.TextField()
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        to_field="id",
+        default=get_guest_user,
+    )
+    run_uuids = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.QUEUED,
+    )
+    current_phase = models.CharField(max_length=64, default="Queued")
+    config_snapshot = models.JSONField(default=dict)
+    cancellation_requested = models.BooleanField(default=False)
+    failure_summary = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["batch_key"],
+                condition=Q(
+                    status__in=[
+                        "queued",
+                        "running",
+                        "cancelling",
+                    ]
+                ),
+                name="core_analysisjob_unique_active_batch_key",
+            )
+        ]
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return (
+            f"AnalysisJob(job_uuid={self.job_uuid}, batch_key={self.batch_key}, "
+            f"status={self.status}, phase={self.current_phase})"
         )
 
 
@@ -234,7 +291,6 @@ class CellStatistics(models.Model):
         """
         channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
         image_channel = channel_config.get(channel)
-        print(f"Using channel for {channel}" + str(image_channel))
 
         outlinestr = ""
         if not outline:

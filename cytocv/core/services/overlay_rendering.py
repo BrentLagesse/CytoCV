@@ -1,0 +1,317 @@
+from __future__ import annotations
+
+import copy
+import json
+import logging
+from pathlib import Path
+
+import numpy as np
+from django.conf import settings
+from django.urls import reverse
+from PIL import Image
+
+from core.config import input_dir
+from core.models import CellStatistics
+from core.services.artifact_storage import PNG_PROFILE_ANALYSIS_FAST, save_png_image
+from core.stats_plugins import build_stats_execution_plan
+
+logger = logging.getLogger(__name__)
+
+OVERLAY_RENDER_SCHEMA_VERSION = 1
+OVERLAY_RENDER_CONFIG_FILENAME = "overlay-render-config.json"
+OVERLAY_CACHE_DIRNAME = f"overlay-cache-v{OVERLAY_RENDER_SCHEMA_VERSION}"
+OVERLAY_CHANNEL_LABELS = {
+    "mcherry": "mCherry",
+    "gfp": "GFP",
+    "dapi": "DAPI",
+}
+OVERLAY_BASE_CHANNELS = ("mCherry", "GFP", "DAPI", "DIC")
+
+
+def overlay_render_config_path(run_uuid: str) -> Path:
+    return Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented" / OVERLAY_RENDER_CONFIG_FILENAME
+
+
+def overlay_cache_dir(run_uuid: str) -> Path:
+    return Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented" / OVERLAY_CACHE_DIRNAME
+
+
+def overlay_cache_image_path(run_uuid: str, cell_id: int, channel: str) -> Path:
+    normalized_channel = normalize_overlay_channel(channel)
+    return overlay_cache_dir(run_uuid) / f"cell-{cell_id}-{normalized_channel}.png"
+
+
+def build_overlay_image_url(run_uuid: str, cell_id: int, channel: str) -> str:
+    return reverse(
+        "cell_overlay_image",
+        kwargs={
+            "uuid": str(run_uuid),
+            "cell_id": int(cell_id),
+            "channel": normalize_overlay_channel(channel),
+        },
+    )
+
+
+def build_overlay_render_config(
+    *,
+    image_stem: str,
+    channel_config: dict[str, int],
+    kernel_size: int,
+    kernel_deviation: int,
+    mcherry_line_width: int,
+    arrested: str,
+    selected_analysis: list[str],
+    nuclear_cellular_mode: str,
+    mcherry_width_px: int,
+    gfp_distance_value_used: float,
+    gfp_threshold: int,
+    gfp_filter_enabled: bool,
+    alternate_mcherry_detection: bool,
+    mcherry_width_unit: str | None = None,
+    gfp_distance_unit: str | None = None,
+) -> dict[str, object]:
+    render_config: dict[str, object] = {
+        "schema_version": OVERLAY_RENDER_SCHEMA_VERSION,
+        "image_stem": str(image_stem),
+        "channel_config": {
+            str(channel_name): int(channel_index)
+            for channel_name, channel_index in channel_config.items()
+            if channel_index is not None
+        },
+        "selected_analysis": [str(plugin_name) for plugin_name in selected_analysis if str(plugin_name)],
+        "kernel_size": int(kernel_size),
+        "kernel_deviation": int(kernel_deviation),
+        "mCherry_line_width": int(mcherry_line_width),
+        "arrested": str(arrested),
+        "nuclear_cellular_mode": str(nuclear_cellular_mode),
+        "mcherry_width_px": int(mcherry_width_px),
+        "gfp_distance_value_used": float(gfp_distance_value_used),
+        "gfp_threshold": int(gfp_threshold),
+        "gfp_filter_enabled": bool(gfp_filter_enabled),
+        "alternate_mcherry_detection": bool(alternate_mcherry_detection),
+    }
+    if mcherry_width_unit:
+        render_config["stats_mcherry_width_unit"] = str(mcherry_width_unit)
+    if gfp_distance_unit:
+        render_config["stats_gfp_distance_unit"] = str(gfp_distance_unit)
+    return render_config
+
+
+def write_overlay_render_config(run_uuid: str, render_config: dict[str, object]) -> Path:
+    destination = overlay_render_config_path(run_uuid)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps(render_config, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return destination
+
+
+def load_overlay_render_config(run_uuid: str) -> dict[str, object]:
+    path = overlay_render_config_path(run_uuid)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if int(payload.get("schema_version", 0)) != OVERLAY_RENDER_SCHEMA_VERSION:
+        raise ValueError(f"Unsupported overlay render schema for run {run_uuid}")
+    return payload
+
+
+def overlay_render_config_exists(run_uuid: str) -> bool:
+    return overlay_render_config_path(run_uuid).exists()
+
+
+def normalize_overlay_channel(channel: str) -> str:
+    normalized = str(channel).strip().lower()
+    if normalized not in OVERLAY_CHANNEL_LABELS:
+        raise ValueError(f"Unsupported overlay channel: {channel}")
+    return normalized
+
+
+def build_legacy_debug_image_path(
+    run_uuid: str,
+    image_stem: str,
+    cell_id: int,
+    channel: str,
+) -> Path:
+    channel_label = OVERLAY_CHANNEL_LABELS[normalize_overlay_channel(channel)]
+    return (
+        Path(settings.MEDIA_ROOT)
+        / str(run_uuid)
+        / "segmented"
+        / f"{image_stem}-{cell_id}-{channel_label}_debug.png"
+    )
+
+
+def find_legacy_debug_image_path(run_uuid: str, cell_id: int, channel: str) -> Path | None:
+    normalized_channel = normalize_overlay_channel(channel)
+    channel_label = OVERLAY_CHANNEL_LABELS[normalized_channel]
+    segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
+    matches = sorted(segmented_dir.glob(f"*-{cell_id}-{channel_label}_debug.png"))
+    if not matches:
+        return None
+    return matches[0]
+
+
+def clone_cell_statistics_for_overlay(cell_stat: CellStatistics) -> CellStatistics:
+    clone = CellStatistics()
+    for field in cell_stat._meta.concrete_fields:
+        if field.primary_key:
+            continue
+        if field.name == "segmented_image":
+            setattr(clone, field.attname, getattr(cell_stat, field.attname))
+            clone.segmented_image = cell_stat.segmented_image
+            continue
+        setattr(clone, field.attname, copy.deepcopy(getattr(cell_stat, field.attname)))
+    clone.properties = copy.deepcopy(getattr(cell_stat, "properties", {}) or {})
+    return clone
+
+
+def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict[str, object]:
+    return {
+        "input_dir": input_dir,
+        "output_dir": str(Path(settings.MEDIA_ROOT) / str(run_uuid)),
+        "kernel_size": int(render_config["kernel_size"]),
+        "mCherry_line_width": int(render_config["mCherry_line_width"]),
+        "kernel_deviation": int(render_config["kernel_deviation"]),
+        "arrested": str(render_config["arrested"]),
+        "analysis": list(render_config.get("selected_analysis", [])),
+        "nuclear_cellular_mode": str(render_config.get("nuclear_cellular_mode", "green_nucleus")),
+        "gfp_filter_enabled": bool(render_config.get("gfp_filter_enabled", False)),
+        "alternate_mcherry_detection": bool(
+            render_config.get("alternate_mcherry_detection", False)
+        ),
+    }
+
+
+def load_cached_overlay_images(
+    run_uuid: str,
+    cell_id: int,
+    render_config: dict[str, object],
+) -> dict[str, np.ndarray]:
+    image_stem = str(render_config["image_stem"])
+    channel_config = {
+        str(channel_name): int(channel_index)
+        for channel_name, channel_index in dict(render_config.get("channel_config", {})).items()
+    }
+    segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
+    cached_images: dict[str, np.ndarray] = {}
+
+    for channel_name in OVERLAY_BASE_CHANNELS:
+        channel_index = channel_config.get(channel_name)
+        if channel_index is None:
+            continue
+        image_path = segmented_dir / f"{image_stem}-{channel_index}-{cell_id}-no_outline.png"
+        if not image_path.exists():
+            continue
+        with Image.open(image_path) as image:
+            cached_images[channel_name] = np.array(image, copy=True)
+
+    return cached_images
+
+
+def render_overlay_images_for_cell(
+    run_uuid: str,
+    cell_stat: CellStatistics,
+    render_config: dict[str, object],
+    *,
+    cached_images: dict[str, np.ndarray] | None = None,
+) -> dict[str, Image.Image]:
+    from core.views.segment_image import get_stats
+
+    render_cp = clone_cell_statistics_for_overlay(cell_stat)
+    images_to_use = cached_images if cached_images is not None else load_cached_overlay_images(
+        run_uuid,
+        int(cell_stat.cell_id),
+        render_config,
+    )
+    execution_plan = build_stats_execution_plan(render_config.get("selected_analysis", []))
+    debug_mcherry, debug_gfp, debug_dapi = get_stats(
+        render_cp,
+        _build_overlay_conf(run_uuid, render_config),
+        execution_plan,
+        int(render_config.get("mcherry_width_px", 1)),
+        float(render_config.get("gfp_distance_value_used", 37.0)),
+        int(render_config.get("gfp_threshold", 66)),
+        bool(render_config.get("gfp_filter_enabled", False)),
+        bool(render_config.get("alternate_mcherry_detection", False)),
+        cached_images=images_to_use,
+    )
+    return {
+        "mcherry": debug_mcherry,
+        "gfp": debug_gfp,
+        "dapi": debug_dapi,
+    }
+
+
+def persist_overlay_cache_images(
+    run_uuid: str,
+    cell_id: int,
+    images: dict[str, Image.Image],
+    *,
+    overwrite: bool = False,
+) -> dict[str, Path]:
+    destination_dir = overlay_cache_dir(run_uuid)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, Path] = {}
+    for channel, image in images.items():
+        cache_path = overlay_cache_image_path(run_uuid, cell_id, channel)
+        if cache_path.exists() and not overwrite:
+            written[channel] = cache_path
+            continue
+        save_png_image(image, cache_path, profile=PNG_PROFILE_ANALYSIS_FAST)
+        written[channel] = cache_path
+    return written
+
+
+def persist_debug_overlay_exports(
+    run_uuid: str,
+    image_stem: str,
+    cell_id: int,
+    images: dict[str, Image.Image],
+    *,
+    overwrite: bool = True,
+) -> dict[str, Path]:
+    written: dict[str, Path] = {}
+    for channel, image in images.items():
+        debug_path = build_legacy_debug_image_path(run_uuid, image_stem, cell_id, channel)
+        if debug_path.exists() and not overwrite:
+            written[channel] = debug_path
+            continue
+        save_png_image(image, debug_path, profile=PNG_PROFILE_ANALYSIS_FAST)
+        written[channel] = debug_path
+    return written
+
+
+def ensure_overlay_cache_image(
+    run_uuid: str,
+    cell_id: int,
+    channel: str,
+    *,
+    cell_stat: CellStatistics | None = None,
+    render_config: dict[str, object] | None = None,
+) -> Path:
+    normalized_channel = normalize_overlay_channel(channel)
+    cache_path = overlay_cache_image_path(run_uuid, cell_id, normalized_channel)
+    if cache_path.exists():
+        return cache_path
+
+    resolved_render_config = render_config or load_overlay_render_config(run_uuid)
+    resolved_cell_stat = cell_stat
+    if resolved_cell_stat is None:
+        resolved_cell_stat = (
+            CellStatistics.objects.select_related("segmented_image")
+            .get(segmented_image_id=run_uuid, cell_id=cell_id)
+        )
+
+    rendered_images = render_overlay_images_for_cell(
+        run_uuid,
+        resolved_cell_stat,
+        resolved_render_config,
+    )
+    persist_overlay_cache_images(
+        run_uuid,
+        cell_id,
+        rendered_images,
+        overwrite=False,
+    )
+    return cache_path
+

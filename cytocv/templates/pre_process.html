@@ -2143,15 +2143,50 @@
               if (!resp.ok) return;
               const data = await resp.json();
               if (data && data.phase && textEl) {
-                if (data.phase === "Preprocessing Images") {
+                if (data.phase === "Queued") {
+                  textEl.textContent = "Queued";
+                } else if (data.phase === "Preprocessing Images") {
                   textEl.textContent = "Processing Images";
                 } else if (data.phase === "Detecting Cells") {
+                  textEl.textContent = data.phase;
+                } else if (data.phase === "Segmenting Images") {
                   textEl.textContent = data.phase;
                 } else if (data.phase === "Calculating Statistics") {
                   // Only show statistics phase if user selected at least one analysis at upload step.
                   const hasStats = {{ has_selected_stats|yesno:"true,false" }};
                   if (hasStats) textEl.textContent = data.phase;
                 }
+              }
+              if (data && data.status === "succeeded" && data.redirect) {
+                if (analysisPollTimer) clearInterval(analysisPollTimer);
+                window.isAnalysisRunning = false;
+                window.location.href = data.redirect;
+                return;
+              }
+              if (data && data.status === "failed") {
+                if (analysisPollTimer) clearInterval(analysisPollTimer);
+                window.isAnalysisRunning = false;
+                btn.disabled = false;
+                btn.classList.remove("loading");
+                if (textEl) textEl.textContent = "Start Analysis";
+                setAnalysisLocked(false);
+                const failureMessage = data.failure_summary || "Analysis failed. Please try again.";
+                if (window.showGlobalMessage) {
+                  window.showGlobalMessage(failureMessage);
+                }
+                return;
+              }
+              if (data && data.status === "cancelled") {
+                if (analysisPollTimer) clearInterval(analysisPollTimer);
+                window.isAnalysisRunning = false;
+                btn.disabled = false;
+                btn.classList.remove("loading");
+                if (textEl) textEl.textContent = "Start Analysis";
+                setAnalysisLocked(false);
+                if (window.showGlobalMessage) {
+                  window.showGlobalMessage("Analysis cancelled.");
+                }
+                return;
               }
             } catch (err) { /* ignore polling errors */ }
           };
@@ -2164,23 +2199,40 @@
         // Submit via fetch, allowing backend to run through redirects
         try {
           analysisAbortController = new AbortController();
-            const resp = await fetch(window.location.href, {
-              method: 'POST',
-              headers: { 'X-Requested-With': 'XMLHttpRequest' },
-              body: new FormData(form),
-              credentials: 'same-origin',
-              redirect: 'follow',
+          const resp = await fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+            credentials: 'same-origin',
+            redirect: 'follow',
             signal: analysisAbortController.signal,
           });
+          const contentType = resp.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const payload = await resp.json();
+            if (payload.error) {
+              throw new Error(payload.error);
+            }
+            if (payload.status === 'queued') {
+              if (textEl) textEl.textContent = payload.phase || "Queued";
+              return;
+            }
+            if (payload.redirect) {
+              if (analysisPollTimer) clearInterval(analysisPollTimer);
+              window.isAnalysisRunning = false;
+              window.location.href = payload.redirect;
+              return;
+            }
+            return;
+          }
           if (analysisPollTimer) clearInterval(analysisPollTimer);
-          // Navigate to final URL (display page) once processing completes
           if (resp && resp.url) {
             window.isAnalysisRunning = false;
             window.location.href = resp.url;
-          } else {
-            window.isAnalysisRunning = false;
-            window.location.href = '{% url "display" uuids=uuids %}';
+            return;
           }
+          window.isAnalysisRunning = false;
+          window.location.href = '{% url "display" uuids=uuids %}';
         } catch (err) {
           if (analysisPollTimer) clearInterval(analysisPollTimer);
           if (suppressAnalysisErrors || (err && err.name === "AbortError")) {
