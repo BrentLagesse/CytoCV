@@ -30,6 +30,7 @@ from accounts.views import (
 )
 from core.views import (
     cancel_progress,
+    cell_overlay_image,
     convert_to_image,
     display,
     experiment,
@@ -86,6 +87,11 @@ urlpatterns = [
         'experiment/<str:uuids>/display/',
         login_required(display),
         name='display',
+    ),
+    path(
+        'experiment/<str:uuid>/cell/<int:cell_id>/overlay/<str:channel>/',
+        login_required(cell_overlay_image),
+        name='cell_overlay_image',
     ),
     path(
         'experiment/display/files/save/',

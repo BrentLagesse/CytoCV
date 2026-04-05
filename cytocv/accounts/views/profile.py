@@ -34,6 +34,7 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
+from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -548,6 +549,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         debug_images, outlined_images, no_outline_images = _scan_segmented_assets(
             segmented_dir
         )
+        has_overlay_render_config = overlay_render_config_exists(uuid)
         output_frames = _scan_output_frames(output_dir)
         detected_channels = [
             channel
@@ -596,12 +598,17 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         statistics: dict[str, dict[str, Any] | None] = {}
         for cell_id in cell_ids:
             cell_images[str(cell_id)] = []
+            cell_stat = stats_by_id.get(cell_id)
             for channel_name in channel_order:
                 channel_index = channel_config.get(channel_name, channel_order.index(channel_name))
                 outlined_url = ""
-                if channel_name in {"mCherry", "GFP", "DAPI"}:
-                    outlined_url = debug_images.get((cell_id, channel_name), "")
-                if not outlined_url:
+                if (
+                    channel_name in {"mCherry", "GFP", "DAPI"}
+                    and cell_stat is not None
+                    and (has_overlay_render_config or debug_images.get((cell_id, channel_name), ""))
+                ):
+                    outlined_url = build_overlay_image_url(uuid, cell_id, channel_name)
+                else:
                     outlined_url = outlined_images.get((channel_index, cell_id), "")
                 if not outlined_url:
                     outlined_url = next(
@@ -628,9 +635,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
 
                 cell_images[str(cell_id)].append(outlined_url)
                 cell_images[str(cell_id)].append(no_outline_url)
-            statistics[str(cell_id)] = _serialize_cell_statistics(
-                stats_by_id.get(cell_id)
-            )
+            statistics[str(cell_id)] = _serialize_cell_statistics(cell_stat)
 
         number_of_cells = max(len(cell_ids), int(segmented_image.NumCells or 0))
         if number_of_cells > 0 and not cell_ids:

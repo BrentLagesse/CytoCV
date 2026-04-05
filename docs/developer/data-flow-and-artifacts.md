@@ -39,15 +39,30 @@ Generated transient or regenerable artifacts may include:
 
 These can be deleted after successful segmentation or when a failed run is cleaned up.
 
+Execution ownership:
+
+- in `sync` mode, preprocess and inference are still request-owned
+- in `worker` mode, the full batch is owned by an `AnalysisJob` and executed by the background worker
+
 ## Segmentation Artifacts
 
 Persistent segmentation-stage outputs include:
 
 - full-frame outlined PNGs in `output/`
 - segmented cell masks and crops in `segmented/`
-- fluorescence debug overlays
+- `segmented/overlay-render-config.json`
+- `segmented/overlay-cache-v1/` exact fluorescence overlay PNG cache
+- optional legacy fluorescence debug overlays
 - `SegmentedImage` row
 - `CellStatistics` rows
+
+Performance note:
+
+- live analysis artifacts use a fast PNG save profile to reduce request/worker CPU cost
+- the old second-pass PNG optimization step is no longer part of the live analysis path
+- the display/dashboard fluorescence contour view is now driven by exact server replay through `get_stats()`, not by eagerly written debug PNGs
+- debug overlays are disabled by default and should remain off in production unless raster debug exports are explicitly needed
+- in `worker` mode, the overlay cache is prewarmed during analysis completion so Gunicorn does not absorb contour replay cost on first view
 
 ## Saved Versus Transient Retention
 
