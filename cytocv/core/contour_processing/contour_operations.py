@@ -1,10 +1,13 @@
 import cv2, math
 import numpy as np
+import logging
 from core.contour_processing import get_largest
 from core.image_processing import GrayImage
 import scipy.ndimage as ndi
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
+
+logger = logging.getLogger(__name__)
 
 def find_contours(images:GrayImage, gfp_filter_enabled=False, alternate_mcherry_detection=False):
     """
@@ -297,7 +300,8 @@ def merge_contour(bestContours, contours):
     if len(bestContours) == 1:
         best_contour = contours[bestContours[0]]
 
-    print("only 1 contour found")
+    if len(bestContours) == 1:
+        logger.debug("Only one contour found while merging contour candidates")
     return best_contour
 
 # Gets rid of a high number of erroneous contours, but is a little overzealous at times

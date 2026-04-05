@@ -1,4 +1,7 @@
 import cv2
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_contour_center(contour_list):
     """
@@ -14,7 +17,7 @@ def get_contour_center(contour_list):
             x = int(moment['m10'] / moment['m00'])
             y = int(moment['m01'] / moment['m00'])
         else: # divide by 0
-            print(f"Warning contour {i} has zero moment, skipping")
+            logger.debug("Skipping contour %s because it has zero moment", i)
             continue
         coordinates[i] = (x, y)
     return coordinates

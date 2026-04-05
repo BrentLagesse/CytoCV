@@ -1,8 +1,11 @@
 import math, cv2
 import numpy as np
+import logging
 from .analysis import Analysis
 from core.contour_processing import get_contour_center
 from core.scale import convert_pixel_delta_to_microns, normalize_length_unit
+
+logger = logging.getLogger(__name__)
 
 class GFPDot(Analysis):
     name = 'GFPDot'
@@ -147,8 +150,8 @@ class GFPDot(Analysis):
                     else: 
                         self.cp.biorientation = 0
 
-            except Exception as e:
-                print(f"Encountered error while analyzing GFPDot: {e}")
+            except Exception as exc:
+                logger.debug("GFPDot analysis skipped due to contour error: %s", exc)
                 self.cp.category_GFP_dot = 4
                 self.cp.biorientation = 0
                 return

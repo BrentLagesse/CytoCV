@@ -3,6 +3,9 @@ from core.contour_processing import get_contour_center
 
 import math, cv2
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MCherryLine(Analysis):
@@ -49,8 +52,8 @@ class MCherryLine(Analysis):
 
                 return mcherry_line_pts
 
-            except Exception as e:
-                print(f"can't find contours: {e}")
+            except Exception as exc:
+                logger.debug("mCherry contour analysis skipped: %s", exc)
                 return []
         else:
             return []
