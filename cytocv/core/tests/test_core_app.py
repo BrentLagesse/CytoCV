@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 import json
 from io import BytesIO
 from contextlib import ExitStack, contextmanager
@@ -19,7 +22,9 @@ from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
 from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
 from core.services.overlay_rendering import (
+    build_legacy_debug_image_path,
     build_overlay_render_config,
+    ensure_overlay_cache_image,
     overlay_cache_image_path,
     render_overlay_images_for_cell,
     write_overlay_render_config,
@@ -454,6 +459,88 @@ class RouteSurfaceRefactorTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_overlay_cache_warm_deduplicates_concurrent_channel_requests(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root():
+            self._create_uploaded_image(uuid_value, name="overlay-dedupe")
+            segmented = self._create_segmented_image(uuid_value, name="overlay-dedupe")
+            cell_stat = self._create_cell_stats(segmented, "overlay-dedupe")
+            render_config = {"image_stem": "overlay-dedupe"}
+            expected_paths = {
+                channel: overlay_cache_image_path(uuid_value, 1, channel)
+                for channel in ("dapi", "gfp", "mcherry")
+            }
+            start_barrier = threading.Barrier(3)
+            render_calls = 0
+            render_lock = threading.Lock()
+
+            def fake_render(*args, **kwargs):
+                nonlocal render_calls
+                with render_lock:
+                    render_calls += 1
+                time.sleep(0.15)
+                return {
+                    "dapi": Image.fromarray(np.full((4, 4, 3), (20, 20, 220), dtype=np.uint8)),
+                    "gfp": Image.fromarray(np.full((4, 4, 3), (20, 220, 20), dtype=np.uint8)),
+                    "mcherry": Image.fromarray(np.full((4, 4, 3), (220, 20, 20), dtype=np.uint8)),
+                }
+
+            def warm_channel(channel: str):
+                start_barrier.wait(timeout=5)
+                return ensure_overlay_cache_image(
+                    uuid_value,
+                    1,
+                    channel,
+                    cell_stat=cell_stat,
+                    render_config=render_config,
+                )
+
+            with patch(
+                "core.services.overlay_rendering.render_overlay_images_for_cell",
+                side_effect=fake_render,
+            ):
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    results = list(executor.map(warm_channel, ("dapi", "gfp", "mcherry")))
+
+            self.assertTrue(expected_paths["dapi"].exists())
+            self.assertTrue(expected_paths["gfp"].exists())
+            self.assertTrue(expected_paths["mcherry"].exists())
+
+        self.assertEqual(render_calls, 1)
+        self.assertEqual(results[0], expected_paths["dapi"])
+        self.assertEqual(results[1], expected_paths["gfp"])
+        self.assertEqual(results[2], expected_paths["mcherry"])
+
+    def test_overlay_endpoint_falls_back_to_legacy_debug_image_when_cache_missing(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="overlay-legacy")
+            segmented = self._create_segmented_image(uuid_value, name="overlay-legacy")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._create_cell_stats(segmented, "overlay-legacy")
+
+            legacy_image = Image.fromarray(
+                np.full((5, 5, 3), (25, 200, 25), dtype=np.uint8)
+            )
+            legacy_path = build_legacy_debug_image_path(
+                uuid_value,
+                "overlay-legacy",
+                1,
+                "gfp",
+            )
+            legacy_path.parent.mkdir(parents=True, exist_ok=True)
+            legacy_image.save(legacy_path)
+
+            response = self.client.get(
+                reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"])
+            )
+            self.assertEqual(response.status_code, 200)
+            payload = b"".join(response.streaming_content)
+            rendered = np.array(Image.open(BytesIO(payload)))
+            self.assertTrue(np.array_equal(rendered, np.array(legacy_image)))
+
     def test_dashboard_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
@@ -462,32 +549,52 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "return 'N/A';", html=False)
         self.assertContains(
             response,
-            'document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);',
+            "distance: formatStatValue(cellStats ? cellStats.distance : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);',
+            "lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);',
+            "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("greenInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null);',
+            "greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);',
+            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);',
+            "biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "return [1, -1, 2, -2];",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "return [1, 2, -1, -2];",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "return [-1, -2, 1, 2];",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "buildFullCircularCellOrder(currentCellNumber, maxCells)",
             html=False,
         )
 
@@ -503,32 +610,52 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            'document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);',
+            "distance: formatStatValue(cellStats ? cellStats.distance : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);',
+            "lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);',
+            "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("redInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null);',
+            "redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);',
+            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
             html=False,
         )
         self.assertContains(
             response,
-            'document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);',
+            "biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "return [1, -1, 2, -2];",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "return [1, 2, -1, -2];",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "return [-1, -2, 1, 2];",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "buildFullCircularCellOrder(currentCellNumber, maxCells)",
             html=False,
         )
 

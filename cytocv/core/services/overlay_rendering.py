@@ -3,7 +3,10 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import os
+import time
 from pathlib import Path
+from uuid import uuid4
 
 import numpy as np
 from django.conf import settings
@@ -26,6 +29,9 @@ OVERLAY_CHANNEL_LABELS = {
     "dapi": "DAPI",
 }
 OVERLAY_BASE_CHANNELS = ("mCherry", "GFP", "DAPI", "DIC")
+OVERLAY_RENDER_CHANNELS = tuple(OVERLAY_CHANNEL_LABELS.keys())
+OVERLAY_CACHE_LOCK_POLL_SECONDS = 0.05
+OVERLAY_CACHE_LOCK_STALE_SECONDS = 45.0
 
 
 def overlay_render_config_path(run_uuid: str) -> Path:
@@ -39,6 +45,17 @@ def overlay_cache_dir(run_uuid: str) -> Path:
 def overlay_cache_image_path(run_uuid: str, cell_id: int, channel: str) -> Path:
     normalized_channel = normalize_overlay_channel(channel)
     return overlay_cache_dir(run_uuid) / f"cell-{cell_id}-{normalized_channel}.png"
+
+
+def overlay_cache_image_paths_for_cell(run_uuid: str, cell_id: int) -> dict[str, Path]:
+    return {
+        channel: overlay_cache_image_path(run_uuid, cell_id, channel)
+        for channel in OVERLAY_RENDER_CHANNELS
+    }
+
+
+def overlay_cache_lock_path(run_uuid: str, cell_id: int) -> Path:
+    return overlay_cache_dir(run_uuid) / f"cell-{int(cell_id)}.lock"
 
 
 def build_overlay_image_url(run_uuid: str, cell_id: int, channel: str) -> str:
@@ -242,6 +259,21 @@ def render_overlay_images_for_cell(
     }
 
 
+def _atomic_save_overlay_cache_image(image: Image.Image, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = destination.with_name(f"{destination.name}.{uuid4().hex}.tmp")
+    try:
+        save_png_image(image, temp_path, profile=PNG_PROFILE_ANALYSIS_FAST)
+        os.replace(temp_path, destination)
+    finally:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                logger.debug("Could not remove temporary overlay cache file %s", temp_path)
+    return destination
+
+
 def persist_overlay_cache_images(
     run_uuid: str,
     cell_id: int,
@@ -257,7 +289,7 @@ def persist_overlay_cache_images(
         if cache_path.exists() and not overwrite:
             written[channel] = cache_path
             continue
-        save_png_image(image, cache_path, profile=PNG_PROFILE_ANALYSIS_FAST)
+        _atomic_save_overlay_cache_image(image, cache_path)
         written[channel] = cache_path
     return written
 
@@ -281,6 +313,140 @@ def persist_debug_overlay_exports(
     return written
 
 
+def _overlay_cache_is_complete(paths: dict[str, Path]) -> bool:
+    return all(path.exists() for path in paths.values())
+
+
+def _overlay_lock_is_stale(lock_path: Path) -> bool:
+    try:
+        age_seconds = max(time.time() - lock_path.stat().st_mtime, 0.0)
+    except OSError:
+        return False
+    return age_seconds >= OVERLAY_CACHE_LOCK_STALE_SECONDS
+
+
+def _log_overlay_cache_event(
+    *,
+    event: str,
+    run_uuid: str,
+    cell_id: int,
+    channel: str,
+    started_at: float,
+) -> None:
+    elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+    logger.info(
+        "Overlay cache event=%s run_uuid=%s cell_id=%s channel=%s elapsed_ms=%.2f",
+        event,
+        run_uuid,
+        int(cell_id),
+        channel,
+        elapsed_ms,
+    )
+
+
+def _acquire_overlay_cache_lock(run_uuid: str, cell_id: int) -> tuple[Path, bool]:
+    lock_path = overlay_cache_lock_path(run_uuid, cell_id)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    waited = False
+    while True:
+        try:
+            fd = os.open(
+                lock_path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+            )
+        except FileExistsError:
+            waited = True
+            if _overlay_lock_is_stale(lock_path):
+                try:
+                    lock_path.unlink()
+                    logger.warning(
+                        "Removed stale overlay cache lock run_uuid=%s cell_id=%s",
+                        run_uuid,
+                        int(cell_id),
+                    )
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    time.sleep(OVERLAY_CACHE_LOCK_POLL_SECONDS)
+                    continue
+                continue
+            time.sleep(OVERLAY_CACHE_LOCK_POLL_SECONDS)
+            continue
+
+        with os.fdopen(fd, "w", encoding="utf-8") as lock_file:
+            lock_file.write(f"pid={os.getpid()} started_at={time.time():.6f}\n")
+        return lock_path, waited
+
+
+def ensure_overlay_cache_images_for_cell(
+    run_uuid: str,
+    cell_id: int,
+    *,
+    cell_stat: CellStatistics | None = None,
+    render_config: dict[str, object] | None = None,
+    requested_channel: str = "gfp",
+) -> dict[str, Path]:
+    normalized_channel = normalize_overlay_channel(requested_channel)
+    cache_paths = overlay_cache_image_paths_for_cell(run_uuid, cell_id)
+    started_at = time.perf_counter()
+    if _overlay_cache_is_complete(cache_paths):
+        _log_overlay_cache_event(
+            event="hit",
+            run_uuid=run_uuid,
+            cell_id=cell_id,
+            channel=normalized_channel,
+            started_at=started_at,
+        )
+        return cache_paths
+
+    lock_path, waited = _acquire_overlay_cache_lock(run_uuid, cell_id)
+    try:
+        if _overlay_cache_is_complete(cache_paths):
+            _log_overlay_cache_event(
+                event="wait" if waited else "hit",
+                run_uuid=run_uuid,
+                cell_id=cell_id,
+                channel=normalized_channel,
+                started_at=started_at,
+            )
+            return cache_paths
+
+        resolved_render_config = render_config or load_overlay_render_config(run_uuid)
+        resolved_cell_stat = cell_stat
+        if resolved_cell_stat is None:
+            resolved_cell_stat = (
+                CellStatistics.objects.select_related("segmented_image")
+                .get(segmented_image_id=run_uuid, cell_id=cell_id)
+            )
+
+        rendered_images = render_overlay_images_for_cell(
+            run_uuid,
+            resolved_cell_stat,
+            resolved_render_config,
+        )
+        persist_overlay_cache_images(
+            run_uuid,
+            cell_id,
+            rendered_images,
+            overwrite=False,
+        )
+        _log_overlay_cache_event(
+            event="render",
+            run_uuid=run_uuid,
+            cell_id=cell_id,
+            channel=normalized_channel,
+            started_at=started_at,
+        )
+        return cache_paths
+    finally:
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            logger.debug("Could not remove overlay cache lock %s", lock_path)
+
+
 def ensure_overlay_cache_image(
     run_uuid: str,
     cell_id: int,
@@ -290,28 +456,11 @@ def ensure_overlay_cache_image(
     render_config: dict[str, object] | None = None,
 ) -> Path:
     normalized_channel = normalize_overlay_channel(channel)
-    cache_path = overlay_cache_image_path(run_uuid, cell_id, normalized_channel)
-    if cache_path.exists():
-        return cache_path
-
-    resolved_render_config = render_config or load_overlay_render_config(run_uuid)
-    resolved_cell_stat = cell_stat
-    if resolved_cell_stat is None:
-        resolved_cell_stat = (
-            CellStatistics.objects.select_related("segmented_image")
-            .get(segmented_image_id=run_uuid, cell_id=cell_id)
-        )
-
-    rendered_images = render_overlay_images_for_cell(
-        run_uuid,
-        resolved_cell_stat,
-        resolved_render_config,
-    )
-    persist_overlay_cache_images(
+    cache_paths = ensure_overlay_cache_images_for_cell(
         run_uuid,
         cell_id,
-        rendered_images,
-        overwrite=False,
+        cell_stat=cell_stat,
+        render_config=render_config,
+        requested_channel=normalized_channel,
     )
-    return cache_path
-
+    return cache_paths[normalized_channel]

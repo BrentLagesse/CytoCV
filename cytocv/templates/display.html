@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Display Cell Images{% endblock title %}
 
 {% block head %}
+    <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <style>
         .channel-chip.dic { background-color: black; }
         .channel-chip.dapi { background-color: blue; }
@@ -1920,6 +1922,28 @@
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
         let hasInitializedDisplayFile = false;
+        const overlayWarmCoordinator = window.CytoCVOverlayPrefetch
+            ? window.CytoCVOverlayPrefetch.createWarmCoordinator({
+                resolveUrl: ({ fileKey, cellNumber }) => {
+                    const fileData = filesData[fileKey];
+                    if (!fileData) {
+                        return '';
+                    }
+                    const pairImages = fileData.CellPairImages || {};
+                    const imageUrls = pairImages[cellNumber] || pairImages[String(cellNumber)] || null;
+                    if (!Array.isArray(imageUrls)) {
+                        return '';
+                    }
+                    return [2, 4, 6]
+                        .map((index) => imageUrls[index] || '')
+                        .find((url) => typeof url === 'string' && url.includes('/overlay/')) || '';
+                },
+                warmUrl: (url) => preloadImage(url),
+            })
+            : {
+                markCellWarm() {},
+                scheduleCells() {},
+            };
 
         function clearElementBlend(element) {
             if (!element) {
@@ -2235,8 +2259,8 @@
 
         window.onload = async function () {
             syncFileNavigationState();
-            await loadFile(currentFileIndex);
             toggleContourOverlays();
+            await loadFile(currentFileIndex);
         };
 
         async function loadFile(fileIndex) {
@@ -2261,6 +2285,7 @@
 
             const mainImagePath = fileData.MainImagePath || noCellPlaceholder;
             const showContours = getContourToggleState();
+            syncContourStateLabel(showContours);
             const initialCellState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
                 showContours,
                 cellNumber: currentCellNumber,
@@ -2277,8 +2302,7 @@
             }
 
             for (const channel of channels) {
-                const form = `${channel}_form`;
-                const formElement = document.getElementById(form);
+                const formElement = document.getElementById(`${channel}_form`);
                 if (formElement) {
                     formElement.action = `/experiment/${fileUUID}/display/`;
                 }
@@ -2317,6 +2341,10 @@
             const inferred = inferChannelFromMainImage(mainImagePath);
             if (inferred) {
                 setActiveChannel(inferred);
+            }
+            if (showContours) {
+                markCurrentCellWarm(fileUUID, true);
+                scheduleCircularOverlayWarmup('initial');
             }
 
             hasInitializedDisplayFile = true;
@@ -2847,6 +2875,45 @@
             applyContourToggleState();
         }
 
+        function getWarmPriorityOffsets(direction = 'initial') {
+            if (direction === 'next') {
+                return [1, 2, -1, -2];
+            }
+            if (direction === 'previous') {
+                return [-1, -2, 1, 2];
+            }
+            return [1, -1, 2, -2];
+        }
+
+        function getCircularWarmQueue(direction = 'initial') {
+            if (!window.CytoCVOverlayPrefetch || maxCells < 1) {
+                return [];
+            }
+            if (maxCells <= 5) {
+                return window.CytoCVOverlayPrefetch
+                    .buildFullCircularCellOrder(currentCellNumber, maxCells)
+                    .filter((cellNumber) => cellNumber !== currentCellNumber);
+            }
+            return window.CytoCVOverlayPrefetch
+                .buildCircularCellOrder(currentCellNumber, maxCells, getWarmPriorityOffsets(direction))
+                .filter((cellNumber) => cellNumber !== currentCellNumber);
+        }
+
+        function markCurrentCellWarm(fileUUID, showContours) {
+            if (!showContours || !fileUUID || maxCells < 1) {
+                return;
+            }
+            overlayWarmCoordinator.markCellWarm(fileUUID, currentCellNumber);
+        }
+
+        function scheduleCircularOverlayWarmup(direction = 'initial') {
+            const fileUUID = fileUUIDs[currentFileIndex];
+            if (!fileUUID || !getContourToggleState() || maxCells < 1) {
+                return;
+            }
+            overlayWarmCoordinator.scheduleCells(fileUUID, getCircularWarmQueue(direction));
+        }
+
         async function updateCellImages(cellPairImages, statistics, options = {}) {
             const renderToken = ++activeCellRenderToken;
             const blendImages = !!options.blendImages;
@@ -2886,35 +2953,44 @@
             return true;
         }
 
-        function applyContourToggleState(forceShowContours = null) {
+        async function handleContourToggleChange(forceShowContours = null) {
             const showContours = getContourToggleState(forceShowContours);
             syncContourStateLabel(showContours);
 
-            const visibleImageUrls = getVisibleCellImageUrls(getCurrentCellImageUrls(), showContours);
-            ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'].forEach((id, index) => {
-                const imageElement = document.getElementById(id);
-                if (imageElement) {
-                    imageElement.src = visibleImageUrls[index];
-                }
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const fileData = filesData[fileUUID];
+            if (!fileData) {
+                return;
+            }
+
+            await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                blendImages: hasInitializedDisplayFile,
+                blendText: false,
+                forceShowContours: showContours,
             });
+
+            if (showContours) {
+                markCurrentCellWarm(fileUUID, true);
+                scheduleCircularOverlayWarmup('initial');
+            }
         }
 
-        function nextFile() {
+        async function nextFile() {
             if (!hasMultipleFiles()) {
                 syncFileNavigationState();
                 return;
             }
             const nextIndex = (currentFileIndex + 1) % fileUUIDs.length;
-            loadFile(nextIndex);
+            await loadFile(nextIndex);
         }
 
-        function previousFile() {
+        async function previousFile() {
             if (!hasMultipleFiles()) {
                 syncFileNavigationState();
                 return;
             }
             const nextIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
-            loadFile(nextIndex);
+            await loadFile(nextIndex);
         }
 
         async function nextCell() {
@@ -2922,14 +2998,21 @@
                 return;
             }
             currentCellNumber = (currentCellNumber % maxCells) + 1;
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const fileData = filesData[fileUUID];
             if (!fileData) {
                 return;
             }
+            const showContours = getContourToggleState();
             await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                 blendImages: true,
                 blendText: true,
+                forceShowContours: showContours,
             });
+            if (showContours) {
+                markCurrentCellWarm(fileUUID, true);
+                scheduleCircularOverlayWarmup('next');
+            }
         }
 
         async function previousCell() {
@@ -2937,30 +3020,37 @@
                 return;
             }
             currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const fileData = filesData[fileUUID];
             if (!fileData) {
                 return;
             }
+            const showContours = getContourToggleState();
             await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                 blendImages: true,
                 blendText: true,
+                forceShowContours: showContours,
             });
+            if (showContours) {
+                markCurrentCellWarm(fileUUID, true);
+                scheduleCircularOverlayWarmup('previous');
+            }
         }
 
         let contourToggleBound = false;
         function toggleContourOverlays() {
-            if (contourToggleBound) {
-                return;
-            }
             const toggleElement = document.getElementById('toggleContours');
             if (!toggleElement) {
                 return;
             }
+            syncContourStateLabel(toggleElement.checked);
+            if (contourToggleBound) {
+                return;
+            }
             contourToggleBound = true;
-            toggleElement.addEventListener('change', function() {
-                applyContourToggleState(this.checked);
+            toggleElement.addEventListener('change', function () {
+                void handleContourToggleChange(this.checked);
             });
-            applyContourToggleState(toggleElement.checked);
         }
 
         // Sidebar elements

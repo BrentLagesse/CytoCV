@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+import time
+
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 
@@ -9,6 +12,8 @@ from core.services.overlay_rendering import (
     find_legacy_debug_image_path,
     normalize_overlay_channel,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def cell_overlay_image(
@@ -34,6 +39,7 @@ def cell_overlay_image(
         segmented_image=segmented_image,
         cell_id=cell_id,
     )
+    started_at = time.perf_counter()
 
     try:
         overlay_path = ensure_overlay_cache_image(
@@ -46,6 +52,13 @@ def cell_overlay_image(
         legacy_debug = find_legacy_debug_image_path(uuid, cell_id, normalized_channel)
         if legacy_debug is None or not legacy_debug.exists():
             raise Http404("Overlay not found")
+        logger.info(
+            "Overlay cache event=legacy_fallback run_uuid=%s cell_id=%s channel=%s elapsed_ms=%.2f",
+            uuid,
+            int(cell_id),
+            normalized_channel,
+            (time.perf_counter() - started_at) * 1000.0,
+        )
         overlay_path = legacy_debug
     except CellStatistics.DoesNotExist as exc:
         raise Http404("Overlay not found") from exc
