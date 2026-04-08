@@ -48,11 +48,15 @@ Important `CellStatistics` fields include:
 
 - `distance`
 - `line_gfp_intensity`
+- raw red/green contour intensity sums such as `red_intensity_1`, `green_intensity_1`, `red_in_green_intensity_1`, and `green_in_green_intensity_1`
+- the secondary compatibility ratio fields `green_red_intensity_1` through `green_red_intensity_3`
 - `nucleus_intensity_sum`
 - `cellular_intensity_sum`
 - `cytoplasmic_intensity`
 - legacy DAPI-derived and red-in-blue fields
 - GFP dot classification fields
+
+For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These are not mean intensities. They are also not ratios, except for the explicitly named green/red ratio fields.
 
 `CellStatistics.properties` also stores contextual information such as:
 

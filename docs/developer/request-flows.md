@@ -75,6 +75,12 @@ Sequence:
 13. autosave or mark transient based on account settings and quota
 14. redirect to display
 
+Measurement note:
+
+- the red/green contour plugin stores raw masked pixel sums for each contour-channel combination (`red in red`, `green in red`, `red in green`, `green in green`)
+- the legacy-compatible `green_red_intensity_*` values remain a derived ratio of `green in red / red in red`
+- these masked contour values are integrated sums, not mean intensities
+
 Worker-backed production flow:
 
 - `core.views.pre_process.pre_process` enqueues the full batch

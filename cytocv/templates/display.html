@@ -1707,32 +1707,6 @@
                                             <span class="metric-label">Nuclear status</span>
                                             <span class="metric-value" id="nuclearStatus"></span>
                                         </div>
-                                    </div>
-                                    <div class="cell-stats-section">
-                                        <p class="metric-lead">Line + Red/Green Metrics</p>
-                                        <div class="metric-row">
-                                            <span class="metric-label">mCherry line distance</span>
-                                            <span class="metric-value" id="distance"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Line GFP intensity</span>
-                                            <span class="metric-value" id="lineGFPIntensity"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green Red intensity 1</span>
-                                            <span class="metric-value" id="greenredIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green Red intensity 2</span>
-                                            <span class="metric-value" id="greenredIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green Red intensity 3</span>
-                                            <span class="metric-value" id="greenredIntensity3"></span>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-section">
-                                        <p class="metric-lead">Intensity + GFP Output</p>
                                         <div class="metric-row">
                                             <span class="metric-label"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span></span>
                                             <span class="metric-value" id="nucleusIntensitySum"></span>
@@ -1745,6 +1719,17 @@
                                             <span class="metric-label">Cytoplasmic intensity</span>
                                             <span class="metric-value" id="cytoplasmicIntensity"></span>
                                         </div>
+                                    </div>
+                                    <div class="cell-stats-section">
+                                        <p class="metric-lead">Line + Spot Metrics</p>
+                                        <div class="metric-row">
+                                            <span class="metric-label">mCherry line distance</span>
+                                            <span class="metric-value" id="distance"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Line GFP intensity</span>
+                                            <span class="metric-value" id="lineGFPIntensity"></span>
+                                        </div>
                                         <div class="metric-row">
                                             <span class="metric-label">GFP dot</span>
                                             <span class="metric-value" id="gfpDot"></span>
@@ -1752,6 +1737,69 @@
                                         <div class="metric-row">
                                             <span class="metric-label">Biorientation</span>
                                             <span class="metric-value" id="biorientation"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green/Red ratio 1</span>
+                                            <span class="metric-value" id="greenredIntensity1"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green/Red ratio 2</span>
+                                            <span class="metric-value" id="greenredIntensity2"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green/Red ratio 3</span>
+                                            <span class="metric-value" id="greenredIntensity3"></span>
+                                        </div>
+                                    </div>
+                                    <div class="cell-stats-section">
+                                        <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Red in Red intensity 1</span>
+                                            <span class="metric-value" id="redInRedIntensity1"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Red in Red intensity 2</span>
+                                            <span class="metric-value" id="redInRedIntensity2"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Red in Red intensity 3</span>
+                                            <span class="metric-value" id="redInRedIntensity3"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green in Red intensity 1</span>
+                                            <span class="metric-value" id="greenInRedIntensity1"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green in Red intensity 2</span>
+                                            <span class="metric-value" id="greenInRedIntensity2"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green in Red intensity 3</span>
+                                            <span class="metric-value" id="greenInRedIntensity3"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Red in Green intensity 1</span>
+                                            <span class="metric-value" id="redInGreenIntensity1"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Red in Green intensity 2</span>
+                                            <span class="metric-value" id="redInGreenIntensity2"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Red in Green intensity 3</span>
+                                            <span class="metric-value" id="redInGreenIntensity3"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green in Green intensity 1</span>
+                                            <span class="metric-value" id="greenInGreenIntensity1"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green in Green intensity 2</span>
+                                            <span class="metric-value" id="greenInGreenIntensity2"></span>
+                                        </div>
+                                        <div class="metric-row">
+                                            <span class="metric-label">Green in Green intensity 3</span>
+                                            <span class="metric-value" id="greenInGreenIntensity3"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -1848,6 +1896,18 @@
             'greenredIntensity1',
             'greenredIntensity2',
             'greenredIntensity3',
+            'redInRedIntensity1',
+            'redInRedIntensity2',
+            'redInRedIntensity3',
+            'greenInRedIntensity1',
+            'greenInRedIntensity2',
+            'greenInRedIntensity3',
+            'redInGreenIntensity1',
+            'redInGreenIntensity2',
+            'redInGreenIntensity3',
+            'greenInGreenIntensity1',
+            'greenInGreenIntensity2',
+            'greenInGreenIntensity3',
             'nucleusIntensitySum',
             'cellularIntensitySum',
             'cytoplasmicIntensity',
@@ -2105,11 +2165,7 @@
             const imageUrls = safeCellPairImages[cellNumber] || safeCellPairImages[String(cellNumber)] || null;
             const visibleImageUrls = getVisibleCellImageUrls(imageUrls, showContours);
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
-            const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
-            const categoryIndex = cellStats ? Number(cellStats.category_GFP_dot) - 1 : -1;
-            const category = categoryIndex >= 0 && categoryIndex < categories.length
-                ? categories[categoryIndex]
-                : 'N/A';
+            const category = cellStats ? (cellStats.category_GFP_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
             const labels = getNuclearLabelPair(mode);
@@ -2123,6 +2179,18 @@
                     greenredIntensity1: formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null),
                     greenredIntensity2: formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null),
                     greenredIntensity3: formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null),
+                    redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),
+                    redInRedIntensity2: formatStatValue(cellStats ? cellStats.red_intensity_2 : null),
+                    redInRedIntensity3: formatStatValue(cellStats ? cellStats.red_intensity_3 : null),
+                    greenInRedIntensity1: formatStatValue(cellStats ? cellStats.green_intensity_1 : null),
+                    greenInRedIntensity2: formatStatValue(cellStats ? cellStats.green_intensity_2 : null),
+                    greenInRedIntensity3: formatStatValue(cellStats ? cellStats.green_intensity_3 : null),
+                    redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null),
+                    redInGreenIntensity2: formatStatValue(cellStats ? cellStats.red_in_green_intensity_2 : null),
+                    redInGreenIntensity3: formatStatValue(cellStats ? cellStats.red_in_green_intensity_3 : null),
+                    greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null),
+                    greenInGreenIntensity2: formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null),
+                    greenInGreenIntensity3: formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null),
                     nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
                     cellularIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cellular_intensity_sum),
                     cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
@@ -2554,7 +2622,7 @@
                 'GFP-to-mCherry Distance 1': 'gfp_to_mcherry_distance_1',
                 'GFP-to-mCherry Distance 2': 'gfp_to_mcherry_distance_2',
                 'GFP-to-mCherry Distance 3': 'gfp_to_mcherry_distance_3',
-                'GFP Dot Category': 'category_GFP_dot',
+                'GFP Dot Category': 'category_GFP_dot_label',
                 'Measured cellular intensity': 'cellular_intensity_sum',
                 'Measured nuclear intensity': 'nucleus_intensity_sum',
                 'Measured Cellular Intensity': 'cellular_intensity_sum',
@@ -2636,21 +2704,11 @@
                 document.getElementById("cellImage3").src = noCellPlaceholder;
                 document.getElementById("cellImage4").src = noCellPlaceholder;
                 document.getElementById("cellID").textContent = maxCells > 0 ? currentCellNumber : 0;
-                document.getElementById("distance").textContent = "N/A";
-                document.getElementById("lineGFPIntensity").textContent = "N/A";
-                document.getElementById("greenredIntensity1").textContent = "N/A";
-                document.getElementById("greenredIntensity2").textContent = "N/A";
-                document.getElementById("greenredIntensity3").textContent = "N/A";
-                document.getElementById("nucleusIntensitySum").textContent = "N/A";
-                document.getElementById("cellularIntensitySum").textContent = "N/A";
-                document.getElementById("cytoplasmicIntensity").textContent = "N/A";
-                document.getElementById("gfpDot").textContent = "N/A";
-                document.getElementById("biorientation").textContent = "N/A";
+                BLEND_METRIC_IDS.forEach((metricId) => {
+                    document.getElementById(metricId).textContent = "N/A";
+                });
                 document.getElementById("nucleusIntensityLabel").textContent = "Measured Nuclear Intensity";
                 document.getElementById("cellularIntensityLabel").textContent = "Measured Cellular Intensity";
-                document.getElementById("nucleusContourChannel").textContent = "N/A";
-                document.getElementById("measurementChannel").textContent = "N/A";
-                document.getElementById("nuclearStatus").textContent = "N/A";
                 return;
             }
 
@@ -2665,14 +2723,25 @@
             document.getElementById("cellID").textContent = currentCellNumber;
 
             const cellStats = statistics[currentCellNumber];
-            const categories = ['One green dot with each red dot', 'One green dot with one red dot', 'Two green dots with one red dot', 'N/A'];
-            const category = cellStats ? categories[cellStats.category_GFP_dot - 1] : 'N/A';
+            const category = cellStats ? (cellStats.category_GFP_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
             document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);
             document.getElementById("greenredIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null);
             document.getElementById("greenredIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null);
             document.getElementById("greenredIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null);
+            document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);
+            document.getElementById("redInRedIntensity2").textContent = formatStatValue(cellStats ? cellStats.red_intensity_2 : null);
+            document.getElementById("redInRedIntensity3").textContent = formatStatValue(cellStats ? cellStats.red_intensity_3 : null);
+            document.getElementById("greenInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_intensity_1 : null);
+            document.getElementById("greenInRedIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_intensity_2 : null);
+            document.getElementById("greenInRedIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_intensity_3 : null);
+            document.getElementById("redInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null);
+            document.getElementById("redInGreenIntensity2").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_2 : null);
+            document.getElementById("redInGreenIntensity3").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_3 : null);
+            document.getElementById("greenInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null);
+            document.getElementById("greenInGreenIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null);
+            document.getElementById("greenInGreenIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null);
             document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);
             document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cellular_intensity_sum);
             document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);

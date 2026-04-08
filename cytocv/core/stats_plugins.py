@@ -82,8 +82,11 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     ),
     "GreenRedIntensity": StatsPluginDefinition(
         plugin_id="GreenRedIntensity",
-        label="Green/Red Intensity Ratio",
-        description="Computes per-contour intensity combinations across red and green channels.",
+        label="Red/Green Contour Intensities",
+        description=(
+            "Computes raw masked-sum contour intensities across red and green channels, "
+            "plus a secondary green/red ratio for red contours."
+        ),
         module_name="core.cell_analysis.green_red_intensity",
         class_name="GreenRedIntensity",
         required_channels=frozenset({"mCherry", "GFP"}),

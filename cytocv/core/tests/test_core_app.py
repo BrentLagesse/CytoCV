@@ -149,14 +149,32 @@ class RouteSurfaceRefactorTests(TestCase):
         return render_config
 
     @staticmethod
-    def _create_cell_stats(segmented: SegmentedImage, image_stem: str, *, cell_id: int = 1) -> CellStatistics:
-        return CellStatistics.objects.create(
+    def _create_cell_stats(
+        segmented: SegmentedImage,
+        image_stem: str,
+        *,
+        cell_id: int = 1,
+        **overrides,
+    ) -> CellStatistics:
+        defaults = dict(
             segmented_image=segmented,
             cell_id=cell_id,
             distance=0.0,
             line_gfp_intensity=0.0,
             nucleus_intensity_sum=0.0,
             cellular_intensity_sum=0.0,
+            red_intensity_1=0.0,
+            red_intensity_2=0.0,
+            red_intensity_3=0.0,
+            green_intensity_1=0.0,
+            green_intensity_2=0.0,
+            green_intensity_3=0.0,
+            red_in_green_intensity_1=0.0,
+            red_in_green_intensity_2=0.0,
+            red_in_green_intensity_3=0.0,
+            green_in_green_intensity_1=0.0,
+            green_in_green_intensity_2=0.0,
+            green_in_green_intensity_3=0.0,
             green_red_intensity_1=0.0,
             green_red_intensity_2=0.0,
             green_red_intensity_3=0.0,
@@ -164,6 +182,8 @@ class RouteSurfaceRefactorTests(TestCase):
             image_name=f"{image_stem}.dv",
             properties={"nuclear_cellular_mode": "green_nucleus"},
         )
+        defaults.update(overrides)
+        return CellStatistics.objects.create(**defaults)
 
     def test_segment_image_uses_stored_file_location_for_dv_path(self):
         uuid_value = str(uuid4())
@@ -452,6 +472,16 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
+            'document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            'document.getElementById("greenInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null);',
+            html=False,
+        )
+        self.assertContains(
+            response,
             'document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);',
             html=False,
         )
@@ -483,6 +513,16 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
+            'document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            'document.getElementById("redInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null);',
+            html=False,
+        )
+        self.assertContains(
+            response,
             'document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);',
             html=False,
         )
@@ -491,6 +531,83 @@ class RouteSurfaceRefactorTests(TestCase):
             'document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);',
             html=False,
         )
+
+    def test_display_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-raw-intensity")
+            segmented = self._create_segmented_image(uuid_value, name="display-raw-intensity")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "display-raw-intensity")
+            self._create_cell_stats(
+                segmented,
+                "display-raw-intensity",
+                red_intensity_1=11.0,
+                green_intensity_1=7.0,
+                red_in_green_intensity_1=5.0,
+                green_in_green_intensity_1=13.0,
+                green_red_intensity_1=7.0 / 11.0,
+                category_GFP_dot=1,
+            )
+
+            response = self.client.get(reverse("display", args=[uuid_value]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Raw Contour Intensity Sums")
+        self.assertContains(response, "Green/Red ratio 1")
+        self.assertContains(response, "Line + Spot Metrics")
+        self.assertNotContains(response, "Intensity + GFP Output")
+        self.assertContains(response, '"red_intensity_1": 11.0', html=False)
+        self.assertContains(response, '"red_in_green_intensity_1": 5.0', html=False)
+        self.assertContains(response, '"green_in_green_intensity_1": 13.0', html=False)
+        self.assertContains(
+            response,
+            '"category_GFP_dot_label": "One green dot with each red dot"',
+            html=False,
+        )
+        self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
+        self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
+
+    def test_dashboard_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-raw-intensity")
+            segmented = self._create_segmented_image(uuid_value, name="dashboard-raw-intensity")
+            segmented.user = self.user
+            segmented.NumCells = 1
+            segmented.save(update_fields=["user", "NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "dashboard-raw-intensity")
+            self._create_cell_stats(
+                segmented,
+                "dashboard-raw-intensity",
+                red_intensity_1=19.0,
+                green_intensity_1=23.0,
+                red_in_green_intensity_1=29.0,
+                green_in_green_intensity_1=31.0,
+                green_red_intensity_1=23.0 / 19.0,
+                category_GFP_dot=1,
+            )
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Raw Contour Intensity Sums")
+        self.assertContains(response, "Green/Red ratio 1")
+        self.assertContains(response, "Line + Spot Metrics")
+        self.assertNotContains(response, "Intensity + GFP Output")
+        self.assertContains(response, '"red_intensity_1": 19.0', html=False)
+        self.assertContains(response, '"green_intensity_1": 23.0', html=False)
+        self.assertContains(response, '"green_in_green_intensity_1": 31.0', html=False)
+        self.assertContains(
+            response,
+            '"category_GFP_dot_label": "One green dot with each red dot"',
+            html=False,
+        )
+        self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
+        self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
 
 
 class PluginMappingRegressionTests(TestCase):

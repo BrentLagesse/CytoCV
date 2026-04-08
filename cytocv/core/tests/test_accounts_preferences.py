@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +12,7 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from accounts.preferences import (
     get_user_preferences,
@@ -450,6 +452,12 @@ class DisplayManualSaveTests(TestCase):
             line_gfp_intensity=2.0,
             nucleus_intensity_sum=3.0,
             cellular_intensity_sum=4.0,
+            red_intensity_1=5.0,
+            green_intensity_1=6.0,
+            red_in_green_intensity_1=7.0,
+            green_in_green_intensity_1=8.0,
+            green_red_intensity_1=6.0 / 5.0,
+            category_GFP_dot=1,
         )
 
     def _set_transient_uuids(self, uuids: list[str]) -> None:
@@ -594,6 +602,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(response, 'Line + Spot Metrics')
+        self.assertContains(response, 'Raw Contour Intensity Sums')
+        self.assertNotContains(response, 'Intensity + GFP Output')
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
         saved_uuid = self._create_display_file(
@@ -626,6 +637,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="dapi_form"', html=False)
         self.assertContains(response, 'id="mCherry_form"', html=False)
         self.assertContains(response, 'id="gfp_form"', html=False)
+        self.assertContains(response, 'Line + Spot Metrics')
+        self.assertContains(response, 'Raw Contour Intensity Sums')
+        self.assertNotContains(response, 'Intensity + GFP Output')
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
         preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
@@ -667,6 +681,15 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("text/csv", response["Content-Type"])
         csv_text = response.content.decode("utf-8")
         self.assertIn("Cell ID", csv_text)
+        self.assertIn("Red in Red Intensity 1", csv_text)
+        self.assertIn("Green in Red Intensity 1", csv_text)
+        self.assertIn("Red in Green Intensity 1", csv_text)
+        self.assertIn("Green in Green Intensity 1", csv_text)
+        self.assertNotIn("Green/Red ratio 1", csv_text)
+        self.assertIn("5.000", csv_text)
+        self.assertIn("8.000", csv_text)
+        self.assertIn("GFP Dot Category", csv_text)
+        self.assertIn("One green dot with each red dot", csv_text)
 
     def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
         file_name = "dashboard_xlsx_export"
@@ -690,6 +713,17 @@ class DisplayManualSaveTests(TestCase):
             response["Content-Type"],
         )
         self.assertGreater(len(response.content), 0)
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        headers = [cell.value for cell in sheet[1]]
+        self.assertIn("Red in Red Intensity 1", headers)
+        self.assertIn("Green in Red Intensity 1", headers)
+        self.assertIn("Red in Green Intensity 1", headers)
+        self.assertIn("Green in Green Intensity 1", headers)
+        self.assertNotIn("Green/Red ratio 1", headers)
+        self.assertIn("GFP Dot Category", headers)
+        gfp_dot_col = headers.index("GFP Dot Category") + 1
+        self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "One green dot with each red dot")
 
     def test_display_csv_export_uses_uploaded_file_name(self):
         file_name = "display_csv_export_source"
@@ -1774,4 +1808,3 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Paused manually<"), 2)
-

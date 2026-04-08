@@ -2,6 +2,7 @@ from django.test import SimpleTestCase
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+import cv2
 import numpy as np
 
 from core.cell_analysis import GreenRedIntensity
@@ -213,3 +214,73 @@ class AnalysisRegressionTests(SimpleTestCase):
 
         self.assertEqual(cp.red_intensity_1, 0.0)
         self.assertEqual(cp.green_in_green_intensity_1, 0.0)
+
+    def test_green_red_intensity_exposes_raw_masked_sums_and_ratio_separately(self):
+        plugin = GreenRedIntensity()
+        cp = SimpleNamespace()
+        red_image = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 2, 3, 0, 0],
+                [0, 5, 7, 0, 0],
+                [0, 0, 0, 11, 13],
+                [0, 0, 0, 17, 19],
+            ],
+            dtype=np.uint8,
+        )
+        green_image = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 23, 29, 0, 0],
+                [0, 31, 37, 0, 0],
+                [0, 0, 0, 41, 43],
+                [0, 0, 0, 47, 53],
+            ],
+            dtype=np.uint8,
+        )
+        preprocessed = GrayImage(
+            img={
+                "mCherry_no_bg": red_image,
+                "gray_mcherry": None,
+                "GFP_no_bg": green_image,
+                "GFP": None,
+            }
+        )
+        plugin.setting_up(cp, preprocessed, output_dir="")
+
+        red_contour = np.array([[[1, 1]], [[1, 2]], [[2, 2]], [[2, 1]]], dtype=np.int32)
+        green_contour = np.array([[[3, 3]], [[3, 4]], [[4, 4]], [[4, 3]]], dtype=np.int32)
+
+        plugin.calculate_statistics(
+            best_contours={},
+            contours_data={
+                "dot_contours": [red_contour],
+                "contours_gfp": [green_contour],
+            },
+            red_image=None,
+            green_image=None,
+            mcherry_line_width_input=1,
+            gfp_distance=37,
+            gfp_threshold=66,
+        )
+
+        red_mask = np.zeros(red_image.shape, dtype=np.uint8)
+        cv2.drawContours(red_mask, [red_contour], 0, 255, -1)
+        green_mask = np.zeros(green_image.shape, dtype=np.uint8)
+        cv2.drawContours(green_mask, [green_contour], 0, 255, -1)
+
+        expected_red_in_red = float(np.sum(red_image[red_mask > 0]))
+        expected_green_in_red = float(np.sum(green_image[red_mask > 0]))
+        expected_red_in_green = float(np.sum(red_image[green_mask > 0]))
+        expected_green_in_green = float(np.sum(green_image[green_mask > 0]))
+
+        self.assertEqual(cp.red_intensity_1, expected_red_in_red)
+        self.assertEqual(cp.green_intensity_1, expected_green_in_red)
+        self.assertEqual(cp.red_in_green_intensity_1, expected_red_in_green)
+        self.assertEqual(cp.green_in_green_intensity_1, expected_green_in_green)
+        self.assertEqual(
+            cp.green_red_intensity_1,
+            expected_green_in_red / expected_red_in_red,
+        )
+        self.assertEqual(cp.red_intensity_2, 0.0)
+        self.assertEqual(cp.green_red_intensity_2, 0.0)

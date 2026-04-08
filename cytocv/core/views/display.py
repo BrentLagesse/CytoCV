@@ -11,7 +11,13 @@ from django.views.decorators.http import require_POST
 
 from accounts.preferences import get_user_preferences
 from core.config import get_channel_config_for_uuid
-from core.models import UploadedImage, SegmentedImage, CellStatistics, get_guest_user
+from core.models import (
+    UploadedImage,
+    SegmentedImage,
+    CellStatistics,
+    get_guest_user,
+    get_gfp_dot_category_label,
+)
 from core.services.artifact_storage import (
     StorageQuotaExceeded,
     assert_user_can_save_runs,
@@ -310,6 +316,7 @@ def display(request, uuids):
                             "unknown",
                         ),
                         'category_GFP_dot': cell_stat.category_GFP_dot,
+                        'category_GFP_dot_label': get_gfp_dot_category_label(cell_stat.category_GFP_dot),
                         'biorientation': cell_stat.biorientation,
                     }
                 else:
