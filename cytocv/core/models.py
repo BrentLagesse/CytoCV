@@ -182,6 +182,20 @@ class CategoryGFPDot(models.IntegerChoices):
     TWOONE = 3, "Two green dots with one red dot"
     NONE = 4, "N/A"
 
+
+def get_gfp_dot_category_label(value: int | None) -> str:
+    """Return the user-facing label for a stored GFP dot category code."""
+    labels = dict(CategoryGFPDot.choices)
+    if isinstance(value, str):
+        if value in labels.values():
+            return value
+    try:
+        category_value = int(value)
+    except (TypeError, ValueError):
+        return CategoryGFPDot.NONE.label
+    return labels.get(category_value, CategoryGFPDot.NONE.label)
+
+
 class CellStatistics(models.Model):
     """Stores per-cell statistics derived from segmentation output."""
 

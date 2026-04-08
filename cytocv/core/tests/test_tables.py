@@ -37,3 +37,17 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
         self.assertEqual(self.table.value_cellular_intensity_sum(123.456, record), "123.456")
         self.assertEqual(self.table.value_nucleus_intensity_sum(234.567, record), "234.567")
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "345.678")
+
+    def test_render_gfp_dot_category_uses_choice_label(self):
+        category_table = CellTable([SimpleNamespace(category_GFP_dot=1)], intensity_mode="green_nucleus")
+        row = list(category_table.rows)[0]
+
+        self.assertEqual(row.get_cell("category_GFP_dot"), "One green dot with each red dot")
+        self.assertEqual(list(category_table.as_values())[1][-2], "One green dot with each red dot")
+
+    def test_render_gfp_dot_category_falls_back_to_na_for_invalid_values(self):
+        category_table = CellTable([SimpleNamespace(category_GFP_dot=999)], intensity_mode="green_nucleus")
+        row = list(category_table.rows)[0]
+
+        self.assertEqual(row.get_cell("category_GFP_dot"), "N/A")
+        self.assertEqual(list(category_table.as_values())[1][-2], "N/A")

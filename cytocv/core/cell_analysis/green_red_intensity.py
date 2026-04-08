@@ -81,10 +81,13 @@ class GreenRedIntensity(Analysis):
             mask = create_circular_mask(mcherry_gray.shape, red_contours, i)
             red_intensity = float(calculate_intensity_mask(mcherry_gray, mask))
             green_intensity = float(calculate_intensity_mask(gfp_gray, mask))
-            ratio = green_intensity / red_intensity if red_intensity != 0 else 0.0
+            # Keep raw masked sums as the primary outputs. The ratio is a
+            # secondary compatibility metric derived from green-in-red over
+            # red-in-red within the same red contour.
+            green_red_ratio = green_intensity / red_intensity if red_intensity != 0 else 0.0
             setattr(self.cp, f"red_intensity_{i + 1}", red_intensity)
             setattr(self.cp, f"green_intensity_{i + 1}", green_intensity)
-            setattr(self.cp, f"green_red_intensity_{i + 1}", ratio)
+            setattr(self.cp, f"green_red_intensity_{i + 1}", green_red_ratio)
 
         for i, contour_info in enumerate(green_contours_ranked):
             area, center, _ = contour_info

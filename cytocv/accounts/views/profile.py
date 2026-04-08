@@ -28,7 +28,12 @@ from accounts.preferences import (
     update_user_preferences,
 )
 from core.config import get_channel_config_for_uuid
-from core.models import CellStatistics, SegmentedImage, UploadedImage
+from core.models import (
+    CellStatistics,
+    SegmentedImage,
+    UploadedImage,
+    get_gfp_dot_category_label,
+)
 from core.services.artifact_storage import (
     get_user_storage_projection,
     refresh_user_storage_usage,
@@ -435,6 +440,7 @@ def _serialize_cell_statistics(cell_stat: CellStatistics | None) -> dict[str, An
         ),
         "nuclear_cellular_status": props.get("nuclear_cellular_status", "unknown"),
         "category_GFP_dot": cell_stat.category_GFP_dot,
+        "category_GFP_dot_label": get_gfp_dot_category_label(cell_stat.category_GFP_dot),
         "biorientation": cell_stat.biorientation,
     }
 

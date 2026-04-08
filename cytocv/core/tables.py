@@ -6,7 +6,7 @@ import django_tables2 as tables
 from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
-from core.models import CellStatistics
+from core.models import CellStatistics, get_gfp_dot_category_label
 
 
 NUCLEAR_CELLULAR_LABELS = {
@@ -25,6 +25,16 @@ class NumberColumn(tables.Column):
             return "{:0.3f}".format(float(value))
         except (TypeError, ValueError):
             return "N/A"
+
+
+class ChoiceLabelColumn(tables.Column):
+    """Render stored choice codes using their human-readable labels."""
+
+    def render(self, value: int) -> str:
+        return get_gfp_dot_category_label(value)
+
+    def value(self, value: int) -> str:
+        return self.render(value)
 
 
 class CellTable(tables.Table):
@@ -67,7 +77,7 @@ class CellTable(tables.Table):
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELLULAR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
-    category_GFP_dot = tables.Column(verbose_name="GFP Dot Category")
+    category_GFP_dot = ChoiceLabelColumn(verbose_name="GFP Dot Category")
     biorientation = tables.Column(verbose_name="Biorientation")
 
     class Meta:
@@ -150,7 +160,6 @@ class CellTable(tables.Table):
 
     def value_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
         return self._render_nuclear_cellular_value(record, value)
-
 
 class CellTableView(ExportMixin, SingleTableView):
     """Table view with CSV/XLSX export support for cell statistics."""
