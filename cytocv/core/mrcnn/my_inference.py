@@ -7,12 +7,15 @@ import skimage.transform
 from pathlib import Path
 from PIL import Image
 from skimage import img_as_ubyte
+import logging
 
 from .inference_runtime import INFERENCE_RANDOM_SEED, get_inference_runtime
 from .mask_processing import build_labeled_mask_image, save_mask_tiff
 from .preprocess_images import PreprocessedImageArtifact
 
 import time
+
+logger = logging.getLogger(__name__)
 
 np.random.seed(INFERENCE_RANDOM_SEED)
 random.seed(INFERENCE_RANDOM_SEED)
@@ -102,7 +105,7 @@ def predict_images(
         return None
 
     output_dir = Path(output_dir)
-    print("output_directory", output_dir)
+    logger.debug("Inference output directory: %s", output_dir)
     if cancel_check and cancel_check():
         return None
 
@@ -112,7 +115,7 @@ def predict_images(
 
     start_time = time.time()
     if verbose:
-        print("Start detect", 0, "  ", preprocessed_image.image_id)
+        logger.debug("Starting detection for %s", preprocessed_image.image_id)
 
     original_image = _load_inference_image(
         preprocessed_image.preprocessed_path,
@@ -139,7 +142,11 @@ def predict_images(
     )
 
     if verbose:
-        print("Completed in", time.time() - start_time)
-    
-    print("predict_images FINISHED")
+        logger.debug(
+            "Completed detection for %s in %.3fs",
+            preprocessed_image.image_id,
+            time.time() - start_time,
+        )
+
+    logger.debug("predict_images finished for %s", preprocessed_image.image_id)
     return mask_path

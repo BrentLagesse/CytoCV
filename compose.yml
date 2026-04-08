@@ -1,4 +1,4 @@
- services:
+services:
   django-web:
     build:
       context: .
@@ -10,3 +10,14 @@
       - '/app/start.sh'
     ports:
       - "8000:8000"
+  analysis-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django-analysis-worker
+    profiles:
+      - worker
+    command:
+      - /bin/sh
+      - '-c'
+      - '/app/start-worker.sh'

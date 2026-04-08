@@ -77,6 +77,7 @@ from core.scale import (
     resolve_scale_context,
 )
 from core.services.artifact_storage import (
+    PNG_PROFILE_ANALYSIS_FAST,
     StorageQuotaExceeded,
     assert_user_can_save_runs,
     cleanup_failed_processing_artifacts,
@@ -84,22 +85,17 @@ from core.services.artifact_storage import (
     delete_uploaded_run_by_uuid,
     is_storage_full_error,
     log_storage_capacity_failure,
-    optimize_png_file,
     refresh_user_storage_usage,
     resolve_uploaded_file_path,
     save_png_array,
-    save_png_image,
+)
+from core.services.overlay_rendering import (
+    build_overlay_render_config,
+    persist_debug_overlay_exports,
+    write_overlay_render_config,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("debug.log"),
-        logging.StreamHandler()
-    ]
-)
+logger = logging.getLogger(__name__)
 
 AUTOSAVE_STORAGE_FULL_MESSAGE = (
     "Analysis finished, but these files were not saved to your account because your storage is full."
@@ -556,7 +552,7 @@ def segment_image(request, uuids):
                     try:
                         contourArea = cv2.contourArea(cnt1)
                         if contourArea > 100000:   #test for the big box, TODO: fix this to be adaptive
-                            print('threw out the bounding box for the entire image')
+                            logger.debug("Discarded oversized bounding contour while pairing cells")
                             continue
                         coordinate = get_contour_center(cnt1)
                         # These are opposite of what we would expect
@@ -594,7 +590,13 @@ def segment_image(request, uuids):
                                 min_mcherry_loc[c_id] = int(seg[c2x][c2y])
                                 lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))  #flip it back here
                             elif d == min_mcherry_distance[c_id]:
-                                print('This is unexpected, we had two mcherry red dots in cells {} and {} at the same distance from ('.format(seg[c1x][c1y], seg[c2x][c2y]) + str(min_mcherry_loc[c_id]) + ', ' + str((c2x, c2y)) + ') to ' + str((c1x, c1y)) + ' at a distance of ' + str(d))
+                                logger.debug(
+                                    "Found tied mCherry pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
+                                    seg[c1x][c1y],
+                                    seg[c2x][c2y],
+                                    min_mcherry_loc[c_id],
+                                    d,
+                                )
 
             for k, v in closest_neighbors.items():
                 if v in closest_neighbors:      # check to see if v could be a mutual pair
@@ -639,7 +641,11 @@ def segment_image(request, uuids):
                             for update in zip(to_update[0], to_update[1]):
                                 seg[update[0]][update[1]] = c_id
                         elif int(c_id) not in ignore_list:
-                            print('could not add cell pair because cell {} and cell {} were not mutually closest'.format(nearest_cid, int(v)))
+                            logger.debug(
+                                "Skipped non-mutual closest cell pair candidate: %s vs %s",
+                                nearest_cid,
+                                int(v),
+                            )
                             single_cell_list.append(int(k))
 
             # remove single cells or confusing cells
@@ -748,7 +754,7 @@ def segment_image(request, uuids):
                     txt = ax.text(loc[1][0], loc[0][0], str(i), size=12)
                     txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground='w')])
                 else:
-                    print('could not find cell id ' + str(i))
+                    logger.debug("Could not find cell id %s while rendering frame labels", i)
 
             output_file = os.path.join(outputdirectory, f"{DV_Name}_frame_{frame_idx}.png")
             try:
@@ -759,12 +765,6 @@ def segment_image(request, uuids):
                     return storage_full_response(exc)
                 raise
             plt.close(fig)
-            try:
-                optimize_png_file(Path(output_file))
-            except Exception as exc:
-                if is_storage_full_error(exc):
-                    return storage_full_response(exc)
-                raise
 
         #plt.show()
 
@@ -792,7 +792,11 @@ def segment_image(request, uuids):
 
             # Save each cell image as PNG
             try:
-                save_png_array(cell_image.astype(np.uint8), cell_image_path)
+                save_png_array(
+                    cell_image.astype(np.uint8),
+                    cell_image_path,
+                    profile=PNG_PROFILE_ANALYSIS_FAST,
+                )
             except Exception as exc:
                 if is_storage_full_error(exc):
                     return storage_full_response(exc)
@@ -895,14 +899,22 @@ def segment_image(request, uuids):
                     cell_image_cache[i][cached_channel_name] = np.array(not_outlined_image, copy=True)
                 if not os.path.exists(segmented_directory / cell_tif_image) or not use_cache:  # don't redo things we already have
                     try:
-                        save_png_array(cellpair_image, segmented_directory / cell_tif_image)
+                        save_png_array(
+                            cellpair_image,
+                            segmented_directory / cell_tif_image,
+                            profile=PNG_PROFILE_ANALYSIS_FAST,
+                        )
                     except Exception as exc:
                         if is_storage_full_error(exc):
                             return storage_full_response(exc)
                         raise
                 if not os.path.exists(segmented_directory / no_outline_image) or not use_cache:  # don't redo things we already have
                     try:
-                        save_png_array(not_outlined_image, segmented_directory / no_outline_image)
+                        save_png_array(
+                            not_outlined_image,
+                            segmented_directory / no_outline_image,
+                            profile=PNG_PROFILE_ANALYSIS_FAST,
+                        )
                     except Exception as exc:
                         if is_storage_full_error(exc):
                             return storage_full_response(exc)
@@ -1025,6 +1037,37 @@ def segment_image(request, uuids):
             'gfp_filter_enabled': request.session.get("gfpFilterEnabled", "False"),
             'alternate_mcherry_detection': request.session.get("alternateMCherryDetection", "False"),
         }
+        write_overlay_render_config(
+            uuid,
+            build_overlay_render_config(
+                image_stem=DV_Name,
+                channel_config=channel_config,
+                kernel_size=configuration["kernel_size"],
+                kernel_deviation=configuration["kernel_deviation"],
+                mcherry_line_width=configuration["mCherry_line_width"],
+                arrested=configuration["arrested"],
+                selected_analysis=selected_analysis,
+                nuclear_cellular_mode=request.session.get(
+                    "nuclear_cellular_mode",
+                    "green_nucleus",
+                ),
+                mcherry_width_px=mcherry_width,
+                gfp_distance_value_used=gfp_distance,
+                gfp_threshold=gfp_threshold,
+                gfp_filter_enabled=(
+                    gfp_filter_enabled
+                    if isinstance(gfp_filter_enabled, bool)
+                    else str(gfp_filter_enabled).strip().lower() in {"1", "true", "yes", "on"}
+                ),
+                alternate_mcherry_detection=(
+                    alternate_mcherry_detection
+                    if isinstance(alternate_mcherry_detection, bool)
+                    else str(alternate_mcherry_detection).strip().lower() in {"1", "true", "yes", "on"}
+                ),
+                mcherry_width_unit=mcherry_width_unit,
+                gfp_distance_unit=gfp_distance_unit,
+            ),
+        )
 
         if cancelled():
             write_progress(uuids, "Cancelled")
@@ -1038,7 +1081,12 @@ def segment_image(request, uuids):
         # For each cell_number in the segmentation, create/fetch a CellStatistics object
         # and call get_stats so it can mutate the fields on cp.
         for cell_number in range(1, int(np.max(seg)) + 1):
-            print(f"Calculating statistics for cell {cell_number} in image {DV_Name} (UUID: {uuid})")
+            logger.debug(
+                "Calculating statistics for cell %s in image %s (UUID: %s)",
+                cell_number,
+                DV_Name,
+                uuid,
+            )
 
             # Create or get a CellStatistics row
             cp, created = CellStatistics.objects.get_or_create(
@@ -1094,19 +1142,22 @@ def segment_image(request, uuids):
                 cached_images=cell_image_cache.get(cell_number),
             )
 
-            # Save the debug images so we can view them later
-            debug_mcherry_path = segmented_directory / f"{DV_Name}-{cell_number}-mCherry_debug.png"
-            debug_gfp_path = segmented_directory / f"{DV_Name}-{cell_number}-GFP_debug.png"
-            debug_dapi_path = segmented_directory / f"{DV_Name}-{cell_number}-DAPI_debug.png"
-
-            try:
-                save_png_image(debug_mcherry, debug_mcherry_path)
-                save_png_image(debug_gfp, debug_gfp_path)
-                save_png_image(debug_dapi, debug_dapi_path)
-            except Exception as exc:
-                if is_storage_full_error(exc):
-                    return storage_full_response(exc)
-                raise
+            if settings.SEGMENT_SAVE_DEBUG_ARTIFACTS:
+                try:
+                    persist_debug_overlay_exports(
+                        uuid,
+                        DV_Name,
+                        cell_number,
+                        {
+                            "mcherry": debug_mcherry,
+                            "gfp": debug_gfp,
+                            "dapi": debug_dapi,
+                        },
+                    )
+                except Exception as exc:
+                    if is_storage_full_error(exc):
+                        return storage_full_response(exc)
+                    raise
 
             # Save the updated fields to the DB
             cp.save()

@@ -4,21 +4,20 @@ from django.contrib import messages
 from django.template.response import TemplateResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.urls import reverse
 import math
 from uuid import UUID
 
 from core.models import UploadedImage, get_guest_user
-from core.mrcnn.my_inference import predict_images
-from core.mrcnn.preprocess_images import preprocess_images
+from core.services.analysis_context import build_analysis_batch_context, build_batch_key
+from core.services.analysis_exceptions import AnalysisCancelled
+from core.services.analysis_jobs import enqueue_analysis_job, get_active_analysis_job
+from core.services.analysis_pipeline import run_preprocess_and_inference_batch
+from core.services.analysis_progress import AnalysisProgressHandle, get_progress_snapshot
 from .utils import (
     tif_to_jpg,
     prune_experiment_session_state,
-    write_progress,
-    progress_path,
-    read_progress,
-    is_cancelled,
-    set_cancelled,
-    clear_cancelled,
+    sync_transient_run_session_state,
 )
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 
@@ -33,6 +32,8 @@ from core.scale import (
     clear_manual_override_scale,
     get_scale_sidebar_payload,
 )
+from core.mrcnn.my_inference import predict_images
+from core.mrcnn.preprocess_images import preprocess_images
 from core.services.artifact_storage import (
     cleanup_failed_processing_artifacts,
     delete_uploaded_run_by_uuid,
@@ -141,14 +142,21 @@ def get_progress(request, uuids):
     try:
         # Basic validation: non-empty and only hex/commas/dashes
         if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
-            return JsonResponse({"phase": "idle"})
-        path = progress_path(uuids)
-        if path.exists():
-            data = json.loads(path.read_text() or '{}')
-            return JsonResponse({"phase": data.get("phase", "idle")})
-        return JsonResponse({"phase": "idle"})
-    except Exception as e:
-        return JsonResponse({"phase": "idle"})
+            return JsonResponse({"phase": "Idle", "status": "idle"})
+        batch_key = build_batch_key(uuids)
+        snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
+        if snapshot.status in {"succeeded", "failed", "cancelled"}:
+            sync_transient_run_session_state(request, batch_key.split(","))
+        return JsonResponse(
+            {
+                "phase": snapshot.phase,
+                "status": snapshot.status,
+                "failure_summary": snapshot.failure_summary,
+                "redirect": reverse("display", kwargs={"uuids": batch_key}),
+            }
+        )
+    except Exception:
+        return JsonResponse({"phase": "Idle", "status": "idle"})
 
 
 def pre_process(request, uuids):
@@ -280,7 +288,6 @@ def pre_process(request, uuids):
             if updates:
                 UploadedImage.objects.bulk_update(updates, ["scale_info"])
 
-        clear_cancelled(uuids)
         # Selection is primarily set during upload step. Keep POST fallback for
         # backward compatibility with older clients.
         selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
@@ -323,75 +330,80 @@ def pre_process(request, uuids):
         request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
         request.session['gfpFilterEnabled'] = gfp_filter_enabled
         request.session['alternateMCherryDetection'] = alternate_mcherry_detection
-
-        # Track when we first enter phases to mark progress once
-        preprocess_marked = False
-        detection_marked = False
-
-        cancel_check = lambda: is_cancelled(uuids)
+        context = build_analysis_batch_context(request, uuid_list)
+        batch_key = context.batch_key
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         def cancel_response():
-            _delete_cancelled_runs(request, uuid_list)
+            _delete_cancelled_runs(request, list(context.run_uuids))
             if is_ajax:
-                return JsonResponse({"status": "cancelled"})
+                return JsonResponse({"status": "cancelled"}, status=409)
             return HttpResponse("Cancelled", status=409)
 
         def storage_full_response(exc: Exception):
             log_storage_capacity_failure(
                 stage="preprocess_pipeline",
                 user=request.user,
-                uuids=uuid_list,
+                uuids=context.run_uuids,
                 exc=exc,
             )
-            for cleanup_uuid in uuid_list:
+            for cleanup_uuid in context.run_uuids:
                 cleanup_failed_processing_artifacts(cleanup_uuid)
-            write_progress(uuids, "Idle")
-            clear_cancelled(uuids)
+            progress = AnalysisProgressHandle(batch_key)
+            progress.clear_cancel()
+            progress.set_phase("Idle", status="idle")
             messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
-            return redirect("pre_process", uuids=uuids)
+            if is_ajax:
+                return JsonResponse({"error": PROCESSING_STORAGE_FULL_MESSAGE}, status=507)
+            return redirect("pre_process", uuids=batch_key)
 
+        if context.execution_mode == "worker":
+            transient_uuids = {
+                str(value)
+                for value in request.session.get("transient_experiment_uuids", [])
+                if str(value)
+            }
+            transient_uuids.update(context.run_uuids)
+            request.session["transient_experiment_uuids"] = sorted(transient_uuids)
+            request.session.modified = True
+
+            job, created = enqueue_analysis_job(
+                user_id=request.user.id,
+                raw_uuids=context.run_uuids,
+                config_snapshot=context.config_snapshot,
+            )
+            progress = AnalysisProgressHandle(batch_key, job=job)
+            progress.clear_cancel()
+            if created:
+                progress.set_phase("Queued", status="queued")
+
+            payload = {
+                "status": "queued",
+                "phase": "Queued",
+                "redirect": reverse("display", kwargs={"uuids": batch_key}),
+            }
+            if is_ajax:
+                return JsonResponse(payload)
+            return redirect("pre_process", uuids=batch_key)
+
+        progress = AnalysisProgressHandle(batch_key)
+        progress.clear_cancel()
         try:
-            for image_uuid in uuid_list:
-                if cancel_check():
-                    write_progress(uuids, "Cancelled")
-                    clear_cancelled(uuids)
-                    return cancel_response()
-                img_obj = get_object_or_404(UploadedImage, uuid=image_uuid, **owner_filter)
-                out_dir = Path(MEDIA_ROOT) / image_uuid
-
-                if not preprocess_marked:
-                    write_progress(uuids, "Preprocessing Images")
-                    preprocess_marked = True
-                preprocessed_image = preprocess_images(
-                    image_uuid,
-                    img_obj,
-                    out_dir,
-                    cancel_check=cancel_check,
-                )
-                if cancel_check() or preprocessed_image is None:
-                    write_progress(uuids, "Cancelled")
-                    clear_cancelled(uuids)
-                    return cancel_response()
-
-                if not detection_marked:
-                    write_progress(uuids, "Detecting Cells")
-                    detection_marked = True
-                prediction_result = predict_images(
-                    preprocessed_image,
-                    out_dir,
-                    cancel_check=cancel_check,
-                )
-                if prediction_result is None or cancel_check():
-                    write_progress(uuids, "Cancelled")
-                    clear_cancelled(uuids)
-                    return cancel_response()
+            run_preprocess_and_inference_batch(
+                user=request.user,
+                context=context,
+                progress=progress,
+                preprocess_fn=preprocess_images,
+                predict_fn=predict_images,
+            )
+        except AnalysisCancelled:
+            return cancel_response()
         except Exception as exc:
             if not is_storage_full_error(exc):
                 raise
             return storage_full_response(exc)
 
-        return redirect("experiment_segment", uuids=uuids)
+        return redirect("experiment_segment", uuids=batch_key)
 
     # AJAX navigation
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -431,8 +443,11 @@ def set_progress(request, key):
     except Exception:
         body = {}
     phase = body.get('phase', 'idle')
+    status = body.get('status')
     try:
-        write_progress(key, phase)
+        batch_key = build_batch_key(key) if re.fullmatch(r"[0-9a-fA-F,-]+", key) else key
+        progress = AnalysisProgressHandle(batch_key)
+        progress.set_phase(str(phase), status=str(status) if status else None)
         return JsonResponse({"status": "ok"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
@@ -444,16 +459,19 @@ def cancel_progress(request, uuids):
     try:
         if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
             return JsonResponse({"status": "invalid"}, status=400)
-        uuid_list = [value for value in uuids.split(",") if value]
-        data = read_progress(uuids)
-        phase = data.get("phase", "idle")
-        if phase in ("idle", "Completed", "Cancelled"):
+        batch_key = build_batch_key(uuids)
+        uuid_list = [value for value in batch_key.split(",") if value]
+        snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
+        if snapshot.status in {"idle", "succeeded", "failed", "cancelled"}:
             _delete_cancelled_runs(request, uuid_list)
-            write_progress(uuids, "Cancelled")
-            clear_cancelled(uuids)
+            progress = AnalysisProgressHandle(batch_key)
+            progress.clear_cancel()
+            progress.set_phase("Cancelled", status="cancelled")
             return JsonResponse({"status": "cancelled"})
-        set_cancelled(uuids)
-        write_progress(uuids, "Cancelling")
+        job = get_active_analysis_job(user_id=request.user.id, batch_key=batch_key)
+        progress = AnalysisProgressHandle(batch_key, job=job)
+        progress.request_cancel()
+        progress.set_phase("Cancelling", status="cancelling")
         return JsonResponse({"status": "cancelling"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)

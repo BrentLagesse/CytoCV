@@ -19,6 +19,7 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
+from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
@@ -212,6 +213,7 @@ def display(request, uuids):
                     image_index = 2
             image_file_name = image_name_stem + "_frame_" + str(image_index)
             full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+            has_overlay_render_config = overlay_render_config_exists(uuid)
 
             # Build the images for each cell based on the dynamic channel configuration
             images = {}
@@ -241,19 +243,24 @@ def display(request, uuids):
 
             for i in cell_ids:
                 images[str(i)] = []
+                cell_stat = stats_by_id.get(i)
                 for channel_name in channel_order:
                     channel_index = channel_config.get(channel_name)
-                    # For mCherry and GFP, use the debug filename pattern
                     no_outline = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}-no_outline.png"
-                    if channel_name in ["mCherry", "GFP", "DAPI"]:
-                        image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{i}-{channel_name}_debug.png"
+                    debug_file_name = f"{image_name_stem}-{i}-{channel_name}_debug.png"
+                    debug_file_path = Path(MEDIA_ROOT) / str(uuid) / "segmented" / debug_file_name
+                    if (
+                        channel_name in ["mCherry", "GFP", "DAPI"]
+                        and cell_stat is not None
+                        and (has_overlay_render_config or debug_file_path.exists())
+                    ):
+                        image_url = build_overlay_image_url(uuid, i, channel_name)
                     else:
                         image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
                     images[str(i)].append(image_url)
                     images[str(i)].append(no_outline)
 
                 # Retrieve statistics for the cell
-                cell_stat = stats_by_id.get(i)
                 if cell_stat:
                     statistics[str(i)] = {
                         'distance': cell_stat.distance,

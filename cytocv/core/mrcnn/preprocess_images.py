@@ -7,12 +7,15 @@ import numpy as np
 from PIL import Image
 import skimage.exposure
 from mrc import DVFile
+import logging
 
 from cytocv.settings import MEDIA_ROOT
 from core.artifact_constants import PRE_PROCESS_FOLDER_NAME
 from core.config import get_channel_config_for_uuid
 from core.models import UploadedImage
-from core.services.artifact_storage import save_png_image
+from core.services.artifact_storage import PNG_PROFILE_ANALYSIS_FAST, save_png_image
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +65,7 @@ def preprocess_images(
         return None
 
     # constants, easily can be changed 
-    print("output_directory", output_dir)
+    logger.debug("Preprocess output directory: %s", output_dir)
     
     #converts windows file path to linux path and joins 
     image_path = Path(MEDIA_ROOT, str(uploaded_image.file_location)) #.replace("/", "\\")
@@ -123,8 +126,12 @@ def preprocess_images(
 
     image_name = Path(uploaded_image.name).stem + ".png"
     pre_process_image_path = pre_process_dir_path / image_name
-    save_png_image(rgb_image, pre_process_image_path)
-    print('Pre-process completed FINISHED')
+    save_png_image(
+        rgb_image,
+        pre_process_image_path,
+        profile=PNG_PROFILE_ANALYSIS_FAST,
+    )
+    logger.debug("Preprocess completed for %s", uploaded_image.uuid)
     return PreprocessedImageArtifact(
         image_id=uploaded_image.name,
         preprocessed_path=pre_process_image_path,

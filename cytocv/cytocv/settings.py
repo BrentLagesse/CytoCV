@@ -104,6 +104,25 @@ def _parse_env_int(
         raise ImproperlyConfigured(f"{var_name} must be an integer.") from exc
 
 
+def _parse_env_choice(
+    var_name: str,
+    default: str,
+    *,
+    allowed_values: tuple[str, ...],
+    prefer_env_file: bool = False,
+) -> str:
+    """Parse a string env var constrained to a fixed set of choices."""
+
+    raw_value = _get_env(var_name, prefer_env_file=prefer_env_file)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    value = raw_value.strip().lower()
+    if value not in allowed_values:
+        allowed = ", ".join(allowed_values)
+        raise ImproperlyConfigured(f"{var_name} must be one of: {allowed}.")
+    return value
+
+
 # Media storage
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -111,6 +130,15 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Core settings (override in production)
 SECRET_KEY = os.getenv("CYTOCV_SECRET_KEY", "django-insecure-change-me-in-env")
 DEBUG = os.getenv("CYTOCV_DEBUG", "1") == "1"
+SEGMENT_SAVE_DEBUG_ARTIFACTS = _parse_env_bool(
+    "CYTOCV_SEGMENT_SAVE_DEBUG_ARTIFACTS",
+    default=False,
+)
+ANALYSIS_EXECUTION_MODE = _parse_env_choice(
+    "CYTOCV_ANALYSIS_EXECUTION_MODE",
+    default="sync",
+    allowed_values=("sync", "worker"),
+)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("CYTOCV_ALLOWED_HOSTS", "").split(",")

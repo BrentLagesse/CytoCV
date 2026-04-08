@@ -22,10 +22,19 @@ from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, Uploa
 
 logger = logging.getLogger(__name__)
 
-PNG_SAVE_OPTIONS = {
-    "format": "PNG",
-    "optimize": True,
-    "compress_level": 9,
+PNG_PROFILE_ARCHIVAL = "archival"
+PNG_PROFILE_ANALYSIS_FAST = "analysis_fast"
+PNG_SAVE_PROFILES = {
+    PNG_PROFILE_ARCHIVAL: {
+        "format": "PNG",
+        "optimize": True,
+        "compress_level": 9,
+    },
+    PNG_PROFILE_ANALYSIS_FAST: {
+        "format": "PNG",
+        "optimize": False,
+        "compress_level": 1,
+    },
 }
 TRANSIENT_FILE_NAMES = (
     "compressed_masks.csv",
@@ -411,32 +420,51 @@ def _normalize_png_array(image_array: np.ndarray) -> np.ndarray:
     return array
 
 
-def save_png_image(image: Image.Image, destination: Path) -> Path:
-    """Persist an in-memory image as an optimized lossless PNG."""
+def _png_save_options_for_profile(profile: str) -> dict[str, object]:
+    """Return the configured Pillow save kwargs for a named PNG profile."""
+
+    if profile not in PNG_SAVE_PROFILES:
+        available_profiles = ", ".join(sorted(PNG_SAVE_PROFILES))
+        raise ValueError(f"Unknown PNG profile '{profile}'. Expected one of: {available_profiles}.")
+    return dict(PNG_SAVE_PROFILES[profile])
+
+
+def save_png_image(
+    image: Image.Image,
+    destination: Path,
+    *,
+    profile: str = PNG_PROFILE_ARCHIVAL,
+) -> Path:
+    """Persist an in-memory image as a PNG using a named save profile."""
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     if image.mode not in {"L", "RGB", "RGBA"}:
         image = image.convert("RGB")
-    image.save(destination, **PNG_SAVE_OPTIONS)
+    image.save(destination, **_png_save_options_for_profile(profile))
     return destination
 
 
-def save_png_array(image_array: np.ndarray, destination: Path) -> Path:
-    """Persist a numpy image array as an optimized lossless PNG."""
+def save_png_array(
+    image_array: np.ndarray,
+    destination: Path,
+    *,
+    profile: str = PNG_PROFILE_ARCHIVAL,
+) -> Path:
+    """Persist a numpy image array as a PNG using a named save profile."""
 
     normalized = _normalize_png_array(image_array)
-    return save_png_image(Image.fromarray(normalized), destination)
+    return save_png_image(Image.fromarray(normalized), destination, profile=profile)
 
 
 def optimize_png_file(path: Path) -> bool:
-    """Re-save an existing PNG using a smaller lossless encoding."""
+    """Re-save an existing PNG using the archival lossless profile."""
 
     if not path.exists() or path.suffix.lower() != ".png":
         return False
     with Image.open(path) as source:
         source.load()
         optimized = source.copy()
-    save_png_image(optimized, path)
+    save_png_image(optimized, path, profile=PNG_PROFILE_ARCHIVAL)
     return True
 
 
@@ -523,7 +551,7 @@ def generate_preview_assets(
         preview_image = _build_preview_rgb_image(layers[layer_index])
         file_name = f"preview-layer{layer_index}.png"
         file_path = preview_dir / file_name
-        save_png_image(preview_image, file_path)
+        save_png_image(preview_image, file_path, profile=PNG_PROFILE_ANALYSIS_FAST)
         preview_rows.append(
             DVLayerTifPreview(
                 wavelength="",

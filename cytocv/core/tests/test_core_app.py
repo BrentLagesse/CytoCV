@@ -1,20 +1,29 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 from unittest.mock import patch
 
+import numpy as np
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from core.cell_analysis import Analysis
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
-from core.models import DVLayerTifPreview, SegmentedImage, UploadedImage
+from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
+from core.services.overlay_rendering import (
+    build_overlay_render_config,
+    overlay_cache_image_path,
+    render_overlay_images_for_cell,
+    write_overlay_render_config,
+)
 from core.stats_plugins import (
     build_stats_execution_plan,
     get_plugin_class,
@@ -88,6 +97,74 @@ class RouteSurfaceRefactorTests(TestCase):
             NumCells=0,
         )
 
+    @staticmethod
+    def _write_segmented_cell_assets(
+        media_root: Path,
+        uuid_value: str,
+        image_stem: str,
+        *,
+        cell_id: int = 1,
+    ) -> dict[str, np.ndarray]:
+        segmented_dir = media_root / uuid_value / "segmented"
+        segmented_dir.mkdir(parents=True, exist_ok=True)
+
+        channel_pixels = {
+            "mCherry": np.full((6, 6, 3), (220, 30, 30), dtype=np.uint8),
+            "GFP": np.full((6, 6, 3), (30, 220, 30), dtype=np.uint8),
+            "DAPI": np.full((6, 6, 3), (30, 30, 220), dtype=np.uint8),
+            "DIC": np.full((6, 6, 3), (120, 120, 120), dtype=np.uint8),
+        }
+
+        for channel_name, channel_index in DEFAULT_CHANNEL_CONFIG.items():
+            pixels = channel_pixels[channel_name]
+            Image.fromarray(pixels).save(
+                segmented_dir / f"{image_stem}-{channel_index}-{cell_id}.png"
+            )
+            Image.fromarray(pixels).save(
+                segmented_dir / f"{image_stem}-{channel_index}-{cell_id}-no_outline.png"
+            )
+        (segmented_dir / f"cell_{cell_id}.png").write_bytes(b"png")
+        return channel_pixels
+
+    @staticmethod
+    def _write_overlay_config(uuid_value: str, image_stem: str) -> dict[str, object]:
+        render_config = build_overlay_render_config(
+            image_stem=image_stem,
+            channel_config=DEFAULT_CHANNEL_CONFIG,
+            kernel_size=3,
+            kernel_deviation=1,
+            mcherry_line_width=1,
+            arrested="Metaphase Arrested",
+            selected_analysis=[],
+            nuclear_cellular_mode="green_nucleus",
+            mcherry_width_px=1,
+            gfp_distance_value_used=37.0,
+            gfp_threshold=66,
+            gfp_filter_enabled=False,
+            alternate_mcherry_detection=False,
+            mcherry_width_unit="px",
+            gfp_distance_unit="px",
+        )
+        write_overlay_render_config(uuid_value, render_config)
+        return render_config
+
+    @staticmethod
+    def _create_cell_stats(segmented: SegmentedImage, image_stem: str, *, cell_id: int = 1) -> CellStatistics:
+        return CellStatistics.objects.create(
+            segmented_image=segmented,
+            cell_id=cell_id,
+            distance=0.0,
+            line_gfp_intensity=0.0,
+            nucleus_intensity_sum=0.0,
+            cellular_intensity_sum=0.0,
+            green_red_intensity_1=0.0,
+            green_red_intensity_2=0.0,
+            green_red_intensity_3=0.0,
+            dv_file_path=f"{segmented.UUID}/{image_stem}.dv",
+            image_name=f"{image_stem}.dv",
+            properties={"nuclear_cellular_mode": "green_nucleus"},
+        )
+
     def test_segment_image_uses_stored_file_location_for_dv_path(self):
         uuid_value = str(uuid4())
         display_name = "220720_M2129_020_PRJ - Copy"
@@ -129,6 +206,10 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(
             reverse("display", args=[uuid_value]),
             f"/experiment/{uuid_value}/display/",
+        )
+        self.assertEqual(
+            reverse("cell_overlay_image", args=[uuid_value, 7, "gfp"]),
+            f"/experiment/{uuid_value}/cell/7/overlay/gfp/",
         )
 
     def test_removed_legacy_routes_return_404(self):
@@ -223,6 +304,135 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
         self._assert_removed_paths(response)
+
+    def test_display_uses_overlay_endpoint_for_fluorescence_contour_on_images(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-fallback")
+            segmented = self._create_segmented_image(uuid_value, name="display-fallback")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "display-fallback")
+            self._create_cell_stats(segmented, "display-fallback")
+            self._write_overlay_config(uuid_value, "display-fallback")
+
+            response = self.client.get(reverse("display", args=[uuid_value]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "dapi"]),
+            html=False,
+        )
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "mcherry"]),
+            html=False,
+        )
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"]),
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f"/media/{uuid_value}/segmented/display-fallback-0-1.png",
+            html=False,
+        )
+
+    def test_dashboard_uses_overlay_endpoint_for_fluorescence_contour_on_images(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-overlay")
+            segmented = self._create_segmented_image(uuid_value, name="dashboard-overlay")
+            segmented.user = self.user
+            segmented.NumCells = 1
+            segmented.save(update_fields=["user", "NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "dashboard-overlay")
+            self._create_cell_stats(segmented, "dashboard-overlay")
+            self._write_overlay_config(uuid_value, "dashboard-overlay")
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "dapi"]),
+            html=False,
+        )
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "mcherry"]),
+            html=False,
+        )
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"]),
+            html=False,
+        )
+
+    def test_overlay_endpoint_renders_pixel_exact_png_from_cached_crops(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="overlay-source")
+            segmented = self._create_segmented_image(uuid_value, name="overlay-source")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "overlay-source")
+            cell_stat = self._create_cell_stats(segmented, "overlay-source")
+            render_config = self._write_overlay_config(uuid_value, "overlay-source")
+
+            expected = render_overlay_images_for_cell(
+                uuid_value,
+                cell_stat,
+                render_config,
+            )["gfp"]
+            response = self.client.get(
+                reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"])
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = b"".join(response.streaming_content)
+            rendered = np.array(Image.open(BytesIO(payload)))
+            self.assertTrue(np.array_equal(rendered, np.array(expected)))
+            self.assertTrue(
+                overlay_cache_image_path(uuid_value, 1, "gfp").exists()
+            )
+
+    def test_overlay_endpoint_returns_404_for_unauthorized_user(self):
+        other_user = get_user_model().objects.create_user(
+            email="overlay-other@example.com",
+            password="TestPass123!",
+        )
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            UploadedImage.objects.create(
+                user=other_user,
+                uuid=uuid_value,
+                name="overlay-private",
+                file_location=f"{uuid_value}/overlay-private.dv",
+            )
+            segmented = SegmentedImage.objects.create(
+                user=other_user,
+                UUID=uuid_value,
+                file_location=f"user_{uuid_value}/overlay-private.png",
+                ImagePath=f"{uuid_value}/output/overlay-private_frame_0.png",
+                CellPairPrefix=f"{uuid_value}/segmented/cell_",
+                NumCells=1,
+            )
+            self._write_segmented_cell_assets(media_root, uuid_value, "overlay-private")
+            self._create_cell_stats(segmented, "overlay-private")
+            self._write_overlay_config(uuid_value, "overlay-private")
+
+            response = self.client.get(
+                reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"])
+            )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_dashboard_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         response = self.client.get(reverse("dashboard"))

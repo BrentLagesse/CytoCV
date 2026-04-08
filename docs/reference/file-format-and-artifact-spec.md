@@ -38,6 +38,8 @@ Common artifacts under `MEDIA_ROOT/<uuid>/`:
 - `output/*_frame_<n>.png`
 - `segmented/cell_<n>.png`
 - `segmented/*-no_outline.png`
+- `segmented/overlay-render-config.json`
+- `segmented/overlay-cache-v1/*.png`
 - `segmented/*_debug.png`
 
 ## Channel Configuration File
@@ -83,7 +85,9 @@ Observed output naming patterns include:
 - binary cell masks: `cell_<n>.png`
 - channel-indexed outlined crops: `<image>-<channel_index>-<cell>.png`
 - channel-indexed no-outline crops: `<image>-<channel_index>-<cell>-no_outline.png`
-- debug overlays when the corresponding plugin path is active: `<image>-<cell>-mCherry_debug.png`, `<image>-<cell>-GFP_debug.png`, `<image>-<cell>-DAPI_debug.png`
+- exact overlay render snapshot: `overlay-render-config.json`
+- exact overlay cache entries: `overlay-cache-v1/cell-<cell>-<channel>.png`
+- optional legacy debug overlays when raster export is enabled: `<image>-<cell>-mCherry_debug.png`, `<image>-<cell>-GFP_debug.png`, `<image>-<cell>-DAPI_debug.png`
 
 ## Export Output
 

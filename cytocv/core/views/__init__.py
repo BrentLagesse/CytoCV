@@ -8,6 +8,7 @@ from .display import (
 )
 from .experiment import experiment
 from .home import home
+from .overlay import cell_overlay_image
 from .pre_process import (
     cancel_progress,
     get_progress,
@@ -26,6 +27,7 @@ __all__ = [
     "experiment",
     "get_progress",
     "home",
+    "cell_overlay_image",
     "main_image_channel",
     "pre_process",
     "save_display_files",

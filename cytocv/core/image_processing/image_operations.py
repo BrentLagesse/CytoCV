@@ -3,9 +3,11 @@ import os
 import cv2
 from PIL import Image
 import numpy as np
+import logging
 from cv2_rolling_ball import subtract_background_rolling_ball
 from .grey_image import GrayImage
 
+logger = logging.getLogger(__name__)
 
 
 def _copy_cached_image(image_array):
@@ -65,7 +67,7 @@ def preprocess_image_to_gray(images, kdev, ksize):
     # ksize must be odd
     if ksize % 2 == 0:
         ksize += 1
-        print("You used an even ksize, updating to odd number +1")
+        logger.debug("Adjusted even kernel size to next odd value: %s", ksize)
 
     gray_payload = {}
 

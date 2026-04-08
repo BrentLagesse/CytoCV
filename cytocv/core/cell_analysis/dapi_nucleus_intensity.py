@@ -1,11 +1,13 @@
 from .analysis import Analysis
 import numpy as np
 import cv2, os, csv
+import logging
 from core.models import Contour
 from cv2_rolling_ball import subtract_background_rolling_ball
 
 from core.image_processing import calculate_intensity_mask
 
+logger = logging.getLogger(__name__)
 
 
 class DAPI_NucleusIntensity(Analysis):
@@ -42,7 +44,7 @@ class DAPI_NucleusIntensity(Analysis):
         intensity_sum=0
         for p in pts_contour:
             intensity_sum += gray_DAPI_no_bg[p[0]][p[1]]
-        print(intensity_sum)
+        logger.debug("DAPI nucleus intensity sum for cell %s: %s", self.cp.cell_id, intensity_sum)
         self.cp.nucleus_intensity_sum_DAPI = float(intensity_sum)
 
         # Cast to Python int before saving into the JSON field
@@ -53,7 +55,11 @@ class DAPI_NucleusIntensity(Analysis):
         cell_intensity_sum = 0
         for p in border_cells:
              cell_intensity_sum += gray_DAPI_no_bg[p[0]][p[1]]
-        print(cell_intensity_sum)
+        logger.debug(
+            "DAPI cellular intensity sum for cell %s: %s",
+            self.cp.cell_id,
+            cell_intensity_sum,
+        )
 
         self.cp.cellular_intensity_sum_DAPI = float(cell_intensity_sum)
 
@@ -64,4 +70,3 @@ class DAPI_NucleusIntensity(Analysis):
         # self.cp.cellular_intensity_sum = float(cell_intensity_sum)
         #
         self.cp.cytoplasmic_intensity_DAPI = float(cell_intensity_sum) - float(intensity_sum)
-

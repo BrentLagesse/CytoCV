@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+import logging
 from core.forms import UploadImageForm
 from core.models import UploadedImage, get_guest_user
 from .utils import write_progress
@@ -46,6 +47,7 @@ NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
+logger = logging.getLogger(__name__)
 
 
 def _parse_bool(value, default=False):
@@ -222,7 +224,7 @@ def experiment(request):
     default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
 
     if request.method == "POST":
-        print("POST request received")
+        logger.debug("POST request received")
         
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -237,7 +239,7 @@ def experiment(request):
         sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
 
         if not files and not existing_uuids:
-            print("No files received")
+            logger.debug("No files received")
             return render(
                 request,
                 'form/experiment.html',
@@ -250,7 +252,7 @@ def experiment(request):
                 ),
             )
 
-        print(f"Files received: {[file.name for file in files]}")
+        logger.debug("Files received: %s", [file.name for file in files])
 
         selected_analysis = normalize_selected_plugins(request.POST.getlist("selected_analysis"))
         requirement_summary = build_requirement_summary(selected_analysis)
@@ -457,7 +459,7 @@ def experiment(request):
                 with open(config_json_path, "w", encoding="utf-8") as config_file:
                     json.dump(channel_config, config_file)
 
-                print(f"Processing file: {name}, UUID: {image_uuid}")
+                logger.debug("Processing file: %s, UUID: %s", name, image_uuid)
 
                 # Apply the preprocessing step to each image
                 if not preprocess_marked:

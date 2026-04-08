@@ -29,6 +29,28 @@ This document is the authoritative reference for environment variables consumed 
 - Effect: populates Django `ALLOWED_HOSTS`
 - Notes: `SECURITY_STRICT` requires explicit non-wildcard hosts
 
+### `CYTOCV_ANALYSIS_EXECUTION_MODE`
+
+- Required: no
+- Type: enum
+- Allowed values: `sync`, `worker`
+- Default: `sync`
+- Effect: selects whether heavy analysis runs inline in the web flow or is queued for the database-backed worker
+- Notes:
+  - `sync` preserves the local-development-friendly request flow
+  - `worker` is the recommended production mode because it keeps Gunicorn from owning long-running segmentation/statistics work
+
+### `CYTOCV_SEGMENT_SAVE_DEBUG_ARTIFACTS`
+
+- Required: no
+- Type: boolean-like string
+- Default: `0`
+- Effect: enables per-cell debug overlay PNG writes during segmentation
+- Notes:
+  - keep disabled in production unless you are actively debugging segmentation output or need raster debug exports
+  - disabling this setting removes unnecessary PNG work from the hot path
+  - fluorescence contours remain available in the UI even when this is disabled because contour-on views are rendered through the exact overlay replay endpoint
+
 ## Database Settings
 
 ### `CYTOCV_DB_BACKEND`

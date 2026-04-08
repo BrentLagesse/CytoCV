@@ -1,9 +1,16 @@
 import cv2
-import hashlib
-import json
 import logging
 from pathlib import Path
 from cytocv.settings import MEDIA_ROOT
+from core.models import SegmentedImage, get_guest_user
+from core.services.analysis_progress import (
+    clear_cancelled as clear_cancelled_flag,
+    is_cancelled as is_cancelled_flag,
+    progress_path,
+    read_file_progress,
+    set_cancelled as set_cancelled_flag,
+    write_file_progress,
+)
 
 # base_path = "data/images/"
 # new_path = "data/ims/"
@@ -25,54 +32,40 @@ def tif_to_jpg(tif_path :Path, output_dir :Path) -> Path:
 
 logger = logging.getLogger(__name__)
 
-# Progress helpers (shared across views)
-def progress_path(key: str) -> Path:
-    p = Path(MEDIA_ROOT) / 'progress'
-    p.mkdir(parents=True, exist_ok=True)
-    digest = hashlib.sha256(key.encode('utf-8')).hexdigest()
-    return p / f"{digest}.json"
 
-def cancel_path(key: str) -> Path:
-    p = Path(MEDIA_ROOT) / 'progress'
-    p.mkdir(parents=True, exist_ok=True)
-    digest = hashlib.sha256(key.encode('utf-8')).hexdigest()
-    return p / f"{digest}.cancel"
+def write_progress(key: str, phase: str, status: str | None = None, failure_summary: str = "") -> None:
+    """Backward-compatible progress writer used by legacy views and tests."""
 
-def read_progress(key: str) -> dict:
-    try:
-        path = progress_path(key)
-        if path.exists():
-            return json.loads(path.read_text() or '{}')
-    except (OSError, IOError, PermissionError, json.JSONDecodeError):
-        return {}
-    return {}
+    write_file_progress(
+        key,
+        phase=phase,
+        status=status,
+        failure_summary=failure_summary,
+    )
+
+
+def read_progress(key: str) -> dict[str, object]:
+    """Backward-compatible progress reader used by legacy callers."""
+
+    return read_file_progress(key)
+
 
 def is_cancelled(key: str) -> bool:
-    try:
-        return cancel_path(key).exists()
-    except (OSError, IOError, PermissionError):
-        return False
+    """Backward-compatible cancel-flag check."""
+
+    return is_cancelled_flag(key)
+
 
 def set_cancelled(key: str) -> None:
-    try:
-        cancel_path(key).write_text("1")
-    except (OSError, IOError, PermissionError):
-        logger.debug("Failed to write cancel flag for %s", key)
+    """Backward-compatible cancel-flag writer."""
+
+    set_cancelled_flag(key)
+
 
 def clear_cancelled(key: str) -> None:
-    try:
-        path = cancel_path(key)
-        if path.exists():
-            path.unlink()
-    except (OSError, IOError, PermissionError):
-        logger.debug("Failed to clear cancel flag for %s", key)
+    """Backward-compatible cancel-flag cleanup."""
 
-
-def write_progress(key: str, phase: str) -> None:
-    try:
-        progress_path(key).write_text(json.dumps({"phase": phase}))
-    except (OSError, IOError, PermissionError):
-        pass
+    clear_cancelled_flag(key)
 
 
 def prune_experiment_session_state(request, uuids) -> None:
@@ -94,3 +87,31 @@ def prune_experiment_session_state(request, uuids) -> None:
 
     if changed:
         request.session.modified = True
+
+
+def sync_transient_run_session_state(request, uuids) -> None:
+    """Align transient run session state with persisted segmented-image ownership."""
+
+    normalized = {str(value) for value in uuids if str(value)}
+    if not normalized:
+        return
+
+    current = {
+        str(value)
+        for value in request.session.get("transient_experiment_uuids", [])
+        if str(value)
+    }
+    user_id = request.user.id if request.user.is_authenticated else get_guest_user()
+    saved_by_current_user = {
+        str(value)
+        for value in SegmentedImage.objects.filter(
+            UUID__in=normalized,
+            user_id=user_id,
+        ).values_list("UUID", flat=True)
+    }
+
+    next_transient = (current | (normalized - saved_by_current_user)) - saved_by_current_user
+    if next_transient == current:
+        return
+    request.session["transient_experiment_uuids"] = sorted(next_transient)
+    request.session.modified = True

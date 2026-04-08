@@ -43,10 +43,16 @@ POST responsibilities:
 - validate per-file scale override payloads
 - save selected scale overrides
 - normalize persisted measurement values back into session state
-- run preprocess and inference for each UUID
-- write progress phases
-- honor cancellation requests
-- redirect to segmentation
+- choose execution mode from `CYTOCV_ANALYSIS_EXECUTION_MODE`
+- in `sync` mode:
+  - run preprocess and inference for each UUID
+  - write progress phases
+  - honor cancellation requests
+  - redirect to segmentation
+- in `worker` mode:
+  - persist a whitelisted batch config snapshot
+  - enqueue one `AnalysisJob`
+  - return immediately so the frontend can poll progress
 
 ## Segmentation And Statistics Flow
 
@@ -62,10 +68,24 @@ Sequence:
 6. create or update `SegmentedImage`
 7. create per-cell `CellStatistics`
 8. execute selected plugins
-9. save debug overlays and updated statistics fields
-10. clean transient preprocess artifacts
-11. autosave or mark transient based on account settings and quota
-12. redirect to display
+9. write `overlay-render-config.json` so fluorescence overlays can be replayed exactly later without request/session state
+10. in `worker` mode, prewarm the exact fluorescence overlay cache from the same rendered `get_stats()` images
+11. save optional legacy debug overlays only when explicitly enabled
+12. clean transient preprocess artifacts
+13. autosave or mark transient based on account settings and quota
+14. redirect to display
+
+Worker-backed production flow:
+
+- `core.views.pre_process.pre_process` enqueues the full batch
+- `core.management.commands.run_analysis_worker` claims the queued `AnalysisJob`
+- `core.services.analysis_pipeline.run_analysis_batch` orchestrates preprocess, inference, segmentation, statistics, cleanup, and final status
+- `core.services.segmentation_pipeline.run_segmentation_batch` is the shared segmentation/statistics implementation used by the worker
+
+Compatibility note:
+
+- the legacy `/segment/` route remains available for the existing sync flow and manual/local compatibility
+- production deployments should prefer `worker` mode so Gunicorn does not block on segmentation/statistics
 
 ## Display Flow
 
@@ -79,7 +99,8 @@ Sequence:
 4. read channel config and output frames
 5. scan segmented cell imagery
 6. load `CellStatistics`
-7. render the main display payload and statistics table
+7. emit fluorescence contour-on URLs through the protected exact overlay endpoint
+8. render the main display payload and statistics table
 
 Related write actions:
 

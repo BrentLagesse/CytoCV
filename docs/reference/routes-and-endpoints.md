@@ -81,7 +81,10 @@ This document lists the current public routes and route-level behavior defined i
 
 - Name: `pre_process`
 - Auth: required
-- Purpose: preview review, scale overrides, preprocess and inference kickoff
+- Purpose: preview review, scale overrides, and analysis kickoff
+- Notes:
+  - `sync` mode keeps the legacy preprocess/inference then redirect-to-segment behavior
+  - `worker` mode enqueues a background `AnalysisJob` and returns immediately for polling
 
 ### `GET /experiment/<uuids>/convert/`
 
@@ -94,12 +97,17 @@ This document lists the current public routes and route-level behavior defined i
 - Name: `experiment_segment`
 - Auth: required
 - Purpose: segmentation, artifact generation, and statistics persistence
+- Notes:
+  - kept as the compatibility route for the synchronous workflow
+  - no longer needs to be the primary production entrypoint when worker mode is enabled
 
 ### `GET|POST /experiment/<uuids>/display/`
 
 - Name: `display`
 - Auth: required
 - Purpose: result review and export
+- Notes:
+  - fluorescence contour-on image slots now resolve through an exact protected overlay image route instead of relying on eagerly written `*_debug.png` files
 
 ### `POST /experiment/display/files/save/`
 
@@ -125,6 +133,18 @@ This document lists the current public routes and route-level behavior defined i
 - Auth: required
 - Purpose: fetch the main display image URL for a chosen channel
 
+### `GET /experiment/<uuid>/cell/<cell_id>/overlay/<channel>/`
+
+- Name: `cell_overlay_image`
+- Auth: required
+- Purpose: serve the exact fluorescence contour-rich PNG for one cell and one channel
+- Supported channels: `dapi`, `gfp`, `mcherry`
+- Notes:
+  - enforces the same ownership and transient-run access rules as display
+  - prefers a cached overlay PNG under the run namespace
+  - renders on demand through the existing server-side `get_stats()` path when the cache is missing
+  - may still serve legacy `*_debug.png` files for older runs that predate overlay replay snapshots
+
 ## API-Style Utility Routes
 
 ### `POST /api/update-channel-order/<uuid>/`
@@ -137,7 +157,10 @@ This document lists the current public routes and route-level behavior defined i
 
 - Name: `analysis_progress`
 - Auth: required
-- Purpose: return current progress phase
+- Purpose: return current progress phase and normalized status
+- Notes:
+  - prefers database-backed `AnalysisJob` state when present
+  - falls back to mirrored filesystem progress for legacy sync flows
 
 ### `POST /api/progress/<key>/set/`
 
@@ -150,6 +173,9 @@ This document lists the current public routes and route-level behavior defined i
 - Name: `cancel_progress`
 - Auth: required
 - Purpose: cancel or finalize a cancellable run
+- Notes:
+  - marks the active `AnalysisJob` as cancellation-requested in worker mode
+  - still supports the legacy filesystem cancel marker in sync mode
 
 ### `GET /media/<relative_path>`
 

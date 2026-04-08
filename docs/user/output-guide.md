@@ -32,9 +32,10 @@ The segmentation stage also writes:
 - `cell_<n>.png` binary cell masks
 - outlined per-cell channel crops
 - no-outline per-cell channel crops
-- plugin-dependent debug overlays
+- an exact fluorescence overlay replay snapshot and cache
+- optional raster debug overlays when debug export is enabled
 
-The `DIC` channel generally provides the structural crop view. `mCherry` and `GFP` debug overlays are common in the modern workflow. `DAPI` debug overlays are associated with legacy DAPI-centered measurements or DAPI contour-dependent paths.
+The `DIC` channel generally provides the structural crop view. Fluorescence contour-rich views for `mCherry`, `GFP`, and `DAPI` are now replayed from the exact server render path used during analysis, so those contour views remain available even when optional debug PNG export is disabled.
 
 ## Database Outputs
 
@@ -75,7 +76,7 @@ After a fully successful run you should expect:
 - one mask file
 - one or more outlined output frames
 - segmented cell imagery
-- plugin-dependent debug overlays
+- exact fluorescence contour views in display and dashboard
 - a populated statistics table when cells were found
 
 ## Common Errors
