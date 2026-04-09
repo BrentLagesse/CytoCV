@@ -95,11 +95,20 @@ from core.services.artifact_storage import (
     resolve_uploaded_file_path,
     save_png_array,
 )
+from core.services.canonical_contours import (
+    build_canonical_contour_payload,
+    flatten_slot_contours,
+)
 from core.services.overlay_rendering import (
     build_overlay_render_config,
     persist_debug_overlay_exports,
     persist_overlay_cache_images,
     write_overlay_render_config,
+)
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    get_puncta_line_mode_metadata,
+    normalize_puncta_line_mode,
 )
 
 logger = logging.getLogger(__name__)
@@ -181,8 +190,12 @@ def get_stats(
     # loading configuration
     kernel_size_input, red_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
+    puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
     cp.properties = dict(cp.properties or {})
     cp.properties["nuclear_cellular_mode"] = nuclear_cellular_mode
+    cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
+    cp.properties["puncta_line_source_channel"] = puncta_line_metadata["source_channel"]
+    cp.properties["puncta_line_measurement_channel"] = puncta_line_metadata["measurement_channel"]
 
     if execution_plan is None:
         execution_plan = build_stats_execution_plan(conf.get("analysis", []))
@@ -238,6 +251,15 @@ def get_stats(
         green_contour_filter_enabled,
         alternate_red_detection,
     )
+    contours_data = build_canonical_contour_payload(
+        contours_data,
+        image_name=cp.image_name,
+        cell_id=cp.cell_id,
+        output_dir=output_dir,
+        shape=reference.shape[:2],
+    )
+    canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
+    canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
     best_contour_data = {}
     best_contour_blue = None
@@ -285,23 +307,19 @@ def get_stats(
     else:
         cp.blue_contour_size = 0.0
 
-    for i, contour in enumerate(contours_data.get("dot_contours", [])):
-        area = cv2.contourArea(contour)
-        setattr(cp, f"red_contour_{i+1}_size", area)
-
-    if contours_data.get("dot_contours"):
-        cv2.drawContours(edit_red_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
-        cv2.drawContours(edit_green_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
-        cv2.drawContours(edit_blue_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
+    if canonical_red_contours:
+        cv2.drawContours(edit_red_img, canonical_red_contours, -1, (0, 0, 255), 1)
+        cv2.drawContours(edit_green_img, canonical_red_contours, -1, (0, 0, 255), 1)
+        cv2.drawContours(edit_blue_img, canonical_red_contours, -1, (0, 0, 255), 1)
 
     if best_contour_blue is not None:
         cv2.drawContours(edit_green_img, [best_contour_blue], 0, (255, 0, 0), 1)
         cv2.drawContours(edit_blue_img, [best_contour_blue], 0, (255, 0, 0), 1)
 
-    if contours_data.get("contours_green"):
-        cv2.drawContours(edit_red_img, contours_data["contours_green"], -1, (0, 255, 0), 1)
-        cv2.drawContours(edit_green_img, contours_data["contours_green"], -1, (0, 255, 0), 1)
-        cv2.drawContours(edit_blue_img, contours_data["contours_green"], -1, (0, 255, 0), 1)
+    if canonical_green_contours:
+        cv2.drawContours(edit_red_img, canonical_green_contours, -1, (0, 255, 0), 1)
+        cv2.drawContours(edit_green_img, canonical_green_contours, -1, (0, 255, 0), 1)
+        cv2.drawContours(edit_blue_img, canonical_green_contours, -1, (0, 255, 0), 1)
 
     blue_contour_required_plugins = {"NucleusIntensity", "BlueNucleusIntensity"}
     for analysis in execution_plan.analyses:
@@ -1097,6 +1115,10 @@ def segment_image(request, uuids):
             'kernel_deviation': configuration["kernel_deviation"],
             'arrested': configuration["arrested"],
             'analysis' : selected_analysis,
+            'puncta_line_mode': normalize_puncta_line_mode(
+                request.session.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            ),
             'nuclear_cellular_mode': request.session.get("nuclear_cellular_mode", "green_nucleus"),
             'green_contour_filter_enabled': green_contour_filter_enabled,
             'alternate_red_detection': alternate_red_detection,
@@ -1111,6 +1133,10 @@ def segment_image(request, uuids):
                 red_line_width=configured_red_line_width,
                 arrested=configuration["arrested"],
                 selected_analysis=selected_analysis,
+                puncta_line_mode=normalize_puncta_line_mode(
+                    request.session.get("puncta_line_mode"),
+                    default=DEFAULT_PUNCTA_LINE_MODE,
+                ),
                 nuclear_cellular_mode=request.session.get(
                     "nuclear_cellular_mode",
                     "green_nucleus",
@@ -1175,6 +1201,10 @@ def segment_image(request, uuids):
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
             cp.properties = dict(cp.properties or {})
+            cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
+                request.session.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            )
             cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")

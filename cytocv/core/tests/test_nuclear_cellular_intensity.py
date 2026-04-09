@@ -26,10 +26,10 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
         gfp[6:17, 6:17] = 210
         return GrayImage(
             img={
-                "mCherry_no_bg": mcherry,
-                "gray_mcherry": mcherry,
-                "GFP_no_bg": gfp,
-                "GFP": gfp,
+                "red_no_bg": mcherry,
+                "gray_red": mcherry,
+                "green_no_bg": gfp,
+                "green": gfp,
             }
         )
 
@@ -53,32 +53,32 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
             preprocessed = self._build_gray_images()
             red_debug = np.zeros((24, 24, 3), dtype=np.uint8)
             green_debug = np.zeros((24, 24, 3), dtype=np.uint8)
-            contours_data = {"dot_contours": [], "contours_gfp": []}
+            contours_data = {"dot_contours": [], "contours_green": []}
             if include_precomputed:
                 contour = self._rect_contour(8, 8, 16, 16)
                 if mode == "red_nucleus":
                     contours_data["dot_contours"] = [contour]
                 else:
-                    contours_data["contours_gfp"] = [contour]
+                    contours_data["contours_green"] = [contour]
             plugin.setting_up(cp, preprocessed, str(output_dir))
             plugin.calculate_statistics({}, contours_data, red_debug, green_debug, 1, 37)
             return cp, red_debug, green_debug
 
     def test_red_nucleus_sets_expected_contour_and_measurement_channels(self):
         cp, _, _ = self._run_plugin("red_nucleus")
-        self.assertEqual(cp.properties["nuclear_cellular_contour_channel"], "mCherry")
-        self.assertEqual(cp.properties["nuclear_cellular_measurement_channel"], "GFP")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_channel"], "Red")
+        self.assertEqual(cp.properties["nuclear_cellular_measurement_channel"], "Green")
         self.assertEqual(cp.properties["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(cp.properties["nuclear_cellular_status"], "ok")
-        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "canonical_slot_1")
 
     def test_green_nucleus_sets_expected_contour_and_measurement_channels(self):
         cp, _, _ = self._run_plugin("green_nucleus")
-        self.assertEqual(cp.properties["nuclear_cellular_contour_channel"], "GFP")
-        self.assertEqual(cp.properties["nuclear_cellular_measurement_channel"], "mCherry")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_channel"], "Green")
+        self.assertEqual(cp.properties["nuclear_cellular_measurement_channel"], "Red")
         self.assertEqual(cp.properties["nuclear_cellular_mode"], "green_nucleus")
         self.assertEqual(cp.properties["nuclear_cellular_status"], "ok")
-        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "canonical_slot_1")
 
     def test_debug_overlay_is_disabled_even_when_precomputed_contour_exists(self):
         _, red_debug, green_debug = self._run_plugin("red_nucleus")
@@ -88,7 +88,7 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
     def test_hard_cutoff_marks_no_nucleus_contour_without_fallback(self):
         cp, red_debug, green_debug = self._run_plugin("red_nucleus", include_precomputed=False)
         self.assertEqual(cp.properties["nuclear_cellular_status"], "no_nucleus_contour")
-        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "precomputed_contours")
+        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "canonical_slot_1")
         self.assertEqual(cp.nucleus_intensity_sum, 0.0)
         self.assertEqual(cp.cellular_intensity_sum, 0.0)
         self.assertEqual(cp.cytoplasmic_intensity, 0.0)

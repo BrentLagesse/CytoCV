@@ -1,9 +1,11 @@
-import cv2
 import logging
 import math
 import numpy as np
 
-from core.contour_processing import get_contour_center
+from core.services.canonical_contours import (
+    get_canonical_green_slots,
+    get_canonical_red_slots,
+)
 from core.scale import convert_pixel_delta_to_microns, normalize_length_unit
 
 from .analysis import Analysis
@@ -78,18 +80,25 @@ class CENDot(Analysis):
     ):
         prox_radius = 13
         cen_dot_distance = cen_dot_distance if (cen_dot_distance >= 0) else 37
-        dot_contours = contours_data["dot_contours"]
-
-        if len(dot_contours) <= 1:
+        red_shape = None
+        green_shape = None
+        red_gray = self.preprocessed_images.get_image("gray_red")
+        green_gray = self.preprocessed_images.get_image("green")
+        if red_gray is not None:
+            red_shape = red_gray.shape
+        if green_gray is not None:
+            green_shape = green_gray.shape
+        if red_shape is None and green_shape is None:
             return
-
-        contour1 = dot_contours[0]
-        contour2 = dot_contours[1]
+        base_shape = red_shape or green_shape
+        red_slots = get_canonical_red_slots(contours_data, base_shape, limit=2)
+        if len(red_slots) <= 1:
+            return
+        green_slots = get_canonical_green_slots(contours_data, green_shape or base_shape)
 
         try:
-            centers = get_contour_center([contour1, contour2])
-            contours_green = contours_data["contours_green"]
-            green_centers = get_contour_center(contours_green)
+            centers = [red_slots[0].center, red_slots[1].center]
+            green_centers = {index: slot.center for index, slot in enumerate(green_slots)}
 
             if not green_centers:
                 self.cp.category_cen_dot = 4
@@ -111,7 +120,6 @@ class CENDot(Analysis):
                 num_signals = [0] * len(centers)
                 for i in range(len(centers)):
                     for green_center in green_centers.values():
-                        cv2.circle(green_image, centers[i], prox_radius, (255, 255, 255), 1)
                         if math.dist(centers[i], green_center) <= prox_radius:
                             num_signals[i] += 1
 

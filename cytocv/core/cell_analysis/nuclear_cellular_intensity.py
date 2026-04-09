@@ -4,6 +4,11 @@ import os
 import cv2
 import numpy as np
 
+from core.services.canonical_contours import (
+    get_canonical_green_slots,
+    get_canonical_red_slots,
+    load_cell_mask,
+)
 from .analysis import Analysis
 
 
@@ -44,53 +49,6 @@ class NuclearCellularIntensity(Analysis):
             for row in csvreader:
                 points.append((int(row[0]), int(row[1])))
         return points
-
-    @staticmethod
-    def _largest_component_mask(binary_mask):
-        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            return np.zeros(binary_mask.shape, np.uint8), None
-        largest = max(contours, key=cv2.contourArea)
-        nucleus_mask = np.zeros(binary_mask.shape, np.uint8)
-        cv2.drawContours(nucleus_mask, [largest], -1, 255, thickness=-1)
-        return nucleus_mask, largest
-
-    @staticmethod
-    def _build_mask_from_contours(shape, contours):
-        mask = np.zeros(shape, np.uint8)
-        valid_contours = []
-        for contour in contours or []:
-            if contour is None or len(contour) < 3:
-                continue
-            if cv2.contourArea(contour) <= 0:
-                continue
-            valid_contours.append(contour)
-        if valid_contours:
-            cv2.drawContours(mask, valid_contours, -1, 255, thickness=-1)
-        return mask
-    
-    @staticmethod
-    def _fill_mask_gaps(binary_mask):
-        # Get height and width
-        h, w = binary_mask.shape[:2]
-
-        # Make the borders black so that we don't hit the borders with the flood fill
-        binary_mask[0:1, 0:w] = 0
-        binary_mask[(h - 1):h, 0:w] = 0
-        binary_mask[0:h, 0:1] = 0
-        binary_mask[0:h, (w - 1):w] = 0
-
-        mask_fill = binary_mask.copy()
-        mask = np.zeros((h + 2, w + 2), np.uint8)
-
-        # Fill background 
-        cv2.floodFill(mask_fill, mask, (0, 0), 255)
-
-        # Invert the mask
-        mask_fill = cv2.bitwise_not(mask_fill)
-
-        # OR the original image with the inverted mask
-        return binary_mask | mask_fill
 
     @staticmethod
     def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1):
@@ -157,8 +115,12 @@ class NuclearCellularIntensity(Analysis):
             self.cp.properties = props
             return
 
-        cell_points = self._cell_points()
-        if not cell_points:
+        h, w = contour_img.shape[:2]
+        cell_mask = contours_data.get("cell_mask")
+        if cell_mask is None or cell_mask.shape[:2] != (h, w) or not np.any(cell_mask):
+            cell_mask = load_cell_mask(self.cp.image_name, self.cp.cell_id, self.output_dir, (h, w))
+
+        if not np.any(cell_mask):
             self.cp.nucleus_intensity_sum = 0.0
             self.cp.cellular_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
@@ -169,32 +131,15 @@ class NuclearCellularIntensity(Analysis):
             self.cp.properties = props
             return
 
-        h, w = contour_img.shape[:2]
-        cell_mask = np.zeros((h, w), np.uint8)
-        for y, x in cell_points:
-            if 0 <= y < h and 0 <= x < w:
-                cell_mask[y, x] = 255
-        
-        # Fill any holes or gaps in the cell mask
-        cell_mask = self._fill_mask_gaps(cell_mask)
-
-        # Prefer the precomputed contour set for the selected mode so overlays/measurements
-        # use the same contour source as other stats.
+        slot_payload = dict(contours_data or {})
+        slot_payload["cell_mask"] = cell_mask
         if mode == "red_nucleus":
-            source_contours = contours_data.get("dot_contours", [])
+            source_slots = get_canonical_red_slots(slot_payload, (h, w), limit=1)
         else:
-            source_contours = contours_data.get("contours_green", [])
+            source_slots = get_canonical_green_slots(slot_payload, (h, w), limit=1)
+        used_contour_source = "canonical_slot_1"
 
-        contour_mask = self._build_mask_from_contours((h, w), source_contours)
-        contour_mask = cv2.bitwise_and(contour_mask, cell_mask)
-        used_contour_source = "precomputed_contours"
-
-        kernel = np.ones((3, 3), np.uint8)
-        contour_mask = cv2.morphologyEx(contour_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
-        contour_mask = cv2.morphologyEx(contour_mask, cv2.MORPH_OPEN, kernel, iterations=1)
-        nucleus_mask, largest_contour = self._largest_component_mask(contour_mask)
-
-        if largest_contour is None:
+        if not source_slots:
             self.cp.nucleus_intensity_sum = 0.0
             self.cp.cellular_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
@@ -205,6 +150,14 @@ class NuclearCellularIntensity(Analysis):
             props["nuclear_cellular_status"] = "no_nucleus_contour"
             self.cp.properties = props
             return
+
+        nucleus_slot = source_slots[0]
+        nucleus_mask = nucleus_slot.mask
+        largest_contour = max(
+            nucleus_slot.contours,
+            key=cv2.contourArea,
+            default=None,
+        )
 
         measure_u8 = measure_img.astype(np.float32, copy=False)
         cell_pixels = measure_u8[cell_mask > 0]

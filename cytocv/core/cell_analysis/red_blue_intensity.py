@@ -1,8 +1,5 @@
-import math, cv2
-import numpy as np
-from core.contour_processing import get_contour_center
-from core.image_processing import calculate_intensity_mask,create_circular_mask
-from core.image_processing import GrayImage
+from core.image_processing import calculate_intensity_mask
+from core.services.canonical_contours import get_canonical_red_slots
 from .analysis import Analysis
 
 class RedBlueIntensity(Analysis):
@@ -20,10 +17,12 @@ class RedBlueIntensity(Analysis):
     ):
         """
         """
-        dot_contours = contours_data['dot_contours']
         blue_gray = self.preprocessed_images.get_image('gray_blue')
+        red_slots = get_canonical_red_slots(contours_data, blue_gray.shape, limit=3)
 
-        for i in range (0,len(dot_contours)):
-            mask = create_circular_mask(blue_gray.shape, dot_contours,i)  # draw a mask around contour
-            red_intensity = calculate_intensity_mask(blue_gray, mask)
+        for idx in range(1, 4):
+            setattr(self.cp, f'red_blue_intensity_{idx}', 0.0)
+
+        for i, slot in enumerate(red_slots):
+            red_intensity = calculate_intensity_mask(blue_gray, slot.mask)
             setattr(self.cp, f'red_blue_intensity_{i+1}', red_intensity)
