@@ -92,6 +92,7 @@ from core.services.artifact_storage import (
 from core.services.overlay_rendering import (
     build_overlay_render_config,
     persist_debug_overlay_exports,
+    persist_overlay_cache_images,
     write_overlay_render_config,
 )
 
@@ -1141,6 +1142,22 @@ def segment_image(request, uuids):
                 alternate_mcherry_detection,
                 cached_images=cell_image_cache.get(cell_number),
             )
+
+            try:
+                persist_overlay_cache_images(
+                    uuid,
+                    cell_number,
+                    {
+                        "mcherry": debug_mcherry,
+                        "gfp": debug_gfp,
+                        "dapi": debug_dapi,
+                    },
+                    overwrite=False,
+                )
+            except Exception as exc:
+                if is_storage_full_error(exc):
+                    return storage_full_response(exc)
+                raise
 
             if settings.SEGMENT_SAVE_DEBUG_ARTIFACTS:
                 try:
