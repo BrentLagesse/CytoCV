@@ -78,7 +78,9 @@ Sequence:
 Measurement note:
 
 - the red/green contour plugin stores raw masked pixel sums for each contour-channel combination (`red in red`, `green in red`, `red in green`, `green in green`)
-- the legacy-compatible `green_red_intensity_*` values remain a derived ratio of `green in red / red in red`
+- the legacy storage fields `green_red_intensity_*` now persist the public toggle-driven measurement/contour ratio
+- `red_nucleus` mode stores `green in red / red in red`
+- `green_nucleus` mode stores `red in green / green in green`
 - these masked contour values are integrated sums, not mean intensities
 
 Worker-backed production flow:

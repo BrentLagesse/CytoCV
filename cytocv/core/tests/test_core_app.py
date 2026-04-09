@@ -600,17 +600,17 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "'Green/Red Ratio 1 (Compatibility)': 'green_red_intensity_1'",
+            "'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1'",
             html=False,
         )
         self.assertContains(
             response,
-            "'Green/Red Ratio 2 (Compatibility)': 'green_red_intensity_2'",
+            "'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1'",
             html=False,
         )
         self.assertContains(
             response,
-            "'Green/Red Ratio 3 (Compatibility)': 'green_red_intensity_3'",
+            "'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3'",
             html=False,
         )
 
@@ -676,17 +676,17 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "'Green/Red Ratio 1 (Compatibility)': 'green_red_intensity_1'",
+            "'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1'",
             html=False,
         )
         self.assertContains(
             response,
-            "'Green/Red Ratio 2 (Compatibility)': 'green_red_intensity_2'",
+            "'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1'",
             html=False,
         )
         self.assertContains(
             response,
-            "'Green/Red Ratio 3 (Compatibility)': 'green_red_intensity_3'",
+            "'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3'",
             html=False,
         )
 
@@ -706,7 +706,8 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_intensity_1=7.0,
                 red_in_green_intensity_1=5.0,
                 green_in_green_intensity_1=13.0,
-                green_red_intensity_1=7.0 / 11.0,
+                green_red_intensity_1=99.0,
+                properties={"nuclear_cellular_mode": "red_nucleus"},
                 category_GFP_dot=1,
             )
 
@@ -714,15 +715,20 @@ class RouteSurfaceRefactorTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Raw Contour Intensity Sums")
-        self.assertContains(response, "Green/Red ratio 1")
-        self.assertContains(response, "Green/Red Ratio 1 (Compatibility)")
-        self.assertContains(response, "Green/Red Ratio 2 (Compatibility)")
-        self.assertContains(response, "Green/Red Ratio 3 (Compatibility)")
+        self.assertContains(response, "Measurement/Contour ratio 1")
+        self.assertContains(response, "Measurement/Contour")
+        self.assertContains(response, "Formula")
+        self.assertContains(response, "Measurement/Contour Ratio 1 (Green/Red)")
+        self.assertContains(response, "Measurement/Contour Ratio 2 (Green/Red)")
+        self.assertContains(response, "Measurement/Contour Ratio 3 (Green/Red)")
+        self.assertContains(response, "Green/Red: Green in Red / Red in Red")
         self.assertContains(response, "Line + Spot Metrics")
         self.assertNotContains(response, "Intensity + GFP Output")
         self.assertContains(response, '"red_intensity_1": 11.0', html=False)
         self.assertContains(response, '"red_in_green_intensity_1": 5.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 13.0', html=False)
+        self.assertContains(response, '"measurement_contour_ratio_1": 0.6363636363636364', html=False)
+        self.assertContains(response, '"measurement_contour_ratio_formula": "Green in Red / Red in Red"', html=False)
         self.assertContains(
             response,
             '"category_GFP_dot_label": "One green dot with each red dot"',
@@ -730,6 +736,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
+        self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
 
     def test_dashboard_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
         uuid_value = str(uuid4())
@@ -748,7 +755,8 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_intensity_1=23.0,
                 red_in_green_intensity_1=29.0,
                 green_in_green_intensity_1=31.0,
-                green_red_intensity_1=23.0 / 19.0,
+                green_red_intensity_1=99.0,
+                properties={"nuclear_cellular_mode": "green_nucleus"},
                 category_GFP_dot=1,
             )
 
@@ -756,15 +764,19 @@ class RouteSurfaceRefactorTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Raw Contour Intensity Sums")
-        self.assertContains(response, "Green/Red ratio 1")
-        self.assertContains(response, "Green/Red Ratio 1 (Compatibility)")
-        self.assertContains(response, "Green/Red Ratio 2 (Compatibility)")
-        self.assertContains(response, "Green/Red Ratio 3 (Compatibility)")
+        self.assertContains(response, "Measurement/Contour ratio 1")
+        self.assertContains(response, "Measurement/Contour")
+        self.assertContains(response, "Formula")
+        self.assertContains(response, "Measurement/Contour Ratio 1 (Red/Green)")
+        self.assertContains(response, "Measurement/Contour Ratio 2 (Red/Green)")
+        self.assertContains(response, "Measurement/Contour Ratio 3 (Red/Green)")
+        self.assertContains(response, "Red/Green: Red in Green / Green in Green")
         self.assertContains(response, "Line + Spot Metrics")
         self.assertNotContains(response, "Intensity + GFP Output")
         self.assertContains(response, '"red_intensity_1": 19.0', html=False)
         self.assertContains(response, '"green_intensity_1": 23.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 31.0', html=False)
+        self.assertContains(response, '"measurement_contour_ratio_formula": "Red in Green / Green in Green"', html=False)
         self.assertContains(
             response,
             '"category_GFP_dot_label": "One green dot with each red dot"',
@@ -772,6 +784,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
+        self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
 
     def test_display_csv_export_includes_ratio_columns_after_raw_intensity_sums(self):
         uuid_value = str(uuid4())
@@ -785,11 +798,16 @@ class RouteSurfaceRefactorTests(TestCase):
             self._create_cell_stats(
                 segmented,
                 "display-ratio-export",
-                red_intensity_1=11.0,
-                green_intensity_1=7.0,
-                green_red_intensity_1=7.0 / 11.0,
-                green_red_intensity_2=2.0,
-                green_red_intensity_3=3.0,
+                red_in_green_intensity_1=11.0,
+                green_in_green_intensity_1=22.0,
+                red_in_green_intensity_2=8.0,
+                green_in_green_intensity_2=4.0,
+                red_in_green_intensity_3=18.0,
+                green_in_green_intensity_3=6.0,
+                green_red_intensity_1=99.0,
+                green_red_intensity_2=99.0,
+                green_red_intensity_3=99.0,
+                properties={"nuclear_cellular_mode": "green_nucleus"},
             )
 
             response = self.client.get(
@@ -802,21 +820,20 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(len(csv_rows), 1)
         header_row = csv_rows[0].keys()
         self.assertIn("Red in Red Intensity 1", header_row)
-        self.assertIn("Green/Red Ratio 1 (Compatibility)", header_row)
-        self.assertIn("Green/Red Ratio 2 (Compatibility)", header_row)
-        self.assertIn("Green/Red Ratio 3 (Compatibility)", header_row)
+        self.assertIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
+        self.assertIn("Measurement/Contour Ratio 2 (Red/Green)", header_row)
+        self.assertIn("Measurement/Contour Ratio 3 (Red/Green)", header_row)
         self.assertLess(
             list(header_row).index("Green in Green Intensity 3"),
-            list(header_row).index("Green/Red Ratio 1 (Compatibility)"),
+            list(header_row).index("Measurement/Contour Ratio 1 (Red/Green)"),
         )
         self.assertLess(
-            list(header_row).index("Green/Red Ratio 3 (Compatibility)"),
+            list(header_row).index("Measurement/Contour Ratio 3 (Red/Green)"),
             list(header_row).index("GFP-to-mCherry Distance 1"),
         )
-        self.assertEqual(csv_rows[0]["Red in Red Intensity 1"], "11.000")
-        self.assertEqual(csv_rows[0]["Green/Red Ratio 1 (Compatibility)"], "0.636")
-        self.assertEqual(csv_rows[0]["Green/Red Ratio 2 (Compatibility)"], "2.000")
-        self.assertEqual(csv_rows[0]["Green/Red Ratio 3 (Compatibility)"], "3.000")
+        self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 1 (Red/Green)"], "0.500")
+        self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 2 (Red/Green)"], "2.000")
+        self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 3 (Red/Green)"], "3.000")
 
 
 class PluginMappingRegressionTests(TestCase):

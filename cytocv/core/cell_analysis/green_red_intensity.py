@@ -3,6 +3,10 @@ import math
 import cv2
 
 from core.image_processing import calculate_intensity_mask, create_circular_mask
+from core.services.measurement_contour_ratio import (
+    normalize_nuclear_cellular_mode,
+    store_measurement_contour_ratio_triplet,
+)
 from .analysis import Analysis
 
 
@@ -55,6 +59,10 @@ class GreenRedIntensity(Analysis):
         gfp_gray = self.preprocessed_images.get_image("GFP_no_bg")
         if gfp_gray is None:
             gfp_gray = self.preprocessed_images.get_image("GFP")
+        props = dict(getattr(self.cp, "properties", {}) or {})
+        mode = normalize_nuclear_cellular_mode(props.get("nuclear_cellular_mode"))
+        props["nuclear_cellular_mode"] = mode
+        self.cp.properties = props
         if mcherry_gray is None or gfp_gray is None:
             self._set_default_triplet("red_intensity")
             self._set_default_triplet("green_intensity")
@@ -81,13 +89,8 @@ class GreenRedIntensity(Analysis):
             mask = create_circular_mask(mcherry_gray.shape, red_contours, i)
             red_intensity = float(calculate_intensity_mask(mcherry_gray, mask))
             green_intensity = float(calculate_intensity_mask(gfp_gray, mask))
-            # Keep raw masked sums as the primary outputs. The ratio is a
-            # secondary compatibility metric derived from green-in-red over
-            # red-in-red within the same red contour.
-            green_red_ratio = green_intensity / red_intensity if red_intensity != 0 else 0.0
             setattr(self.cp, f"red_intensity_{i + 1}", red_intensity)
             setattr(self.cp, f"green_intensity_{i + 1}", green_intensity)
-            setattr(self.cp, f"green_red_intensity_{i + 1}", green_red_ratio)
 
         for i, contour_info in enumerate(green_contours_ranked):
             area, center, _ = contour_info
@@ -103,3 +106,8 @@ class GreenRedIntensity(Analysis):
             setattr(self.cp, f"green_in_green_intensity_{i + 1}", green_in_green)
             setattr(self.cp, f"gfp_contour_{i + 1}_size", float(area))
             setattr(self.cp, f"gfp_to_mcherry_distance_{i + 1}", float(nearest_red_dist))
+
+        # Keep raw masked sums as the source of truth. The legacy
+        # green_red_intensity_* storage fields now persist the toggle-driven
+        # measurement/contour ratio derived from those raw sums.
+        store_measurement_contour_ratio_triplet(self.cp, mode=mode)

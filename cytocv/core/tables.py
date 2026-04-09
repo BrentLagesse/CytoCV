@@ -7,6 +7,11 @@ from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
 from core.models import CellStatistics, get_gfp_dot_category_label
+from core.services.measurement_contour_ratio import (
+    calculate_measurement_contour_ratio_value,
+    get_measurement_contour_ratio_headers,
+    normalize_nuclear_cellular_mode,
+)
 
 
 NUCLEAR_CELLULAR_LABELS = {
@@ -69,9 +74,9 @@ class CellTable(tables.Table):
     green_in_green_intensity_2 = NumberColumn(verbose_name="Green in Green Intensity 2")
     green_in_green_intensity_3 = NumberColumn(verbose_name="Green in Green Intensity 3")
 
-    green_red_intensity_1 = NumberColumn(verbose_name="Green/Red Ratio 1 (Compatibility)")
-    green_red_intensity_2 = NumberColumn(verbose_name="Green/Red Ratio 2 (Compatibility)")
-    green_red_intensity_3 = NumberColumn(verbose_name="Green/Red Ratio 3 (Compatibility)")
+    green_red_intensity_1 = NumberColumn(verbose_name="Measurement/Contour Ratio 1")
+    green_red_intensity_2 = NumberColumn(verbose_name="Measurement/Contour Ratio 2")
+    green_red_intensity_3 = NumberColumn(verbose_name="Measurement/Contour Ratio 3")
 
     gfp_to_mcherry_distance_1 = NumberColumn(verbose_name="GFP-to-mCherry Distance 1")
     gfp_to_mcherry_distance_2 = NumberColumn(verbose_name="GFP-to-mCherry Distance 2")
@@ -126,12 +131,21 @@ class CellTable(tables.Table):
 
     def __init__(self, *args, intensity_mode: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._intensity_mode = (
+            normalize_nuclear_cellular_mode(intensity_mode)
+            if intensity_mode in NUCLEAR_CELLULAR_LABELS
+            else None
+        )
         cellular_label, nuclear_label = NUCLEAR_CELLULAR_LABELS.get(
-            intensity_mode,
+            self._intensity_mode,
             FALLBACK_NUCLEAR_CELLULAR_LABELS,
         )
+        ratio_headers = get_measurement_contour_ratio_headers(self._intensity_mode)
         self.columns["cellular_intensity_sum"].column.verbose_name = cellular_label
         self.columns["nucleus_intensity_sum"].column.verbose_name = nuclear_label
+        self.columns["green_red_intensity_1"].column.verbose_name = ratio_headers[0]
+        self.columns["green_red_intensity_2"].column.verbose_name = ratio_headers[1]
+        self.columns["green_red_intensity_3"].column.verbose_name = ratio_headers[2]
 
     @staticmethod
     def _has_no_nucleus_contour(record: CellStatistics) -> bool:
@@ -167,6 +181,33 @@ class CellTable(tables.Table):
 
     def value_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
         return self._render_nuclear_cellular_value(record, value)
+
+    def _measurement_contour_ratio_value(self, record: CellStatistics, index: int) -> float:
+        properties = getattr(record, "properties", {}) or {}
+        record_mode = properties.get("nuclear_cellular_mode")
+        return calculate_measurement_contour_ratio_value(
+            record,
+            index,
+            mode=record_mode or self._intensity_mode,
+        )
+
+    def render_green_red_intensity_1(self, record: CellStatistics) -> str:
+        return self._format_number(self._measurement_contour_ratio_value(record, 1))
+
+    def value_green_red_intensity_1(self, record: CellStatistics) -> str:
+        return self._format_number(self._measurement_contour_ratio_value(record, 1))
+
+    def render_green_red_intensity_2(self, record: CellStatistics) -> str:
+        return self._format_number(self._measurement_contour_ratio_value(record, 2))
+
+    def value_green_red_intensity_2(self, record: CellStatistics) -> str:
+        return self._format_number(self._measurement_contour_ratio_value(record, 2))
+
+    def render_green_red_intensity_3(self, record: CellStatistics) -> str:
+        return self._format_number(self._measurement_contour_ratio_value(record, 3))
+
+    def value_green_red_intensity_3(self, record: CellStatistics) -> str:
+        return self._format_number(self._measurement_contour_ratio_value(record, 3))
 
 class CellTableView(ExportMixin, SingleTableView):
     """Table view with CSV/XLSX export support for cell statistics."""

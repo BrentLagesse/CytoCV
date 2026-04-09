@@ -49,7 +49,7 @@ Important `CellStatistics` fields include:
 - `distance`
 - `line_gfp_intensity`
 - raw red/green contour intensity sums such as `red_intensity_1`, `green_intensity_1`, `red_in_green_intensity_1`, and `green_in_green_intensity_1`
-- the secondary compatibility ratio fields `green_red_intensity_1` through `green_red_intensity_3`
+- the internal legacy storage fields `green_red_intensity_1` through `green_red_intensity_3`, which now store the public measurement/contour ratio values
 - `nucleus_intensity_sum`
 - `cellular_intensity_sum`
 - `cytoplasmic_intensity`
@@ -58,13 +58,12 @@ Important `CellStatistics` fields include:
 
 For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
 
-The only ratio fields in this area are the explicitly named green/red compatibility fields:
+The viewer, statistics table, and CSV/XLSX exports show three derived `Measurement/Contour Ratio` values. Their meaning follows the selected nucleus/cellular mode:
 
-- `green_red_intensity_1`
-- `green_red_intensity_2`
-- `green_red_intensity_3`
+- `red_nucleus`: `Green in Red / Red in Red`
+- `green_nucleus`: `Red in Green / Green in Green`
 
-These ratio fields are derived values and should be interpreted as secondary compatibility output, not as replacements for the raw integrated sums.
+These ratios are derived values and should be interpreted as secondary output, not as replacements for the raw integrated sums. Internally, CytoCV still persists them in the legacy `green_red_intensity_*` database columns until the schema is cleaned up.
 
 `CellStatistics.properties` also stores contextual information such as:
 
@@ -82,7 +81,7 @@ CytoCV supports table exports through `django-tables2`. Export behavior is avail
 The on-page statistics tables and the CSV/XLSX exports include both:
 
 - the raw integrated contour intensity sums as the primary table/export values
-- the three green/red ratio compatibility columns as explicitly labeled derived values
+- the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
 
 ## Expected Outputs
 

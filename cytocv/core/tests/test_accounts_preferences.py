@@ -458,6 +458,7 @@ class DisplayManualSaveTests(TestCase):
             green_in_green_intensity_1=8.0,
             green_red_intensity_1=6.0 / 5.0,
             category_GFP_dot=1,
+            properties={"nuclear_cellular_mode": "red_nucleus"},
         )
 
     def _set_transient_uuids(self, uuids: list[str]) -> None:
@@ -686,6 +687,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Red in Green Intensity 1", csv_text)
         self.assertIn("Green in Green Intensity 1", csv_text)
         self.assertNotIn("Green/Red ratio 1", csv_text)
+        self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", csv_text)
         self.assertIn("5.000", csv_text)
         self.assertIn("8.000", csv_text)
         self.assertIn("GFP Dot Category", csv_text)
@@ -721,6 +723,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Red in Green Intensity 1", headers)
         self.assertIn("Green in Green Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
+        self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
         self.assertIn("GFP Dot Category", headers)
         gfp_dot_col = headers.index("GFP Dot Category") + 1
         self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "One green dot with each red dot")

@@ -25,6 +25,10 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
+from core.services.measurement_contour_ratio import (
+    build_measurement_contour_ratio_payload,
+    normalize_nuclear_cellular_mode,
+)
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
@@ -268,6 +272,10 @@ def display(request, uuids):
 
                 # Retrieve statistics for the cell
                 if cell_stat:
+                    properties = cell_stat.properties or {}
+                    nuclear_cellular_mode = normalize_nuclear_cellular_mode(
+                        properties.get("nuclear_cellular_mode")
+                    )
                     statistics[str(i)] = {
                         'distance': cell_stat.distance,
                         'line_gfp_intensity': cell_stat.line_gfp_intensity,
@@ -295,29 +303,30 @@ def display(request, uuids):
                         'gfp_to_mcherry_distance_3': cell_stat.gfp_to_mcherry_distance_3,
                         'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
                         'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
-                        'green_red_intensity_1': cell_stat.green_red_intensity_1,
-                        'green_red_intensity_2': cell_stat.green_red_intensity_2,
-                        'green_red_intensity_3': cell_stat.green_red_intensity_3,
                         'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
                         'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
                         'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
                         'cytoplasmic_intensity_DAPI': cell_stat.cytoplasmic_intensity_DAPI,
-                        'nuclear_cellular_mode': (cell_stat.properties or {}).get("nuclear_cellular_mode", "green_nucleus"),
-                        'nuclear_cellular_contour_channel': (cell_stat.properties or {}).get(
+                        'nuclear_cellular_mode': nuclear_cellular_mode,
+                        'nuclear_cellular_contour_channel': properties.get(
                             "nuclear_cellular_contour_channel",
                             "GFP",
                         ),
-                        'nuclear_cellular_measurement_channel': (cell_stat.properties or {}).get(
+                        'nuclear_cellular_measurement_channel': properties.get(
                             "nuclear_cellular_measurement_channel",
                             "mCherry",
                         ),
-                        'nuclear_cellular_status': (cell_stat.properties or {}).get(
+                        'nuclear_cellular_status': properties.get(
                             "nuclear_cellular_status",
                             "unknown",
                         ),
                         'category_GFP_dot': cell_stat.category_GFP_dot,
                         'category_GFP_dot_label': get_gfp_dot_category_label(cell_stat.category_GFP_dot),
                         'biorientation': cell_stat.biorientation,
+                        **build_measurement_contour_ratio_payload(
+                            cell_stat,
+                            mode=nuclear_cellular_mode,
+                        ),
                     }
                 else:
                     statistics[str(i)] = None  # In case statistics are missing for a cell

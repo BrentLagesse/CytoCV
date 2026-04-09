@@ -1246,9 +1246,9 @@
         }
         .cell-stats-section {
             display: grid;
-            gap: 8px;
+            gap: 10px;
             min-width: 0;
-            padding: 14px;
+            padding: 16px 14px;
             text-align: left;
             font-size: 12px;
             align-content: start;
@@ -1263,6 +1263,7 @@
             letter-spacing: 0.04em;
             text-transform: uppercase;
             color: #d8e4f6;
+            padding-bottom: 2px;
         }
         .metric-note {
             margin: 0;
@@ -1273,23 +1274,64 @@
         .tight-info,
         .metric-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 10px;
-            align-items: start;
+            grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
+            gap: 12px;
+            align-items: baseline;
             margin: 0;
             line-height: 1.35;
+            padding: 1px 0;
         }
         .tight-info span:first-child,
         .metric-label {
             color: var(--muted);
+            min-width: 0;
         }
         .tight-info span:last-child,
         .metric-value {
             color: #fff;
             font-weight: 600;
             text-align: right;
+            justify-self: end;
             font-variant-numeric: tabular-nums;
             font-feature-settings: "tnum" 1;
+            min-width: 0;
+        }
+        .metric-detail {
+            display: grid;
+            gap: 4px;
+            margin: 2px 0 4px;
+            min-width: 0;
+        }
+        .metric-subsection {
+            display: grid;
+            gap: 8px;
+            min-width: 0;
+            margin-top: 4px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .metric-sublead {
+            margin: 0;
+            color: #d6e2f4;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .metric-detail-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: normal;
+            text-transform: none;
+        }
+        .metric-detail-value {
+            color: #eef4ff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.45;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         #cellID {
             font-variant-numeric: tabular-nums;
@@ -1740,17 +1782,24 @@
                                             <span class="metric-label">Biorientation</span>
                                             <span class="metric-value" id="biorientation"></span>
                                         </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green/Red ratio 1</span>
-                                            <span class="metric-value" id="greenredIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green/Red ratio 2</span>
-                                            <span class="metric-value" id="greenredIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green/Red ratio 3</span>
-                                            <span class="metric-value" id="greenredIntensity3"></span>
+                                        <div class="metric-subsection">
+                                            <p class="metric-sublead">Measurement/Contour</p>
+                                            <div class="metric-detail">
+                                                <span class="metric-detail-label">Formula</span>
+                                                <span class="metric-detail-value" id="measurementContourRatioFormula"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement/Contour ratio 1</span>
+                                                <span class="metric-value" id="measurementContourRatio1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement/Contour ratio 2</span>
+                                                <span class="metric-value" id="measurementContourRatio2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement/Contour ratio 3</span>
+                                                <span class="metric-value" id="measurementContourRatio3"></span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="cell-stats-section">
@@ -1895,9 +1944,10 @@
         const BLEND_METRIC_IDS = [
             'distance',
             'lineGFPIntensity',
-            'greenredIntensity1',
-            'greenredIntensity2',
-            'greenredIntensity3',
+            'measurementContourRatioFormula',
+            'measurementContourRatio1',
+            'measurementContourRatio2',
+            'measurementContourRatio3',
             'redInRedIntensity1',
             'redInRedIntensity2',
             'redInRedIntensity3',
@@ -2200,9 +2250,10 @@
                 metricValues: {
                     distance: formatStatValue(cellStats ? cellStats.distance : null),
                     lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),
-                    greenredIntensity1: formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null),
-                    greenredIntensity2: formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null),
-                    greenredIntensity3: formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null),
+                    measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
+                    measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
+                    measurementContourRatio2: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null),
+                    measurementContourRatio3: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null),
                     redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),
                     redInRedIntensity2: formatStatValue(cellStats ? cellStats.red_intensity_2 : null),
                     redInRedIntensity3: formatStatValue(cellStats ? cellStats.red_intensity_3 : null),
@@ -2647,9 +2698,12 @@
                 'Green in Green Intensity 1': 'green_in_green_intensity_1',
                 'Green in Green Intensity 2': 'green_in_green_intensity_2',
                 'Green in Green Intensity 3': 'green_in_green_intensity_3',
-                'Green/Red Ratio 1 (Compatibility)': 'green_red_intensity_1',
-                'Green/Red Ratio 2 (Compatibility)': 'green_red_intensity_2',
-                'Green/Red Ratio 3 (Compatibility)': 'green_red_intensity_3',
+                'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1',
+                'Measurement/Contour Ratio 2 (Green/Red)': 'measurement_contour_ratio_2',
+                'Measurement/Contour Ratio 3 (Green/Red)': 'measurement_contour_ratio_3',
+                'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1',
+                'Measurement/Contour Ratio 2 (Red/Green)': 'measurement_contour_ratio_2',
+                'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3',
                 'GFP-to-mCherry Distance 1': 'gfp_to_mcherry_distance_1',
                 'GFP-to-mCherry Distance 2': 'gfp_to_mcherry_distance_2',
                 'GFP-to-mCherry Distance 3': 'gfp_to_mcherry_distance_3',
@@ -2758,9 +2812,10 @@
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
             document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);
-            document.getElementById("greenredIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null);
-            document.getElementById("greenredIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null);
-            document.getElementById("greenredIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null);
+            document.getElementById("measurementContourRatioFormula").textContent = cellStats ? (cellStats.measurement_contour_ratio_display_text || "N/A") : "N/A";
+            document.getElementById("measurementContourRatio1").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null);
+            document.getElementById("measurementContourRatio2").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null);
+            document.getElementById("measurementContourRatio3").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null);
             document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);
             document.getElementById("redInRedIntensity2").textContent = formatStatValue(cellStats ? cellStats.red_intensity_2 : null);
             document.getElementById("redInRedIntensity3").textContent = formatStatValue(cellStats ? cellStats.red_intensity_3 : null);

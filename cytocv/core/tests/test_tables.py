@@ -55,20 +55,63 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
     def test_ratio_columns_are_present_with_explicit_compatibility_labels(self):
         header_row = list(self.table.as_values())[0]
 
-        self.assertIn("Green/Red Ratio 1 (Compatibility)", header_row)
-        self.assertIn("Green/Red Ratio 2 (Compatibility)", header_row)
-        self.assertIn("Green/Red Ratio 3 (Compatibility)", header_row)
+        self.assertIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
+        self.assertIn("Measurement/Contour Ratio 2 (Red/Green)", header_row)
+        self.assertIn("Measurement/Contour Ratio 3 (Red/Green)", header_row)
 
     def test_ratio_columns_follow_raw_contour_sums_and_precede_distance_triplet(self):
         header_row = list(self.table.as_values())[0]
 
         green_in_green_index = header_row.index("Green in Green Intensity 3")
-        ratio_1_index = header_row.index("Green/Red Ratio 1 (Compatibility)")
-        ratio_2_index = header_row.index("Green/Red Ratio 2 (Compatibility)")
-        ratio_3_index = header_row.index("Green/Red Ratio 3 (Compatibility)")
+        ratio_1_index = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
+        ratio_2_index = header_row.index("Measurement/Contour Ratio 2 (Red/Green)")
+        ratio_3_index = header_row.index("Measurement/Contour Ratio 3 (Red/Green)")
         distance_triplet_index = header_row.index("GFP-to-mCherry Distance 1")
 
         self.assertLess(green_in_green_index, ratio_1_index)
         self.assertLess(ratio_1_index, ratio_2_index)
         self.assertLess(ratio_2_index, ratio_3_index)
         self.assertLess(ratio_3_index, distance_triplet_index)
+
+    def test_ratio_columns_use_mode_driven_headers_for_red_nucleus(self):
+        header_row = list(CellTable([], intensity_mode="red_nucleus").as_values())[0]
+
+        self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", header_row)
+        self.assertIn("Measurement/Contour Ratio 2 (Green/Red)", header_row)
+        self.assertIn("Measurement/Contour Ratio 3 (Green/Red)", header_row)
+
+    def test_ratio_values_are_derived_from_raw_sums_not_stale_stored_values(self):
+        record = SimpleNamespace(
+            green_red_intensity_1=99.0,
+            green_red_intensity_2=88.0,
+            green_red_intensity_3=77.0,
+            red_in_green_intensity_1=12.0,
+            red_in_green_intensity_2=9.0,
+            red_in_green_intensity_3=0.0,
+            green_in_green_intensity_1=4.0,
+            green_in_green_intensity_2=3.0,
+            green_in_green_intensity_3=0.0,
+            properties={"nuclear_cellular_mode": "green_nucleus"},
+            category_GFP_dot=0,
+        )
+
+        table = CellTable([record], intensity_mode="green_nucleus")
+        row = list(table.rows)[0]
+        header_row = list(table.as_values())[0]
+        value_row = list(table.as_values())[1]
+
+        self.assertEqual(row.get_cell("green_red_intensity_1"), "3.000")
+        self.assertEqual(row.get_cell("green_red_intensity_2"), "3.000")
+        self.assertEqual(row.get_cell("green_red_intensity_3"), "0.000")
+        self.assertEqual(
+            value_row[header_row.index("Measurement/Contour Ratio 1 (Red/Green)")],
+            "3.000",
+        )
+        self.assertEqual(
+            value_row[header_row.index("Measurement/Contour Ratio 2 (Red/Green)")],
+            "3.000",
+        )
+        self.assertEqual(
+            value_row[header_row.index("Measurement/Contour Ratio 3 (Red/Green)")],
+            "0.000",
+        )
