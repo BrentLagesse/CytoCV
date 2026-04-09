@@ -69,6 +69,10 @@ class CellTable(tables.Table):
     green_in_green_intensity_2 = NumberColumn(verbose_name="Green in Green Intensity 2")
     green_in_green_intensity_3 = NumberColumn(verbose_name="Green in Green Intensity 3")
 
+    green_red_intensity_1 = NumberColumn(verbose_name="Green/Red Ratio 1 (Compatibility)")
+    green_red_intensity_2 = NumberColumn(verbose_name="Green/Red Ratio 2 (Compatibility)")
+    green_red_intensity_3 = NumberColumn(verbose_name="Green/Red Ratio 3 (Compatibility)")
+
     gfp_to_mcherry_distance_1 = NumberColumn(verbose_name="GFP-to-mCherry Distance 1")
     gfp_to_mcherry_distance_2 = NumberColumn(verbose_name="GFP-to-mCherry Distance 2")
     gfp_to_mcherry_distance_3 = NumberColumn(verbose_name="GFP-to-mCherry Distance 3")
@@ -106,6 +110,9 @@ class CellTable(tables.Table):
             "green_in_green_intensity_1",
             "green_in_green_intensity_2",
             "green_in_green_intensity_3",
+            "green_red_intensity_1",
+            "green_red_intensity_2",
+            "green_red_intensity_3",
             "gfp_to_mcherry_distance_1",
             "gfp_to_mcherry_distance_2",
             "gfp_to_mcherry_distance_3",

@@ -56,7 +56,15 @@ Important `CellStatistics` fields include:
 - legacy DAPI-derived and red-in-blue fields
 - GFP dot classification fields
 
-For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These are not mean intensities. They are also not ratios, except for the explicitly named green/red ratio fields.
+For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
+
+The only ratio fields in this area are the explicitly named green/red compatibility fields:
+
+- `green_red_intensity_1`
+- `green_red_intensity_2`
+- `green_red_intensity_3`
+
+These ratio fields are derived values and should be interpreted as secondary compatibility output, not as replacements for the raw integrated sums.
 
 `CellStatistics.properties` also stores contextual information such as:
 
@@ -70,6 +78,11 @@ CytoCV supports table exports through `django-tables2`. Export behavior is avail
 
 - the display view for the first UUID with statistics
 - the dashboard for a selected saved file
+
+The on-page statistics tables and the CSV/XLSX exports include both:
+
+- the raw integrated contour intensity sums as the primary table/export values
+- the three green/red ratio compatibility columns as explicitly labeled derived values
 
 ## Expected Outputs
 

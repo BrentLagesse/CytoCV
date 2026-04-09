@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import csv
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import json
-from io import BytesIO
+from io import BytesIO, StringIO
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -597,6 +598,21 @@ class RouteSurfaceRefactorTests(TestCase):
             "buildFullCircularCellOrder(currentCellNumber, maxCells)",
             html=False,
         )
+        self.assertContains(
+            response,
+            "'Green/Red Ratio 1 (Compatibility)': 'green_red_intensity_1'",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "'Green/Red Ratio 2 (Compatibility)': 'green_red_intensity_2'",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "'Green/Red Ratio 3 (Compatibility)': 'green_red_intensity_3'",
+            html=False,
+        )
 
     def test_display_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         uuid_value = str(uuid4())
@@ -658,6 +674,21 @@ class RouteSurfaceRefactorTests(TestCase):
             "buildFullCircularCellOrder(currentCellNumber, maxCells)",
             html=False,
         )
+        self.assertContains(
+            response,
+            "'Green/Red Ratio 1 (Compatibility)': 'green_red_intensity_1'",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "'Green/Red Ratio 2 (Compatibility)': 'green_red_intensity_2'",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "'Green/Red Ratio 3 (Compatibility)': 'green_red_intensity_3'",
+            html=False,
+        )
 
     def test_display_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
         uuid_value = str(uuid4())
@@ -684,6 +715,9 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Raw Contour Intensity Sums")
         self.assertContains(response, "Green/Red ratio 1")
+        self.assertContains(response, "Green/Red Ratio 1 (Compatibility)")
+        self.assertContains(response, "Green/Red Ratio 2 (Compatibility)")
+        self.assertContains(response, "Green/Red Ratio 3 (Compatibility)")
         self.assertContains(response, "Line + Spot Metrics")
         self.assertNotContains(response, "Intensity + GFP Output")
         self.assertContains(response, '"red_intensity_1": 11.0', html=False)
@@ -723,6 +757,9 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Raw Contour Intensity Sums")
         self.assertContains(response, "Green/Red ratio 1")
+        self.assertContains(response, "Green/Red Ratio 1 (Compatibility)")
+        self.assertContains(response, "Green/Red Ratio 2 (Compatibility)")
+        self.assertContains(response, "Green/Red Ratio 3 (Compatibility)")
         self.assertContains(response, "Line + Spot Metrics")
         self.assertNotContains(response, "Intensity + GFP Output")
         self.assertContains(response, '"red_intensity_1": 19.0', html=False)
@@ -735,6 +772,51 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
+
+    def test_display_csv_export_includes_ratio_columns_after_raw_intensity_sums(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-ratio-export")
+            segmented = self._create_segmented_image(uuid_value, name="display-ratio-export")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "display-ratio-export")
+            self._create_cell_stats(
+                segmented,
+                "display-ratio-export",
+                red_intensity_1=11.0,
+                green_intensity_1=7.0,
+                green_red_intensity_1=7.0 / 11.0,
+                green_red_intensity_2=2.0,
+                green_red_intensity_3=3.0,
+            )
+
+            response = self.client.get(
+                reverse("display", args=[uuid_value]),
+                {"_export": "csv"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        csv_rows = list(csv.DictReader(StringIO(response.content.decode("utf-8"))))
+        self.assertEqual(len(csv_rows), 1)
+        header_row = csv_rows[0].keys()
+        self.assertIn("Red in Red Intensity 1", header_row)
+        self.assertIn("Green/Red Ratio 1 (Compatibility)", header_row)
+        self.assertIn("Green/Red Ratio 2 (Compatibility)", header_row)
+        self.assertIn("Green/Red Ratio 3 (Compatibility)", header_row)
+        self.assertLess(
+            list(header_row).index("Green in Green Intensity 3"),
+            list(header_row).index("Green/Red Ratio 1 (Compatibility)"),
+        )
+        self.assertLess(
+            list(header_row).index("Green/Red Ratio 3 (Compatibility)"),
+            list(header_row).index("GFP-to-mCherry Distance 1"),
+        )
+        self.assertEqual(csv_rows[0]["Red in Red Intensity 1"], "11.000")
+        self.assertEqual(csv_rows[0]["Green/Red Ratio 1 (Compatibility)"], "0.636")
+        self.assertEqual(csv_rows[0]["Green/Red Ratio 2 (Compatibility)"], "2.000")
+        self.assertEqual(csv_rows[0]["Green/Red Ratio 3 (Compatibility)"], "3.000")
 
 
 class PluginMappingRegressionTests(TestCase):

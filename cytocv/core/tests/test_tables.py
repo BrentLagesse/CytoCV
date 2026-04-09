@@ -51,3 +51,24 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
 
         self.assertEqual(row.get_cell("category_GFP_dot"), "N/A")
         self.assertEqual(list(category_table.as_values())[1][-2], "N/A")
+
+    def test_ratio_columns_are_present_with_explicit_compatibility_labels(self):
+        header_row = list(self.table.as_values())[0]
+
+        self.assertIn("Green/Red Ratio 1 (Compatibility)", header_row)
+        self.assertIn("Green/Red Ratio 2 (Compatibility)", header_row)
+        self.assertIn("Green/Red Ratio 3 (Compatibility)", header_row)
+
+    def test_ratio_columns_follow_raw_contour_sums_and_precede_distance_triplet(self):
+        header_row = list(self.table.as_values())[0]
+
+        green_in_green_index = header_row.index("Green in Green Intensity 3")
+        ratio_1_index = header_row.index("Green/Red Ratio 1 (Compatibility)")
+        ratio_2_index = header_row.index("Green/Red Ratio 2 (Compatibility)")
+        ratio_3_index = header_row.index("Green/Red Ratio 3 (Compatibility)")
+        distance_triplet_index = header_row.index("GFP-to-mCherry Distance 1")
+
+        self.assertLess(green_in_green_index, ratio_1_index)
+        self.assertLess(ratio_1_index, ratio_2_index)
+        self.assertLess(ratio_2_index, ratio_3_index)
+        self.assertLess(ratio_3_index, distance_triplet_index)
