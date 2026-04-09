@@ -1,4 +1,4 @@
-# CytoCV License
+﻿# CytoCV License
 
 CytoCV is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
 
@@ -30,3 +30,4 @@ Under the following conditions:
 Unless a specific file or directory states otherwise, CytoCV repository materials should be treated as distributed under **CC BY-NC-SA 4.0**.
 
 If licensing scope, attribution language, or downstream redistribution terms need to be clarified later, this document should be updated alongside the root project README.
+

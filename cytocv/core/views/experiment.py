@@ -265,76 +265,97 @@ def experiment(request):
             request.POST.get("stats_use_metadata_scale"),
             default=default_use_metadata_scale,
         )
-        mcherry_width_unit = _normalize_length_unit(
-            request.POST.get("stats_mcherry_width_unit"),
+        red_line_width_unit = _normalize_length_unit(
+            request.POST.get("stats_red_line_width_unit", request.POST.get("stats_mcherry_width_unit")),
             default="px",
         )
-        gfp_distance_unit = _normalize_length_unit(
-            request.POST.get("stats_gfp_distance_unit"),
+        cen_dot_distance_unit = _normalize_length_unit(
+            request.POST.get("stats_cen_dot_distance_unit", request.POST.get("stats_gfp_distance_unit")),
             default="px",
         )
 
         # Backward compatibility: if raw-value fields are absent, treat submitted
-        # mCherryWidth/distance as already pixel-normalized.
-        has_raw_mcherry = "stats_mcherry_width_value" in request.POST
-        has_raw_gfp_distance = "stats_gfp_distance_value" in request.POST
-        mcherry_source_unit = mcherry_width_unit if has_raw_mcherry else "px"
-        gfp_source_unit = gfp_distance_unit if has_raw_gfp_distance else "px"
+        # legacy width/distance fields as already pixel-normalized.
+        has_raw_red_line_width = (
+            "stats_red_line_width_value" in request.POST
+            or "stats_mcherry_width_value" in request.POST
+        )
+        has_raw_cen_dot_distance = (
+            "stats_cen_dot_distance_value" in request.POST
+            or "stats_gfp_distance_value" in request.POST
+        )
+        red_line_source_unit = red_line_width_unit if has_raw_red_line_width else "px"
+        cen_dot_source_unit = cen_dot_distance_unit if has_raw_cen_dot_distance else "px"
 
-        mcherry_value = _parse_positive_float(
-            request.POST.get("stats_mcherry_width_value", request.POST.get("mCherryWidth", "1")),
+        red_line_width_value = _parse_positive_float(
+            request.POST.get(
+                "stats_red_line_width_value",
+                request.POST.get("stats_mcherry_width_value", request.POST.get("redLineWidth", request.POST.get("mCherryWidth", "1"))),
+            ),
             default=1,
             minimum=0,
         )
-        gfp_distance_value = _parse_positive_float(
-            request.POST.get("stats_gfp_distance_value", request.POST.get("distance", "37")),
+        cen_dot_distance_value = _parse_positive_float(
+            request.POST.get(
+                "stats_cen_dot_distance_value",
+                request.POST.get("stats_gfp_distance_value", request.POST.get("cenDotDistance", request.POST.get("distance", "37"))),
+            ),
             default=37,
             minimum=0,
         )
 
-        mcherry_width = _convert_length_to_pixels(
-            mcherry_value,
-            mcherry_source_unit,
+        red_line_width = _convert_length_to_pixels(
+            red_line_width_value,
+            red_line_source_unit,
             minimum_px=1,
             fallback_px=1,
             microns_per_pixel=posted_microns_per_pixel,
         )
-        gfp_distance = _convert_length_to_pixels(
-            gfp_distance_value,
-            gfp_source_unit,
+        cen_dot_distance = _convert_length_to_pixels(
+            cen_dot_distance_value,
+            cen_dot_source_unit,
             minimum_px=0,
             fallback_px=37,
             microns_per_pixel=posted_microns_per_pixel,
         )
 
-        gfp_threshold_raw = request.POST.get("threshold", "66")
+        cen_dot_collinearity_threshold_raw = request.POST.get(
+            "cenDotCollinearityThreshold",
+            request.POST.get("threshold", "66"),
+        )
         try:
-            gfp_threshold = int(gfp_threshold_raw)
+            cen_dot_collinearity_threshold = int(cen_dot_collinearity_threshold_raw)
         except (TypeError, ValueError):
-            gfp_threshold = 66
-        if gfp_threshold < 0:
-            gfp_threshold = 66
+            cen_dot_collinearity_threshold = 66
+        if cen_dot_collinearity_threshold < 0:
+            cen_dot_collinearity_threshold = 66
 
-        gfp_filter_enabled = request.POST.get("gfpFilterEnabled", False)
-        alternate_mcherry_detection = request.POST.get("alternateMCherryDetection", False)
+        green_contour_filter_enabled = request.POST.get(
+            "greenContourFilterEnabled",
+            request.POST.get("gfpFilterEnabled", False),
+        )
+        alternate_red_detection = request.POST.get(
+            "alternateRedDetection",
+            request.POST.get("alternateMCherryDetection", False),
+        )
 
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
-        request.session["mCherryWidth"] = mcherry_width
-        request.session["distance"] = gfp_distance
-        request.session["threshold"] = gfp_threshold
-        request.session["stats_mcherry_width_unit"] = mcherry_width_unit
-        request.session["stats_gfp_distance_unit"] = gfp_distance_unit
+        request.session["redLineWidth"] = red_line_width
+        request.session["cenDotDistance"] = cen_dot_distance
+        request.session["cenDotCollinearityThreshold"] = cen_dot_collinearity_threshold
+        request.session["stats_red_line_width_unit"] = red_line_width_unit
+        request.session["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
         request.session["stats_microns_per_pixel"] = posted_microns_per_pixel
         request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
-        request.session["stats_mcherry_width_value"] = mcherry_value
-        request.session["stats_gfp_distance_value"] = gfp_distance_value
+        request.session["stats_red_line_width_value"] = red_line_width_value
+        request.session["stats_cen_dot_distance_value"] = cen_dot_distance_value
         request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
             request.POST.get("nuclear_cellular_mode"),
             default="green_nucleus",
         )
-        request.session["gfpFilterEnabled"] = gfp_filter_enabled
-        request.session["alternateMCherryDetection"] = alternate_mcherry_detection
+        request.session["greenContourFilterEnabled"] = green_contour_filter_enabled
+        request.session["alternateRedDetection"] = alternate_red_detection
 
         module_enabled = _parse_bool(request.POST.get("cytocv_analysis_enabled"), default=False)
         enforce_layer_count = module_enabled and _parse_bool(

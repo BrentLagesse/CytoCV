@@ -5,17 +5,25 @@ from .analysis import Analysis
 
 class NucleusIntensity(Analysis):
     name = 'Nucleus Intensity'
-    def calculate_statistics(self, best_contours, contours_data,red_image=None, green_image=None,mcherry_line_width_input=None,gfp_distance=0,gfp_threshold=0):
-        """
-            This function calculate the nucleus intensity within a green image
-            :param best_contour: The green contour of the green image
-            :param gray: Gray scale of green image
-        """
-        gray_GFP = self.preprocessed_images.get_image('GFP')
-        gray_GFP_no_bg = self.preprocessed_images.get_image('GFP_no_bg')
 
-        mask_contour = np.zeros(gray_GFP.shape, np.uint8)
-        cv2.fillPoly(mask_contour, [best_contours['DAPI']], 255)
+    def calculate_statistics(
+        self,
+        best_contours,
+        contours_data,
+        red_image=None,
+        green_image=None,
+        red_line_width_input=None,
+        cen_dot_distance=0,
+        cen_dot_collinearity_threshold=0,
+    ):
+        """
+            This function calculate the nucleus intensity within the green image
+        """
+        gray_green = self.preprocessed_images.get_image('green')
+        gray_green_no_bg = self.preprocessed_images.get_image('green_no_bg')
+
+        mask_contour = np.zeros(gray_green.shape, np.uint8)
+        cv2.fillPoly(mask_contour, [best_contours['Blue']], 255)
         pts_contour = np.transpose(np.nonzero(mask_contour))
 
         # Build the expected outline filename:
@@ -35,7 +43,7 @@ class NucleusIntensity(Analysis):
         # Calculate nucleus intensity inside the best_contour
         intensity_sum = 0
         for p in pts_contour:
-            intensity_sum += gray_GFP_no_bg[p[0]][p[1]]
+            intensity_sum += gray_green_no_bg[p[0]][p[1]]
 
         # Cast to Python int before saving into the JSON field
         self.cp.nucleus_intensity[Contour.CONTOUR.name] = int(intensity_sum)
@@ -46,7 +54,7 @@ class NucleusIntensity(Analysis):
         # Calculate cell intensity from the "border_cells" list
         cell_intensity_sum = 0
         for p in border_cells:
-            cell_intensity_sum += gray_GFP_no_bg[p[0]][p[1]]
+            cell_intensity_sum += gray_green_no_bg[p[0]][p[1]]
 
         # Ensure that the JSON field gets a Python int
         self.cp.cell_intensity = int(cell_intensity_sum)
@@ -55,4 +63,3 @@ class NucleusIntensity(Analysis):
         self.cp.cellular_intensity_sum = float(cell_intensity_sum)
 
         self.cp.cytoplasmic_intensity = float(cell_intensity_sum) - float(intensity_sum)
-

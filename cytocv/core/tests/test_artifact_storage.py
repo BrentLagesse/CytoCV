@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import errno
 import json
@@ -526,7 +526,7 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
                 segmented_image=segmented,
                 cell_id=1,
                 distance=1.0,
-                line_gfp_intensity=2.0,
+                line_green_intensity=2.0,
                 nucleus_intensity_sum=3.0,
                 cellular_intensity_sum=4.0,
             )
@@ -878,3 +878,4 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
             self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
             self.assertFalse((run_dir / "output").exists())
             self.assertFalse((run_dir / "segmented").exists())
+

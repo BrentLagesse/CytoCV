@@ -1,4 +1,4 @@
-# CytoCV Documentation
+﻿# CytoCV Documentation
 
 This directory is the canonical documentation home for CytoCV. The root `README.md` is intentionally brief. Detailed operational, scientific, and developer material lives here.
 
@@ -65,3 +65,4 @@ Formal PDF deliverables:
 - License: [`license/README.md`](license/README.md)
 - Historical deployment record (first UWB VM): [`vm-deployment-record/README.md`](vm-deployment-record/README.md)
 - Historical deployment record (replacement `cytocv2` VM): [`vm-deployment-record-cytocv2/README.md`](vm-deployment-record-cytocv2/README.md)
+

@@ -6,7 +6,7 @@ import django_tables2 as tables
 from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
-from core.models import CellStatistics, get_gfp_dot_category_label
+from core.models import CellStatistics, get_cen_dot_category_label
 from core.services.measurement_contour_ratio import (
     calculate_measurement_contour_ratio_value,
     get_measurement_contour_ratio_headers,
@@ -36,7 +36,7 @@ class ChoiceLabelColumn(tables.Column):
     """Render stored choice codes using their human-readable labels."""
 
     def render(self, value: int) -> str:
-        return get_gfp_dot_category_label(value)
+        return get_cen_dot_category_label(value)
 
     def value(self, value: int) -> str:
         return self.render(value)
@@ -46,17 +46,17 @@ class CellTable(tables.Table):
     """Table layout for per-cell statistics used in UI and export."""
 
     cell_id = tables.Column(verbose_name="Cell ID")
-    distance = NumberColumn(verbose_name="mCherry Line Distance")
-    line_gfp_intensity = NumberColumn(verbose_name="Line GFP Intensity")
+    distance = NumberColumn(verbose_name="Red Line Distance")
+    line_green_intensity = NumberColumn(verbose_name="Line Green Intensity")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
 
     red_contour_1_size = NumberColumn(verbose_name="Red Contour 1 Size")
     red_contour_2_size = NumberColumn(verbose_name="Red Contour 2 Size")
     red_contour_3_size = NumberColumn(verbose_name="Red Contour 3 Size")
 
-    gfp_contour_1_size = NumberColumn(verbose_name="GFP Contour 1 Size")
-    gfp_contour_2_size = NumberColumn(verbose_name="GFP Contour 2 Size")
-    gfp_contour_3_size = NumberColumn(verbose_name="GFP Contour 3 Size")
+    green_contour_1_size = NumberColumn(verbose_name="Green Contour 1 Size")
+    green_contour_2_size = NumberColumn(verbose_name="Green Contour 2 Size")
+    green_contour_3_size = NumberColumn(verbose_name="Green Contour 3 Size")
 
     red_intensity_1 = NumberColumn(verbose_name="Red in Red Intensity 1")
     red_intensity_2 = NumberColumn(verbose_name="Red in Red Intensity 2")
@@ -78,15 +78,15 @@ class CellTable(tables.Table):
     green_red_intensity_2 = NumberColumn(verbose_name="Measurement/Contour Ratio 2")
     green_red_intensity_3 = NumberColumn(verbose_name="Measurement/Contour Ratio 3")
 
-    gfp_to_mcherry_distance_1 = NumberColumn(verbose_name="GFP-to-mCherry Distance 1")
-    gfp_to_mcherry_distance_2 = NumberColumn(verbose_name="GFP-to-mCherry Distance 2")
-    gfp_to_mcherry_distance_3 = NumberColumn(verbose_name="GFP-to-mCherry Distance 3")
+    green_to_red_distance_1 = NumberColumn(verbose_name="Green-to-Red Distance 1")
+    green_to_red_distance_2 = NumberColumn(verbose_name="Green-to-Red Distance 2")
+    green_to_red_distance_3 = NumberColumn(verbose_name="Green-to-Red Distance 3")
 
     cellular_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELLULAR_LABELS[0])
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELLULAR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
-    category_GFP_dot = ChoiceLabelColumn(verbose_name="GFP Dot Category")
+    category_cen_dot = ChoiceLabelColumn(verbose_name="CEN Dot Category")
     biorientation = tables.Column(verbose_name="Biorientation")
 
     class Meta:
@@ -95,14 +95,14 @@ class CellTable(tables.Table):
         fields = (
             "cell_id",
             "distance",
-            "line_gfp_intensity",
+            "line_green_intensity",
             "blue_contour_size",
             "red_contour_1_size",
             "red_contour_2_size",
             "red_contour_3_size",
-            "gfp_contour_1_size",
-            "gfp_contour_2_size",
-            "gfp_contour_3_size",
+            "green_contour_1_size",
+            "green_contour_2_size",
+            "green_contour_3_size",
             "red_intensity_1",
             "red_intensity_2",
             "red_intensity_3",
@@ -118,13 +118,13 @@ class CellTable(tables.Table):
             "green_red_intensity_1",
             "green_red_intensity_2",
             "green_red_intensity_3",
-            "gfp_to_mcherry_distance_1",
-            "gfp_to_mcherry_distance_2",
-            "gfp_to_mcherry_distance_3",
+            "green_to_red_distance_1",
+            "green_to_red_distance_2",
+            "green_to_red_distance_3",
             "cellular_intensity_sum",
             "nucleus_intensity_sum",
             "cytoplasmic_intensity",
-            "category_GFP_dot",
+            "category_cen_dot",
             "biorientation",
         )
         template_name = "django_tables2/semantic.html"

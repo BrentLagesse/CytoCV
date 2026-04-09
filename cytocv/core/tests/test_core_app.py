@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import csv
 import threading
@@ -115,9 +115,9 @@ class RouteSurfaceRefactorTests(TestCase):
         segmented_dir.mkdir(parents=True, exist_ok=True)
 
         channel_pixels = {
-            "mCherry": np.full((6, 6, 3), (220, 30, 30), dtype=np.uint8),
-            "GFP": np.full((6, 6, 3), (30, 220, 30), dtype=np.uint8),
-            "DAPI": np.full((6, 6, 3), (30, 30, 220), dtype=np.uint8),
+            "channel_red": np.full((6, 6, 3), (220, 30, 30), dtype=np.uint8),
+            "channel_green": np.full((6, 6, 3), (30, 220, 30), dtype=np.uint8),
+            "channel_blue": np.full((6, 6, 3), (30, 30, 220), dtype=np.uint8),
             "DIC": np.full((6, 6, 3), (120, 120, 120), dtype=np.uint8),
         }
 
@@ -139,17 +139,17 @@ class RouteSurfaceRefactorTests(TestCase):
             channel_config=DEFAULT_CHANNEL_CONFIG,
             kernel_size=3,
             kernel_deviation=1,
-            mcherry_line_width=1,
+            red_line_width=1,
             arrested="Metaphase Arrested",
             selected_analysis=[],
             nuclear_cellular_mode="green_nucleus",
-            mcherry_width_px=1,
-            gfp_distance_value_used=37.0,
-            gfp_threshold=66,
-            gfp_filter_enabled=False,
-            alternate_mcherry_detection=False,
-            mcherry_width_unit="px",
-            gfp_distance_unit="px",
+            red_line_width_px=1,
+            cen_dot_distance_value_used=37.0,
+            cen_dot_collinearity_threshold=66,
+            green_contour_filter_enabled=False,
+            alternate_red_detection=False,
+            red_line_width_unit="px",
+            cen_dot_distance_unit="px",
         )
         write_overlay_render_config(uuid_value, render_config)
         return render_config
@@ -166,7 +166,7 @@ class RouteSurfaceRefactorTests(TestCase):
             segmented_image=segmented,
             cell_id=cell_id,
             distance=0.0,
-            line_gfp_intensity=0.0,
+            line_green_intensity=0.0,
             nucleus_intensity_sum=0.0,
             cellular_intensity_sum=0.0,
             red_intensity_1=0.0,
@@ -234,8 +234,8 @@ class RouteSurfaceRefactorTests(TestCase):
             f"/experiment/{uuid_value}/display/",
         )
         self.assertEqual(
-            reverse("cell_overlay_image", args=[uuid_value, 7, "gfp"]),
-            f"/experiment/{uuid_value}/cell/7/overlay/gfp/",
+            reverse("cell_overlay_image", args=[uuid_value, 7, "green"]),
+            f"/experiment/{uuid_value}/cell/7/overlay/green/",
         )
 
     def test_removed_legacy_routes_return_404(self):
@@ -348,17 +348,17 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            reverse("cell_overlay_image", args=[uuid_value, 1, "dapi"]),
+            reverse("cell_overlay_image", args=[uuid_value, 1, "blue"]),
             html=False,
         )
         self.assertContains(
             response,
-            reverse("cell_overlay_image", args=[uuid_value, 1, "mcherry"]),
+            reverse("cell_overlay_image", args=[uuid_value, 1, "red"]),
             html=False,
         )
         self.assertContains(
             response,
-            reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"]),
+            reverse("cell_overlay_image", args=[uuid_value, 1, "green"]),
             html=False,
         )
         self.assertContains(
@@ -385,17 +385,17 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            reverse("cell_overlay_image", args=[uuid_value, 1, "dapi"]),
+            reverse("cell_overlay_image", args=[uuid_value, 1, "blue"]),
             html=False,
         )
         self.assertContains(
             response,
-            reverse("cell_overlay_image", args=[uuid_value, 1, "mcherry"]),
+            reverse("cell_overlay_image", args=[uuid_value, 1, "red"]),
             html=False,
         )
         self.assertContains(
             response,
-            reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"]),
+            reverse("cell_overlay_image", args=[uuid_value, 1, "green"]),
             html=False,
         )
 
@@ -415,9 +415,9 @@ class RouteSurfaceRefactorTests(TestCase):
                 uuid_value,
                 cell_stat,
                 render_config,
-            )["gfp"]
+            )["green"]
             response = self.client.get(
-                reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"])
+                reverse("cell_overlay_image", args=[uuid_value, 1, "green"])
             )
 
             self.assertEqual(response.status_code, 200)
@@ -425,7 +425,7 @@ class RouteSurfaceRefactorTests(TestCase):
             rendered = np.array(Image.open(BytesIO(payload)))
             self.assertTrue(np.array_equal(rendered, np.array(expected)))
             self.assertTrue(
-                overlay_cache_image_path(uuid_value, 1, "gfp").exists()
+                overlay_cache_image_path(uuid_value, 1, "green").exists()
             )
 
     def test_overlay_endpoint_returns_404_for_unauthorized_user(self):
@@ -455,7 +455,7 @@ class RouteSurfaceRefactorTests(TestCase):
             self._write_overlay_config(uuid_value, "overlay-private")
 
             response = self.client.get(
-                reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"])
+                reverse("cell_overlay_image", args=[uuid_value, 1, "green"])
             )
 
         self.assertEqual(response.status_code, 404)
@@ -469,7 +469,7 @@ class RouteSurfaceRefactorTests(TestCase):
             render_config = {"image_stem": "overlay-dedupe"}
             expected_paths = {
                 channel: overlay_cache_image_path(uuid_value, 1, channel)
-                for channel in ("dapi", "gfp", "mcherry")
+                for channel in ("blue", "green", "red")
             }
             start_barrier = threading.Barrier(3)
             render_calls = 0
@@ -481,9 +481,9 @@ class RouteSurfaceRefactorTests(TestCase):
                     render_calls += 1
                 time.sleep(0.15)
                 return {
-                    "dapi": Image.fromarray(np.full((4, 4, 3), (20, 20, 220), dtype=np.uint8)),
-                    "gfp": Image.fromarray(np.full((4, 4, 3), (20, 220, 20), dtype=np.uint8)),
-                    "mcherry": Image.fromarray(np.full((4, 4, 3), (220, 20, 20), dtype=np.uint8)),
+                    "blue": Image.fromarray(np.full((4, 4, 3), (20, 20, 220), dtype=np.uint8)),
+                    "green": Image.fromarray(np.full((4, 4, 3), (20, 220, 20), dtype=np.uint8)),
+                    "red": Image.fromarray(np.full((4, 4, 3), (220, 20, 20), dtype=np.uint8)),
                 }
 
             def warm_channel(channel: str):
@@ -501,16 +501,16 @@ class RouteSurfaceRefactorTests(TestCase):
                 side_effect=fake_render,
             ):
                 with ThreadPoolExecutor(max_workers=3) as executor:
-                    results = list(executor.map(warm_channel, ("dapi", "gfp", "mcherry")))
+                    results = list(executor.map(warm_channel, ("blue", "green", "red")))
 
-            self.assertTrue(expected_paths["dapi"].exists())
-            self.assertTrue(expected_paths["gfp"].exists())
-            self.assertTrue(expected_paths["mcherry"].exists())
+            self.assertTrue(expected_paths["blue"].exists())
+            self.assertTrue(expected_paths["green"].exists())
+            self.assertTrue(expected_paths["red"].exists())
 
         self.assertEqual(render_calls, 1)
-        self.assertEqual(results[0], expected_paths["dapi"])
-        self.assertEqual(results[1], expected_paths["gfp"])
-        self.assertEqual(results[2], expected_paths["mcherry"])
+        self.assertEqual(results[0], expected_paths["blue"])
+        self.assertEqual(results[1], expected_paths["green"])
+        self.assertEqual(results[2], expected_paths["red"])
 
     def test_overlay_endpoint_falls_back_to_legacy_debug_image_when_cache_missing(self):
         uuid_value = str(uuid4())
@@ -529,13 +529,13 @@ class RouteSurfaceRefactorTests(TestCase):
                 uuid_value,
                 "overlay-legacy",
                 1,
-                "gfp",
+                "green",
             )
             legacy_path.parent.mkdir(parents=True, exist_ok=True)
             legacy_image.save(legacy_path)
 
             response = self.client.get(
-                reverse("cell_overlay_image", args=[uuid_value, 1, "gfp"])
+                reverse("cell_overlay_image", args=[uuid_value, 1, "green"])
             )
             self.assertEqual(response.status_code, 200)
             payload = b"".join(response.streaming_content)
@@ -555,7 +555,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),",
+            "lineGreenIntensity: formatStatValue(cellStats ? cellStats.line_green_intensity : null),",
             html=False,
         )
         self.assertContains(
@@ -631,7 +631,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),",
+            "lineGreenIntensity: formatStatValue(cellStats ? cellStats.line_green_intensity : null),",
             html=False,
         )
         self.assertContains(
@@ -708,7 +708,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_in_green_intensity_1=13.0,
                 green_red_intensity_1=99.0,
                 properties={"nuclear_cellular_mode": "red_nucleus"},
-                category_GFP_dot=1,
+                category_cen_dot=1,
             )
 
             response = self.client.get(reverse("display", args=[uuid_value]))
@@ -723,7 +723,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "Measurement/Contour Ratio 3 (Green/Red)")
         self.assertContains(response, "Green/Red: Green in Red / Red in Red")
         self.assertContains(response, "Line + Spot Metrics")
-        self.assertNotContains(response, "Intensity + GFP Output")
+        self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_intensity_1": 11.0', html=False)
         self.assertContains(response, '"red_in_green_intensity_1": 5.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 13.0', html=False)
@@ -731,10 +731,10 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, '"measurement_contour_ratio_formula": "Green in Red / Red in Red"', html=False)
         self.assertContains(
             response,
-            '"category_GFP_dot_label": "One green dot with each red dot"',
+            '"category_cen_dot_label": "One green dot with each red dot"',
             html=False,
         )
-        self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
+        self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
 
@@ -757,7 +757,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_in_green_intensity_1=31.0,
                 green_red_intensity_1=99.0,
                 properties={"nuclear_cellular_mode": "green_nucleus"},
-                category_GFP_dot=1,
+                category_cen_dot=1,
             )
 
             response = self.client.get(reverse("dashboard"))
@@ -772,17 +772,17 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "Measurement/Contour Ratio 3 (Red/Green)")
         self.assertContains(response, "Red/Green: Red in Green / Green in Green")
         self.assertContains(response, "Line + Spot Metrics")
-        self.assertNotContains(response, "Intensity + GFP Output")
+        self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_intensity_1": 19.0', html=False)
         self.assertContains(response, '"green_intensity_1": 23.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 31.0', html=False)
         self.assertContains(response, '"measurement_contour_ratio_formula": "Red in Green / Green in Green"', html=False)
         self.assertContains(
             response,
-            '"category_GFP_dot_label": "One green dot with each red dot"',
+            '"category_cen_dot_label": "One green dot with each red dot"',
             html=False,
         )
-        self.assertContains(response, "cellStats.category_GFP_dot_label || 'N/A'", html=False)
+        self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
 
@@ -829,7 +829,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertLess(
             list(header_row).index("Measurement/Contour Ratio 3 (Red/Green)"),
-            list(header_row).index("GFP-to-mCherry Distance 1"),
+            list(header_row).index("Green-to-Red Distance 1"),
         )
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 1 (Red/Green)"], "0.500")
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 2 (Red/Green)"], "2.000")
@@ -839,29 +839,30 @@ class RouteSurfaceRefactorTests(TestCase):
 class PluginMappingRegressionTests(TestCase):
     def test_plugin_loader_maps_stable_ids_to_renamed_modules(self):
         plugin_ids = load_available_plugin_ids()
-        self.assertIn("MCherryLine", plugin_ids)
-        self.assertIn("GFPDot", plugin_ids)
+        self.assertIn("RedLineIntensity", plugin_ids)
+        self.assertIn("CENDot", plugin_ids)
 
-        plugin_class = get_plugin_class("MCherryLine")
-        self.assertEqual(plugin_class.__name__, "MCherryLine")
+        plugin_class = get_plugin_class("RedLineIntensity")
+        self.assertEqual(plugin_class.__name__, "RedLineIntensity")
         self.assertTrue(issubclass(plugin_class, Analysis))
 
-        instances = instantiate_selected_plugins(["MCherryLine", "GFPDot"])
+        instances = instantiate_selected_plugins(["RedLineIntensity", "CENDot"])
         self.assertEqual(
             [instance.__class__.__name__ for instance in instances],
-            ["MCherryLine", "GFPDot"],
+            ["RedLineIntensity", "CENDot"],
         )
         self.assertEqual(GrayImage.__name__, "GrayImage")
 
     def test_build_stats_execution_plan_normalizes_raw_plugin_selection(self):
         plan = build_stats_execution_plan(
-            ["UnknownPlugin", "NucleusIntensity", "NuclearCellularIntensity", "DAPI_NucleusIntensity"]
+            ["UnknownPlugin", "NucleusIntensity", "NuclearCellularIntensity", "BlueNucleusIntensity"]
         )
 
         self.assertEqual(plan.normalized_plugins, ("NuclearCellularIntensity",))
         self.assertEqual(plan.selected_plugins, ("NuclearCellularIntensity",))
-        self.assertEqual(plan.required_channels, ("DIC", "mCherry", "GFP"))
+        self.assertEqual(plan.required_channels, ("DIC", "channel_red", "channel_green"))
         self.assertEqual(
             [instance.__class__.__name__ for instance in plan.analyses],
             ["NuclearCellularIntensity"],
         )
+

@@ -1,6 +1,6 @@
-# CytoCV
+﻿# CytoCV
 
-CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of mitotic yeast cells. The application supports four logical channel roles (`DIC`, `DAPI`, `mCherry`, and `GFP`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
+CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of mitotic yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
 > **Version:** 1.0  
 > **Python:** 3.11.5  
@@ -29,12 +29,12 @@ CytoCV combines:
 
 The code-defined default modern workflow enables these plugins:
 
-- `MCherryLine`
-- `GFPDot`
+- `RedLineIntensity`
+- `CENDot`
 - `GreenRedIntensity`
 - `NuclearCellularIntensity`
 
-That default set requires `DIC`, `mCherry`, and `GFP`. `DAPI` remains supported for legacy measurements and for optional full-wavelength validation.
+That default set requires `DIC`, `Red`, and `Green`. `Blue` remains supported for legacy measurements and for optional full-wavelength validation.
 
 ## System Scope
 
@@ -244,3 +244,4 @@ License reference:
 
 - [docs/license/README.md](docs/license/README.md)
 - <https://creativecommons.org/licenses/by-nc-sa/4.0/>
+

@@ -1,4 +1,4 @@
-# Figure Catalog
+﻿# Figure Catalog
 
 ## Purpose
 
@@ -25,7 +25,7 @@ This catalog maps the current diagram set to manuscript, report, or appendix usa
 - Source: `docs/diagrams/03-cell-analysis-flow.mmd`
 - Rendered: `docs/diagrams/03-cell-analysis-flow.png`
 - Recommended use: per-cell measurement subsection
-- Suggested caption: Per-cell analysis pipeline used to derive contour, distance, and intensity measurements from segmented cell crops, including optional legacy DAPI contour handling.
+- Suggested caption: Per-cell analysis pipeline used to derive contour, distance, and intensity measurements from segmented cell crops, including optional legacy Blue contour handling.
 
 ### Figure 4: Data Model
 
@@ -39,7 +39,7 @@ This catalog maps the current diagram set to manuscript, report, or appendix usa
 ### Validation, Requirements, And Scale
 
 - `docs/diagrams/05-plugin-channel-map.mmd`
-  Suggested caption: Channel requirement model showing `DIC` as the universal segmentation dependency, plugin-driven fluorescence requirements, legacy DAPI analyses, and optional validation expansion to all four logical roles.
+  Suggested caption: Channel requirement model showing `DIC` as the universal segmentation dependency, plugin-driven fluorescence requirements, legacy Blue analyses, and optional validation expansion to all four logical roles.
 - `docs/diagrams/06-upload-validation-flow.mmd`
   Suggested caption: Upload-time validation flow showing configurable layer-count and effective channel-requirement checks before a run enters preprocessing.
 - `docs/diagrams/07-scale-channel-resolution.mmd`
@@ -60,7 +60,7 @@ This catalog maps the current diagram set to manuscript, report, or appendix usa
 ### Authentication And Legacy Behavior
 
 - `docs/diagrams/14-authentication-account-flow.mmd`
-- `docs/diagrams/15-legacy-dapi-measurements.mmd`
+- `docs/diagrams/15-legacy-blue-measurements.mmd`
 
 ## Figure Usage Notes
 
@@ -72,3 +72,4 @@ This catalog maps the current diagram set to manuscript, report, or appendix usa
 ## Regeneration
 
 Diagram PNG regeneration is documented in [`../diagrams/README.md`](../diagrams/README.md).
+

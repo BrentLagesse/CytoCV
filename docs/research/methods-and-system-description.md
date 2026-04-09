@@ -1,8 +1,8 @@
-# Methods And System Description
+﻿# Methods And System Description
 
 ## Abstract
 
-CytoCV is a web-based analysis system for DeltaVision microscopy of mitotic yeast cells. The platform integrates authenticated web workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, plugin-scoped per-cell quantification, and retention-aware result management in a single Django application. The current codebase supports four logical channel roles (`DIC`, `DAPI`, `mCherry`, and `GFP`), but only `DIC` is universally required. Additional fluorescence requirements are derived from the selected analysis plugins and optional upload-time validation policy.
+CytoCV is a web-based analysis system for DeltaVision microscopy of mitotic yeast cells. The platform integrates authenticated web workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, plugin-scoped per-cell quantification, and retention-aware result management in a single Django application. The current codebase supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional fluorescence requirements are derived from the selected analysis plugins and optional upload-time validation policy.
 
 ## System Objective
 
@@ -13,11 +13,11 @@ The system is designed to reduce manual analysis effort while preserving the rel
 CytoCV ingests DeltaVision (`.dv`) files that can be interpreted as channel stacks. The implementation recognizes four logical channel roles:
 
 - `DIC`, used for structural segmentation and CNN preprocessing
-- `DAPI`, used for legacy nucleus-related measurements
-- `mCherry`, used for red-signal contour and intensity measurements
-- `GFP`, used for green-signal contour, intensity, and dot-classification measurements
+- `Blue`, used for legacy nucleus-related measurements
+- `Red`, used for red-signal contour and intensity measurements
+- `Green`, used for green-signal contour, intensity, and dot-classification measurements
 
-The software does not require all four roles in every run. The minimum baseline requirement is `DIC`. The default modern configuration requires `DIC`, `mCherry`, and `GFP`. `DAPI` becomes required only when a legacy DAPI-centered plugin is selected or when full-wavelength validation is enabled.
+The software does not require all four roles in every run. The minimum baseline requirement is `DIC`. The default modern configuration requires `DIC`, `Red`, and `Green`. `Blue` becomes required only when a legacy Blue-channel legacy plugin is selected or when full-wavelength validation is enabled.
 
 ## Validation Logic
 
@@ -40,15 +40,15 @@ Per-cell quantification is plugin driven. The current implementation exposes the
 
 | Plugin | Additional channels beyond `DIC` | Legacy | Default modern configuration |
 | --- | --- | --- | --- |
-| `MCherryLine` | `mCherry`, `GFP` | No | Yes |
-| `GFPDot` | `mCherry`, `GFP` | No | Yes |
-| `GreenRedIntensity` | `mCherry`, `GFP` | No | Yes |
-| `NuclearCellularIntensity` | `mCherry`, `GFP` | No | Yes |
-| `NucleusIntensity` | `DAPI`, `GFP` | Yes | No |
-| `DAPI_NucleusIntensity` | `DAPI` | Yes | No |
-| `RedBlueIntensity` | `mCherry`, `DAPI` | Yes | No |
+| `RedLineIntensity` | `Red`, `Green` | No | Yes |
+| `CENDot` | `Red`, `Green` | No | Yes |
+| `GreenRedIntensity` | `Red`, `Green` | No | Yes |
+| `NuclearCellularIntensity` | `Red`, `Green` | No | Yes |
+| `NucleusIntensity` | `Blue`, `Green` | Yes | No |
+| `BlueNucleusIntensity` | `Blue` | Yes | No |
+| `RedBlueIntensity` | `Red`, `Blue` | Yes | No |
 
-The default modern workflow is therefore centered on `DIC`, `mCherry`, and `GFP`. DAPI-dependent analyses remain available for backward compatibility, but they are legacy paths rather than the primary current workflow.
+The default modern workflow is therefore centered on `DIC`, `Red`, and `Green`. Blue-channel legacy analyses remain available for backward compatibility, but they are legacy paths rather than the primary current workflow.
 
 ## Computational Workflow
 
@@ -70,7 +70,7 @@ The segmentation stage combines the generated mask with the original DV stack to
 
 ### 5. Per-Cell Quantification
 
-The plugin layer computes cell-level values such as red-dot distance, line GFP intensity, green and red contour summaries, nuclear or cellular intensity measurements, and GFP dot classification outputs.
+The plugin layer computes cell-level values such as red-dot distance, line Green intensity, green and red contour summaries, nuclear or cellular intensity measurements, and CEN dot classification outputs.
 
 ### 6. Review, Export, And Retention
 
@@ -101,8 +101,9 @@ The current codebase captures several features that support reproducible interpr
 - inference depends on external project-specific weights
 - the TensorFlow-based analysis path requires a host with `AVX` CPU support
 - artifact retention depends on filesystem capacity and account storage quotas
-- DAPI-centered measurements coexist with a newer modern workflow and must be interpreted as legacy analyses
+- Blue-channel legacy measurements coexist with a newer modern workflow and must be interpreted as legacy analyses
 
 ## Conclusion
 
-CytoCV is best understood as a domain-specific analysis platform rather than a generic microscopy framework. Its architecture is optimized around the current yeast mitosis workflow, with `DIC`-driven segmentation, modern `mCherry` and `GFP` measurements as the default path, and legacy DAPI analyses preserved for backward compatibility.
+CytoCV is best understood as a domain-specific analysis platform rather than a generic microscopy framework. Its architecture is optimized around the current yeast mitosis workflow, with `DIC`-driven segmentation, modern `Red` and `Green` measurements as the default path, and legacy Blue analyses preserved for backward compatibility.
+

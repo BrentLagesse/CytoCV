@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+﻿from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
@@ -39,17 +39,17 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "345.678")
 
     def test_render_gfp_dot_category_uses_choice_label(self):
-        category_table = CellTable([SimpleNamespace(category_GFP_dot=1)], intensity_mode="green_nucleus")
+        category_table = CellTable([SimpleNamespace(category_cen_dot=1)], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
 
-        self.assertEqual(row.get_cell("category_GFP_dot"), "One green dot with each red dot")
+        self.assertEqual(row.get_cell("category_cen_dot"), "One green dot with each red dot")
         self.assertEqual(list(category_table.as_values())[1][-2], "One green dot with each red dot")
 
     def test_render_gfp_dot_category_falls_back_to_na_for_invalid_values(self):
-        category_table = CellTable([SimpleNamespace(category_GFP_dot=999)], intensity_mode="green_nucleus")
+        category_table = CellTable([SimpleNamespace(category_cen_dot=999)], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
 
-        self.assertEqual(row.get_cell("category_GFP_dot"), "N/A")
+        self.assertEqual(row.get_cell("category_cen_dot"), "N/A")
         self.assertEqual(list(category_table.as_values())[1][-2], "N/A")
 
     def test_ratio_columns_are_present_with_explicit_compatibility_labels(self):
@@ -66,7 +66,7 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
         ratio_1_index = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
         ratio_2_index = header_row.index("Measurement/Contour Ratio 2 (Red/Green)")
         ratio_3_index = header_row.index("Measurement/Contour Ratio 3 (Red/Green)")
-        distance_triplet_index = header_row.index("GFP-to-mCherry Distance 1")
+        distance_triplet_index = header_row.index("Green-to-Red Distance 1")
 
         self.assertLess(green_in_green_index, ratio_1_index)
         self.assertLess(ratio_1_index, ratio_2_index)
@@ -92,7 +92,7 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
             green_in_green_intensity_2=3.0,
             green_in_green_intensity_3=0.0,
             properties={"nuclear_cellular_mode": "green_nucleus"},
-            category_GFP_dot=0,
+            category_cen_dot=0,
         )
 
         table = CellTable([record], intensity_mode="green_nucleus")
@@ -115,3 +115,4 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
             value_row[header_row.index("Measurement/Contour Ratio 3 (Red/Green)")],
             "0.000",
         )
+

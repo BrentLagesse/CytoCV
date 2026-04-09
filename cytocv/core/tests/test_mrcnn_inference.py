@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import threading
 from pathlib import Path
@@ -261,3 +261,4 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
             self.assertEqual(second_result.name, "mask.tif")
             self.assertTrue(np.array_equal(np.array(Image.open(first_result)), np.ones((4, 4), dtype=np.uint16)))
             self.assertTrue(np.array_equal(np.array(Image.open(second_result)), np.ones((4, 4), dtype=np.uint16)))
+

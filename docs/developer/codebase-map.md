@@ -1,4 +1,4 @@
-# Codebase Map
+﻿# Codebase Map
 
 ## Purpose
 
@@ -80,3 +80,4 @@ Current tests live in `cytocv/core/tests/` and focus on:
 - [`architecture-overview.md`](architecture-overview.md)
 - [`testing-guide.md`](testing-guide.md)
 - [`../reference/routes-and-endpoints.md`](../reference/routes-and-endpoints.md)
+

@@ -1,0 +1,91 @@
+"""Serialization helpers for renamed cell statistics payloads."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from core.channel_roles import channel_display_label, normalize_channel_role
+from core.models import CellStatistics, get_cen_dot_category_label
+from core.services.measurement_contour_ratio import (
+    build_measurement_contour_ratio_payload,
+    normalize_nuclear_cellular_mode,
+)
+
+
+def normalize_channel_display_name(value: Any, default: str = "") -> str:
+    """Return a canonical user-facing channel label."""
+
+    raw = str(value or "").strip()
+    if not raw:
+        return default
+    normalized = normalize_channel_role(raw)
+    if normalized:
+        return channel_display_label(normalized)
+    return raw
+
+
+def serialize_cell_statistics_payload(
+    cell_stat: CellStatistics | None,
+) -> dict[str, Any] | None:
+    """Serialize a cell-statistics record for display/dashboard/profile views."""
+
+    if not cell_stat:
+        return None
+
+    properties = cell_stat.properties or {}
+    nuclear_cellular_mode = normalize_nuclear_cellular_mode(
+        properties.get("nuclear_cellular_mode")
+    )
+
+    return {
+        "distance": cell_stat.distance,
+        "line_green_intensity": cell_stat.line_green_intensity,
+        "blue_contour_size": cell_stat.blue_contour_size,
+        "red_contour_1_size": cell_stat.red_contour_1_size,
+        "red_contour_2_size": cell_stat.red_contour_2_size,
+        "red_contour_3_size": cell_stat.red_contour_3_size,
+        "red_intensity_1": cell_stat.red_intensity_1,
+        "red_intensity_2": cell_stat.red_intensity_2,
+        "red_intensity_3": cell_stat.red_intensity_3,
+        "green_intensity_1": cell_stat.green_intensity_1,
+        "green_intensity_2": cell_stat.green_intensity_2,
+        "green_intensity_3": cell_stat.green_intensity_3,
+        "red_in_green_intensity_1": cell_stat.red_in_green_intensity_1,
+        "red_in_green_intensity_2": cell_stat.red_in_green_intensity_2,
+        "red_in_green_intensity_3": cell_stat.red_in_green_intensity_3,
+        "green_in_green_intensity_1": cell_stat.green_in_green_intensity_1,
+        "green_in_green_intensity_2": cell_stat.green_in_green_intensity_2,
+        "green_in_green_intensity_3": cell_stat.green_in_green_intensity_3,
+        "green_contour_1_size": cell_stat.green_contour_1_size,
+        "green_contour_2_size": cell_stat.green_contour_2_size,
+        "green_contour_3_size": cell_stat.green_contour_3_size,
+        "green_to_red_distance_1": cell_stat.green_to_red_distance_1,
+        "green_to_red_distance_2": cell_stat.green_to_red_distance_2,
+        "green_to_red_distance_3": cell_stat.green_to_red_distance_3,
+        "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
+        "cellular_intensity_sum": cell_stat.cellular_intensity_sum,
+        "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
+        "cellular_intensity_sum_blue": cell_stat.cellular_intensity_sum_blue,
+        "nucleus_intensity_sum_blue": cell_stat.nucleus_intensity_sum_blue,
+        "cytoplasmic_intensity_blue": cell_stat.cytoplasmic_intensity_blue,
+        "nuclear_cellular_mode": nuclear_cellular_mode,
+        "nuclear_cellular_contour_channel": normalize_channel_display_name(
+            properties.get("nuclear_cellular_contour_channel"),
+            default="Green",
+        ),
+        "nuclear_cellular_measurement_channel": normalize_channel_display_name(
+            properties.get("nuclear_cellular_measurement_channel"),
+            default="Red",
+        ),
+        "nuclear_cellular_status": properties.get(
+            "nuclear_cellular_status",
+            "unknown",
+        ),
+        "category_cen_dot": cell_stat.category_cen_dot,
+        "category_cen_dot_label": get_cen_dot_category_label(cell_stat.category_cen_dot),
+        "biorientation": cell_stat.biorientation,
+        **build_measurement_contour_ratio_payload(
+            cell_stat,
+            mode=nuclear_cellular_mode,
+        ),
+    }

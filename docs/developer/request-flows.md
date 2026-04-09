@@ -1,4 +1,4 @@
-# Request Flows
+﻿# Request Flows
 
 ## Purpose
 
@@ -154,3 +154,4 @@ Key behaviors:
 - [`architecture-overview.md`](architecture-overview.md)
 - [`../reference/routes-and-endpoints.md`](../reference/routes-and-endpoints.md)
 - [`../diagrams/README.md`](../diagrams/README.md)
+

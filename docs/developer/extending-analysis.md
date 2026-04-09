@@ -1,4 +1,4 @@
-# Extending Analysis
+﻿# Extending Analysis
 
 ## Purpose
 
@@ -74,3 +74,4 @@ Use the plugin metadata layer as the single source of truth for user-facing plug
 - [`testing-guide.md`](testing-guide.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
+

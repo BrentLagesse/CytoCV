@@ -44,34 +44,34 @@ class GreenRedIntensity(Analysis):
         contours_data,
         red_image,
         green_image,
-        mcherry_line_width_input,
-        gfp_distance,
-        gfp_threshold,
+        red_line_width_input,
+        cen_dot_distance,
+        cen_dot_collinearity_threshold,
     ):
         red_contours = [entry[2] for entry in self._rank_contours(contours_data.get("dot_contours", []), limit=3)]
-        green_contours_ranked = self._rank_contours(contours_data.get("contours_gfp", []), limit=3)
+        green_contours_ranked = self._rank_contours(contours_data.get("contours_green", []), limit=3)
         green_contours = [entry[2] for entry in green_contours_ranked]
 
-        mcherry_gray = self.preprocessed_images.get_image("mCherry_no_bg")
-        if mcherry_gray is None:
-            mcherry_gray = self.preprocessed_images.get_image("gray_mcherry")
+        red_gray = self.preprocessed_images.get_image("red_no_bg")
+        if red_gray is None:
+            red_gray = self.preprocessed_images.get_image("gray_red")
 
-        gfp_gray = self.preprocessed_images.get_image("GFP_no_bg")
-        if gfp_gray is None:
-            gfp_gray = self.preprocessed_images.get_image("GFP")
+        green_gray = self.preprocessed_images.get_image("green_no_bg")
+        if green_gray is None:
+            green_gray = self.preprocessed_images.get_image("green")
         props = dict(getattr(self.cp, "properties", {}) or {})
         mode = normalize_nuclear_cellular_mode(props.get("nuclear_cellular_mode"))
         props["nuclear_cellular_mode"] = mode
         self.cp.properties = props
-        if mcherry_gray is None or gfp_gray is None:
+        if red_gray is None or green_gray is None:
             self._set_default_triplet("red_intensity")
             self._set_default_triplet("green_intensity")
             self._set_default_triplet("green_red_intensity")
             self._set_default_triplet("red_in_green_intensity")
             self._set_default_triplet("green_in_green_intensity")
-            self._set_default_triplet("gfp_to_mcherry_distance")
+            self._set_default_triplet("green_to_red_distance")
             for idx in range(1, 4):
-                setattr(self.cp, f"gfp_contour_{idx}_size", 0.0)
+                setattr(self.cp, f"green_contour_{idx}_size", 0.0)
             return
 
         red_centers = [self._contour_center(contour) for contour in red_contours]
@@ -81,22 +81,22 @@ class GreenRedIntensity(Analysis):
         self._set_default_triplet("green_red_intensity")
         self._set_default_triplet("red_in_green_intensity")
         self._set_default_triplet("green_in_green_intensity")
-        self._set_default_triplet("gfp_to_mcherry_distance")
+        self._set_default_triplet("green_to_red_distance")
         for idx in range(1, 4):
-            setattr(self.cp, f"gfp_contour_{idx}_size", 0.0)
+            setattr(self.cp, f"green_contour_{idx}_size", 0.0)
 
         for i, contour in enumerate(red_contours):
-            mask = create_circular_mask(mcherry_gray.shape, red_contours, i)
-            red_intensity = float(calculate_intensity_mask(mcherry_gray, mask))
-            green_intensity = float(calculate_intensity_mask(gfp_gray, mask))
+            mask = create_circular_mask(red_gray.shape, red_contours, i)
+            red_intensity = float(calculate_intensity_mask(red_gray, mask))
+            green_intensity = float(calculate_intensity_mask(green_gray, mask))
             setattr(self.cp, f"red_intensity_{i + 1}", red_intensity)
             setattr(self.cp, f"green_intensity_{i + 1}", green_intensity)
 
         for i, contour_info in enumerate(green_contours_ranked):
             area, center, _ = contour_info
-            mask = create_circular_mask(gfp_gray.shape, green_contours, i)
-            red_in_green = float(calculate_intensity_mask(mcherry_gray, mask))
-            green_in_green = float(calculate_intensity_mask(gfp_gray, mask))
+            mask = create_circular_mask(green_gray.shape, green_contours, i)
+            red_in_green = float(calculate_intensity_mask(red_gray, mask))
+            green_in_green = float(calculate_intensity_mask(green_gray, mask))
             if red_centers:
                 nearest_red_dist = min(math.dist(center, red_center) for red_center in red_centers)
             else:
@@ -104,8 +104,8 @@ class GreenRedIntensity(Analysis):
 
             setattr(self.cp, f"red_in_green_intensity_{i + 1}", red_in_green)
             setattr(self.cp, f"green_in_green_intensity_{i + 1}", green_in_green)
-            setattr(self.cp, f"gfp_contour_{i + 1}_size", float(area))
-            setattr(self.cp, f"gfp_to_mcherry_distance_{i + 1}", float(nearest_red_dist))
+            setattr(self.cp, f"green_contour_{i + 1}_size", float(area))
+            setattr(self.cp, f"green_to_red_distance_{i + 1}", float(nearest_red_dist))
 
         # Keep raw masked sums as the source of truth. The legacy
         # green_red_intensity_* storage fields now persist the toggle-driven

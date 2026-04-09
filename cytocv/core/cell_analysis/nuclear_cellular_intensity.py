@@ -15,16 +15,16 @@ class NuclearCellularIntensity(Analysis):
 
     _MODE_CONFIG = {
         "green_nucleus": (
-            ("GFP_no_bg", "GFP"),
-            ("mCherry_no_bg", "gray_mcherry"),
-            "GFP",
-            "mCherry",
+            ("green_no_bg", "green"),
+            ("red_no_bg", "gray_red"),
+            "Green",
+            "Red",
         ),
         "red_nucleus": (
-            ("mCherry_no_bg", "gray_mcherry"),
-            ("GFP_no_bg", "GFP"),
-            "mCherry",
-            "GFP",
+            ("red_no_bg", "gray_red"),
+            ("green_no_bg", "green"),
+            "Red",
+            "Green",
         ),
     }
 
@@ -133,9 +133,9 @@ class NuclearCellularIntensity(Analysis):
         contours_data,
         red_image=None,
         green_image=None,
-        mcherry_line_width_input=None,
-        gfp_distance=0,
-        gfp_threshold=0,
+        red_line_width_input=None,
+        cen_dot_distance=0,
+        cen_dot_collinearity_threshold=0,
     ):
         props = dict(getattr(self.cp, "properties", {}) or {})
         mode = props.get("nuclear_cellular_mode", "green_nucleus")
@@ -183,7 +183,7 @@ class NuclearCellularIntensity(Analysis):
         if mode == "red_nucleus":
             source_contours = contours_data.get("dot_contours", [])
         else:
-            source_contours = contours_data.get("contours_gfp", [])
+            source_contours = contours_data.get("contours_green", [])
 
         contour_mask = self._build_mask_from_contours((h, w), source_contours)
         contour_mask = cv2.bitwise_and(contour_mask, cell_mask)

@@ -1,4 +1,4 @@
-# Environment Reference
+﻿# Environment Reference
 
 ## Purpose
 
@@ -375,3 +375,4 @@ Startup fails when:
 - [`deployment-guide.md`](deployment-guide.md)
 - [`postgres-setup.md`](postgres-setup.md)
 - [`security-and-privacy.md`](security-and-privacy.md)
+

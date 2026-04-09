@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 
@@ -94,3 +94,4 @@ class NuclearCellularIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.cytoplasmic_intensity, 0.0)
         self.assertFalse(np.any(red_debug > 0))
         self.assertFalse(np.any(green_debug > 0))
+

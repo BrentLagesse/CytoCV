@@ -1,4 +1,4 @@
-# Security And Privacy
+﻿# Security And Privacy
 
 ## Purpose
 
@@ -80,3 +80,4 @@ The application does not currently present itself as a general-purpose PHI or re
 - [`environment-reference.md`](environment-reference.md)
 - [`backup-retention-and-storage.md`](backup-retention-and-storage.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
+

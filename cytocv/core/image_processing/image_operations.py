@@ -5,6 +5,12 @@ from PIL import Image
 import numpy as np
 import logging
 from cv2_rolling_ball import subtract_background_rolling_ball
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+)
 from .grey_image import GrayImage
 
 logger = logging.getLogger(__name__)
@@ -19,15 +25,15 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
     """
     This function loads an image from a file path and returns it as a numpy array.
     :param cp: A CellStatistics object
-    :return: A dictionary consist of mCherry, GFP, DAPI image along with their version in numpy array
+    :return: A dictionary containing red, green, blue, and DIC image arrays
     """
-    requested = set(required_channels or {"mCherry", "GFP", "DAPI"})
+    requested = set(required_channels or {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE})
     cached_images = cached_images or {}
     channel_map = {
-        "mCherry": ("im_mCherry", "mCherry"),
-        "GFP": ("im_GFP", "GFP"),
-        "DAPI": ("im_DAPI", "DAPI"),
-        "DIC": ("im_DIC", "DIC"),
+        CHANNEL_ROLE_RED: ("im_red", "red"),
+        CHANNEL_ROLE_GREEN: ("im_green", "green"),
+        CHANNEL_ROLE_BLUE: ("im_blue", "blue"),
+        CHANNEL_ROLE_DIC: ("im_dic", "dic"),
     }
     loaded = {}
 
@@ -59,7 +65,7 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
 def preprocess_image_to_gray(images, kdev, ksize):
     """
     This function preprocesses an image and returns a gray scale of images and blurred version of it.
-    :param images: A dictionary consist of mCherry, GFP image along with their version in numpy array
+    :param images: A dictionary containing red, green, and blue image arrays
     :param kdev: Kernel deviation for blurring
     :param ksize: Kernel size for blurring
     :return: A dictionary containing grayscale and background-subtracted image data
@@ -71,12 +77,12 @@ def preprocess_image_to_gray(images, kdev, ksize):
 
     gray_payload = {}
 
-    gfp_image = images.get("GFP")
-    if gfp_image is not None:
-        cell_intensity_gray = cv2.cvtColor(gfp_image, cv2.COLOR_RGB2GRAY)
-        orig_gray_GFP = cv2.cvtColor(gfp_image, cv2.COLOR_RGB2GRAY)
-        orig_gray_GFP_no_bg, _ = subtract_background_rolling_ball(
-            orig_gray_GFP,
+    green_image = images.get("green")
+    if green_image is not None:
+        cell_intensity_gray = cv2.cvtColor(green_image, cv2.COLOR_RGB2GRAY)
+        original_gray_green = cv2.cvtColor(green_image, cv2.COLOR_RGB2GRAY)
+        original_gray_green_no_bg, _ = subtract_background_rolling_ball(
+            original_gray_green,
             50,
             light_background=False,
             use_paraboloid=False,
@@ -84,28 +90,28 @@ def preprocess_image_to_gray(images, kdev, ksize):
         )
         # Some of the cell outlines are split into two circles. Blur so the contour covers both.
         cell_intensity_gray = cv2.GaussianBlur(cell_intensity_gray, (3, 3), 1)
-        gray_payload["GFP"] = cell_intensity_gray
-        gray_payload["GFP_no_bg"] = orig_gray_GFP_no_bg
+        gray_payload["green"] = cell_intensity_gray
+        gray_payload["green_no_bg"] = original_gray_green_no_bg
 
-    mcherry_image = images.get("mCherry")
-    if mcherry_image is not None:
-        original_gray_mcherry = cv2.cvtColor(mcherry_image, cv2.COLOR_RGB2GRAY)
-        mcherry_no_bg, _ = subtract_background_rolling_ball(
-            original_gray_mcherry,
+    red_image = images.get("red")
+    if red_image is not None:
+        original_gray_red = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
+        red_no_bg, _ = subtract_background_rolling_ball(
+            original_gray_red,
             50,
             light_background=False,
             use_paraboloid=False,
             do_presmooth=True,
         )
-        gray_payload["gray_mcherry_3"] = cv2.GaussianBlur(original_gray_mcherry, (3, 3), 1)
-        gray_payload["gray_mcherry"] = cv2.GaussianBlur(original_gray_mcherry, (ksize, ksize), kdev)
-        gray_payload["mCherry_no_bg"] = mcherry_no_bg
+        gray_payload["gray_red_3"] = cv2.GaussianBlur(original_gray_red, (3, 3), 1)
+        gray_payload["gray_red"] = cv2.GaussianBlur(original_gray_red, (ksize, ksize), kdev)
+        gray_payload["red_no_bg"] = red_no_bg
 
-    dapi_image = images.get("DAPI")
-    if dapi_image is not None:
-        original_gray_dapi = cv2.cvtColor(dapi_image, cv2.COLOR_RGB2GRAY)
-        gray_payload["gray_dapi_3"] = cv2.GaussianBlur(original_gray_dapi, (3, 3), 1)
-        gray_payload["gray_dapi"] = cv2.GaussianBlur(original_gray_dapi, (ksize, ksize), kdev)
+    blue_image = images.get("blue")
+    if blue_image is not None:
+        original_gray_blue = cv2.cvtColor(blue_image, cv2.COLOR_RGB2GRAY)
+        gray_payload["gray_blue_3"] = cv2.GaussianBlur(original_gray_blue, (3, 3), 1)
+        gray_payload["gray_blue"] = cv2.GaussianBlur(original_gray_blue, (ksize, ksize), kdev)
 
     gray_image = GrayImage(img=gray_payload)
 

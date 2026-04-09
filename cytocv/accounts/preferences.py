@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from core.channel_roles import CHANNEL_ROLE_ORDER
 from core.stats_plugins import CHANNEL_ORDER, normalize_selected_plugins
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
@@ -14,8 +15,8 @@ DEFAULT_MICRONS_PER_PIXEL = 0.1
 DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "experiment_defaults": {
         "selected_plugins": [
-            "MCherryLine",
-            "GFPDot",
+            "RedLineIntensity",
+            "CENDot",
             "GreenRedIntensity",
             "NuclearCellularIntensity",
         ],
@@ -24,14 +25,14 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "enforce_wavelengths": False,
         "show_legacy_plugins": False,
         "manual_required_channels": [],
-        "mcherry_width": 1,
-        "gfp_distance": 37,
-        "gfp_threshold": 66,
+        "red_line_width": 1,
+        "cen_dot_distance": 37,
+        "cen_dot_collinearity_threshold": 66,
         "nuclear_cellular_mode": "green_nucleus",
-        "gfp_filter_enabled": False,
-        "alternate_mcherry_detection": False,
-        "mcherry_width_unit": "px",
-        "gfp_distance_unit": "px",
+        "green_contour_filter_enabled": False,
+        "alternate_red_detection": False,
+        "red_line_width_unit": "px",
+        "cen_dot_distance_unit": "px",
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
     },
@@ -114,11 +115,19 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     normalized["experiment_defaults"]["show_legacy_plugins"] = _as_bool(
         defaults_payload.get("show_legacy_plugins"), default=False
     )
-    normalized["experiment_defaults"]["gfp_filter_enabled"] = _as_bool(
-        defaults_payload.get("gfp_filter_enabled"), default=False
+    normalized["experiment_defaults"]["green_contour_filter_enabled"] = _as_bool(
+        defaults_payload.get(
+            "green_contour_filter_enabled",
+            defaults_payload.get("gfp_filter_enabled"),
+        ),
+        default=False,
     )
-    normalized["experiment_defaults"]["alternate_mcherry_detection"] = _as_bool(
-        defaults_payload.get("alternate_mcherry_detection"), default=False
+    normalized["experiment_defaults"]["alternate_red_detection"] = _as_bool(
+        defaults_payload.get(
+            "alternate_red_detection",
+            defaults_payload.get("alternate_mcherry_detection"),
+        ),
+        default=False,
     )
 
     raw_required_channels = defaults_payload.get("manual_required_channels", [])
@@ -128,12 +137,18 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         channel for channel in raw_required_channels if channel in CHANNEL_ORDER
     ]
 
-    normalized["experiment_defaults"]["mcherry_width_unit"] = _normalize_unit(
-        defaults_payload.get("mcherry_width_unit"),
+    normalized["experiment_defaults"]["red_line_width_unit"] = _normalize_unit(
+        defaults_payload.get(
+            "red_line_width_unit",
+            defaults_payload.get("mcherry_width_unit"),
+        ),
         default="px",
     )
-    normalized["experiment_defaults"]["gfp_distance_unit"] = _normalize_unit(
-        defaults_payload.get("gfp_distance_unit"),
+    normalized["experiment_defaults"]["cen_dot_distance_unit"] = _normalize_unit(
+        defaults_payload.get(
+            "cen_dot_distance_unit",
+            defaults_payload.get("gfp_distance_unit"),
+        ),
         default="px",
     )
     normalized["experiment_defaults"]["microns_per_pixel"] = _as_float(
@@ -147,21 +162,30 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     )
     width_minimum = (
         1
-        if normalized["experiment_defaults"]["mcherry_width_unit"] == "px"
+        if normalized["experiment_defaults"]["red_line_width_unit"] == "px"
         else 0
     )
-    normalized["experiment_defaults"]["mcherry_width"] = _as_float(
-        defaults_payload.get("mcherry_width"),
+    normalized["experiment_defaults"]["red_line_width"] = _as_float(
+        defaults_payload.get(
+            "red_line_width",
+            defaults_payload.get("mcherry_width"),
+        ),
         default=1,
         minimum=width_minimum,
     )
-    normalized["experiment_defaults"]["gfp_distance"] = _as_float(
-        defaults_payload.get("gfp_distance"),
+    normalized["experiment_defaults"]["cen_dot_distance"] = _as_float(
+        defaults_payload.get(
+            "cen_dot_distance",
+            defaults_payload.get("gfp_distance"),
+        ),
         default=37,
         minimum=0,
     )
-    normalized["experiment_defaults"]["gfp_threshold"] = _as_int(
-        defaults_payload.get("gfp_threshold"),
+    normalized["experiment_defaults"]["cen_dot_collinearity_threshold"] = _as_int(
+        defaults_payload.get(
+            "cen_dot_collinearity_threshold",
+            defaults_payload.get("gfp_threshold"),
+        ),
         default=66,
         minimum=0,
     )

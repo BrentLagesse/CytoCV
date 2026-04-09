@@ -1,4 +1,4 @@
-# Reproducibility And Validation
+﻿# Reproducibility And Validation
 
 ## Abstract
 
@@ -23,8 +23,8 @@ The verified behaviors are:
 
 - `DIC` is the only universally required channel
 - if no plugins are selected, the required channel set is `["DIC"]`
-- the default modern selected plugins require `DIC`, `mCherry`, and `GFP`
-- DAPI requirements are introduced by legacy plugins or by optional all-wavelength enforcement
+- the default modern selected plugins require `DIC`, `Red`, and `Green`
+- Blue requirements are introduced by legacy plugins or by optional all-wavelength enforcement
 - `enforce_wavelengths=True` expands the required set to all four logical roles
 - `enforce_layer_count=True` enables exact four-layer validation; it is not a universal baseline rule
 
@@ -36,11 +36,11 @@ The normalized default preference payload in `accounts.preferences` establishes 
 
 | Setting | Default value | Reproducibility implication |
 | --- | --- | --- |
-| `selected_plugins` | `MCherryLine`, `GFPDot`, `GreenRedIntensity`, `NuclearCellularIntensity` | Baseline modern run requires `DIC`, `mCherry`, and `GFP` |
+| `selected_plugins` | `RedLineIntensity`, `CENDot`, `GreenRedIntensity`, `NuclearCellularIntensity` | Baseline modern run requires `DIC`, `Red`, and `Green` |
 | `module_enabled` | `False` | Validation overrides are disabled by default |
 | `enforce_layer_count` | `False` | Exact four-layer enforcement is off by default |
 | `enforce_wavelengths` | `False` | All-four-role enforcement is off by default |
-| `show_legacy_plugins` | `False` | Legacy DAPI analyses are hidden by default |
+| `show_legacy_plugins` | `False` | Legacy Blue analyses are hidden by default |
 | `manual_required_channels` | empty list | No extra manual channel requirements are applied |
 | `nuclear_cellular_mode` | `green_nucleus` | Modern nuclear or cellular measurements use the green-nucleus mode unless overridden |
 | `use_metadata_scale` | `True` | Metadata-derived scale is preferred when available |
@@ -114,3 +114,4 @@ For any formal result package, preserve:
 ## Conclusion
 
 CytoCV is reproducible when environment, model, input, and run configuration are treated as part of the result definition. The current codebase already stores part of that context internally, but disciplined deployment, archival practice, and CPU compatibility remain necessary for formal reproducibility.
+

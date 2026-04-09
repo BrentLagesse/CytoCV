@@ -1,4 +1,4 @@
-# Analysis Options
+﻿# Analysis Options
 
 ## Purpose
 
@@ -7,23 +7,23 @@ This guide explains the user-visible analysis controls that affect validation, s
 ## Prerequisites
 
 - access to the upload page or workflow defaults interface
-- familiarity with the logical channel roles `DIC`, `DAPI`, `mCherry`, and `GFP`
+- familiarity with the logical channel roles `DIC`, `Blue`, `Red`, and `Green`
 
 ## Default Plugin Configuration
 
 The current default modern plugin set is:
 
-- `MCherryLine`
-- `GFPDot`
+- `RedLineIntensity`
+- `CENDot`
 - `GreenRedIntensity`
 - `NuclearCellularIntensity`
 
-These defaults require `DIC`, `mCherry`, and `GFP`. They do not require `DAPI`.
+These defaults require `DIC`, `Red`, and `Green`. They do not require `Blue`.
 
 Legacy plugins remain available when legacy visibility is enabled:
 
 - `NucleusIntensity`
-- `DAPI_NucleusIntensity`
+- `BlueNucleusIntensity`
 - `RedBlueIntensity`
 
 ## Channel Requirement Model
@@ -33,7 +33,7 @@ CytoCV derives required channels in layers:
 1. `DIC` is always required because segmentation and CNN preprocessing depend on it.
 2. Each selected plugin contributes its own required channels.
 3. Manual required channels are added only when the validation module is enabled.
-4. `enforce_wavelengths` expands the requirement to all four logical roles: `DIC`, `DAPI`, `mCherry`, and `GFP`.
+4. `enforce_wavelengths` expands the requirement to all four logical roles: `DIC`, `Blue`, `Red`, and `Green`.
 5. `enforce_layer_count` requires exactly four layers only when it is enabled.
 
 If no plugins are selected and no validation overrides are enabled, the enforced requirement set is `DIC` only.
@@ -42,13 +42,13 @@ If no plugins are selected and no validation overrides are enabled, the enforced
 
 | Plugin | Required channels beyond `DIC` | Legacy | Included in modern defaults |
 | --- | --- | --- | --- |
-| `MCherryLine` | `mCherry`, `GFP` | No | Yes |
-| `GFPDot` | `mCherry`, `GFP` | No | Yes |
-| `GreenRedIntensity` | `mCherry`, `GFP` | No | Yes |
-| `NuclearCellularIntensity` | `mCherry`, `GFP` | No | Yes |
-| `NucleusIntensity` | `DAPI`, `GFP` | Yes | No |
-| `DAPI_NucleusIntensity` | `DAPI` | Yes | No |
-| `RedBlueIntensity` | `mCherry`, `DAPI` | Yes | No |
+| `RedLineIntensity` | `Red`, `Green` | No | Yes |
+| `CENDot` | `Red`, `Green` | No | Yes |
+| `GreenRedIntensity` | `Red`, `Green` | No | Yes |
+| `NuclearCellularIntensity` | `Red`, `Green` | No | Yes |
+| `NucleusIntensity` | `Blue`, `Green` | Yes | No |
+| `BlueNucleusIntensity` | `Blue` | Yes | No |
+| `RedBlueIntensity` | `Red`, `Blue` | Yes | No |
 
 The nuclear or cellular plugin family is exclusive in the current implementation. If multiple plugins from that family are selected, the first one in the stable plugin order remains active.
 
@@ -84,11 +84,11 @@ When `um` is used, values are converted to pixel-space thresholds using the effe
 
 The active measurement-related controls include:
 
-- mCherry line width
-- GFP distance threshold
-- GFP threshold
+- Red line width
+- CEN dot distance threshold
+- CEN dot collinearity threshold
 - nuclear or cellular mode selection
-- optional GFP contour filtering
+- optional Green contour filtering
 
 The nuclear or cellular mode currently supports:
 
@@ -109,7 +109,7 @@ The selected options influence:
 
 - missing required wavelengths
   Upload validation rejects the run before it enters the processing queue.
-- unexpected DAPI requirement
+- unexpected Blue requirement
   A legacy plugin or all-wavelength enforcement is active.
 - invalid unit or negative numeric values
   The application normalizes or falls back to safe defaults.
@@ -119,3 +119,4 @@ The selected options influence:
 - [`workflow-guide.md`](workflow-guide.md)
 - [`output-guide.md`](output-guide.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
+

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}CytoCV{% endblock title %}
 {% block meta_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock meta_description %}
@@ -144,15 +144,15 @@
             background: linear-gradient(135deg, rgba(66, 66, 66, 0.28), rgba(16, 24, 35, 0.58));
             border-color: rgba(128, 128, 128, 0.34);
         }
-        .story-channel-list li.dapi {
+        .story-channel-list li.blue {
             background: linear-gradient(135deg, rgba(33, 74, 212, 0.26), rgba(16, 24, 35, 0.58));
             border-color: rgba(83, 118, 255, 0.34);
         }
-        .story-channel-list li.mcherry {
+        .story-channel-list li.red {
             background: linear-gradient(135deg, rgba(173, 46, 46, 0.28), rgba(16, 24, 35, 0.58));
             border-color: rgba(224, 102, 102, 0.34);
         }
-        .story-channel-list li.gfp {
+        .story-channel-list li.green {
             background: linear-gradient(135deg, rgba(20, 124, 67, 0.28), rgba(16, 24, 35, 0.58));
             border-color: rgba(74, 196, 124, 0.34);
         }
@@ -193,13 +193,13 @@
             transition: background-color 0.2s ease, border-color 0.2s ease;
         }
         .channel-chip.dic { background-color: #3d4756; }
-        .channel-chip.dapi { background-color: #456af0; }
-        .channel-chip.mcherry { background-color: #d85a64; }
-        .channel-chip.gfp { background-color: #309f63; }
+        .channel-chip.blue { background-color: #456af0; }
+        .channel-chip.red { background-color: #d85a64; }
+        .channel-chip.green { background-color: #309f63; }
         .channel-chip.dic:hover { background-color: #4a5567; }
-        .channel-chip.dapi:hover { background-color: #5a7cff; }
-        .channel-chip.mcherry:hover { background-color: #e56f78; }
-        .channel-chip.gfp:hover { background-color: #42b775; }
+        .channel-chip.blue:hover { background-color: #5a7cff; }
+        .channel-chip.red:hover { background-color: #e56f78; }
+        .channel-chip.green:hover { background-color: #42b775; }
         .story-output-label {
             margin: 0 0 2px 0;
             color: rgba(221, 228, 242, 0.92);
@@ -530,7 +530,7 @@
                     </div>
                     <div class="story-card-copy">
                         <p>CytoCV is a web-based analysis platform for DeltaVision <code>.dv</code> microscopy of mitotic yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one browser-based workflow.</p>
-                        <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older DAPI-based workflows available as legacy paths when they are needed.</p>
+                        <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older Blue-based workflows available as legacy paths when they are needed.</p>
                     </div>
                     <ul class="story-channel-list" aria-label="Channel roles">
                         <li class="dic">
@@ -540,23 +540,23 @@
                             </div>
                             <span class="story-channel-copy">Structural channel used for segmentation.</span>
                         </li>
-                        <li class="mcherry">
+                        <li class="red">
                             <div class="story-channel-head">
-                                <span class="channel-chip mcherry">mCherry</span>
+                                <span class="channel-chip red">Red</span>
                                 <span class="story-channel-hint">Red</span>
                             </div>
                             <span class="story-channel-copy">Red-signal contour and distance context.</span>
                         </li>
-                        <li class="gfp">
+                        <li class="green">
                             <div class="story-channel-head">
-                                <span class="channel-chip gfp">GFP</span>
+                                <span class="channel-chip green">Green</span>
                                 <span class="story-channel-hint">Green</span>
                             </div>
                             <span class="story-channel-copy">Green intensity and dot measurements.</span>
                         </li>
-                        <li class="dapi">
+                        <li class="blue">
                             <div class="story-channel-head">
-                                <span class="channel-chip dapi">DAPI</span>
+                                <span class="channel-chip blue">Blue</span>
                                 <span class="story-channel-hint">Legacy</span>
                             </div>
                             <span class="story-channel-copy">Legacy nucleus-related analysis path.</span>
@@ -602,12 +602,12 @@
                     </div>
                     <ul class="story-detail-list">
                         <li>
-                            <strong>mCherry line intensity</strong>
-                            <span>Measures GFP intensity along the line drawn between paired red dot centers.</span>
+                            <strong>Red line intensity</strong>
+                            <span>Measures Green intensity along the line drawn between paired red dot centers.</span>
                         </li>
                         <li>
-                            <strong>GFP dot classification and biorientation</strong>
-                            <span>Classifies GFP-dot behavior relative to paired red signals in the modern workflow.</span>
+                            <strong>CEN dot classification and biorientation</strong>
+                            <span>Classifies Green-dot behavior relative to paired red signals in the modern workflow.</span>
                         </li>
                         <li>
                             <strong>Green and red contour intensity summaries</strong>
@@ -618,7 +618,7 @@
                             <span>Uses either a red-defined or green-defined nucleus contour and measures the opposite channel inside the nucleus and across the whole cell.</span>
                         </li>
                     </ul>
-                    <div class="story-note">DAPI-based measurements remain available as legacy workflows, not the main default path.</div>
+                    <div class="story-note">Blue-based measurements remain available as legacy workflows, not the main default path.</div>
                 </article>
 
                 <article class="story-card glass-card glass-section" data-story-index="4">
@@ -1053,3 +1053,4 @@
     }
 </script>
 {% endblock content %}
+

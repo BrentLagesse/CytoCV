@@ -7,12 +7,13 @@ class GrayImage:
             self._image_storage = img
         else:
             self._image_storage = {
-                'gray_mcherry_3': None,
-                'gray_mcherry': None,
-                'gray_dapi': None,
-                'gray_dapi_3': None,
-                'GFP': None,
-                'GFP_no_bg': None,
+                'gray_red_3': None,
+                'gray_red': None,
+                'gray_blue': None,
+                'gray_blue_3': None,
+                'green': None,
+                'green_no_bg': None,
+                'red_no_bg': None,
             }
     def set_image(self, key:str, image:np.ndarray):
         self._image_storage[key] = image

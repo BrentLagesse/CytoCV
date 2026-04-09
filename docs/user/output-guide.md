@@ -1,4 +1,4 @@
-# Output Guide
+﻿# Output Guide
 
 ## Purpose
 
@@ -35,7 +35,7 @@ The segmentation stage also writes:
 - an exact fluorescence overlay replay snapshot and cache
 - optional raster debug overlays when debug export is enabled
 
-The `DIC` channel generally provides the structural crop view. Fluorescence contour-rich views for `mCherry`, `GFP`, and `DAPI` are now replayed from the exact server render path used during analysis, so those contour views remain available even when optional debug PNG export is disabled.
+The `DIC` channel generally provides the structural crop view. Fluorescence contour-rich views for `Red`, `Green`, and `Blue` are now replayed from the exact server render path used during analysis, so those contour views remain available even when optional debug PNG export is disabled.
 
 ## Database Outputs
 
@@ -47,14 +47,14 @@ Each successful run can create:
 Important `CellStatistics` fields include:
 
 - `distance`
-- `line_gfp_intensity`
+- `line_green_intensity`
 - raw red/green contour intensity sums such as `red_intensity_1`, `green_intensity_1`, `red_in_green_intensity_1`, and `green_in_green_intensity_1`
 - the internal legacy storage fields `green_red_intensity_1` through `green_red_intensity_3`, which now store the public measurement/contour ratio values
 - `nucleus_intensity_sum`
 - `cellular_intensity_sum`
 - `cytoplasmic_intensity`
-- legacy DAPI-derived and red-in-blue fields
-- GFP dot classification fields
+- legacy Blue-derived and red-in-blue fields
+- CEN dot classification fields
 
 For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
 
@@ -109,3 +109,4 @@ After a fully successful run you should expect:
 - [`workflow-guide.md`](workflow-guide.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
+

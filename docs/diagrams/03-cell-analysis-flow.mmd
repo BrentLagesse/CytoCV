@@ -1,4 +1,4 @@
-%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
+﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
 flowchart LR
     classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
     classDef decision fill:#fef3c7,stroke:#f59e0b,color:#92400e,stroke-width:1.2px;
@@ -8,25 +8,25 @@ flowchart LR
 
     crops[Per-cell channel crops]
     gray[Grayscale conversion,<br/>blur, and background subtraction]
-    contours[Contour extraction for<br/>mCherry dots, GFP regions,<br/>and optional DAPI nuclei]
+    contours[Contour extraction for<br/>Red dots, Green regions,<br/>and optional Blue nuclei]
     scale[Scale-aware threshold<br/>resolution]
     plugins[Selected plugins]
-    dapi{DAPI contour needed by a<br/>selected legacy plugin?}
+    blue{Blue contour needed by a<br/>selected legacy plugin?}
     run_all[Run modern plugins and<br/>selected legacy plugins]
-    run_partial[Run modern and other<br/>non-DAPI plugins only]
+    run_partial[Run modern and other<br/>non-Blue plugins only]
     debug[Debug overlays]
     save[(CellStatistics row)]
 
-    crops --> gray --> contours --> scale --> plugins --> dapi
-    dapi -- yes --> run_all --> debug --> save
-    dapi -- no --> run_partial --> debug --> save
+    crops --> gray --> contours --> scale --> plugins --> blue
+    blue -- yes --> run_all --> debug --> save
+    blue -- no --> run_partial --> debug --> save
 
     subgraph families[Plugin families]
-        p1[mCherry line]
-        p2[GFP dot]
+        p1[Red line]
+        p2[CEN dot]
         p3[Green and red intensity]
-        p4[Modern nuclear or cellular<br/>GFP or mCherry contour]
-        p5[Legacy DAPI contour<br/>measurements]
+        p4[Modern nuclear or cellular<br/>Green or Red contour]
+        p5[Legacy Blue contour<br/>measurements]
     end
 
     plugins --> p1
@@ -36,7 +36,8 @@ flowchart LR
     plugins --> p5
 
     class crops,gray,contours,scale,plugins,run_all,run_partial process
-    class dapi decision
+    class blue decision
     class save data
     class debug,p1,p2,p3,p4 output
     class p5 legacy
+

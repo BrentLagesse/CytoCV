@@ -14,16 +14,25 @@ from importlib import import_module
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_ORDER,
+    CHANNEL_ROLE_RED,
+    channel_display_label,
+    channel_sort_key,
+)
 
-CHANNEL_ORDER: tuple[str, ...] = ("DIC", "DAPI", "mCherry", "GFP")
-ALWAYS_REQUIRED_CHANNELS: frozenset[str] = frozenset({"DIC"})
+CHANNEL_ORDER: tuple[str, ...] = CHANNEL_ROLE_ORDER
+ALWAYS_REQUIRED_CHANNELS: frozenset[str] = frozenset({CHANNEL_ROLE_DIC})
 SEGMENTATION_REQUIREMENT_LABEL = "Segmentation/CNN"
 
 CHANNEL_INFO: dict[str, str] = {
-    "DIC": "Differential Interference Contrast channel used for segmentation/CNN preprocessing.",
-    "DAPI": "Blue fluorescence channel used for nucleus-related contours and intensity metrics.",
-    "mCherry": "Red fluorescence channel used for spindle pole body/dot contour detection.",
-    "GFP": "Green fluorescence channel used for GFP intensity and GFP-dot related measurements.",
+    CHANNEL_ROLE_DIC: "Differential Interference Contrast channel used for segmentation/CNN preprocessing.",
+    CHANNEL_ROLE_BLUE: "Blue fluorescence channel used for nucleus-related contours and legacy blue-channel metrics.",
+    CHANNEL_ROLE_RED: "Red fluorescence channel used for dot contour detection and red intensity measurements.",
+    CHANNEL_ROLE_GREEN: "Green fluorescence channel used for green intensity, contour, and CEN dot measurements.",
 }
 
 
@@ -53,32 +62,38 @@ class StatsExecutionPlan:
 
 # Keep order stable for UI rendering.
 PLUGIN_ORDER: tuple[str, ...] = (
-    "MCherryLine",
-    "GFPDot",
+    "RedLineIntensity",
+    "CENDot",
     "GreenRedIntensity",
     "NuclearCellularIntensity",
     "NucleusIntensity",
-    "DAPI_NucleusIntensity",
+    "BlueNucleusIntensity",
     "RedBlueIntensity",
 )
 
+PLUGIN_ID_ALIASES: dict[str, str] = {
+    "MCherryLine": "RedLineIntensity",
+    "GFPDot": "CENDot",
+    "DAPI_NucleusIntensity": "BlueNucleusIntensity",
+}
+
 
 PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
-    "MCherryLine": StatsPluginDefinition(
-        plugin_id="MCherryLine",
-        label="mCherry Line Intensity",
-        description="Draws a line between red dot centers and measures GFP intensity along that line.",
-        module_name="core.cell_analysis.mcherry_line",
-        class_name="MCherryLine",
-        required_channels=frozenset({"mCherry", "GFP"}),
+    "RedLineIntensity": StatsPluginDefinition(
+        plugin_id="RedLineIntensity",
+        label="Red Line Intensity",
+        description="Draws a line between red dot centers and measures green intensity along that line.",
+        module_name="core.cell_analysis.red_line_intensity",
+        class_name="RedLineIntensity",
+        required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
     ),
-    "GFPDot": StatsPluginDefinition(
-        plugin_id="GFPDot",
-        label="GFP Dot Classification",
-        description="Classifies GFP-dot category/biorientation relative to paired red dots.",
-        module_name="core.cell_analysis.gfp_dot",
-        class_name="GFPDot",
-        required_channels=frozenset({"mCherry", "GFP"}),
+    "CENDot": StatsPluginDefinition(
+        plugin_id="CENDot",
+        label="CEN Dot Classification",
+        description="Classifies CEN-dot category and biorientation relative to paired red dots.",
+        module_name="core.cell_analysis.cen_dot",
+        class_name="CENDot",
+        required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
     ),
     "GreenRedIntensity": StatsPluginDefinition(
         plugin_id="GreenRedIntensity",
@@ -89,7 +104,7 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         ),
         module_name="core.cell_analysis.green_red_intensity",
         class_name="GreenRedIntensity",
-        required_channels=frozenset({"mCherry", "GFP"}),
+        required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
     ),
     "NuclearCellularIntensity": StatsPluginDefinition(
         plugin_id="NuclearCellularIntensity",
@@ -100,36 +115,36 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         ),
         module_name="core.cell_analysis.nuclear_cellular_intensity",
         class_name="NuclearCellularIntensity",
-        required_channels=frozenset({"mCherry", "GFP"}),
+        required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
         exclusive_group="nuclear_cellular",
     ),
     "NucleusIntensity": StatsPluginDefinition(
         plugin_id="NucleusIntensity",
-        label="Nucleus GFP Intensity",
-        description="Measures GFP intensity in nuclear vs cellular regions using DAPI contour reference.",
+        label="Nucleus Green Intensity",
+        description="Measures green intensity in nuclear vs cellular regions using Blue contour reference.",
         module_name="core.cell_analysis.nucleus_intensity",
         class_name="NucleusIntensity",
-        required_channels=frozenset({"DAPI", "GFP"}),
+        required_channels=frozenset({CHANNEL_ROLE_BLUE, CHANNEL_ROLE_GREEN}),
         is_legacy=True,
         exclusive_group="nuclear_cellular",
     ),
-    "DAPI_NucleusIntensity": StatsPluginDefinition(
-        plugin_id="DAPI_NucleusIntensity",
-        label="Nucleus DAPI Intensity",
-        description="Measures DAPI intensity in nucleus/cytoplasm using DAPI contour reference.",
-        module_name="core.cell_analysis.dapi_nucleus_intensity",
-        class_name="DAPI_NucleusIntensity",
-        required_channels=frozenset({"DAPI"}),
+    "BlueNucleusIntensity": StatsPluginDefinition(
+        plugin_id="BlueNucleusIntensity",
+        label="Nucleus Blue Intensity",
+        description="Measures blue intensity in nucleus/cytoplasm using Blue contour reference.",
+        module_name="core.cell_analysis.blue_nucleus_intensity",
+        class_name="BlueNucleusIntensity",
+        required_channels=frozenset({CHANNEL_ROLE_BLUE}),
         is_legacy=True,
         exclusive_group="nuclear_cellular",
     ),
     "RedBlueIntensity": StatsPluginDefinition(
         plugin_id="RedBlueIntensity",
         label="Red-in-Blue Intensity",
-        description="Measures DAPI intensity around red-dot contour locations.",
+        description="Measures blue intensity around red-dot contour locations.",
         module_name="core.cell_analysis.red_blue_intensity",
         class_name="RedBlueIntensity",
-        required_channels=frozenset({"mCherry", "DAPI"}),
+        required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE}),
         is_legacy=True,
         exclusive_group="nuclear_cellular",
     ),
@@ -137,16 +152,17 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
 
 
 def _channel_sort_key(channel: str) -> int:
-    try:
-        return CHANNEL_ORDER.index(channel)
-    except ValueError:
-        return len(CHANNEL_ORDER)
+    return channel_sort_key(channel)
 
 
 def normalize_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
     """Return plugin IDs filtered to known plugins in stable order."""
 
-    selected_set = {name for name in selected_plugins if name in PLUGIN_DEFINITIONS}
+    selected_set = {
+        PLUGIN_ID_ALIASES.get(name, name)
+        for name in selected_plugins
+        if PLUGIN_ID_ALIASES.get(name, name) in PLUGIN_DEFINITIONS
+    }
     normalized: list[str] = []
     seen_exclusive_groups: set[str] = set()
     for plugin_id in PLUGIN_ORDER:
@@ -252,6 +268,10 @@ def build_plugin_ui_payload() -> dict:
                 "label": definition.label,
                 "description": definition.description,
                 "required_channels": sorted(definition.required_channels, key=_channel_sort_key),
+                "required_channel_labels": [
+                    channel_display_label(channel)
+                    for channel in sorted(definition.required_channels, key=_channel_sort_key)
+                ],
                 "required_plugins": sorted(definition.required_plugins),
                 "is_legacy": definition.is_legacy,
                 "exclusive_group": definition.exclusive_group,
@@ -261,8 +281,10 @@ def build_plugin_ui_payload() -> dict:
     return {
         "plugins": plugins,
         "channel_order": list(CHANNEL_ORDER),
+        "channel_display_order": [channel_display_label(channel) for channel in CHANNEL_ORDER],
         "always_required_channels": sorted(ALWAYS_REQUIRED_CHANNELS, key=_channel_sort_key),
         "channel_info": CHANNEL_INFO,
+        "channel_labels": {channel: channel_display_label(channel) for channel in CHANNEL_ORDER},
     }
 
 
@@ -275,6 +297,7 @@ def load_available_plugin_ids() -> list[str]:
 def get_plugin_class(plugin_id: str) -> type[Any]:
     """Resolve a plugin's class from explicit module metadata."""
 
+    plugin_id = PLUGIN_ID_ALIASES.get(plugin_id, plugin_id)
     definition = PLUGIN_DEFINITIONS[plugin_id]
     module = import_module(definition.module_name)
     return getattr(module, definition.class_name)

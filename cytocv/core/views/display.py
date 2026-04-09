@@ -10,13 +10,21 @@ from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from accounts.preferences import get_user_preferences
-from core.config import get_channel_config_for_uuid
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+    channel_display_label,
+    channel_role_from_slug,
+    channel_slug,
+)
+from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
 from core.models import (
     UploadedImage,
     SegmentedImage,
     CellStatistics,
     get_guest_user,
-    get_gfp_dot_category_label,
 )
 from core.services.artifact_storage import (
     StorageQuotaExceeded,
@@ -25,10 +33,7 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
-from core.services.measurement_contour_ratio import (
-    build_measurement_contour_ratio_payload,
-    normalize_nuclear_cellular_mode,
-)
+from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
@@ -165,9 +170,12 @@ def display(request, uuids):
     # List to store file information for sidebar navigation
     file_list = []
     cell_table = None
-    # Define the channel order that matches your HTML template:
-    # Order: DIC, DAPI, mCherry, GFP
-    channel_order = ["DIC", "DAPI", "mCherry", "GFP"]
+    channel_order = [
+        CHANNEL_ROLE_DIC,
+        CHANNEL_ROLE_BLUE,
+        CHANNEL_ROLE_RED,
+        CHANNEL_ROLE_GREEN,
+    ]
 
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
@@ -188,8 +196,11 @@ def display(request, uuids):
             image_name = uploaded_image.name
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
-            # sort by the saved index → this yields e.g. ["DIC","DAPI","mCherry","GFP"]
-            detected = [ch for ch, _ in sorted(channel_config.items(), key=lambda t: t[1])]
+            # Sort by saved index so the sidebar mirrors the detected file order.
+            detected = [
+                channel_display_label(channel_name)
+                for channel_name, _ in sorted(channel_config.items(), key=lambda t: t[1])
+            ]
 
             # Append file info for the sidebar, INCLUDING the channel pills
             file_list.append({
@@ -213,14 +224,14 @@ def display(request, uuids):
                     cell_image = SegmentedImage.objects.get(UUID=uuid)
                     delete_cell = CellStatistics.objects.get(segmented_image=cell_image,cell_id=cell_id)
                     delete_cell.delete()
-                elif 'gfp' in request.POST:
-                    image_index = 1
-                elif 'mCherry' in request.POST:
-                    image_index = 0
+                elif 'green' in request.POST or 'gfp' in request.POST:
+                    image_index = channel_config.get(CHANNEL_ROLE_GREEN, 2)
+                elif 'red' in request.POST or 'mCherry' in request.POST:
+                    image_index = channel_config.get(CHANNEL_ROLE_RED, 3)
                 elif 'dic' in request.POST:
-                    image_index = 3
+                    image_index = channel_config.get(CHANNEL_ROLE_DIC, 0)
                 else:
-                    image_index = 2
+                    image_index = channel_config.get(CHANNEL_ROLE_BLUE, 1)
             image_file_name = image_name_stem + "_frame_" + str(image_index)
             full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
             has_overlay_render_config = overlay_render_config_exists(uuid)
@@ -248,7 +259,7 @@ def display(request, uuids):
             if number_of_cells == 0:
                 no_cells_warning = (
                     'No segmented cells were produced for this file. '
-                    'Check channel mapping (DIC/DAPI/mCherry/GFP) and try again.'
+                    'Check channel mapping (DIC/Blue/Red/Green) and try again.'
                 )
 
             for i in cell_ids:
@@ -260,7 +271,7 @@ def display(request, uuids):
                     debug_file_name = f"{image_name_stem}-{i}-{channel_name}_debug.png"
                     debug_file_path = Path(MEDIA_ROOT) / str(uuid) / "segmented" / debug_file_name
                     if (
-                        channel_name in ["mCherry", "GFP", "DAPI"]
+                        channel_name in [CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE]
                         and cell_stat is not None
                         and (has_overlay_render_config or debug_file_path.exists())
                     ):
@@ -270,66 +281,7 @@ def display(request, uuids):
                     images[str(i)].append(image_url)
                     images[str(i)].append(no_outline)
 
-                # Retrieve statistics for the cell
-                if cell_stat:
-                    properties = cell_stat.properties or {}
-                    nuclear_cellular_mode = normalize_nuclear_cellular_mode(
-                        properties.get("nuclear_cellular_mode")
-                    )
-                    statistics[str(i)] = {
-                        'distance': cell_stat.distance,
-                        'line_gfp_intensity': cell_stat.line_gfp_intensity,
-                        'blue_contour_size': cell_stat.blue_contour_size,
-                        'red_contour_1_size': cell_stat.red_contour_1_size,
-                        'red_contour_2_size': cell_stat.red_contour_2_size,
-                        'red_contour_3_size': cell_stat.red_contour_3_size,
-                        'red_intensity_1': cell_stat.red_intensity_1,
-                        'red_intensity_2': cell_stat.red_intensity_2,
-                        'red_intensity_3': cell_stat.red_intensity_3,
-                        'green_intensity_1': cell_stat.green_intensity_1,
-                        'green_intensity_2': cell_stat.green_intensity_2,
-                        'green_intensity_3': cell_stat.green_intensity_3,
-                        'red_in_green_intensity_1': cell_stat.red_in_green_intensity_1,
-                        'red_in_green_intensity_2': cell_stat.red_in_green_intensity_2,
-                        'red_in_green_intensity_3': cell_stat.red_in_green_intensity_3,
-                        'green_in_green_intensity_1': cell_stat.green_in_green_intensity_1,
-                        'green_in_green_intensity_2': cell_stat.green_in_green_intensity_2,
-                        'green_in_green_intensity_3': cell_stat.green_in_green_intensity_3,
-                        'gfp_contour_1_size': cell_stat.gfp_contour_1_size,
-                        'gfp_contour_2_size': cell_stat.gfp_contour_2_size,
-                        'gfp_contour_3_size': cell_stat.gfp_contour_3_size,
-                        'gfp_to_mcherry_distance_1': cell_stat.gfp_to_mcherry_distance_1,
-                        'gfp_to_mcherry_distance_2': cell_stat.gfp_to_mcherry_distance_2,
-                        'gfp_to_mcherry_distance_3': cell_stat.gfp_to_mcherry_distance_3,
-                        'nucleus_intensity_sum': cell_stat.nucleus_intensity_sum,
-                        'cellular_intensity_sum': cell_stat.cellular_intensity_sum,
-                        'cytoplasmic_intensity': cell_stat.cytoplasmic_intensity,
-                        'cellular_intensity_sum_DAPI': cell_stat.cellular_intensity_sum_DAPI,
-                        'nucleus_intensity_sum_DAPI': cell_stat.nucleus_intensity_sum_DAPI,
-                        'cytoplasmic_intensity_DAPI': cell_stat.cytoplasmic_intensity_DAPI,
-                        'nuclear_cellular_mode': nuclear_cellular_mode,
-                        'nuclear_cellular_contour_channel': properties.get(
-                            "nuclear_cellular_contour_channel",
-                            "GFP",
-                        ),
-                        'nuclear_cellular_measurement_channel': properties.get(
-                            "nuclear_cellular_measurement_channel",
-                            "mCherry",
-                        ),
-                        'nuclear_cellular_status': properties.get(
-                            "nuclear_cellular_status",
-                            "unknown",
-                        ),
-                        'category_GFP_dot': cell_stat.category_GFP_dot,
-                        'category_GFP_dot_label': get_gfp_dot_category_label(cell_stat.category_GFP_dot),
-                        'biorientation': cell_stat.biorientation,
-                        **build_measurement_contour_ratio_payload(
-                            cell_stat,
-                            mode=nuclear_cellular_mode,
-                        ),
-                    }
-                else:
-                    statistics[str(i)] = None  # In case statistics are missing for a cell
+                statistics[str(i)] = serialize_cell_statistics_payload(cell_stat)
 
             export_format = request.GET.get('_export', None)
             if TableExport.is_valid_format(export_format) and cell_table is not None:
@@ -348,6 +300,10 @@ def display(request, uuids):
                 'NumberOfCells': number_of_cells,
                 'CellPairImages': images,
                 'Image_Name': image_name,
+                'ChannelConfig': {
+                    channel_slug(channel_name): channel_index
+                    for channel_name, channel_index in channel_config.items()
+                },
                 'Statistics': statistics,
                 'NoCellsWarning': no_cells_warning,
             }
@@ -677,19 +633,8 @@ def main_image_channel(request, uuid):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     channel = (request.GET.get('channel') or '').strip().lower()
-    channel_to_config_key = {
-        'mcherry': 'mCherry',
-        'gfp': 'GFP',
-        'dapi': 'DAPI',
-        'dic': 'DIC',
-    }
-    fallback_frame_map = {
-        'mcherry': 0,
-        'gfp': 1,
-        'dapi': 2,
-        'dic': 3,
-    }
-    if channel not in channel_to_config_key:
+    channel_role = channel_role_from_slug(channel)
+    if not channel_role:
         return JsonResponse({'error': 'Unknown channel'}, status=400)
 
     try:
@@ -706,10 +651,16 @@ def main_image_channel(request, uuid):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
     channel_config = get_channel_config_for_uuid(str(uuid))
-    configured_frame_idx = channel_config.get(
-        channel_to_config_key[channel],
-        fallback_frame_map[channel],
-    )
+    fallback_frame_map = {
+        channel_slug(role): DEFAULT_CHANNEL_CONFIG.get(role, 0)
+        for role in (
+            CHANNEL_ROLE_RED,
+            CHANNEL_ROLE_GREEN,
+            CHANNEL_ROLE_BLUE,
+            CHANNEL_ROLE_DIC,
+        )
+    }
+    configured_frame_idx = channel_config.get(channel_role, fallback_frame_map[channel])
     available_frames = _scan_output_frames(str(uuid))
     full_outlined = available_frames.get(configured_frame_idx)
     if not full_outlined:

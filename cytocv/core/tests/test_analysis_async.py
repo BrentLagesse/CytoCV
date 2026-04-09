@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -174,3 +174,4 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(kwargs["format"], "PNG")
             self.assertFalse(kwargs["optimize"])
             self.assertEqual(kwargs["compress_level"], 1)
+

@@ -1,4 +1,4 @@
-# CytoCV VM Deployment Guide (UWB Ubuntu VM)
+﻿# CytoCV VM Deployment Guide (UWB Ubuntu VM)
 
 Maintainer: Nicolas Gioanni
 
@@ -784,3 +784,4 @@ After the server is up:
 2. Lock provider settings to the production domain only.
 3. Finish SMTP configuration with UW IT.
 4. Confirm the VM or analysis host has AVX-capable CPU support before expecting image analysis to work.
+

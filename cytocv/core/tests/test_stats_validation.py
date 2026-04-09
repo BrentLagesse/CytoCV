@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase
+﻿from django.test import SimpleTestCase
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -24,18 +24,18 @@ class StatsRequirementTests(SimpleTestCase):
         self.assertEqual(summary["required_channels"], ["DIC"])
 
     def test_dapi_nucleus_requires_dapi_plus_dic(self):
-        summary = build_requirement_summary(["DAPI_NucleusIntensity"])
-        self.assertEqual(summary["required_channels"], ["DIC", "DAPI"])
+        summary = build_requirement_summary(["BlueNucleusIntensity"])
+        self.assertEqual(summary["required_channels"], ["DIC", "channel_blue"])
 
     def test_nuclear_cellular_requires_dic_mcherry_gfp(self):
         summary = build_requirement_summary(["NuclearCellularIntensity"])
-        self.assertEqual(summary["required_channels"], ["DIC", "mCherry", "GFP"])
+        self.assertEqual(summary["required_channels"], ["DIC", "channel_red", "channel_green"])
 
     def test_exclusive_group_keeps_first_plugin_in_order(self):
-        selected = normalize_selected_plugins(["NucleusIntensity", "NuclearCellularIntensity", "DAPI_NucleusIntensity"])
+        selected = normalize_selected_plugins(["NucleusIntensity", "NuclearCellularIntensity", "BlueNucleusIntensity"])
         self.assertIn("NuclearCellularIntensity", selected)
         self.assertNotIn("NucleusIntensity", selected)
-        self.assertNotIn("DAPI_NucleusIntensity", selected)
+        self.assertNotIn("BlueNucleusIntensity", selected)
 
     def test_plugin_payload_includes_legacy_metadata(self):
         payload = build_plugin_ui_payload()
@@ -53,18 +53,18 @@ class DVErrorMessageTests(SimpleTestCase):
         options = DVValidationOptions(
             enforce_layer_count=True,
             enforce_wavelengths=False,
-            required_channels={"DIC", "DAPI"},
+            required_channels={"DIC", "channel_blue"},
         )
         failures = [
-            ("file_a", DVValidationResult(False, 4, {"DAPI"}, required_channels={"DIC", "DAPI"})),
-            ("file_b", DVValidationResult(False, 4, {"DAPI"}, required_channels={"DIC", "DAPI"})),
-            ("file_c", DVValidationResult(False, 4, {"DIC", "DAPI"}, required_channels={"DIC", "DAPI"})),
+            ("file_a", DVValidationResult(False, 4, {"channel_blue"}, required_channels={"DIC", "channel_blue"})),
+            ("file_b", DVValidationResult(False, 4, {"channel_blue"}, required_channels={"DIC", "channel_blue"})),
+            ("file_c", DVValidationResult(False, 4, {"DIC", "channel_blue"}, required_channels={"DIC", "channel_blue"})),
         ]
 
         lines = build_dv_error_messages(failures, options)
         message_blob = "\n".join(lines)
-        self.assertIn("The following wavelengths are required: DIC, DAPI.", message_blob)
-        self.assertIn("- file_a.dv, file_b.dv: missing DAPI", message_blob)
+        self.assertIn("The following wavelengths are required: DIC, Blue.", message_blob)
+        self.assertIn("- file_a.dv, file_b.dv: missing Blue", message_blob)
         self.assertIn("- file_c.dv: missing all required wavelengths", message_blob)
 
     def test_effective_required_channels_include_advanced_full_toggle(self):
@@ -74,16 +74,16 @@ class DVErrorMessageTests(SimpleTestCase):
             required_channels={"DIC"},
         )
         required = get_effective_required_channels(options)
-        self.assertEqual(required, {"DIC", "DAPI", "mCherry", "GFP"})
+        self.assertEqual(required, {"DIC", "channel_blue", "channel_red", "channel_green"})
 
     def test_layer_count_errors_not_reported_when_layer_enforcement_is_disabled(self):
         options = DVValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
-            required_channels={"DIC", "GFP"},
+            required_channels={"DIC", "channel_green"},
         )
         failures = [
-            ("file_a", DVValidationResult(False, 1, {"GFP"}, required_channels={"DIC", "GFP"})),
+            ("file_a", DVValidationResult(False, 1, {"channel_green"}, required_channels={"DIC", "channel_green"})),
         ]
 
         lines = build_dv_error_messages(failures, options)
@@ -117,24 +117,24 @@ class DVValidationPresenceTests(SimpleTestCase):
         options = DVValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
-            required_channels={"DIC", "mCherry", "GFP"},
+            required_channels={"DIC", "channel_red", "channel_green"},
         )
 
         result = validate_dv_file(Path("dummy.dv"), options)
         self.assertFalse(result.is_valid)
-        self.assertEqual(result.missing_channels, {"mCherry", "GFP"})
+        self.assertEqual(result.missing_channels, {"channel_red", "channel_green"})
 
     @patch("core.metadata_processing.error_handling.dv_validation.is_recognized_dv_file", return_value=True)
     @patch("core.metadata_processing.error_handling.dv_validation.get_dv_layer_count", return_value=3)
     @patch(
         "core.metadata_processing.error_handling.dv_validation.extract_channel_config",
-        return_value={"DIC": 0, "mcherry": 1, "GFP": 2},
+        return_value={"DIC": 0, "red": 1, "GFP": 2},
     )
     def test_channel_name_aliases_are_accepted(self, _cfg, _layers, _recognized):
         options = DVValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
-            required_channels={"DIC", "mCherry", "GFP"},
+            required_channels={"DIC", "channel_red", "channel_green"},
         )
 
         result = validate_dv_file(Path("dummy.dv"), options)
@@ -163,9 +163,9 @@ class DVChannelParserTests(SimpleTestCase):
         self.assertEqual(
             config,
             {
-                "GFP": 0,
-                "mCherry": 1,
-                "DAPI": 2,
+                "channel_green": 0,
+                "channel_red": 1,
+                "channel_blue": 2,
                 "DIC": 3,
             },
         )
@@ -194,22 +194,22 @@ class AnalysisRegressionTests(SimpleTestCase):
         cp = SimpleNamespace(properties={"nuclear_cellular_mode": "red_nucleus"})
         preprocessed = GrayImage(
             img={
-                "mCherry_no_bg": np.ones((8, 8), dtype=np.uint8),
-                "gray_mcherry": None,
-                "GFP_no_bg": np.ones((8, 8), dtype=np.uint8),
-                "GFP": None,
+                "red_no_bg": np.ones((8, 8), dtype=np.uint8),
+                "gray_red": None,
+                "green_no_bg": np.ones((8, 8), dtype=np.uint8),
+                "green": None,
             }
         )
         plugin.setting_up(cp, preprocessed, output_dir="")
 
         plugin.calculate_statistics(
             best_contours={},
-            contours_data={"dot_contours": [], "contours_gfp": []},
+            contours_data={"dot_contours": [], "contours_green": []},
             red_image=None,
             green_image=None,
-            mcherry_line_width_input=1,
-            gfp_distance=37,
-            gfp_threshold=66,
+            red_line_width_input=1,
+            cen_dot_distance=37,
+            cen_dot_collinearity_threshold=66,
         )
 
         self.assertEqual(cp.red_intensity_1, 0.0)
@@ -240,10 +240,10 @@ class AnalysisRegressionTests(SimpleTestCase):
         )
         preprocessed = GrayImage(
             img={
-                "mCherry_no_bg": red_image,
-                "gray_mcherry": None,
-                "GFP_no_bg": green_image,
-                "GFP": None,
+                "red_no_bg": red_image,
+                "gray_red": None,
+                "green_no_bg": green_image,
+                "green": None,
             }
         )
         plugin.setting_up(cp, preprocessed, output_dir="")
@@ -255,13 +255,13 @@ class AnalysisRegressionTests(SimpleTestCase):
             best_contours={},
             contours_data={
                 "dot_contours": [red_contour],
-                "contours_gfp": [green_contour],
+                "contours_green": [green_contour],
             },
             red_image=None,
             green_image=None,
-            mcherry_line_width_input=1,
-            gfp_distance=37,
-            gfp_threshold=66,
+            red_line_width_input=1,
+            cen_dot_distance=37,
+            cen_dot_collinearity_threshold=66,
         )
 
         red_mask = np.zeros(red_image.shape, dtype=np.uint8)
@@ -310,10 +310,10 @@ class AnalysisRegressionTests(SimpleTestCase):
         )
         preprocessed = GrayImage(
             img={
-                "mCherry_no_bg": red_image,
-                "gray_mcherry": None,
-                "GFP_no_bg": green_image,
-                "GFP": None,
+                "red_no_bg": red_image,
+                "gray_red": None,
+                "green_no_bg": green_image,
+                "green": None,
             }
         )
         plugin.setting_up(cp, preprocessed, output_dir="")
@@ -325,13 +325,13 @@ class AnalysisRegressionTests(SimpleTestCase):
             best_contours={},
             contours_data={
                 "dot_contours": [red_contour],
-                "contours_gfp": [green_contour],
+                "contours_green": [green_contour],
             },
             red_image=None,
             green_image=None,
-            mcherry_line_width_input=1,
-            gfp_distance=37,
-            gfp_threshold=66,
+            red_line_width_input=1,
+            cen_dot_distance=37,
+            cen_dot_collinearity_threshold=66,
         )
 
         green_mask = np.zeros(green_image.shape, dtype=np.uint8)
@@ -346,3 +346,4 @@ class AnalysisRegressionTests(SimpleTestCase):
             expected_red_in_green / expected_green_in_green,
         )
         self.assertEqual(cp.green_red_intensity_2, 0.0)
+

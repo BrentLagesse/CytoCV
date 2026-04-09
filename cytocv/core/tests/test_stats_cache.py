@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -77,7 +77,7 @@ class GetStatsCacheTests(SimpleTestCase):
             "input_dir": output_dir,
             "output_dir": output_dir,
             "kernel_size": 3,
-            "mCherry_line_width": 1,
+            "red_line_width": 1,
             "kernel_deviation": 1,
             "arrested": "Metaphase Arrested",
             "analysis": list(analysis or []),
@@ -114,7 +114,7 @@ class GetStatsCacheTests(SimpleTestCase):
         cached_images = {
             "GFP": np.full((5, 5, 3), 28, dtype=np.uint8),
         }
-        execution_plan = build_stats_execution_plan(["DAPI_NucleusIntensity"])
+        execution_plan = build_stats_execution_plan(["BlueNucleusIntensity"])
 
         with TemporaryDirectory() as temp_dir, patch(
             "core.image_processing.image_operations.Image.open",
@@ -122,7 +122,7 @@ class GetStatsCacheTests(SimpleTestCase):
         ):
             debug_mcherry, debug_gfp, debug_dapi = get_stats(
                 cp,
-                self._build_conf(temp_dir, ["DAPI_NucleusIntensity"]),
+                self._build_conf(temp_dir, ["BlueNucleusIntensity"]),
                 execution_plan,
                 1,
                 37,
@@ -134,3 +134,4 @@ class GetStatsCacheTests(SimpleTestCase):
         self.assertEqual(debug_gfp.size, (5, 5))
         self.assertEqual(debug_dapi.size, (5, 5))
         self.assertEqual(getattr(cp, "blue_contour_size", None), 0.0)
+

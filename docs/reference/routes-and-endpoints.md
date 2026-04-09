@@ -1,4 +1,4 @@
-# Routes And Endpoints
+﻿# Routes And Endpoints
 
 ## Purpose
 
@@ -138,7 +138,7 @@ This document lists the current public routes and route-level behavior defined i
 - Name: `cell_overlay_image`
 - Auth: required
 - Purpose: serve the exact fluorescence contour-rich PNG for one cell and one channel
-- Supported channels: `dapi`, `gfp`, `mcherry`
+- Supported channels: `blue`, `green`, `red`
 - Notes:
   - enforces the same ownership and transient-run access rules as display
   - prefers a cached overlay PNG under the run namespace
@@ -193,3 +193,4 @@ This document lists the current public routes and route-level behavior defined i
 - [`data-model.md`](data-model.md)
 - [`file-format-and-artifact-spec.md`](file-format-and-artifact-spec.md)
 - [`../developer/request-flows.md`](../developer/request-flows.md)
+

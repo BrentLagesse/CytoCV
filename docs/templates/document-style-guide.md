@@ -1,4 +1,4 @@
-# Document Style Guide
+﻿# Document Style Guide
 
 ## Purpose
 
@@ -59,3 +59,4 @@ Update documentation whenever any of these change:
 - plugin identities or channel requirements
 - retention or storage behavior
 - authentication or account behavior
+
