@@ -1281,6 +1281,59 @@
             line-height: 1.4;
             color: var(--muted);
         }
+        .metric-lead-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .selection-info-dot {
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            color: #ffffff;
+            background: var(--accent);
+            cursor: pointer;
+            opacity: 0.95;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .selection-info-dot:hover {
+            background: #0f70d8;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .selection-info-dot.metric-info-dot {
+            background: rgba(20, 27, 37, 0.92);
+            border-color: rgba(255, 255, 255, 0.16);
+            color: rgba(232, 240, 255, 0.96);
+        }
+        .selection-info-dot.metric-info-dot:hover {
+            background: rgba(28, 36, 48, 0.98);
+            border-color: rgba(255, 255, 255, 0.24);
+        }
+        .info-tooltip {
+            position: fixed;
+            z-index: 4000;
+            max-width: min(320px, calc(100vw - 24px));
+            padding: 8px 10px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: rgba(14, 16, 20, 0.98);
+            color: #e9e9e9;
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: pre-line;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+        .info-tooltip[hidden] {
+            display: none !important;
+        }
         .tight-info,
         .metric-row {
             display: grid;
@@ -1780,11 +1833,11 @@
                                     <div class="cell-stats-section">
                                         <p class="metric-lead">Line + Spot Metrics</p>
                                         <div class="metric-row">
-                                            <span class="metric-label">Red line distance</span>
+                                            <span class="metric-label" id="distanceLabel">Distance between Red Puncta</span>
                                             <span class="metric-value" id="distance"></span>
                                         </div>
                                         <div class="metric-row">
-                                            <span class="metric-label">Line Green Intensity</span>
+                                            <span class="metric-label" id="lineIntensityLabel">Green Intensity over Red Line</span>
                                             <span class="metric-value" id="lineGreenIntensity"></span>
                                         </div>
                                         <div class="metric-row">
@@ -1816,7 +1869,15 @@
                                         </div>
                                     </div>
                                     <div class="cell-stats-section">
-                                        <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                        <div class="metric-lead-row">
+                                            <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                            <span
+                                                class="selection-info-dot metric-info-dot"
+                                                data-info-text="Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell, size and intensity values for the same slot match, and nuclear intensity uses slot 1 of the selected nucleus contour family."
+                                                aria-label="Contour slot ranking details"
+                                                title="Contour slot ranking details"
+                                            >i</span>
+                                        </div>
                                         <div class="metric-row">
                                             <span class="metric-label">Red in Red intensity 1</span>
                                             <span class="metric-value" id="redInRedIntensity1"></span>
@@ -1919,6 +1980,7 @@
     </div>
 
     <script id="dashboardFilesData" type="application/json">{{ files_data_json|safe }}</script>
+    <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
     <script>
         // Parse JSON file data
@@ -2252,6 +2314,8 @@
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
             const labels = getNuclearLabelPair(mode);
+            const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance between Red Puncta') : 'Distance between Red Puncta';
+            const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity over Red Line') : 'Green Intensity over Red Line';
 
             return {
                 visibleImageUrls,
@@ -2285,6 +2349,8 @@
                     nuclearStatus: cellStats ? (cellStats.nuclear_cellular_status || 'unknown') : 'N/A',
                 },
                 labels: {
+                    distanceLabel,
+                    lineIntensityLabel,
                     nucleusIntensityLabel: labels.nuclear,
                     cellularIntensityLabel: labels.cellular,
                 },
@@ -2296,6 +2362,8 @@
                 return Promise.resolve();
             }
 
+            document.getElementById('distanceLabel').textContent = state.labels.distanceLabel;
+            document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
 
@@ -2554,7 +2622,11 @@
             const keyMap = {
                 'Cell ID': 'cell_id',
                 'Red Line Distance': 'distance',
+                'Distance between Red Puncta': 'distance',
+                'Distance between Green Puncta': 'distance',
                 'Line Green Intensity': 'line_green_intensity',
+                'Green Intensity over Red Line': 'line_green_intensity',
+                'Red Intensity over Green Line': 'line_green_intensity',
                 'Blue Contour Size': 'blue_contour_size',
                 'Red Contour 1 Size': 'red_contour_1_size',
                 'Red Contour 2 Size': 'red_contour_2_size',
@@ -2728,6 +2800,8 @@
             document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);
             document.getElementById("cenDot").textContent = category;
             document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);
+            document.getElementById("distanceLabel").textContent = cellStats ? (cellStats.puncta_distance_label || "Distance between Red Puncta") : "Distance between Red Puncta";
+            document.getElementById("lineIntensityLabel").textContent = cellStats ? (cellStats.puncta_line_intensity_label || "Green Intensity over Red Line") : "Green Intensity over Red Line";
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
             const labels = getNuclearLabelPair(mode);
             document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
@@ -3337,6 +3411,101 @@
 
     <script>
         // Row-popup deletion is intentionally disabled on dashboard.
+    </script>
+
+    <script>
+        (() => {
+            const selectionInfoDots = Array.from(document.querySelectorAll('.selection-info-dot[data-info-text]'));
+            const infoTooltipElement = document.getElementById('selectionInfoTooltip');
+            let activeInfoAnchor = null;
+
+            if (!selectionInfoDots.length || !infoTooltipElement) {
+                return;
+            }
+
+            function normalizeInfoText(value) {
+                if (typeof value !== 'string') return '';
+                return value
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter((line, index, arr) => !(line === '' && (index === 0 || index === arr.length - 1)))
+                    .join('\n');
+            }
+
+            function hideInfoTooltip() {
+                activeInfoAnchor = null;
+                infoTooltipElement.hidden = true;
+                infoTooltipElement.textContent = '';
+            }
+
+            function positionInfoTooltip(anchor) {
+                if (!anchor) return;
+                const rect = anchor.getBoundingClientRect();
+                const margin = 10;
+                const gap = 8;
+
+                infoTooltipElement.style.left = '0px';
+                infoTooltipElement.style.top = '0px';
+                const width = infoTooltipElement.offsetWidth;
+                const height = infoTooltipElement.offsetHeight;
+
+                let left = rect.left + (rect.width / 2) - (width / 2);
+                left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+                let top = rect.top - height - gap;
+                if (top < margin) {
+                    top = rect.bottom + gap;
+                }
+                if (top + height > window.innerHeight - margin) {
+                    top = Math.max(margin, window.innerHeight - height - margin);
+                }
+
+                infoTooltipElement.style.left = `${Math.round(left)}px`;
+                infoTooltipElement.style.top = `${Math.round(top)}px`;
+            }
+
+            function refreshInfoTooltipPosition() {
+                if (!activeInfoAnchor || infoTooltipElement.hidden) return;
+                positionInfoTooltip(activeInfoAnchor);
+            }
+
+            function showInfoTooltip(anchor) {
+                if (!anchor) return;
+                const text = normalizeInfoText(anchor.dataset.infoText || '');
+                if (!text) {
+                    hideInfoTooltip();
+                    return;
+                }
+                activeInfoAnchor = anchor;
+                infoTooltipElement.textContent = text;
+                infoTooltipElement.hidden = false;
+                positionInfoTooltip(anchor);
+            }
+
+            function attachInfoTooltipBehavior(infoDot) {
+                infoDot.addEventListener('mouseenter', () => showInfoTooltip(infoDot));
+                infoDot.addEventListener('mouseleave', hideInfoTooltip);
+                infoDot.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (activeInfoAnchor === infoDot && !infoTooltipElement.hidden) {
+                        hideInfoTooltip();
+                        return;
+                    }
+                    showInfoTooltip(infoDot);
+                });
+            }
+
+            selectionInfoDots.forEach(attachInfoTooltipBehavior);
+            document.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof Element) || !target.classList.contains('selection-info-dot')) {
+                    hideInfoTooltip();
+                }
+            });
+            window.addEventListener('resize', refreshInfoTooltipPosition);
+            window.addEventListener('scroll', refreshInfoTooltipPosition, true);
+        })();
     </script>
 
     <!-- Sidebar Code -->

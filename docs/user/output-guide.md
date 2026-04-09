@@ -58,6 +58,23 @@ Important `CellStatistics` fields include:
 
 For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
 
+For the puncta-line measurement, the internal storage fields remain `distance` and `line_green_intensity`, but the public labels are mode-driven:
+
+- `red_puncta`: `Distance between Red Puncta` and `Green Intensity over Red Line`
+- `green_puncta`: `Distance between Green Puncta` and `Red Intensity over Green Line`
+
+For the modern red/green statistics, contour slots `1/2/3` are canonical ranked slots. Each raw detected contour is filled, clipped to the segmented cell mask, and then ranked by clipped area, then center `x`, then center `y`. This means:
+
+- `red_contour_1_size`, `red_intensity_1`, and `green_intensity_1` all refer to the same clipped Red contour slot
+- `green_contour_1_size`, `red_in_green_intensity_1`, and `green_in_green_intensity_1` all refer to the same clipped Green contour slot
+- in `red_nucleus` mode, `nucleus_intensity_sum` uses Red slot `1`
+- in `green_nucleus` mode, `nucleus_intensity_sum` uses Green slot `1`
+
+As a result, when one contour defines the selected nucleus family, the matching nuclear measurement and cross-channel contour measurement are the same by definition:
+
+- `red_nucleus`: `Green nuclear intensity` matches `Green in Red intensity 1`
+- `green_nucleus`: `Red nuclear intensity` matches `Red in Green intensity 1`
+
 The viewer, statistics table, and CSV/XLSX exports show three derived `Measurement/Contour Ratio` values. Their meaning follows the selected nucleus/cellular mode:
 
 - `red_nucleus`: `Green in Red / Red in Red`
@@ -82,6 +99,7 @@ The on-page statistics tables and the CSV/XLSX exports include both:
 
 - the raw integrated contour intensity sums as the primary table/export values
 - the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
+- canonical contour slot numbering, so size, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
 
 ## Expected Outputs
 

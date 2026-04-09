@@ -9,6 +9,10 @@ from uuid import UUID
 from django.conf import settings
 
 from accounts.preferences import should_auto_save_experiments
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 
 NUCLEAR_CELLULAR_MODES = frozenset({"green_nucleus", "red_nucleus"})
 DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
@@ -22,6 +26,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "stats_use_metadata_scale": True,
     "stats_red_line_width_value": 1.0,
     "stats_cen_dot_distance_value": 37.0,
+    "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
     "nuclear_cellular_mode": "green_nucleus",
     "greenContourFilterEnabled": False,
     "alternateRedDetection": False,
@@ -121,6 +126,13 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
     ).strip()
     if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
         nuclear_cellular_mode = DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cellular_mode"]
+    puncta_line_mode = normalize_puncta_line_mode(
+        payload.get(
+            "puncta_line_mode",
+            DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["puncta_line_mode"],
+        ),
+        default=DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["puncta_line_mode"],
+    )
 
     normalized = {
         "selected_analysis": [str(item) for item in selected_analysis if str(item)],
@@ -164,6 +176,7 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             default=37.0,
             minimum=0.0,
         ),
+        "puncta_line_mode": puncta_line_mode,
         "nuclear_cellular_mode": nuclear_cellular_mode,
         "greenContourFilterEnabled": _parse_bool(
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
@@ -196,6 +209,7 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         "stats_use_metadata_scale": request.session.get("stats_use_metadata_scale", True),
         "stats_red_line_width_value": request.session.get("stats_red_line_width_value", request.session.get("stats_mcherry_width_value", 1.0)),
         "stats_cen_dot_distance_value": request.session.get("stats_cen_dot_distance_value", request.session.get("stats_gfp_distance_value", 37.0)),
+        "puncta_line_mode": request.session.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
         "nuclear_cellular_mode": request.session.get("nuclear_cellular_mode", "green_nucleus"),
         "greenContourFilterEnabled": request.session.get("greenContourFilterEnabled", request.session.get("gfpFilterEnabled", False)),
         "alternateRedDetection": request.session.get("alternateRedDetection", request.session.get("alternateMCherryDetection", False)),

@@ -1046,6 +1046,12 @@ main.main > section.panel {
               {% if plugin.id == 'RedLineIntensity' %}
               <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="RedLineIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
                 <div class="plugin-measure-line">
+                  <label for="puncta_line_mode">Puncta source:</label>
+                  <div class="mode-select-group plugin-measure-right">
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red puncta (measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green puncta (measure Red)</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
                   <label for="red_line_width">Red line width:</label>
                   <div class="length-input-group plugin-measure-right">
                     <input type="number" step="0.01" min="0" id="red_line_width" name="red_line_width" value="{{ preferences.experiment_defaults.red_line_width }}">
@@ -2033,6 +2039,7 @@ main.main > section.panel {
   const cenDotDistanceInput = document.getElementById('cen_dot_distance');
   const cenDotDistanceUnit = document.getElementById('cen_dot_distance_unit');
   const cenDotCollinearityThresholdInput = document.getElementById('cen_dot_collinearity_threshold');
+  const punctaLineModeInput = document.getElementById('puncta_line_mode');
   const nuclearCellularModeInput = document.getElementById('nuclear_cellular_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
   const moduleEnabledInput = document.getElementById('module_enabled');
@@ -2212,6 +2219,7 @@ main.main > section.panel {
     cenDotDistance: captureNumericField(cenDotDistanceInput),
     cenDotDistanceUnit: normalizeLengthUnit(valueOrEmpty(cenDotDistanceUnit)),
     cenDotCollinearityThreshold: captureNumericField(cenDotCollinearityThresholdInput),
+    punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellularMode: valueOrEmpty(nuclearCellularModeInput) || 'green_nucleus',
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
@@ -2461,6 +2469,7 @@ main.main > section.panel {
       syncLengthInputConstraints(cenDotDistanceInput, snapshot.cenDotDistanceUnit, 0, 0);
     }
     if (cenDotCollinearityThresholdInput) cenDotCollinearityThresholdInput.value = snapshot.cenDotCollinearityThreshold.raw;
+    if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     if (nuclearCellularModeInput) nuclearCellularModeInput.value = snapshot.nuclearCellularMode;
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;

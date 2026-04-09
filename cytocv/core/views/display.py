@@ -35,6 +35,7 @@ from core.services.artifact_storage import (
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
+from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
 from core.scale import get_scale_sidebar_payload
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
@@ -47,6 +48,16 @@ def _resolve_nuclear_cellular_mode(stats_iterable):
         props = stat.properties or {}
         mode = props.get("nuclear_cellular_mode")
         if mode in {"green_nucleus", "red_nucleus"}:
+            modes.add(mode)
+    return modes.pop() if len(modes) == 1 else None
+
+
+def _resolve_puncta_line_mode(stats_iterable):
+    modes = set()
+    for stat in stats_iterable:
+        props = stat.properties or {}
+        mode = props.get("puncta_line_mode")
+        if mode in VALID_PUNCTA_LINE_MODES:
             modes.add(mode)
     return modes.pop() if len(modes) == 1 else None
 
@@ -244,7 +255,12 @@ def display(request, uuids):
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
                 table_mode = _resolve_nuclear_cellular_mode(stats_by_id.values())
-                cell_table = CellTable(cell_stats_qs, intensity_mode=table_mode)
+                puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
+                cell_table = CellTable(
+                    cell_stats_qs,
+                    intensity_mode=table_mode,
+                    puncta_line_mode=puncta_line_mode,
+                )
             if stats_by_id:
                 cell_ids = list(stats_by_id.keys())
             else:
@@ -314,7 +330,11 @@ def display(request, uuids):
             return HttpResponse(f"Segmented image not found for UUID {uuid}", status=404)
 
     if cell_table is None:
-        cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
+        cell_table = CellTable(
+            CellStatistics.objects.none(),
+            intensity_mode=None,
+            puncta_line_mode=None,
+        )
 
     # Convert the files_data to JSON to be used in the template
     json_files_data = json.dumps(_sanitize_for_json(all_files_data), allow_nan=False)

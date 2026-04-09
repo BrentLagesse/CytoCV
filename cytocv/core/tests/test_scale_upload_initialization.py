@@ -29,7 +29,13 @@ class UploadScaleInitializationTests(TestCase):
             )
         )
 
-    def _post_upload(self, *, metadata_payload: dict, use_metadata_scale: bool) -> UploadedImage:
+    def _post_upload(
+        self,
+        *,
+        metadata_payload: dict,
+        use_metadata_scale: bool,
+        puncta_line_mode: str = "red_puncta",
+    ) -> UploadedImage:
         upload_file = SimpleUploadedFile(
             "sample.dv",
             b"fake-dv-data",
@@ -75,6 +81,7 @@ class UploadScaleInitializationTests(TestCase):
                                             "stats_cen_dot_distance_value": "37",
                                             "stats_red_line_width_unit": "px",
                                             "stats_cen_dot_distance_unit": "px",
+                                            "puncta_line_mode": puncta_line_mode,
                                             "stats_microns_per_pixel": "0.2",
                                             "stats_use_metadata_scale": "1" if use_metadata_scale else "0",
                                         },
@@ -134,4 +141,20 @@ class UploadScaleInitializationTests(TestCase):
         self.assertEqual(uploaded.scale_info.get("source"), "manual_global")
         self.assertAlmostEqual(uploaded.scale_info.get("effective_um_per_px"), 0.2, places=6)
         self.assertFalse(uploaded.scale_info.get("prefer_metadata"))
+
+    def test_upload_persists_puncta_line_mode_in_session(self):
+        self._post_upload(
+            metadata_payload={
+                "metadata_um_per_px": 0.11,
+                "status": "ok",
+                "dx": 0.11,
+                "dy": 0.11,
+                "dz": 0.2,
+                "note": "",
+            },
+            use_metadata_scale=True,
+            puncta_line_mode="green_puncta",
+        )
+
+        self.assertEqual(self.client.session.get("puncta_line_mode"), "green_puncta")
 

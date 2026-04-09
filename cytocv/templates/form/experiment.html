@@ -1867,6 +1867,7 @@
     const distanceKey = 'cytocv.cen_dot_distance.v2';
     const thresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
     const advancedKey = 'cytocv.advanced_validation.v3';
+    const punctaModeKey = 'cytocv.puncta_line_mode.v1';
     const nuclearModeKey = 'cytocv.nuclear_cellular_mode.v2';
     const legacyLengthUnitKey = 'cytocv.stats_length_unit.v2';
     const redLineWidthUnitKey = 'cytocv.red_line_width_unit.v2';
@@ -1904,6 +1905,7 @@
         redLineWidth: 1,
         cenDotDistance: 37,
         cenDotCollinearityThreshold: 66,
+        punctaLineMode: 'red_puncta',
         nuclearCellularMode: 'green_nucleus',
         greenContourFilterEnabled: false,
         alternateRedDetection: false,
@@ -1928,6 +1930,8 @@
     let measurementScaleUmPerPxValue = null;
     let measurementScaleExampleHint = null;
     let measurementScaleFallbackHint = null;
+    let punctaLineModeRow = null;
+    let punctaLineModeSelect = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
     let infoTooltipElement = null;
@@ -1985,6 +1989,10 @@
         const nuclearMode = serverPreferenceDefaults.nuclear_cellular_mode === 'red_nucleus'
             ? 'red_nucleus'
             : 'green_nucleus';
+        const punctaMode = serverPreferenceDefaults.puncta_line_mode === 'green_puncta'
+            ? 'green_puncta'
+            : 'red_puncta';
+        localStorage.setItem(punctaModeKey, punctaMode);
         localStorage.setItem(nuclearModeKey, nuclearMode);
     }
 
@@ -2742,6 +2750,7 @@
         loadStoredWidth();
         loadStoredDistance();
         loadStoredThreshold();
+        loadStoredPunctaMode();
         loadStoredNuclearMode();
         if (!statsState.showLegacyPlugins) {
             statsPlugins.forEach((plugin) => {
@@ -2795,6 +2804,8 @@
         cenDotDistanceRow = null;
         cenDotCollinearityThresholdInput = null;
         micronsPerPixelInput = null;
+        punctaLineModeRow = null;
+        punctaLineModeSelect = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
 
@@ -2870,6 +2881,43 @@
             });
 
             if (plugin.id === 'RedLineIntensity') {
+                const modeRow = document.createElement('div');
+                modeRow.className = 'nuclear-mode-inline';
+
+                const modeTop = document.createElement('div');
+                modeTop.className = 'nuclear-mode-row';
+
+                const modeLabel = document.createElement('label');
+                modeLabel.setAttribute('for', 'punctaLineMode');
+                modeLabel.textContent = 'Puncta source:';
+                modeTop.appendChild(modeLabel);
+
+                const select = document.createElement('select');
+                select.id = 'punctaLineMode';
+                const redOption = document.createElement('option');
+                redOption.value = 'red_puncta';
+                redOption.textContent = 'Red puncta (measure Green)';
+                const greenOption = document.createElement('option');
+                greenOption.value = 'green_puncta';
+                greenOption.textContent = 'Green puncta (measure Red)';
+                select.appendChild(redOption);
+                select.appendChild(greenOption);
+                select.addEventListener('change', () => {
+                    const nextMode = select.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+                    statsState.punctaLineMode = nextMode;
+                    localStorage.setItem(punctaModeKey, nextMode);
+                });
+                modeTop.appendChild(select);
+                modeRow.appendChild(modeTop);
+
+                const modeHelper = document.createElement('div');
+                modeHelper.className = 'nuclear-mode-helper';
+                modeHelper.textContent = 'Choose which puncta pair defines the line; intensity is measured from the opposite channel along that line.';
+                modeRow.appendChild(modeHelper);
+                row.appendChild(modeRow);
+                punctaLineModeRow = modeRow;
+                punctaLineModeSelect = select;
+
                 const widthRow = document.createElement('div');
                 widthRow.className = 'stats-distance-inline';
                 const widthLine = document.createElement('div');
@@ -3386,6 +3434,11 @@
         statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
     }
 
+    function loadStoredPunctaMode() {
+        const raw = localStorage.getItem(punctaModeKey);
+        statsState.punctaLineMode = raw === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+    }
+
     function loadStoredNuclearMode() {
         const raw = localStorage.getItem(nuclearModeKey);
         statsState.nuclearCellularMode = raw === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
@@ -3503,6 +3556,12 @@
         }
         if (redLineWidthRow) {
             redLineWidthRow.classList.toggle('visible', statsState.selectedPlugins.has('RedLineIntensity'));
+        }
+        if (punctaLineModeSelect) {
+            punctaLineModeSelect.value = statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+        }
+        if (punctaLineModeRow) {
+            punctaLineModeRow.classList.toggle('visible', statsState.selectedPlugins.has('RedLineIntensity'));
         }
         if (cenDotDistanceInput) {
             cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
@@ -3710,6 +3769,7 @@
             redLineWidth: Number.isFinite(Number(statsState.redLineWidth)) ? Number(statsState.redLineWidth) : 1,
             cenDotDistance: Number.isFinite(Number(statsState.cenDotDistance)) ? Number(statsState.cenDotDistance) : 37,
             cenDotCollinearityThreshold: Number.isFinite(Number(statsState.cenDotCollinearityThreshold)) ? Number(statsState.cenDotCollinearityThreshold) : 66,
+            punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             alternateRedDetection: !!statsState.alternateRedDetection,
@@ -3752,6 +3812,7 @@
             statsState.cenDotDistance = parseLengthValue(snapshot.cenDotDistance, statsState.cenDotDistanceUnit, distanceFallback, 0);
             const parsedThreshold = parseInt(String(snapshot.cenDotCollinearityThreshold ?? 66), 10);
             statsState.cenDotCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
+            statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
             statsState.alternateRedDetection = !!snapshot.alternateRedDetection;
@@ -3768,6 +3829,7 @@
             localStorage.setItem(widthKey, String(statsState.redLineWidth));
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
             localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+            localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
             persistLengthUnitSettings();
             syncStatsUI();
@@ -4499,6 +4561,10 @@
                 cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
                 localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
             }
+            if (punctaLineModeSelect) {
+                statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+            }
+            localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             if (nuclearModeSelect) {
                 statsState.nuclearCellularMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
@@ -4598,6 +4664,7 @@
             formData.append('redLineWidth', String(redLineWidthPixels));
             formData.append('cenDotDistance', String(cenDotDistancePixels));
             formData.append('cenDotCollinearityThreshold', String(statsState.cenDotCollinearityThreshold));
+            formData.append('puncta_line_mode', statsState.punctaLineMode);
             formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
             formData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
             formData.append('alternateRedDetection', String(statsState.alternateRedDetection));

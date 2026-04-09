@@ -142,6 +142,7 @@ class RouteSurfaceRefactorTests(TestCase):
             red_line_width=1,
             arrested="Metaphase Arrested",
             selected_analysis=[],
+            puncta_line_mode="red_puncta",
             nuclear_cellular_mode="green_nucleus",
             red_line_width_px=1,
             cen_dot_distance_value_used=37.0,
@@ -186,7 +187,10 @@ class RouteSurfaceRefactorTests(TestCase):
             green_red_intensity_3=0.0,
             dv_file_path=f"{segmented.UUID}/{image_stem}.dv",
             image_name=f"{image_stem}.dv",
-            properties={"nuclear_cellular_mode": "green_nucleus"},
+            properties={
+                "nuclear_cellular_mode": "green_nucleus",
+                "puncta_line_mode": "red_puncta",
+            },
         )
         defaults.update(overrides)
         return CellStatistics.objects.create(**defaults)
@@ -707,7 +711,10 @@ class RouteSurfaceRefactorTests(TestCase):
                 red_in_green_intensity_1=5.0,
                 green_in_green_intensity_1=13.0,
                 green_red_intensity_1=99.0,
-                properties={"nuclear_cellular_mode": "red_nucleus"},
+                properties={
+                    "nuclear_cellular_mode": "red_nucleus",
+                    "puncta_line_mode": "green_puncta",
+                },
                 category_cen_dot=1,
             )
 
@@ -723,12 +730,16 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "Measurement/Contour Ratio 3 (Green/Red)")
         self.assertContains(response, "Green/Red: Green in Red / Red in Red")
         self.assertContains(response, "Line + Spot Metrics")
+        self.assertContains(response, "Distance between Green Puncta")
+        self.assertContains(response, "Red Intensity over Green Line")
+        self.assertContains(response, "Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell")
         self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_intensity_1": 11.0', html=False)
         self.assertContains(response, '"red_in_green_intensity_1": 5.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 13.0', html=False)
         self.assertContains(response, '"measurement_contour_ratio_1": 0.6363636363636364', html=False)
         self.assertContains(response, '"measurement_contour_ratio_formula": "Green in Red / Red in Red"', html=False)
+        self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
         self.assertContains(
             response,
             '"category_cen_dot_label": "One green dot with each red dot"',
@@ -756,7 +767,10 @@ class RouteSurfaceRefactorTests(TestCase):
                 red_in_green_intensity_1=29.0,
                 green_in_green_intensity_1=31.0,
                 green_red_intensity_1=99.0,
-                properties={"nuclear_cellular_mode": "green_nucleus"},
+                properties={
+                    "nuclear_cellular_mode": "green_nucleus",
+                    "puncta_line_mode": "green_puncta",
+                },
                 category_cen_dot=1,
             )
 
@@ -772,11 +786,15 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "Measurement/Contour Ratio 3 (Red/Green)")
         self.assertContains(response, "Red/Green: Red in Green / Green in Green")
         self.assertContains(response, "Line + Spot Metrics")
+        self.assertContains(response, "Distance between Green Puncta")
+        self.assertContains(response, "Red Intensity over Green Line")
+        self.assertContains(response, "Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell")
         self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_intensity_1": 19.0', html=False)
         self.assertContains(response, '"green_intensity_1": 23.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 31.0', html=False)
         self.assertContains(response, '"measurement_contour_ratio_formula": "Red in Green / Green in Green"', html=False)
+        self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
         self.assertContains(
             response,
             '"category_cen_dot_label": "One green dot with each red dot"',

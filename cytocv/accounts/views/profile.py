@@ -48,6 +48,11 @@ from core.services.artifact_storage import (
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    VALID_PUNCTA_LINE_MODES,
+    normalize_puncta_line_mode,
+)
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -102,6 +107,10 @@ def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
     if mode not in NUCLEAR_CELLULAR_MODES:
         return default
     return mode
+
+
+def _normalize_puncta_mode(value: Any, default: str = DEFAULT_PUNCTA_LINE_MODE) -> str:
+    return normalize_puncta_line_mode(value, default=default)
 
 
 def _build_export_download_name(raw_name: Any, export_format: str, fallback: str) -> str:
@@ -159,6 +168,10 @@ def _extract_measurement_defaults(
         minimum=0.0001,
     )
     current_use_metadata_scale = bool(defaults.get("use_metadata_scale", True))
+    current_puncta_mode = _normalize_puncta_mode(
+        defaults.get("puncta_line_mode"),
+        default=DEFAULT_PUNCTA_LINE_MODE,
+    )
     current_nuclear_mode = _normalize_nuclear_mode(
         defaults.get("nuclear_cellular_mode"),
         default="green_nucleus",
@@ -198,6 +211,10 @@ def _extract_measurement_defaults(
             post_data.get("cen_dot_collinearity_threshold"),
             default=current_cen_dot_collinearity_threshold,
             minimum=0,
+        ),
+        "puncta_line_mode": _normalize_puncta_mode(
+            post_data.get("puncta_line_mode"),
+            default=current_puncta_mode,
         ),
         "nuclear_cellular_mode": _normalize_nuclear_mode(
             post_data.get("nuclear_cellular_mode"),
@@ -383,11 +400,20 @@ def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
     try:
         segmented_image = SegmentedImage.objects.get(user=user, UUID=uuid)
     except SegmentedImage.DoesNotExist:
-        return CellTable(CellStatistics.objects.none(), intensity_mode=None)
+        return CellTable(
+            CellStatistics.objects.none(),
+            intensity_mode=None,
+            puncta_line_mode=None,
+        )
 
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by("cell_id")
     intensity_mode = _resolve_nuclear_cellular_mode(stats_qs)
-    return CellTable(stats_qs, intensity_mode=intensity_mode)
+    puncta_line_mode = _resolve_puncta_line_mode(stats_qs)
+    return CellTable(
+        stats_qs,
+        intensity_mode=intensity_mode,
+        puncta_line_mode=puncta_line_mode,
+    )
 
 
 def _resolve_nuclear_cellular_mode(stats_iterable: Any) -> str | None:
@@ -396,6 +422,16 @@ def _resolve_nuclear_cellular_mode(stats_iterable: Any) -> str | None:
         props = stat.properties or {}
         mode = props.get("nuclear_cellular_mode")
         if mode in NUCLEAR_CELLULAR_MODES:
+            modes.add(mode)
+    return modes.pop() if len(modes) == 1 else None
+
+
+def _resolve_puncta_line_mode(stats_iterable: Any) -> str | None:
+    modes = set()
+    for stat in stats_iterable:
+        props = stat.properties or {}
+        mode = props.get("puncta_line_mode")
+        if mode in VALID_PUNCTA_LINE_MODES:
             modes.add(mode)
     return modes.pop() if len(modes) == 1 else None
 
@@ -546,7 +582,12 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
             intensity_mode = _resolve_nuclear_cellular_mode(stats_by_id.values())
-            cell_table = CellTable(stats_qs, intensity_mode=intensity_mode)
+            puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
+            cell_table = CellTable(
+                stats_qs,
+                intensity_mode=intensity_mode,
+                puncta_line_mode=puncta_line_mode,
+            )
 
         if stats_by_id:
             cell_ids = sorted(stats_by_id.keys())
@@ -653,7 +694,11 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         }
 
     if cell_table is None:
-        cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
+        cell_table = CellTable(
+            CellStatistics.objects.none(),
+            intensity_mode=None,
+            puncta_line_mode=None,
+        )
 
     saved_file_count = len(file_list)
     storage_projection = get_user_storage_projection(user)

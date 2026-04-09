@@ -45,6 +45,7 @@ class PreferenceNormalizationTests(TestCase):
                 "NuclearCellularIntensity",
             ],
         )
+        self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -63,6 +64,7 @@ class PreferenceNormalizationTests(TestCase):
                     "red_line_width": "-5",
                     "cen_dot_distance": "abc",
                     "cen_dot_collinearity_threshold": "-1",
+                    "puncta_line_mode": "bad_mode",
                     "nuclear_cellular_mode": "bad_mode",
                     "red_line_width_unit": "um",
                     "cen_dot_distance_unit": "px",
@@ -83,6 +85,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["red_line_width"], 1)
         self.assertEqual(defaults["cen_dot_distance"], 37)
         self.assertEqual(defaults["cen_dot_collinearity_threshold"], 66)
+        self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertFalse(normalized["auto_save_experiments"])
@@ -605,6 +608,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'Line + Spot Metrics')
         self.assertContains(response, 'Raw Contour Intensity Sums')
+        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
         self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
@@ -640,6 +644,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="green_form"', html=False)
         self.assertContains(response, 'Line + Spot Metrics')
         self.assertContains(response, 'Raw Contour Intensity Sums')
+        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
         self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
@@ -1639,6 +1644,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "NuclearCellularIntensity",
             ],
         )
+        self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
@@ -1652,6 +1658,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "cen_dot_distance": "11.2",
                 "cen_dot_distance_unit": "px",
                 "cen_dot_collinearity_threshold": "77",
+                "puncta_line_mode": "green_puncta",
                 "nuclear_cellular_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
                 "use_metadata_scale": "on",
@@ -1668,6 +1675,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["cen_dot_distance"], 11.2)
         self.assertEqual(defaults["cen_dot_distance_unit"], "px")
         self.assertEqual(defaults["cen_dot_collinearity_threshold"], 77)
+        self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
@@ -1681,6 +1689,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "cen_dot_distance": 9.0,
                 "cen_dot_distance_unit": "um",
                 "cen_dot_collinearity_threshold": 81,
+                "puncta_line_mode": "green_puncta",
                 "nuclear_cellular_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
                 "use_metadata_scale": False,
@@ -1707,6 +1716,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["cen_dot_distance"], 9.0)
         self.assertEqual(defaults["cen_dot_distance_unit"], "um")
         self.assertEqual(defaults["cen_dot_collinearity_threshold"], 81)
+        self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])

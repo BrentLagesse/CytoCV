@@ -26,6 +26,10 @@ from core.channel_roles import (
 from core.config import input_dir
 from core.models import CellStatistics
 from core.services.artifact_storage import PNG_PROFILE_ANALYSIS_FAST, save_png_image
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from core.stats_plugins import build_stats_execution_plan
 
 logger = logging.getLogger(__name__)
@@ -72,6 +76,10 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
         normalized["stats_red_line_width_unit"] = normalized["stats_mcherry_width_unit"]
     if "stats_gfp_distance_unit" in normalized and "stats_cen_dot_distance_unit" not in normalized:
         normalized["stats_cen_dot_distance_unit"] = normalized["stats_gfp_distance_unit"]
+    normalized["puncta_line_mode"] = normalize_puncta_line_mode(
+        normalized.get("puncta_line_mode"),
+        default=DEFAULT_PUNCTA_LINE_MODE,
+    )
     return normalized
 
 
@@ -119,6 +127,7 @@ def build_overlay_render_config(
     red_line_width: int,
     arrested: str,
     selected_analysis: list[str],
+    puncta_line_mode: str,
     nuclear_cellular_mode: str,
     red_line_width_px: int,
     cen_dot_distance_value_used: float,
@@ -141,6 +150,7 @@ def build_overlay_render_config(
         "kernel_deviation": int(kernel_deviation),
         "red_line_width": int(red_line_width),
         "arrested": str(arrested),
+        "puncta_line_mode": normalize_puncta_line_mode(puncta_line_mode),
         "nuclear_cellular_mode": str(nuclear_cellular_mode),
         "red_line_width_px": int(red_line_width_px),
         "cen_dot_distance_value_used": float(cen_dot_distance_value_used),
@@ -237,6 +247,10 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
         "kernel_deviation": int(render_config["kernel_deviation"]),
         "arrested": str(render_config["arrested"]),
         "analysis": list(render_config.get("selected_analysis", [])),
+        "puncta_line_mode": normalize_puncta_line_mode(
+            render_config.get("puncta_line_mode"),
+            default=DEFAULT_PUNCTA_LINE_MODE,
+        ),
         "nuclear_cellular_mode": str(render_config.get("nuclear_cellular_mode", "green_nucleus")),
         "green_contour_filter_enabled": bool(
             render_config.get("green_contour_filter_enabled", False)

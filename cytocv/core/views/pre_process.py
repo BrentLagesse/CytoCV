@@ -14,6 +14,10 @@ from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import enqueue_analysis_job, get_active_analysis_job
 from core.services.analysis_pipeline import run_preprocess_and_inference_batch
 from core.services.analysis_progress import AnalysisProgressHandle, get_progress_snapshot
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from .utils import (
     tif_to_jpg,
     prune_experiment_session_state,
@@ -312,6 +316,13 @@ def pre_process(request, uuids):
                 request.session.get('threshold', 66),
             ),
         )
+        puncta_line_mode = normalize_puncta_line_mode(
+            request.POST.get(
+                "puncta_line_mode",
+                request.session.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
+            ),
+            default=DEFAULT_PUNCTA_LINE_MODE,
+        )
         nuclear_cellular_mode = request.POST.get(
             "nuclear_cellular_mode",
             request.session.get("nuclear_cellular_mode", "green_nucleus"),
@@ -351,6 +362,7 @@ def pre_process(request, uuids):
         request.session['redLineWidth'] = red_line_width
         request.session['cenDotDistance'] = cen_dot_distance
         request.session['cenDotCollinearityThreshold'] = cen_dot_collinearity_threshold
+        request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
         request.session['alternateRedDetection'] = alternate_red_detection

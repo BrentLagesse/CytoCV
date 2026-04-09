@@ -6,6 +6,10 @@ from copy import deepcopy
 from typing import Any
 
 from core.channel_roles import CHANNEL_ROLE_ORDER
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from core.stats_plugins import CHANNEL_ORDER, normalize_selected_plugins
 
 NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
@@ -28,6 +32,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "red_line_width": 1,
         "cen_dot_distance": 37,
         "cen_dot_collinearity_threshold": 66,
+        "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cellular_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
@@ -188,6 +193,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         ),
         default=66,
         minimum=0,
+    )
+    normalized["experiment_defaults"]["puncta_line_mode"] = normalize_puncta_line_mode(
+        defaults_payload.get("puncta_line_mode"),
+        default=DEFAULT_PUNCTA_LINE_MODE,
     )
 
     mode = str(defaults_payload.get("nuclear_cellular_mode") or "").strip()

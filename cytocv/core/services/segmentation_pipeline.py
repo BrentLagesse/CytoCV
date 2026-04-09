@@ -56,6 +56,10 @@ from core.services.overlay_rendering import (
     persist_overlay_cache_images,
     write_overlay_render_config,
 )
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import (
     AUTOSAVE_STORAGE_FULL_MESSAGE,
@@ -584,6 +588,10 @@ def run_segmentation_batch(
             "kernel_deviation": configuration["kernel_deviation"],
             "arrested": configuration["arrested"],
             "analysis": selected_analysis,
+            "puncta_line_mode": normalize_puncta_line_mode(
+                config_snapshot.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            ),
             "nuclear_cellular_mode": config_snapshot.get(
                 "nuclear_cellular_mode",
                 "green_nucleus",
@@ -601,6 +609,10 @@ def run_segmentation_batch(
                 red_line_width=configured_red_line_width,
                 arrested=configuration["arrested"],
                 selected_analysis=selected_analysis,
+                puncta_line_mode=normalize_puncta_line_mode(
+                    config_snapshot.get("puncta_line_mode"),
+                    default=DEFAULT_PUNCTA_LINE_MODE,
+                ),
                 nuclear_cellular_mode=config_snapshot.get(
                     "nuclear_cellular_mode",
                     "green_nucleus",
@@ -643,6 +655,10 @@ def run_segmentation_batch(
             )
 
             cp.properties = dict(cp.properties or {})
+            cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
+                config_snapshot.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            )
             cp.properties["nuclear_cellular_mode"] = config_snapshot.get(
                 "nuclear_cellular_mode",
                 "green_nucleus",

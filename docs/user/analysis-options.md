@@ -84,16 +84,31 @@ When `um` is used, values are converted to pixel-space thresholds using the effe
 
 The active measurement-related controls include:
 
+- puncta source selection for `Puncta Distance`
 - Red line width
 - CEN dot distance threshold
 - CEN dot collinearity threshold
 - nuclear or cellular mode selection
 - optional Green contour filtering
 
+The puncta-line mode currently supports:
+
+- `red_puncta`
+- `green_puncta`
+
 The nuclear or cellular mode currently supports:
 
 - `green_nucleus`
 - `red_nucleus`
+
+For the modern red/green measurements, CytoCV uses canonical contour slots across the shared statistics path. Each detected Red or Green contour is filled, clipped to the segmented cell, and ranked by clipped area, then center `x`, then center `y`. Slot numbers therefore stay consistent across:
+
+- contour size outputs
+- raw integrated contour intensity outputs
+- Red-line and CEN-dot puncta selection
+- nucleus measurements in `red_nucleus` and `green_nucleus` mode
+
+In `red_nucleus`, nuclear intensity uses canonical Red slot `1`. In `green_nucleus`, nuclear intensity uses canonical Green slot `1`.
 
 ## Expected Outputs
 

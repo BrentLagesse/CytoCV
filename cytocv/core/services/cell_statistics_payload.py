@@ -10,6 +10,7 @@ from core.services.measurement_contour_ratio import (
     build_measurement_contour_ratio_payload,
     normalize_nuclear_cellular_mode,
 )
+from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 
 
 def normalize_channel_display_name(value: Any, default: str = "") -> str:
@@ -35,6 +36,9 @@ def serialize_cell_statistics_payload(
     properties = cell_stat.properties or {}
     nuclear_cellular_mode = normalize_nuclear_cellular_mode(
         properties.get("nuclear_cellular_mode")
+    )
+    puncta_line_metadata = get_puncta_line_mode_metadata(
+        properties.get("puncta_line_mode")
     )
 
     return {
@@ -68,6 +72,17 @@ def serialize_cell_statistics_payload(
         "cellular_intensity_sum_blue": cell_stat.cellular_intensity_sum_blue,
         "nucleus_intensity_sum_blue": cell_stat.nucleus_intensity_sum_blue,
         "cytoplasmic_intensity_blue": cell_stat.cytoplasmic_intensity_blue,
+        "puncta_line_mode": puncta_line_metadata["mode"],
+        "puncta_line_source_channel": normalize_channel_display_name(
+            properties.get("puncta_line_source_channel"),
+            default=puncta_line_metadata["source_label"],
+        ),
+        "puncta_line_measurement_channel": normalize_channel_display_name(
+            properties.get("puncta_line_measurement_channel"),
+            default=puncta_line_metadata["measurement_label"],
+        ),
+        "puncta_distance_label": puncta_line_metadata["distance_label"],
+        "puncta_line_intensity_label": puncta_line_metadata["intensity_label"],
         "nuclear_cellular_mode": nuclear_cellular_mode,
         "nuclear_cellular_contour_channel": normalize_channel_display_name(
             properties.get("nuclear_cellular_contour_channel"),

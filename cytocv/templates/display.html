@@ -1271,6 +1271,20 @@
             line-height: 1.4;
             color: var(--muted);
         }
+        .metric-lead-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .selection-info-dot.metric-info-dot {
+            background: rgba(20, 27, 37, 0.92);
+            border-color: rgba(255, 255, 255, 0.16);
+            color: rgba(232, 240, 255, 0.96);
+        }
+        .selection-info-dot.metric-info-dot:hover {
+            background: rgba(28, 36, 48, 0.98);
+            border-color: rgba(255, 255, 255, 0.24);
+        }
         .tight-info,
         .metric-row {
             display: grid;
@@ -1767,11 +1781,11 @@
                                     <div class="cell-stats-section">
                                         <p class="metric-lead">Line + Spot Metrics</p>
                                         <div class="metric-row">
-                                            <span class="metric-label">Red line distance</span>
+                                            <span class="metric-label" id="distanceLabel">Distance between Red Puncta</span>
                                             <span class="metric-value" id="distance"></span>
                                         </div>
                                         <div class="metric-row">
-                                            <span class="metric-label">Line Green Intensity</span>
+                                            <span class="metric-label" id="lineIntensityLabel">Green Intensity over Red Line</span>
                                             <span class="metric-value" id="lineGreenIntensity"></span>
                                         </div>
                                         <div class="metric-row">
@@ -1803,7 +1817,15 @@
                                         </div>
                                     </div>
                                     <div class="cell-stats-section">
-                                        <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                        <div class="metric-lead-row">
+                                            <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                            <span
+                                                class="selection-info-dot metric-info-dot"
+                                                data-info-text="Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell, size and intensity values for the same slot match, and nuclear intensity uses slot 1 of the selected nucleus contour family."
+                                                aria-label="Contour slot ranking details"
+                                                title="Contour slot ranking details"
+                                            >i</span>
+                                        </div>
                                         <div class="metric-row">
                                             <span class="metric-label">Red in Red intensity 1</span>
                                             <span class="metric-value" id="redInRedIntensity1"></span>
@@ -2243,6 +2265,8 @@
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
             const labels = getNuclearLabelPair(mode);
+            const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance between Red Puncta') : 'Distance between Red Puncta';
+            const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity over Red Line') : 'Green Intensity over Red Line';
 
             return {
                 visibleImageUrls,
@@ -2276,6 +2300,8 @@
                     nuclearStatus: cellStats ? (cellStats.nuclear_cellular_status || 'unknown') : 'N/A',
                 },
                 labels: {
+                    distanceLabel,
+                    lineIntensityLabel,
                     nucleusIntensityLabel: labels.nuclear,
                     cellularIntensityLabel: labels.cellular,
                 },
@@ -2287,6 +2313,8 @@
                 return Promise.resolve();
             }
 
+            document.getElementById('distanceLabel').textContent = state.labels.distanceLabel;
+            document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
 
@@ -2692,7 +2720,11 @@
             const keyMap = {
                 'Cell ID': 'cell_id',
                 'Red Line Distance': 'distance',
+                'Distance between Red Puncta': 'distance',
+                'Distance between Green Puncta': 'distance',
                 'Line Green Intensity': 'line_green_intensity',
+                'Green Intensity over Red Line': 'line_green_intensity',
+                'Red Intensity over Green Line': 'line_green_intensity',
                 'Blue Contour Size': 'blue_contour_size',
                 'Red Contour 1 Size': 'red_contour_1_size',
                 'Red Contour 2 Size': 'red_contour_2_size',
@@ -2824,6 +2856,8 @@
             const cellStats = statistics[currentCellNumber];
             const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
+            document.getElementById("distanceLabel").textContent = cellStats ? (cellStats.puncta_distance_label || "Distance between Red Puncta") : "Distance between Red Puncta";
+            document.getElementById("lineIntensityLabel").textContent = cellStats ? (cellStats.puncta_line_intensity_label || "Green Intensity over Red Line") : "Green Intensity over Red Line";
             document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
             document.getElementById("lineGreenIntensity").textContent = formatStatValue(cellStats ? cellStats.line_green_intensity : null);
             document.getElementById("measurementContourRatioFormula").textContent = cellStats ? (cellStats.measurement_contour_ratio_display_text || "N/A") : "N/A";

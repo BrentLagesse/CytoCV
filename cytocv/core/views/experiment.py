@@ -33,6 +33,10 @@ from core.scale import (
     normalize_length_unit,
     parse_microns_per_pixel,
 )
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from core.services.artifact_storage import (
     delete_uploaded_run,
     delete_uploaded_run_by_uuid,
@@ -118,6 +122,15 @@ def _parse_nuclear_cellular_mode(value: str | None, default: str = "green_nucleu
 
     raw = str(value or "").strip()
     return raw if raw in NUCLEAR_CELLULAR_MODES else default
+
+
+def _parse_puncta_line_mode(
+    value: str | None,
+    default: str = DEFAULT_PUNCTA_LINE_MODE,
+) -> str:
+    """Parse puncta-line mode for RedLineIntensity."""
+
+    return normalize_puncta_line_mode(value, default=default)
 
 
 def _parse_restore_uuids(raw_values) -> list[str]:
@@ -350,6 +363,10 @@ def experiment(request):
         request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
         request.session["stats_red_line_width_value"] = red_line_width_value
         request.session["stats_cen_dot_distance_value"] = cen_dot_distance_value
+        request.session["puncta_line_mode"] = _parse_puncta_line_mode(
+            request.POST.get("puncta_line_mode"),
+            default=DEFAULT_PUNCTA_LINE_MODE,
+        )
         request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
             request.POST.get("nuclear_cellular_mode"),
             default="green_nucleus",

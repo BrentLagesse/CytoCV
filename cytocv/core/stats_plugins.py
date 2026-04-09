@@ -81,8 +81,11 @@ PLUGIN_ID_ALIASES: dict[str, str] = {
 PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     "RedLineIntensity": StatsPluginDefinition(
         plugin_id="RedLineIntensity",
-        label="Red Line Intensity",
-        description="Draws a line between red dot centers and measures green intensity along that line.",
+        label="Puncta Distance",
+        description=(
+            "Draws a line between the selected puncta pair and measures intensity from "
+            "the opposite channel along that line."
+        ),
         module_name="core.cell_analysis.red_line_intensity",
         class_name="RedLineIntensity",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),

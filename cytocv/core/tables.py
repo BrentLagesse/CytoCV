@@ -12,6 +12,7 @@ from core.services.measurement_contour_ratio import (
     get_measurement_contour_ratio_headers,
     normalize_nuclear_cellular_mode,
 )
+from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 
 
 NUCLEAR_CELLULAR_LABELS = {
@@ -46,8 +47,8 @@ class CellTable(tables.Table):
     """Table layout for per-cell statistics used in UI and export."""
 
     cell_id = tables.Column(verbose_name="Cell ID")
-    distance = NumberColumn(verbose_name="Red Line Distance")
-    line_green_intensity = NumberColumn(verbose_name="Line Green Intensity")
+    distance = NumberColumn(verbose_name="Distance between Red Puncta")
+    line_green_intensity = NumberColumn(verbose_name="Green Intensity over Red Line")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
 
     red_contour_1_size = NumberColumn(verbose_name="Red Contour 1 Size")
@@ -129,7 +130,13 @@ class CellTable(tables.Table):
         )
         template_name = "django_tables2/semantic.html"
 
-    def __init__(self, *args, intensity_mode: str | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        intensity_mode: str | None = None,
+        puncta_line_mode: str | None = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self._intensity_mode = (
             normalize_nuclear_cellular_mode(intensity_mode)
@@ -141,8 +148,11 @@ class CellTable(tables.Table):
             FALLBACK_NUCLEAR_CELLULAR_LABELS,
         )
         ratio_headers = get_measurement_contour_ratio_headers(self._intensity_mode)
+        puncta_headers = get_puncta_line_mode_metadata(puncta_line_mode)
         self.columns["cellular_intensity_sum"].column.verbose_name = cellular_label
         self.columns["nucleus_intensity_sum"].column.verbose_name = nuclear_label
+        self.columns["distance"].column.verbose_name = puncta_headers["distance_label"]
+        self.columns["line_green_intensity"].column.verbose_name = puncta_headers["intensity_label"]
         self.columns["green_red_intensity_1"].column.verbose_name = ratio_headers[0]
         self.columns["green_red_intensity_2"].column.verbose_name = ratio_headers[1]
         self.columns["green_red_intensity_3"].column.verbose_name = ratio_headers[2]

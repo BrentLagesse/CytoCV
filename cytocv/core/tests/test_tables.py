@@ -7,7 +7,7 @@ from core.tables import CellTable
 
 class CellTableNuclearCellularRenderingTests(SimpleTestCase):
     def setUp(self):
-        self.table = CellTable([], intensity_mode="green_nucleus")
+        self.table = CellTable([], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
 
     @staticmethod
     def _record_with_status(status: str):
@@ -74,11 +74,17 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
         self.assertLess(ratio_3_index, distance_triplet_index)
 
     def test_ratio_columns_use_mode_driven_headers_for_red_nucleus(self):
-        header_row = list(CellTable([], intensity_mode="red_nucleus").as_values())[0]
+        header_row = list(CellTable([], intensity_mode="red_nucleus", puncta_line_mode="red_puncta").as_values())[0]
 
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", header_row)
         self.assertIn("Measurement/Contour Ratio 2 (Green/Red)", header_row)
         self.assertIn("Measurement/Contour Ratio 3 (Green/Red)", header_row)
+
+    def test_line_columns_use_green_puncta_headers_when_requested(self):
+        header_row = list(CellTable([], intensity_mode="green_nucleus", puncta_line_mode="green_puncta").as_values())[0]
+
+        self.assertIn("Distance between Green Puncta", header_row)
+        self.assertIn("Red Intensity over Green Line", header_row)
 
     def test_ratio_values_are_derived_from_raw_sums_not_stale_stored_values(self):
         record = SimpleNamespace(
@@ -95,7 +101,7 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
             category_cen_dot=0,
         )
 
-        table = CellTable([record], intensity_mode="green_nucleus")
+        table = CellTable([record], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
         row = list(table.rows)[0]
         header_row = list(table.as_values())[0]
         value_row = list(table.as_values())[1]
