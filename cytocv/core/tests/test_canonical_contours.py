@@ -6,11 +6,13 @@ import numpy as np
 from django.test import SimpleTestCase
 
 from core.services.canonical_contours import (
+    CANONICAL_BLUE_SLOTS_KEY,
     CANONICAL_GREEN_SLOTS_KEY,
     CANONICAL_RED_SLOTS_KEY,
     CELL_MASK_KEY,
     build_canonical_contour_payload,
     build_canonical_contour_slots,
+    get_canonical_blue_slots,
 )
 
 
@@ -100,3 +102,61 @@ class CanonicalContourHelpersTests(SimpleTestCase):
         self.assertEqual(int(cell_mask[1, 1]), 0)
         self.assertEqual(len(payload[CANONICAL_RED_SLOTS_KEY]), 1)
         self.assertEqual(len(payload[CANONICAL_GREEN_SLOTS_KEY]), 1)
+        self.assertIn(CANONICAL_BLUE_SLOTS_KEY, payload)
+
+    def test_build_canonical_contour_payload_includes_blue_slots(self):
+        raw_blue = self._rect_contour(2, 2, 8, 8)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            outline_path = output_dir / "test-1.outline"
+            with outline_path.open("w", encoding="utf-8") as handle:
+                for y in range(1, 11):
+                    for x in range(1, 11):
+                        handle.write(f"{y},{x}\n")
+
+            payload = build_canonical_contour_payload(
+                {"contours_blue": [raw_blue]},
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=temp_dir,
+                shape=(12, 12),
+            )
+
+        blue_slots = payload[CANONICAL_BLUE_SLOTS_KEY]
+        self.assertEqual(len(blue_slots), 1)
+        clipped_mask = blue_slots[0].mask
+        cell_mask = payload[CELL_MASK_KEY]
+        self.assertEqual(int(np.count_nonzero(clipped_mask[cell_mask == 0])), 0)
+
+    def test_blue_slots_default_limit_is_one(self):
+        shape = (20, 20)
+        cell_mask = np.full(shape, 255, np.uint8)
+        contours = [
+            self._rect_contour(1, 1, 8, 8),
+            self._rect_contour(10, 10, 18, 18),
+        ]
+        contours_data = {"contours_blue": contours, "cell_mask": cell_mask}
+
+        slots = get_canonical_blue_slots(contours_data, shape)
+
+        self.assertEqual(len(slots), 1)
+
+    def test_get_canonical_blue_slots_returns_empty_when_no_blue_contours(self):
+        shape = (12, 12)
+        cell_mask = np.full(shape, 255, np.uint8)
+        contours_data = {"cell_mask": cell_mask}
+
+        slots = get_canonical_blue_slots(contours_data, shape)
+
+        self.assertEqual(slots, [])
+
+    def test_canonical_blue_slots_area_filter_excludes_tiny_contours(self):
+        shape = (200, 200)
+        cell_mask = np.full(shape, 255, np.uint8)
+        tiny_contour = self._rect_contour(1, 1, 2, 2)
+        contours_data = {"contours_blue": [tiny_contour], "cell_mask": cell_mask}
+
+        slots = get_canonical_blue_slots(contours_data, shape)
+
+        self.assertEqual(slots, [])

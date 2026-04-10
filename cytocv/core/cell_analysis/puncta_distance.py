@@ -38,6 +38,7 @@ class PunctaDistance(Analysis):
         puncta_line_width_input,
         cen_dot_distance,
         cen_dot_collinearity_threshold,
+        cen_dot_proximity_radius=13,
     ):
         puncta_line_points = []
         properties = dict(getattr(self.cp, "properties", {}) or {})

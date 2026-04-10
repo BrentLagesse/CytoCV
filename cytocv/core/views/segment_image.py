@@ -96,6 +96,7 @@ from core.services.artifact_storage import (
     save_png_array,
 )
 from core.services.canonical_contours import (
+    CANONICAL_BLUE_SLOTS_KEY,
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
@@ -183,6 +184,7 @@ def get_stats(
     puncta_line_width,
     cen_dot_distance,
     cen_dot_collinearity_threshold,
+    cen_dot_proximity_radius=13,
     green_contour_filter_enabled=False,
     alternate_red_detection=False,
     cached_images=None,
@@ -261,80 +263,35 @@ def get_stats(
     canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
     canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
-    best_contour_data = {}
-    best_contour_blue = None
-    best_blue_area = None
-    blue_gray = preprocessed_images.get_image("gray_blue")
-    if blue_gray is not None:
-        image_area = float(blue_gray.shape[0] * blue_gray.shape[1])
-        min_blue_area = max(10.0, image_area * 0.002)
-        max_blue_area = image_area * 0.95
-
-        def _pick_first_valid(contours, indices):
-            for idx in indices:
-                if idx >= len(contours):
-                    continue
-                cnt = contours[idx]
-                area = cv2.contourArea(cnt)
-                if min_blue_area <= area <= max_blue_area:
-                    return cnt, area
-            return None, None
-
-        best_contour_blue, best_blue_area = _pick_first_valid(
-            contours_data.get("contours_blue_3", []),
-            contours_data.get("best_contours_blue_3", []),
-        )
-
-        if best_contour_blue is None:
-            best_contour_blue, best_blue_area = _pick_first_valid(
-                contours_data.get("contours_blue", []),
-                contours_data.get("best_contours_blue", []),
-            )
-
-        if best_contour_blue is None and contours_data.get("contours_blue"):
-            valid_blue = []
-            for cnt in contours_data["contours_blue"]:
-                area = cv2.contourArea(cnt)
-                if min_blue_area <= area <= max_blue_area:
-                    valid_blue.append((area, cnt))
-            if valid_blue:
-                valid_blue.sort(key=lambda item: item[0], reverse=True)
-                best_blue_area, best_contour_blue = valid_blue[0]
-
-    if best_contour_blue is not None:
-        best_contour_data["Blue"] = best_contour_blue
-        cp.blue_contour_size = float(best_blue_area)
-    else:
-        cp.blue_contour_size = 0.0
+    canonical_blue_slots = contours_data.get(CANONICAL_BLUE_SLOTS_KEY, [])
+    canonical_blue_contours = flatten_slot_contours(canonical_blue_slots)
+    cp.blue_contour_size = float(canonical_blue_slots[0].area) if canonical_blue_slots else 0.0
 
     if canonical_red_contours:
         cv2.drawContours(edit_red_img, canonical_red_contours, -1, (0, 0, 255), 1)
         cv2.drawContours(edit_green_img, canonical_red_contours, -1, (0, 0, 255), 1)
         cv2.drawContours(edit_blue_img, canonical_red_contours, -1, (0, 0, 255), 1)
 
-    if best_contour_blue is not None:
-        cv2.drawContours(edit_green_img, [best_contour_blue], 0, (255, 0, 0), 1)
-        cv2.drawContours(edit_blue_img, [best_contour_blue], 0, (255, 0, 0), 1)
+    if canonical_blue_contours:
+        cv2.drawContours(edit_green_img, canonical_blue_contours, -1, (255, 0, 0), 1)
+        cv2.drawContours(edit_blue_img, canonical_blue_contours, -1, (255, 0, 0), 1)
 
     if canonical_green_contours:
         cv2.drawContours(edit_red_img, canonical_green_contours, -1, (0, 255, 0), 1)
         cv2.drawContours(edit_green_img, canonical_green_contours, -1, (0, 255, 0), 1)
         cv2.drawContours(edit_blue_img, canonical_green_contours, -1, (0, 255, 0), 1)
 
-    blue_contour_required_plugins = {"NucleusIntensity", "BlueNucleusIntensity"}
     for analysis in execution_plan.analyses:
-        analysis_name = analysis.__class__.__name__
-        if analysis_name in blue_contour_required_plugins and "Blue" not in best_contour_data:
-            continue
         analysis.setting_up(cp, preprocessed_images, output_dir)
         analysis.calculate_statistics(
-            best_contour_data,
+            {},
             contours_data,
             edit_red_img,
             edit_green_img,
             puncta_line_width,
             cen_dot_distance,
             cen_dot_collinearity_threshold,
+            cen_dot_proximity_radius,
         )
 
     # Convert BGR back to RGB so PIL shows correct colors
@@ -1090,6 +1047,39 @@ def segment_image(request, uuids):
             cen_dot_collinearity_threshold = 66
         if cen_dot_collinearity_threshold < 0:
             cen_dot_collinearity_threshold = 66
+        raw_cen_dot_proximity_radius = request.session.get(
+            'stats_cen_dot_proximity_radius_value',
+            request.session.get('cenDotProximityRadius', 13),
+        )
+        cen_dot_proximity_radius_unit = normalize_length_unit(
+            request.session.get('stats_cen_dot_proximity_radius_unit', 'px'),
+            default="px",
+        )
+        if cen_dot_proximity_radius_unit == "um":
+            try:
+                cen_dot_proximity_radius = float(raw_cen_dot_proximity_radius)
+            except (TypeError, ValueError):
+                cen_dot_proximity_radius = 13.0
+            if not math.isfinite(cen_dot_proximity_radius) or cen_dot_proximity_radius < 0:
+                cen_dot_proximity_radius = 13.0
+            cen_dot_proximity_radius_px_equivalent = convert_length_to_pixels(
+                cen_dot_proximity_radius,
+                "um",
+                minimum_px=0,
+                fallback_px=13,
+                um_per_px=line_width_proxy_um_per_px,
+            )
+        else:
+            cen_dot_proximity_radius = float(
+                convert_length_to_pixels(
+                    raw_cen_dot_proximity_radius,
+                    cen_dot_proximity_radius_unit,
+                    minimum_px=0,
+                    fallback_px=13,
+                    um_per_px=effective_um_per_px,
+                )
+            )
+            cen_dot_proximity_radius_px_equivalent = int(cen_dot_proximity_radius)
         green_contour_filter_enabled = request.session.get(
             'greenContourFilterEnabled',
             request.session.get('gfpFilterEnabled', 'False'),
@@ -1159,6 +1149,8 @@ def segment_image(request, uuids):
                 ),
                 puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
+                cen_dot_proximity_radius=cen_dot_proximity_radius,
+                cen_dot_proximity_radius_unit=cen_dot_proximity_radius_unit,
             ),
         )
 
@@ -1229,6 +1221,9 @@ def segment_image(request, uuids):
             cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
             cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
             cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
+            cp.properties["stats_cen_dot_proximity_radius_px"] = cen_dot_proximity_radius_px_equivalent
+            cp.properties["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius
+            cp.properties["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
             # Call get_stats to do the real work
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1237,6 +1232,7 @@ def segment_image(request, uuids):
                 puncta_line_width,
                 cen_dot_distance,
                 cen_dot_collinearity_threshold,
+                cen_dot_proximity_radius,
                 green_contour_filter_enabled,
                 alternate_red_detection,
                 cached_images=cell_image_cache.get(cell_number),

@@ -1,4 +1,4 @@
-"""Canonical contour-slot helpers for modern Red/Green measurements."""
+"""Canonical contour-slot helpers for modern Red/Green/Blue measurements."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import numpy as np
 CELL_MASK_KEY = "cell_mask"
 CANONICAL_RED_SLOTS_KEY = "canonical_red_slots"
 CANONICAL_GREEN_SLOTS_KEY = "canonical_green_slots"
+CANONICAL_BLUE_SLOTS_KEY = "canonical_blue_slots"
 
 
 @dataclass(slots=True)
@@ -127,6 +128,25 @@ def build_canonical_contour_slots(
     return slots[:limit]
 
 
+def _select_raw_blue_contours(contours_data: dict, shape: tuple[int, int]) -> list:
+    """Select and area-filter blue contours, preferring the 3-channel source."""
+
+    image_area = float(shape[0] * shape[1])
+    min_area = max(10.0, image_area * 0.002)
+    max_area = image_area * 0.95
+
+    for key in ("contours_blue_3", "contours_blue"):
+        source = contours_data.get(key, [])
+        valid = [
+            c for c in source
+            if c is not None and len(c) >= 3
+            and min_area <= cv2.contourArea(c) <= max_area
+        ]
+        if valid:
+            return valid
+    return []
+
+
 def build_canonical_contour_payload(
     contours_data: dict,
     *,
@@ -153,6 +173,12 @@ def build_canonical_contour_payload(
         cell_mask,
         height_width,
         limit=limit,
+    )
+    payload[CANONICAL_BLUE_SLOTS_KEY] = build_canonical_contour_slots(
+        _select_raw_blue_contours(payload, height_width),
+        cell_mask,
+        height_width,
+        limit=1,
     )
     return payload
 
@@ -197,6 +223,26 @@ def get_canonical_green_slots(
         return list(slots)[:limit]
     return build_canonical_contour_slots(
         contours_data.get("contours_green", contours_data.get("contours_gfp", [])),
+        _resolve_cell_mask(contours_data, shape),
+        shape,
+        limit=limit,
+    )
+
+
+def get_canonical_blue_slots(
+    contours_data: dict,
+    shape: tuple[int, int] | Iterable[int],
+    *,
+    limit: int = 1,
+) -> list[CanonicalContourSlot]:
+    """Return canonical Blue contour slots, deriving them locally when absent."""
+
+    slots = contours_data.get(CANONICAL_BLUE_SLOTS_KEY)
+    if slots is not None:
+        return list(slots)[:limit]
+    height_width = _shape_tuple(shape)
+    return build_canonical_contour_slots(
+        _select_raw_blue_contours(contours_data, height_width),
         _resolve_cell_mask(contours_data, shape),
         shape,
         limit=limit,

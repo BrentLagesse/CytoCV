@@ -94,6 +94,7 @@ class NuclearCellPairIntensity(Analysis):
         puncta_line_width_input=None,
         cen_dot_distance=0,
         cen_dot_collinearity_threshold=0,
+        cen_dot_proximity_radius=13,
     ):
         props = dict(getattr(self.cp, "properties", {}) or {})
         mode = props.get("nuclear_cell_pair_mode", "green_nucleus")

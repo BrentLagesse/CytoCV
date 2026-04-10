@@ -95,7 +95,12 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     "CENDot": StatsPluginDefinition(
         plugin_id="CENDot",
         label="CEN dot Classification",
-        description="Classifies CEN-dot category and biorientation relative to paired red puncta.",
+        description=(
+            "Classifies CEN-dot category and biorientation relative to paired red puncta. "
+            "Minimum signal distance sets the threshold between the two red signals for "
+            "category vs. biorientation mode. Signal proximity radius controls how close "
+            "a green signal must be to a red signal to count as co-localized."
+        ),
         module_name="core.cell_analysis.cen_dot",
         class_name="CENDot",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),

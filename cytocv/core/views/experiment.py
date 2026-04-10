@@ -289,6 +289,10 @@ def experiment(request):
             request.POST.get("stats_cen_dot_distance_unit", request.POST.get("stats_gfp_distance_unit")),
             default="px",
         )
+        cen_dot_proximity_radius_unit = _normalize_length_unit(
+            request.POST.get("stats_cen_dot_proximity_radius_unit"),
+            default="px",
+        )
 
         # Backward compatibility: if raw-value fields are absent, treat submitted
         # legacy width/distance fields as already pixel-normalized.
@@ -301,8 +305,10 @@ def experiment(request):
             "stats_cen_dot_distance_value" in request.POST
             or "stats_gfp_distance_value" in request.POST
         )
+        has_raw_cen_dot_proximity_radius = "stats_cen_dot_proximity_radius_value" in request.POST
         puncta_line_source_unit = puncta_line_width_unit if has_raw_puncta_line_width else "px"
         cen_dot_source_unit = cen_dot_distance_unit if has_raw_cen_dot_distance else "px"
+        cen_dot_proximity_radius_source_unit = cen_dot_proximity_radius_unit if has_raw_cen_dot_proximity_radius else "px"
 
         puncta_line_width_value = _parse_positive_float(
             request.POST.get(
@@ -323,6 +329,14 @@ def experiment(request):
             default=37,
             minimum=0,
         )
+        cen_dot_proximity_radius_value = _parse_positive_float(
+            request.POST.get(
+                "stats_cen_dot_proximity_radius_value",
+                request.POST.get("cenDotProximityRadius", "13"),
+            ),
+            default=13,
+            minimum=0,
+        )
 
         puncta_line_width = _convert_length_to_pixels(
             puncta_line_width_value,
@@ -336,6 +350,13 @@ def experiment(request):
             cen_dot_source_unit,
             minimum_px=0,
             fallback_px=37,
+            microns_per_pixel=posted_microns_per_pixel,
+        )
+        cen_dot_proximity_radius = _convert_length_to_pixels(
+            cen_dot_proximity_radius_value,
+            cen_dot_proximity_radius_source_unit,
+            minimum_px=0,
+            fallback_px=13,
             microns_per_pixel=posted_microns_per_pixel,
         )
 
@@ -364,12 +385,15 @@ def experiment(request):
         request.session["punctaLineWidth"] = puncta_line_width
         request.session["cenDotDistance"] = cen_dot_distance
         request.session["cenDotCollinearityThreshold"] = cen_dot_collinearity_threshold
+        request.session["cenDotProximityRadius"] = cen_dot_proximity_radius
         request.session["stats_puncta_line_width_unit"] = puncta_line_width_unit
         request.session["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
+        request.session["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
         request.session["stats_microns_per_pixel"] = posted_microns_per_pixel
         request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
         request.session["stats_puncta_line_width_value"] = puncta_line_width_value
         request.session["stats_cen_dot_distance_value"] = cen_dot_distance_value
+        request.session["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius_value
         request.session["puncta_line_mode"] = _parse_puncta_line_mode(
             request.POST.get("puncta_line_mode"),
             default=DEFAULT_PUNCTA_LINE_MODE,

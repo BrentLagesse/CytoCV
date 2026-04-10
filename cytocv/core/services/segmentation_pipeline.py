@@ -567,6 +567,39 @@ def run_segmentation_batch(
             cen_dot_collinearity_threshold = 66
         if cen_dot_collinearity_threshold < 0:
             cen_dot_collinearity_threshold = 66
+        raw_cen_dot_proximity_radius = config_snapshot.get(
+            "stats_cen_dot_proximity_radius_value",
+            config_snapshot.get("cenDotProximityRadius", 13),
+        )
+        cen_dot_proximity_radius_unit = normalize_length_unit(
+            str(config_snapshot.get("stats_cen_dot_proximity_radius_unit", "px")),
+            default="px",
+        )
+        if cen_dot_proximity_radius_unit == "um":
+            try:
+                cen_dot_proximity_radius = float(raw_cen_dot_proximity_radius)
+            except (TypeError, ValueError):
+                cen_dot_proximity_radius = 13.0
+            if not math.isfinite(cen_dot_proximity_radius) or cen_dot_proximity_radius < 0:
+                cen_dot_proximity_radius = 13.0
+            cen_dot_proximity_radius_px_equivalent = convert_length_to_pixels(
+                cen_dot_proximity_radius,
+                "um",
+                minimum_px=0,
+                fallback_px=13,
+                um_per_px=line_width_proxy_um_per_px,
+            )
+        else:
+            cen_dot_proximity_radius = float(
+                convert_length_to_pixels(
+                    raw_cen_dot_proximity_radius,
+                    cen_dot_proximity_radius_unit,
+                    minimum_px=0,
+                    fallback_px=13,
+                    um_per_px=effective_um_per_px,
+                )
+            )
+            cen_dot_proximity_radius_px_equivalent = int(cen_dot_proximity_radius)
         green_contour_filter_enabled = config_snapshot.get(
             "greenContourFilterEnabled",
             config_snapshot.get("gfpFilterEnabled", False),
@@ -627,6 +660,8 @@ def run_segmentation_batch(
                 alternate_red_detection=bool(alternate_red_detection),
                 puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
+                cen_dot_proximity_radius=cen_dot_proximity_radius,
+                cen_dot_proximity_radius_unit=cen_dot_proximity_radius_unit,
             ),
         )
 
@@ -685,6 +720,9 @@ def run_segmentation_batch(
             cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
             cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
             cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
+            cp.properties["stats_cen_dot_proximity_radius_px"] = cen_dot_proximity_radius_px_equivalent
+            cp.properties["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius
+            cp.properties["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
 
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -693,6 +731,7 @@ def run_segmentation_batch(
                 puncta_line_width,
                 cen_dot_distance,
                 cen_dot_collinearity_threshold,
+                cen_dot_proximity_radius,
                 green_contour_filter_enabled,
                 alternate_red_detection,
                 cached_images=cell_image_cache.get(cell_number),
