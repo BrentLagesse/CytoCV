@@ -565,6 +565,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
         default="px",
     )
+    sidebar_spatial_stats_unit = normalize_spatial_stats_unit(
+        preferences.get("sidebar_spatial_stats_unit"),
+        default=default_spatial_stats_unit,
+    )
 
     files_data: dict[str, Any] = {}
     file_list: list[dict[str, Any]] = []
@@ -627,7 +631,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 stats_qs,
                 intensity_mode=intensity_mode,
                 puncta_line_mode=puncta_line_mode,
-                spatial_stats_unit=default_spatial_stats_unit,
+                spatial_stats_unit=sidebar_spatial_stats_unit,
                 scale_context=scale_context,
             )
 
@@ -741,7 +745,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             CellStatistics.objects.none(),
             intensity_mode=None,
             puncta_line_mode=None,
-            spatial_stats_unit=default_spatial_stats_unit,
+            spatial_stats_unit=sidebar_spatial_stats_unit,
             scale_context=None,
         )
 
@@ -782,6 +786,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "show_saved_file_scales": show_saved_file_scales,
         "sidebar_starts_open": sidebar_starts_open,
         "default_spatial_stats_unit": default_spatial_stats_unit,
+        "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
     }
 
 
@@ -956,9 +961,10 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
 
     has_channels = "show_saved_file_channels" in payload
     has_scales = "show_saved_file_scales" in payload
-    if not has_channels and not has_scales:
+    has_sidebar_unit = "sidebar_spatial_stats_unit" in payload
+    if not has_channels and not has_scales and not has_sidebar_unit:
         return JsonResponse(
-            {"error": "At least one visibility flag is required."},
+            {"error": "At least one sidebar preference is required."},
             status=400,
         )
 
@@ -976,12 +982,24 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
+    sidebar_spatial_stats_unit = normalize_spatial_stats_unit(
+        payload.get("sidebar_spatial_stats_unit"),
+        default="px",
+    )
+    if has_sidebar_unit and sidebar_spatial_stats_unit != payload.get("sidebar_spatial_stats_unit"):
+        return JsonResponse(
+            {"error": "sidebar_spatial_stats_unit must be 'px' or 'um'."},
+            status=400,
+        )
+
     current = get_user_preferences(request.user)
     next_payload = dict(current)
     if has_channels:
         next_payload["show_saved_file_channels"] = show_saved_file_channels
     if has_scales:
         next_payload["show_saved_file_scales"] = show_saved_file_scales
+    if has_sidebar_unit:
+        next_payload["sidebar_spatial_stats_unit"] = sidebar_spatial_stats_unit
     updated = update_user_preferences(request.user, next_payload)
     return JsonResponse(
         {
@@ -990,6 +1008,13 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
             ),
             "show_saved_file_scales": bool(
                 updated.get("show_saved_file_scales", True)
+            ),
+            "sidebar_spatial_stats_unit": normalize_spatial_stats_unit(
+                updated.get("sidebar_spatial_stats_unit"),
+                default=normalize_spatial_stats_unit(
+                    updated.get("experiment_defaults", {}).get("spatial_stats_unit"),
+                    default="px",
+                ),
             ),
         }
     )

@@ -203,6 +203,10 @@ def display(request, uuids):
         preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
         default="px",
     )
+    sidebar_spatial_stats_unit = normalize_spatial_stats_unit(
+        preferences.get("sidebar_spatial_stats_unit"),
+        default=default_spatial_stats_unit,
+    )
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -273,7 +277,7 @@ def display(request, uuids):
                     cell_stats_qs,
                     intensity_mode=table_mode,
                     puncta_line_mode=puncta_line_mode,
-                    spatial_stats_unit=default_spatial_stats_unit,
+                    spatial_stats_unit=sidebar_spatial_stats_unit,
                     scale_context=scale_context,
                 )
             if stats_by_id:
@@ -359,7 +363,7 @@ def display(request, uuids):
             CellStatistics.objects.none(),
             intensity_mode=None,
             puncta_line_mode=None,
-            spatial_stats_unit=default_spatial_stats_unit,
+            spatial_stats_unit=sidebar_spatial_stats_unit,
             scale_context=None,
         )
 
@@ -375,6 +379,7 @@ def display(request, uuids):
         'show_saved_file_scales': show_saved_file_scales,
         'sidebar_starts_open': sidebar_starts_open,
         'default_spatial_stats_unit': default_spatial_stats_unit,
+        'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
     })
 
 

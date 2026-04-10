@@ -52,6 +52,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
         self.assertTrue(normalized["sidebar_starts_open"])
+        self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
 
     def test_normalize_preferences_filters_invalid_values(self):
         normalized = normalize_preferences_payload(
@@ -94,6 +95,17 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertFalse(normalized["show_saved_file_scales"])
+        self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
+
+    def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {"spatial_stats_unit": "um"},
+            }
+        )
+
+        self.assertEqual(normalized["experiment_defaults"]["spatial_stats_unit"], "um")
+        self.assertEqual(normalized["sidebar_spatial_stats_unit"], "um")
 
 
 class AccountAreaAccessTests(TestCase):
@@ -611,11 +623,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
         self.assertContains(response, 'id="toggleContours"', html=False)
         self.assertContains(response, 'id="statsTablePanel"', html=False)
-        self.assertContains(response, 'id="dashboardSpatialUnitToggle"', html=False)
+        self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'Line + Spot Metrics')
@@ -644,12 +657,13 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
         self.assertContains(response, 'id="toggleContours"', html=False)
         self.assertContains(response, 'id="statsTablePanel"', html=False)
-        self.assertContains(response, 'id="displaySpatialUnitToggle"', html=False)
+        self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
         self.assertContains(response, "const defaultSpatialStatsUnit =", html=False)
+        self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="dic_form"', html=False)
@@ -680,6 +694,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="currentFileInfo"', html=False)
         self.assertContains(response, 'id="currentFileIndex"', html=False)
         self.assertContains(response, 'id="preprocessScaleSummary"', html=False)
+        self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
 
     def test_dashboard_csv_export_for_file_uuid_returns_attachment(self):
         file_name = "dashboard_csv_export"
@@ -1283,6 +1298,25 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'class="sidebar scales-hidden"')
         self.assertContains(response, "Show Scale")
 
+    def test_display_dashboard_and_preprocess_use_sidebar_spatial_unit_preference(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="sidebar_unit_saved",
+        )
+        preprocess_uuid = self._create_preprocess_file(filename="sidebar_unit_preprocess")
+        prefs = get_user_preferences(self.user)
+        prefs["sidebar_spatial_stats_unit"] = "um"
+        update_user_preferences(self.user, prefs)
+
+        display_response = self.client.get(reverse("display", args=[saved_uuid]))
+        dashboard_response = self.client.get(reverse("dashboard"))
+        preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
+
+        self.assertContains(display_response, 'const initialSidebarSpatialStatsUnit = "um";', html=False)
+        self.assertContains(dashboard_response, 'const initialSidebarSpatialStatsUnit = "um";', html=False)
+        self.assertContains(preprocess_response, 'let currentSpatialStatsUnit = "um";', html=False)
+
     def test_preprocess_post_rejects_tampered_scale_uuid_map(self):
         preprocess_uuid = self._create_preprocess_file(filename="tamper_preprocess")
         outside_uuid = self._create_preprocess_file(filename="outside_preprocess")
@@ -1539,6 +1573,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_dashboard_sidebar_spatial_unit_requires_valid_unit(self):
+        response = self.client.post(
+            reverse("dashboard_channel_visibility"),
+            data=json.dumps({"sidebar_spatial_stats_unit": "bad"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_dashboard_channel_visibility_persists_user_preference(self):
         response = self.client.post(
             reverse("dashboard_channel_visibility"),
@@ -1558,6 +1600,24 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
+
+    def test_dashboard_sidebar_spatial_unit_persists_without_changing_workflow_default(self):
+        prefs = get_user_preferences(self.user)
+        prefs["experiment_defaults"]["spatial_stats_unit"] = "px"
+        update_user_preferences(self.user, prefs)
+
+        response = self.client.post(
+            reverse("dashboard_channel_visibility"),
+            data=json.dumps({"sidebar_spatial_stats_unit": "um"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["sidebar_spatial_stats_unit"], "um")
+
+        self.user.refresh_from_db()
+        updated = get_user_preferences(self.user)
+        self.assertEqual(updated["sidebar_spatial_stats_unit"], "um")
+        self.assertEqual(updated["experiment_defaults"]["spatial_stats_unit"], "px")
 
     def test_behavior_form_persists_channel_visibility_toggle(self):
         response = self.client.post(

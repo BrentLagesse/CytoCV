@@ -48,6 +48,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "show_saved_file_channels": True,
     "show_saved_file_scales": True,
     "sidebar_starts_open": True,
+    "sidebar_spatial_stats_unit": "px",
 }
 
 
@@ -250,6 +251,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     normalized["sidebar_starts_open"] = _as_bool(
         raw_payload.get("sidebar_starts_open"),
         default=True,
+    )
+    normalized["sidebar_spatial_stats_unit"] = _normalize_unit(
+        raw_payload.get("sidebar_spatial_stats_unit"),
+        default=normalized["experiment_defaults"]["spatial_stats_unit"],
     )
     return normalized
 
