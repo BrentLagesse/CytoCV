@@ -1,4 +1,4 @@
-# Local Installation And Troubleshooting
+﻿# Local Installation And Troubleshooting
 
 ## Purpose
 
@@ -528,3 +528,4 @@ For Windows PowerShell users, use:
 - [`../user/getting-started.md`](../user/getting-started.md)
 - [`../user/troubleshooting.md`](../user/troubleshooting.md)
 - [`../ops/postgres-setup.md`](../ops/postgres-setup.md)
+

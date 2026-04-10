@@ -1,4 +1,4 @@
-# Data Model
+﻿# Data Model
 
 ## Purpose
 
@@ -81,20 +81,20 @@ Purpose:
 
 Important direct fields include:
 
-- `distance`
-- `line_gfp_intensity`
+- `puncta_distance`
+- `puncta_line_intensity`
 - `nucleus_intensity_sum`
-- `cellular_intensity_sum`
+- `cell_pair_intensity_sum`
 - `cytoplasmic_intensity`
 - contour sizes
 - red, green, and mixed intensity fields
-- legacy DAPI-derived fields when corresponding legacy plugins are selected
-- GFP dot classification fields when `GFPDot` is selected
+- legacy Blue-derived fields when corresponding legacy plugins are selected
+- CEN dot classification fields when `CENDot` is selected
 - `properties`
 
 `properties` carries dynamic run context such as:
 
-- nuclear or cellular mode
+- nuclear or cell-pair mode
 - scale source and effective scale
 - line width and distance threshold context
 
@@ -115,3 +115,4 @@ These can temporarily differ, especially when a run is transient:
 - [`routes-and-endpoints.md`](routes-and-endpoints.md)
 - [`file-format-and-artifact-spec.md`](file-format-and-artifact-spec.md)
 - [`../developer/data-flow-and-artifacts.md`](../developer/data-flow-and-artifacts.md)
+

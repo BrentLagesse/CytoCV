@@ -1,4 +1,4 @@
-# Testing Guide
+﻿# Testing Guide
 
 ## Purpose
 
@@ -14,7 +14,7 @@ Current test modules:
 - `test_artifact_storage.py`
 - `test_core_app.py`
 - `test_mrcnn_inference.py`
-- `test_nuclear_cellular_intensity.py`
+- `test_nuclear_cell_pair_intensity.py`
 - `test_scale_upload_initialization.py`
 - `test_stats_cache.py`
 - `test_stats_validation.py`
@@ -61,3 +61,4 @@ For documentation changes, verify:
 
 - [`contributing.md`](contributing.md)
 - [`../ops/environment-reference.md`](../ops/environment-reference.md)
+

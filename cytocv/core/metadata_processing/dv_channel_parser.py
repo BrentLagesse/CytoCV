@@ -2,6 +2,12 @@ import re
 from collections.abc import Mapping
 
 from mrc import DVFile
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+)
 
 
 def _safe_float(value):
@@ -17,24 +23,24 @@ def _map_channel_name(orig_name: str, wl_val: float | None) -> str:
 
     if wl_val is not None:
         if abs(wl_val - 625) < 12:
-            return "mCherry"
+            return CHANNEL_ROLE_RED
         if abs(wl_val - 525) < 12:
-            return "GFP"
+            return CHANNEL_ROLE_GREEN
         if abs(wl_val - 435) < 12:
-            return "DAPI"
+            return CHANNEL_ROLE_BLUE
         # DIC is often encoded as negative (POL). Treat tiny positive values as DIC too.
         if wl_val < 0 or (1 <= wl_val < 200):
-            return "DIC"
+            return CHANNEL_ROLE_DIC
 
     compact = "".join(ch for ch in lower if ch.isalnum())
     if "dic" in compact or "brightfield" in compact or "transmission" in compact or compact == "bf":
-        return "DIC"
+        return CHANNEL_ROLE_DIC
     if "dapi" in compact or "hoechst" in compact:
-        return "DAPI"
+        return CHANNEL_ROLE_BLUE
     if "gfp" in compact:
-        return "GFP"
+        return CHANNEL_ROLE_GREEN
     if "mcherry" in compact or "cherry" in compact:
-        return "mCherry"
+        return CHANNEL_ROLE_RED
 
     return name
 

@@ -1,4 +1,4 @@
-# Architecture Overview
+﻿# Architecture Overview
 
 ## Purpose
 
@@ -86,3 +86,4 @@ Media artifact generation, cleanup, quota projection, and retention logic are ce
 - [`codebase-map.md`](codebase-map.md)
 - [`request-flows.md`](request-flows.md)
 - [`data-flow-and-artifacts.md`](data-flow-and-artifacts.md)
+

@@ -7,23 +7,30 @@ import os
 from typing import Any
 
 from cytocv.settings import MEDIA_ROOT
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+    normalize_channel_role,
+)
 
 input_dir = ""
 output_dir = ""
 
 DEFAULT_CHANNEL_CONFIG: dict[str, int] = {
-    "mCherry": 3,
-    "GFP": 2,
-    "DAPI": 1,
-    "DIC": 0,
+    CHANNEL_ROLE_RED: 3,
+    CHANNEL_ROLE_GREEN: 2,
+    CHANNEL_ROLE_BLUE: 1,
+    CHANNEL_ROLE_DIC: 0,
 }
 
 DEFAULT_PROCESS_CONFIG: dict[str, Any] = {
     "kernel_size": 13,
     "kernel_deviation": 5,
-    "mCherry_line_width": 1,
+    "puncta_line_width": 1,
     "useCache": "on",
-    "mCherry_to_find_pairs": "on",
+    "red_to_find_pairs": "on",
     "drop_ignore": "off",
     "arrested": "Metaphase Arrested",
 }
@@ -46,5 +53,10 @@ def get_channel_config_for_uuid(uuid: str) -> dict[str, Any]:
     config_path = os.path.join(MEDIA_ROOT, str(uuid), "channel_config.json")
     if os.path.exists(config_path):
         with open(config_path, "r") as f:
-            return json.load(f)
+            payload = json.load(f)
+        return {
+            normalize_channel_role(channel_name) or channel_name: int(channel_index)
+            for channel_name, channel_index in payload.items()
+            if channel_index is not None
+        }
     return DEFAULT_CHANNEL_CONFIG

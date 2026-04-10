@@ -50,6 +50,12 @@ from django.shortcuts import get_object_or_404, redirect
 # =========================
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from .utils import write_progress, is_cancelled, clear_cancelled, prune_experiment_session_state
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+)
 from core.config import (
     DEFAULT_PROCESS_CONFIG,
     get_channel_config_for_uuid,
@@ -89,11 +95,20 @@ from core.services.artifact_storage import (
     resolve_uploaded_file_path,
     save_png_array,
 )
+from core.services.canonical_contours import (
+    build_canonical_contour_payload,
+    flatten_slot_contours,
+)
 from core.services.overlay_rendering import (
     build_overlay_render_config,
     persist_debug_overlay_exports,
     persist_overlay_cache_images,
     write_overlay_render_config,
+)
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    get_puncta_line_mode_metadata,
+    normalize_puncta_line_mode,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,7 +119,9 @@ AUTOSAVE_STORAGE_FULL_MESSAGE = (
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
-STATS_CACHE_CHANNELS = frozenset({"mCherry", "GFP", "DAPI", "DIC"})
+STATS_CACHE_CHANNELS = frozenset(
+    {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE, CHANNEL_ROLE_DIC}
+)
 
 ## progress helpers moved to core.views.utils
 
@@ -122,6 +139,15 @@ def _build_layer_channel_lookup(channel_config: dict[str, object]) -> dict[int, 
             continue
         layer_channel_lookup[layer_index] = channel_name
     return layer_channel_lookup
+
+
+def _process_config_value(
+    config: dict[str, object],
+    key: str,
+    legacy_key: str,
+    default,
+):
+    return config.get(key, config.get(legacy_key, default))
 
 def _current_owner_filter(request) -> dict:
     """Return queryset filter args for the current upload owner."""
@@ -145,36 +171,47 @@ def set_options(opt):
     input_dir = opt['input_dir']
     output_dir = opt['output_dir']
     kernel_size_input = opt['kernel_size']
-    mcherry_line_width_input = opt['mCherry_line_width']
+    puncta_line_width_input = _process_config_value(opt, 'puncta_line_width', 'red_line_width', 1)
     kernel_deviation_input = opt['kernel_deviation']
     choice_var = opt['arrested']
-    return kernel_size_input, mcherry_line_width_input, kernel_deviation_input, choice_var
+    return kernel_size_input, puncta_line_width_input, kernel_deviation_input, choice_var
 
 def get_stats(
     cp,
     conf,
     execution_plan: StatsExecutionPlan | None,
-    mcherry_width,
-    gfp_distance,
-    gfp_threshold,
-    gfp_filter_enabled=False,
-    alternate_mcherry_detection=False,
+    puncta_line_width,
+    cen_dot_distance,
+    cen_dot_collinearity_threshold,
+    green_contour_filter_enabled=False,
+    alternate_red_detection=False,
     cached_images=None,
 ):
     # loading configuration
-    kernel_size_input, mcherry_line_width_input, kernel_deviation_input, _ = set_options(conf)
-    nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
+    kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
+    nuclear_cell_pair_mode = conf.get("nuclear_cell_pair_mode", "green_nucleus")
+    puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
     cp.properties = dict(cp.properties or {})
-    cp.properties["nuclear_cellular_mode"] = nuclear_cellular_mode
+    cp.properties["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
+    cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
+    cp.properties["puncta_line_source_channel"] = puncta_line_metadata["source_channel"]
+    cp.properties["puncta_line_measurement_channel"] = puncta_line_metadata["measurement_channel"]
 
     if execution_plan is None:
         execution_plan = build_stats_execution_plan(conf.get("analysis", []))
     stats_required_channels = {
-        channel for channel in execution_plan.required_channels if channel in {"mCherry", "GFP", "DAPI"}
+        channel
+        for channel in execution_plan.required_channels
+        if channel in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}
     }
 
     # Always try to load all analysis channels if present so debug images remain available.
-    channels_to_load = {"mCherry", "GFP", "DAPI", "DIC"} | stats_required_channels
+    channels_to_load = {
+        CHANNEL_ROLE_RED,
+        CHANNEL_ROLE_GREEN,
+        CHANNEL_ROLE_BLUE,
+        CHANNEL_ROLE_DIC,
+    } | stats_required_channels
     images = load_image(
         cp,
         output_dir,
@@ -182,7 +219,7 @@ def get_stats(
         cached_images=cached_images,
     )
 
-    available_image_keys = [key for key in ("mCherry", "GFP", "DAPI", "DIC") if key in images]
+    available_image_keys = [key for key in ("red", "green", "blue", "dic") if key in images]
     if not available_image_keys:
         blank = np.zeros((64, 64, 3), dtype=np.uint8)
         return Image.fromarray(blank), Image.fromarray(blank), Image.fromarray(blank)
@@ -193,28 +230,45 @@ def get_stats(
         base = images.get(channel_key, reference)
         return ensure_3channel_bgr(np.array(base, copy=True))
 
-    edit_mCherry_img = _canvas_for("mCherry")
-    edit_GFP_img = _canvas_for("GFP")
-    edit_DAPI_img = _canvas_for("DAPI")
+    edit_red_img = _canvas_for("red")
+    edit_green_img = _canvas_for("green")
+    edit_blue_img = _canvas_for("blue")
 
     if not execution_plan.selected_plugins:
         # No selected statistics: keep defaults and return plain debug frames.
-        edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
-        edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
-        edit_DAPI_img_rgb = cv2.cvtColor(edit_DAPI_img, cv2.COLOR_BGR2RGB)
-        return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb), Image.fromarray(edit_DAPI_img_rgb)
+        edit_red_img_rgb = cv2.cvtColor(edit_red_img, cv2.COLOR_BGR2RGB)
+        edit_green_img_rgb = cv2.cvtColor(edit_green_img, cv2.COLOR_BGR2RGB)
+        edit_blue_img_rgb = cv2.cvtColor(edit_blue_img, cv2.COLOR_BGR2RGB)
+        return (
+            Image.fromarray(edit_red_img_rgb),
+            Image.fromarray(edit_green_img_rgb),
+            Image.fromarray(edit_blue_img_rgb),
+        )
 
     preprocessed_images = preprocess_image_to_gray(images, kernel_deviation_input, kernel_size_input)
-    contours_data = find_contours(preprocessed_images, gfp_filter_enabled, alternate_mcherry_detection)
+    contours_data = find_contours(
+        preprocessed_images,
+        green_contour_filter_enabled,
+        alternate_red_detection,
+    )
+    contours_data = build_canonical_contour_payload(
+        contours_data,
+        image_name=cp.image_name,
+        cell_id=cp.cell_id,
+        output_dir=output_dir,
+        shape=reference.shape[:2],
+    )
+    canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
+    canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
     best_contour_data = {}
-    best_contour_dapi = None
-    best_dapi_area = None
-    dapi_gray = preprocessed_images.get_image("gray_dapi")
-    if dapi_gray is not None:
-        image_area = float(dapi_gray.shape[0] * dapi_gray.shape[1])
-        min_dapi_area = max(10.0, image_area * 0.002)
-        max_dapi_area = image_area * 0.95
+    best_contour_blue = None
+    best_blue_area = None
+    blue_gray = preprocessed_images.get_image("gray_blue")
+    if blue_gray is not None:
+        image_area = float(blue_gray.shape[0] * blue_gray.shape[1])
+        min_blue_area = max(10.0, image_area * 0.002)
+        max_blue_area = image_area * 0.95
 
         def _pick_first_valid(contours, indices):
             for idx in indices:
@@ -222,77 +276,77 @@ def get_stats(
                     continue
                 cnt = contours[idx]
                 area = cv2.contourArea(cnt)
-                if min_dapi_area <= area <= max_dapi_area:
+                if min_blue_area <= area <= max_blue_area:
                     return cnt, area
             return None, None
 
-        best_contour_dapi, best_dapi_area = _pick_first_valid(
-            contours_data.get("contours_dapi_3", []),
-            contours_data.get("bestContours_dapi_3", []),
+        best_contour_blue, best_blue_area = _pick_first_valid(
+            contours_data.get("contours_blue_3", []),
+            contours_data.get("best_contours_blue_3", []),
         )
 
-        if best_contour_dapi is None:
-            best_contour_dapi, best_dapi_area = _pick_first_valid(
-                contours_data.get("contours_dapi", []),
-                contours_data.get("bestContours_dapi", []),
+        if best_contour_blue is None:
+            best_contour_blue, best_blue_area = _pick_first_valid(
+                contours_data.get("contours_blue", []),
+                contours_data.get("best_contours_blue", []),
             )
 
-        if best_contour_dapi is None and contours_data.get("contours_dapi"):
-            valid_dapi = []
-            for cnt in contours_data["contours_dapi"]:
+        if best_contour_blue is None and contours_data.get("contours_blue"):
+            valid_blue = []
+            for cnt in contours_data["contours_blue"]:
                 area = cv2.contourArea(cnt)
-                if min_dapi_area <= area <= max_dapi_area:
-                    valid_dapi.append((area, cnt))
-            if valid_dapi:
-                valid_dapi.sort(key=lambda item: item[0], reverse=True)
-                best_dapi_area, best_contour_dapi = valid_dapi[0]
+                if min_blue_area <= area <= max_blue_area:
+                    valid_blue.append((area, cnt))
+            if valid_blue:
+                valid_blue.sort(key=lambda item: item[0], reverse=True)
+                best_blue_area, best_contour_blue = valid_blue[0]
 
-    if best_contour_dapi is not None:
-        best_contour_data["DAPI"] = best_contour_dapi
-        cp.blue_contour_size = float(best_dapi_area)
+    if best_contour_blue is not None:
+        best_contour_data["Blue"] = best_contour_blue
+        cp.blue_contour_size = float(best_blue_area)
     else:
         cp.blue_contour_size = 0.0
 
-    for i, contour in enumerate(contours_data.get("dot_contours", [])):
-        area = cv2.contourArea(contour)
-        setattr(cp, f"red_contour_{i+1}_size", area)
+    if canonical_red_contours:
+        cv2.drawContours(edit_red_img, canonical_red_contours, -1, (0, 0, 255), 1)
+        cv2.drawContours(edit_green_img, canonical_red_contours, -1, (0, 0, 255), 1)
+        cv2.drawContours(edit_blue_img, canonical_red_contours, -1, (0, 0, 255), 1)
 
-    if contours_data.get("dot_contours"):
-        cv2.drawContours(edit_mCherry_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
-        cv2.drawContours(edit_GFP_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
-        cv2.drawContours(edit_DAPI_img, contours_data["dot_contours"], -1, (0, 0, 255), 1)
+    if best_contour_blue is not None:
+        cv2.drawContours(edit_green_img, [best_contour_blue], 0, (255, 0, 0), 1)
+        cv2.drawContours(edit_blue_img, [best_contour_blue], 0, (255, 0, 0), 1)
 
-    if best_contour_dapi is not None:
-        cv2.drawContours(edit_GFP_img, [best_contour_dapi], 0, (255, 0, 0), 1)
-        cv2.drawContours(edit_DAPI_img, [best_contour_dapi], 0, (255, 0, 0), 1)
+    if canonical_green_contours:
+        cv2.drawContours(edit_red_img, canonical_green_contours, -1, (0, 255, 0), 1)
+        cv2.drawContours(edit_green_img, canonical_green_contours, -1, (0, 255, 0), 1)
+        cv2.drawContours(edit_blue_img, canonical_green_contours, -1, (0, 255, 0), 1)
 
-    if contours_data.get("contours_gfp"):
-        cv2.drawContours(edit_mCherry_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
-        cv2.drawContours(edit_GFP_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
-        cv2.drawContours(edit_DAPI_img, contours_data["contours_gfp"], -1, (0, 255, 0), 1)
-
-    dapi_contour_required_plugins = {"NucleusIntensity", "DAPI_NucleusIntensity"}
+    blue_contour_required_plugins = {"NucleusIntensity", "BlueNucleusIntensity"}
     for analysis in execution_plan.analyses:
         analysis_name = analysis.__class__.__name__
-        if analysis_name in dapi_contour_required_plugins and "DAPI" not in best_contour_data:
+        if analysis_name in blue_contour_required_plugins and "Blue" not in best_contour_data:
             continue
         analysis.setting_up(cp, preprocessed_images, output_dir)
         analysis.calculate_statistics(
             best_contour_data,
             contours_data,
-            edit_mCherry_img,
-            edit_GFP_img,
-            mcherry_width,
-            gfp_distance,
-            gfp_threshold
+            edit_red_img,
+            edit_green_img,
+            puncta_line_width,
+            cen_dot_distance,
+            cen_dot_collinearity_threshold,
         )
 
     # Convert BGR back to RGB so PIL shows correct colors
-    edit_testing_rgb = cv2.cvtColor(edit_mCherry_img, cv2.COLOR_BGR2RGB)
-    edit_GFP_img_rgb = cv2.cvtColor(edit_GFP_img, cv2.COLOR_BGR2RGB)
-    edit_DAPI_img_rgb = cv2.cvtColor(edit_DAPI_img, cv2.COLOR_BGR2RGB)
+    edit_red_img_rgb = cv2.cvtColor(edit_red_img, cv2.COLOR_BGR2RGB)
+    edit_green_img_rgb = cv2.cvtColor(edit_green_img, cv2.COLOR_BGR2RGB)
+    edit_blue_img_rgb = cv2.cvtColor(edit_blue_img, cv2.COLOR_BGR2RGB)
 
-    return Image.fromarray(edit_testing_rgb), Image.fromarray(edit_GFP_img_rgb), Image.fromarray(edit_DAPI_img_rgb)
+    return (
+        Image.fromarray(edit_red_img_rgb),
+        Image.fromarray(edit_green_img_rgb),
+        Image.fromarray(edit_blue_img_rgb),
+    )
 
 def finalize_segmented_run_batch(request, uuid_list: list[str], *, auto_save_experiments: bool) -> None:
     """Persist a completed batch when quota allows, otherwise keep it transient."""
@@ -494,51 +548,56 @@ def segment_image(request, uuids):
             lines_to_draw = dict()
             if resolve_cells_using_spc110:
 
-                # open the mcherry
-                #TODO: open mcherry from dv stack
+                # Open the red channel from the DV stack.
 
                 # basename = image_name.split('_R3D_REF')[0]
-                # mcherry_dir = input_dir + basename + '_PRJ_TIFFS/'
-                # mcherry_image_name = basename + '_PRJ' + '_w625' + '.tif'
-                # mcherry_image = np.array(Image.open(mcherry_dir + mcherry_image_name))
+                # red_dir = input_dir + basename + '_PRJ_TIFFS/'
+                # red_image_name = basename + '_PRJ' + '_w625' + '.tif'
+                # red_image = np.array(Image.open(red_dir + red_image_name))
 
                 # Which file are we trying to find here?
                 f = DVFile(DV_path)
                 try:
-                    mcherry_index = channel_config.get("mCherry")
-                    mcherry_image = f.asarray()[mcherry_index]
+                    red_index = channel_config.get(CHANNEL_ROLE_RED)
+                    red_image = f.asarray()[red_index]
                 finally:
                     f.close()
 
-                # mcherry_image = skimage.exposure.rescale_intensity(mcherry_np.float32(image), out_range=(0, 1))
-                mcherry_image = np.round(mcherry_image * 255).astype(np.uint8)
+                red_image = np.round(red_image * 255).astype(np.uint8)
 
                 # Convert the image to an RGB image, if necessary
-                if len(mcherry_image.shape) == 3 and mcherry_image.shape[2] == 3:
+                if len(red_image.shape) == 3 and red_image.shape[2] == 3:
                     pass
                 else:
-                    mcherry_image = np.expand_dims(mcherry_image, axis=-1)
-                    mcherry_image = np.tile(mcherry_image, 3)
+                    red_image = np.expand_dims(red_image, axis=-1)
+                    red_image = np.tile(red_image, 3)
                 # find contours
-                mcherry_image_gray = cv2.cvtColor(mcherry_image, cv2.COLOR_RGB2GRAY)
-                mcherry_image_gray, background = subtract_background_rolling_ball(mcherry_image_gray, 50,
-                                                                                    light_background=False,
-                                                                                    use_paraboloid=False,
-                                                                                    do_presmooth=True)
+                red_image_gray = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
+                red_image_gray, _background = subtract_background_rolling_ball(
+                    red_image_gray,
+                    50,
+                    light_background=False,
+                    use_paraboloid=False,
+                    do_presmooth=True,
+                )
 
                 debug = False
                 if debug:
                     plt.figure(dpi=600)
-                    plt.title("mcherry")
-                    plt.imshow(mcherry_image_gray, cmap='gray')
+                    plt.title("red")
+                    plt.imshow(red_image_gray, cmap='gray')
                     plt.show()
 
-                #mcherry_image_gray = cv2.GaussianBlur(mcherry_image_gray, (1, 1), 0)
-                mcherry_image_ret, mcherry_image_thresh = cv2.threshold(mcherry_image_gray, 0, 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-                mcherry_image_cont, mcherry_image_h = cv2.findContours(mcherry_image_thresh, 1, 2)
+                _red_image_ret, red_image_thresh = cv2.threshold(
+                    red_image_gray,
+                    0,
+                    1,
+                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
+                )
+                red_image_cont, _red_image_h = cv2.findContours(red_image_thresh, 1, 2)
 
                 if debug:
-                    cv2.drawContours(image, mcherry_image_cont, -1, 255, 1)
+                    cv2.drawContours(image, red_image_cont, -1, 255, 1)
                     plt.figure(dpi=600)
                     plt.title("ref image with contours")
                     plt.imshow(image, cmap='gray')
@@ -547,9 +606,9 @@ def segment_image(request, uuids):
 
                 #921,800
 
-                min_mcherry_distance = dict()
-                min_mcherry_loc = dict()   # maps an mcherry dot to its closest mcherry dot in terms of cell id
-                for cnt1 in mcherry_image_cont:
+                min_red_distance = dict()
+                min_red_loc = dict()   # maps a red dot to its closest red dot in terms of cell id
+                for cnt1 in red_image_cont:
                     try:
                         contourArea = cv2.contourArea(cnt1)
                         if contourArea > 100000:   #test for the big box, TODO: fix this to be adaptive
@@ -566,7 +625,7 @@ def segment_image(request, uuids):
                     c_id = int(seg[c1x][c1y])
                     if c_id == 0:
                         continue
-                    for cnt2 in mcherry_image_cont:
+                    for cnt2 in red_image_cont:
                         try:
                             coordinate = get_contour_center(cnt2)
                             # find center of each contour
@@ -577,25 +636,25 @@ def segment_image(request, uuids):
                             continue #no moment found
                         if int(seg[c2x][c2y]) == 0:
                             continue
-                        if seg[c1x][c1y] == seg[c2x][c2y]:   #these are ihe same cell already -- Maybe this is ok?  TODO:  Figure out hwo to handle this because some of the mcherry signals are in the same cell
+                        if seg[c1x][c1y] == seg[c2x][c2y]:   # these are the same cell already
                             continue
                         # find the closest point to each center
                         d = math.sqrt(pow(c1x - c2x, 2) + pow(c1y - c2y, 2))
-                        if min_mcherry_distance.get(c_id) == None:
-                            min_mcherry_distance[c_id] = d
-                            min_mcherry_loc[c_id] = int(seg[c2x][c2y])
+                        if min_red_distance.get(c_id) == None:
+                            min_red_distance[c_id] = d
+                            min_red_loc[c_id] = int(seg[c2x][c2y])
                             lines_to_draw[c_id] = ((c1y,c1x), (c2y, c2x))
                         else:
-                            if d < min_mcherry_distance[c_id]:
-                                min_mcherry_distance[c_id] = d
-                                min_mcherry_loc[c_id] = int(seg[c2x][c2y])
+                            if d < min_red_distance[c_id]:
+                                min_red_distance[c_id] = d
+                                min_red_loc[c_id] = int(seg[c2x][c2y])
                                 lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))  #flip it back here
-                            elif d == min_mcherry_distance[c_id]:
+                            elif d == min_red_distance[c_id]:
                                 logger.debug(
-                                    "Found tied mCherry pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
+                                    "Found tied Red pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
                                     seg[c1x][c1y],
                                     seg[c2x][c2y],
-                                    min_mcherry_loc[c_id],
+                                    min_red_loc[c_id],
                                     d,
                                 )
 
@@ -610,10 +669,10 @@ def segment_image(request, uuids):
                         to_update = np.where(seg == v)
                         ignore_list.append(int(v))
                         if resolve_cells_using_spc110:
-                            if int(v) in min_mcherry_loc:    #if we merge them here, we don't need to do it with mcherry
-                                del min_mcherry_loc[int(v)]
-                            if int(k) in min_mcherry_loc:
-                                del min_mcherry_loc[int(k)]
+                            if int(v) in min_red_loc:    #if we merge them here, we don't need to do it with red
+                                del min_red_loc[int(v)]
+                            if int(k) in min_red_loc:
+                                del min_red_loc[int(k)]
                         for update in zip(to_update[0], to_update[1]):
                             seg[update[0]][update[1]] = k
 
@@ -625,12 +684,12 @@ def segment_image(request, uuids):
                     single_cell_list.append(int(k))
 
             if resolve_cells_using_spc110:
-                for c_id, nearest_cid in min_mcherry_loc.items():
+                for c_id, nearest_cid in min_red_loc.items():
                     if int(c_id) in ignore_list:    # if we have already paired this one, ignore it
                         continue
-                    if int(nearest_cid) in min_mcherry_loc:  #make sure teh reciprocal exists
-                        if min_mcherry_loc[int(nearest_cid)] == int(c_id) and int(c_id) not in ignore_list:   # if it is mutual
-                            #print('added a cell pair in image {} using the mcherry technique {} and {}'.format(image_name, int(nearest_cid),
+                    if int(nearest_cid) in min_red_loc:  #make sure the reciprocal exists
+                        if min_red_loc[int(nearest_cid)] == int(c_id) and int(c_id) not in ignore_list:   # if it is mutual
+                            #print('added a cell pair in image {} using the red-channel technique {} and {}'.format(image_name, int(nearest_cid),
                                                                                                     #int(c_id)))
                             if int(c_id) in single_cell_list:
                                 single_cell_list.remove(int(c_id))
@@ -738,7 +797,7 @@ def segment_image(request, uuids):
             fig.add_axes(ax)
             ax.imshow(image_outlined)
 
-            # debugging to see where the mcherry signals connect
+            # debugging to see where the red signals connect
             for k, v in lines_to_draw.items():
                 start, stop = v
                 cv2.line(image_outlined, start, stop, (255,0,0), 1)
@@ -861,7 +920,7 @@ def segment_image(request, uuids):
             # Overlay the outlines on the original image in green
             image_outlined = image.copy()
             # image_outlined[outlines > 0] = (0, 255, 0)
-            # NOTE: Temporarily changing to cyan to debug GFP
+            # NOTE: Temporarily changing to cyan to debug the Green channel
             image_outlined[outlines > 0] = (0, 255, 255)
 
             # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
@@ -948,16 +1007,22 @@ def segment_image(request, uuids):
             request.session.get('selected_analysis', [])
         )
         selected_analysis = list(execution_plan.selected_plugins)
-        raw_mcherry_width = request.session.get(
-            'stats_mcherry_width_value',
-            request.session.get('mCherryWidth', 1),
+        raw_puncta_line_width = request.session.get(
+            'stats_puncta_line_width_value',
+            request.session.get('punctaLineWidth', request.session.get('redLineWidth', request.session.get('mCherryWidth', 1))),
         )
-        raw_gfp_distance = request.session.get(
-            'stats_gfp_distance_value',
-            request.session.get('distance', 37),
+        raw_cen_dot_distance = request.session.get(
+            'stats_cen_dot_distance_value',
+            request.session.get('cenDotDistance', request.session.get('distance', 37)),
         )
-        mcherry_width_unit = request.session.get('stats_mcherry_width_unit', 'px')
-        gfp_distance_unit = request.session.get('stats_gfp_distance_unit', 'px')
+        puncta_line_width_unit = request.session.get(
+            'stats_puncta_line_width_unit',
+            request.session.get('stats_red_line_width_unit', request.session.get('stats_mcherry_width_unit', 'px')),
+        )
+        cen_dot_distance_unit = request.session.get(
+            'stats_cen_dot_distance_unit',
+            request.session.get('stats_gfp_distance_unit', 'px'),
+        )
         session_manual_scale = request.session.get('stats_microns_per_pixel', 0.1)
         scale_info = normalize_scale_info(
             uploaded_image.scale_info,
@@ -979,64 +1044,87 @@ def segment_image(request, uuids):
             "line_width_proxy_um_per_px",
             effective_um_per_px,
         )
-        gfp_distance_unit = normalize_length_unit(gfp_distance_unit, default="px")
+        cen_dot_distance_unit = normalize_length_unit(cen_dot_distance_unit, default="px")
 
-        mcherry_width = convert_length_to_pixels(
-            raw_mcherry_width,
-            mcherry_width_unit,
+        puncta_line_width = convert_length_to_pixels(
+            raw_puncta_line_width,
+            puncta_line_width_unit,
             minimum_px=1,
             fallback_px=1,
             um_per_px=line_width_proxy_um_per_px,
         )
-        if gfp_distance_unit == "um":
+        if cen_dot_distance_unit == "um":
             try:
-                gfp_distance = float(raw_gfp_distance)
+                cen_dot_distance = float(raw_cen_dot_distance)
             except (TypeError, ValueError):
-                gfp_distance = 37.0
-            if not math.isfinite(gfp_distance) or gfp_distance < 0:
-                gfp_distance = 37.0
-            gfp_distance_px_equivalent = convert_length_to_pixels(
-                gfp_distance,
+                cen_dot_distance = 37.0
+            if not math.isfinite(cen_dot_distance) or cen_dot_distance < 0:
+                cen_dot_distance = 37.0
+            cen_dot_distance_px_equivalent = convert_length_to_pixels(
+                cen_dot_distance,
                 "um",
                 minimum_px=0,
                 fallback_px=37,
                 um_per_px=line_width_proxy_um_per_px,
             )
-            gfp_distance_mode = "physical_um"
+            cen_dot_distance_mode = "physical_um"
         else:
-            gfp_distance = float(
+            cen_dot_distance = float(
                 convert_length_to_pixels(
-                    raw_gfp_distance,
-                    gfp_distance_unit,
+                    raw_cen_dot_distance,
+                    cen_dot_distance_unit,
                     minimum_px=0,
                     fallback_px=37,
                     um_per_px=effective_um_per_px,
                 )
             )
-            gfp_distance_px_equivalent = int(gfp_distance)
-            gfp_distance_mode = "pixel"
-        gfp_threshold = request.session.get('threshold', 66)
+            cen_dot_distance_px_equivalent = int(cen_dot_distance)
+            cen_dot_distance_mode = "pixel"
+        cen_dot_collinearity_threshold = request.session.get(
+            'cenDotCollinearityThreshold',
+            request.session.get('threshold', 66),
+        )
         try:
-            gfp_threshold = int(gfp_threshold)
+            cen_dot_collinearity_threshold = int(cen_dot_collinearity_threshold)
         except (TypeError, ValueError):
-            gfp_threshold = 66
-        if gfp_threshold < 0:
-            gfp_threshold = 66
-        gfp_filter_enabled = request.session.get('gfpFilterEnabled', 'False')
-        alternate_mcherry_detection = request.session.get('alternateMCherryDetection', 'False')
+            cen_dot_collinearity_threshold = 66
+        if cen_dot_collinearity_threshold < 0:
+            cen_dot_collinearity_threshold = 66
+        green_contour_filter_enabled = request.session.get(
+            'greenContourFilterEnabled',
+            request.session.get('gfpFilterEnabled', 'False'),
+        )
+        alternate_red_detection = request.session.get(
+            'alternateRedDetection',
+            request.session.get('alternateMCherryDetection', 'False'),
+        )
+
+        configured_puncta_line_width = _process_config_value(
+            configuration,
+            "puncta_line_width",
+            "red_line_width",
+            DEFAULT_PROCESS_CONFIG.get("puncta_line_width", 1),
+        )
 
         # Build a proper 'conf' dict with required keys for get_stats
         conf = {
             'input_dir': input_dir,
             'output_dir': os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
             'kernel_size': configuration["kernel_size"],
-            'mCherry_line_width': configuration["mCherry_line_width"],
+            'puncta_line_width': configured_puncta_line_width,
             'kernel_deviation': configuration["kernel_deviation"],
             'arrested': configuration["arrested"],
             'analysis' : selected_analysis,
-            'nuclear_cellular_mode': request.session.get("nuclear_cellular_mode", "green_nucleus"),
-            'gfp_filter_enabled': request.session.get("gfpFilterEnabled", "False"),
-            'alternate_mcherry_detection': request.session.get("alternateMCherryDetection", "False"),
+            'puncta_line_mode': normalize_puncta_line_mode(
+                request.session.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            ),
+            'nuclear_cell_pair_mode': request.session.get(
+                "nuclear_cell_pair_mode",
+                request.session.get("nuclear_cellular_mode", "green_nucleus"),
+            ),
+            'green_contour_filter_enabled': green_contour_filter_enabled,
+            'alternate_red_detection': alternate_red_detection,
         }
         write_overlay_render_config(
             uuid,
@@ -1045,28 +1133,32 @@ def segment_image(request, uuids):
                 channel_config=channel_config,
                 kernel_size=configuration["kernel_size"],
                 kernel_deviation=configuration["kernel_deviation"],
-                mcherry_line_width=configuration["mCherry_line_width"],
+                puncta_line_width=configured_puncta_line_width,
                 arrested=configuration["arrested"],
                 selected_analysis=selected_analysis,
-                nuclear_cellular_mode=request.session.get(
-                    "nuclear_cellular_mode",
-                    "green_nucleus",
+                puncta_line_mode=normalize_puncta_line_mode(
+                    request.session.get("puncta_line_mode"),
+                    default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
-                mcherry_width_px=mcherry_width,
-                gfp_distance_value_used=gfp_distance,
-                gfp_threshold=gfp_threshold,
-                gfp_filter_enabled=(
-                    gfp_filter_enabled
-                    if isinstance(gfp_filter_enabled, bool)
-                    else str(gfp_filter_enabled).strip().lower() in {"1", "true", "yes", "on"}
+                nuclear_cell_pair_mode=request.session.get(
+                    "nuclear_cell_pair_mode",
+                    request.session.get("nuclear_cellular_mode", "green_nucleus"),
                 ),
-                alternate_mcherry_detection=(
-                    alternate_mcherry_detection
-                    if isinstance(alternate_mcherry_detection, bool)
-                    else str(alternate_mcherry_detection).strip().lower() in {"1", "true", "yes", "on"}
+                puncta_line_width_px=puncta_line_width,
+                cen_dot_distance_value_used=cen_dot_distance,
+                cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
+                green_contour_filter_enabled=(
+                    green_contour_filter_enabled
+                    if isinstance(green_contour_filter_enabled, bool)
+                    else str(green_contour_filter_enabled).strip().lower() in {"1", "true", "yes", "on"}
                 ),
-                mcherry_width_unit=mcherry_width_unit,
-                gfp_distance_unit=gfp_distance_unit,
+                alternate_red_detection=(
+                    alternate_red_detection
+                    if isinstance(alternate_red_detection, bool)
+                    else str(alternate_red_detection).strip().lower() in {"1", "true", "yes", "on"}
+                ),
+                puncta_line_width_unit=puncta_line_width_unit,
+                cen_dot_distance_unit=cen_dot_distance_unit,
             ),
         )
 
@@ -1095,10 +1187,10 @@ def segment_image(request, uuids):
                 cell_id=cell_number,
                 defaults={
                     # Cell statistics numerical defaults
-                    'distance': 0.0,
-                    'line_gfp_intensity': 0.0,
+                    'puncta_distance': 0.0,
+                    'puncta_line_intensity': 0.0,
                     'nucleus_intensity_sum': 0.0,
-                    'cellular_intensity_sum': 0.0,
+                    'cell_pair_intensity_sum': 0.0,
                     'green_red_intensity_1': 0.0,
                     'green_red_intensity_2': 0.0,
                     'green_red_intensity_3': 0.0,
@@ -1112,7 +1204,14 @@ def segment_image(request, uuids):
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
             cp.properties = dict(cp.properties or {})
-            cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
+            cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
+                request.session.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            )
+            cp.properties["nuclear_cell_pair_mode"] = request.session.get(
+                "nuclear_cell_pair_mode",
+                request.session.get("nuclear_cellular_mode", "green_nucleus"),
+            )
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
             cp.properties["scale_status"] = scale_info.get("status", "missing")
@@ -1124,22 +1223,22 @@ def segment_image(request, uuids):
             cp.properties["scale_is_anisotropic"] = bool(scale_context.get("is_anisotropic", False))
             cp.properties["scale_distance_mode"] = scale_context.get("distance_mode", "scalar")
             cp.properties["scale_line_width_proxy_um_per_px"] = line_width_proxy_um_per_px
-            cp.properties["stats_mcherry_width_px"] = mcherry_width
-            cp.properties["stats_gfp_distance_px"] = gfp_distance_px_equivalent
-            cp.properties["stats_gfp_distance_threshold"] = gfp_distance
-            cp.properties["stats_gfp_distance_mode"] = gfp_distance_mode
-            cp.properties["stats_mcherry_width_unit"] = mcherry_width_unit
-            cp.properties["stats_gfp_distance_unit"] = gfp_distance_unit
+            cp.properties["stats_puncta_line_width_px"] = puncta_line_width
+            cp.properties["stats_cen_dot_distance_px"] = cen_dot_distance_px_equivalent
+            cp.properties["stats_cen_dot_distance_value"] = cen_dot_distance
+            cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
+            cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
+            cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
             # Call get_stats to do the real work
-            debug_mcherry, debug_gfp, debug_dapi = get_stats(
+            debug_red, debug_green, debug_blue = get_stats(
                 cp,
                 conf,
                 execution_plan,
-                mcherry_width,
-                gfp_distance,
-                gfp_threshold,
-                gfp_filter_enabled,
-                alternate_mcherry_detection,
+                puncta_line_width,
+                cen_dot_distance,
+                cen_dot_collinearity_threshold,
+                green_contour_filter_enabled,
+                alternate_red_detection,
                 cached_images=cell_image_cache.get(cell_number),
             )
 
@@ -1148,9 +1247,9 @@ def segment_image(request, uuids):
                     uuid,
                     cell_number,
                     {
-                        "mcherry": debug_mcherry,
-                        "gfp": debug_gfp,
-                        "dapi": debug_dapi,
+                        "red": debug_red,
+                        "green": debug_green,
+                        "blue": debug_blue,
                     },
                     overwrite=False,
                 )
@@ -1166,9 +1265,9 @@ def segment_image(request, uuids):
                         DV_Name,
                         cell_number,
                         {
-                            "mcherry": debug_mcherry,
-                            "gfp": debug_gfp,
-                            "dapi": debug_dapi,
+                            "red": debug_red,
+                            "green": debug_green,
+                            "blue": debug_blue,
                         },
                     )
                 except Exception as exc:

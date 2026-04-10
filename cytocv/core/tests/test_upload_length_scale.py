@@ -1,10 +1,10 @@
-"""Unit tests for upload-length conversion helpers."""
+﻿"""Unit tests for upload-length conversion helpers."""
 
 from types import SimpleNamespace
 from django.test import SimpleTestCase
 from unittest.mock import patch
 
-from core.cell_analysis import GFPDot
+from core.cell_analysis import CENDot
 from core.metadata_processing.dv_scale_parser import extract_dv_scale_metadata
 from core.scale import (
     apply_manual_override_scale,
@@ -219,10 +219,10 @@ class AnisotropicDistanceConversionTests(SimpleTestCase):
         self.assertAlmostEqual(value, (1.0**2 + 2.0**2) ** 0.5, places=6)
 
     def test_gfpdot_distance_switches_to_physical_um_when_unit_is_um(self):
-        plugin = GFPDot()
+        plugin = CENDot()
         plugin.cp = SimpleNamespace(
             properties={
-                "stats_gfp_distance_unit": "um",
+                "stats_cen_dot_distance_unit": "um",
                 "scale_x_um_per_px": 0.1,
                 "scale_y_um_per_px": 0.2,
             }
@@ -231,16 +231,16 @@ class AnisotropicDistanceConversionTests(SimpleTestCase):
         self.assertAlmostEqual(value, 1.0, places=6)
 
     def test_gfpdot_distance_remains_pixel_based_for_px_threshold(self):
-        plugin = GFPDot()
-        plugin.cp = SimpleNamespace(properties={"stats_gfp_distance_unit": "px"})
+        plugin = CENDot()
+        plugin.cp = SimpleNamespace(properties={"stats_cen_dot_distance_unit": "px"})
         value = plugin._distance_between_centers((0, 0), (10, 0), threshold_unit="px")
         self.assertAlmostEqual(value, 10.0, places=6)
 
     def test_gfpdot_threshold_comparison_changes_with_anisotropic_scale(self):
-        plugin = GFPDot()
+        plugin = CENDot()
         plugin.cp = SimpleNamespace(
             properties={
-                "stats_gfp_distance_unit": "um",
+                "stats_cen_dot_distance_unit": "um",
                 "scale_x_um_per_px": 0.2,
                 "scale_y_um_per_px": 0.2,
             }
@@ -249,7 +249,7 @@ class AnisotropicDistanceConversionTests(SimpleTestCase):
 
         plugin.cp = SimpleNamespace(
             properties={
-                "stats_gfp_distance_unit": "um",
+                "stats_cen_dot_distance_unit": "um",
                 "scale_x_um_per_px": 0.1,
                 "scale_y_um_per_px": 0.1,
             }
@@ -293,3 +293,4 @@ class DVScaleMetadataParserTests(SimpleTestCase):
         payload = extract_dv_scale_metadata("dummy.dv")
         self.assertEqual(payload["status"], "invalid")
         self.assertIsNone(payload["metadata_um_per_px"])
+

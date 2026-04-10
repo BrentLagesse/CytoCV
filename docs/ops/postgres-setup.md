@@ -1,4 +1,4 @@
-# PostgreSQL Setup For CytoCV
+﻿# PostgreSQL Setup For CytoCV
 
 ## Purpose
 
@@ -106,3 +106,4 @@ python manage.py check
 
 - [`environment-reference.md`](environment-reference.md)
 - [`deployment-guide.md`](deployment-guide.md)
+

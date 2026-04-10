@@ -1,251 +1,199 @@
-import cv2, math
+import cv2
+import math
 import numpy as np
 import logging
+
 from core.contour_processing import get_largest
 from core.image_processing import GrayImage
-import scipy.ndimage as ndi
-from skimage.segmentation import watershed
-from skimage.feature import peak_local_max
 
 logger = logging.getLogger(__name__)
 
-def find_contours(images:GrayImage, gfp_filter_enabled=False, alternate_mcherry_detection=False):
+
+def find_contours(
+    images: GrayImage,
+    green_contour_filter_enabled: bool = False,
+    alternate_red_detection: bool = False,
+):
     """
-    This function finds contours in an image and returns them as a numpy array.
-    :param images: Gray scale image list
-    :return: Dictionary of contours, best contours
+    Find red dot contours, blue nucleus contours, and green signal contours.
     """
-    gray_mcherry_3 = images.get_image('gray_mcherry_3')
-    gray_mcherry = images.get_image('gray_mcherry')
-    gray_dapi_3 = images.get_image('gray_dapi_3')
-    gray_dapi = images.get_image('gray_dapi')
-    gray_gfp = images.get_image('GFP')
+
+    gray_red_3 = images.get_image("gray_red_3")
+    gray_red = images.get_image("gray_red")
+    gray_blue_3 = images.get_image("gray_blue_3")
+    gray_blue = images.get_image("gray_blue")
+    gray_green = images.get_image("green")
 
     dot_contours = []
     contours = []
-    contours_mcherry = []
-    bestContours = []
-    bestContours_mcherry = []
-    if not alternate_mcherry_detection:
-        if gray_mcherry_3 is not None:
-            # Use a two-step process with Otsu thresholding to tighten the contours
+    contours_red = []
+    best_contours = []
+    best_contours_red = []
+
+    if not alternate_red_detection:
+        if gray_red_3 is not None:
             low_val, _ = cv2.threshold(
-                gray_mcherry_3,
+                gray_red_3,
                 0.65,
                 255,
                 cv2.THRESH_BINARY + cv2.THRESH_OTSU,
             )
             _, bright_thresh = cv2.threshold(
-                gray_mcherry_3,
+                gray_red_3,
                 low_val + 11,
                 255,
                 cv2.THRESH_BINARY,
             )
-            # _, bright_thresh = cv2.threshold(
-            #     gray_mcherry_3,
-            #     0.65,
-            #     255,
-            #     cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
-            # )
-            dot_contours, _ = cv2.findContours(bright_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-            dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]  # remove border contour
+            dot_contours, _ = cv2.findContours(
+                bright_thresh,
+                cv2.RETR_LIST,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]
 
-        # finding threshold
-        # ret_mcherry, thresh_mcherry = cv2.threshold(images.get_image('gray_mcherry_3'), 0, 1,
-        #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-        # ret, thresh = cv2.threshold(images.get_image('gray_mcherry'), 0, 1,
-        #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-
-        thresh_mcherry = None
+        thresh_red = None
         thresh = None
-        contours = []
-        contours_mcherry = []
-        bestContours = []
-        bestContours_mcherry = []
-        if gray_mcherry_3 is not None and gray_mcherry is not None:
-            thresh_mcherry = cv2.Canny(gray_mcherry_3, 50, 150)
-            # TODO: thresh seems to always be empty; are thresh and thresh_mcherry even being used?
-            thresh = cv2.Canny(gray_mcherry, 50, 150)
+        if gray_red_3 is not None and gray_red is not None:
+            thresh_red = cv2.Canny(gray_red_3, 50, 150)
+            thresh = cv2.Canny(gray_red, 50, 150)
 
-            # Try again with less restrictive thresholding if nothing was found
             if np.max(thresh) == 0:
-                # _, thresh_mcherry = cv2.threshold(
-                #     gray_mcherry_3,
-                #     0,
-                #     1,
-                #     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
-                # )
                 _, thresh = cv2.threshold(
-                    gray_mcherry,
+                    gray_red,
                     0,
                     1,
                     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
                 )
-            
-            if np.max(thresh_mcherry) == 0:
-                _, thresh_mcherry = cv2.threshold(
-                    gray_mcherry_3,
+
+            if np.max(thresh_red) == 0:
+                _, thresh_red = cv2.threshold(
+                    gray_red_3,
                     0,
                     1,
                     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
                 )
 
             contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-            contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-            bestContours = get_largest(contours)
-            bestContours_mcherry = get_largest(contours_mcherry)
+            contours_red, _ = cv2.findContours(
+                thresh_red,
+                cv2.RETR_LIST,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            best_contours = get_largest(contours)
+            best_contours_red = get_largest(contours_red)
     else:
-        # Alternate mCherry detection mode where we try to find one contour that surrounds all the speckles
-        gray_mcherry_3 = cv2.GaussianBlur(gray_mcherry_3, (9, 9), 0)
-        if gray_mcherry_3 is not None:
+        gray_red_3 = cv2.GaussianBlur(gray_red_3, (9, 9), 0)
+        if gray_red_3 is not None:
             _, bright_thresh = cv2.threshold(
-                gray_mcherry_3,
+                gray_red_3,
                 3,
                 255,
                 cv2.THRESH_BINARY,
             )
-            dot_contours, _ = cv2.findContours(bright_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]  # remove border contour
+            dot_contours, _ = cv2.findContours(
+                bright_thresh,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
 
-        thresh_mcherry = None
-        thresh = None
-        contours = []
-        contours_mcherry = []
-        bestContours = []
-        bestContours_mcherry = []
-        if gray_mcherry_3 is not None and gray_mcherry is not None:
+        if gray_red_3 is not None and gray_red is not None:
             _, thresh = cv2.threshold(
-                gray_mcherry,
+                gray_red,
                 5,
                 255,
                 cv2.THRESH_BINARY,
             )
-            
-            thresh_mcherry = bright_thresh
-
+            thresh_red = bright_thresh
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            contours_mcherry, _ = cv2.findContours(thresh_mcherry, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            bestContours = get_largest(contours)
-            bestContours_mcherry = get_largest(contours_mcherry)
+            contours_red, _ = cv2.findContours(
+                thresh_red,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            best_contours = get_largest(contours)
+            best_contours_red = get_largest(contours_red)
 
-    # finding threshold
-    # ret_dapi_3, thresh_dapi_3 = cv2.threshold(images.get_image('gray_dapi_3'), 0, 1,
-    #                                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    # ret_dapi, thresh_dapi = cv2.threshold(images.get_image('gray_dapi'), 0, 1,
-    #                             cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU)
-    
-    # TODO thresholds need work and the canny edges need to be closed when they aren't. In particular, sometimes chooses wrong brightness of cell
-    # Consider hybrid Otsu/Canny approach, where Otsu can be used to find the high hysteresis threshold and divided by 3 to find low
-    contours_dapi = []
-    contours_dapi_3 = []
-    bestContours_dapi = []
-    bestContours_dapi_3 = []
-    if gray_dapi_3 is not None and gray_dapi is not None:
-        # NOTE: Hybrid Canny-Otsu
-        # blur_3 = cv2.GaussianBlur(gray_dapi_3, (5, 5), 0)
-        # blur = cv2.GaussianBlur(gray_dapi, (5, 5), 0)
-
-        # thresh_dapi_3, _ = cv2.threshold(blur_3, 0, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C + cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
-        # thresh_dapi, _ = cv2.threshold(blur, 0, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C + cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
-
-        # low_thresh_3 = thresh_dapi_3 * 0.3
-        # low_thresh = thresh_dapi * 0.3
-        
-        # thresh_dapi_3 = cv2.Canny(blur_3, low_thresh_3, thresh_dapi_3)
-        # thresh_dapi = cv2.Canny(blur, low_thresh, thresh_dapi)
-
-        # NOTE: Canny
-        # thresh_dapi_3 = cv2.Canny(gray_dapi_3, 60, 70)
-        # thresh_dapi = cv2.Canny(gray_dapi, 60, 70)
-
-        # # TODO: Best kernel for closing so far, but better probably exists
-        # kernel = np.ones((3, 3), np.uint8)
-        # thresh_dapi_3 = cv2.morphologyEx(thresh_dapi_3, cv2.MORPH_CLOSE, kernel)
-        # thresh_dapi = cv2.morphologyEx(thresh_dapi, cv2.MORPH_CLOSE, kernel)
-
-        # Use a two-step process with Otsu thresholding
+    contours_blue = []
+    contours_blue_3 = []
+    best_contours_blue = []
+    best_contours_blue_3 = []
+    if gray_blue_3 is not None and gray_blue is not None:
         low_val, _ = cv2.threshold(
-            gray_dapi,
+            gray_blue,
             0.65,
             255,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
-        _, thresh_dapi = cv2.threshold(
-            gray_dapi,
+        _, thresh_blue = cv2.threshold(
+            gray_blue,
             low_val + 20,
             255,
             cv2.THRESH_BINARY,
         )
 
         low_val, _ = cv2.threshold(
-            gray_dapi_3,
+            gray_blue_3,
             0.65,
             255,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
-        _, thresh_dapi_3 = cv2.threshold(
-            gray_dapi_3,
+        _, thresh_blue_3 = cv2.threshold(
+            gray_blue_3,
             low_val + 17,
             255,
             cv2.THRESH_BINARY,
         )
 
-        contours_dapi, _ = cv2.findContours(thresh_dapi, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        contours_dapi_3, _ = cv2.findContours(thresh_dapi_3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        # contours_dapi_3 = [
-        #     cnt for cnt in contours_dapi_3 if cv2.contourArea(cnt) > 100 #and cv2.contourArea(cnt) < 1000
-        # ]
-        # TODO: Should get_largest be changed to get the highest intensity instead of the largest area? Or perhaps some combination of both?
-        bestContours_dapi = get_largest(contours_dapi)
-        bestContours_dapi_3 = get_largest(contours_dapi_3) if contours_dapi_3 else []
+        contours_blue, _ = cv2.findContours(
+            thresh_blue,
+            cv2.RETR_LIST,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        contours_blue_3, _ = cv2.findContours(
+            thresh_blue_3,
+            cv2.RETR_LIST,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        best_contours_blue = get_largest(contours_blue)
+        best_contours_blue_3 = get_largest(contours_blue_3) if contours_blue_3 else []
 
-    contours_gfp = []
-    if gray_gfp is not None:
-        # gray_gfp = cv2.GaussianBlur(gray_gfp, (3, 3), 0)
-        # thresh_gfp = cv2.Canny(gray_gfp, 50, 150)
-        
-        # Use two-step Otsu process to recognize more signals -- can use the optional filtering to get rid of extra if too much is found
+    contours_green = []
+    if gray_green is not None:
         low_val, _ = cv2.threshold(
-            gray_gfp,
+            gray_green,
             0.65,
             255,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
-        _, thresh_gfp = cv2.threshold(
-            gray_gfp,
+        _, thresh_green = cv2.threshold(
+            gray_green,
             low_val + 13,
             255,
             cv2.THRESH_BINARY,
         )
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
-        thresh_gfp = cv2.morphologyEx(thresh_gfp, cv2.MORPH_CLOSE, kernel)
-        contours_gfp, _ = cv2.findContours(thresh_gfp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        if gfp_filter_enabled:
-            contours_gfp = filterContours(contours_gfp)     # NOTE: If you notice cells where "obvious" green dots are missing, this is likely to blame
+        thresh_green = cv2.morphologyEx(thresh_green, cv2.MORPH_CLOSE, kernel)
+        contours_green, _ = cv2.findContours(
+            thresh_green,
+            cv2.RETR_LIST,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        if green_contour_filter_enabled:
+            contours_green = filterContours(contours_green)
 
-    # Biggest contour for the cellular intensity boundary
-    # TODO: In the future, handle multiple large contours more robustly
-    """
-    largest = 0
-    largest_cell_cnt = None
-    for i, cnt in enumerate(cell_int_cont):
-        area = cv2.contourArea(cnt)
-        if area > largest:
-            largest = area
-            largest_cell_cnt = cnt
-    """
     return {
-        'bestContours': bestContours,
-        'bestContours_mcherry': bestContours_mcherry,
-        'contours': contours,
-        'contours_mcherry': contours_mcherry,
-        'contours_dapi': contours_dapi,
-        'contours_dapi_3': contours_dapi_3,
-        'bestContours_dapi': bestContours_dapi,
-        'bestContours_dapi_3': bestContours_dapi_3,
-        'dot_contours': dot_contours,
-        'contours_gfp': contours_gfp,
+        "best_contours": best_contours,
+        "best_contours_red": best_contours_red,
+        "contours": contours,
+        "contours_red": contours_red,
+        "contours_blue": contours_blue,
+        "contours_blue_3": contours_blue_3,
+        "best_contours_blue": best_contours_blue,
+        "best_contours_blue_3": best_contours_blue_3,
+        "dot_contours": dot_contours,
+        "contours_green": contours_green,
     }
+
 
 def merge_contour(bestContours, contours):
     """
@@ -276,13 +224,11 @@ def merge_contour(bestContours, contours):
                         second_smallest_distance = d
                         second_smallest_pair = (pt1, pt2, i)
 
-            # Merge c2 into c1 at the closest points
             best_contour = []
             for pt1 in c1:
                 best_contour.append(pt1)
                 if pt1[0].tolist() != smallest_pair[0][0].tolist():
                     continue
-                # we are at the closest p1
                 start_loc = smallest_pair[2]
                 finish_loc = start_loc - 1
                 if start_loc == 0:
@@ -304,9 +250,10 @@ def merge_contour(bestContours, contours):
         logger.debug("Only one contour found while merging contour candidates")
     return best_contour
 
-# Gets rid of a high number of erroneous contours, but is a little overzealous at times
-# TODO Reduce instances where good contours are removed
+
 def filterContours(contours):
+    """Remove small or obviously invalid contours from the green contour set."""
+
     contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= 8]
     ret = []
     for cnt in contours:

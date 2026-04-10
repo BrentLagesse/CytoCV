@@ -1,4 +1,4 @@
-"""Tests for account preference and account-area safeguards."""
+﻿"""Tests for account preference and account-area safeguards."""
 
 from __future__ import annotations
 
@@ -39,13 +39,14 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(
             defaults["selected_plugins"],
             [
-                "MCherryLine",
-                "GFPDot",
+                "PunctaDistance",
+                "CENDot",
                 "GreenRedIntensity",
-                "NuclearCellularIntensity",
+                "NuclearCellPairIntensity",
             ],
         )
-        self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
@@ -55,17 +56,18 @@ class PreferenceNormalizationTests(TestCase):
         normalized = normalize_preferences_payload(
             {
                 "experiment_defaults": {
-                    "selected_plugins": ["MCherryLine", "Unknown"],
+                    "selected_plugins": ["PunctaDistance", "Unknown"],
                     "module_enabled": "true",
                     "enforce_layer_count": "true",
                     "enforce_wavelengths": "false",
                     "manual_required_channels": ["DIC", "BAD"],
-                    "mcherry_width": "-5",
-                    "gfp_distance": "abc",
-                    "gfp_threshold": "-1",
-                    "nuclear_cellular_mode": "bad_mode",
-                    "mcherry_width_unit": "um",
-                    "gfp_distance_unit": "px",
+                    "puncta_line_width": "-5",
+                    "cen_dot_distance": "abc",
+                    "cen_dot_collinearity_threshold": "-1",
+                    "puncta_line_mode": "bad_mode",
+                    "nuclear_cell_pair_mode": "bad_mode",
+                    "puncta_line_width_unit": "um",
+                    "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
                     "use_metadata_scale": "off",
                 },
@@ -75,15 +77,16 @@ class PreferenceNormalizationTests(TestCase):
         )
 
         defaults = normalized["experiment_defaults"]
-        self.assertEqual(defaults["selected_plugins"], ["MCherryLine"])
+        self.assertEqual(defaults["selected_plugins"], ["PunctaDistance"])
         self.assertTrue(defaults["module_enabled"])
         self.assertTrue(defaults["enforce_layer_count"])
         self.assertFalse(defaults["enforce_wavelengths"])
         self.assertEqual(defaults["manual_required_channels"], ["DIC"])
-        self.assertEqual(defaults["mcherry_width"], 1)
-        self.assertEqual(defaults["gfp_distance"], 37)
-        self.assertEqual(defaults["gfp_threshold"], 66)
-        self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertEqual(defaults["puncta_line_width"], 1)
+        self.assertEqual(defaults["cen_dot_distance"], 37)
+        self.assertEqual(defaults["cen_dot_collinearity_threshold"], 66)
+        self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -196,10 +199,10 @@ class AccountDeletionIntegrationTests(TestCase):
         CellStatistics.objects.create(
             segmented_image=segmented,
             cell_id=1,
-            distance=1.0,
-            line_gfp_intensity=2.0,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
             nucleus_intensity_sum=3.0,
-            cellular_intensity_sum=4.0,
+            cell_pair_intensity_sum=4.0,
         )
         self.assertTrue(UploadedImage.objects.filter(pk=uploaded.pk).exists())
         self.assertTrue(SegmentedImage.objects.filter(pk=segmented.pk).exists())
@@ -448,16 +451,17 @@ class DisplayManualSaveTests(TestCase):
         CellStatistics.objects.create(
             segmented_image=segmented,
             cell_id=cell_id,
-            distance=1.0,
-            line_gfp_intensity=2.0,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
             nucleus_intensity_sum=3.0,
-            cellular_intensity_sum=4.0,
+            cell_pair_intensity_sum=4.0,
             red_intensity_1=5.0,
             green_intensity_1=6.0,
             red_in_green_intensity_1=7.0,
             green_in_green_intensity_1=8.0,
             green_red_intensity_1=6.0 / 5.0,
-            category_GFP_dot=1,
+            category_cen_dot=1,
+            properties={"nuclear_cell_pair_mode": "red_nucleus"},
         )
 
     def _set_transient_uuids(self, uuids: list[str]) -> None:
@@ -604,7 +608,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'Line + Spot Metrics')
         self.assertContains(response, 'Raw Contour Intensity Sums')
-        self.assertNotContains(response, 'Intensity + GFP Output')
+        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
+        self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
         saved_uuid = self._create_display_file(
@@ -634,12 +639,13 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="dic_form"', html=False)
-        self.assertContains(response, 'id="dapi_form"', html=False)
-        self.assertContains(response, 'id="mCherry_form"', html=False)
-        self.assertContains(response, 'id="gfp_form"', html=False)
+        self.assertContains(response, 'id="blue_form"', html=False)
+        self.assertContains(response, 'id="red_form"', html=False)
+        self.assertContains(response, 'id="green_form"', html=False)
         self.assertContains(response, 'Line + Spot Metrics')
         self.assertContains(response, 'Raw Contour Intensity Sums')
-        self.assertNotContains(response, 'Intensity + GFP Output')
+        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
+        self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
         preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
@@ -686,9 +692,10 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Red in Green Intensity 1", csv_text)
         self.assertIn("Green in Green Intensity 1", csv_text)
         self.assertNotIn("Green/Red ratio 1", csv_text)
+        self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", csv_text)
         self.assertIn("5.000", csv_text)
         self.assertIn("8.000", csv_text)
-        self.assertIn("GFP Dot Category", csv_text)
+        self.assertIn("CEN dot Category", csv_text)
         self.assertIn("One green dot with each red dot", csv_text)
 
     def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
@@ -721,8 +728,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Red in Green Intensity 1", headers)
         self.assertIn("Green in Green Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
-        self.assertIn("GFP Dot Category", headers)
-        gfp_dot_col = headers.index("GFP Dot Category") + 1
+        self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
+        self.assertIn("CEN dot Category", headers)
+        gfp_dot_col = headers.index("CEN dot Category") + 1
         self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "One green dot with each red dot")
 
     def test_display_csv_export_uses_uploaded_file_name(self):
@@ -1389,7 +1397,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertContains(
             response,
-            "Stats-required channels always stay enforced. Manual channel requirements and all-wavelength enforcement are saved here and pause when this module is OFF.",
+            "Stats-required channels always stay enforced. Manual channel requirements and all-channel enforcement are saved here and pause when this module is OFF.",
         )
         self.assertContains(
             response,
@@ -1397,15 +1405,15 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertContains(
             response,
-            "Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics.",
+            "Require DIC, Blue, Red, and Green even if not needed by selected statistics.",
         )
         self.assertContains(
             response,
-            "Filter out low-confidence GFP signal contours in challenging images.",
+            "Filter out low-confidence Green signal contours in challenging images.",
         )
         self.assertContains(
             response,
-            "Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles.",
+            "Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.",
         )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
         self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
@@ -1427,24 +1435,24 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '"required_plugins"', html=False)
         self.assertContains(response, '"exclusive_group"', html=False)
-        self.assertContains(response, '"exclusive_group": "nuclear_cellular"', html=False)
+        self.assertContains(response, '"exclusive_group": "nuclear_cell_pair"', html=False)
 
     def test_advanced_settings_override_reports_and_removes_dependent_plugins(self):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
                 "action": "save_advanced_settings",
-                "override_required_channels": ["mCherry"],
+                "override_required_channels": ["channel_red"],
             },
             follow=True,
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Advanced settings saved. Removed dependent plugins:")
         for plugin_id in (
-            "MCherryLine",
-            "GFPDot",
+            "PunctaDistance",
+            "CENDot",
             "GreenRedIntensity",
-            "NuclearCellularIntensity",
+            "NuclearCellPairIntensity",
         ):
             self.assertContains(response, PLUGIN_DEFINITIONS[plugin_id].label)
 
@@ -1630,26 +1638,28 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(
             defaults["selected_plugins"],
             [
-                "MCherryLine",
-                "GFPDot",
+                "PunctaDistance",
+                "CENDot",
                 "GreenRedIntensity",
-                "NuclearCellularIntensity",
+                "NuclearCellPairIntensity",
             ],
         )
-        self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
                 "action": "save_plugin_defaults",
-                "selected_plugins": ["MCherryLine"],
-                "mcherry_width": "2.5",
-                "mcherry_width_unit": "um",
-                "gfp_distance": "11.2",
-                "gfp_distance_unit": "px",
-                "gfp_threshold": "77",
-                "nuclear_cellular_mode": "red_nucleus",
+                "selected_plugins": ["PunctaDistance"],
+                "puncta_line_width": "2.5",
+                "puncta_line_width_unit": "um",
+                "cen_dot_distance": "11.2",
+                "cen_dot_distance_unit": "px",
+                "cen_dot_collinearity_threshold": "77",
+                "puncta_line_mode": "green_puncta",
+                "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
                 "use_metadata_scale": "on",
             },
@@ -1659,13 +1669,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
-        self.assertEqual(defaults["selected_plugins"], ["MCherryLine"])
-        self.assertEqual(defaults["mcherry_width"], 2.5)
-        self.assertEqual(defaults["mcherry_width_unit"], "um")
-        self.assertEqual(defaults["gfp_distance"], 11.2)
-        self.assertEqual(defaults["gfp_distance_unit"], "px")
-        self.assertEqual(defaults["gfp_threshold"], 77)
-        self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
+        self.assertEqual(defaults["selected_plugins"], ["PunctaDistance"])
+        self.assertEqual(defaults["puncta_line_width"], 2.5)
+        self.assertEqual(defaults["puncta_line_width_unit"], "um")
+        self.assertEqual(defaults["cen_dot_distance"], 11.2)
+        self.assertEqual(defaults["cen_dot_distance_unit"], "px")
+        self.assertEqual(defaults["cen_dot_collinearity_threshold"], 77)
+        self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
 
@@ -1673,12 +1684,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         payload = get_user_preferences(self.user)
         payload["experiment_defaults"].update(
             {
-                "mcherry_width": 3.5,
-                "mcherry_width_unit": "um",
-                "gfp_distance": 9.0,
-                "gfp_distance_unit": "um",
-                "gfp_threshold": 81,
-                "nuclear_cellular_mode": "red_nucleus",
+                "puncta_line_width": 3.5,
+                "puncta_line_width_unit": "um",
+                "cen_dot_distance": 9.0,
+                "cen_dot_distance_unit": "um",
+                "cen_dot_collinearity_threshold": 81,
+                "puncta_line_mode": "green_puncta",
+                "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
                 "use_metadata_scale": False,
             }
@@ -1699,12 +1711,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
-        self.assertEqual(defaults["mcherry_width"], 3.5)
-        self.assertEqual(defaults["mcherry_width_unit"], "um")
-        self.assertEqual(defaults["gfp_distance"], 9.0)
-        self.assertEqual(defaults["gfp_distance_unit"], "um")
-        self.assertEqual(defaults["gfp_threshold"], 81)
-        self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
+        self.assertEqual(defaults["puncta_line_width"], 3.5)
+        self.assertEqual(defaults["puncta_line_width_unit"], "um")
+        self.assertEqual(defaults["cen_dot_distance"], 9.0)
+        self.assertEqual(defaults["cen_dot_distance_unit"], "um")
+        self.assertEqual(defaults["cen_dot_collinearity_threshold"], 81)
+        self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
 
@@ -1729,31 +1742,30 @@ class ChannelVisibilityPreferenceTests(TestCase):
     def test_workflow_defaults_summary_marks_manual_channels_active_in_both_sections(self):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = True
-        preferences["experiment_defaults"]["manual_required_channels"] = ["DAPI"]
+        preferences["experiment_defaults"]["manual_required_channels"] = ["channel_blue"]
         update_user_preferences(self.user, preferences)
 
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Required manually<"), 2)
-        self.assertIn('data-req-row="DAPI" data-summary-scope="plugins"', content)
-        self.assertIn('data-req-row="DAPI" data-summary-scope="advanced"', content)
+        self.assertIn('data-req-row="channel_blue" data-summary-scope="plugins"', content)
+        self.assertIn('data-req-row="channel_blue" data-summary-scope="advanced"', content)
 
     def test_workflow_defaults_summary_marks_manual_channels_paused_in_both_sections(self):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = False
-        preferences["experiment_defaults"]["manual_required_channels"] = ["DAPI"]
+        preferences["experiment_defaults"]["manual_required_channels"] = ["channel_blue"]
         update_user_preferences(self.user, preferences)
 
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Paused manually<"), 2)
-        self.assertContains(
-            response,
-            'id="manual_DAPI" class="channel-toggle" value="DAPI" data-channel="DAPI" checked disabled',
-            html=False,
-        )
+        self.assertContains(response, 'id="manual_channel_blue"', html=False)
+        self.assertContains(response, 'value="channel_blue"', html=False)
+        self.assertContains(response, 'data-channel="channel_blue"', html=False)
+        self.assertContains(response, "checked disabled", html=False)
 
     def test_workflow_defaults_summary_marks_paused_all_wavelengths_in_both_sections(self):
         preferences = get_user_preferences(self.user)
@@ -1764,14 +1776,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        self.assertEqual(content.count(">Paused by all-wavelengths<"), 2)
+        self.assertEqual(content.count(">Paused by all-channels<"), 2)
 
     def test_workflow_defaults_renders_optional_validation_controls_disabled_when_module_is_off(self):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = False
         preferences["experiment_defaults"]["enforce_layer_count"] = True
         preferences["experiment_defaults"]["enforce_wavelengths"] = True
-        preferences["experiment_defaults"]["manual_required_channels"] = ["DAPI"]
+        preferences["experiment_defaults"]["manual_required_channels"] = ["channel_blue"]
         update_user_preferences(self.user, preferences)
 
         response = self.client.get(reverse("workflow_defaults"))
@@ -1779,11 +1791,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="advancedOptionalChecksGroup"', html=False)
         self.assertContains(response, 'id="enforce_layer_count" checked disabled', html=False)
         self.assertContains(response, 'id="enforce_wavelengths" checked disabled', html=False)
-        self.assertContains(
-            response,
-            'id="manual_DAPI" class="channel-toggle" value="DAPI" data-channel="DAPI" checked disabled',
-            html=False,
-        )
+        self.assertContains(response, 'id="manual_channel_blue"', html=False)
+        self.assertContains(response, 'value="channel_blue"', html=False)
+        self.assertContains(response, 'data-channel="channel_blue"', html=False)
+        self.assertContains(response, "checked disabled", html=False)
 
     def test_advanced_settings_save_preserves_manual_required_channels_when_module_is_off(self):
         response = self.client.post(
@@ -1791,7 +1802,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             {
                 "action": "save_advanced_settings",
                 "enforce_layer_count": "1",
-                "manual_required_channels": ["DAPI"],
+                "manual_required_channels": ["channel_blue"],
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -1802,9 +1813,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(defaults["module_enabled"])
         self.assertTrue(defaults["enforce_layer_count"])
         self.assertFalse(defaults["enforce_wavelengths"])
-        self.assertEqual(defaults["manual_required_channels"], ["DAPI"])
+        self.assertEqual(defaults["manual_required_channels"], ["channel_blue"])
 
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Paused manually<"), 2)
+

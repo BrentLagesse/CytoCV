@@ -22,6 +22,12 @@ from django.conf import settings
 from django.db import transaction
 from mrc import DVFile
 
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+)
 from core.config import DEFAULT_CHANNEL_CONFIG, DEFAULT_PROCESS_CONFIG, input_dir
 from core.contour_processing import get_contour_center, get_neighbor_count
 from core.models import CellStatistics, SegmentedImage, UploadedImage, get_guest_user
@@ -50,6 +56,10 @@ from core.services.overlay_rendering import (
     persist_overlay_cache_images,
     write_overlay_render_config,
 )
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import (
     AUTOSAVE_STORAGE_FULL_MESSAGE,
@@ -59,6 +69,15 @@ from core.views.segment_image import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _process_config_value(
+    config: dict[str, object],
+    key: str,
+    legacy_key: str,
+    default,
+):
+    return config.get(key, config.get(legacy_key, default))
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,34 +234,34 @@ def run_segmentation_batch(
             if resolve_cells_using_spc110:
                 dv_file = DVFile(dv_path)
                 try:
-                    mcherry_index = channel_config.get("mCherry")
-                    mcherry_image = dv_file.asarray()[mcherry_index]
+                    red_index = channel_config.get(CHANNEL_ROLE_RED)
+                    red_image = dv_file.asarray()[red_index]
                 finally:
                     dv_file.close()
 
-                mcherry_image = np.round(mcherry_image * 255).astype(np.uint8)
-                if len(mcherry_image.shape) != 3 or mcherry_image.shape[2] != 3:
-                    mcherry_image = np.expand_dims(mcherry_image, axis=-1)
-                    mcherry_image = np.tile(mcherry_image, 3)
-                mcherry_image_gray = cv2.cvtColor(mcherry_image, cv2.COLOR_RGB2GRAY)
-                mcherry_image_gray, _ = subtract_background_rolling_ball(
-                    mcherry_image_gray,
+                red_image = np.round(red_image * 255).astype(np.uint8)
+                if len(red_image.shape) != 3 or red_image.shape[2] != 3:
+                    red_image = np.expand_dims(red_image, axis=-1)
+                    red_image = np.tile(red_image, 3)
+                red_image_gray = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
+                red_image_gray, _ = subtract_background_rolling_ball(
+                    red_image_gray,
                     50,
                     light_background=False,
                     use_paraboloid=False,
                     do_presmooth=True,
                 )
-                _, mcherry_image_thresh = cv2.threshold(
-                    mcherry_image_gray,
+                _, red_image_thresh = cv2.threshold(
+                    red_image_gray,
                     0,
                     1,
                     cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
                 )
-                mcherry_image_cont, _ = cv2.findContours(mcherry_image_thresh, 1, 2)
+                red_image_cont, _ = cv2.findContours(red_image_thresh, 1, 2)
 
-                min_mcherry_distance: dict[int, float] = {}
-                min_mcherry_loc: dict[int, int] = {}
-                for cnt1 in mcherry_image_cont:
+                min_red_distance: dict[int, float] = {}
+                min_red_loc: dict[int, int] = {}
+                for cnt1 in red_image_cont:
                     try:
                         contour_area = cv2.contourArea(cnt1)
                         if contour_area > 100000:
@@ -260,7 +279,7 @@ def run_segmentation_batch(
                     if c_id == 0:
                         continue
 
-                    for cnt2 in mcherry_image_cont:
+                    for cnt2 in red_image_cont:
                         try:
                             coordinate = get_contour_center([cnt2])
                             c2y = coordinate[0][0]
@@ -272,20 +291,20 @@ def run_segmentation_batch(
                         if seg[c1x][c1y] == seg[c2x][c2y]:
                             continue
                         distance = math.sqrt(pow(c1x - c2x, 2) + pow(c1y - c2y, 2))
-                        if min_mcherry_distance.get(c_id) is None:
-                            min_mcherry_distance[c_id] = distance
-                            min_mcherry_loc[c_id] = int(seg[c2x][c2y])
+                        if min_red_distance.get(c_id) is None:
+                            min_red_distance[c_id] = distance
+                            min_red_loc[c_id] = int(seg[c2x][c2y])
                             lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))
-                        elif distance < min_mcherry_distance[c_id]:
-                            min_mcherry_distance[c_id] = distance
-                            min_mcherry_loc[c_id] = int(seg[c2x][c2y])
+                        elif distance < min_red_distance[c_id]:
+                            min_red_distance[c_id] = distance
+                            min_red_loc[c_id] = int(seg[c2x][c2y])
                             lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))
-                        elif distance == min_mcherry_distance[c_id]:
+                        elif distance == min_red_distance[c_id]:
                             logger.debug(
-                                "Found tied mCherry pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
+                                "Found tied Red pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
                                 seg[c1x][c1y],
                                 seg[c2x][c2y],
-                                min_mcherry_loc[c_id],
+                                min_red_loc[c_id],
                                 distance,
                             )
 
@@ -457,16 +476,29 @@ def run_segmentation_batch(
         configuration = user.config if getattr(user, "is_authenticated", False) else settings.DEFAULT_SEGMENT_CONFIG
         execution_plan = build_stats_execution_plan(config_snapshot.get("selected_analysis", []))
         selected_analysis = list(execution_plan.selected_plugins)
-        raw_mcherry_width = config_snapshot.get(
-            "stats_mcherry_width_value",
-            config_snapshot.get("mCherryWidth", 1),
+        raw_puncta_line_width = config_snapshot.get(
+            "stats_puncta_line_width_value",
+            config_snapshot.get(
+                "punctaLineWidth",
+                config_snapshot.get("redLineWidth", config_snapshot.get("mCherryWidth", 1)),
+            ),
         )
-        raw_gfp_distance = config_snapshot.get(
-            "stats_gfp_distance_value",
-            config_snapshot.get("distance", 37),
+        raw_cen_dot_distance = config_snapshot.get(
+            "stats_cen_dot_distance_value",
+            config_snapshot.get("cenDotDistance", config_snapshot.get("distance", 37)),
         )
-        mcherry_width_unit = str(config_snapshot.get("stats_mcherry_width_unit", "px"))
-        gfp_distance_unit = str(config_snapshot.get("stats_gfp_distance_unit", "px"))
+        puncta_line_width_unit = str(
+            config_snapshot.get(
+                "stats_puncta_line_width_unit",
+                config_snapshot.get("stats_red_line_width_unit", config_snapshot.get("stats_mcherry_width_unit", "px")),
+            )
+        )
+        cen_dot_distance_unit = str(
+            config_snapshot.get(
+                "stats_cen_dot_distance_unit",
+                config_snapshot.get("stats_gfp_distance_unit", "px"),
+            )
+        )
         session_manual_scale = config_snapshot.get("stats_microns_per_pixel", 0.1)
         scale_info = normalize_scale_info(
             uploaded_image.scale_info,
@@ -488,65 +520,87 @@ def run_segmentation_batch(
             "line_width_proxy_um_per_px",
             effective_um_per_px,
         )
-        gfp_distance_unit = normalize_length_unit(gfp_distance_unit, default="px")
+        cen_dot_distance_unit = normalize_length_unit(cen_dot_distance_unit, default="px")
 
-        mcherry_width = convert_length_to_pixels(
-            raw_mcherry_width,
-            mcherry_width_unit,
+        puncta_line_width = convert_length_to_pixels(
+            raw_puncta_line_width,
+            puncta_line_width_unit,
             minimum_px=1,
             fallback_px=1,
             um_per_px=line_width_proxy_um_per_px,
         )
-        if gfp_distance_unit == "um":
+        if cen_dot_distance_unit == "um":
             try:
-                gfp_distance = float(raw_gfp_distance)
+                cen_dot_distance = float(raw_cen_dot_distance)
             except (TypeError, ValueError):
-                gfp_distance = 37.0
-            if not math.isfinite(gfp_distance) or gfp_distance < 0:
-                gfp_distance = 37.0
-            gfp_distance_px_equivalent = convert_length_to_pixels(
-                gfp_distance,
+                cen_dot_distance = 37.0
+            if not math.isfinite(cen_dot_distance) or cen_dot_distance < 0:
+                cen_dot_distance = 37.0
+            cen_dot_distance_px_equivalent = convert_length_to_pixels(
+                cen_dot_distance,
                 "um",
                 minimum_px=0,
                 fallback_px=37,
                 um_per_px=line_width_proxy_um_per_px,
             )
-            gfp_distance_mode = "physical_um"
+            cen_dot_distance_mode = "physical_um"
         else:
-            gfp_distance = float(
+            cen_dot_distance = float(
                 convert_length_to_pixels(
-                    raw_gfp_distance,
-                    gfp_distance_unit,
+                    raw_cen_dot_distance,
+                    cen_dot_distance_unit,
                     minimum_px=0,
                     fallback_px=37,
                     um_per_px=effective_um_per_px,
                 )
             )
-            gfp_distance_px_equivalent = int(gfp_distance)
-            gfp_distance_mode = "pixel"
+            cen_dot_distance_px_equivalent = int(cen_dot_distance)
+            cen_dot_distance_mode = "pixel"
         try:
-            gfp_threshold = int(config_snapshot.get("threshold", 66))
+            cen_dot_collinearity_threshold = int(
+                config_snapshot.get(
+                    "cenDotCollinearityThreshold",
+                    config_snapshot.get("threshold", 66),
+                )
+            )
         except (TypeError, ValueError):
-            gfp_threshold = 66
-        if gfp_threshold < 0:
-            gfp_threshold = 66
-        gfp_filter_enabled = config_snapshot.get("gfpFilterEnabled", False)
-        alternate_mcherry_detection = config_snapshot.get("alternateMCherryDetection", False)
+            cen_dot_collinearity_threshold = 66
+        if cen_dot_collinearity_threshold < 0:
+            cen_dot_collinearity_threshold = 66
+        green_contour_filter_enabled = config_snapshot.get(
+            "greenContourFilterEnabled",
+            config_snapshot.get("gfpFilterEnabled", False),
+        )
+        alternate_red_detection = config_snapshot.get(
+            "alternateRedDetection",
+            config_snapshot.get("alternateMCherryDetection", False),
+        )
+
+        configured_puncta_line_width = _process_config_value(
+            configuration,
+            "puncta_line_width",
+            "red_line_width",
+            DEFAULT_PROCESS_CONFIG.get("puncta_line_width", 1),
+        )
 
         conf = {
             "input_dir": input_dir,
             "output_dir": os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
             "kernel_size": configuration["kernel_size"],
-            "mCherry_line_width": configuration["mCherry_line_width"],
+            "puncta_line_width": configured_puncta_line_width,
             "kernel_deviation": configuration["kernel_deviation"],
             "arrested": configuration["arrested"],
             "analysis": selected_analysis,
-            "nuclear_cellular_mode": config_snapshot.get(
-                "nuclear_cellular_mode",
-                "green_nucleus",
+            "puncta_line_mode": normalize_puncta_line_mode(
+                config_snapshot.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
             ),
-            "gfp_filter_enabled": gfp_filter_enabled,
-            "alternate_mcherry_detection": alternate_mcherry_detection,
+            "nuclear_cell_pair_mode": config_snapshot.get(
+                "nuclear_cell_pair_mode",
+                config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
+            ),
+            "green_contour_filter_enabled": green_contour_filter_enabled,
+            "alternate_red_detection": alternate_red_detection,
         }
         write_overlay_render_config(
             uuid,
@@ -555,20 +609,24 @@ def run_segmentation_batch(
                 channel_config=channel_config,
                 kernel_size=configuration["kernel_size"],
                 kernel_deviation=configuration["kernel_deviation"],
-                mcherry_line_width=configuration["mCherry_line_width"],
+                puncta_line_width=configured_puncta_line_width,
                 arrested=configuration["arrested"],
                 selected_analysis=selected_analysis,
-                nuclear_cellular_mode=config_snapshot.get(
-                    "nuclear_cellular_mode",
-                    "green_nucleus",
+                puncta_line_mode=normalize_puncta_line_mode(
+                    config_snapshot.get("puncta_line_mode"),
+                    default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
-                mcherry_width_px=mcherry_width,
-                gfp_distance_value_used=gfp_distance,
-                gfp_threshold=gfp_threshold,
-                gfp_filter_enabled=bool(gfp_filter_enabled),
-                alternate_mcherry_detection=bool(alternate_mcherry_detection),
-                mcherry_width_unit=mcherry_width_unit,
-                gfp_distance_unit=gfp_distance_unit,
+                nuclear_cell_pair_mode=config_snapshot.get(
+                    "nuclear_cell_pair_mode",
+                    config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
+                ),
+                puncta_line_width_px=puncta_line_width,
+                cen_dot_distance_value_used=cen_dot_distance,
+                cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
+                green_contour_filter_enabled=bool(green_contour_filter_enabled),
+                alternate_red_detection=bool(alternate_red_detection),
+                puncta_line_width_unit=puncta_line_width_unit,
+                cen_dot_distance_unit=cen_dot_distance_unit,
             ),
         )
 
@@ -587,10 +645,10 @@ def run_segmentation_batch(
                 segmented_image=instance,
                 cell_id=cell_number,
                 defaults={
-                    "distance": 0.0,
-                    "line_gfp_intensity": 0.0,
+                    "puncta_distance": 0.0,
+                    "puncta_line_intensity": 0.0,
                     "nucleus_intensity_sum": 0.0,
-                    "cellular_intensity_sum": 0.0,
+                    "cell_pair_intensity_sum": 0.0,
                     "green_red_intensity_1": 0.0,
                     "green_red_intensity_2": 0.0,
                     "green_red_intensity_3": 0.0,
@@ -600,9 +658,13 @@ def run_segmentation_batch(
             )
 
             cp.properties = dict(cp.properties or {})
-            cp.properties["nuclear_cellular_mode"] = config_snapshot.get(
-                "nuclear_cellular_mode",
-                "green_nucleus",
+            cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
+                config_snapshot.get("puncta_line_mode"),
+                default=DEFAULT_PUNCTA_LINE_MODE,
+            )
+            cp.properties["nuclear_cell_pair_mode"] = config_snapshot.get(
+                "nuclear_cell_pair_mode",
+                config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
             )
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
@@ -617,28 +679,28 @@ def run_segmentation_batch(
             )
             cp.properties["scale_distance_mode"] = scale_context.get("distance_mode", "scalar")
             cp.properties["scale_line_width_proxy_um_per_px"] = line_width_proxy_um_per_px
-            cp.properties["stats_mcherry_width_px"] = mcherry_width
-            cp.properties["stats_gfp_distance_px"] = gfp_distance_px_equivalent
-            cp.properties["stats_gfp_distance_threshold"] = gfp_distance
-            cp.properties["stats_gfp_distance_mode"] = gfp_distance_mode
-            cp.properties["stats_mcherry_width_unit"] = mcherry_width_unit
-            cp.properties["stats_gfp_distance_unit"] = gfp_distance_unit
+            cp.properties["stats_puncta_line_width_px"] = puncta_line_width
+            cp.properties["stats_cen_dot_distance_px"] = cen_dot_distance_px_equivalent
+            cp.properties["stats_cen_dot_distance_value"] = cen_dot_distance
+            cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
+            cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
+            cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
 
-            debug_mcherry, debug_gfp, debug_dapi = get_stats(
+            debug_red, debug_green, debug_blue = get_stats(
                 cp,
                 conf,
                 execution_plan,
-                mcherry_width,
-                gfp_distance,
-                gfp_threshold,
-                gfp_filter_enabled,
-                alternate_mcherry_detection,
+                puncta_line_width,
+                cen_dot_distance,
+                cen_dot_collinearity_threshold,
+                green_contour_filter_enabled,
+                alternate_red_detection,
                 cached_images=cell_image_cache.get(cell_number),
             )
             rendered_overlay_images = {
-                "mcherry": debug_mcherry,
-                "gfp": debug_gfp,
-                "dapi": debug_dapi,
+                "red": debug_red,
+                "green": debug_green,
+                "blue": debug_blue,
             }
 
             if str(config_snapshot.get("execution_mode", "sync")).lower() == "worker":

@@ -1,4 +1,4 @@
-# Workflow Guide
+﻿# Workflow Guide
 
 ## Purpose
 
@@ -29,16 +29,16 @@ Validation failures are reported immediately. Invalid files are removed from the
 The upload step also captures the active analysis configuration. This includes:
 
 - selected statistics plugins
-- mCherry line width
-- GFP distance threshold
-- GFP threshold
-- nuclear or cellular mode selection
-- optional GFP contour filtering
+- Puncta line width
+- CEN dot distance threshold
+- CEN dot collinearity threshold
+- nuclear or cell-pair mode selection
+- optional Green contour filtering
 - scale behavior, including metadata preference and manual microns-per-pixel fallback
 
 These selections are stored in session state and reused in later steps.
 
-At the default modern settings, the run requires `DIC`, `mCherry`, and `GFP`. `DAPI` becomes required only when a legacy plugin or all-wavelength enforcement is active.
+At the default modern settings, the run requires `DIC`, `Red`, and `Green`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
 
 ## Step 3: Review Preprocess Sidebar
 
@@ -119,3 +119,4 @@ From display or dashboard, users can:
 - [`account-and-dashboard.md`](account-and-dashboard.md)
 - [`output-guide.md`](output-guide.md)
 - [`../developer/request-flows.md`](../developer/request-flows.md)
+

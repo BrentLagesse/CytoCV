@@ -7,13 +7,13 @@
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <style>
         .channel-chip.dic { background-color: black; }
-        .channel-chip.dapi { background-color: blue; }
-        .channel-chip.mcherry { background-color: red; }
-        .channel-chip.gfp { background-color: green; }
+        .channel-chip.blue { background-color: blue; }
+        .channel-chip.red { background-color: red; }
+        .channel-chip.green { background-color: green; }
         .channel-chip.dic:hover { background-color: var(--panel-border); }
-        .channel-chip.dapi:hover { background-color: #4d4dff; }
-        .channel-chip.mcherry:hover { background-color: #ff6b6b; }
-        .channel-chip.gfp:hover { background-color: #3bbf3b; }
+        .channel-chip.blue:hover { background-color: #4d4dff; }
+        .channel-chip.red:hover { background-color: #ff6b6b; }
+        .channel-chip.green:hover { background-color: #3bbf3b; }
 
         /* Overall page styling */
         body {
@@ -347,17 +347,17 @@
             outline-offset: 2px;
         }
         .cell-label.dic.active { outline-color: #5a5a5a; }
-        .cell-label.dapi.active { outline-color: #1d3ccf; }
-        .cell-label.mcherry.active { outline-color: #a72b2b; }
-        .cell-label.gfp.active { outline-color: #0f7a41; }
+        .cell-label.blue.active { outline-color: #1d3ccf; }
+        .cell-label.red.active { outline-color: #a72b2b; }
+        .cell-label.green.active { outline-color: #0f7a41; }
         .dic { background-color: black; }
-        .dapi { background-color: blue; }
-        .mcherry { background-color: red; }
-        .gfp { background-color: green; }
+        .blue { background-color: blue; }
+        .red { background-color: red; }
+        .green { background-color: green; }
         .cell-label.dic:hover { background-color: var(--panel-border); }
-        .cell-label.dapi:hover { background-color: #4d4dff; }
-        .cell-label.mcherry:hover { background-color: #ff6b6b; }
-        .cell-label.gfp:hover { background-color: #3bbf3b; }
+        .cell-label.blue:hover { background-color: #4d4dff; }
+        .cell-label.red:hover { background-color: #ff6b6b; }
+        .cell-label.green:hover { background-color: #3bbf3b; }
 
         .info-box { font-size: 14px; text-align: center; margin-top: 2px; }
         .tight-info { line-height: 1.2; margin: 0; }
@@ -1123,13 +1123,13 @@
         .main-channel-btn.dic.active {
             background: rgba(66, 66, 66, 0.7);
         }
-        .main-channel-btn.dapi.active {
+        .main-channel-btn.blue.active {
             background: rgba(33, 74, 212, 0.64);
         }
-        .main-channel-btn.mcherry.active {
+        .main-channel-btn.red.active {
             background: rgba(173, 46, 46, 0.68);
         }
-        .main-channel-btn.gfp.active {
+        .main-channel-btn.green.active {
             background: rgba(20, 124, 67, 0.68);
         }
         .top-stage-body {
@@ -1256,9 +1256,9 @@
         }
         .cell-stats-section {
             display: grid;
-            gap: 8px;
+            gap: 10px;
             min-width: 0;
-            padding: 14px;
+            padding: 16px 14px;
             text-align: left;
             font-size: 12px;
             align-content: start;
@@ -1273,6 +1273,7 @@
             letter-spacing: 0.04em;
             text-transform: uppercase;
             color: #d8e4f6;
+            padding-bottom: 2px;
         }
         .metric-note {
             margin: 0;
@@ -1280,26 +1281,120 @@
             line-height: 1.4;
             color: var(--muted);
         }
+        .metric-lead-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .selection-info-dot {
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            color: #ffffff;
+            background: var(--accent);
+            cursor: pointer;
+            opacity: 0.95;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .selection-info-dot:hover {
+            background: #0f70d8;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .selection-info-dot.metric-info-dot {
+            background: rgba(20, 27, 37, 0.92);
+            border-color: rgba(255, 255, 255, 0.16);
+            color: rgba(232, 240, 255, 0.96);
+        }
+        .selection-info-dot.metric-info-dot:hover {
+            background: rgba(28, 36, 48, 0.98);
+            border-color: rgba(255, 255, 255, 0.24);
+        }
+        .info-tooltip {
+            position: fixed;
+            z-index: 4000;
+            max-width: min(320px, calc(100vw - 24px));
+            padding: 8px 10px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: rgba(14, 16, 20, 0.98);
+            color: #e9e9e9;
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: pre-line;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+        .info-tooltip[hidden] {
+            display: none !important;
+        }
         .tight-info,
         .metric-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 10px;
-            align-items: start;
+            grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
+            gap: 12px;
+            align-items: baseline;
             margin: 0;
             line-height: 1.35;
+            padding: 1px 0;
         }
         .tight-info span:first-child,
         .metric-label {
             color: var(--muted);
+            min-width: 0;
         }
         .tight-info span:last-child,
         .metric-value {
             color: #fff;
             font-weight: 600;
             text-align: right;
+            justify-self: end;
             font-variant-numeric: tabular-nums;
             font-feature-settings: "tnum" 1;
+            min-width: 0;
+        }
+        .metric-detail {
+            display: grid;
+            gap: 4px;
+            margin: 2px 0 4px;
+            min-width: 0;
+        }
+        .metric-subsection {
+            display: grid;
+            gap: 8px;
+            min-width: 0;
+            margin-top: 4px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .metric-sublead {
+            margin: 0;
+            color: #d6e2f4;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .metric-detail-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: normal;
+            text-transform: none;
+        }
+        .metric-detail-value {
+            color: #eef4ff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.45;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         #cellID {
             font-variant-numeric: tabular-nums;
@@ -1651,9 +1746,9 @@
                                     </div>
                                     <div class="main-channel-switcher" id="mainChannelSwitcher" aria-label="Main image channel">
                                         <button class="main-channel-btn dic" type="button" data-main-channel="dic">DIC</button>
-                                        <button class="main-channel-btn dapi" type="button" data-main-channel="dapi">DAPI</button>
-                                        <button class="main-channel-btn mcherry" type="button" data-main-channel="mcherry">mCherry</button>
-                                        <button class="main-channel-btn gfp" type="button" data-main-channel="gfp">GFP</button>
+                                        <button class="main-channel-btn blue" type="button" data-main-channel="blue">Blue</button>
+                                        <button class="main-channel-btn red" type="button" data-main-channel="red">Red</button>
+                                        <button class="main-channel-btn green" type="button" data-main-channel="green">Green</button>
                                     </div>
                                 </div>
                                 <div class="top-stage-body">
@@ -1687,15 +1782,15 @@
                                         <img id="cellImage1" class="cell-image" src="">
                                     </div>
                                     <div class="cell-column">
-                                        <span class="cell-label dapi">DAPI</span>
+                                        <span class="cell-label blue">Blue</span>
                                         <img id="cellImage2" class="cell-image" src="">
                                     </div>
                                     <div class="cell-column">
-                                        <span class="cell-label mcherry">mCherry</span>
+                                        <span class="cell-label red">Red</span>
                                         <img id="cellImage3" class="cell-image" src="">
                                     </div>
                                     <div class="cell-column">
-                                        <span class="cell-label gfp">GFP</span>
+                                        <span class="cell-label green">Green</span>
                                         <img id="cellImage4" class="cell-image" src="">
                                     </div>
                                 </div>
@@ -1728,7 +1823,7 @@
                                         </div>
                                         <div class="metric-row">
                                             <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
-                                            <span class="metric-value" id="cellularIntensitySum"></span>
+                                            <span class="metric-value" id="cellPairIntensitySum"></span>
                                         </div>
                                         <div class="metric-row">
                                             <span class="metric-label">Cytoplasmic intensity</span>
@@ -1738,36 +1833,51 @@
                                     <div class="cell-stats-section">
                                         <p class="metric-lead">Line + Spot Metrics</p>
                                         <div class="metric-row">
-                                            <span class="metric-label">mCherry line distance</span>
+                                            <span class="metric-label" id="distanceLabel">Distance between Red Puncta</span>
                                             <span class="metric-value" id="distance"></span>
                                         </div>
                                         <div class="metric-row">
-                                            <span class="metric-label">Line GFP intensity</span>
-                                            <span class="metric-value" id="lineGFPIntensity"></span>
+                                            <span class="metric-label" id="lineIntensityLabel">Green Intensity over Red Line</span>
+                                            <span class="metric-value" id="punctaLineIntensity"></span>
                                         </div>
                                         <div class="metric-row">
-                                            <span class="metric-label">GFP dot</span>
-                                            <span class="metric-value" id="gfpDot"></span>
+                                            <span class="metric-label">CEN dot</span>
+                                            <span class="metric-value" id="cenDot"></span>
                                         </div>
                                         <div class="metric-row">
                                             <span class="metric-label">Biorientation</span>
                                             <span class="metric-value" id="biorientation"></span>
                                         </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green/Red ratio 1</span>
-                                            <span class="metric-value" id="greenredIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green/Red ratio 2</span>
-                                            <span class="metric-value" id="greenredIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green/Red ratio 3</span>
-                                            <span class="metric-value" id="greenredIntensity3"></span>
+                                        <div class="metric-subsection">
+                                            <p class="metric-sublead">Measurement/Contour</p>
+                                            <div class="metric-detail">
+                                                <span class="metric-detail-label">Formula</span>
+                                                <span class="metric-detail-value" id="measurementContourRatioFormula"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement/Contour ratio 1</span>
+                                                <span class="metric-value" id="measurementContourRatio1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement/Contour ratio 2</span>
+                                                <span class="metric-value" id="measurementContourRatio2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement/Contour ratio 3</span>
+                                                <span class="metric-value" id="measurementContourRatio3"></span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="cell-stats-section">
-                                        <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                        <div class="metric-lead-row">
+                                            <p class="metric-lead">Raw Contour Intensity Sums</p>
+                                            <span
+                                                class="selection-info-dot metric-info-dot"
+                                                data-info-text="Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell, size and intensity values for the same slot match, and nuclear intensity uses slot 1 of the selected nucleus contour family."
+                                                aria-label="Contour slot ranking details"
+                                                title="Contour slot ranking details"
+                                            >i</span>
+                                        </div>
                                         <div class="metric-row">
                                             <span class="metric-label">Red in Red intensity 1</span>
                                             <span class="metric-value" id="redInRedIntensity1"></span>
@@ -1870,6 +1980,7 @@
     </div>
 
     <script id="dashboardFilesData" type="application/json">{{ files_data_json|safe }}</script>
+    <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
     <script>
         // Parse JSON file data
@@ -1886,9 +1997,9 @@
         let currentFileIndex = 0;
         let currentCellNumber = 1;
         let maxCells;
-        const channels = ["dapi", "mCherry", "gfp", "dic"];
+        const channels = ["dic", "blue", "red", "green"];
         let activeChannelRequest = 0;
-        const channelIndexMap = { 0: 'mcherry', 1: 'gfp', 2: 'dapi', 3: 'dic' };
+        const defaultChannelIndexMap = { 0: 'dic', 1: 'blue', 2: 'green', 3: 'red' };
         const noCellPlaceholder =
             "data:image/svg+xml;utf8," + encodeURIComponent(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">' +
@@ -1903,10 +2014,11 @@
         const FILE_BLEND_IMAGE_MS = 190;
         const BLEND_METRIC_IDS = [
             'distance',
-            'lineGFPIntensity',
-            'greenredIntensity1',
-            'greenredIntensity2',
-            'greenredIntensity3',
+            'punctaLineIntensity',
+            'measurementContourRatioFormula',
+            'measurementContourRatio1',
+            'measurementContourRatio2',
+            'measurementContourRatio3',
             'redInRedIntensity1',
             'redInRedIntensity2',
             'redInRedIntensity3',
@@ -1920,9 +2032,9 @@
             'greenInGreenIntensity2',
             'greenInGreenIntensity3',
             'nucleusIntensitySum',
-            'cellularIntensitySum',
+            'cellPairIntensitySum',
             'cytoplasmicIntensity',
-            'gfpDot',
+            'cenDot',
             'biorientation',
             'nucleusContourChannel',
             'measurementChannel',
@@ -2198,20 +2310,23 @@
             const imageUrls = safeCellPairImages[cellNumber] || safeCellPairImages[String(cellNumber)] || null;
             const visibleImageUrls = getVisibleCellImageUrls(imageUrls, showContours);
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
-            const category = cellStats ? (cellStats.category_GFP_dot_label || 'N/A') : 'N/A';
+            const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
             const labels = getNuclearLabelPair(mode);
+            const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance between Red Puncta') : 'Distance between Red Puncta';
+            const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity over Red Line') : 'Green Intensity over Red Line';
 
             return {
                 visibleImageUrls,
                 cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
                 metricValues: {
-                    distance: formatStatValue(cellStats ? cellStats.distance : null),
-                    lineGFPIntensity: formatStatValue(cellStats ? cellStats.line_gfp_intensity : null),
-                    greenredIntensity1: formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null),
-                    greenredIntensity2: formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null),
-                    greenredIntensity3: formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null),
+                    distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),
+                    punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
+                    measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
+                    measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
+                    measurementContourRatio2: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null),
+                    measurementContourRatio3: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null),
                     redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),
                     redInRedIntensity2: formatStatValue(cellStats ? cellStats.red_intensity_2 : null),
                     redInRedIntensity3: formatStatValue(cellStats ? cellStats.red_intensity_3 : null),
@@ -2225,15 +2340,17 @@
                     greenInGreenIntensity2: formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null),
                     greenInGreenIntensity3: formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null),
                     nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
-                    cellularIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cellular_intensity_sum),
+                    cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
                     cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
-                    gfpDot: category,
+                    cenDot: category,
                     biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),
-                    nucleusContourChannel: cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour,
-                    measurementChannel: cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement,
-                    nuclearStatus: cellStats ? (cellStats.nuclear_cellular_status || 'unknown') : 'N/A',
+                    nucleusContourChannel: cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour,
+                    measurementChannel: cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement,
+                    nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
                 },
                 labels: {
+                    distanceLabel,
+                    lineIntensityLabel,
                     nucleusIntensityLabel: labels.nuclear,
                     cellularIntensityLabel: labels.cellular,
                 },
@@ -2245,6 +2362,8 @@
                 return Promise.resolve();
             }
 
+            document.getElementById('distanceLabel').textContent = state.labels.distanceLabel;
+            document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
 
@@ -2304,7 +2423,7 @@
             updateTableState(fileUUID, fileData);
             updateSidebarActive();
             syncFileNavigationState();
-            const inferred = inferChannelFromMainImage(fileData.MainImagePath);
+            const inferred = inferChannelFromMainImage(fileData.MainImagePath, fileData);
             if (inferred) {
                 setActiveChannel(inferred);
             }
@@ -2405,12 +2524,26 @@
             }
         }
 
-        function inferChannelFromMainImage(src) {
+        function resolveChannelIndexMap(fileData = null) {
+            const currentFileUUID = fileUUIDs[currentFileIndex];
+            const resolvedFileData = fileData || (currentFileUUID ? filesData[currentFileUUID] : null) || {};
+            const configured = resolvedFileData.ChannelConfig || {};
+            const indexMap = { ...defaultChannelIndexMap };
+            Object.entries(configured).forEach(([channel, index]) => {
+                const numericIndex = Number(index);
+                if (Number.isFinite(numericIndex)) {
+                    indexMap[numericIndex] = channel;
+                }
+            });
+            return indexMap;
+        }
+
+        function inferChannelFromMainImage(src, fileData = null) {
             if (!src) return null;
             const match = src.match(/_frame_(\d+)\.png/i);
             if (!match) return null;
             const index = Number(match[1]);
-            return channelIndexMap[index] || null;
+            return resolveChannelIndexMap(fileData)[index] || null;
         }
 
         function setActiveChannel(channel) {
@@ -2446,28 +2579,28 @@
         }
 
         function hasNoNucleusContour(cellStats) {
-            return Boolean(cellStats && cellStats.nuclear_cellular_status === 'no_nucleus_contour');
+            return Boolean(cellStats && cellStats.nuclear_cell_pair_status === 'no_nucleus_contour');
         }
 
         function getNuclearLabelPair(mode) {
             if (mode === 'red_nucleus') {
                 return {
-                    cellular: 'Green cellular intensity',
+                    cellular: 'Green cell-pair intensity',
                     nuclear: 'Green nuclear intensity',
-                    contour: 'mCherry',
-                    measurement: 'GFP',
+                    contour: 'Red',
+                    measurement: 'Green',
                 };
             }
             if (mode === 'green_nucleus') {
                 return {
-                    cellular: 'Red cellular intensity',
+                    cellular: 'Red cell-pair intensity',
                     nuclear: 'Red nuclear intensity',
-                    contour: 'GFP',
-                    measurement: 'mCherry',
+                    contour: 'Green',
+                    measurement: 'Red',
                 };
             }
             return {
-                cellular: 'Measured cellular intensity',
+                cellular: 'Measured cell-pair intensity',
                 nuclear: 'Measured nuclear intensity',
                 contour: 'N/A',
                 measurement: 'N/A',
@@ -2480,7 +2613,7 @@
             const tbody = table.querySelector('tbody');
             if (!tbody) return 0;
             const nuclearCellularFields = new Set([
-                'cellular_intensity_sum',
+                'cell_pair_intensity_sum',
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
             ]);
@@ -2488,15 +2621,17 @@
             const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
             const keyMap = {
                 'Cell ID': 'cell_id',
-                'mCherry Line Distance': 'distance',
-                'Line GFP Intensity': 'line_gfp_intensity',
+                'Distance between Red Puncta': 'puncta_distance',
+                'Distance between Green Puncta': 'puncta_distance',
+                'Green Intensity over Red Line': 'puncta_line_intensity',
+                'Red Intensity over Green Line': 'puncta_line_intensity',
                 'Blue Contour Size': 'blue_contour_size',
                 'Red Contour 1 Size': 'red_contour_1_size',
                 'Red Contour 2 Size': 'red_contour_2_size',
                 'Red Contour 3 Size': 'red_contour_3_size',
-                'GFP Contour 1 Size': 'gfp_contour_1_size',
-                'GFP Contour 2 Size': 'gfp_contour_2_size',
-                'GFP Contour 3 Size': 'gfp_contour_3_size',
+                'Green Contour 1 Size': 'green_contour_1_size',
+                'Green Contour 2 Size': 'green_contour_2_size',
+                'Green Contour 3 Size': 'green_contour_3_size',
                 'Red in Red Intensity 1': 'red_intensity_1',
                 'Red in Red Intensity 2': 'red_intensity_2',
                 'Red in Red Intensity 3': 'red_intensity_3',
@@ -2509,21 +2644,27 @@
                 'Green in Green Intensity 1': 'green_in_green_intensity_1',
                 'Green in Green Intensity 2': 'green_in_green_intensity_2',
                 'Green in Green Intensity 3': 'green_in_green_intensity_3',
-                'GFP-to-mCherry Distance 1': 'gfp_to_mcherry_distance_1',
-                'GFP-to-mCherry Distance 2': 'gfp_to_mcherry_distance_2',
-                'GFP-to-mCherry Distance 3': 'gfp_to_mcherry_distance_3',
-                'GFP Dot Category': 'category_GFP_dot_label',
-                'Measured cellular intensity': 'cellular_intensity_sum',
+                'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1',
+                'Measurement/Contour Ratio 2 (Green/Red)': 'measurement_contour_ratio_2',
+                'Measurement/Contour Ratio 3 (Green/Red)': 'measurement_contour_ratio_3',
+                'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1',
+                'Measurement/Contour Ratio 2 (Red/Green)': 'measurement_contour_ratio_2',
+                'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3',
+                'Distance of Green from Red 1': 'distance_of_green_from_red_1',
+                'Distance of Green from Red 2': 'distance_of_green_from_red_2',
+                'Distance of Green from Red 3': 'distance_of_green_from_red_3',
+                'CEN dot Category': 'category_cen_dot_label',
+                'Measured cell-pair intensity': 'cell_pair_intensity_sum',
                 'Measured nuclear intensity': 'nucleus_intensity_sum',
-                'Measured Cellular Intensity': 'cellular_intensity_sum',
+                'Measured Cell-Pair Intensity': 'cell_pair_intensity_sum',
                 'Measured Nuclear Intensity': 'nucleus_intensity_sum',
-                'Red cellular intensity': 'cellular_intensity_sum',
+                'Red cell-pair intensity': 'cell_pair_intensity_sum',
                 'Red nuclear intensity': 'nucleus_intensity_sum',
-                'Green cellular intensity': 'cellular_intensity_sum',
+                'Green cell-pair intensity': 'cell_pair_intensity_sum',
                 'Green nuclear intensity': 'nucleus_intensity_sum',
-                'Red Cellular Intensity': 'cellular_intensity_sum',
+                'Red Cell-Pair Intensity': 'cell_pair_intensity_sum',
                 'Red Nuclear Intensity': 'nucleus_intensity_sum',
-                'Green Cellular Intensity': 'cellular_intensity_sum',
+                'Green Cell-Pair Intensity': 'cell_pair_intensity_sum',
                 'Green Nuclear Intensity': 'nucleus_intensity_sum',
                 'Cytoplasmic Intensity': 'cytoplasmic_intensity',
                 'Biorientation': 'biorientation',
@@ -2632,13 +2773,14 @@
             document.getElementById("cellID").textContent = currentCellNumber;
 
             const cellStats = safeStatistics[currentCellNumber] || safeStatistics[String(currentCellNumber)] || null;
-            const category = cellStats ? (cellStats.category_GFP_dot_label || 'N/A') : 'N/A';
+            const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
-            document.getElementById("lineGFPIntensity").textContent = formatStatValue(cellStats ? cellStats.line_gfp_intensity : null);
-            document.getElementById("greenredIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_1 : null);
-            document.getElementById("greenredIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_2 : null);
-            document.getElementById("greenredIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_red_intensity_3 : null);
+            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.puncta_distance : null);
+            document.getElementById("punctaLineIntensity").textContent = formatStatValue(cellStats ? cellStats.puncta_line_intensity : null);
+            document.getElementById("measurementContourRatioFormula").textContent = cellStats ? (cellStats.measurement_contour_ratio_display_text || "N/A") : "N/A";
+            document.getElementById("measurementContourRatio1").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null);
+            document.getElementById("measurementContourRatio2").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null);
+            document.getElementById("measurementContourRatio3").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null);
             document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);
             document.getElementById("redInRedIntensity2").textContent = formatStatValue(cellStats ? cellStats.red_intensity_2 : null);
             document.getElementById("redInRedIntensity3").textContent = formatStatValue(cellStats ? cellStats.red_intensity_3 : null);
@@ -2652,17 +2794,19 @@
             document.getElementById("greenInGreenIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null);
             document.getElementById("greenInGreenIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null);
             document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);
-            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cellular_intensity_sum);
+            document.getElementById("cellPairIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cell_pair_intensity_sum);
             document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);
-            document.getElementById("gfpDot").textContent = category;
+            document.getElementById("cenDot").textContent = category;
             document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);
-            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            document.getElementById("distanceLabel").textContent = cellStats ? (cellStats.puncta_distance_label || "Distance between Red Puncta") : "Distance between Red Puncta";
+            document.getElementById("lineIntensityLabel").textContent = cellStats ? (cellStats.puncta_line_intensity_label || "Green Intensity over Red Line") : "Green Intensity over Red Line";
+            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
             const labels = getNuclearLabelPair(mode);
             document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
             document.getElementById("cellularIntensityLabel").textContent = labels.cellular;
-            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour;
-            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement;
-            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cellular_status || "unknown") : "N/A";
+            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour;
+            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement;
+            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cell_pair_status || "unknown") : "N/A";
         }
 
         function getCurrentCellImageUrls() {
@@ -2840,7 +2984,7 @@
             updateSidebarActive();
             syncFileNavigationState();
 
-            const inferred = inferChannelFromMainImage(mainImagePath);
+            const inferred = inferChannelFromMainImage(mainImagePath, fileData);
             if (inferred) {
                 setActiveChannel(inferred);
             }
@@ -3265,6 +3409,101 @@
 
     <script>
         // Row-popup deletion is intentionally disabled on dashboard.
+    </script>
+
+    <script>
+        (() => {
+            const selectionInfoDots = Array.from(document.querySelectorAll('.selection-info-dot[data-info-text]'));
+            const infoTooltipElement = document.getElementById('selectionInfoTooltip');
+            let activeInfoAnchor = null;
+
+            if (!selectionInfoDots.length || !infoTooltipElement) {
+                return;
+            }
+
+            function normalizeInfoText(value) {
+                if (typeof value !== 'string') return '';
+                return value
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter((line, index, arr) => !(line === '' && (index === 0 || index === arr.length - 1)))
+                    .join('\n');
+            }
+
+            function hideInfoTooltip() {
+                activeInfoAnchor = null;
+                infoTooltipElement.hidden = true;
+                infoTooltipElement.textContent = '';
+            }
+
+            function positionInfoTooltip(anchor) {
+                if (!anchor) return;
+                const rect = anchor.getBoundingClientRect();
+                const margin = 10;
+                const gap = 8;
+
+                infoTooltipElement.style.left = '0px';
+                infoTooltipElement.style.top = '0px';
+                const width = infoTooltipElement.offsetWidth;
+                const height = infoTooltipElement.offsetHeight;
+
+                let left = rect.left + (rect.width / 2) - (width / 2);
+                left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+                let top = rect.top - height - gap;
+                if (top < margin) {
+                    top = rect.bottom + gap;
+                }
+                if (top + height > window.innerHeight - margin) {
+                    top = Math.max(margin, window.innerHeight - height - margin);
+                }
+
+                infoTooltipElement.style.left = `${Math.round(left)}px`;
+                infoTooltipElement.style.top = `${Math.round(top)}px`;
+            }
+
+            function refreshInfoTooltipPosition() {
+                if (!activeInfoAnchor || infoTooltipElement.hidden) return;
+                positionInfoTooltip(activeInfoAnchor);
+            }
+
+            function showInfoTooltip(anchor) {
+                if (!anchor) return;
+                const text = normalizeInfoText(anchor.dataset.infoText || '');
+                if (!text) {
+                    hideInfoTooltip();
+                    return;
+                }
+                activeInfoAnchor = anchor;
+                infoTooltipElement.textContent = text;
+                infoTooltipElement.hidden = false;
+                positionInfoTooltip(anchor);
+            }
+
+            function attachInfoTooltipBehavior(infoDot) {
+                infoDot.addEventListener('mouseenter', () => showInfoTooltip(infoDot));
+                infoDot.addEventListener('mouseleave', hideInfoTooltip);
+                infoDot.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (activeInfoAnchor === infoDot && !infoTooltipElement.hidden) {
+                        hideInfoTooltip();
+                        return;
+                    }
+                    showInfoTooltip(infoDot);
+                });
+            }
+
+            selectionInfoDots.forEach(attachInfoTooltipBehavior);
+            document.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof Element) || !target.classList.contains('selection-info-dot')) {
+                    hideInfoTooltip();
+                }
+            });
+            window.addEventListener('resize', refreshInfoTooltipPosition);
+            window.addEventListener('scroll', refreshInfoTooltipPosition, true);
+        })();
     </script>
 
     <!-- Sidebar Code -->

@@ -2,18 +2,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Set, Tuple
 
+from ...channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+    channel_display_label,
+    normalize_channel_role,
+)
 from ..dv_channel_parser import extract_channel_config, get_dv_layer_count, is_recognized_dv_file
 from ...stats_plugins import CHANNEL_ORDER
 
 EXPECTED_LAYER_COUNT = 4
-REQUIRED_CHANNELS = {"DIC", "DAPI", "mCherry", "GFP"}
-CHANNEL_NAME_ALIASES = {
-    "dic": "DIC",
-    "dapi": "DAPI",
-    "gfp": "GFP",
-    "mcherry": "mCherry",
-    "m-cherry": "mCherry",
-}
+REQUIRED_CHANNELS = {CHANNEL_ROLE_DIC, CHANNEL_ROLE_BLUE, CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}
 
 
 def _channel_sort_key(channel: str) -> int:
@@ -24,24 +25,8 @@ def _channel_sort_key(channel: str) -> int:
 
 
 def _normalize_channel_name(channel: str) -> str | None:
-    raw = str(channel).strip()
-    if not raw:
-        return None
-    lower = raw.lower()
-    alias = CHANNEL_NAME_ALIASES.get(lower)
-    if alias:
-        return alias
-    # Handle common DV labels like "w1DIC", "Brightfield", etc.
-    compact = "".join(ch for ch in lower if ch.isalnum())
-    if "dic" in compact or "brightfield" in compact or "transmission" in compact or compact == "bf":
-        return "DIC"
-    if "dapi" in compact or "hoechst" in compact:
-        return "DAPI"
-    if "gfp" in compact:
-        return "GFP"
-    if "mcherry" in compact or "cherry" in compact:
-        return "mCherry"
-    return raw if raw in CHANNEL_ORDER else None
+    normalized = normalize_channel_role(channel)
+    return normalized if normalized in CHANNEL_ORDER else None
 
 
 def _available_channels_from_config(channel_config: dict, layer_count: int) -> Set[str]:
@@ -168,6 +153,10 @@ def _sorted_channels(channels: Set[str]) -> list[str]:
     return sorted(channels, key=_channel_sort_key)
 
 
+def _sorted_channel_labels(channels: Set[str]) -> list[str]:
+    return [channel_display_label(channel) for channel in _sorted_channels(channels)]
+
+
 def build_dv_error_messages(
     failures: Iterable[Tuple[str, DVValidationResult]],
     options: DVValidationOptions,
@@ -223,7 +212,7 @@ def build_dv_error_messages(
             messages.append("")
         messages.append("Could not process the following files due to missing required wavelengths:")
         if required_channels:
-            required_list = ", ".join(_sorted_channels(required_channels))
+            required_list = ", ".join(_sorted_channel_labels(required_channels))
             messages.append(f"The following wavelengths are required: {required_list}.")
 
         for missing_key in sorted(wavelength_groups.keys(), key=lambda key: (len(key), key)):
@@ -233,7 +222,7 @@ def build_dv_error_messages(
             if required_channels and missing_set == set(required_channels) and len(required_channels) > 1:
                 missing_text = "all required wavelengths"
             else:
-                missing_text = _join_words(list(missing_key))
+                missing_text = _join_words(_sorted_channel_labels(missing_set))
             messages.append(f"- {files_text}: missing {missing_text}")
 
     return messages

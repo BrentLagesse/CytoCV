@@ -1,4 +1,4 @@
-# Getting Started
+﻿# Getting Started
 
 ## Purpose
 
@@ -19,14 +19,14 @@ This guide explains how to reach the first successful CytoCV run from a fresh lo
 CytoCV supports four logical channel roles:
 
 - `DIC`
-- `DAPI`
-- `mCherry`
-- `GFP`
+- `Blue`
+- `Red`
+- `Green`
 
 Only `DIC` is universally required because the segmentation and CNN preprocessing path depends on it. Additional channels are conditional:
 
-- the default modern plugin set requires `mCherry` and `GFP` in addition to `DIC`
-- legacy DAPI plugins require `DAPI`
+- the default modern plugin set requires `Red` and `Green` in addition to `DIC`
+- legacy Blue plugins require `Blue`
 - manual required channels are added only when the validation module is enabled
 - exact four-layer enforcement occurs only when `enforce_layer_count` is enabled
 - all-four-role enforcement occurs only when `enforce_wavelengths` is enabled
@@ -60,7 +60,7 @@ python manage.py runserver
 
 1. Open the `Experiment` page.
 2. Upload one or more `.dv` files.
-3. Leave the default modern plugins enabled unless you are intentionally testing a legacy DAPI workflow.
+3. Leave the default modern plugins enabled unless you are intentionally testing a legacy Blue workflow.
 4. Confirm that the file provides `DIC` plus any channels required by the selected plugin set.
 5. Review scale settings and, if needed, advanced validation toggles.
 6. Continue to preprocessing.
@@ -100,3 +100,4 @@ After a successful run, CytoCV should produce:
 - [`analysis-options.md`](analysis-options.md)
 - [`troubleshooting.md`](troubleshooting.md)
 - [`../ops/deployment-guide.md`](../ops/deployment-guide.md)
+

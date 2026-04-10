@@ -109,7 +109,7 @@ def build_scale_info(
         source = "metadata"
         effective = metadata_value
         if normalized_status == "anisotropic_avg" and not normalized_note:
-            normalized_note = "Metadata dx/dy differ; using averaged um/px."
+            normalized_note = "Metadata dx/dy differ; using averaged µm/px."
     elif prefer_metadata_value:
         source = "manual_fallback"
         effective = manual_value
@@ -346,20 +346,20 @@ def get_scale_sidebar_payload(
     if normalized.get("is_anisotropic"):
         scale_summary_label = (
             f"dx {format_scale_value(normalized['x_um_per_px'])} / "
-            f"dy {format_scale_value(normalized['y_um_per_px'])} um/px"
+            f"dy {format_scale_value(normalized['y_um_per_px'])} µm/px"
         )
     else:
-        scale_summary_label = f"{format_scale_value(normalized['x_um_per_px'])} um/px"
+        scale_summary_label = f"{format_scale_value(normalized['x_um_per_px'])} µm/px"
 
     return {
         **normalized,
-        "effective_label": f"{format_scale_value(normalized['effective_um_per_px'])} um/px",
+        "effective_label": f"{format_scale_value(normalized['effective_um_per_px'])} µm/px",
         "source_label": source_label,
         "status_label": SCALE_STATUS_LABELS.get(status, "Unknown"),
         "is_warning": is_warning,
         "note": note,
         "scale_summary_label": scale_summary_label,
-        "line_width_proxy_label": f"{format_scale_value(normalized['line_width_proxy_um_per_px'])} um/px",
+        "line_width_proxy_label": f"{format_scale_value(normalized['line_width_proxy_um_per_px'])} µm/px",
     }
 
 

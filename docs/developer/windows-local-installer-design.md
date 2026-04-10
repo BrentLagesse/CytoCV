@@ -1,4 +1,4 @@
-# Windows Local Installer Design
+﻿# Windows Local Installer Design
 
 ## Purpose
 
@@ -278,3 +278,4 @@ Deliberately postponed:
 - [`contributing.md`](contributing.md)
 - [`../ops/postgres-setup.md`](../ops/postgres-setup.md)
 - [`../vm-deployment-guide/README.md`](../vm-deployment-guide/README.md)
+

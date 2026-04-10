@@ -14,11 +14,16 @@ from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import enqueue_analysis_job, get_active_analysis_job
 from core.services.analysis_pipeline import run_preprocess_and_inference_batch
 from core.services.analysis_progress import AnalysisProgressHandle, get_progress_snapshot
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from .utils import (
     tif_to_jpg,
     prune_experiment_session_state,
     sync_transient_run_session_state,
 )
+from core.channel_roles import CHANNEL_ROLE_ORDER, channel_display_label
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 
 from cytocv.settings import MEDIA_ROOT
@@ -43,7 +48,7 @@ from core.services.artifact_storage import (
     sweep_user_run_artifacts,
 )
 
-NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
@@ -196,13 +201,18 @@ def pre_process(request, uuids):
         cfg_path = Path(MEDIA_ROOT) / uid / 'channel_config.json'
         if cfg_path.exists():
             cfg = json.loads(cfg_path.read_text())
-            detected_channels = [ch for ch, _ in sorted(cfg.items(), key=lambda t: t[1])]
+            detected_channels = [
+                channel_display_label(ch) for ch, _ in sorted(cfg.items(), key=lambda t: t[1])
+            ]
         else:
             # fallback: parse header of first .dv file
             dv_files = list((Path(MEDIA_ROOT) / uid).glob('*.dv'))
             if dv_files:
                 cfg = extract_channel_config(str(dv_files[0]))
-                detected_channels = [ch for ch, _ in sorted(cfg.items(), key=lambda t: t[1])]
+                detected_channels = [
+                    channel_display_label(ch)
+                    for ch, _ in sorted(cfg.items(), key=lambda t: t[1])
+                ]
             else:
                 detected_channels = []
 
@@ -291,45 +301,71 @@ def pre_process(request, uuids):
         # Selection is primarily set during upload step. Keep POST fallback for
         # backward compatibility with older clients.
         selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
-        mcherry_width_raw = request.POST.get('mCherryWidth', request.session.get('mCherryWidth', 1))
-        gfp_distance_raw = request.POST.get('distance', request.session.get('distance', 37))
-        gfp_threshold_raw = request.POST.get('threshold', request.session.get('threshold', 66))
-        nuclear_cellular_mode = request.POST.get(
-            "nuclear_cellular_mode",
-            request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        puncta_line_width_raw = request.POST.get(
+            'punctaLineWidth',
+            request.POST.get('redLineWidth', request.session.get('punctaLineWidth', request.session.get('redLineWidth', request.session.get('mCherryWidth', 1)))),
         )
-        if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
-            nuclear_cellular_mode = "green_nucleus"
-        gfp_filter_enabled_raw = request.POST.get('gfpFilterEnabled', request.session.get('gfpFilterEnabled', 'False'))
-        gfp_filter_enabled = gfp_filter_enabled_raw == 'true'
-        alternate_mcherry_detection_raw = request.POST.get('alternateMCherryDetection', request.session.get('alternateMCherryDetection', 'False'))
-        alternate_mcherry_detection = alternate_mcherry_detection_raw == 'true'
+        cen_dot_distance_raw = request.POST.get(
+            'cenDotDistance',
+            request.session.get('cenDotDistance', request.session.get('distance', 37)),
+        )
+        cen_dot_collinearity_threshold_raw = request.POST.get(
+            'cenDotCollinearityThreshold',
+            request.session.get(
+                'cenDotCollinearityThreshold',
+                request.session.get('threshold', 66),
+            ),
+        )
+        puncta_line_mode = normalize_puncta_line_mode(
+            request.POST.get(
+                "puncta_line_mode",
+                request.session.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
+            ),
+            default=DEFAULT_PUNCTA_LINE_MODE,
+        )
+        nuclear_cell_pair_mode = request.POST.get(
+            "nuclear_cell_pair_mode",
+            request.POST.get("nuclear_cellular_mode", request.session.get("nuclear_cell_pair_mode", request.session.get("nuclear_cellular_mode", "green_nucleus"))),
+        )
+        if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
+            nuclear_cell_pair_mode = "green_nucleus"
+        green_contour_filter_enabled_raw = request.POST.get(
+            'greenContourFilterEnabled',
+            request.session.get('greenContourFilterEnabled', request.session.get('gfpFilterEnabled', 'False')),
+        )
+        green_contour_filter_enabled = green_contour_filter_enabled_raw == 'true'
+        alternate_red_detection_raw = request.POST.get(
+            'alternateRedDetection',
+            request.session.get('alternateRedDetection', request.session.get('alternateMCherryDetection', 'False')),
+        )
+        alternate_red_detection = alternate_red_detection_raw == 'true'
         try:
-            mcherry_width = int(mcherry_width_raw)
+            puncta_line_width = int(puncta_line_width_raw)
         except (TypeError, ValueError):
-            mcherry_width = 1
-        if mcherry_width < 1:
-            mcherry_width = 1        
+            puncta_line_width = 1
+        if puncta_line_width < 1:
+            puncta_line_width = 1
         try:
-            gfp_distance = int(gfp_distance_raw)
+            cen_dot_distance = int(cen_dot_distance_raw)
         except (TypeError, ValueError):
-            gfp_distance = 37
-        if gfp_distance < 0:
-            gfp_distance = 37
+            cen_dot_distance = 37
+        if cen_dot_distance < 0:
+            cen_dot_distance = 37
         try:
-            gfp_threshold = int(gfp_threshold_raw)
+            cen_dot_collinearity_threshold = int(cen_dot_collinearity_threshold_raw)
         except (TypeError, ValueError):
-            gfp_threshold = 66
-        if gfp_threshold < 0:
-            gfp_threshold = 66
+            cen_dot_collinearity_threshold = 66
+        if cen_dot_collinearity_threshold < 0:
+            cen_dot_collinearity_threshold = 66
 
         request.session['selected_analysis'] = selected_analysis
-        request.session['mCherryWidth'] = mcherry_width
-        request.session['distance'] = gfp_distance
-        request.session['threshold'] = gfp_threshold
-        request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
-        request.session['gfpFilterEnabled'] = gfp_filter_enabled
-        request.session['alternateMCherryDetection'] = alternate_mcherry_detection
+        request.session['punctaLineWidth'] = puncta_line_width
+        request.session['cenDotDistance'] = cen_dot_distance
+        request.session['cenDotCollinearityThreshold'] = cen_dot_collinearity_threshold
+        request.session["puncta_line_mode"] = puncta_line_mode
+        request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
+        request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
+        request.session['alternateRedDetection'] = alternate_red_detection
         context = build_analysis_batch_context(request, uuid_list)
         batch_key = context.batch_key
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -481,13 +517,13 @@ def cancel_progress(request, uuids):
 @csrf_exempt
 def update_channel_order(request, uuid):
     """
-    POST {order: ["DIC","DAPI","mCherry","GFP"]}
+    POST {order: ["DIC","channel_blue","channel_red","channel_green"]}
     → overwrite channel_config.json in MEDIA_ROOT/<uuid>/
     """
     try:
         data = json.loads(request.body)
         new_order = data.get('order', [])
-        expected = {"mCherry", "GFP", "DAPI", "DIC"}
+        expected = set(CHANNEL_ROLE_ORDER)
         if set(new_order) != expected:
             return JsonResponse({'error': 'invalid channel list'}, status=400)
 

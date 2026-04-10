@@ -9,228 +9,229 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
 endobj
 4 0 obj
-<< /Length 3596 >>
+<< /Length 3598 >>
 stream
-BT /F2 22.00 Tf 1 0 0 1 54.00 720.00 Tm (Reproducibility And Validation) Tj ET
+BT /F2 22.00 Tf 1 0 0 1 54.00 720.00 Tm (CytoCV Research Document) Tj ET
 BT /F3 10.00 Tf 1 0 0 1 54.00 700.00 Tm (CytoCV Research Documentation) Tj ET
 q 1.00 w 0.68 0.72 0.80 RG 54.00 688.00 m 558.00 688.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (1) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 650.00 Tm (Abstract) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 620.00 Tm (This document summarizes the practical requirements and implementation-specific limits on) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 606.00 Tm (reproducing CytoCV results and deployments. It is grounded in the active code paths for) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 592.00 Tm (plugin registration, upload validation, workflow defaults, and validation-related tests.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 556.00 Tm (Environment Constraints) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 526.00 Tm (CytoCV is sensitive to environment consistency. The codebase expects:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 504.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 504.00 Tm (Python 3.11.5) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 486.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 486.00 Tm (the dependency set in requirements.txt) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 468.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 468.00 Tm (project-specific ML weights present in the expected weights directory) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 450.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 450.00 Tm (a valid .env configuration) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 430.00 Tm (SQLite is acceptable for local development and testing. PostgreSQL is required for) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 416.00 Tm (production operation.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 380.00 Tm (Validation Semantics Verified Against Code) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 350.00 Tm (The implemented requirement model is defined across core.stats_plugins,) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 336.00 Tm (core.views.experiment, core.metadata_processing.error_handling.dv_validation, and) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 322.00 Tm (core.tests.test_stats_validation.) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 298.00 Tm (The verified behaviors are:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 276.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 276.00 Tm (DIC is the only universally required channel) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 258.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 258.00 Tm (if no plugins are selected, the required channel set is ["DIC"]) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 240.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 240.00 Tm (the default modern selected plugins require DIC, mCherry, and GFP) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 222.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 222.00 Tm (DAPI requirements are introduced by legacy plugins or by optional all-wavelength) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 208.00 Tm (enforcement) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 190.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 190.00 Tm (enforce_wavelengths=True expands the required set to all four logical roles) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 172.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 172.00 Tm (enforce_layer_count=True enables exact four-layer validation; it is not a universal) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 158.00 Tm (baseline rule) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 138.00 Tm (These behaviors are test-backed and should be treated as the documentation source of truth) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 124.00 Tm (until the implementation changes.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 88.00 Tm (Default Preference State) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 662.00 Tm (?# Reproducibility And Validation) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 626.00 Tm (Abstract) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 596.00 Tm (This document summarizes the practical requirements and implementation-specific limits on) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 582.00 Tm (reproducing CytoCV results and deployments. It is grounded in the active code paths for) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 568.00 Tm (plugin registration, upload validation, workflow defaults, and validation-related tests.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 532.00 Tm (Environment Constraints) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 502.00 Tm (CytoCV is sensitive to environment consistency. The codebase expects:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 480.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 480.00 Tm (Python 3.11.5) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 462.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 462.00 Tm (the dependency set in requirements.txt) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 444.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 444.00 Tm (project-specific ML weights present in the expected weights directory) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 426.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 426.00 Tm (a valid .env configuration) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 406.00 Tm (SQLite is acceptable for local development and testing. PostgreSQL is required for) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 392.00 Tm (production operation.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 356.00 Tm (Validation Semantics Verified Against Code) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 326.00 Tm (The implemented requirement model is defined across core.stats_plugins,) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 312.00 Tm (core.views.experiment, core.metadata_processing.error_handling.dv_validation, and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 298.00 Tm (core.tests.test_stats_validation.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 274.00 Tm (The verified behaviors are:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 252.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 252.00 Tm (DIC is the only universally required channel) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 234.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 234.00 Tm (if no plugins are selected, the required channel set is ["DIC"]) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 216.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 216.00 Tm (the default modern selected plugins require DIC, Red, and Green) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 198.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 198.00 Tm (Blue requirements are introduced by legacy plugins or by optional all-wavelength) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 184.00 Tm (enforcement) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 166.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 166.00 Tm (enforce_wavelengths=True expands the required set to all four logical roles) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 148.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 148.00 Tm (enforce_layer_count=True enables exact four-layer validation; it is not a universal) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 134.00 Tm (baseline rule) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 114.00 Tm (These behaviors are test-backed and should be treated as the documentation source of truth) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 100.00 Tm (until the implementation changes.) Tj ET
 endstream
 endobj
 5 0 obj
 << /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 5850 >>
+<< /Length 5657 >>
 stream
-BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Reproducibility And Validation) Tj ET
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (CytoCV Research Document) Tj ET
 q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (2) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 716.00 Tm (The normalized default preference payload in accounts.preferences establishes the baseline) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 702.00 Tm (workflow policy.) Tj ET
-q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 54.00 654.00 70.33 24.00 re B Q
-BT /F2 9.50 Tf 1 0 0 1 60.00 662.50 Tm (Setting) Tj ET
-q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 124.33 654.00 187.53 24.00 re B Q
-BT /F2 9.50 Tf 1 0 0 1 130.33 662.50 Tm (Default value) Tj ET
-q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 311.86 654.00 246.14 24.00 re B Q
-BT /F2 9.50 Tf 1 0 0 1 317.86 662.50 Tm (Reproducibility implication) Tj ET
-q 0.72 0.76 0.84 RG 54.00 604.00 70.33 48.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 636.50 Tm (selected_plugins) Tj ET
-q 0.72 0.76 0.84 RG 124.33 604.00 187.53 48.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 636.50 Tm (MCherryLine, GFPDot,) Tj ET
-BT /F1 9.50 Tf 1 0 0 1 130.33 624.50 Tm (GreenRedIntensity,) Tj ET
-BT /F1 9.50 Tf 1 0 0 1 130.33 612.50 Tm (NuclearCellularIntensity) Tj ET
-q 0.72 0.76 0.84 RG 311.86 604.00 246.14 48.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 636.50 Tm (Baseline modern run requires DIC, mCherry, and) Tj ET
-BT /F1 9.50 Tf 1 0 0 1 317.86 624.50 Tm (GFP) Tj ET
-q 0.72 0.76 0.84 RG 54.00 578.00 70.33 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 586.50 Tm (module_enabled) Tj ET
-q 0.72 0.76 0.84 RG 124.33 578.00 187.53 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 586.50 Tm (False) Tj ET
-q 0.72 0.76 0.84 RG 311.86 578.00 246.14 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 586.50 Tm (Validation overrides are disabled by default) Tj ET
-q 0.72 0.76 0.84 RG 54.00 552.00 70.33 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 560.50 Tm (enforce_layer_count) Tj ET
-q 0.72 0.76 0.84 RG 124.33 552.00 187.53 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 560.50 Tm (False) Tj ET
-q 0.72 0.76 0.84 RG 311.86 552.00 246.14 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 560.50 Tm (Exact four-layer enforcement is off by default) Tj ET
-q 0.72 0.76 0.84 RG 54.00 526.00 70.33 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 534.50 Tm (enforce_wavelengths) Tj ET
-q 0.72 0.76 0.84 RG 124.33 526.00 187.53 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 534.50 Tm (False) Tj ET
-q 0.72 0.76 0.84 RG 311.86 526.00 246.14 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 534.50 Tm (All-four-role enforcement is off by default) Tj ET
-q 0.72 0.76 0.84 RG 54.00 500.00 70.33 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 508.50 Tm (show_legacy_plugins) Tj ET
-q 0.72 0.76 0.84 RG 124.33 500.00 187.53 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 508.50 Tm (False) Tj ET
-q 0.72 0.76 0.84 RG 311.86 500.00 246.14 24.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 508.50 Tm (Legacy DAPI analyses are hidden by default) Tj ET
-q 0.72 0.76 0.84 RG 54.00 462.00 70.33 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 482.50 Tm (manual_required_channels) Tj ET
-q 0.72 0.76 0.84 RG 124.33 462.00 187.53 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 482.50 Tm (empty list) Tj ET
-q 0.72 0.76 0.84 RG 311.86 462.00 246.14 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 482.50 Tm (No extra manual channel requirements are) Tj ET
-BT /F1 9.50 Tf 1 0 0 1 317.86 470.50 Tm (applied) Tj ET
-q 0.72 0.76 0.84 RG 54.00 424.00 70.33 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 444.50 Tm (nuclear_cellular_mode) Tj ET
-q 0.72 0.76 0.84 RG 124.33 424.00 187.53 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 444.50 Tm (green_nucleus) Tj ET
-q 0.72 0.76 0.84 RG 311.86 424.00 246.14 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 444.50 Tm (Modern nuclear or cellular measurements use the) Tj ET
-BT /F1 9.50 Tf 1 0 0 1 317.86 432.50 Tm (green-nucleus mode unless overridden) Tj ET
-q 0.72 0.76 0.84 RG 54.00 386.00 70.33 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 60.00 406.50 Tm (use_metadata_scale) Tj ET
-q 0.72 0.76 0.84 RG 124.33 386.00 187.53 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 130.33 406.50 Tm (True) Tj ET
-q 0.72 0.76 0.84 RG 311.86 386.00 246.14 36.00 re S Q
-BT /F1 9.50 Tf 1 0 0 1 317.86 406.50 Tm (Metadata-derived scale is preferred when) Tj ET
-BT /F1 9.50 Tf 1 0 0 1 317.86 394.50 Tm (available) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 362.00 Tm (Configuration Validation) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 332.00 Tm (The settings layer performs fail-fast validation for:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 310.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 310.00 Tm (database backend selection) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 292.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 292.00 Tm (required PostgreSQL credentials) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 274.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 274.00 Tm (production secret-key safety) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 256.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 256.00 Tm (email transport toggle consistency) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 238.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 238.00 Tm (allowed account email verification modes) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 218.00 Tm (This reduces configuration ambiguity and improves reproducibility across deployments.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 182.00 Tm (Data And Scale Reproducibility) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 152.00 Tm (Reproducibility of measurements depends on:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 130.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 130.00 Tm (the original DV input) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 112.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 112.00 Tm (the resolved channel mapping) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 94.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 94.00 Tm (the effective scale selected for the run) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 76.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 76.00 Tm (the selected plugin set) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 704.00 Tm (Default Preference State) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 674.00 Tm (The normalized default preference payload in accounts.preferences establishes the baseline) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 660.00 Tm (workflow policy.) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 54.00 612.00 68.73 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 60.00 620.50 Tm (Setting) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 122.73 612.00 191.86 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 128.73 620.50 Tm (Default value) Tj ET
+q 0.93 0.95 0.98 rg 0.72 0.76 0.84 RG 314.59 612.00 243.41 24.00 re B Q
+BT /F2 9.50 Tf 1 0 0 1 320.59 620.50 Tm (Reproducibility implication) Tj ET
+q 0.72 0.76 0.84 RG 54.00 562.00 68.73 48.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 594.50 Tm (selected_plugins) Tj ET
+q 0.72 0.76 0.84 RG 122.73 562.00 191.86 48.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 594.50 Tm (PunctaDistance, CENDot,) Tj ET
+BT /F1 9.50 Tf 1 0 0 1 128.73 582.50 Tm (GreenRedIntensity,) Tj ET
+BT /F1 9.50 Tf 1 0 0 1 128.73 570.50 Tm (NuclearCellPairIntensity) Tj ET
+q 0.72 0.76 0.84 RG 314.59 562.00 243.41 48.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 594.50 Tm (Baseline modern run requires DIC, Red, and) Tj ET
+BT /F1 9.50 Tf 1 0 0 1 320.59 582.50 Tm (Green) Tj ET
+q 0.72 0.76 0.84 RG 54.00 536.00 68.73 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 544.50 Tm (module_enabled) Tj ET
+q 0.72 0.76 0.84 RG 122.73 536.00 191.86 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 544.50 Tm (False) Tj ET
+q 0.72 0.76 0.84 RG 314.59 536.00 243.41 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 544.50 Tm (Validation overrides are disabled by default) Tj ET
+q 0.72 0.76 0.84 RG 54.00 510.00 68.73 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 518.50 Tm (enforce_layer_count) Tj ET
+q 0.72 0.76 0.84 RG 122.73 510.00 191.86 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 518.50 Tm (False) Tj ET
+q 0.72 0.76 0.84 RG 314.59 510.00 243.41 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 518.50 Tm (Exact four-layer enforcement is off by default) Tj ET
+q 0.72 0.76 0.84 RG 54.00 484.00 68.73 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 492.50 Tm (enforce_wavelengths) Tj ET
+q 0.72 0.76 0.84 RG 122.73 484.00 191.86 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 492.50 Tm (False) Tj ET
+q 0.72 0.76 0.84 RG 314.59 484.00 243.41 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 492.50 Tm (All-four-role enforcement is off by default) Tj ET
+q 0.72 0.76 0.84 RG 54.00 458.00 68.73 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 466.50 Tm (show_legacy_plugins) Tj ET
+q 0.72 0.76 0.84 RG 122.73 458.00 191.86 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 466.50 Tm (False) Tj ET
+q 0.72 0.76 0.84 RG 314.59 458.00 243.41 24.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 466.50 Tm (Legacy Blue analyses are hidden by default) Tj ET
+q 0.72 0.76 0.84 RG 54.00 420.00 68.73 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 440.50 Tm (manual_required_channels) Tj ET
+q 0.72 0.76 0.84 RG 122.73 420.00 191.86 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 440.50 Tm (empty list) Tj ET
+q 0.72 0.76 0.84 RG 314.59 420.00 243.41 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 440.50 Tm (No extra manual channel requirements are) Tj ET
+BT /F1 9.50 Tf 1 0 0 1 320.59 428.50 Tm (applied) Tj ET
+q 0.72 0.76 0.84 RG 54.00 382.00 68.73 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 402.50 Tm (nuclear_cell_pair_mode) Tj ET
+q 0.72 0.76 0.84 RG 122.73 382.00 191.86 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 402.50 Tm (green_nucleus) Tj ET
+q 0.72 0.76 0.84 RG 314.59 382.00 243.41 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 402.50 Tm (Modern nuclear or cell-pair measurements use) Tj ET
+BT /F1 9.50 Tf 1 0 0 1 320.59 390.50 Tm (the green-nucleus mode unless overridden) Tj ET
+q 0.72 0.76 0.84 RG 54.00 344.00 68.73 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 60.00 364.50 Tm (use_metadata_scale) Tj ET
+q 0.72 0.76 0.84 RG 122.73 344.00 191.86 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 128.73 364.50 Tm (True) Tj ET
+q 0.72 0.76 0.84 RG 314.59 344.00 243.41 36.00 re S Q
+BT /F1 9.50 Tf 1 0 0 1 320.59 364.50 Tm (Metadata-derived scale is preferred when) Tj ET
+BT /F1 9.50 Tf 1 0 0 1 320.59 352.50 Tm (available) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 320.00 Tm (Configuration Validation) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 290.00 Tm (The settings layer performs fail-fast validation for:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 268.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 268.00 Tm (database backend selection) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 250.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 250.00 Tm (required PostgreSQL credentials) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 232.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 232.00 Tm (production secret-key safety) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 214.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 214.00 Tm (email transport toggle consistency) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 196.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 196.00 Tm (allowed account email verification modes) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 176.00 Tm (This reduces configuration ambiguity and improves reproducibility across deployments.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 140.00 Tm (Data And Scale Reproducibility) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 110.00 Tm (Reproducibility of measurements depends on:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 88.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 88.00 Tm (the original DV input) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 70.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 70.00 Tm (the resolved channel mapping) Tj ET
 endstream
 endobj
 7 0 obj
 << /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
 endobj
 8 0 obj
-<< /Length 4093 >>
+<< /Length 4122 >>
 stream
-BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Reproducibility And Validation) Tj ET
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (CytoCV Research Document) Tj ET
 q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (3) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 718.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (threshold and length parameters saved in session and copied into per-cell properties) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 698.00 Tm (CytoCV stores scale context and measurement context directly alongside run data, which) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 684.00 Tm (preserves interpretability after processing completes.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 648.00 Tm (Test Coverage Relevant To Validation) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 618.00 Tm (The active automated suite includes coverage for:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 596.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 596.00 Tm (upload-time scale initialization) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 578.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 578.00 Tm (preferences normalization) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (the effective scale selected for the run) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 700.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 700.00 Tm (the selected plugin set) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 682.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 682.00 Tm (threshold and length parameters saved in session and copied into per-cell properties) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 662.00 Tm (CytoCV stores scale context and measurement context directly alongside run data, which) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 648.00 Tm (preserves interpretability after processing completes.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 612.00 Tm (Test Coverage Relevant To Validation) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 582.00 Tm (The active automated suite includes coverage for:) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 560.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 560.00 Tm (artifact storage behavior) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 560.00 Tm (upload-time scale initialization) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 542.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 542.00 Tm (inference and statistics-related logic) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 542.00 Tm (preferences normalization) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 524.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 524.00 Tm (table behavior) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 524.00 Tm (artifact storage behavior) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 506.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 506.00 Tm (validation-related unit tests, including channel requirement behavior) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 486.00 Tm (This coverage is useful but not exhaustive. End-to-end reproducibility still depends on the) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 472.00 Tm (exact runtime environment, the presence of the same model weights, and the same input data.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 436.00 Tm (Runtime Constraints) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 406.00 Tm (Two runtime constraints are especially important for reproducible scientific execution:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 384.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 384.00 Tm (the model weights file must be present and unchanged) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 366.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 366.00 Tm (the TensorFlow-based analysis host must expose AVX) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 346.00 Tm (A server can host the web interface without AVX, but the analysis pipeline will fail with) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 332.00 Tm (Illegal instruction if the CPU does not support the required instruction set.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 296.00 Tm (Known Limits) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 268.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 268.00 Tm (external model weights are required and are not embedded into the repository) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 250.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 250.00 Tm (transient artifacts may be cleaned automatically and are not a stable archival record) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 506.00 Tm (inference and statistics-related logic) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 488.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 488.00 Tm (table behavior) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 470.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 470.00 Tm (validation-related unit tests, including channel requirement behavior) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 450.00 Tm (This coverage is useful but not exhaustive. End-to-end reproducibility still depends on the) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 436.00 Tm (exact runtime environment, the presence of the same model weights, and the same input data.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 400.00 Tm (Runtime Constraints) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 370.00 Tm (Two runtime constraints are especially important for reproducible scientific execution:) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 348.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 348.00 Tm (the model weights file must be present and unchanged) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 330.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 330.00 Tm (the TensorFlow-based analysis host must expose AVX) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 310.00 Tm (A server can host the web interface without AVX, but the analysis pipeline will fail with) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 296.00 Tm (Illegal instruction if the CPU does not support the required instruction set.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 260.00 Tm (Known Limits) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 232.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 232.00 Tm (some outputs are graphical derivatives rather than raw numerical primitives) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 232.00 Tm (external model weights are required and are not embedded into the repository) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 214.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 214.00 Tm (local and production environments differ in database backend and security posture) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 182.00 Tm (Recommended Reproducibility Practice) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 152.00 Tm (For any formal result package, preserve:) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 130.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 130.00 Tm (exact commit hash) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 112.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 112.00 Tm (.env policy with secrets removed but settings retained) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 214.00 Tm (transient artifacts may be cleaned automatically and are not a stable archival record) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 196.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 196.00 Tm (some outputs are graphical derivatives rather than raw numerical primitives) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 178.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 178.00 Tm (local and production environments differ in database backend and security posture) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 146.00 Tm (Recommended Reproducibility Practice) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 116.00 Tm (For any formal result package, preserve:) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 94.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 94.00 Tm (Python version) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 94.00 Tm (exact commit hash) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 76.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 76.00 Tm (dependency set) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 76.00 Tm (.env policy with secrets removed but settings retained) Tj ET
 endstream
 endobj
 9 0 obj
 << /Type /Page /Parent 12 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
 endobj
 10 0 obj
-<< /Length 1225 >>
+<< /Length 1447 >>
 stream
-BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Reproducibility And Validation) Tj ET
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (CytoCV Research Document) Tj ET
 q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (4) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 718.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (model weight identifier) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (Python version) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 700.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 700.00 Tm (selected plugin set) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 700.00 Tm (dependency set) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 682.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 682.00 Tm (run scale context) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 682.00 Tm (model weight identifier) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 664.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 664.00 Tm (exported table output) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 632.00 Tm (Conclusion) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 602.00 Tm (CytoCV is reproducible when environment, model, input, and run configuration are treated as) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 588.00 Tm (part of the result definition. The current codebase already stores part of that context) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 574.00 Tm (internally, but disciplined deployment, archival practice, and CPU compatibility remain) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 560.00 Tm (necessary for formal reproducibility.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 664.00 Tm (selected plugin set) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 646.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 646.00 Tm (run scale context) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 628.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 628.00 Tm (exported table output) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 596.00 Tm (Conclusion) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 566.00 Tm (CytoCV is reproducible when environment, model, input, and run configuration are treated as) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 552.00 Tm (part of the result definition. The current codebase already stores part of that context) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 538.00 Tm (internally, but disciplined deployment, archival practice, and CPU compatibility remain) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 524.00 Tm (necessary for formal reproducibility.) Tj ET
 endstream
 endobj
 11 0 obj
@@ -249,17 +250,17 @@ xref
 0000000079 00000 n 
 0000000154 00000 n 
 0000000232 00000 n 
-0000003880 00000 n 
-0000004027 00000 n 
-0000009929 00000 n 
-0000010076 00000 n 
-0000014221 00000 n 
-0000014368 00000 n 
-0000015646 00000 n 
-0000015795 00000 n 
-0000015872 00000 n 
+0000003882 00000 n 
+0000004029 00000 n 
+0000009738 00000 n 
+0000009885 00000 n 
+0000014059 00000 n 
+0000014206 00000 n 
+0000015706 00000 n 
+0000015855 00000 n 
+0000015932 00000 n 
 trailer
 << /Size 14 /Root 13 0 R >>
 startxref
-15923
+15983
 %%EOF

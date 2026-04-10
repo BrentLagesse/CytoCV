@@ -1,4 +1,4 @@
-# File Format And Artifact Spec
+﻿# File Format And Artifact Spec
 
 ## Purpose
 
@@ -13,7 +13,7 @@ Primary input format:
 Current workflow assumptions:
 
 - the upload can be interpreted as a channel stack
-- CytoCV supports four logical channel roles: `DIC`, `DAPI`, `mCherry`, and `GFP`
+- CytoCV supports four logical channel roles: `DIC`, `Blue`, `Red`, and `Green`
 - only `DIC` is universally required
 - additional required channels are derived from the selected plugin set and optional validation settings
 - channel order can be remapped through `channel_config.json`
@@ -22,9 +22,9 @@ Current workflow assumptions:
 ## Channel Roles
 
 - `DIC`: segmentation and morphology reference
-- `DAPI`: legacy nucleus-related and blue-channel measurements
-- `mCherry`: red fluorescence measurements
-- `GFP`: green fluorescence measurements
+- `Blue`: legacy nucleus-related and blue-channel measurements
+- `Red`: red fluorescence measurements
+- `Green`: green fluorescence measurements
 
 ## Run-Level Generated Files
 
@@ -59,9 +59,9 @@ Full four-role example:
 ```json
 {
   "DIC": 0,
-  "DAPI": 1,
-  "mCherry": 2,
-  "GFP": 3
+  "Blue": 1,
+  "Red": 2,
+  "Green": 3
 }
 ```
 
@@ -87,7 +87,7 @@ Observed output naming patterns include:
 - channel-indexed no-outline crops: `<image>-<channel_index>-<cell>-no_outline.png`
 - exact overlay render snapshot: `overlay-render-config.json`
 - exact overlay cache entries: `overlay-cache-v1/cell-<cell>-<channel>.png`
-- optional legacy debug overlays when raster export is enabled: `<image>-<cell>-mCherry_debug.png`, `<image>-<cell>-GFP_debug.png`, `<image>-<cell>-DAPI_debug.png`
+- optional legacy debug overlays when raster export is enabled: `<image>-<cell>-Red_debug.png`, `<image>-<cell>-Green_debug.png`, `<image>-<cell>-Blue_debug.png`
 
 ## Export Output
 
@@ -98,3 +98,4 @@ Table exports are generated through `django-tables2` and use the uploaded image 
 - [`data-model.md`](data-model.md)
 - [`glossary.md`](glossary.md)
 - [`../developer/data-flow-and-artifacts.md`](../developer/data-flow-and-artifacts.md)
+

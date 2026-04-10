@@ -1,4 +1,4 @@
-%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":24,"rankSpacing":40}}}%%
+﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":24,"rankSpacing":40}}}%%
 flowchart LR
     classDef channel fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
     classDef plugin fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
@@ -7,43 +7,43 @@ flowchart LR
     classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
 
     dic[DIC]
-    dapi[DAPI]
-    mcherry[mCherry]
-    gfp[GFP]
+    blue[Blue]
+    red[Red]
+    green[Green]
 
     base[Base required channels<br/>DIC plus selected plugin inputs]
     manual[Manual required channels<br/>module enabled only]
-    fullset[All-wavelength enforcement<br/>adds DIC, DAPI, mCherry, GFP]
+    fullset[All-wavelength enforcement<br/>adds DIC, Blue, Red, Green]
     effective[Effective required channel set]
     validate[Upload validation]
 
     subgraph modern[Modern plugins]
-        p1[MCherryLine]
-        p2[GFPDot]
+        p1[PunctaDistance]
+        p2[CENDot]
         p3[GreenRedIntensity]
-        p4[NuclearCellularIntensity]
+        p4[NuclearCellPairIntensity]
     end
 
-    subgraph legacygroup[Legacy DAPI plugins]
+    subgraph legacygroup[Legacy Blue plugins]
         p5[NucleusIntensity<br/>legacy]
-        p6[DAPI_NucleusIntensity<br/>legacy]
+        p6[BlueNucleusIntensity<br/>legacy]
         p7[RedBlueIntensity<br/>legacy]
     end
 
     dic --> base
-    mcherry --> p1
-    gfp --> p1
-    mcherry --> p2
-    gfp --> p2
-    mcherry --> p3
-    gfp --> p3
-    mcherry --> p4
-    gfp --> p4
-    dapi --> p5
-    gfp --> p5
-    dapi --> p6
-    mcherry --> p7
-    dapi --> p7
+    red --> p1
+    green --> p1
+    red --> p2
+    green --> p2
+    red --> p3
+    green --> p3
+    red --> p4
+    green --> p4
+    blue --> p5
+    green --> p5
+    blue --> p6
+    red --> p7
+    blue --> p7
     p1 --> base
     p2 --> base
     p3 --> base
@@ -56,7 +56,8 @@ flowchart LR
     fullset --> effective
     effective --> validate
 
-    class dic,dapi,mcherry,gfp channel
+    class dic,blue,red,green channel
     class base,manual,fullset,effective,validate process
     class p1,p2,p3,p4 plugin
     class p5,p6,p7 legacy
+

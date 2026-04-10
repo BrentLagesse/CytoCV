@@ -174,8 +174,8 @@ class Contour(Enum):
     CIRCLE = 2
 
 
-class CategoryGFPDot(models.IntegerChoices):
-    """Categories for GFP dot analysis classification."""
+class CategoryCENDot(models.IntegerChoices):
+    """Categories for CEN dot analysis classification."""
 
     ONEEACH = 1, "One green dot with each red dot"
     ONEONE = 2, "One green dot with one red dot"
@@ -183,17 +183,17 @@ class CategoryGFPDot(models.IntegerChoices):
     NONE = 4, "N/A"
 
 
-def get_gfp_dot_category_label(value: int | None) -> str:
-    """Return the user-facing label for a stored GFP dot category code."""
-    labels = dict(CategoryGFPDot.choices)
+def get_cen_dot_category_label(value: int | None) -> str:
+    """Return the user-facing label for a stored CEN dot category code."""
+    labels = dict(CategoryCENDot.choices)
     if isinstance(value, str):
         if value in labels.values():
             return value
     try:
         category_value = int(value)
     except (TypeError, ValueError):
-        return CategoryGFPDot.NONE.label
-    return labels.get(category_value, CategoryGFPDot.NONE.label)
+        return CategoryCENDot.NONE.label
+    return labels.get(category_value, CategoryCENDot.NONE.label)
 
 
 class CellStatistics(models.Model):
@@ -201,10 +201,10 @@ class CellStatistics(models.Model):
 
     segmented_image = models.ForeignKey("SegmentedImage", on_delete=models.CASCADE)
     cell_id = models.IntegerField()
-    distance = models.FloatField()
-    line_gfp_intensity = models.FloatField()
+    puncta_distance = models.FloatField()
+    puncta_line_intensity = models.FloatField()
     nucleus_intensity_sum = models.FloatField()
-    cellular_intensity_sum = models.FloatField()
+    cell_pair_intensity_sum = models.FloatField()
     cytoplasmic_intensity = models.FloatField(default=0.0)
 
     blue_contour_size = models.FloatField(default=0.0)
@@ -229,13 +229,13 @@ class CellStatistics(models.Model):
     green_in_green_intensity_2 = models.FloatField(default=0.0)
     green_in_green_intensity_3 = models.FloatField(default=0.0)
 
-    gfp_contour_1_size = models.FloatField(default=0.0)
-    gfp_contour_2_size = models.FloatField(default=0.0)
-    gfp_contour_3_size = models.FloatField(default=0.0)
+    green_contour_1_size = models.FloatField(default=0.0)
+    green_contour_2_size = models.FloatField(default=0.0)
+    green_contour_3_size = models.FloatField(default=0.0)
 
-    gfp_to_mcherry_distance_1 = models.FloatField(default=0.0)
-    gfp_to_mcherry_distance_2 = models.FloatField(default=0.0)
-    gfp_to_mcherry_distance_3 = models.FloatField(default=0.0)
+    distance_of_green_from_red_1 = models.FloatField(default=0.0)
+    distance_of_green_from_red_2 = models.FloatField(default=0.0)
+    distance_of_green_from_red_3 = models.FloatField(default=0.0)
 
     green_red_intensity_1 = models.FloatField(default=0.0)
     green_red_intensity_2 = models.FloatField(default=0.0)
@@ -245,17 +245,17 @@ class CellStatistics(models.Model):
     red_blue_intensity_2 = models.FloatField(default=0.0)
     red_blue_intensity_3 = models.FloatField(default=0.0)
 
-    cellular_intensity_sum_DAPI = models.FloatField(default=0.0)
-    nucleus_intensity_sum_DAPI = models.FloatField(default=0.0)
-    cytoplasmic_intensity_DAPI = models.FloatField(default=0.0)
+    cell_pair_intensity_sum_blue = models.FloatField(default=0.0)
+    nucleus_intensity_sum_blue = models.FloatField(default=0.0)
+    cytoplasmic_intensity_blue = models.FloatField(default=0.0)
 
-    # Category in GFP Dot Analysis
-    category_GFP_dot = models.IntegerField(
-        choices = CategoryGFPDot.choices,
-        default = CategoryGFPDot.NONE,
+    # Category in CEN dot analysis
+    category_cen_dot = models.IntegerField(
+        choices = CategoryCENDot.choices,
+        default = CategoryCENDot.NONE,
     )
 
-    # Biorientation in GFP Dot Analysis
+    # Biorientation in CEN dot analysis
     biorientation = models.IntegerField(default=0)
 
     dv_file_path = models.TextField(default="")
@@ -263,9 +263,7 @@ class CellStatistics(models.Model):
 
     is_correct = models.BooleanField(default=True)
     nuclei_count = models.IntegerField(default=1)
-    gfp_dot_count = models.IntegerField(default=0)
-    red_dot_distance = models.FloatField(default=0.0)
-    gfp_red_dot_distance = models.FloatField(default=0.0)
+    cen_dot_count = models.IntegerField(default=0)
     cyan_dot_count = models.IntegerField(default=1)
     ground_truth = models.BooleanField(default=False)
     nucleus_intensity = models.JSONField(default=dict)
@@ -273,14 +271,12 @@ class CellStatistics(models.Model):
     cell_intensity = models.JSONField(default=dict)
     cell_total_points = models.IntegerField(default=0)
     ignored = models.BooleanField(default=False)
-    mcherry_line_gfp_intensity = models.FloatField(default=0.0)
-    gfp_line_gfp_intensity = models.FloatField(default=0.0)
     properties = models.JSONField(default=dict)
 
     def __str__(self) -> str:
         return (
-            f"Cell ID: {self.cell_id} - Dist: {self.distance}, "
-            f"Line GFP: {self.line_gfp_intensity}"
+            f"Cell ID: {self.cell_id} - Dist: {self.puncta_distance}, "
+            f"Puncta Line: {self.puncta_line_intensity}"
         )
 
     def get_base_name(self) -> str:
@@ -296,7 +292,7 @@ class CellStatistics(models.Model):
         """Fetch the image or filename for a given channel.
 
         Args:
-            channel: Channel name to retrieve (e.g., "mCherry", "GFP").
+            channel: Channel role name to retrieve (for example, "channel_red").
             use_id: Whether to include the cell_id in the filename.
             outline: Whether to include the outline suffix for filenames.
 
@@ -337,26 +333,3 @@ class CellStatistics(models.Model):
 #     CONTOUR = 0
 #     CONVEX = 1
 #     CIRCLE = 2
-
-# class CellPair:
-#     def __init__(self, image_name, id):
-#         # https://docs.opencv.org/4.x/d4/d61/tutorial_warp_affine.html
-#         self.is_correct = True # if is affine and is separable
-#         self.image_name = image_name # 20_1212_M1914_001_R3D_REF.tif
-#         self.id = id # number of cells undergoing mitosis
-#         self.nuclei_count = 1 
-#         self.red_dot_count = 1
-#         self.gfp_dot_count = 0
-#         self.red_dot_distance = 0
-#         self.gfp_red_dot_distance = 0
-#         self.cyan_dot_count = 1
-#         self.green_dot_count = 1
-#         self.ground_truth = False
-#         self.nucleus_intensity = {}
-#         self.nucleus_total_points = 0
-#         self.cell_intensity = {}
-#         self.cell_total_points = 0
-#         self.ignored = False
-#         self.mcherry_line_gfp_intensity = 0
-#         self.gfp_line_gfp_intensity = 0
-#         self.properties = dict()

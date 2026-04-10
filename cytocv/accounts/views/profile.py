@@ -27,19 +27,32 @@ from accounts.preferences import (
     should_auto_save_experiments,
     update_user_preferences,
 )
-from core.config import get_channel_config_for_uuid
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+    channel_display_label,
+    channel_slug,
+)
+from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
 from core.models import (
     CellStatistics,
     SegmentedImage,
     UploadedImage,
-    get_gfp_dot_category_label,
 )
 from core.services.artifact_storage import (
     get_user_storage_projection,
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
+from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    VALID_PUNCTA_LINE_MODES,
+    normalize_puncta_line_mode,
+)
 from core.scale import get_scale_sidebar_payload
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -54,7 +67,7 @@ from core.stats_plugins import (
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 
-NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
 
 
@@ -91,9 +104,13 @@ def _normalize_unit(value: Any, default: str = "px") -> str:
 
 def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
     mode = str(value or "").strip()
-    if mode not in NUCLEAR_CELLULAR_MODES:
+    if mode not in NUCLEAR_CELL_PAIR_MODES:
         return default
     return mode
+
+
+def _normalize_puncta_mode(value: Any, default: str = DEFAULT_PUNCTA_LINE_MODE) -> str:
+    return normalize_puncta_line_mode(value, default=default)
 
 
 def _build_export_download_name(raw_name: Any, export_format: str, fallback: str) -> str:
@@ -122,26 +139,26 @@ def _extract_measurement_defaults(
     post_data: Any,
     defaults: dict[str, Any],
 ) -> dict[str, Any]:
-    current_mcherry_width_unit = _normalize_unit(
-        defaults.get("mcherry_width_unit"),
+    current_puncta_line_width_unit = _normalize_unit(
+        defaults.get("puncta_line_width_unit", defaults.get("red_line_width_unit")),
         default="px",
     )
-    current_gfp_distance_unit = _normalize_unit(
-        defaults.get("gfp_distance_unit"),
+    current_cen_dot_distance_unit = _normalize_unit(
+        defaults.get("cen_dot_distance_unit"),
         default="px",
     )
-    current_mcherry_width = _parse_positive_float(
-        defaults.get("mcherry_width"),
+    current_puncta_line_width = _parse_positive_float(
+        defaults.get("puncta_line_width", defaults.get("red_line_width")),
         default=1,
-        minimum=1 if current_mcherry_width_unit == "px" else 0,
+        minimum=1 if current_puncta_line_width_unit == "px" else 0,
     )
-    current_gfp_distance = _parse_positive_float(
-        defaults.get("gfp_distance"),
+    current_cen_dot_distance = _parse_positive_float(
+        defaults.get("cen_dot_distance"),
         default=37,
         minimum=0,
     )
-    current_gfp_threshold = _parse_positive_int(
-        defaults.get("gfp_threshold"),
+    current_cen_dot_collinearity_threshold = _parse_positive_int(
+        defaults.get("cen_dot_collinearity_threshold"),
         default=66,
         minimum=0,
     )
@@ -151,20 +168,24 @@ def _extract_measurement_defaults(
         minimum=0.0001,
     )
     current_use_metadata_scale = bool(defaults.get("use_metadata_scale", True))
+    current_puncta_mode = _normalize_puncta_mode(
+        defaults.get("puncta_line_mode"),
+        default=DEFAULT_PUNCTA_LINE_MODE,
+    )
     current_nuclear_mode = _normalize_nuclear_mode(
-        defaults.get("nuclear_cellular_mode"),
+        defaults.get("nuclear_cell_pair_mode", defaults.get("nuclear_cellular_mode")),
         default="green_nucleus",
     )
 
-    mcherry_width_unit = _normalize_unit(
-        post_data.get("mcherry_width_unit"),
-        default=current_mcherry_width_unit,
+    puncta_line_width_unit = _normalize_unit(
+        post_data.get("puncta_line_width_unit", post_data.get("red_line_width_unit")),
+        default=current_puncta_line_width_unit,
     )
-    gfp_distance_unit = _normalize_unit(
-        post_data.get("gfp_distance_unit"),
-        default=current_gfp_distance_unit,
+    cen_dot_distance_unit = _normalize_unit(
+        post_data.get("cen_dot_distance_unit"),
+        default=current_cen_dot_distance_unit,
     )
-    mcherry_minimum = 1 if mcherry_width_unit == "px" else 0
+    puncta_line_minimum = 1 if puncta_line_width_unit == "px" else 0
     raw_use_metadata_scale = post_data.get("use_metadata_scale")
     if raw_use_metadata_scale is None:
         use_metadata_scale = current_use_metadata_scale
@@ -176,27 +197,31 @@ def _extract_measurement_defaults(
             "yes",
         }
     return {
-        "mcherry_width": _parse_positive_float(
-            post_data.get("mcherry_width"),
-            default=current_mcherry_width,
-            minimum=mcherry_minimum,
+        "puncta_line_width": _parse_positive_float(
+            post_data.get("puncta_line_width", post_data.get("red_line_width")),
+            default=current_puncta_line_width,
+            minimum=puncta_line_minimum,
         ),
-        "gfp_distance": _parse_positive_float(
-            post_data.get("gfp_distance"),
-            default=current_gfp_distance,
+        "cen_dot_distance": _parse_positive_float(
+            post_data.get("cen_dot_distance"),
+            default=current_cen_dot_distance,
             minimum=0,
         ),
-        "gfp_threshold": _parse_positive_int(
-            post_data.get("gfp_threshold"),
-            default=current_gfp_threshold,
+        "cen_dot_collinearity_threshold": _parse_positive_int(
+            post_data.get("cen_dot_collinearity_threshold"),
+            default=current_cen_dot_collinearity_threshold,
             minimum=0,
         ),
-        "nuclear_cellular_mode": _normalize_nuclear_mode(
-            post_data.get("nuclear_cellular_mode"),
+        "puncta_line_mode": _normalize_puncta_mode(
+            post_data.get("puncta_line_mode"),
+            default=current_puncta_mode,
+        ),
+        "nuclear_cell_pair_mode": _normalize_nuclear_mode(
+            post_data.get("nuclear_cell_pair_mode", post_data.get("nuclear_cellular_mode")),
             default=current_nuclear_mode,
         ),
-        "mcherry_width_unit": mcherry_width_unit,
-        "gfp_distance_unit": gfp_distance_unit,
+        "puncta_line_width_unit": puncta_line_width_unit,
+        "cen_dot_distance_unit": cen_dot_distance_unit,
         "microns_per_pixel": _parse_positive_float(
             post_data.get("microns_per_pixel"),
             default=current_microns_per_pixel,
@@ -207,14 +232,14 @@ def _extract_measurement_defaults(
 
 
 def _channel_summary_meta(channel: str) -> str:
-    if channel == "DIC":
+    if channel == CHANNEL_ROLE_DIC:
         return "Brightfield morphology reference"
-    if channel == "DAPI":
-        return "Nucleus contour reference channel"
-    if channel == "mCherry":
+    if channel == CHANNEL_ROLE_BLUE:
+        return "Blue fluorescence channel used for nucleus contour and legacy blue-channel metrics."
+    if channel == CHANNEL_ROLE_RED:
         return "Red fluorescence signal channel"
-    if channel == "GFP":
-        return "Green fluorescence signal channel"
+    if channel == CHANNEL_ROLE_GREEN:
+        return "Green fluorescence signal channel and CEN dot measurements."
     return "Channel data used in analysis"
 
 
@@ -252,14 +277,14 @@ def _resolve_required_channel_state(
 
     if module_enabled and enforce_wavelengths:
         return {
-            "summary_label": "Required by all-wavelengths",
+            "summary_label": "Required by all-channels",
             "summary_required": True,
             "summary_paused": False,
             "row_checked": True,
             "toggle_disabled": True,
             "row_disabled": True,
             "row_locked": False,
-            "row_help": 'Required because "Enforce required wavelengths" is enabled.',
+            "row_help": 'Required because "Enforce required channels" is enabled.',
         }
 
     if module_enabled and channel in manual_required:
@@ -276,14 +301,14 @@ def _resolve_required_channel_state(
 
     if enforce_wavelengths:
         return {
-            "summary_label": "Paused by all-wavelengths",
+            "summary_label": "Paused by all-channels",
             "summary_required": False,
             "summary_paused": True,
             "row_checked": True,
             "toggle_disabled": True,
             "row_disabled": True,
             "row_locked": False,
-            "row_help": 'Paused because "Enforce required wavelengths" is saved while the validation module is OFF.',
+            "row_help": 'Paused because "Enforce required channels" is saved while the validation module is OFF.',
         }
 
     if channel in manual_required:
@@ -340,6 +365,7 @@ def _build_required_channel_rows(
         rows.append(
             {
                 "channel": channel,
+                "channel_label": channel_display_label(channel),
                 "summary_meta": _channel_summary_meta(channel),
                 "manual_selected": channel in manual_required,
                 **state,
@@ -374,75 +400,44 @@ def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
     try:
         segmented_image = SegmentedImage.objects.get(user=user, UUID=uuid)
     except SegmentedImage.DoesNotExist:
-        return CellTable(CellStatistics.objects.none(), intensity_mode=None)
+        return CellTable(
+            CellStatistics.objects.none(),
+            intensity_mode=None,
+            puncta_line_mode=None,
+        )
 
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by("cell_id")
-    intensity_mode = _resolve_nuclear_cellular_mode(stats_qs)
-    return CellTable(stats_qs, intensity_mode=intensity_mode)
+    intensity_mode = _resolve_nuclear_cell_pair_mode(stats_qs)
+    puncta_line_mode = _resolve_puncta_line_mode(stats_qs)
+    return CellTable(
+        stats_qs,
+        intensity_mode=intensity_mode,
+        puncta_line_mode=puncta_line_mode,
+    )
 
 
-def _resolve_nuclear_cellular_mode(stats_iterable: Any) -> str | None:
+def _resolve_nuclear_cell_pair_mode(stats_iterable: Any) -> str | None:
     modes = set()
     for stat in stats_iterable:
         props = stat.properties or {}
-        mode = props.get("nuclear_cellular_mode")
-        if mode in NUCLEAR_CELLULAR_MODES:
+        mode = props.get("nuclear_cell_pair_mode", props.get("nuclear_cellular_mode"))
+        if mode in NUCLEAR_CELL_PAIR_MODES:
+            modes.add(mode)
+    return modes.pop() if len(modes) == 1 else None
+
+
+def _resolve_puncta_line_mode(stats_iterable: Any) -> str | None:
+    modes = set()
+    for stat in stats_iterable:
+        props = stat.properties or {}
+        mode = props.get("puncta_line_mode")
+        if mode in VALID_PUNCTA_LINE_MODES:
             modes.add(mode)
     return modes.pop() if len(modes) == 1 else None
 
 
 def _serialize_cell_statistics(cell_stat: CellStatistics | None) -> dict[str, Any] | None:
-    if not cell_stat:
-        return None
-    props = cell_stat.properties or {}
-    return {
-        "distance": cell_stat.distance,
-        "line_gfp_intensity": cell_stat.line_gfp_intensity,
-        "blue_contour_size": cell_stat.blue_contour_size,
-        "red_contour_1_size": cell_stat.red_contour_1_size,
-        "red_contour_2_size": cell_stat.red_contour_2_size,
-        "red_contour_3_size": cell_stat.red_contour_3_size,
-        "red_intensity_1": cell_stat.red_intensity_1,
-        "red_intensity_2": cell_stat.red_intensity_2,
-        "red_intensity_3": cell_stat.red_intensity_3,
-        "green_intensity_1": cell_stat.green_intensity_1,
-        "green_intensity_2": cell_stat.green_intensity_2,
-        "green_intensity_3": cell_stat.green_intensity_3,
-        "red_in_green_intensity_1": cell_stat.red_in_green_intensity_1,
-        "red_in_green_intensity_2": cell_stat.red_in_green_intensity_2,
-        "red_in_green_intensity_3": cell_stat.red_in_green_intensity_3,
-        "green_in_green_intensity_1": cell_stat.green_in_green_intensity_1,
-        "green_in_green_intensity_2": cell_stat.green_in_green_intensity_2,
-        "green_in_green_intensity_3": cell_stat.green_in_green_intensity_3,
-        "gfp_contour_1_size": cell_stat.gfp_contour_1_size,
-        "gfp_contour_2_size": cell_stat.gfp_contour_2_size,
-        "gfp_contour_3_size": cell_stat.gfp_contour_3_size,
-        "gfp_to_mcherry_distance_1": cell_stat.gfp_to_mcherry_distance_1,
-        "gfp_to_mcherry_distance_2": cell_stat.gfp_to_mcherry_distance_2,
-        "gfp_to_mcherry_distance_3": cell_stat.gfp_to_mcherry_distance_3,
-        "green_red_intensity_1": cell_stat.green_red_intensity_1,
-        "green_red_intensity_2": cell_stat.green_red_intensity_2,
-        "green_red_intensity_3": cell_stat.green_red_intensity_3,
-        "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
-        "cellular_intensity_sum": cell_stat.cellular_intensity_sum,
-        "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
-        "cellular_intensity_sum_DAPI": cell_stat.cellular_intensity_sum_DAPI,
-        "nucleus_intensity_sum_DAPI": cell_stat.nucleus_intensity_sum_DAPI,
-        "cytoplasmic_intensity_DAPI": cell_stat.cytoplasmic_intensity_DAPI,
-        "nuclear_cellular_mode": props.get("nuclear_cellular_mode", "green_nucleus"),
-        "nuclear_cellular_contour_channel": props.get(
-            "nuclear_cellular_contour_channel",
-            "GFP",
-        ),
-        "nuclear_cellular_measurement_channel": props.get(
-            "nuclear_cellular_measurement_channel",
-            "mCherry",
-        ),
-        "nuclear_cellular_status": props.get("nuclear_cellular_status", "unknown"),
-        "category_GFP_dot": cell_stat.category_GFP_dot,
-        "category_GFP_dot_label": get_gfp_dot_category_label(cell_stat.category_GFP_dot),
-        "biorientation": cell_stat.biorientation,
-    }
+    return serialize_cell_statistics_payload(cell_stat)
 
 
 def _sanitize_for_json(value: Any) -> Any:
@@ -476,7 +471,7 @@ def _scan_segmented_assets(segmented_dir: Path) -> tuple[
     if not segmented_dir.exists():
         return debug_images, outlined_images, no_outline_images
 
-    debug_pattern = re.compile(r"^.+-(\d+)-(DAPI|GFP|mCherry)_debug\.png$")
+    debug_pattern = re.compile(r"^.+-(\d+)-(Blue|Green|Red)_debug\.png$")
     no_outline_pattern = re.compile(r"^.+-(\d+)-(\d+)-no_outline\.png$")
     outlined_pattern = re.compile(r"^.+-(\d+)-(\d+)\.png$")
 
@@ -541,7 +536,12 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     first_table_uuid: str = ""
     cell_table = None
 
-    channel_order = ["DIC", "DAPI", "mCherry", "GFP"]
+    channel_order = [
+        CHANNEL_ROLE_DIC,
+        CHANNEL_ROLE_BLUE,
+        CHANNEL_ROLE_RED,
+        CHANNEL_ROLE_GREEN,
+    ]
     for segmented_image in segmented_images:
         uuid = str(segmented_image.UUID)
         uploaded = uploaded_map.get(uuid)
@@ -558,7 +558,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         has_overlay_render_config = overlay_render_config_exists(uuid)
         output_frames = _scan_output_frames(output_dir)
         detected_channels = [
-            channel
+            channel_display_label(channel)
             for channel, _ in sorted(channel_config.items(), key=lambda entry: entry[1])
         ]
         file_list.append(
@@ -581,8 +581,13 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
-            intensity_mode = _resolve_nuclear_cellular_mode(stats_by_id.values())
-            cell_table = CellTable(stats_qs, intensity_mode=intensity_mode)
+            intensity_mode = _resolve_nuclear_cell_pair_mode(stats_by_id.values())
+            puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
+            cell_table = CellTable(
+                stats_qs,
+                intensity_mode=intensity_mode,
+                puncta_line_mode=puncta_line_mode,
+            )
 
         if stats_by_id:
             cell_ids = sorted(stats_by_id.keys())
@@ -606,10 +611,13 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             cell_images[str(cell_id)] = []
             cell_stat = stats_by_id.get(cell_id)
             for channel_name in channel_order:
-                channel_index = channel_config.get(channel_name, channel_order.index(channel_name))
+                channel_index = channel_config.get(
+                    channel_name,
+                    DEFAULT_CHANNEL_CONFIG.get(channel_name, channel_order.index(channel_name)),
+                )
                 outlined_url = ""
                 if (
-                    channel_name in {"mCherry", "GFP", "DAPI"}
+                    channel_name in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}
                     and cell_stat is not None
                     and (has_overlay_render_config or debug_images.get((cell_id, channel_name), ""))
                 ):
@@ -653,7 +661,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         if number_of_cells == 0:
             no_cells_warning = (
                 "No segmented cells were produced for this file. "
-                "Check channel mapping (DIC/DAPI/mCherry/GFP) and run the experiment again."
+                "Check channel mapping (DIC/Blue/Red/Green) and run the experiment again."
             )
         elif not output_frames:
             no_cells_warning = (
@@ -661,8 +669,13 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 "The statistics table is still available when data exists."
             )
 
-        default_frame_idx = channel_config.get("mCherry", 0)
-        main_image_url = output_frames.get(default_frame_idx) or output_frames.get(0)
+        default_frame_idx = channel_config.get(
+            CHANNEL_ROLE_RED,
+            DEFAULT_CHANNEL_CONFIG.get(CHANNEL_ROLE_RED, 0),
+        )
+        main_image_url = output_frames.get(default_frame_idx) or output_frames.get(
+            DEFAULT_CHANNEL_CONFIG.get(CHANNEL_ROLE_RED, 0)
+        )
         if not main_image_url and output_frames:
             first_frame_idx = sorted(output_frames.keys())[0]
             main_image_url = output_frames[first_frame_idx]
@@ -672,12 +685,20 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             "NumberOfCells": number_of_cells,
             "CellPairImages": cell_images,
             "Image_Name": image_name,
+            "ChannelConfig": {
+                channel_slug(channel_name): channel_index
+                for channel_name, channel_index in channel_config.items()
+            },
             "Statistics": statistics,
             "NoCellsWarning": no_cells_warning,
         }
 
     if cell_table is None:
-        cell_table = CellTable(CellStatistics.objects.none(), intensity_mode=None)
+        cell_table = CellTable(
+            CellStatistics.objects.none(),
+            intensity_mode=None,
+            puncta_line_mode=None,
+        )
 
     saved_file_count = len(file_list)
     storage_projection = get_user_storage_projection(user)
@@ -982,8 +1003,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             enforce_layer_count = _post_bool(request, "enforce_layer_count")
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
-            gfp_filter_enabled = _post_bool(request, "gfp_filter_enabled")
-            alternate_mcherry_detection = _post_bool(request, "alternate_mcherry_detection")
+            green_contour_filter_enabled = _post_bool(request, "green_contour_filter_enabled")
+            alternate_red_detection = _post_bool(request, "alternate_red_detection")
             manual_required_channels = [
                 channel
                 for channel in request.POST.getlist("manual_required_channels")
@@ -1017,8 +1038,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     "enforce_wavelengths": enforce_wavelengths,
                     "show_legacy_plugins": show_legacy_plugins,
                     "manual_required_channels": manual_required_channels,
-                    "gfp_filter_enabled": gfp_filter_enabled,
-                    "alternate_mcherry_detection": alternate_mcherry_detection,
+                    "green_contour_filter_enabled": green_contour_filter_enabled,
+                    "alternate_red_detection": alternate_red_detection,
                 }
             )
             next_defaults.update(measurement_defaults)
@@ -1081,6 +1102,10 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 "checked": plugin_id in selected_plugins,
                 "is_legacy": definition.is_legacy,
                 "required_channels": sorted(definition.required_channels, key=CHANNEL_ORDER.index),
+                "required_channel_labels": [
+                    channel_display_label(channel)
+                    for channel in sorted(definition.required_channels, key=CHANNEL_ORDER.index)
+                ],
             }
         )
 

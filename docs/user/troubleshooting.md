@@ -1,4 +1,4 @@
-# Troubleshooting
+﻿# Troubleshooting
 
 ## Purpose
 
@@ -111,3 +111,4 @@ Login, signup, or password recovery fails.
 - [`getting-started.md`](getting-started.md)
 - [`../ops/environment-reference.md`](../ops/environment-reference.md)
 - [`../ops/security-and-privacy.md`](../ops/security-and-privacy.md)
+

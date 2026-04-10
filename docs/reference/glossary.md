@@ -1,4 +1,4 @@
-# Glossary
+﻿# Glossary
 
 ## Biology And Imaging Terms
 
@@ -10,17 +10,17 @@ A microscopy file format used as the primary CytoCV input type.
 
 Differential Interference Contrast. In CytoCV, this is the structural brightfield-like channel used for segmentation and is the only universally required channel.
 
-### DAPI
+### Blue
 
 Blue fluorescence channel used for legacy nucleus-related reference and legacy intensity measurements.
 
-### mCherry
+### Red
 
 Red fluorescence channel used for spindle pole body or other red-signal measurements in the modern workflow.
 
-### GFP
+### Green
 
-Green fluorescence channel used for GFP-related measurements and dot classification in the modern workflow.
+Green fluorescence channel used for Green-related measurements and dot classification in the modern workflow.
 
 ### Microns Per Pixel
 
@@ -52,11 +52,12 @@ The saved mapping of logical channel names to layer indices for a given run.
 
 A unit of per-cell analysis logic declared in `core.stats_plugins` and executed during segmentation statistics calculation.
 
-### Nuclear Or Cellular Mode
+### Nuclear Or Cell-Pair Mode
 
-The current mode used by the modern nuclear/cellular intensity workflow to determine which channel supplies the contour source and which channel is measured.
+The current mode used by the modern nuclear/cell-pair intensity workflow to determine which channel supplies the contour source and which channel is measured.
 
 ## Related Documents
 
 - [`data-model.md`](data-model.md)
 - [`file-format-and-artifact-spec.md`](file-format-and-artifact-spec.md)
+

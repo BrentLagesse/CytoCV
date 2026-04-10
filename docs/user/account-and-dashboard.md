@@ -1,4 +1,4 @@
-# Account And Dashboard
+﻿# Account And Dashboard
 
 ## Purpose
 
@@ -105,3 +105,4 @@ Account deletion removes:
 - [`workflow-guide.md`](workflow-guide.md)
 - [`../ops/security-and-privacy.md`](../ops/security-and-privacy.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
+

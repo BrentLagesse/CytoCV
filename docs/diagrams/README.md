@@ -1,4 +1,4 @@
-# Diagrams For CytoCV
+﻿# Diagrams For CytoCV
 
 This folder contains the active diagram catalog for the current codebase. It serves both implementation documentation and manuscript-style figure preparation.
 
@@ -47,7 +47,7 @@ They are based on the current implementation in:
 
 5. `03-cell-analysis-flow.mmd`
    Use for: feature extraction subsection.
-   Caption idea: "Per-cell analysis pipeline used to derive distances, intensities, and optional legacy DAPI measurements from segmented crops."
+   Caption idea: "Per-cell analysis pipeline used to derive distances, intensities, and optional legacy Blue measurements from segmented crops."
 
 6. `11-data-model.mmd`
    Use for: implementation or reproducibility section.
@@ -59,7 +59,7 @@ They are based on the current implementation in:
    Focus: file lifecycle and cleanup.
 
 8. `05-plugin-channel-map.mmd`
-   Focus: `DIC` baseline requirements, plugin-driven fluorescence dependencies, legacy DAPI paths, and validation overrides.
+   Focus: `DIC` baseline requirements, plugin-driven fluorescence dependencies, legacy Blue paths, and validation overrides.
 
 9. `06-upload-validation-flow.mmd`
    Focus: upload handling and configurable DV validation logic.
@@ -79,8 +79,8 @@ They are based on the current implementation in:
 14. `14-authentication-account-flow.mmd`
     Focus: reCAPTCHA-gated authentication, provider SSO, signup, recovery, and account areas.
 
-15. `15-legacy-dapi-measurements.mmd`
-    Focus: legacy DAPI-driven measurements versus the modern `mCherry` and `GFP` path.
+15. `15-legacy-blue-measurements.mmd`
+    Focus: legacy Blue-driven measurements versus the modern `Red` and `Green` path.
 
 ## Rendered PNGs
 
@@ -93,3 +93,4 @@ powershell -ExecutionPolicy Bypass -File .\docs\diagrams\render-mermaid.ps1
 ```
 
 The renderer uses Mermaid CLI with the local Edge executable and writes white-background PNGs suitable for manuscript drafts.
+

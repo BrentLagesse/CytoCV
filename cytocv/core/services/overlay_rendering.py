@@ -13,9 +13,23 @@ from django.conf import settings
 from django.urls import reverse
 from PIL import Image
 
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+    channel_display_label,
+    channel_role_from_slug,
+    channel_slug,
+    normalize_channel_role,
+)
 from core.config import input_dir
 from core.models import CellStatistics
 from core.services.artifact_storage import PNG_PROFILE_ANALYSIS_FAST, save_png_image
+from core.services.puncta_line_mode import (
+    DEFAULT_PUNCTA_LINE_MODE,
+    normalize_puncta_line_mode,
+)
 from core.stats_plugins import build_stats_execution_plan
 
 logger = logging.getLogger(__name__)
@@ -24,14 +38,57 @@ OVERLAY_RENDER_SCHEMA_VERSION = 1
 OVERLAY_RENDER_CONFIG_FILENAME = "overlay-render-config.json"
 OVERLAY_CACHE_DIRNAME = f"overlay-cache-v{OVERLAY_RENDER_SCHEMA_VERSION}"
 OVERLAY_CHANNEL_LABELS = {
-    "mcherry": "mCherry",
-    "gfp": "GFP",
-    "dapi": "DAPI",
+    "red": "Red",
+    "green": "Green",
+    "blue": "Blue",
 }
-OVERLAY_BASE_CHANNELS = ("mCherry", "GFP", "DAPI", "DIC")
+OVERLAY_BASE_CHANNELS = (
+    CHANNEL_ROLE_RED,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+)
 OVERLAY_RENDER_CHANNELS = tuple(OVERLAY_CHANNEL_LABELS.keys())
 OVERLAY_CACHE_LOCK_POLL_SECONDS = 0.05
 OVERLAY_CACHE_LOCK_STALE_SECONDS = 45.0
+
+
+def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, object]:
+    normalized = dict(payload or {})
+    channel_config = dict(normalized.get("channel_config", {}) or {})
+    normalized["channel_config"] = {
+        normalize_channel_role(channel_name) or str(channel_name): int(channel_index)
+        for channel_name, channel_index in channel_config.items()
+    }
+    if "mCherry_line_width" in normalized and "puncta_line_width" not in normalized:
+        normalized["puncta_line_width"] = normalized["mCherry_line_width"]
+    if "red_line_width" in normalized and "puncta_line_width" not in normalized:
+        normalized["puncta_line_width"] = normalized["red_line_width"]
+    if "mcherry_width_px" in normalized and "puncta_line_width_px" not in normalized:
+        normalized["puncta_line_width_px"] = normalized["mcherry_width_px"]
+    if "red_line_width_px" in normalized and "puncta_line_width_px" not in normalized:
+        normalized["puncta_line_width_px"] = normalized["red_line_width_px"]
+    if "gfp_distance_value_used" in normalized and "cen_dot_distance_value_used" not in normalized:
+        normalized["cen_dot_distance_value_used"] = normalized["gfp_distance_value_used"]
+    if "gfp_threshold" in normalized and "cen_dot_collinearity_threshold" not in normalized:
+        normalized["cen_dot_collinearity_threshold"] = normalized["gfp_threshold"]
+    if "gfp_filter_enabled" in normalized and "green_contour_filter_enabled" not in normalized:
+        normalized["green_contour_filter_enabled"] = normalized["gfp_filter_enabled"]
+    if "alternate_mcherry_detection" in normalized and "alternate_red_detection" not in normalized:
+        normalized["alternate_red_detection"] = normalized["alternate_mcherry_detection"]
+    if "stats_mcherry_width_unit" in normalized and "stats_puncta_line_width_unit" not in normalized:
+        normalized["stats_puncta_line_width_unit"] = normalized["stats_mcherry_width_unit"]
+    if "stats_red_line_width_unit" in normalized and "stats_puncta_line_width_unit" not in normalized:
+        normalized["stats_puncta_line_width_unit"] = normalized["stats_red_line_width_unit"]
+    if "stats_gfp_distance_unit" in normalized and "stats_cen_dot_distance_unit" not in normalized:
+        normalized["stats_cen_dot_distance_unit"] = normalized["stats_gfp_distance_unit"]
+    normalized["puncta_line_mode"] = normalize_puncta_line_mode(
+        normalized.get("puncta_line_mode"),
+        default=DEFAULT_PUNCTA_LINE_MODE,
+    )
+    if "nuclear_cellular_mode" in normalized and "nuclear_cell_pair_mode" not in normalized:
+        normalized["nuclear_cell_pair_mode"] = normalized["nuclear_cellular_mode"]
+    return normalized
 
 
 def overlay_render_config_path(run_uuid: str) -> Path:
@@ -75,17 +132,18 @@ def build_overlay_render_config(
     channel_config: dict[str, int],
     kernel_size: int,
     kernel_deviation: int,
-    mcherry_line_width: int,
+    puncta_line_width: int,
     arrested: str,
     selected_analysis: list[str],
-    nuclear_cellular_mode: str,
-    mcherry_width_px: int,
-    gfp_distance_value_used: float,
-    gfp_threshold: int,
-    gfp_filter_enabled: bool,
-    alternate_mcherry_detection: bool,
-    mcherry_width_unit: str | None = None,
-    gfp_distance_unit: str | None = None,
+    puncta_line_mode: str,
+    nuclear_cell_pair_mode: str,
+    puncta_line_width_px: int,
+    cen_dot_distance_value_used: float,
+    cen_dot_collinearity_threshold: int,
+    green_contour_filter_enabled: bool,
+    alternate_red_detection: bool,
+    puncta_line_width_unit: str | None = None,
+    cen_dot_distance_unit: str | None = None,
 ) -> dict[str, object]:
     render_config: dict[str, object] = {
         "schema_version": OVERLAY_RENDER_SCHEMA_VERSION,
@@ -98,19 +156,20 @@ def build_overlay_render_config(
         "selected_analysis": [str(plugin_name) for plugin_name in selected_analysis if str(plugin_name)],
         "kernel_size": int(kernel_size),
         "kernel_deviation": int(kernel_deviation),
-        "mCherry_line_width": int(mcherry_line_width),
+        "puncta_line_width": int(puncta_line_width),
         "arrested": str(arrested),
-        "nuclear_cellular_mode": str(nuclear_cellular_mode),
-        "mcherry_width_px": int(mcherry_width_px),
-        "gfp_distance_value_used": float(gfp_distance_value_used),
-        "gfp_threshold": int(gfp_threshold),
-        "gfp_filter_enabled": bool(gfp_filter_enabled),
-        "alternate_mcherry_detection": bool(alternate_mcherry_detection),
+        "puncta_line_mode": normalize_puncta_line_mode(puncta_line_mode),
+        "nuclear_cell_pair_mode": str(nuclear_cell_pair_mode),
+        "puncta_line_width_px": int(puncta_line_width_px),
+        "cen_dot_distance_value_used": float(cen_dot_distance_value_used),
+        "cen_dot_collinearity_threshold": int(cen_dot_collinearity_threshold),
+        "green_contour_filter_enabled": bool(green_contour_filter_enabled),
+        "alternate_red_detection": bool(alternate_red_detection),
     }
-    if mcherry_width_unit:
-        render_config["stats_mcherry_width_unit"] = str(mcherry_width_unit)
-    if gfp_distance_unit:
-        render_config["stats_gfp_distance_unit"] = str(gfp_distance_unit)
+    if puncta_line_width_unit:
+        render_config["stats_puncta_line_width_unit"] = str(puncta_line_width_unit)
+    if cen_dot_distance_unit:
+        render_config["stats_cen_dot_distance_unit"] = str(cen_dot_distance_unit)
     return render_config
 
 
@@ -126,7 +185,9 @@ def write_overlay_render_config(run_uuid: str, render_config: dict[str, object])
 
 def load_overlay_render_config(run_uuid: str) -> dict[str, object]:
     path = overlay_render_config_path(run_uuid)
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = _normalize_render_config_payload(
+        json.loads(path.read_text(encoding="utf-8"))
+    )
     if int(payload.get("schema_version", 0)) != OVERLAY_RENDER_SCHEMA_VERSION:
         raise ValueError(f"Unsupported overlay render schema for run {run_uuid}")
     return payload
@@ -137,6 +198,9 @@ def overlay_render_config_exists(run_uuid: str) -> bool:
 
 
 def normalize_overlay_channel(channel: str) -> str:
+    normalized_role = normalize_channel_role(channel)
+    if normalized_role in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}:
+        return channel_slug(normalized_role)
     normalized = str(channel).strip().lower()
     if normalized not in OVERLAY_CHANNEL_LABELS:
         raise ValueError(f"Unsupported overlay channel: {channel}")
@@ -187,14 +251,20 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
         "input_dir": input_dir,
         "output_dir": str(Path(settings.MEDIA_ROOT) / str(run_uuid)),
         "kernel_size": int(render_config["kernel_size"]),
-        "mCherry_line_width": int(render_config["mCherry_line_width"]),
+        "puncta_line_width": int(render_config["puncta_line_width"]),
         "kernel_deviation": int(render_config["kernel_deviation"]),
         "arrested": str(render_config["arrested"]),
         "analysis": list(render_config.get("selected_analysis", [])),
-        "nuclear_cellular_mode": str(render_config.get("nuclear_cellular_mode", "green_nucleus")),
-        "gfp_filter_enabled": bool(render_config.get("gfp_filter_enabled", False)),
-        "alternate_mcherry_detection": bool(
-            render_config.get("alternate_mcherry_detection", False)
+        "puncta_line_mode": normalize_puncta_line_mode(
+            render_config.get("puncta_line_mode"),
+            default=DEFAULT_PUNCTA_LINE_MODE,
+        ),
+        "nuclear_cell_pair_mode": str(render_config.get("nuclear_cell_pair_mode", "green_nucleus")),
+        "green_contour_filter_enabled": bool(
+            render_config.get("green_contour_filter_enabled", False)
+        ),
+        "alternate_red_detection": bool(
+            render_config.get("alternate_red_detection", False)
         ),
     }
 
@@ -241,21 +311,21 @@ def render_overlay_images_for_cell(
         render_config,
     )
     execution_plan = build_stats_execution_plan(render_config.get("selected_analysis", []))
-    debug_mcherry, debug_gfp, debug_dapi = get_stats(
+    debug_red, debug_green, debug_blue = get_stats(
         render_cp,
         _build_overlay_conf(run_uuid, render_config),
         execution_plan,
-        int(render_config.get("mcherry_width_px", 1)),
-        float(render_config.get("gfp_distance_value_used", 37.0)),
-        int(render_config.get("gfp_threshold", 66)),
-        bool(render_config.get("gfp_filter_enabled", False)),
-        bool(render_config.get("alternate_mcherry_detection", False)),
+        int(render_config.get("puncta_line_width_px", 1)),
+        float(render_config.get("cen_dot_distance_value_used", 37.0)),
+        int(render_config.get("cen_dot_collinearity_threshold", 66)),
+        bool(render_config.get("green_contour_filter_enabled", False)),
+        bool(render_config.get("alternate_red_detection", False)),
         cached_images=images_to_use,
     )
     return {
-        "mcherry": debug_mcherry,
-        "gfp": debug_gfp,
-        "dapi": debug_dapi,
+        "red": debug_red,
+        "green": debug_green,
+        "blue": debug_blue,
     }
 
 
@@ -384,7 +454,7 @@ def ensure_overlay_cache_images_for_cell(
     *,
     cell_stat: CellStatistics | None = None,
     render_config: dict[str, object] | None = None,
-    requested_channel: str = "gfp",
+    requested_channel: str = "green",
 ) -> dict[str, Path]:
     normalized_channel = normalize_overlay_channel(requested_channel)
     cache_paths = overlay_cache_image_paths_for_cell(run_uuid, cell_id)

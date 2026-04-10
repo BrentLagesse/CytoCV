@@ -1595,12 +1595,12 @@
                     <div class="toggle-row" id="legacyPluginRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
-                                <span class="toggle-label">Show DAPI-based Plugins</span>
+                                <span class="toggle-label">Show Legacy Blue-Channel Plugins</span>
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
-                                    data-info-text="Reveal DAPI-based plugins in the statistics list."
-                                    aria-label="Reveal DAPI-based plugins in the statistics list."
+                                    data-info-text="Reveal legacy Blue-channel plugins in the statistics list."
+                                    aria-label="Reveal legacy Blue-channel plugins in the statistics list."
                                 >i</button>
                                 <span class="legacy-pill">Legacy</span>
                             </span>
@@ -1610,46 +1610,46 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="toggle-row" id="gfpFilterRow">
+                    <div class="toggle-row" id="greenFilterRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
-                                <span class="toggle-label">Filter GFP Contours</span>
+                                <span class="toggle-label">Filter Green Contours</span>
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
-                                    id="gfpFilterInfoDot"
-                                    data-info-text="Filter out low-confidence GFP signal contours in challenging images."
-                                    aria-label="Filter out low-confidence GFP signal contours in challenging images."
+                                    id="greenFilterInfoDot"
+                                    data-info-text="Filter out low-confidence Green signal contours in challenging images."
+                                    aria-label="Filter out low-confidence Green signal contours in challenging images."
                                 >i</button>
                                 <button
                                     type="button"
                                     class="info-dot warning-dot advanced-info-dot"
-                                    id="gfpFilterExperimentalDot"
+                                    id="greenFilterExperimentalDot"
                                     data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions."
                                     aria-label="Experimental setting warning"
                                 >&#9888;</button>
                             </span>
                         </div>
                         <label class="switch">
-                            <input type="checkbox" id="gfpFilterEnabled">
+                            <input type="checkbox" id="greenContourFilterEnabled">
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="toggle-row" id="alternateMCherryRow">
+                    <div class="toggle-row" id="alternateRedRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
-                                <span class="toggle-label">Enable Alternate mCherry Detection</span>
+                                <span class="toggle-label">Enable Alternate Red Detection</span>
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
-                                    id="alternateMCherryInfoDot"
-                                    data-info-text="Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles."
-                                    aria-label="Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles."
+                                    id="alternateRedInfoDot"
+                                    data-info-text="Use an alternate Red detection mode where the tool attempts to find a single contour around all speckles."
+                                    aria-label="Use an alternate Red detection mode where the tool attempts to find a single contour around all speckles."
                                 >i</button>
                             </span>
                         </div>
                         <label class="switch">
-                            <input type="checkbox" id="alternateMCherryDetection">
+                            <input type="checkbox" id="alternateRedDetection">
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -1692,12 +1692,12 @@
                         <div class="toggle-row subtoggle" id="wavelengthCheckRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Require all wavelengths</span>
+                                    <span class="toggle-label">Require all channels</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
-                                        data-info-text="Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics."
-                                        aria-label="Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics."
+                                        data-info-text="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
+                                        aria-label="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
                                     >i</button>
                                 </span>
                             </div>
@@ -1851,27 +1851,29 @@
     const statsPlugins = Array.isArray(statsPayload.plugins) ? statsPayload.plugins : [];
     const channelOrder = Array.isArray(statsPayload.channel_order) && statsPayload.channel_order.length
         ? statsPayload.channel_order
-        : ['DIC', 'DAPI', 'mCherry', 'GFP'];
+        : ['DIC', 'channel_blue', 'channel_red', 'channel_green'];
     const alwaysRequiredChannels = new Set(
         Array.isArray(statsPayload.always_required_channels) && statsPayload.always_required_channels.length
             ? statsPayload.always_required_channels
             : ['DIC']
     );
     const channelInfo = statsPayload.channel_info || {};
+    const channelLabels = statsPayload.channel_labels || {};
     const pluginMap = new Map(statsPlugins.map((plugin) => [plugin.id, plugin]));
 
-    const selectionKey = 'cytocv.selected_analyses.v2';
-    const initializedKey = 'cytocv.selected_analyses_initialized.v2';
-    const widthKey = 'cytocv.mcherry_width';
-    const distanceKey = 'cytocv.gfp_distance';
-    const thresholdKey = 'cytocv.gfp_threshold';
-    const advancedKey = 'cytocv.advanced_validation.v2';
-    const nuclearModeKey = 'cytocv.nuclear_cellular_mode.v1';
-    const legacyLengthUnitKey = 'cytocv.stats_length_unit.v1';
-    const mCherryWidthUnitKey = 'cytocv.mcherry_width_unit.v1';
-    const gfpDistanceUnitKey = 'cytocv.gfp_distance_unit.v1';
-    const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v1';
-    const useMetadataScaleKey = 'cytocv.use_metadata_scale.v1';
+    const selectionKey = 'cytocv.selected_analyses.v3';
+    const initializedKey = 'cytocv.selected_analyses_initialized.v3';
+    const widthKey = 'cytocv.puncta_line_width.v3';
+    const distanceKey = 'cytocv.cen_dot_distance.v2';
+    const thresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
+    const advancedKey = 'cytocv.advanced_validation.v3';
+    const punctaModeKey = 'cytocv.puncta_line_mode.v1';
+    const nuclearModeKey = 'cytocv.nuclear_cell_pair_mode.v3';
+    const legacyLengthUnitKey = 'cytocv.stats_length_unit.v2';
+    const punctaLineWidthUnitKey = 'cytocv.puncta_line_width_unit.v3';
+    const cenDotDistanceUnitKey = 'cytocv.cen_dot_distance_unit.v2';
+    const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v2';
+    const useMetadataScaleKey = 'cytocv.use_metadata_scale.v2';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
     let serverPreferenceDefaults = {};
     try {
@@ -1900,14 +1902,15 @@
         enforceAllWavelengths: false,
         showLegacyPlugins: false,
         manualRequiredChannels: new Set(),
-        mCherryWidth: 1,
-        gfpDistance: 37,
-        gfpThreshold: 66,
-        nuclearCellularMode: 'green_nucleus',
-        gfpFilterEnabled: false,
-        alternateMCherryDetection: false,
-        mCherryWidthUnit: 'px',
-        gfpDistanceUnit: 'px',
+        punctaLineWidth: 1,
+        cenDotDistance: 37,
+        cenDotCollinearityThreshold: 66,
+        punctaLineMode: 'red_puncta',
+        nuclearCellPairMode: 'green_nucleus',
+        greenContourFilterEnabled: false,
+        alternateRedDetection: false,
+        punctaLineWidthUnit: 'px',
+        cenDotDistanceUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
         useMetadataScale: true,
     };
@@ -1916,17 +1919,19 @@
     const channelToggleElements = new Map();
     const channelRowElements = new Map();
     const lengthUnitSelectElements = new Set();
-    let mCherryWidthInput = null;
-    let mCherryWidthRow = null;
-    let gfpDistanceInput = null;
-    let gfpDistanceRow = null;
-    let gfpThresholdInput = null;
+    let punctaLineWidthInput = null;
+    let punctaLineWidthRow = null;
+    let cenDotDistanceInput = null;
+    let cenDotDistanceRow = null;
+    let cenDotCollinearityThresholdInput = null;
     let micronsPerPixelInput = null;
     let useMetadataScaleInput = null;
     let measurementScalePxPerUmValue = null;
     let measurementScaleUmPerPxValue = null;
     let measurementScaleExampleHint = null;
     let measurementScaleFallbackHint = null;
+    let punctaLineModeRow = null;
+    let punctaLineModeSelect = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
     let infoTooltipElement = null;
@@ -1952,20 +1957,20 @@
             enforceAllWavelengths: !!serverPreferenceDefaults.enforce_wavelengths,
             showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
             manualRequiredChannels: manualChannels,
-            gfpFilterEnabled: !!serverPreferenceDefaults.gfp_filter_enabled,
-            alternateMCherryDetection: !!serverPreferenceDefaults.alternate_mcherry_detection,
+            greenContourFilterEnabled: !!serverPreferenceDefaults.green_contour_filter_enabled,
+            alternateRedDetection: !!serverPreferenceDefaults.alternate_red_detection,
         };
         localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
 
-        const widthUnit = (serverPreferenceDefaults.mcherry_width_unit === 'um') ? 'um' : 'px';
-        const distanceUnit = (serverPreferenceDefaults.gfp_distance_unit === 'um') ? 'um' : 'px';
-        localStorage.setItem(mCherryWidthUnitKey, widthUnit);
-        localStorage.setItem(gfpDistanceUnitKey, distanceUnit);
+        const widthUnit = (serverPreferenceDefaults.puncta_line_width_unit === 'um') ? 'um' : 'px';
+        const distanceUnit = (serverPreferenceDefaults.cen_dot_distance_unit === 'um') ? 'um' : 'px';
+        localStorage.setItem(punctaLineWidthUnitKey, widthUnit);
+        localStorage.setItem(cenDotDistanceUnitKey, distanceUnit);
         localStorage.setItem(legacyLengthUnitKey, widthUnit === distanceUnit ? widthUnit : 'mixed');
 
-        const width = Number(serverPreferenceDefaults.mcherry_width);
-        const distance = Number(serverPreferenceDefaults.gfp_distance);
-        const threshold = Number(serverPreferenceDefaults.gfp_threshold);
+        const width = Number(serverPreferenceDefaults.puncta_line_width);
+        const distance = Number(serverPreferenceDefaults.cen_dot_distance);
+        const threshold = Number(serverPreferenceDefaults.cen_dot_collinearity_threshold);
         const micronsPerPixel = Number(serverPreferenceDefaults.microns_per_pixel);
         localStorage.setItem(widthKey, Number.isFinite(width) ? String(width) : '1');
         localStorage.setItem(distanceKey, Number.isFinite(distance) ? String(distance) : '37');
@@ -1981,10 +1986,18 @@
             String(serverPreferenceDefaults.use_metadata_scale !== false)
         );
 
-        const nuclearMode = serverPreferenceDefaults.nuclear_cellular_mode === 'red_nucleus'
+        const nuclearMode = serverPreferenceDefaults.nuclear_cell_pair_mode === 'red_nucleus'
             ? 'red_nucleus'
             : 'green_nucleus';
+        const punctaMode = serverPreferenceDefaults.puncta_line_mode === 'green_puncta'
+            ? 'green_puncta'
+            : 'red_puncta';
+        localStorage.setItem(punctaModeKey, punctaMode);
         localStorage.setItem(nuclearModeKey, nuclearMode);
+    }
+
+    function displayChannelLabel(channel) {
+        return channelLabels[channel] || channel;
     }
 
     function getQueuedCount() {
@@ -2445,35 +2458,35 @@
     }
 
     function getLengthUnitForField(field) {
-        if (field === 'mCherryWidth') return statsState.mCherryWidthUnit;
-        if (field === 'gfpDistance') return statsState.gfpDistanceUnit;
+        if (field === 'punctaLineWidth') return statsState.punctaLineWidthUnit;
+        if (field === 'cenDotDistance') return statsState.cenDotDistanceUnit;
         return 'px';
     }
 
     function setLengthUnitForField(field, unit) {
         const normalized = normalizeLengthUnit(unit);
-        if (field === 'mCherryWidth') {
-            statsState.mCherryWidthUnit = normalized;
+        if (field === 'punctaLineWidth') {
+            statsState.punctaLineWidthUnit = normalized;
             return;
         }
-        if (field === 'gfpDistance') {
-            statsState.gfpDistanceUnit = normalized;
+        if (field === 'cenDotDistance') {
+            statsState.cenDotDistanceUnit = normalized;
         }
     }
 
     function getLengthValueForField(field) {
-        if (field === 'mCherryWidth') return statsState.mCherryWidth;
-        if (field === 'gfpDistance') return statsState.gfpDistance;
+        if (field === 'punctaLineWidth') return statsState.punctaLineWidth;
+        if (field === 'cenDotDistance') return statsState.cenDotDistance;
         return 0;
     }
 
     function setLengthValueForField(field, value) {
-        if (field === 'mCherryWidth') {
-            statsState.mCherryWidth = value;
+        if (field === 'punctaLineWidth') {
+            statsState.punctaLineWidth = value;
             return;
         }
-        if (field === 'gfpDistance') {
-            statsState.gfpDistance = value;
+        if (field === 'cenDotDistance') {
+            statsState.cenDotDistance = value;
         }
     }
 
@@ -2490,8 +2503,8 @@
     }
 
     function persistLengthUnitSettings() {
-        localStorage.setItem(mCherryWidthUnitKey, statsState.mCherryWidthUnit);
-        localStorage.setItem(gfpDistanceUnitKey, statsState.gfpDistanceUnit);
+        localStorage.setItem(punctaLineWidthUnitKey, statsState.punctaLineWidthUnit);
+        localStorage.setItem(cenDotDistanceUnitKey, statsState.cenDotDistanceUnit);
         localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
         localStorage.setItem(useMetadataScaleKey, String(!!statsState.useMetadataScale));
     }
@@ -2540,12 +2553,12 @@
         const currentValue = getLengthValueForField(field);
         let converted = convertLengthValueToUnit(currentValue, currentUnit, normalizedNext);
         if (!Number.isFinite(converted)) {
-            converted = field === 'mCherryWidth'
+            converted = field === 'punctaLineWidth'
                 ? defaultWidthForUnit(normalizedNext)
                 : defaultDistanceForUnit(normalizedNext);
         }
 
-        if (field === 'mCherryWidth') {
+        if (field === 'punctaLineWidth') {
             const minValue = normalizedNext === 'um' ? 0.01 : 1;
             if (converted < minValue) {
                 converted = defaultWidthForUnit(normalizedNext);
@@ -2553,7 +2566,7 @@
             if (normalizedNext === 'px') {
                 converted = Math.round(converted);
             }
-        } else if (field === 'gfpDistance') {
+        } else if (field === 'cenDotDistance') {
             if (converted < 0) {
                 converted = defaultDistanceForUnit(normalizedNext);
             }
@@ -2565,10 +2578,10 @@
         setLengthValueForField(field, converted);
         setLengthUnitForField(field, normalizedNext);
         persistLengthUnitSettings();
-        if (field === 'mCherryWidth') {
-            localStorage.setItem(widthKey, String(statsState.mCherryWidth));
-        } else if (field === 'gfpDistance') {
-            localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+        if (field === 'punctaLineWidth') {
+            localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
+        } else if (field === 'cenDotDistance') {
+            localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
         }
         syncStatsUI();
     }
@@ -2694,36 +2707,36 @@
     }
 
     function syncLengthControls() {
-        if (statsState.mCherryWidthUnit === 'px') {
-            statsState.mCherryWidth = Math.max(1, Math.round(Number(statsState.mCherryWidth) || 1));
+        if (statsState.punctaLineWidthUnit === 'px') {
+            statsState.punctaLineWidth = Math.max(1, Math.round(Number(statsState.punctaLineWidth) || 1));
         }
-        if (statsState.gfpDistanceUnit === 'px') {
-            statsState.gfpDistance = Math.max(0, Math.round(Number(statsState.gfpDistance) || 0));
+        if (statsState.cenDotDistanceUnit === 'px') {
+            statsState.cenDotDistance = Math.max(0, Math.round(Number(statsState.cenDotDistance) || 0));
         }
         lengthUnitSelectElements.forEach((control) => {
             control.setUnit(getLengthUnitForField(control.field));
         });
 
-        if (mCherryWidthInput) {
-            if (statsState.mCherryWidthUnit === 'um') {
-                mCherryWidthInput.step = '0.01';
-                mCherryWidthInput.min = '0.01';
+        if (punctaLineWidthInput) {
+            if (statsState.punctaLineWidthUnit === 'um') {
+                punctaLineWidthInput.step = '0.01';
+                punctaLineWidthInput.min = '0.01';
             } else {
-                mCherryWidthInput.step = '1';
-                mCherryWidthInput.min = '1';
+                punctaLineWidthInput.step = '1';
+                punctaLineWidthInput.min = '1';
             }
-            mCherryWidthInput.value = formatNumericInputValue(statsState.mCherryWidth);
+            punctaLineWidthInput.value = formatNumericInputValue(statsState.punctaLineWidth);
         }
 
-        if (gfpDistanceInput) {
-            if (statsState.gfpDistanceUnit === 'um') {
-                gfpDistanceInput.step = '0.01';
-                gfpDistanceInput.min = '0';
+        if (cenDotDistanceInput) {
+            if (statsState.cenDotDistanceUnit === 'um') {
+                cenDotDistanceInput.step = '0.01';
+                cenDotDistanceInput.min = '0';
             } else {
-                gfpDistanceInput.step = '1';
-                gfpDistanceInput.min = '0';
+                cenDotDistanceInput.step = '1';
+                cenDotDistanceInput.min = '0';
             }
-            gfpDistanceInput.value = formatNumericInputValue(statsState.gfpDistance);
+            cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
         }
     }
 
@@ -2737,6 +2750,7 @@
         loadStoredWidth();
         loadStoredDistance();
         loadStoredThreshold();
+        loadStoredPunctaMode();
         loadStoredNuclearMode();
         if (!statsState.showLegacyPlugins) {
             statsPlugins.forEach((plugin) => {
@@ -2758,13 +2772,14 @@
             const row = document.createElement('div');
             row.className = 'required-channel-row';
             row.dataset.channel = channel;
+            const channelLabel = displayChannelLabel(channel);
 
             const name = document.createElement('span');
             name.className = 'required-channel-name';
-            name.textContent = channel;
+            name.textContent = channelLabel;
             row.appendChild(name);
 
-            const info = buildInfoDot(channelInfo[channel] || `${channel} wavelength channel`);
+            const info = buildInfoDot(channelInfo[channel] || `${channelLabel} channel`);
             row.appendChild(info);
 
             const state = document.createElement('span');
@@ -2783,12 +2798,14 @@
         list.innerHTML = '';
         statToggleElements.clear();
         lengthUnitSelectElements.clear();
-        mCherryWidthInput = null;
-        mCherryWidthRow = null;
-        gfpDistanceInput = null;
-        gfpDistanceRow = null;
-        gfpThresholdInput = null;
+        punctaLineWidthInput = null;
+        punctaLineWidthRow = null;
+        cenDotDistanceInput = null;
+        cenDotDistanceRow = null;
+        cenDotCollinearityThresholdInput = null;
         micronsPerPixelInput = null;
+        punctaLineModeRow = null;
+        punctaLineModeSelect = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
 
@@ -2810,8 +2827,11 @@
             titleWrap.appendChild(title);
             left.appendChild(titleWrap);
 
-            const req = Array.isArray(plugin.required_channels) ? plugin.required_channels.join(', ') : '';
-            const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired wavelengths: ${req}` : ''}`);
+            const reqLabels = Array.isArray(plugin.required_channel_labels) && plugin.required_channel_labels.length
+                ? plugin.required_channel_labels
+                : (Array.isArray(plugin.required_channels) ? plugin.required_channels.map(displayChannelLabel) : []);
+            const req = reqLabels.join(', ');
+            const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired channels: ${req}` : ''}`);
             left.appendChild(info);
             if (plugin.is_legacy) {
                 const legacyBadge = document.createElement('span');
@@ -2826,7 +2846,7 @@
 
             const meta = document.createElement('span');
             meta.className = 'stats-toggle-meta';
-            meta.textContent = req ? req : 'No extra wavelengths';
+            meta.textContent = req ? req : 'No extra channels';
             right.appendChild(meta);
 
             const switchLabel = document.createElement('label');
@@ -2860,59 +2880,96 @@
                 syncStatsUI();
             });
 
-            if (plugin.id === 'MCherryLine') {
+            if (plugin.id === 'PunctaDistance') {
+                const modeRow = document.createElement('div');
+                modeRow.className = 'nuclear-mode-inline';
+
+                const modeTop = document.createElement('div');
+                modeTop.className = 'nuclear-mode-row';
+
+                const modeLabel = document.createElement('label');
+                modeLabel.setAttribute('for', 'punctaLineMode');
+                modeLabel.textContent = 'Puncta source:';
+                modeTop.appendChild(modeLabel);
+
+                const select = document.createElement('select');
+                select.id = 'punctaLineMode';
+                const redOption = document.createElement('option');
+                redOption.value = 'red_puncta';
+                redOption.textContent = 'Red puncta (measure Green)';
+                const greenOption = document.createElement('option');
+                greenOption.value = 'green_puncta';
+                greenOption.textContent = 'Green puncta (measure Red)';
+                select.appendChild(redOption);
+                select.appendChild(greenOption);
+                select.addEventListener('change', () => {
+                    const nextMode = select.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+                    statsState.punctaLineMode = nextMode;
+                    localStorage.setItem(punctaModeKey, nextMode);
+                });
+                modeTop.appendChild(select);
+                modeRow.appendChild(modeTop);
+
+                const modeHelper = document.createElement('div');
+                modeHelper.className = 'nuclear-mode-helper';
+                modeHelper.textContent = 'Choose which puncta pair defines the line; intensity is measured from the opposite channel along that line.';
+                modeRow.appendChild(modeHelper);
+                row.appendChild(modeRow);
+                punctaLineModeRow = modeRow;
+                punctaLineModeSelect = select;
+
                 const widthRow = document.createElement('div');
                 widthRow.className = 'stats-distance-inline';
                 const widthLine = document.createElement('div');
                 widthLine.className = 'stats-distance-line';
 
                 const widthLabel = document.createElement('label');
-                widthLabel.setAttribute('for', 'mCherryWidthInput');
-                widthLabel.textContent = 'mCherry line width:';
+                widthLabel.setAttribute('for', 'punctaLineWidthInput');
+                widthLabel.textContent = 'Puncta line width:';
                 widthLine.appendChild(widthLabel);
 
                 const widthGroup = buildLengthInputGroup({
-                    field: 'mCherryWidth',
-                    inputId: 'mCherryWidthInput',
+                    field: 'punctaLineWidth',
+                    inputId: 'punctaLineWidthInput',
                     minValue: 1,
                     defaultValue: 1,
                     onChange: () => {
-                        const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
-                        const minimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
-                        statsState.mCherryWidth = parseLengthValue(widthGroup.input.value, statsState.mCherryWidthUnit, fallback, minimum);
-                        widthGroup.input.value = formatNumericInputValue(statsState.mCherryWidth);
-                        localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+                        const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
+                        const minimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
+                        statsState.punctaLineWidth = parseLengthValue(widthGroup.input.value, statsState.punctaLineWidthUnit, fallback, minimum);
+                        widthGroup.input.value = formatNumericInputValue(statsState.punctaLineWidth);
+                        localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
                         updateMeasurementScaleHints();
                     },
                 });
                 widthLine.appendChild(widthGroup.controls);
                 widthRow.appendChild(widthLine);
                 row.appendChild(widthRow);
-                mCherryWidthRow = widthRow;
-                mCherryWidthInput = widthGroup.input;
+                punctaLineWidthRow = widthRow;
+                punctaLineWidthInput = widthGroup.input;
             }
 
-            if (plugin.id === 'GFPDot') {
+            if (plugin.id === 'CENDot') {
                 const distanceRow = document.createElement('div');
                 distanceRow.className = 'stats-distance-inline';
                 const distanceLine = document.createElement('div');
                 distanceLine.className = 'stats-distance-line';
 
                 const distanceLabel = document.createElement('label');
-                distanceLabel.setAttribute('for', 'gfpDistanceInput');
+                distanceLabel.setAttribute('for', 'cenDotDistanceInput');
                 distanceLabel.textContent = 'Minimum signal distance:';
                 distanceLine.appendChild(distanceLabel);
 
                 const distanceGroup = buildLengthInputGroup({
-                    field: 'gfpDistance',
-                    inputId: 'gfpDistanceInput',
+                    field: 'cenDotDistance',
+                    inputId: 'cenDotDistanceInput',
                     minValue: 0,
                     defaultValue: 37,
                     onChange: () => {
-                        const fallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
-                        statsState.gfpDistance = parseLengthValue(distanceGroup.input.value, statsState.gfpDistanceUnit, fallback, 0);
-                        distanceGroup.input.value = formatNumericInputValue(statsState.gfpDistance);
-                        localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+                        const fallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
+                        statsState.cenDotDistance = parseLengthValue(distanceGroup.input.value, statsState.cenDotDistanceUnit, fallback, 0);
+                        distanceGroup.input.value = formatNumericInputValue(statsState.cenDotDistance);
+                        localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
                         updateMeasurementScaleHints();
                     },
                 });
@@ -2922,20 +2979,20 @@
                 const thresholdLine = document.createElement('div');
                 thresholdLine.className = 'stats-distance-line stats-threshold-line';
                 const thresholdLabel = document.createElement('label');
-                thresholdLabel.setAttribute('for', 'gfpThresholdInput');
+                thresholdLabel.setAttribute('for', 'cenDotCollinearityThresholdInput');
                 thresholdLabel.textContent = 'Biorientation collinearity threshold:';
                 thresholdLine.appendChild(thresholdLabel);
 
                 const thresholdInput = document.createElement('input');
                 thresholdInput.type = 'number';
-                thresholdInput.id = 'gfpThresholdInput';
+                thresholdInput.id = 'cenDotCollinearityThresholdInput';
                 thresholdInput.min = '0';
                 thresholdInput.value = '66';
                 thresholdInput.addEventListener('change', () => {
                     const parsed = parseInt(thresholdInput.value, 10);
-                    statsState.gfpThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                    thresholdInput.value = String(statsState.gfpThreshold);
-                    localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
+                    statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                    thresholdInput.value = String(statsState.cenDotCollinearityThreshold);
+                    localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
                 });
                 const thresholdInputGroup = document.createElement('div');
                 thresholdInputGroup.className = 'boxed-number-group';
@@ -2943,12 +3000,12 @@
                 thresholdLine.appendChild(thresholdInputGroup);
                 distanceRow.appendChild(thresholdLine);
                 row.appendChild(distanceRow);
-                gfpDistanceRow = distanceRow;
-                gfpDistanceInput = distanceGroup.input;
-                gfpThresholdInput = thresholdInput;
+                cenDotDistanceRow = distanceRow;
+                cenDotDistanceInput = distanceGroup.input;
+                cenDotCollinearityThresholdInput = thresholdInput;
             }
 
-            if (plugin.id === 'NuclearCellularIntensity') {
+            if (plugin.id === 'NuclearCellPairIntensity') {
                 const modeRow = document.createElement('div');
                 modeRow.className = 'nuclear-mode-inline';
 
@@ -2956,12 +3013,12 @@
                 modeTop.className = 'nuclear-mode-row';
 
                 const modeLabel = document.createElement('label');
-                modeLabel.setAttribute('for', 'nuclearCellularMode');
-                modeLabel.textContent = 'Nucleus contour source (Nuclear/Cellular mode):';
+                modeLabel.setAttribute('for', 'nuclearCellPairMode');
+                modeLabel.textContent = 'Nucleus contour source (Nuclear/Cell-Pair mode):';
                 modeTop.appendChild(modeLabel);
 
                 const select = document.createElement('select');
-                select.id = 'nuclearCellularMode';
+                select.id = 'nuclearCellPairMode';
                 const greenOption = document.createElement('option');
                 greenOption.value = 'green_nucleus';
                 greenOption.textContent = 'Green nucleus (measure Red)';
@@ -2972,7 +3029,7 @@
                 select.appendChild(redOption);
                 select.addEventListener('change', () => {
                     const nextMode = select.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
-                    statsState.nuclearCellularMode = nextMode;
+                    statsState.nuclearCellPairMode = nextMode;
                     localStorage.setItem(nuclearModeKey, nextMode);
                 });
                 modeTop.appendChild(select);
@@ -2980,7 +3037,7 @@
 
                 const modeHelper = document.createElement('div');
                 modeHelper.className = 'nuclear-mode-helper';
-                modeHelper.textContent = 'Selected channel outlines the nucleus; intensity is measured in the other channel inside the nucleus and whole cell.';
+                modeHelper.textContent = 'Selected channel outlines the nucleus; intensity is measured in the other channel inside the nucleus and cell pair.';
                 modeRow.appendChild(modeHelper);
                 row.appendChild(modeRow);
                 nuclearModeSelect = select;
@@ -3010,11 +3067,11 @@
 
         const title = document.createElement('span');
         title.className = 'measurement-scale-title';
-        title.textContent = 'Micrometers per pixel (um/px)';
+        title.textContent = 'Micrometers per pixel (µm/px)';
         titleRow.appendChild(title);
 
         const info = buildInfoDot(
-            'Enter image scale as um/px (how many micrometers one pixel represents).\n\nEnter um/px, not px/um. Example: if 1 pixel = 0.1 um, enter 0.1.\nFormula: pixels = micrometers / (um/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance_um = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy_um_per_px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is um.'
+            'Enter image scale as µm/px (how many micrometers one pixel represents).\n\nEnter µm/px, not px/µm. Example: if 1 pixel = 0.1 µm, enter 0.1.\nFormula: pixels = micrometers / (µm/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance in µm = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy µm/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is µm.'
         );
         info.classList.add('compact');
         titleRow.appendChild(info);
@@ -3050,7 +3107,7 @@
 
         const live = document.createElement('p');
         live.className = 'measurement-scale-live';
-        live.appendChild(document.createTextNode('Current scale: 1 um = '));
+        live.appendChild(document.createTextNode('Current scale: 1 µm = '));
         const livePxValue = document.createElement('span');
         livePxValue.className = 'measurement-scale-value';
         live.appendChild(livePxValue);
@@ -3058,7 +3115,7 @@
         const liveUmValue = document.createElement('span');
         liveUmValue.className = 'measurement-scale-value';
         live.appendChild(liveUmValue);
-        live.appendChild(document.createTextNode(' um/px).'));
+        live.appendChild(document.createTextNode(' µm/px).'));
         text.appendChild(live);
 
         row.appendChild(text);
@@ -3145,16 +3202,16 @@
         setSlideInText(measurementScaleUmPerPxValue, formatNumericInputValue(umPerPx, 4));
 
         const examples = [];
-        if (statsState.mCherryWidthUnit === 'um') {
-            const pxValue = convertLengthToPixels(statsState.mCherryWidth, statsState.mCherryWidthUnit, 1, 1);
+        if (statsState.punctaLineWidthUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.punctaLineWidth, statsState.punctaLineWidthUnit, 1, 1);
             examples.push(
-                `mCherry line width ${formatNumericInputValue(statsState.mCherryWidth, 3)} um -> ${pxValue} px`
+                `Puncta line width ${formatNumericInputValue(statsState.punctaLineWidth, 3)} µm -> ${pxValue} px`
             );
         }
-        if (statsState.gfpDistanceUnit === 'um') {
-            const pxValue = convertLengthToPixels(statsState.gfpDistance, statsState.gfpDistanceUnit, 0, 37);
+        if (statsState.cenDotDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.cenDotDistance, statsState.cenDotDistanceUnit, 0, 37);
             examples.push(
-                `Minimum signal distance ${formatNumericInputValue(statsState.gfpDistance, 3)} um -> ${pxValue} px`
+                `Minimum signal distance ${formatNumericInputValue(statsState.cenDotDistance, 3)} µm -> ${pxValue} px`
             );
         }
 
@@ -3162,15 +3219,15 @@
             measurementScaleExampleHint,
             examples.length
                 ? `Live conversion: ${examples.join(' | ')}`
-                : 'Set a plugin length unit to um to preview its pixel conversion here.'
+                : 'Set a plugin length unit to µm to preview its pixel conversion here.'
         );
 
         if (measurementScaleFallbackHint) {
             setSlideInText(
                 measurementScaleFallbackHint,
                 statsState.useMetadataScale
-                    ? 'Metadata mode enabled: each file uses DV header dx/dy when valid, and falls back to this manual um/px if metadata is missing or invalid.'
-                    : 'Metadata mode disabled: manual um/px is applied to every file in this run.'
+                    ? 'Metadata mode enabled: each file uses DV header dx/dy when valid, and falls back to this manual µm/px if metadata is missing or invalid.'
+                    : 'Metadata mode disabled: manual µm/px is applied to every file in this run.'
             );
         }
     }
@@ -3186,6 +3243,7 @@
             const row = document.createElement('div');
             row.className = 'toggle-row subtoggle';
             row.id = `channelCheckRow_${channel}`;
+            const channelLabel = displayChannelLabel(channel);
 
             const text = document.createElement('div');
             text.className = 'toggle-text';
@@ -3193,9 +3251,9 @@
             labelRow.className = 'toggle-label-row';
             const label = document.createElement('span');
             label.className = 'toggle-label';
-            label.textContent = `Require ${channel} wavelength`;
+            label.textContent = `Require ${channelLabel} channel`;
             labelRow.appendChild(label);
-            const info = buildInfoDot(channelInfo[channel] || `${channel} wavelength channel`);
+            const info = buildInfoDot(channelInfo[channel] || `${channelLabel} channel`);
             info.classList.add('compact');
             labelRow.appendChild(info);
             text.appendChild(labelRow);
@@ -3227,22 +3285,22 @@
             channelRowElements.set(channel, row);
         });
 
-        const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
-        const alternateMCherryDetection = document.getElementById('alternateMCherryDetection');
+        const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
+        const alternateRedDetection = document.getElementById('alternateRedDetection');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
         const legacyToggle = document.getElementById('showLegacyPlugins');
-        if (gfpFilterEnabled) {
-            gfpFilterEnabled.addEventListener('change', () => {
-                statsState.gfpFilterEnabled = gfpFilterEnabled.checked;
+        if (greenContourFilterEnabled) {
+            greenContourFilterEnabled.addEventListener('change', () => {
+                statsState.greenContourFilterEnabled = greenContourFilterEnabled.checked;
                 persistAdvancedSettings();
                 syncStatsUI();
             });
         }
-        if (alternateMCherryDetection) {
-            alternateMCherryDetection.addEventListener('change', () => {
-                statsState.alternateMCherryDetection = alternateMCherryDetection.checked;
+        if (alternateRedDetection) {
+            alternateRedDetection.addEventListener('change', () => {
+                statsState.alternateRedDetection = alternateRedDetection.checked;
                 persistAdvancedSettings();
                 syncStatsUI();
             });
@@ -3322,8 +3380,8 @@
             stored = {};
         }
 
-        statsState.gfpFilterEnabled = typeof stored.gfpFilterEnabled === 'boolean' ? stored.gfpFilterEnabled : false;
-        statsState.alternateMCherryDetection = typeof stored.alternateMCherryDetection === 'boolean' ? stored.alternateMCherryDetection : false;
+        statsState.greenContourFilterEnabled = typeof stored.greenContourFilterEnabled === 'boolean' ? stored.greenContourFilterEnabled : false;
+        statsState.alternateRedDetection = typeof stored.alternateRedDetection === 'boolean' ? stored.alternateRedDetection : false;
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
         statsState.enforceAllWavelengths = typeof stored.enforceAllWavelengths === 'boolean' ? stored.enforceAllWavelengths : false;
@@ -3337,10 +3395,10 @@
 
     function loadStoredLengthUnits() {
         const legacyUnit = normalizeLengthUnit(localStorage.getItem(legacyLengthUnitKey));
-        const storedWidthUnit = localStorage.getItem(mCherryWidthUnitKey);
-        const storedDistanceUnit = localStorage.getItem(gfpDistanceUnitKey);
-        statsState.mCherryWidthUnit = normalizeLengthUnit(storedWidthUnit || legacyUnit);
-        statsState.gfpDistanceUnit = normalizeLengthUnit(storedDistanceUnit || legacyUnit);
+        const storedWidthUnit = localStorage.getItem(punctaLineWidthUnitKey);
+        const storedDistanceUnit = localStorage.getItem(cenDotDistanceUnitKey);
+        statsState.punctaLineWidthUnit = normalizeLengthUnit(storedWidthUnit || legacyUnit);
+        statsState.cenDotDistanceUnit = normalizeLengthUnit(storedDistanceUnit || legacyUnit);
     }
 
     function loadStoredMicronsPerPixel() {
@@ -3359,26 +3417,31 @@
 
     function loadStoredWidth() {
         const raw = localStorage.getItem(widthKey);
-        const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
-        const minimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
-        statsState.mCherryWidth = parseLengthValue(raw, statsState.mCherryWidthUnit, fallback, minimum);
+        const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
+        const minimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
+        statsState.punctaLineWidth = parseLengthValue(raw, statsState.punctaLineWidthUnit, fallback, minimum);
     }
 
     function loadStoredDistance() {
         const raw = localStorage.getItem(distanceKey);
-        const fallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
-        statsState.gfpDistance = parseLengthValue(raw, statsState.gfpDistanceUnit, fallback, 0);
+        const fallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
+        statsState.cenDotDistance = parseLengthValue(raw, statsState.cenDotDistanceUnit, fallback, 0);
     }
 
     function loadStoredThreshold() {
         const raw = localStorage.getItem(thresholdKey);
         const parsed = parseInt(raw || '66', 10);
-        statsState.gfpThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+        statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+    }
+
+    function loadStoredPunctaMode() {
+        const raw = localStorage.getItem(punctaModeKey);
+        statsState.punctaLineMode = raw === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     }
 
     function loadStoredNuclearMode() {
         const raw = localStorage.getItem(nuclearModeKey);
-        statsState.nuclearCellularMode = raw === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+        statsState.nuclearCellPairMode = raw === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
     }
 
     function persistSelectedPlugins() {
@@ -3393,8 +3456,8 @@
             enforceAllWavelengths: !!statsState.enforceAllWavelengths,
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
-            gfpFilterEnabled: !!statsState.gfpFilterEnabled,
-            alternateMCherryDetection: !!statsState.alternateMCherryDetection,
+            greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            alternateRedDetection: !!statsState.alternateRedDetection,
         }));
     }
 
@@ -3476,10 +3539,10 @@
         const layerRow = document.getElementById('layerCheckRow');
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
         const optionalChecksNote = document.getElementById('optionalChecksNote');
-        const gfpFilterEnabled = document.getElementById('gfpFilterEnabled');
-        const alternateMCherryDetection = document.getElementById('alternateMCherryDetection');
-        const gfpFilterRow = document.getElementById('gfpFilterRow');
-        const alternateMCherryRow = document.getElementById('alternateMCherryRow');
+        const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
+        const alternateRedDetection = document.getElementById('alternateRedDetection');
+        const greenFilterRow = document.getElementById('greenFilterRow');
+        const alternateRedRow = document.getElementById('alternateRedRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
             toggle.checked = statsState.selectedPlugins.has(pluginId);
@@ -3488,20 +3551,26 @@
 
         syncLengthControls();
 
-        if (mCherryWidthInput) {
-            mCherryWidthInput.value = formatNumericInputValue(statsState.mCherryWidth);
+        if (punctaLineWidthInput) {
+            punctaLineWidthInput.value = formatNumericInputValue(statsState.punctaLineWidth);
         }
-        if (mCherryWidthRow) {
-            mCherryWidthRow.classList.toggle('visible', statsState.selectedPlugins.has('MCherryLine'));
+        if (punctaLineWidthRow) {
+            punctaLineWidthRow.classList.toggle('visible', statsState.selectedPlugins.has('PunctaDistance'));
         }
-        if (gfpDistanceInput) {
-            gfpDistanceInput.value = formatNumericInputValue(statsState.gfpDistance);
+        if (punctaLineModeSelect) {
+            punctaLineModeSelect.value = statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
         }
-        if (gfpDistanceRow) {
-            gfpDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('GFPDot'));
+        if (punctaLineModeRow) {
+            punctaLineModeRow.classList.toggle('visible', statsState.selectedPlugins.has('PunctaDistance'));
         }
-        if (gfpThresholdInput) {
-            gfpThresholdInput.value = String(statsState.gfpThreshold);
+        if (cenDotDistanceInput) {
+            cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
+        }
+        if (cenDotDistanceRow) {
+            cenDotDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('CENDot'));
+        }
+        if (cenDotCollinearityThresholdInput) {
+            cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
         }
         if (micronsPerPixelInput) {
             micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
@@ -3511,33 +3580,33 @@
         }
         updateMeasurementScaleHints();
         if (nuclearModeSelect) {
-            nuclearModeSelect.value = statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+            nuclearModeSelect.value = statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
         }
         if (nuclearModeRow) {
-            nuclearModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellularIntensity'));
+            nuclearModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellPairIntensity'));
         }
-        if (gfpFilterEnabled) {
-            gfpFilterEnabled.checked = !!statsState.gfpFilterEnabled;
-            const gfpUsed = isChannelUsed('GFP');
-            gfpFilterEnabled.disabled = !gfpUsed;
-            if (gfpUsed) {
-                gfpFilterRow.classList.remove('disabled');
+        if (greenContourFilterEnabled) {
+            greenContourFilterEnabled.checked = !!statsState.greenContourFilterEnabled;
+            const greenUsed = isChannelUsed('channel_green');
+            greenContourFilterEnabled.disabled = !greenUsed;
+            if (greenUsed) {
+                greenFilterRow.classList.remove('disabled');
             } else {
-                gfpFilterRow.classList.add('disabled');
-                gfpFilterEnabled.checked = false;
-                statsState.gfpFilterEnabled = gfpFilterEnabled.checked;
+                greenFilterRow.classList.add('disabled');
+                greenContourFilterEnabled.checked = false;
+                statsState.greenContourFilterEnabled = greenContourFilterEnabled.checked;
             }
         }
-        if (alternateMCherryDetection) {
-            alternateMCherryDetection.checked = !!statsState.alternateMCherryDetection;
-            const mCherryUsed = isChannelUsed('mCherry');
-            alternateMCherryDetection.disabled = !mCherryUsed;
-            if (mCherryUsed) {
-                alternateMCherryRow.classList.remove('disabled');
+        if (alternateRedDetection) {
+            alternateRedDetection.checked = !!statsState.alternateRedDetection;
+            const redUsed = isChannelUsed('channel_red');
+            alternateRedDetection.disabled = !redUsed;
+            if (redUsed) {
+                alternateRedRow.classList.remove('disabled');
             } else {
-                alternateMCherryRow.classList.add('disabled');
-                alternateMCherryDetection.checked = false;
-                statsState.alternateMCherryDetection = alternateMCherryDetection.checked;
+                alternateRedRow.classList.add('disabled');
+                alternateRedDetection.checked = false;
+                statsState.alternateRedDetection = alternateRedDetection.checked;
             }
         }
 
@@ -3596,7 +3665,7 @@
 
             const requiredByStats = statsRequired.has(channel);
             const requiredByAllToggle = statsState.moduleEnabled && statsState.enforceAllWavelengths;
-            let infoText = channelInfo[channel] || `${channel} wavelength channel`;
+            let infoText = channelInfo[channel] || `${displayChannelLabel(channel)} channel`;
 
             if (requiredByStats) {
                 toggle.checked = true;
@@ -3612,7 +3681,7 @@
                 toggle.disabled = true;
                 row.classList.remove('locked');
                 row.classList.add('disabled');
-                infoText = 'Required because "Require all wavelengths" is enabled.';
+                infoText = 'Required because "Require all channels" is enabled.';
             } else {
                 toggle.checked = statsState.manualRequiredChannels.has(channel);
                 toggle.disabled = !statsState.moduleEnabled;
@@ -3620,7 +3689,7 @@
                 row.classList.remove('locked');
                 infoText = toggle.checked
                     ? 'Optional advanced enforcement is enabled.'
-                    : (channelInfo[channel] || `${channel} wavelength channel`);
+                    : (channelInfo[channel] || `${displayChannelLabel(channel)} channel`);
             }
 
             if (info) {
@@ -3644,7 +3713,7 @@
                 } else if (requiredByStats) {
                     stateEl.textContent = 'Required by stats';
                 } else if (statsState.moduleEnabled && requiredByAllToggle) {
-                    stateEl.textContent = 'Required by all-wavelengths';
+                    stateEl.textContent = 'Required by all-channels';
                 } else if (statsState.moduleEnabled && statsState.manualRequiredChannels.has(channel)) {
                     stateEl.textContent = 'Required (advanced)';
                 } else {
@@ -3697,14 +3766,15 @@
             enforceAllWavelengths: !!statsState.enforceAllWavelengths,
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
-            mCherryWidth: Number.isFinite(Number(statsState.mCherryWidth)) ? Number(statsState.mCherryWidth) : 1,
-            gfpDistance: Number.isFinite(Number(statsState.gfpDistance)) ? Number(statsState.gfpDistance) : 37,
-            gfpThreshold: Number.isFinite(Number(statsState.gfpThreshold)) ? Number(statsState.gfpThreshold) : 66,
-            nuclearCellularMode: statsState.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
-            gfpFilterEnabled: !!statsState.gfpFilterEnabled,
-            alternateMCherryDetection: !!statsState.alternateMCherryDetection,
-            mCherryWidthUnit: normalizeLengthUnit(statsState.mCherryWidthUnit),
-            gfpDistanceUnit: normalizeLengthUnit(statsState.gfpDistanceUnit),
+            punctaLineWidth: Number.isFinite(Number(statsState.punctaLineWidth)) ? Number(statsState.punctaLineWidth) : 1,
+            cenDotDistance: Number.isFinite(Number(statsState.cenDotDistance)) ? Number(statsState.cenDotDistance) : 37,
+            cenDotCollinearityThreshold: Number.isFinite(Number(statsState.cenDotCollinearityThreshold)) ? Number(statsState.cenDotCollinearityThreshold) : 66,
+            punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
+            nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
+            greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            alternateRedDetection: !!statsState.alternateRedDetection,
+            punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
+            cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
             useMetadataScale: !!statsState.useMetadataScale,
         });
@@ -3731,20 +3801,21 @@
                     ? snapshot.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
                     : []
             );
-            statsState.mCherryWidthUnit = normalizeLengthUnit(snapshot.mCherryWidthUnit);
-            statsState.gfpDistanceUnit = normalizeLengthUnit(snapshot.gfpDistanceUnit);
+            statsState.punctaLineWidthUnit = normalizeLengthUnit(snapshot.punctaLineWidthUnit);
+            statsState.cenDotDistanceUnit = normalizeLengthUnit(snapshot.cenDotDistanceUnit);
             statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
             statsState.useMetadataScale = !!snapshot.useMetadataScale;
-            const widthMinimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
-            const widthFallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
-            statsState.mCherryWidth = parseLengthValue(snapshot.mCherryWidth, statsState.mCherryWidthUnit, widthFallback, widthMinimum);
-            const distanceFallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
-            statsState.gfpDistance = parseLengthValue(snapshot.gfpDistance, statsState.gfpDistanceUnit, distanceFallback, 0);
-            const parsedThreshold = parseInt(String(snapshot.gfpThreshold ?? 66), 10);
-            statsState.gfpThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
-            statsState.nuclearCellularMode = snapshot.nuclearCellularMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
-            statsState.gfpFilterEnabled = !!snapshot.gfpFilterEnabled;
-            statsState.alternateMCherryDetection = !!snapshot.alternateMCherryDetection;
+            const widthMinimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
+            const widthFallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
+            statsState.punctaLineWidth = parseLengthValue(snapshot.punctaLineWidth, statsState.punctaLineWidthUnit, widthFallback, widthMinimum);
+            const distanceFallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
+            statsState.cenDotDistance = parseLengthValue(snapshot.cenDotDistance, statsState.cenDotDistanceUnit, distanceFallback, 0);
+            const parsedThreshold = parseInt(String(snapshot.cenDotCollinearityThreshold ?? 66), 10);
+            statsState.cenDotCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
+            statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+            statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+            statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
+            statsState.alternateRedDetection = !!snapshot.alternateRedDetection;
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
                     if (plugin.is_legacy) {
@@ -3755,10 +3826,11 @@
             renderStatsToggles();
             persistSelectedPlugins();
             persistAdvancedSettings();
-            localStorage.setItem(widthKey, String(statsState.mCherryWidth));
-            localStorage.setItem(distanceKey, String(statsState.gfpDistance));
-            localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
-            localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
+            localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
+            localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
+            localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+            localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
+            localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             persistLengthUnitSettings();
             syncStatsUI();
         };
@@ -4470,30 +4542,34 @@
             persistSelectedPlugins();
             persistAdvancedSettings();
             persistLengthUnitSettings();
-            if (mCherryWidthInput) {
-                const fallback = defaultWidthForUnit(statsState.mCherryWidthUnit);
-                const minimum = statsState.mCherryWidthUnit === 'um' ? 0.01 : 1;
-                statsState.mCherryWidth = parseLengthValue(mCherryWidthInput.value, statsState.mCherryWidthUnit, fallback, minimum);
-                mCherryWidthInput.value = formatNumericInputValue(statsState.mCherryWidth);
-                localStorage.setItem(widthKey, String(statsState.mCherryWidth));
+            if (punctaLineWidthInput) {
+                const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
+                const minimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
+                statsState.punctaLineWidth = parseLengthValue(punctaLineWidthInput.value, statsState.punctaLineWidthUnit, fallback, minimum);
+                punctaLineWidthInput.value = formatNumericInputValue(statsState.punctaLineWidth);
+                localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
             }
-            if (gfpDistanceInput) {
-                const fallback = defaultDistanceForUnit(statsState.gfpDistanceUnit);
-                statsState.gfpDistance = parseLengthValue(gfpDistanceInput.value, statsState.gfpDistanceUnit, fallback, 0);
-                gfpDistanceInput.value = formatNumericInputValue(statsState.gfpDistance);
-                localStorage.setItem(distanceKey, String(statsState.gfpDistance));
+            if (cenDotDistanceInput) {
+                const fallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
+                statsState.cenDotDistance = parseLengthValue(cenDotDistanceInput.value, statsState.cenDotDistanceUnit, fallback, 0);
+                cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
+                localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
             }
-            if (gfpThresholdInput) {
-                const parsed = parseInt(gfpThresholdInput.value, 10);
-                statsState.gfpThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                gfpThresholdInput.value = String(statsState.gfpThreshold);
-                localStorage.setItem(thresholdKey, String(statsState.gfpThreshold));
+            if (cenDotCollinearityThresholdInput) {
+                const parsed = parseInt(cenDotCollinearityThresholdInput.value, 10);
+                statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
+                localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
             }
+            if (punctaLineModeSelect) {
+                statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+            }
+            localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             if (nuclearModeSelect) {
-                statsState.nuclearCellularMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+                statsState.nuclearCellPairMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
-            localStorage.setItem(nuclearModeKey, statsState.nuclearCellularMode);
-            const usingMicrometers = statsState.mCherryWidthUnit === 'um' || statsState.gfpDistanceUnit === 'um';
+            localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
+            const usingMicrometers = statsState.punctaLineWidthUnit === 'um' || statsState.cenDotDistanceUnit === 'um';
             if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
                 showErrors([
                     'Micrometers-per-pixel must be greater than 0 when using micrometer input.',
@@ -4501,8 +4577,8 @@
                 return;
             }
 
-            const mCherryWidthPixels = convertLengthToPixels(statsState.mCherryWidth, statsState.mCherryWidthUnit, 1, 1);
-            const gfpDistancePixels = convertLengthToPixels(statsState.gfpDistance, statsState.gfpDistanceUnit, 0, 37);
+            const punctaLineWidthPixels = convertLengthToPixels(statsState.punctaLineWidth, statsState.punctaLineWidthUnit, 1, 1);
+            const cenDotDistancePixels = convertLengthToPixels(statsState.cenDotDistance, statsState.cenDotDistanceUnit, 0, 37);
 
             const submitBtn = document.getElementById('uploadSubmit');
             const btnText = submitBtn.querySelector('.btn-text');
@@ -4583,20 +4659,21 @@
             formData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => formData.append('extra_required_channels', channel));
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
-            formData.append('stats_mcherry_width_value', String(statsState.mCherryWidth));
-            formData.append('stats_gfp_distance_value', String(statsState.gfpDistance));
-            formData.append('mCherryWidth', String(mCherryWidthPixels));
-            formData.append('distance', String(gfpDistancePixels));
-            formData.append('threshold', String(statsState.gfpThreshold));
-            formData.append('nuclear_cellular_mode', statsState.nuclearCellularMode);
-            formData.append('gfpFilterEnabled', String(statsState.gfpFilterEnabled));
-            formData.append('alternateMCherryDetection', String(statsState.alternateMCherryDetection));
-            const sharedLengthUnit = statsState.mCherryWidthUnit === statsState.gfpDistanceUnit
-                ? statsState.mCherryWidthUnit
+            formData.append('stats_puncta_line_width_value', String(statsState.punctaLineWidth));
+            formData.append('stats_cen_dot_distance_value', String(statsState.cenDotDistance));
+            formData.append('punctaLineWidth', String(punctaLineWidthPixels));
+            formData.append('cenDotDistance', String(cenDotDistancePixels));
+            formData.append('cenDotCollinearityThreshold', String(statsState.cenDotCollinearityThreshold));
+            formData.append('puncta_line_mode', statsState.punctaLineMode);
+            formData.append('nuclear_cell_pair_mode', statsState.nuclearCellPairMode);
+            formData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
+            formData.append('alternateRedDetection', String(statsState.alternateRedDetection));
+            const sharedLengthUnit = statsState.punctaLineWidthUnit === statsState.cenDotDistanceUnit
+                ? statsState.punctaLineWidthUnit
                 : 'mixed';
             formData.append('stats_length_unit', sharedLengthUnit);
-            formData.append('stats_mcherry_width_unit', statsState.mCherryWidthUnit);
-            formData.append('stats_gfp_distance_unit', statsState.gfpDistanceUnit);
+            formData.append('stats_puncta_line_width_unit', statsState.punctaLineWidthUnit);
+            formData.append('stats_cen_dot_distance_unit', statsState.cenDotDistanceUnit);
             formData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
             formData.append('stats_use_metadata_scale', statsState.useMetadataScale ? '1' : '0');
 
@@ -4656,3 +4733,4 @@
 </script>
 
 {% endblock content %}
+

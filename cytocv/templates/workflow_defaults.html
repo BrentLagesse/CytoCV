@@ -1029,7 +1029,7 @@ main.main > section.panel {
           {% for row in required_channel_rows %}
           <div class="channel-pill{% if row.summary_required %} required{% elif row.summary_paused %} paused{% endif %}" data-req-row="{{ row.channel }}" data-summary-scope="plugins">
             <div class="channel-pill-left">
-              <span class="channel-pill-name">{{ row.channel }}</span>
+              <span class="channel-pill-name">{{ row.channel_label }}</span>
               <span class="channel-pill-meta">{{ row.summary_meta }}</span>
             </div>
             <span class="channel-pill-state">{{ row.summary_label }}</span>
@@ -1042,39 +1042,45 @@ main.main > section.panel {
             <div class="plugin-main">
               <p><strong>{{ plugin.label }}</strong>{% if plugin.is_legacy %}<span class="legacy">Legacy</span>{% endif %}</p>
               <p class="desc">{{ plugin.description }}</p>
-              <p class="reqtxt">Requires: {{ plugin.required_channels|join:", " }}</p>
-              {% if plugin.id == 'MCherryLine' %}
-              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="MCherryLine" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+              <p class="reqtxt">Requires: {{ plugin.required_channel_labels|join:", " }}</p>
+              {% if plugin.id == 'PunctaDistance' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="PunctaDistance" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
                 <div class="plugin-measure-line">
-                  <label for="mcherry_width">mCherry line width:</label>
-                  <div class="length-input-group plugin-measure-right">
-                    <input type="number" step="0.01" min="0" id="mcherry_width" name="mcherry_width" value="{{ preferences.experiment_defaults.mcherry_width }}">
-                    <select id="mcherry_width_unit" name="mcherry_width_unit"><option value="px" {% if preferences.experiment_defaults.mcherry_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.mcherry_width_unit == 'um' %}selected{% endif %}>um</option></select>
-                  </div>
-                </div>
-              </div>
-              {% elif plugin.id == 'GFPDot' %}
-              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="GFPDot" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
-                <div class="plugin-measure-line">
-                  <label for="gfp_distance">Minimum signal distance:</label>
-                  <div class="length-input-group plugin-measure-right">
-                    <input type="number" step="0.01" min="0" id="gfp_distance" name="gfp_distance" value="{{ preferences.experiment_defaults.gfp_distance }}">
-                    <select id="gfp_distance_unit" name="gfp_distance_unit"><option value="px" {% if preferences.experiment_defaults.gfp_distance_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.gfp_distance_unit == 'um' %}selected{% endif %}>um</option></select>
-                  </div>
-                </div>
-                <div class="plugin-measure-line">
-                  <label for="gfp_threshold">Biorientation collinearity threshold:</label>
-                  <div class="boxed-number-group plugin-measure-right">
-                    <input type="number" min="0" id="gfp_threshold" name="gfp_threshold" value="{{ preferences.experiment_defaults.gfp_threshold }}">
-                  </div>
-                </div>
-              </div>
-              {% elif plugin.id == 'NuclearCellularIntensity' %}
-              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="NuclearCellularIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
-                <div class="plugin-measure-line">
-                  <label for="nuclear_cellular_mode">Nucleus contour source:</label>
+                  <label for="puncta_line_mode">Puncta source:</label>
                   <div class="mode-select-group plugin-measure-right">
-                    <select id="nuclear_cellular_mode" name="nuclear_cellular_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cellular_mode == 'green_nucleus' %}selected{% endif %}>Green nucleus (measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cellular_mode == 'red_nucleus' %}selected{% endif %}>Red nucleus (measure Green)</option></select>
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red puncta (measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green puncta (measure Red)</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <label for="puncta_line_width">Puncta line width:</label>
+                  <div class="length-input-group plugin-measure-right">
+                    <input type="number" step="0.01" min="0" id="puncta_line_width" name="puncta_line_width" value="{{ preferences.experiment_defaults.puncta_line_width }}">
+                    <select id="puncta_line_width_unit" name="puncta_line_width_unit"><option value="px" {% if preferences.experiment_defaults.puncta_line_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.puncta_line_width_unit == 'um' %}selected{% endif %}>µm</option></select>
+                  </div>
+                </div>
+              </div>
+              {% elif plugin.id == 'CENDot' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="CENDot" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+                <div class="plugin-measure-line">
+                  <label for="cen_dot_distance">Minimum signal distance:</label>
+                  <div class="length-input-group plugin-measure-right">
+                    <input type="number" step="0.01" min="0" id="cen_dot_distance" name="cen_dot_distance" value="{{ preferences.experiment_defaults.cen_dot_distance }}">
+                    <select id="cen_dot_distance_unit" name="cen_dot_distance_unit"><option value="px" {% if preferences.experiment_defaults.cen_dot_distance_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.cen_dot_distance_unit == 'um' %}selected{% endif %}>µm</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <label for="cen_dot_collinearity_threshold">Biorientation collinearity threshold:</label>
+                  <div class="boxed-number-group plugin-measure-right">
+                    <input type="number" min="0" id="cen_dot_collinearity_threshold" name="cen_dot_collinearity_threshold" value="{{ preferences.experiment_defaults.cen_dot_collinearity_threshold }}">
+                  </div>
+                </div>
+              </div>
+              {% elif plugin.id == 'NuclearCellPairIntensity' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="NuclearCellPairIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+                <div class="plugin-measure-line">
+                  <label for="nuclear_cell_pair_mode">Nucleus contour source:</label>
+                  <div class="mode-select-group plugin-measure-right">
+                    <select id="nuclear_cell_pair_mode" name="nuclear_cell_pair_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'green_nucleus' %}selected{% endif %}>Green nucleus (measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'red_nucleus' %}selected{% endif %}>Red nucleus (measure Green)</option></select>
                   </div>
                 </div>
               </div>
@@ -1089,7 +1095,7 @@ main.main > section.panel {
           <div class="row">
             <div>
               <label for="use_metadata_scale">Use metadata scale per file</label>
-              <p>When enabled, each file uses DV header dx/dy scale. If unavailable, workflow falls back to manual um/px.</p>
+              <p>When enabled, each file uses DV header dx/dy scale. If unavailable, workflow falls back to manual µm/px.</p>
             </div>
             <label class="sw">
               <input type="hidden" name="use_metadata_scale" value="0">
@@ -1105,7 +1111,7 @@ main.main > section.panel {
           </div>
           <div class="row">
             <div class="measurement-scale-copy">
-              <label for="microns_per_pixel">Micrometers per pixel (um/px)</label>
+              <label for="microns_per_pixel">Micrometers per pixel (µm/px)</label>
               <div class="measurement-scale-entry-row">
                 <p class="measurement-scale-fallback">Fallback manual scale used when metadata dx/dy is unavailable or invalid.</p>
                 <div class="boxed-number-group measurement-scale-input-group">
@@ -1125,8 +1131,8 @@ main.main > section.panel {
                   </button>
                   <div class="measurement-disclosure-panel" id="prefsHowToPanel" hidden>
                     <ul class="measurement-scale-list">
-                      <li>Enter <strong>um/px</strong> (not px/um).</li>
-                      <li>Example: if <strong>1 pixel = 0.1 um</strong>, enter <strong>0.1</strong>.</li>
+                      <li>Enter <strong>µm/px</strong> (not px/µm).</li>
+                      <li>Example: if <strong>1 pixel = 0.1 µm</strong>, enter <strong>0.1</strong>.</li>
                     </ul>
                   </div>
                 </div>
@@ -1140,9 +1146,9 @@ main.main > section.panel {
                   </button>
                   <div class="measurement-disclosure-panel" id="prefsFormulaPanel" hidden>
                     <div class="measurement-scale-formula-list">
-                      <p class="measurement-scale-formula"><strong>Pixels:</strong> pixels = micrometers / (um/px)</p>
-                      <p class="measurement-scale-formula"><strong>Anisotropic distance:</strong> distance_um = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2)</p>
-                      <p class="measurement-scale-formula"><strong>Single-width proxy:</strong> proxy_um_per_px = sqrt(dx * dy)</p>
+                      <p class="measurement-scale-formula"><strong>Pixels:</strong> pixels = micrometers / (µm/px)</p>
+                      <p class="measurement-scale-formula"><strong>Anisotropic distance:</strong> distance in µm = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2)</p>
+                      <p class="measurement-scale-formula"><strong>Single-width proxy:</strong> proxy µm/px = sqrt(dx * dy)</p>
                     </div>
                   </div>
                 </div>
@@ -1163,7 +1169,7 @@ main.main > section.panel {
           {% for row in required_channel_rows %}
           <div class="channel-pill{% if row.summary_required %} required{% elif row.summary_paused %} paused{% endif %}" data-req-row="{{ row.channel }}" data-summary-scope="advanced">
             <div class="channel-pill-left">
-              <span class="channel-pill-name">{{ row.channel }}</span>
+              <span class="channel-pill-name">{{ row.channel_label }}</span>
               <span class="channel-pill-meta">{{ row.summary_meta }}</span>
             </div>
             <span class="channel-pill-state">{{ row.summary_label }}</span>
@@ -1171,22 +1177,22 @@ main.main > section.panel {
           {% endfor %}
         </div></div>
         <div class="card" data-workflow-card="validation-enforcement"><p class="section-eyebrow card-title">Validation Enforcement</p>
-          <div class="row" id="advancedModuleRow"><div class="row-copy"><label for="module_enabled">Enable analysis validation module</label><p>Stats-required channels always stay enforced. Manual channel requirements and all-wavelength enforcement are saved here and pause when this module is OFF.</p><p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row" id="advancedModuleRow"><div class="row-copy"><label for="module_enabled">Enable analysis validation module</label><p>Stats-required channels always stay enforced. Manual channel requirements and all-channel enforcement are saved here and pause when this module is OFF.</p><p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="validation-subgroup{% if not preferences.experiment_defaults.module_enabled %} is-disabled{% endif %}" id="advancedOptionalChecksGroup">
             <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedLayerCheckRow"><div class="row-copy"><label for="enforce_layer_count">Enforce expected layer count</label><p>Require exactly four layers before preprocessing.</p></div><input type="hidden" id="enforce_layer_count_state" name="enforce_layer_count" value="{% if preferences.experiment_defaults.enforce_layer_count %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
-            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedWavelengthCheckRow"><div class="row-copy"><label for="enforce_wavelengths">Enforce required wavelengths</label><p>Require DIC, DAPI, mCherry, and GFP even if not needed by selected statistics.</p></div><input type="hidden" id="enforce_wavelengths_state" name="enforce_wavelengths" value="{% if preferences.experiment_defaults.enforce_wavelengths %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
+            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedWavelengthCheckRow"><div class="row-copy"><label for="enforce_wavelengths">Enforce required channels</label><p>Require DIC, Blue, Red, and Green even if not needed by selected statistics.</p></div><input type="hidden" id="enforce_wavelengths_state" name="enforce_wavelengths" value="{% if preferences.experiment_defaults.enforce_wavelengths %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
             <div class="validation-channel-list" id="advancedManualChannelsGroup">
               {% for row in required_channel_rows %}
               <div class="row{% if row.row_locked %} locked{% endif %}{% if row.row_disabled and not row.row_locked %} disabled{% endif %}" data-ch-row="{{ row.channel }}">
-                <div><label for="manual_{{ row.channel }}">Require {{ row.channel }} wavelength</label><p data-ch-help="{{ row.channel }}">{{ row.row_help }}</p></div>
+                <div><label for="manual_{{ row.channel }}">Require {{ row.channel_label }} channel</label><p data-ch-help="{{ row.channel }}">{{ row.row_help }}</p></div>
                 <label class="sw"><input type="checkbox" id="manual_{{ row.channel }}" class="channel-toggle" value="{{ row.channel }}" data-channel="{{ row.channel }}" {% if row.row_checked %}checked{% endif %} {% if row.toggle_disabled %}disabled{% endif %}><span class="sl"></span></label>
               </div>
               {% endfor %}
             </div>
           </div>
-          <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show legacy plugins by default</label><p>Reveal DAPI-based plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="gfp_filter_enabled">Enable GFP minimum-size filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filter out low-confidence GFP signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="gfp_filter_enabled" name="gfp_filter_enabled" {% if preferences.experiment_defaults.gfp_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="alternate_mcherry_detection">Enable alternate mCherry detection where a contour surrounds all speckles</label></span><p>Utilize an alternate mCherry detection mode where the tool attempts to find a single contour to surround all speckles.</p></div><label class="sw"><input type="checkbox" id="alternate_mcherry_detection" name="alternate_mcherry_detection" {% if preferences.experiment_defaults.alternate_mcherry_detection %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show legacy plugins by default</label><p>Reveal legacy Blue-channel plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="green_contour_filter_enabled">Enable Green minimum-size filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filter out low-confidence Green signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="green_contour_filter_enabled" name="green_contour_filter_enabled" {% if preferences.experiment_defaults.green_contour_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="alternate_red_detection">Enable alternate Red detection where a contour surrounds all speckles</label></span><p>Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p></div><label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
         <div class="card action-card" data-workflow-action-card="advanced">
           <p class="section-eyebrow card-title">Save Advanced Settings</p>
@@ -1203,7 +1209,7 @@ main.main > section.panel {
         </div>
         <div class="card" data-workflow-card="sidebar-preferences">
           <p class="section-eyebrow card-title">Sidebar Preferences</p>
-          <div class="row"><div><label for="show_saved_file_channels">Show channel tags in dashboard sidebar</label><p>Controls whether DIC/DAPI/mCherry/GFP tags are shown under each saved file.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div><label for="show_saved_file_channels">Show channel tags in dashboard sidebar</label><p>Controls whether DIC/Blue/Red/Green tags are shown under each saved file.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div><label for="show_saved_file_scales">Show scale details in file sidebars</label><p>Controls whether per-file scale details are shown on dashboard, preprocess, and display sidebars.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_scales" name="show_saved_file_scales" {% if preferences.show_saved_file_scales %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div><label for="sidebar_starts_open">Start sidebars open on dashboard, display, and preprocess</label><p>Controls the default sidebar state when those pages first render.</p></div><label class="sw"><input type="checkbox" id="sidebar_starts_open" name="sidebar_starts_open" {% if preferences.sidebar_starts_open %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
@@ -1313,6 +1319,7 @@ main.main > section.panel {
   }
   const pluginCatalog = Array.isArray(payload.plugins) ? payload.plugins : [];
   const pluginMap = new Map(pluginCatalog.map((plugin) => [plugin.id, plugin]));
+  const channelLabels = payload.channel_labels || {};
   const alwaysRequired = new Set(payload.always_required_channels || []);
   const pluginToggles = [...document.querySelectorAll('.plugin-toggle')];
   const channelToggles = [...document.querySelectorAll('.channel-toggle')];
@@ -1363,6 +1370,8 @@ main.main > section.panel {
     window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
   let pending = null;
+
+  const displayChannelLabel = (channel) => channelLabels[channel] || channel;
   let pendingReview = null;
   let pendingLeaveTarget = null;
   let allowWindowUnloadWithoutPrompt = false;
@@ -1634,14 +1643,14 @@ main.main > section.panel {
 
     if (moduleEnabled && enforceAllWavelengths) {
       return {
-        summaryLabel: 'Required by all-wavelengths',
+        summaryLabel: 'Required by all-channels',
         summaryRequired: true,
         summaryPaused: false,
         rowChecked: true,
         toggleDisabled: true,
         rowDisabled: true,
         rowLocked: false,
-        helpText: 'Required because "Enforce required wavelengths" is enabled.',
+        helpText: 'Required because "Enforce required channels" is enabled.',
       };
     }
 
@@ -1660,14 +1669,14 @@ main.main > section.panel {
 
     if (enforceAllWavelengths) {
       return {
-        summaryLabel: 'Paused by all-wavelengths',
+        summaryLabel: 'Paused by all-channels',
         summaryRequired: false,
         summaryPaused: true,
         rowChecked: true,
         toggleDisabled: true,
         rowDisabled: true,
         rowLocked: false,
-        helpText: 'Paused because "Enforce required wavelengths" is saved while the validation module is OFF.',
+        helpText: 'Paused because "Enforce required channels" is saved while the validation module is OFF.',
       };
     }
 
@@ -1722,8 +1731,8 @@ main.main > section.panel {
     const prevText = advancedOptionalChecksNote.textContent || '';
     const nextState = moduleEnabled ? 'on' : 'off';
     const nextText = moduleEnabled
-      ? 'Optional validations below are ON. Stats-required channels stay enforced, and saved manual or all-wavelength requirements are active as shown.'
-      : 'Optional validations below are OFF. Stats-required channels stay enforced; saved manual and all-wavelength requirements are paused until this module is turned back on.';
+      ? 'Optional validations below are ON. Stats-required channels stay enforced, and saved manual or all-channel requirements are active as shown.'
+      : 'Optional validations below are OFF. Stats-required channels stay enforced; saved manual and all-channel requirements are paused until this module is turned back on.';
     const shouldAnimate = prevState !== nextState || prevText !== nextText;
 
     advancedOptionalChecksNote.classList.remove('on', 'off');
@@ -2025,12 +2034,13 @@ main.main > section.panel {
   const prefsScaleInput = document.getElementById('microns_per_pixel');
   const prefsScaleLive = document.getElementById('prefsScaleLive');
   const prefsScaleExample = document.getElementById('prefsScaleExample');
-  const mcherryWidthInput = document.getElementById('mcherry_width');
-  const mcherryWidthUnit = document.getElementById('mcherry_width_unit');
-  const gfpDistanceInput = document.getElementById('gfp_distance');
-  const gfpDistanceUnit = document.getElementById('gfp_distance_unit');
-  const gfpThresholdInput = document.getElementById('gfp_threshold');
-  const nuclearCellularModeInput = document.getElementById('nuclear_cellular_mode');
+  const redWidthInput = document.getElementById('puncta_line_width');
+  const redWidthUnit = document.getElementById('puncta_line_width_unit');
+  const cenDotDistanceInput = document.getElementById('cen_dot_distance');
+  const cenDotDistanceUnit = document.getElementById('cen_dot_distance_unit');
+  const cenDotCollinearityThresholdInput = document.getElementById('cen_dot_collinearity_threshold');
+  const punctaLineModeInput = document.getElementById('puncta_line_mode');
+  const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
@@ -2042,8 +2052,8 @@ main.main > section.panel {
   const advancedLayerCheckRow = document.getElementById('advancedLayerCheckRow');
   const advancedWavelengthCheckRow = document.getElementById('advancedWavelengthCheckRow');
   const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
-  const gfpFilterEnabledInput = document.getElementById('gfp_filter_enabled');
-  const alternateMCherryDetectionInput = document.getElementById('alternate_mcherry_detection');
+  const greenContourFilterEnabledInput = document.getElementById('green_contour_filter_enabled');
+  const alternateRedDetectionInput = document.getElementById('alternate_red_detection');
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
   const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
@@ -2065,6 +2075,7 @@ main.main > section.panel {
   };
 
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
+  const formatLengthUnitLabel = (value) => (normalizeLengthUnit(value) === 'um' ? 'µm' : 'px');
 
   const formatNumeric = (value, precision) => {
     const parsed = Number(value);
@@ -2173,24 +2184,24 @@ main.main > section.panel {
     const umPerPx = sanitizePositive(prefsScaleInput.value, 0.1);
     const pxPerUm = umPerPx > 0 ? (1 / umPerPx) : 0;
     prefsScaleLive.textContent =
-      `Current scale: 1 um = ${formatNumeric(pxPerUm, 3)} px (${formatNumeric(umPerPx, 4)} um/px).`;
+      `Current scale: 1 µm = ${formatNumeric(pxPerUm, 3)} px (${formatNumeric(umPerPx, 4)} µm/px).`;
 
     const examples = [];
-    if (mcherryWidthUnit && mcherryWidthInput && mcherryWidthUnit.value === 'um') {
-      const px = convertUmToPixels(mcherryWidthInput.value, umPerPx);
+    if (redWidthUnit && redWidthInput && redWidthUnit.value === 'um') {
+      const px = convertUmToPixels(redWidthInput.value, umPerPx);
       if (px > 0) {
-        examples.push(`mCherry line width ${formatNumeric(mcherryWidthInput.value, 3)} um -> ${px} px`);
+        examples.push(`Puncta line width ${formatNumeric(redWidthInput.value, 3)} µm -> ${px} px`);
       }
     }
-    if (gfpDistanceUnit && gfpDistanceInput && gfpDistanceUnit.value === 'um') {
-      const px = convertUmToPixels(gfpDistanceInput.value, umPerPx);
+    if (cenDotDistanceUnit && cenDotDistanceInput && cenDotDistanceUnit.value === 'um') {
+      const px = convertUmToPixels(cenDotDistanceInput.value, umPerPx);
       if (px > 0) {
-        examples.push(`Minimum signal distance ${formatNumeric(gfpDistanceInput.value, 3)} um -> ${px} px`);
+        examples.push(`Minimum signal distance ${formatNumeric(cenDotDistanceInput.value, 3)} µm -> ${px} px`);
       }
     }
     prefsScaleExample.textContent = examples.length
       ? `Live conversion: ${examples.join(' | ')}`
-      : 'Set a plugin length unit to um to preview its pixel conversion here.';
+      : 'Set a plugin length unit to µm to preview its pixel conversion here.';
   };
 
   const captureNumericField = (inputEl) => {
@@ -2203,12 +2214,13 @@ main.main > section.panel {
 
   const capturePluginSnapshot = () => ({
     selectedPlugins: sortByOrder([...selectedPlugins], pluginOrder),
-    mcherryWidth: captureNumericField(mcherryWidthInput),
-    mcherryWidthUnit: normalizeLengthUnit(valueOrEmpty(mcherryWidthUnit)),
-    gfpDistance: captureNumericField(gfpDistanceInput),
-    gfpDistanceUnit: normalizeLengthUnit(valueOrEmpty(gfpDistanceUnit)),
-    gfpThreshold: captureNumericField(gfpThresholdInput),
-    nuclearCellularMode: valueOrEmpty(nuclearCellularModeInput) || 'green_nucleus',
+    redWidth: captureNumericField(redWidthInput),
+    redWidthUnit: normalizeLengthUnit(valueOrEmpty(redWidthUnit)),
+    cenDotDistance: captureNumericField(cenDotDistanceInput),
+    cenDotDistanceUnit: normalizeLengthUnit(valueOrEmpty(cenDotDistanceUnit)),
+    cenDotCollinearityThreshold: captureNumericField(cenDotCollinearityThresholdInput),
+    punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
+    nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
   });
@@ -2218,8 +2230,8 @@ main.main > section.panel {
     enforceLayerCount: !!(enforceLayerCountInput && enforceLayerCountInput.checked),
     enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
-    gfpFilterEnabled: !!(gfpFilterEnabledInput && gfpFilterEnabledInput.checked),
-    alternateMCherryDetection: !!(alternateMCherryDetectionInput && alternateMCherryDetectionInput.checked),
+    greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
+    alternateRedDetection: !!(alternateRedDetectionInput && alternateRedDetectionInput.checked),
     requiredChannels: sortByOrder([...manualRequiredChannels], channelOrder),
     overrideChannels: sortByOrder([...overrides], channelOrder),
   });
@@ -2255,34 +2267,34 @@ main.main > section.panel {
     });
 
     if (
-      fromSnapshot.mcherryWidth.normalized !== toSnapshot.mcherryWidth.normalized ||
-      fromSnapshot.mcherryWidthUnit !== toSnapshot.mcherryWidthUnit
+      fromSnapshot.redWidth.normalized !== toSnapshot.redWidth.normalized ||
+      fromSnapshot.redWidthUnit !== toSnapshot.redWidthUnit
     ) {
       changes.push(
-        `mCherry line width: ${numericDisplay(fromSnapshot.mcherryWidth)} ${fromSnapshot.mcherryWidthUnit} -> ${numericDisplay(toSnapshot.mcherryWidth)} ${toSnapshot.mcherryWidthUnit}`
+        `Puncta line width: ${numericDisplay(fromSnapshot.redWidth)} ${formatLengthUnitLabel(fromSnapshot.redWidthUnit)} -> ${numericDisplay(toSnapshot.redWidth)} ${formatLengthUnitLabel(toSnapshot.redWidthUnit)}`
       );
     }
     if (
-      fromSnapshot.gfpDistance.normalized !== toSnapshot.gfpDistance.normalized ||
-      fromSnapshot.gfpDistanceUnit !== toSnapshot.gfpDistanceUnit
+      fromSnapshot.cenDotDistance.normalized !== toSnapshot.cenDotDistance.normalized ||
+      fromSnapshot.cenDotDistanceUnit !== toSnapshot.cenDotDistanceUnit
     ) {
       changes.push(
-        `Minimum signal distance: ${numericDisplay(fromSnapshot.gfpDistance)} ${fromSnapshot.gfpDistanceUnit} -> ${numericDisplay(toSnapshot.gfpDistance)} ${toSnapshot.gfpDistanceUnit}`
+        `Minimum signal distance: ${numericDisplay(fromSnapshot.cenDotDistance)} ${formatLengthUnitLabel(fromSnapshot.cenDotDistanceUnit)} -> ${numericDisplay(toSnapshot.cenDotDistance)} ${formatLengthUnitLabel(toSnapshot.cenDotDistanceUnit)}`
       );
     }
-    if (fromSnapshot.gfpThreshold.normalized !== toSnapshot.gfpThreshold.normalized) {
+    if (fromSnapshot.cenDotCollinearityThreshold.normalized !== toSnapshot.cenDotCollinearityThreshold.normalized) {
       changes.push(
-        `Biorientation collinearity threshold: ${numericDisplay(fromSnapshot.gfpThreshold)} -> ${numericDisplay(toSnapshot.gfpThreshold)}`
+        `Biorientation collinearity threshold: ${numericDisplay(fromSnapshot.cenDotCollinearityThreshold)} -> ${numericDisplay(toSnapshot.cenDotCollinearityThreshold)}`
       );
     }
-    if (fromSnapshot.nuclearCellularMode !== toSnapshot.nuclearCellularMode) {
+    if (fromSnapshot.nuclearCellPairMode !== toSnapshot.nuclearCellPairMode) {
       changes.push(
-        `Nucleus contour source: ${nucleusModeLabel(fromSnapshot.nuclearCellularMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellularMode)}`
+        `Nucleus contour source: ${nucleusModeLabel(fromSnapshot.nuclearCellPairMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellPairMode)}`
       );
     }
     if (fromSnapshot.micronsPerPixel.normalized !== toSnapshot.micronsPerPixel.normalized) {
       changes.push(
-        `Micrometers per pixel (um/px): ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
+        `Micrometers per pixel (µm/px): ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
       );
     }
     pushToggleChange(
@@ -2323,7 +2335,7 @@ main.main > section.panel {
     );
     pushToggleChange(
       changes,
-      'Enforce required wavelengths',
+      'Enforce required channels',
       fromSnapshot.enforceWavelengths,
       toSnapshot.enforceWavelengths
     );
@@ -2335,15 +2347,15 @@ main.main > section.panel {
     );
     pushToggleChange(
       changes,
-      'Enable GFP minimum-size filter',
-      fromSnapshot.gfpFilterEnabled,
-      toSnapshot.gfpFilterEnabled
+      'Enable Green minimum-size filter',
+      fromSnapshot.greenContourFilterEnabled,
+      toSnapshot.greenContourFilterEnabled
     );
     pushToggleChange(
       changes,
-      'Enable alternate mCherry detection where a contour surrounds all speckles',
-      fromSnapshot.alternateMCherryDetection,
-      toSnapshot.alternateMCherryDetection
+      'Enable alternate Red detection where a contour surrounds all speckles',
+      fromSnapshot.alternateRedDetection,
+      toSnapshot.alternateRedDetection
     );
 
     const beforeRequired = new Set(fromSnapshot.requiredChannels || []);
@@ -2353,7 +2365,7 @@ main.main > section.panel {
       const wasRequired = beforeRequired.has(channel);
       const isRequired = afterRequired.has(channel);
       if (wasRequired === isRequired) return;
-      changes.push(`Require ${channel} wavelength: ${asOnOff(wasRequired)} -> ${asOnOff(isRequired)}`);
+      changes.push(`Require ${displayChannelLabel(channel)} channel: ${asOnOff(wasRequired)} -> ${asOnOff(isRequired)}`);
     });
 
     const beforeOverrides = JSON.stringify(fromSnapshot.overrideChannels || []);
@@ -2444,20 +2456,21 @@ main.main > section.panel {
     selectedPlugins.clear();
     (snapshot.selectedPlugins || []).forEach((pluginId) => selectedPlugins.add(pluginId));
     syncPluginToggles();
-    if (mcherryWidthInput) mcherryWidthInput.value = snapshot.mcherryWidth.raw;
-    if (mcherryWidthUnit) {
-      mcherryWidthUnit.value = snapshot.mcherryWidthUnit;
-      mcherryWidthUnit.dataset.prevUnit = snapshot.mcherryWidthUnit;
-      syncLengthInputConstraints(mcherryWidthInput, snapshot.mcherryWidthUnit, 1, 0.01);
+    if (redWidthInput) redWidthInput.value = snapshot.redWidth.raw;
+    if (redWidthUnit) {
+      redWidthUnit.value = snapshot.redWidthUnit;
+      redWidthUnit.dataset.prevUnit = snapshot.redWidthUnit;
+      syncLengthInputConstraints(redWidthInput, snapshot.redWidthUnit, 1, 0.01);
     }
-    if (gfpDistanceInput) gfpDistanceInput.value = snapshot.gfpDistance.raw;
-    if (gfpDistanceUnit) {
-      gfpDistanceUnit.value = snapshot.gfpDistanceUnit;
-      gfpDistanceUnit.dataset.prevUnit = snapshot.gfpDistanceUnit;
-      syncLengthInputConstraints(gfpDistanceInput, snapshot.gfpDistanceUnit, 0, 0);
+    if (cenDotDistanceInput) cenDotDistanceInput.value = snapshot.cenDotDistance.raw;
+    if (cenDotDistanceUnit) {
+      cenDotDistanceUnit.value = snapshot.cenDotDistanceUnit;
+      cenDotDistanceUnit.dataset.prevUnit = snapshot.cenDotDistanceUnit;
+      syncLengthInputConstraints(cenDotDistanceInput, snapshot.cenDotDistanceUnit, 0, 0);
     }
-    if (gfpThresholdInput) gfpThresholdInput.value = snapshot.gfpThreshold.raw;
-    if (nuclearCellularModeInput) nuclearCellularModeInput.value = snapshot.nuclearCellularMode;
+    if (cenDotCollinearityThresholdInput) cenDotCollinearityThresholdInput.value = snapshot.cenDotCollinearityThreshold.raw;
+    if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+    if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
     syncRows();
@@ -2470,8 +2483,8 @@ main.main > section.panel {
     if (enforceLayerCountInput) enforceLayerCountInput.checked = snapshot.enforceLayerCount;
     if (enforceWavelengthsInput) enforceWavelengthsInput.checked = snapshot.enforceWavelengths;
     if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
-    if (gfpFilterEnabledInput) gfpFilterEnabledInput.checked = snapshot.gfpFilterEnabled;
-    if (alternateMCherryDetectionInput) alternateMCherryDetectionInput.checked = snapshot.alternateMCherryDetection;
+    if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
+    if (alternateRedDetectionInput) alternateRedDetectionInput.checked = snapshot.alternateRedDetection;
     manualRequiredChannels.clear();
     (snapshot.requiredChannels || []).forEach((channel) => {
       if (channel && !alwaysRequired.has(channel)) {
@@ -2583,7 +2596,7 @@ main.main > section.panel {
     });
   };
 
-  [prefsScaleInput, mcherryWidthInput, mcherryWidthUnit, gfpDistanceInput, gfpDistanceUnit].forEach((el) => {
+  [prefsScaleInput, redWidthInput, redWidthUnit, cenDotDistanceInput, cenDotDistanceUnit].forEach((el) => {
     if (!el) return;
     el.addEventListener('input', updateMeasurementScaleHelp);
     el.addEventListener('change', updateMeasurementScaleHelp);
@@ -2618,11 +2631,11 @@ main.main > section.panel {
     });
   });
 
-  if (mcherryWidthInput && mcherryWidthUnit) {
-    mcherryWidthUnit.dataset.prevUnit = normalizeLengthUnit(mcherryWidthUnit.value);
-    syncLengthInputConstraints(mcherryWidthInput, mcherryWidthUnit.value, 1, 0.01);
-    mcherryWidthUnit.addEventListener('change', () => {
-      applyUnitConversion(mcherryWidthInput, mcherryWidthUnit, {
+  if (redWidthInput && redWidthUnit) {
+    redWidthUnit.dataset.prevUnit = normalizeLengthUnit(redWidthUnit.value);
+    syncLengthInputConstraints(redWidthInput, redWidthUnit.value, 1, 0.01);
+    redWidthUnit.addEventListener('change', () => {
+      applyUnitConversion(redWidthInput, redWidthUnit, {
         minimumPx: 1,
         minimumUm: 0.01,
         defaultForUnit: (unit, umPerPx) => (normalizeLengthUnit(unit) === 'um' ? umPerPx : 1),
@@ -2632,11 +2645,11 @@ main.main > section.panel {
     });
   }
 
-  if (gfpDistanceInput && gfpDistanceUnit) {
-    gfpDistanceUnit.dataset.prevUnit = normalizeLengthUnit(gfpDistanceUnit.value);
-    syncLengthInputConstraints(gfpDistanceInput, gfpDistanceUnit.value, 0, 0);
-    gfpDistanceUnit.addEventListener('change', () => {
-      applyUnitConversion(gfpDistanceInput, gfpDistanceUnit, {
+  if (cenDotDistanceInput && cenDotDistanceUnit) {
+    cenDotDistanceUnit.dataset.prevUnit = normalizeLengthUnit(cenDotDistanceUnit.value);
+    syncLengthInputConstraints(cenDotDistanceInput, cenDotDistanceUnit.value, 0, 0);
+    cenDotDistanceUnit.addEventListener('change', () => {
+      applyUnitConversion(cenDotDistanceInput, cenDotDistanceUnit, {
         minimumPx: 0,
         minimumUm: 0,
         defaultForUnit: (unit, umPerPx) => (normalizeLengthUnit(unit) === 'um' ? 37 * umPerPx : 37),
@@ -2743,3 +2756,4 @@ main.main > section.panel {
 })();
 </script>
 {% endblock content %}
+

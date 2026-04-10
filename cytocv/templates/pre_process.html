@@ -102,13 +102,13 @@
 </script>
     <style>
       .channel-chip.dic { background-color: black; }
-      .channel-chip.dapi { background-color: blue; }
-      .channel-chip.mcherry { background-color: red; }
-      .channel-chip.gfp { background-color: green; }
+      .channel-chip.blue { background-color: blue; }
+      .channel-chip.red { background-color: red; }
+      .channel-chip.green { background-color: green; }
       .channel-chip.dic:hover { background-color: var(--panel-border); }
-      .channel-chip.dapi:hover { background-color: #4d4dff; }
-      .channel-chip.mcherry:hover { background-color: #ff6b6b; }
-      .channel-chip.gfp:hover { background-color: #3bbf3b; }
+      .channel-chip.blue:hover { background-color: #4d4dff; }
+      .channel-chip.red:hover { background-color: #ff6b6b; }
+      .channel-chip.green:hover { background-color: #3bbf3b; }
 
       /* Overall page styling */
       body {
@@ -1337,8 +1337,8 @@
           : (sourceKey === "manual_fallback" ? "Fallback" : "Manual");
         const effectiveValue = useMetadata ? metadataScale : manualScale;
         const summary = anisotropic
-          ? `dx ${formatScaleValue(dx)} / dy ${formatScaleValue(dy)} um/px`
-          : `${formatScaleValue(effectiveValue)} um/px`;
+          ? `dx ${formatScaleValue(dx)} / dy ${formatScaleValue(dy)} µm/px`
+          : `${formatScaleValue(effectiveValue)} µm/px`;
         const warning = sourceKey === "manual_fallback" || status === "invalid" || anisotropic;
 
         let note = "";
@@ -1683,8 +1683,8 @@
             fadeScaleText(
               summary,
               isOverride
-                ? `${formatScaleValue(current)} um/px`
-                : (baseUi.summary || `${formatScaleValue(baseline)} um/px`),
+                ? `${formatScaleValue(current)} µm/px`
+                : (baseUi.summary || `${formatScaleValue(baseline)} µm/px`),
               { direction: "top" },
             );
           }
@@ -1717,8 +1717,8 @@
         setScaleText(
           summary,
           initialSourceKey === "manual_override"
-            ? `${formatScaleValue(seededValue)} um/px`
-            : (autoUi.summary || `${formatScaleValue(seededValue)} um/px`),
+            ? `${formatScaleValue(seededValue)} µm/px`
+            : (autoUi.summary || `${formatScaleValue(seededValue)} µm/px`),
           { direction: "top" },
         );
         setScaleText(
@@ -2375,3 +2375,4 @@
       })();
     </script>
 {% endblock content %}
+
