@@ -96,6 +96,7 @@ from core.services.artifact_storage import (
     save_png_array,
 )
 from core.services.canonical_contours import (
+    CANONICAL_BLUE_SLOTS_KEY,
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
@@ -262,74 +263,28 @@ def get_stats(
     canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
     canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
-    best_contour_data = {}
-    best_contour_blue = None
-    best_blue_area = None
-    blue_gray = preprocessed_images.get_image("gray_blue")
-    if blue_gray is not None:
-        image_area = float(blue_gray.shape[0] * blue_gray.shape[1])
-        min_blue_area = max(10.0, image_area * 0.002)
-        max_blue_area = image_area * 0.95
-
-        def _pick_first_valid(contours, indices):
-            for idx in indices:
-                if idx >= len(contours):
-                    continue
-                cnt = contours[idx]
-                area = cv2.contourArea(cnt)
-                if min_blue_area <= area <= max_blue_area:
-                    return cnt, area
-            return None, None
-
-        best_contour_blue, best_blue_area = _pick_first_valid(
-            contours_data.get("contours_blue_3", []),
-            contours_data.get("best_contours_blue_3", []),
-        )
-
-        if best_contour_blue is None:
-            best_contour_blue, best_blue_area = _pick_first_valid(
-                contours_data.get("contours_blue", []),
-                contours_data.get("best_contours_blue", []),
-            )
-
-        if best_contour_blue is None and contours_data.get("contours_blue"):
-            valid_blue = []
-            for cnt in contours_data["contours_blue"]:
-                area = cv2.contourArea(cnt)
-                if min_blue_area <= area <= max_blue_area:
-                    valid_blue.append((area, cnt))
-            if valid_blue:
-                valid_blue.sort(key=lambda item: item[0], reverse=True)
-                best_blue_area, best_contour_blue = valid_blue[0]
-
-    if best_contour_blue is not None:
-        best_contour_data["Blue"] = best_contour_blue
-        cp.blue_contour_size = float(best_blue_area)
-    else:
-        cp.blue_contour_size = 0.0
+    canonical_blue_slots = contours_data.get(CANONICAL_BLUE_SLOTS_KEY, [])
+    canonical_blue_contours = flatten_slot_contours(canonical_blue_slots)
+    cp.blue_contour_size = float(canonical_blue_slots[0].area) if canonical_blue_slots else 0.0
 
     if canonical_red_contours:
         cv2.drawContours(edit_red_img, canonical_red_contours, -1, (0, 0, 255), 1)
         cv2.drawContours(edit_green_img, canonical_red_contours, -1, (0, 0, 255), 1)
         cv2.drawContours(edit_blue_img, canonical_red_contours, -1, (0, 0, 255), 1)
 
-    if best_contour_blue is not None:
-        cv2.drawContours(edit_green_img, [best_contour_blue], 0, (255, 0, 0), 1)
-        cv2.drawContours(edit_blue_img, [best_contour_blue], 0, (255, 0, 0), 1)
+    if canonical_blue_contours:
+        cv2.drawContours(edit_green_img, canonical_blue_contours, -1, (255, 0, 0), 1)
+        cv2.drawContours(edit_blue_img, canonical_blue_contours, -1, (255, 0, 0), 1)
 
     if canonical_green_contours:
         cv2.drawContours(edit_red_img, canonical_green_contours, -1, (0, 255, 0), 1)
         cv2.drawContours(edit_green_img, canonical_green_contours, -1, (0, 255, 0), 1)
         cv2.drawContours(edit_blue_img, canonical_green_contours, -1, (0, 255, 0), 1)
 
-    blue_contour_required_plugins = {"NucleusIntensity", "BlueNucleusIntensity"}
     for analysis in execution_plan.analyses:
-        analysis_name = analysis.__class__.__name__
-        if analysis_name in blue_contour_required_plugins and "Blue" not in best_contour_data:
-            continue
         analysis.setting_up(cp, preprocessed_images, output_dir)
         analysis.calculate_statistics(
-            best_contour_data,
+            {},
             contours_data,
             edit_red_img,
             edit_green_img,

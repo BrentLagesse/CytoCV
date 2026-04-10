@@ -1,11 +1,15 @@
-from .analysis import Analysis
-import numpy as np
-import cv2, os, csv
 import logging
-from core.models import Contour
+
+import numpy as np
 from cv2_rolling_ball import subtract_background_rolling_ball
 
 from core.image_processing import calculate_intensity_mask
+from core.services.canonical_contours import (
+    CELL_MASK_KEY,
+    get_canonical_blue_slots,
+    load_cell_mask,
+)
+from .analysis import Analysis
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +28,14 @@ class BlueNucleusIntensity(Analysis):
         cen_dot_collinearity_threshold=66,
         cen_dot_proximity_radius=13,
     ):
+        """Calculate blue-channel intensity within the nucleus and cell regions."""
+
         gray_blue = self.preprocessed_images.get_image("gray_blue")
-        gray_blue_no_bg, background = subtract_background_rolling_ball(
+        if gray_blue is None:
+            self._set_defaults()
+            return
+
+        gray_blue_no_bg, _background = subtract_background_rolling_ball(
             gray_blue,
             50,
             light_background=False,
@@ -33,33 +43,36 @@ class BlueNucleusIntensity(Analysis):
             do_presmooth=True,
         )
 
-        mask_contour = np.zeros(gray_blue.shape, np.uint8)
-        cv2.fillPoly(mask_contour, [best_contours["Blue"]], 255)
-        pts_contour = np.transpose(np.nonzero(mask_contour))
+        shape = gray_blue_no_bg.shape[:2]
 
-        outline_filename = os.path.splitext(self.cp.image_name)[0] + '-' + str(self.cp.cell_id) + '.outline'
-        mask_file_path = os.path.join(self.output_dir, 'output', outline_filename)
+        blue_slots = get_canonical_blue_slots(contours_data, shape, limit=1)
+        if not blue_slots:
+            self._set_defaults()
+            return
 
-        with open(mask_file_path, 'r') as csvfile:
-            csvreader = csv.reader(csvfile)
-            border_cells = []
-            for row in csvreader:
-                border_cells.append([int(row[0]), int(row[1])])
+        nucleus_mask = blue_slots[0].mask
 
-        intensity_sum = 0
-        for p in pts_contour:
-            intensity_sum += gray_blue_no_bg[p[0]][p[1]]
-        logger.debug("Blue nucleus intensity sum for cell %s: %s", self.cp.cell_id, intensity_sum)
-        self.cp.nucleus_intensity_sum_blue = float(intensity_sum)
+        cell_mask = contours_data.get(CELL_MASK_KEY)
+        if cell_mask is None or cell_mask.shape[:2] != shape or not np.any(cell_mask):
+            cell_mask = load_cell_mask(
+                self.cp.image_name, self.cp.cell_id, self.output_dir, shape,
+            )
 
-        cell_intensity_sum = 0
-        for p in border_cells:
-             cell_intensity_sum += gray_blue_no_bg[p[0]][p[1]]
+        nucleus_intensity = float(calculate_intensity_mask(gray_blue_no_bg, nucleus_mask))
+        cell_intensity = float(calculate_intensity_mask(gray_blue_no_bg, cell_mask))
+
+        logger.debug("Blue nucleus intensity sum for cell %s: %s", self.cp.cell_id, nucleus_intensity)
         logger.debug(
             "Blue cellular intensity sum for cell %s: %s",
             self.cp.cell_id,
-            cell_intensity_sum,
+            cell_intensity,
         )
 
-        self.cp.cell_pair_intensity_sum_blue = float(cell_intensity_sum)
-        self.cp.cytoplasmic_intensity_blue = float(cell_intensity_sum) - float(intensity_sum)
+        self.cp.nucleus_intensity_sum_blue = nucleus_intensity
+        self.cp.cell_pair_intensity_sum_blue = cell_intensity
+        self.cp.cytoplasmic_intensity_blue = cell_intensity - nucleus_intensity
+
+    def _set_defaults(self):
+        self.cp.nucleus_intensity_sum_blue = 0.0
+        self.cp.cell_pair_intensity_sum_blue = 0.0
+        self.cp.cytoplasmic_intensity_blue = 0.0
