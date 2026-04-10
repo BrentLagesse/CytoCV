@@ -1771,7 +1771,7 @@
                                         </div>
                                         <div class="metric-row">
                                             <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
-                                            <span class="metric-value" id="cellularIntensitySum"></span>
+                                            <span class="metric-value" id="cellPairIntensitySum"></span>
                                         </div>
                                         <div class="metric-row">
                                             <span class="metric-label">Cytoplasmic intensity</span>
@@ -1786,10 +1786,10 @@
                                         </div>
                                         <div class="metric-row">
                                             <span class="metric-label" id="lineIntensityLabel">Green Intensity over Red Line</span>
-                                            <span class="metric-value" id="lineGreenIntensity"></span>
+                                            <span class="metric-value" id="punctaLineIntensity"></span>
                                         </div>
                                         <div class="metric-row">
-                                            <span class="metric-label">CEN Dot</span>
+                                            <span class="metric-label">CEN dot</span>
                                             <span class="metric-value" id="cenDot"></span>
                                         </div>
                                         <div class="metric-row">
@@ -1965,7 +1965,7 @@
         const FILE_BLEND_IMAGE_MS = 190;
         const BLEND_METRIC_IDS = [
             'distance',
-            'lineGreenIntensity',
+            'punctaLineIntensity',
             'measurementContourRatioFormula',
             'measurementContourRatio1',
             'measurementContourRatio2',
@@ -1983,7 +1983,7 @@
             'greenInGreenIntensity2',
             'greenInGreenIntensity3',
             'nucleusIntensitySum',
-            'cellularIntensitySum',
+            'cellPairIntensitySum',
             'cytoplasmicIntensity',
             'cenDot',
             'biorientation',
@@ -2263,7 +2263,7 @@
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
             const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
             const labels = getNuclearLabelPair(mode);
             const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance between Red Puncta') : 'Distance between Red Puncta';
             const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity over Red Line') : 'Green Intensity over Red Line';
@@ -2272,8 +2272,8 @@
                 visibleImageUrls,
                 cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
                 metricValues: {
-                    distance: formatStatValue(cellStats ? cellStats.distance : null),
-                    lineGreenIntensity: formatStatValue(cellStats ? cellStats.line_green_intensity : null),
+                    distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),
+                    punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
                     measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
                     measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
                     measurementContourRatio2: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null),
@@ -2291,13 +2291,13 @@
                     greenInGreenIntensity2: formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null),
                     greenInGreenIntensity3: formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null),
                     nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
-                    cellularIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cellular_intensity_sum),
+                    cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
                     cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
                     cenDot: category,
                     biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),
-                    nucleusContourChannel: cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour,
-                    measurementChannel: cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement,
-                    nuclearStatus: cellStats ? (cellStats.nuclear_cellular_status || 'unknown') : 'N/A',
+                    nucleusContourChannel: cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour,
+                    measurementChannel: cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement,
+                    nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
                 },
                 labels: {
                     distanceLabel,
@@ -2677,13 +2677,13 @@
         }
 
         function hasNoNucleusContour(cellStats) {
-            return Boolean(cellStats && cellStats.nuclear_cellular_status === 'no_nucleus_contour');
+            return Boolean(cellStats && cellStats.nuclear_cell_pair_status === 'no_nucleus_contour');
         }
 
         function getNuclearLabelPair(mode) {
             if (mode === 'red_nucleus') {
                 return {
-                    cellular: 'Green cellular intensity',
+                    cellular: 'Green cell-pair intensity',
                     nuclear: 'Green nuclear intensity',
                     contour: 'Red',
                     measurement: 'Green',
@@ -2691,14 +2691,14 @@
             }
             if (mode === 'green_nucleus') {
                 return {
-                    cellular: 'Red cellular intensity',
+                    cellular: 'Red cell-pair intensity',
                     nuclear: 'Red nuclear intensity',
                     contour: 'Green',
                     measurement: 'Red',
                 };
             }
             return {
-                cellular: 'Measured cellular intensity',
+                cellular: 'Measured cell-pair intensity',
                 nuclear: 'Measured nuclear intensity',
                 contour: 'N/A',
                 measurement: 'N/A',
@@ -2711,7 +2711,7 @@
             const tbody = table.querySelector('tbody');
             if (!tbody) return;
             const nuclearCellularFields = new Set([
-                'cellular_intensity_sum',
+                'cell_pair_intensity_sum',
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
             ]);
@@ -2719,12 +2719,10 @@
             const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
             const keyMap = {
                 'Cell ID': 'cell_id',
-                'Red Line Distance': 'distance',
-                'Distance between Red Puncta': 'distance',
-                'Distance between Green Puncta': 'distance',
-                'Line Green Intensity': 'line_green_intensity',
-                'Green Intensity over Red Line': 'line_green_intensity',
-                'Red Intensity over Green Line': 'line_green_intensity',
+                'Distance between Red Puncta': 'puncta_distance',
+                'Distance between Green Puncta': 'puncta_distance',
+                'Green Intensity over Red Line': 'puncta_line_intensity',
+                'Red Intensity over Green Line': 'puncta_line_intensity',
                 'Blue Contour Size': 'blue_contour_size',
                 'Red Contour 1 Size': 'red_contour_1_size',
                 'Red Contour 2 Size': 'red_contour_2_size',
@@ -2750,21 +2748,21 @@
                 'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1',
                 'Measurement/Contour Ratio 2 (Red/Green)': 'measurement_contour_ratio_2',
                 'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3',
-                'Green-to-Red Distance 1': 'green_to_red_distance_1',
-                'Green-to-Red Distance 2': 'green_to_red_distance_2',
-                'Green-to-Red Distance 3': 'green_to_red_distance_3',
-                'CEN Dot Category': 'category_cen_dot_label',
-                'Measured cellular intensity': 'cellular_intensity_sum',
+                'Distance of Green from Red 1': 'distance_of_green_from_red_1',
+                'Distance of Green from Red 2': 'distance_of_green_from_red_2',
+                'Distance of Green from Red 3': 'distance_of_green_from_red_3',
+                'CEN dot Category': 'category_cen_dot_label',
+                'Measured cell-pair intensity': 'cell_pair_intensity_sum',
                 'Measured nuclear intensity': 'nucleus_intensity_sum',
-                'Measured Cellular Intensity': 'cellular_intensity_sum',
+                'Measured Cell-Pair Intensity': 'cell_pair_intensity_sum',
                 'Measured Nuclear Intensity': 'nucleus_intensity_sum',
-                'Red cellular intensity': 'cellular_intensity_sum',
+                'Red cell-pair intensity': 'cell_pair_intensity_sum',
                 'Red nuclear intensity': 'nucleus_intensity_sum',
-                'Green cellular intensity': 'cellular_intensity_sum',
+                'Green cell-pair intensity': 'cell_pair_intensity_sum',
                 'Green nuclear intensity': 'nucleus_intensity_sum',
-                'Red Cellular Intensity': 'cellular_intensity_sum',
+                'Red Cell-Pair Intensity': 'cell_pair_intensity_sum',
                 'Red Nuclear Intensity': 'nucleus_intensity_sum',
-                'Green Cellular Intensity': 'cellular_intensity_sum',
+                'Green Cell-Pair Intensity': 'cell_pair_intensity_sum',
                 'Green Nuclear Intensity': 'nucleus_intensity_sum',
                 'Cytoplasmic Intensity': 'cytoplasmic_intensity',
                 'Biorientation': 'biorientation',
@@ -2858,8 +2856,8 @@
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             document.getElementById("distanceLabel").textContent = cellStats ? (cellStats.puncta_distance_label || "Distance between Red Puncta") : "Distance between Red Puncta";
             document.getElementById("lineIntensityLabel").textContent = cellStats ? (cellStats.puncta_line_intensity_label || "Green Intensity over Red Line") : "Green Intensity over Red Line";
-            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.distance : null);
-            document.getElementById("lineGreenIntensity").textContent = formatStatValue(cellStats ? cellStats.line_green_intensity : null);
+            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.puncta_distance : null);
+            document.getElementById("punctaLineIntensity").textContent = formatStatValue(cellStats ? cellStats.puncta_line_intensity : null);
             document.getElementById("measurementContourRatioFormula").textContent = cellStats ? (cellStats.measurement_contour_ratio_display_text || "N/A") : "N/A";
             document.getElementById("measurementContourRatio1").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null);
             document.getElementById("measurementContourRatio2").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null);
@@ -2877,17 +2875,17 @@
             document.getElementById("greenInGreenIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null);
             document.getElementById("greenInGreenIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null);
             document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);
-            document.getElementById("cellularIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cellular_intensity_sum);
+            document.getElementById("cellPairIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cell_pair_intensity_sum);
             document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);
             document.getElementById("cenDot").textContent = category;
             document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);
-            const mode = cellStats ? cellStats.nuclear_cellular_mode : null;
+            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
             const labels = getNuclearLabelPair(mode);
             document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
             document.getElementById("cellularIntensityLabel").textContent = labels.cellular;
-            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cellular_contour_channel || labels.contour) : labels.contour;
-            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cellular_measurement_channel || labels.measurement) : labels.measurement;
-            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cellular_status || "unknown") : "N/A";
+            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour;
+            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement;
+            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cell_pair_status || "unknown") : "N/A";
         }
 
         function getCurrentCellImageUrls() {

@@ -171,16 +171,16 @@ def set_options(opt):
     input_dir = opt['input_dir']
     output_dir = opt['output_dir']
     kernel_size_input = opt['kernel_size']
-    red_line_width_input = _process_config_value(opt, 'red_line_width', 'mCherry_line_width', 1)
+    puncta_line_width_input = _process_config_value(opt, 'puncta_line_width', 'red_line_width', 1)
     kernel_deviation_input = opt['kernel_deviation']
     choice_var = opt['arrested']
-    return kernel_size_input, red_line_width_input, kernel_deviation_input, choice_var
+    return kernel_size_input, puncta_line_width_input, kernel_deviation_input, choice_var
 
 def get_stats(
     cp,
     conf,
     execution_plan: StatsExecutionPlan | None,
-    red_line_width,
+    puncta_line_width,
     cen_dot_distance,
     cen_dot_collinearity_threshold,
     green_contour_filter_enabled=False,
@@ -188,11 +188,11 @@ def get_stats(
     cached_images=None,
 ):
     # loading configuration
-    kernel_size_input, red_line_width_input, kernel_deviation_input, _ = set_options(conf)
-    nuclear_cellular_mode = conf.get("nuclear_cellular_mode", "green_nucleus")
+    kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
+    nuclear_cell_pair_mode = conf.get("nuclear_cell_pair_mode", "green_nucleus")
     puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
     cp.properties = dict(cp.properties or {})
-    cp.properties["nuclear_cellular_mode"] = nuclear_cellular_mode
+    cp.properties["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
     cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
     cp.properties["puncta_line_source_channel"] = puncta_line_metadata["source_channel"]
     cp.properties["puncta_line_measurement_channel"] = puncta_line_metadata["measurement_channel"]
@@ -332,7 +332,7 @@ def get_stats(
             contours_data,
             edit_red_img,
             edit_green_img,
-            red_line_width,
+            puncta_line_width,
             cen_dot_distance,
             cen_dot_collinearity_threshold,
         )
@@ -1007,17 +1007,17 @@ def segment_image(request, uuids):
             request.session.get('selected_analysis', [])
         )
         selected_analysis = list(execution_plan.selected_plugins)
-        raw_red_line_width = request.session.get(
-            'stats_red_line_width_value',
-            request.session.get('redLineWidth', request.session.get('mCherryWidth', 1)),
+        raw_puncta_line_width = request.session.get(
+            'stats_puncta_line_width_value',
+            request.session.get('punctaLineWidth', request.session.get('redLineWidth', request.session.get('mCherryWidth', 1))),
         )
         raw_cen_dot_distance = request.session.get(
             'stats_cen_dot_distance_value',
             request.session.get('cenDotDistance', request.session.get('distance', 37)),
         )
-        red_line_width_unit = request.session.get(
-            'stats_red_line_width_unit',
-            request.session.get('stats_mcherry_width_unit', 'px'),
+        puncta_line_width_unit = request.session.get(
+            'stats_puncta_line_width_unit',
+            request.session.get('stats_red_line_width_unit', request.session.get('stats_mcherry_width_unit', 'px')),
         )
         cen_dot_distance_unit = request.session.get(
             'stats_cen_dot_distance_unit',
@@ -1046,9 +1046,9 @@ def segment_image(request, uuids):
         )
         cen_dot_distance_unit = normalize_length_unit(cen_dot_distance_unit, default="px")
 
-        red_line_width = convert_length_to_pixels(
-            raw_red_line_width,
-            red_line_width_unit,
+        puncta_line_width = convert_length_to_pixels(
+            raw_puncta_line_width,
+            puncta_line_width_unit,
             minimum_px=1,
             fallback_px=1,
             um_per_px=line_width_proxy_um_per_px,
@@ -1099,11 +1099,11 @@ def segment_image(request, uuids):
             request.session.get('alternateMCherryDetection', 'False'),
         )
 
-        configured_red_line_width = _process_config_value(
+        configured_puncta_line_width = _process_config_value(
             configuration,
+            "puncta_line_width",
             "red_line_width",
-            "mCherry_line_width",
-            DEFAULT_PROCESS_CONFIG.get("red_line_width", 1),
+            DEFAULT_PROCESS_CONFIG.get("puncta_line_width", 1),
         )
 
         # Build a proper 'conf' dict with required keys for get_stats
@@ -1111,7 +1111,7 @@ def segment_image(request, uuids):
             'input_dir': input_dir,
             'output_dir': os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
             'kernel_size': configuration["kernel_size"],
-            'red_line_width': configured_red_line_width,
+            'puncta_line_width': configured_puncta_line_width,
             'kernel_deviation': configuration["kernel_deviation"],
             'arrested': configuration["arrested"],
             'analysis' : selected_analysis,
@@ -1119,7 +1119,10 @@ def segment_image(request, uuids):
                 request.session.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
             ),
-            'nuclear_cellular_mode': request.session.get("nuclear_cellular_mode", "green_nucleus"),
+            'nuclear_cell_pair_mode': request.session.get(
+                "nuclear_cell_pair_mode",
+                request.session.get("nuclear_cellular_mode", "green_nucleus"),
+            ),
             'green_contour_filter_enabled': green_contour_filter_enabled,
             'alternate_red_detection': alternate_red_detection,
         }
@@ -1130,18 +1133,18 @@ def segment_image(request, uuids):
                 channel_config=channel_config,
                 kernel_size=configuration["kernel_size"],
                 kernel_deviation=configuration["kernel_deviation"],
-                red_line_width=configured_red_line_width,
+                puncta_line_width=configured_puncta_line_width,
                 arrested=configuration["arrested"],
                 selected_analysis=selected_analysis,
                 puncta_line_mode=normalize_puncta_line_mode(
                     request.session.get("puncta_line_mode"),
                     default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
-                nuclear_cellular_mode=request.session.get(
-                    "nuclear_cellular_mode",
-                    "green_nucleus",
+                nuclear_cell_pair_mode=request.session.get(
+                    "nuclear_cell_pair_mode",
+                    request.session.get("nuclear_cellular_mode", "green_nucleus"),
                 ),
-                red_line_width_px=red_line_width,
+                puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
                 cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
                 green_contour_filter_enabled=(
@@ -1154,7 +1157,7 @@ def segment_image(request, uuids):
                     if isinstance(alternate_red_detection, bool)
                     else str(alternate_red_detection).strip().lower() in {"1", "true", "yes", "on"}
                 ),
-                red_line_width_unit=red_line_width_unit,
+                puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
             ),
         )
@@ -1184,10 +1187,10 @@ def segment_image(request, uuids):
                 cell_id=cell_number,
                 defaults={
                     # Cell statistics numerical defaults
-                    'distance': 0.0,
-                    'line_green_intensity': 0.0,
+                    'puncta_distance': 0.0,
+                    'puncta_line_intensity': 0.0,
                     'nucleus_intensity_sum': 0.0,
-                    'cellular_intensity_sum': 0.0,
+                    'cell_pair_intensity_sum': 0.0,
                     'green_red_intensity_1': 0.0,
                     'green_red_intensity_2': 0.0,
                     'green_red_intensity_3': 0.0,
@@ -1205,7 +1208,10 @@ def segment_image(request, uuids):
                 request.session.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
             )
-            cp.properties["nuclear_cellular_mode"] = request.session.get("nuclear_cellular_mode", "green_nucleus")
+            cp.properties["nuclear_cell_pair_mode"] = request.session.get(
+                "nuclear_cell_pair_mode",
+                request.session.get("nuclear_cellular_mode", "green_nucleus"),
+            )
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
             cp.properties["scale_status"] = scale_info.get("status", "missing")
@@ -1217,18 +1223,18 @@ def segment_image(request, uuids):
             cp.properties["scale_is_anisotropic"] = bool(scale_context.get("is_anisotropic", False))
             cp.properties["scale_distance_mode"] = scale_context.get("distance_mode", "scalar")
             cp.properties["scale_line_width_proxy_um_per_px"] = line_width_proxy_um_per_px
-            cp.properties["stats_red_line_width_px"] = red_line_width
+            cp.properties["stats_puncta_line_width_px"] = puncta_line_width
             cp.properties["stats_cen_dot_distance_px"] = cen_dot_distance_px_equivalent
             cp.properties["stats_cen_dot_distance_value"] = cen_dot_distance
             cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
-            cp.properties["stats_red_line_width_unit"] = red_line_width_unit
+            cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
             cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
             # Call get_stats to do the real work
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
                 conf,
                 execution_plan,
-                red_line_width,
+                puncta_line_width,
                 cen_dot_distance,
                 cen_dot_collinearity_threshold,
                 green_contour_filter_enabled,

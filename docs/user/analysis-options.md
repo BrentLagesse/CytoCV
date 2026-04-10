@@ -13,10 +13,10 @@ This guide explains the user-visible analysis controls that affect validation, s
 
 The current default modern plugin set is:
 
-- `RedLineIntensity`
+- `PunctaDistance`
 - `CENDot`
 - `GreenRedIntensity`
-- `NuclearCellularIntensity`
+- `NuclearCellPairIntensity`
 
 These defaults require `DIC`, `Red`, and `Green`. They do not require `Blue`.
 
@@ -42,15 +42,15 @@ If no plugins are selected and no validation overrides are enabled, the enforced
 
 | Plugin | Required channels beyond `DIC` | Legacy | Included in modern defaults |
 | --- | --- | --- | --- |
-| `RedLineIntensity` | `Red`, `Green` | No | Yes |
+| `PunctaDistance` | `Red`, `Green` | No | Yes |
 | `CENDot` | `Red`, `Green` | No | Yes |
 | `GreenRedIntensity` | `Red`, `Green` | No | Yes |
-| `NuclearCellularIntensity` | `Red`, `Green` | No | Yes |
+| `NuclearCellPairIntensity` | `Red`, `Green` | No | Yes |
 | `NucleusIntensity` | `Blue`, `Green` | Yes | No |
 | `BlueNucleusIntensity` | `Blue` | Yes | No |
 | `RedBlueIntensity` | `Red`, `Blue` | Yes | No |
 
-The nuclear or cellular plugin family is exclusive in the current implementation. If multiple plugins from that family are selected, the first one in the stable plugin order remains active.
+The nuclear or cell-pair plugin family is exclusive in the current implementation. If multiple plugins from that family are selected, the first one in the stable plugin order remains active.
 
 ## Validation Module Controls
 
@@ -85,10 +85,10 @@ When `um` is used, values are converted to pixel-space thresholds using the effe
 The active measurement-related controls include:
 
 - puncta source selection for `Puncta Distance`
-- Red line width
+- Puncta line width
 - CEN dot distance threshold
 - CEN dot collinearity threshold
-- nuclear or cellular mode selection
+- nuclear or cell-pair mode selection
 - optional Green contour filtering
 
 The puncta-line mode currently supports:
@@ -96,7 +96,7 @@ The puncta-line mode currently supports:
 - `red_puncta`
 - `green_puncta`
 
-The nuclear or cellular mode currently supports:
+The nuclear or cell-pair mode currently supports:
 
 - `green_nucleus`
 - `red_nucleus`

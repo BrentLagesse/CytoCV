@@ -48,7 +48,7 @@ from core.services.artifact_storage import (
     sweep_user_run_artifacts,
 )
 
-NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
@@ -301,9 +301,9 @@ def pre_process(request, uuids):
         # Selection is primarily set during upload step. Keep POST fallback for
         # backward compatibility with older clients.
         selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
-        red_line_width_raw = request.POST.get(
-            'redLineWidth',
-            request.session.get('redLineWidth', request.session.get('mCherryWidth', 1)),
+        puncta_line_width_raw = request.POST.get(
+            'punctaLineWidth',
+            request.POST.get('redLineWidth', request.session.get('punctaLineWidth', request.session.get('redLineWidth', request.session.get('mCherryWidth', 1)))),
         )
         cen_dot_distance_raw = request.POST.get(
             'cenDotDistance',
@@ -323,12 +323,12 @@ def pre_process(request, uuids):
             ),
             default=DEFAULT_PUNCTA_LINE_MODE,
         )
-        nuclear_cellular_mode = request.POST.get(
-            "nuclear_cellular_mode",
-            request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        nuclear_cell_pair_mode = request.POST.get(
+            "nuclear_cell_pair_mode",
+            request.POST.get("nuclear_cellular_mode", request.session.get("nuclear_cell_pair_mode", request.session.get("nuclear_cellular_mode", "green_nucleus"))),
         )
-        if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
-            nuclear_cellular_mode = "green_nucleus"
+        if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
+            nuclear_cell_pair_mode = "green_nucleus"
         green_contour_filter_enabled_raw = request.POST.get(
             'greenContourFilterEnabled',
             request.session.get('greenContourFilterEnabled', request.session.get('gfpFilterEnabled', 'False')),
@@ -340,11 +340,11 @@ def pre_process(request, uuids):
         )
         alternate_red_detection = alternate_red_detection_raw == 'true'
         try:
-            red_line_width = int(red_line_width_raw)
+            puncta_line_width = int(puncta_line_width_raw)
         except (TypeError, ValueError):
-            red_line_width = 1
-        if red_line_width < 1:
-            red_line_width = 1
+            puncta_line_width = 1
+        if puncta_line_width < 1:
+            puncta_line_width = 1
         try:
             cen_dot_distance = int(cen_dot_distance_raw)
         except (TypeError, ValueError):
@@ -359,11 +359,11 @@ def pre_process(request, uuids):
             cen_dot_collinearity_threshold = 66
 
         request.session['selected_analysis'] = selected_analysis
-        request.session['redLineWidth'] = red_line_width
+        request.session['punctaLineWidth'] = puncta_line_width
         request.session['cenDotDistance'] = cen_dot_distance
         request.session['cenDotCollinearityThreshold'] = cen_dot_collinearity_threshold
         request.session["puncta_line_mode"] = puncta_line_mode
-        request.session["nuclear_cellular_mode"] = nuclear_cellular_mode
+        request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
         request.session['alternateRedDetection'] = alternate_red_detection
         context = build_analysis_batch_context(request, uuid_list)

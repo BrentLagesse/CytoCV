@@ -5,36 +5,36 @@ from django.test import SimpleTestCase
 from core.tables import CellTable
 
 
-class CellTableNuclearCellularRenderingTests(SimpleTestCase):
+class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def setUp(self):
         self.table = CellTable([], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
 
     @staticmethod
     def _record_with_status(status: str):
-        return SimpleNamespace(properties={"nuclear_cellular_status": status})
+        return SimpleNamespace(properties={"nuclear_cell_pair_status": status})
 
-    def test_render_returns_na_for_nuclear_cellular_fields_when_no_nucleus_contour(self):
+    def test_render_returns_na_for_nuclear_cell_pair_fields_when_no_nucleus_contour(self):
         record = self._record_with_status("no_nucleus_contour")
 
-        self.assertEqual(self.table.render_cellular_intensity_sum(123.456, record), "N/A")
+        self.assertEqual(self.table.render_cell_pair_intensity_sum(123.456, record), "N/A")
         self.assertEqual(self.table.render_nucleus_intensity_sum(234.567, record), "N/A")
         self.assertEqual(self.table.render_cytoplasmic_intensity(345.678, record), "N/A")
 
-    def test_export_value_returns_na_for_nuclear_cellular_fields_when_no_nucleus_contour(self):
+    def test_export_value_returns_na_for_nuclear_cell_pair_fields_when_no_nucleus_contour(self):
         record = self._record_with_status("no_nucleus_contour")
 
-        self.assertEqual(self.table.value_cellular_intensity_sum(123.456, record), "N/A")
+        self.assertEqual(self.table.value_cell_pair_intensity_sum(123.456, record), "N/A")
         self.assertEqual(self.table.value_nucleus_intensity_sum(234.567, record), "N/A")
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "N/A")
 
     def test_render_and_export_keep_numeric_values_for_ok_status(self):
         record = self._record_with_status("ok")
 
-        self.assertEqual(self.table.render_cellular_intensity_sum(123.456, record), "123.456")
+        self.assertEqual(self.table.render_cell_pair_intensity_sum(123.456, record), "123.456")
         self.assertEqual(self.table.render_nucleus_intensity_sum(234.567, record), "234.567")
         self.assertEqual(self.table.render_cytoplasmic_intensity(345.678, record), "345.678")
 
-        self.assertEqual(self.table.value_cellular_intensity_sum(123.456, record), "123.456")
+        self.assertEqual(self.table.value_cell_pair_intensity_sum(123.456, record), "123.456")
         self.assertEqual(self.table.value_nucleus_intensity_sum(234.567, record), "234.567")
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "345.678")
 
@@ -66,7 +66,7 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
         ratio_1_index = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
         ratio_2_index = header_row.index("Measurement/Contour Ratio 2 (Red/Green)")
         ratio_3_index = header_row.index("Measurement/Contour Ratio 3 (Red/Green)")
-        distance_triplet_index = header_row.index("Green-to-Red Distance 1")
+        distance_triplet_index = header_row.index("Distance of Green from Red 1")
 
         self.assertLess(green_in_green_index, ratio_1_index)
         self.assertLess(ratio_1_index, ratio_2_index)
@@ -97,7 +97,7 @@ class CellTableNuclearCellularRenderingTests(SimpleTestCase):
             green_in_green_intensity_1=4.0,
             green_in_green_intensity_2=3.0,
             green_in_green_intensity_3=0.0,
-            properties={"nuclear_cellular_mode": "green_nucleus"},
+            properties={"nuclear_cell_pair_mode": "green_nucleus"},
             category_cen_dot=0,
         )
 

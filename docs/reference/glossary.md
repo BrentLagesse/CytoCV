@@ -52,9 +52,9 @@ The saved mapping of logical channel names to layer indices for a given run.
 
 A unit of per-cell analysis logic declared in `core.stats_plugins` and executed during segmentation statistics calculation.
 
-### Nuclear Or Cellular Mode
+### Nuclear Or Cell-Pair Mode
 
-The current mode used by the modern nuclear/cellular intensity workflow to determine which channel supplies the contour source and which channel is measured.
+The current mode used by the modern nuclear/cell-pair intensity workflow to determine which channel supplies the contour source and which channel is measured.
 
 ## Related Documents
 

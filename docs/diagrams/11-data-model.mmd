@@ -8,7 +8,7 @@ flowchart LR
     upload["<b>UploadedImage</b><br/>uuid (PK)<br/>user_id (FK)<br/>name<br/>file_location<br/>scale_info<br/>created_at"]
     preview["<b>DVLayerTifPreview</b><br/>id (PK)<br/>uploaded_image_uuid (FK)<br/>wavelength<br/>file_location"]
     result["<b>SegmentedImage</b><br/>UUID (PK)<br/>user_id<br/>file_location<br/>ImagePath<br/>CellPairPrefix<br/>NumCells<br/>uploaded_date"]
-    stats["<b>CellStatistics</b><br/>id (PK)<br/>segmented_image_id (FK)<br/>cell_id<br/>distance<br/>line_green_intensity<br/>nucleus_intensity_sum<br/>cellular_intensity_sum<br/>properties"]
+    stats["<b>CellStatistics</b><br/>id (PK)<br/>segmented_image_id (FK)<br/>cell_id<br/>puncta_distance<br/>puncta_line_intensity<br/>nucleus_intensity_sum<br/>cell_pair_intensity_sum<br/>properties"]
     uuid_link["Uploaded and segmented runs are linked<br/>operationally by a shared UUID namespace"]
 
     user -- "1 to many uploads" --> upload

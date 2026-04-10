@@ -74,7 +74,7 @@ class CENDot(Analysis):
         contours_data,
         red_image,
         green_image,
-        red_line_width_input,
+        puncta_line_width_input,
         cen_dot_distance=37,
         cen_dot_collinearity_threshold=66,
     ):

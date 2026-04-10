@@ -10,16 +10,16 @@ from core.models import CellStatistics, get_cen_dot_category_label
 from core.services.measurement_contour_ratio import (
     calculate_measurement_contour_ratio_value,
     get_measurement_contour_ratio_headers,
-    normalize_nuclear_cellular_mode,
+    normalize_nuclear_cell_pair_mode,
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 
 
-NUCLEAR_CELLULAR_LABELS = {
-    "red_nucleus": ("Green cellular intensity", "Green nuclear intensity"),
-    "green_nucleus": ("Red cellular intensity", "Red nuclear intensity"),
+NUCLEAR_CELL_PAIR_LABELS = {
+    "red_nucleus": ("Green cell-pair intensity", "Green nuclear intensity"),
+    "green_nucleus": ("Red cell-pair intensity", "Red nuclear intensity"),
 }
-FALLBACK_NUCLEAR_CELLULAR_LABELS = ("Measured cellular intensity", "Measured nuclear intensity")
+FALLBACK_NUCLEAR_CELL_PAIR_LABELS = ("Measured cell-pair intensity", "Measured nuclear intensity")
 
 
 class NumberColumn(tables.Column):
@@ -47,8 +47,8 @@ class CellTable(tables.Table):
     """Table layout for per-cell statistics used in UI and export."""
 
     cell_id = tables.Column(verbose_name="Cell ID")
-    distance = NumberColumn(verbose_name="Distance between Red Puncta")
-    line_green_intensity = NumberColumn(verbose_name="Green Intensity over Red Line")
+    puncta_distance = NumberColumn(verbose_name="Distance between Red Puncta")
+    puncta_line_intensity = NumberColumn(verbose_name="Green Intensity over Red Line")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
 
     red_contour_1_size = NumberColumn(verbose_name="Red Contour 1 Size")
@@ -79,15 +79,15 @@ class CellTable(tables.Table):
     green_red_intensity_2 = NumberColumn(verbose_name="Measurement/Contour Ratio 2")
     green_red_intensity_3 = NumberColumn(verbose_name="Measurement/Contour Ratio 3")
 
-    green_to_red_distance_1 = NumberColumn(verbose_name="Green-to-Red Distance 1")
-    green_to_red_distance_2 = NumberColumn(verbose_name="Green-to-Red Distance 2")
-    green_to_red_distance_3 = NumberColumn(verbose_name="Green-to-Red Distance 3")
+    distance_of_green_from_red_1 = NumberColumn(verbose_name="Distance of Green from Red 1")
+    distance_of_green_from_red_2 = NumberColumn(verbose_name="Distance of Green from Red 2")
+    distance_of_green_from_red_3 = NumberColumn(verbose_name="Distance of Green from Red 3")
 
-    cellular_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELLULAR_LABELS[0])
-    nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELLULAR_LABELS[1])
+    cell_pair_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[0])
+    nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
-    category_cen_dot = ChoiceLabelColumn(verbose_name="CEN Dot Category")
+    category_cen_dot = ChoiceLabelColumn(verbose_name="CEN dot Category")
     biorientation = tables.Column(verbose_name="Biorientation")
 
     class Meta:
@@ -95,8 +95,8 @@ class CellTable(tables.Table):
         model = CellStatistics
         fields = (
             "cell_id",
-            "distance",
-            "line_green_intensity",
+            "puncta_distance",
+            "puncta_line_intensity",
             "blue_contour_size",
             "red_contour_1_size",
             "red_contour_2_size",
@@ -119,10 +119,10 @@ class CellTable(tables.Table):
             "green_red_intensity_1",
             "green_red_intensity_2",
             "green_red_intensity_3",
-            "green_to_red_distance_1",
-            "green_to_red_distance_2",
-            "green_to_red_distance_3",
-            "cellular_intensity_sum",
+            "distance_of_green_from_red_1",
+            "distance_of_green_from_red_2",
+            "distance_of_green_from_red_3",
+            "cell_pair_intensity_sum",
             "nucleus_intensity_sum",
             "cytoplasmic_intensity",
             "category_cen_dot",
@@ -139,20 +139,20 @@ class CellTable(tables.Table):
     ):
         super().__init__(*args, **kwargs)
         self._intensity_mode = (
-            normalize_nuclear_cellular_mode(intensity_mode)
-            if intensity_mode in NUCLEAR_CELLULAR_LABELS
+            normalize_nuclear_cell_pair_mode(intensity_mode)
+            if intensity_mode in NUCLEAR_CELL_PAIR_LABELS
             else None
         )
-        cellular_label, nuclear_label = NUCLEAR_CELLULAR_LABELS.get(
+        cellular_label, nuclear_label = NUCLEAR_CELL_PAIR_LABELS.get(
             self._intensity_mode,
-            FALLBACK_NUCLEAR_CELLULAR_LABELS,
+            FALLBACK_NUCLEAR_CELL_PAIR_LABELS,
         )
         ratio_headers = get_measurement_contour_ratio_headers(self._intensity_mode)
         puncta_headers = get_puncta_line_mode_metadata(puncta_line_mode)
-        self.columns["cellular_intensity_sum"].column.verbose_name = cellular_label
+        self.columns["cell_pair_intensity_sum"].column.verbose_name = cellular_label
         self.columns["nucleus_intensity_sum"].column.verbose_name = nuclear_label
-        self.columns["distance"].column.verbose_name = puncta_headers["distance_label"]
-        self.columns["line_green_intensity"].column.verbose_name = puncta_headers["intensity_label"]
+        self.columns["puncta_distance"].column.verbose_name = puncta_headers["distance_label"]
+        self.columns["puncta_line_intensity"].column.verbose_name = puncta_headers["intensity_label"]
         self.columns["green_red_intensity_1"].column.verbose_name = ratio_headers[0]
         self.columns["green_red_intensity_2"].column.verbose_name = ratio_headers[1]
         self.columns["green_red_intensity_3"].column.verbose_name = ratio_headers[2]
@@ -160,7 +160,10 @@ class CellTable(tables.Table):
     @staticmethod
     def _has_no_nucleus_contour(record: CellStatistics) -> bool:
         properties = getattr(record, "properties", {}) or {}
-        return properties.get("nuclear_cellular_status") == "no_nucleus_contour"
+        return properties.get(
+            "nuclear_cell_pair_status",
+            properties.get("nuclear_cellular_status"),
+        ) == "no_nucleus_contour"
 
     @staticmethod
     def _format_number(value: float) -> str:
@@ -169,32 +172,35 @@ class CellTable(tables.Table):
         except (TypeError, ValueError):
             return "N/A"
 
-    def _render_nuclear_cellular_value(self, record: CellStatistics, value: float) -> str:
+    def _render_nuclear_cell_pair_value(self, record: CellStatistics, value: float) -> str:
         if self._has_no_nucleus_contour(record):
             return "N/A"
         return self._format_number(value)
 
-    def render_cellular_intensity_sum(self, value: float, record: CellStatistics) -> str:
-        return self._render_nuclear_cellular_value(record, value)
+    def render_cell_pair_intensity_sum(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cell_pair_value(record, value)
 
-    def value_cellular_intensity_sum(self, value: float, record: CellStatistics) -> str:
-        return self._render_nuclear_cellular_value(record, value)
+    def value_cell_pair_intensity_sum(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cell_pair_value(record, value)
 
     def render_nucleus_intensity_sum(self, value: float, record: CellStatistics) -> str:
-        return self._render_nuclear_cellular_value(record, value)
+        return self._render_nuclear_cell_pair_value(record, value)
 
     def value_nucleus_intensity_sum(self, value: float, record: CellStatistics) -> str:
-        return self._render_nuclear_cellular_value(record, value)
+        return self._render_nuclear_cell_pair_value(record, value)
 
     def render_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
-        return self._render_nuclear_cellular_value(record, value)
+        return self._render_nuclear_cell_pair_value(record, value)
 
     def value_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
-        return self._render_nuclear_cellular_value(record, value)
+        return self._render_nuclear_cell_pair_value(record, value)
 
     def _measurement_contour_ratio_value(self, record: CellStatistics, index: int) -> float:
         properties = getattr(record, "properties", {}) or {}
-        record_mode = properties.get("nuclear_cellular_mode")
+        record_mode = properties.get(
+            "nuclear_cell_pair_mode",
+            properties.get("nuclear_cellular_mode"),
+        )
         return calculate_measurement_contour_ratio_value(
             record,
             index,

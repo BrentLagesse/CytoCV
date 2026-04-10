@@ -12,31 +12,31 @@ from core.services.puncta_line_mode import (
 )
 from core.stats_plugins import CHANNEL_ORDER, normalize_selected_plugins
 
-NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
 DEFAULT_MICRONS_PER_PIXEL = 0.1
 
 DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "experiment_defaults": {
         "selected_plugins": [
-            "RedLineIntensity",
+            "PunctaDistance",
             "CENDot",
             "GreenRedIntensity",
-            "NuclearCellularIntensity",
+            "NuclearCellPairIntensity",
         ],
         "module_enabled": False,
         "enforce_layer_count": False,
         "enforce_wavelengths": False,
         "show_legacy_plugins": False,
         "manual_required_channels": [],
-        "red_line_width": 1,
+        "puncta_line_width": 1,
         "cen_dot_distance": 37,
         "cen_dot_collinearity_threshold": 66,
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
-        "nuclear_cellular_mode": "green_nucleus",
+        "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
-        "red_line_width_unit": "px",
+        "puncta_line_width_unit": "px",
         "cen_dot_distance_unit": "px",
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
@@ -85,6 +85,13 @@ def _normalize_unit(value: Any, default: str) -> str:
     if unit not in LENGTH_UNITS:
         return default
     return unit
+
+
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
 
 
 def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
@@ -142,9 +149,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         channel for channel in raw_required_channels if channel in CHANNEL_ORDER
     ]
 
-    normalized["experiment_defaults"]["red_line_width_unit"] = _normalize_unit(
-        defaults_payload.get(
-            "red_line_width_unit",
+    normalized["experiment_defaults"]["puncta_line_width_unit"] = _normalize_unit(
+        _first_present(
+            defaults_payload.get("puncta_line_width_unit"),
+            defaults_payload.get("red_line_width_unit"),
             defaults_payload.get("mcherry_width_unit"),
         ),
         default="px",
@@ -167,12 +175,13 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     )
     width_minimum = (
         1
-        if normalized["experiment_defaults"]["red_line_width_unit"] == "px"
+        if normalized["experiment_defaults"]["puncta_line_width_unit"] == "px"
         else 0
     )
-    normalized["experiment_defaults"]["red_line_width"] = _as_float(
-        defaults_payload.get(
-            "red_line_width",
+    normalized["experiment_defaults"]["puncta_line_width"] = _as_float(
+        _first_present(
+            defaults_payload.get("puncta_line_width"),
+            defaults_payload.get("red_line_width"),
             defaults_payload.get("mcherry_width"),
         ),
         default=1,
@@ -199,10 +208,16 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         default=DEFAULT_PUNCTA_LINE_MODE,
     )
 
-    mode = str(defaults_payload.get("nuclear_cellular_mode") or "").strip()
-    if mode not in NUCLEAR_CELLULAR_MODES:
+    mode = str(
+        defaults_payload.get(
+            "nuclear_cell_pair_mode",
+            defaults_payload.get("nuclear_cellular_mode"),
+        )
+        or ""
+    ).strip()
+    if mode not in NUCLEAR_CELL_PAIR_MODES:
         mode = "green_nucleus"
-    normalized["experiment_defaults"]["nuclear_cellular_mode"] = mode
+    normalized["experiment_defaults"]["nuclear_cell_pair_mode"] = mode
 
     normalized["auto_save_experiments"] = _as_bool(
         raw_payload.get("auto_save_experiments"),

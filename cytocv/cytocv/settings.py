@@ -579,6 +579,6 @@ else:
 DEFAULT_SEGMENT_CONFIG = {
     "kernel_size": 5,
     "kernel_deviation": 1,
-    "red_line_width": 1,
+    "puncta_line_width": 1,
     "arrested": "Metaphase Arrested",
 }

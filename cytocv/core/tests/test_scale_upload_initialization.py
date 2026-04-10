@@ -76,10 +76,10 @@ class UploadScaleInitializationTests(TestCase):
                                         reverse("experiment"),
                                         data={
                                             "files": [upload_file],
-                                            "selected_analysis": ["RedLineIntensity"],
-                                            "stats_red_line_width_value": "1",
+                                            "selected_analysis": ["PunctaDistance"],
+                                            "stats_puncta_line_width_value": "1",
                                             "stats_cen_dot_distance_value": "37",
-                                            "stats_red_line_width_unit": "px",
+                                            "stats_puncta_line_width_unit": "px",
                                             "stats_cen_dot_distance_unit": "px",
                                             "puncta_line_mode": puncta_line_mode,
                                             "stats_microns_per_pixel": "0.2",

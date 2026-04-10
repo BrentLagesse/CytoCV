@@ -8,7 +8,7 @@ from core.channel_roles import channel_display_label, normalize_channel_role
 from core.models import CellStatistics, get_cen_dot_category_label
 from core.services.measurement_contour_ratio import (
     build_measurement_contour_ratio_payload,
-    normalize_nuclear_cellular_mode,
+    normalize_nuclear_cell_pair_mode,
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 
@@ -34,16 +34,16 @@ def serialize_cell_statistics_payload(
         return None
 
     properties = cell_stat.properties or {}
-    nuclear_cellular_mode = normalize_nuclear_cellular_mode(
-        properties.get("nuclear_cellular_mode")
+    nuclear_cell_pair_mode = normalize_nuclear_cell_pair_mode(
+        properties.get("nuclear_cell_pair_mode", properties.get("nuclear_cellular_mode"))
     )
     puncta_line_metadata = get_puncta_line_mode_metadata(
         properties.get("puncta_line_mode")
     )
 
     return {
-        "distance": cell_stat.distance,
-        "line_green_intensity": cell_stat.line_green_intensity,
+        "puncta_distance": cell_stat.puncta_distance,
+        "puncta_line_intensity": cell_stat.puncta_line_intensity,
         "blue_contour_size": cell_stat.blue_contour_size,
         "red_contour_1_size": cell_stat.red_contour_1_size,
         "red_contour_2_size": cell_stat.red_contour_2_size,
@@ -63,13 +63,13 @@ def serialize_cell_statistics_payload(
         "green_contour_1_size": cell_stat.green_contour_1_size,
         "green_contour_2_size": cell_stat.green_contour_2_size,
         "green_contour_3_size": cell_stat.green_contour_3_size,
-        "green_to_red_distance_1": cell_stat.green_to_red_distance_1,
-        "green_to_red_distance_2": cell_stat.green_to_red_distance_2,
-        "green_to_red_distance_3": cell_stat.green_to_red_distance_3,
+        "distance_of_green_from_red_1": cell_stat.distance_of_green_from_red_1,
+        "distance_of_green_from_red_2": cell_stat.distance_of_green_from_red_2,
+        "distance_of_green_from_red_3": cell_stat.distance_of_green_from_red_3,
         "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
-        "cellular_intensity_sum": cell_stat.cellular_intensity_sum,
+        "cell_pair_intensity_sum": cell_stat.cell_pair_intensity_sum,
         "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
-        "cellular_intensity_sum_blue": cell_stat.cellular_intensity_sum_blue,
+        "cell_pair_intensity_sum_blue": cell_stat.cell_pair_intensity_sum_blue,
         "nucleus_intensity_sum_blue": cell_stat.nucleus_intensity_sum_blue,
         "cytoplasmic_intensity_blue": cell_stat.cytoplasmic_intensity_blue,
         "puncta_line_mode": puncta_line_metadata["mode"],
@@ -83,24 +83,30 @@ def serialize_cell_statistics_payload(
         ),
         "puncta_distance_label": puncta_line_metadata["distance_label"],
         "puncta_line_intensity_label": puncta_line_metadata["intensity_label"],
-        "nuclear_cellular_mode": nuclear_cellular_mode,
-        "nuclear_cellular_contour_channel": normalize_channel_display_name(
-            properties.get("nuclear_cellular_contour_channel"),
+        "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+        "nuclear_cell_pair_contour_channel": normalize_channel_display_name(
+            properties.get(
+                "nuclear_cell_pair_contour_channel",
+                properties.get("nuclear_cellular_contour_channel"),
+            ),
             default="Green",
         ),
-        "nuclear_cellular_measurement_channel": normalize_channel_display_name(
-            properties.get("nuclear_cellular_measurement_channel"),
+        "nuclear_cell_pair_measurement_channel": normalize_channel_display_name(
+            properties.get(
+                "nuclear_cell_pair_measurement_channel",
+                properties.get("nuclear_cellular_measurement_channel"),
+            ),
             default="Red",
         ),
-        "nuclear_cellular_status": properties.get(
-            "nuclear_cellular_status",
-            "unknown",
+        "nuclear_cell_pair_status": properties.get(
+            "nuclear_cell_pair_status",
+            properties.get("nuclear_cellular_status", "unknown"),
         ),
         "category_cen_dot": cell_stat.category_cen_dot,
         "category_cen_dot_label": get_cen_dot_category_label(cell_stat.category_cen_dot),
         "biorientation": cell_stat.biorientation,
         **build_measurement_contour_ratio_payload(
             cell_stat,
-            mode=nuclear_cellular_mode,
+            mode=nuclear_cell_pair_mode,
         ),
     }

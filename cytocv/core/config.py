@@ -28,7 +28,7 @@ DEFAULT_CHANNEL_CONFIG: dict[str, int] = {
 DEFAULT_PROCESS_CONFIG: dict[str, Any] = {
     "kernel_size": 13,
     "kernel_deviation": 5,
-    "red_line_width": 1,
+    "puncta_line_width": 1,
     "useCache": "on",
     "red_to_find_pairs": "on",
     "drop_ignore": "off",

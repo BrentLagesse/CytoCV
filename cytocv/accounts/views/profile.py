@@ -67,7 +67,7 @@ from core.stats_plugins import (
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 
-NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
 
 
@@ -104,7 +104,7 @@ def _normalize_unit(value: Any, default: str = "px") -> str:
 
 def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
     mode = str(value or "").strip()
-    if mode not in NUCLEAR_CELLULAR_MODES:
+    if mode not in NUCLEAR_CELL_PAIR_MODES:
         return default
     return mode
 
@@ -139,18 +139,18 @@ def _extract_measurement_defaults(
     post_data: Any,
     defaults: dict[str, Any],
 ) -> dict[str, Any]:
-    current_red_line_width_unit = _normalize_unit(
-        defaults.get("red_line_width_unit"),
+    current_puncta_line_width_unit = _normalize_unit(
+        defaults.get("puncta_line_width_unit", defaults.get("red_line_width_unit")),
         default="px",
     )
     current_cen_dot_distance_unit = _normalize_unit(
         defaults.get("cen_dot_distance_unit"),
         default="px",
     )
-    current_red_line_width = _parse_positive_float(
-        defaults.get("red_line_width"),
+    current_puncta_line_width = _parse_positive_float(
+        defaults.get("puncta_line_width", defaults.get("red_line_width")),
         default=1,
-        minimum=1 if current_red_line_width_unit == "px" else 0,
+        minimum=1 if current_puncta_line_width_unit == "px" else 0,
     )
     current_cen_dot_distance = _parse_positive_float(
         defaults.get("cen_dot_distance"),
@@ -173,19 +173,19 @@ def _extract_measurement_defaults(
         default=DEFAULT_PUNCTA_LINE_MODE,
     )
     current_nuclear_mode = _normalize_nuclear_mode(
-        defaults.get("nuclear_cellular_mode"),
+        defaults.get("nuclear_cell_pair_mode", defaults.get("nuclear_cellular_mode")),
         default="green_nucleus",
     )
 
-    red_line_width_unit = _normalize_unit(
-        post_data.get("red_line_width_unit"),
-        default=current_red_line_width_unit,
+    puncta_line_width_unit = _normalize_unit(
+        post_data.get("puncta_line_width_unit", post_data.get("red_line_width_unit")),
+        default=current_puncta_line_width_unit,
     )
     cen_dot_distance_unit = _normalize_unit(
         post_data.get("cen_dot_distance_unit"),
         default=current_cen_dot_distance_unit,
     )
-    red_line_minimum = 1 if red_line_width_unit == "px" else 0
+    puncta_line_minimum = 1 if puncta_line_width_unit == "px" else 0
     raw_use_metadata_scale = post_data.get("use_metadata_scale")
     if raw_use_metadata_scale is None:
         use_metadata_scale = current_use_metadata_scale
@@ -197,10 +197,10 @@ def _extract_measurement_defaults(
             "yes",
         }
     return {
-        "red_line_width": _parse_positive_float(
-            post_data.get("red_line_width"),
-            default=current_red_line_width,
-            minimum=red_line_minimum,
+        "puncta_line_width": _parse_positive_float(
+            post_data.get("puncta_line_width", post_data.get("red_line_width")),
+            default=current_puncta_line_width,
+            minimum=puncta_line_minimum,
         ),
         "cen_dot_distance": _parse_positive_float(
             post_data.get("cen_dot_distance"),
@@ -216,11 +216,11 @@ def _extract_measurement_defaults(
             post_data.get("puncta_line_mode"),
             default=current_puncta_mode,
         ),
-        "nuclear_cellular_mode": _normalize_nuclear_mode(
-            post_data.get("nuclear_cellular_mode"),
+        "nuclear_cell_pair_mode": _normalize_nuclear_mode(
+            post_data.get("nuclear_cell_pair_mode", post_data.get("nuclear_cellular_mode")),
             default=current_nuclear_mode,
         ),
-        "red_line_width_unit": red_line_width_unit,
+        "puncta_line_width_unit": puncta_line_width_unit,
         "cen_dot_distance_unit": cen_dot_distance_unit,
         "microns_per_pixel": _parse_positive_float(
             post_data.get("microns_per_pixel"),
@@ -407,7 +407,7 @@ def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
         )
 
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by("cell_id")
-    intensity_mode = _resolve_nuclear_cellular_mode(stats_qs)
+    intensity_mode = _resolve_nuclear_cell_pair_mode(stats_qs)
     puncta_line_mode = _resolve_puncta_line_mode(stats_qs)
     return CellTable(
         stats_qs,
@@ -416,12 +416,12 @@ def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
     )
 
 
-def _resolve_nuclear_cellular_mode(stats_iterable: Any) -> str | None:
+def _resolve_nuclear_cell_pair_mode(stats_iterable: Any) -> str | None:
     modes = set()
     for stat in stats_iterable:
         props = stat.properties or {}
-        mode = props.get("nuclear_cellular_mode")
-        if mode in NUCLEAR_CELLULAR_MODES:
+        mode = props.get("nuclear_cell_pair_mode", props.get("nuclear_cellular_mode"))
+        if mode in NUCLEAR_CELL_PAIR_MODES:
             modes.add(mode)
     return modes.pop() if len(modes) == 1 else None
 
@@ -581,7 +581,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
-            intensity_mode = _resolve_nuclear_cellular_mode(stats_by_id.values())
+            intensity_mode = _resolve_nuclear_cell_pair_mode(stats_by_id.values())
             puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
             cell_table = CellTable(
                 stats_qs,

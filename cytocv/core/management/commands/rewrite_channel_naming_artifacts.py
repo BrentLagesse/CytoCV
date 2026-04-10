@@ -29,9 +29,11 @@ OVERLAY_DEBUG_LABEL_RENAMES = {
     "DAPI": "Blue",
 }
 PLUGIN_RENAMES = {
-    "MCherryLine": "RedLineIntensity",
+    "MCherryLine": "PunctaDistance",
+    "RedLineIntensity": "PunctaDistance",
     "GFPDot": "CENDot",
     "DAPI_NucleusIntensity": "BlueNucleusIntensity",
+    "NuclearCellularIntensity": "NuclearCellPairIntensity",
 }
 JSON_KEY_RENAMES = {
     "mCherry_line_width": "red_line_width",
@@ -55,11 +57,45 @@ JSON_KEY_RENAMES = {
     "stats_gfp_distance_px": "stats_cen_dot_distance_px",
     "stats_gfp_distance_threshold": "stats_cen_dot_distance_value",
     "stats_gfp_distance_mode": "stats_cen_dot_distance_mode",
+    "red_line_width": "puncta_line_width",
+    "redLineWidth": "punctaLineWidth",
+    "red_line_width_unit": "puncta_line_width_unit",
+    "stats_red_line_width_unit": "stats_puncta_line_width_unit",
+    "stats_red_line_width_value": "stats_puncta_line_width_value",
+    "stats_red_line_width_px": "stats_puncta_line_width_px",
+    "distance": "puncta_distance",
+    "line_green_intensity": "puncta_line_intensity",
+    "green_to_red_distance_1": "distance_of_green_from_red_1",
+    "green_to_red_distance_2": "distance_of_green_from_red_2",
+    "green_to_red_distance_3": "distance_of_green_from_red_3",
+    "cellular_intensity_sum": "cell_pair_intensity_sum",
+    "cellular_intensity_sum_blue": "cell_pair_intensity_sum_blue",
+    "nuclear_cellular_mode": "nuclear_cell_pair_mode",
+    "nuclear_cellular_status": "nuclear_cell_pair_status",
+    "nuclear_cellular_contour_channel": "nuclear_cell_pair_contour_channel",
+    "nuclear_cellular_measurement_channel": "nuclear_cell_pair_measurement_channel",
+    "nuclear_cellular_contour_source": "nuclear_cell_pair_contour_source",
 }
 
 
 def _rewrite_plugin_id(value: Any) -> Any:
-    return PLUGIN_RENAMES.get(value, value)
+    rewritten = value
+    while rewritten in PLUGIN_RENAMES:
+        next_value = PLUGIN_RENAMES[rewritten]
+        if next_value == rewritten:
+            break
+        rewritten = next_value
+    return rewritten
+
+
+def _rewrite_json_key(key: str) -> str:
+    rewritten = key
+    while rewritten in JSON_KEY_RENAMES:
+        next_key = JSON_KEY_RENAMES[rewritten]
+        if next_key == rewritten:
+            break
+        rewritten = next_key
+    return rewritten
 
 
 def _rewrite_channel_role(value: Any) -> Any:
@@ -82,7 +118,7 @@ def _rewrite_user_config_payload(payload: Any) -> Any:
 
     rewritten: dict[str, Any] = {}
     for key, value in payload.items():
-        new_key = JSON_KEY_RENAMES.get(key, key)
+        new_key = _rewrite_json_key(key)
         rewritten_value = _rewrite_user_config_payload(value)
 
         if new_key == "selected_plugins" and isinstance(rewritten_value, list):
@@ -119,12 +155,12 @@ def _rewrite_overlay_render_config(payload: dict[str, Any]) -> dict[str, Any]:
 def _rewrite_cell_properties(properties: dict[str, Any]) -> dict[str, Any]:
     rewritten = {}
     for key, value in properties.items():
-        new_key = JSON_KEY_RENAMES.get(key, key)
+        new_key = _rewrite_json_key(key)
         rewritten[new_key] = value
 
     for channel_key in (
-        "nuclear_cellular_contour_channel",
-        "nuclear_cellular_measurement_channel",
+        "nuclear_cell_pair_contour_channel",
+        "nuclear_cell_pair_measurement_channel",
     ):
         if channel_key in rewritten:
             rewritten[channel_key] = _rewrite_channel_display(rewritten[channel_key])

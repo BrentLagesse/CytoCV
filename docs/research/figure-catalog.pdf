@@ -9,124 +9,125 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
 endobj
 4 0 obj
-<< /Length 3750 >>
+<< /Length 3570 >>
 stream
-BT /F2 22.00 Tf 1 0 0 1 54.00 720.00 Tm (Figure Catalog) Tj ET
+BT /F2 22.00 Tf 1 0 0 1 54.00 720.00 Tm (CytoCV Research Document) Tj ET
 BT /F3 10.00 Tf 1 0 0 1 54.00 700.00 Tm (CytoCV Research Documentation) Tj ET
 q 1.00 w 0.68 0.72 0.80 RG 54.00 688.00 m 558.00 688.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (1) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 650.00 Tm (Purpose) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 620.00 Tm (This catalog maps the current diagram set to manuscript, report, or appendix usage.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 584.00 Tm (Primary Figures) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 548.00 Tm (Figure 1: System Architecture) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 525.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 525.00 Tm (Source: docs/diagrams/01-system-architecture.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 507.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 507.00 Tm (Rendered: docs/diagrams/01-system-architecture.png) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 489.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 489.00 Tm (Recommended use: overall software architecture) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 471.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 471.00 Tm (Suggested caption: Layered architecture of CytoCV showing the web tier, scientific) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 457.00 Tm (processing services, and persistence boundaries.) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 431.00 Tm (Figure 2: End-To-End Workflow) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 408.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 408.00 Tm (Source: docs/diagrams/02-end-to-end-workflow.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 390.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 390.00 Tm (Rendered: docs/diagrams/02-end-to-end-workflow.png) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 372.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 372.00 Tm (Recommended use: methods overview) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 354.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 354.00 Tm (Suggested caption: End-to-end workflow from DeltaVision ingestion through validation,) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 340.00 Tm (segmentation, quantification, and review.) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 314.00 Tm (Figure 3: Cell Analysis Flow) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 291.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 291.00 Tm (Source: docs/diagrams/03-cell-analysis-flow.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 273.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 273.00 Tm (Rendered: docs/diagrams/03-cell-analysis-flow.png) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 255.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 255.00 Tm (Recommended use: per-cell measurement subsection) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 237.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 237.00 Tm (Suggested caption: Per-cell analysis pipeline used to derive contour, distance, and) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 223.00 Tm (intensity measurements from segmented cell crops, including optional legacy DAPI contour) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 209.00 Tm (handling.) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 183.00 Tm (Figure 4: Data Model) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 160.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 160.00 Tm (Source: docs/diagrams/11-data-model.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 142.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 142.00 Tm (Rendered: docs/diagrams/11-data-model.png) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 124.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 124.00 Tm (Recommended use: implementation or reproducibility section) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 106.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 106.00 Tm (Suggested caption: Core persistent entities for uploads, previews, segmented runs, and) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 92.00 Tm (cell-level statistics.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 662.00 Tm (?# Figure Catalog) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 626.00 Tm (Purpose) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 596.00 Tm (This catalog maps the current diagram set to manuscript, report, or appendix usage.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 560.00 Tm (Primary Figures) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 524.00 Tm (Figure 1: System Architecture) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 501.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 501.00 Tm (Source: docs/diagrams/01-system-architecture.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 483.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 483.00 Tm (Rendered: docs/diagrams/01-system-architecture.png) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 465.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 465.00 Tm (Recommended use: overall software architecture) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 447.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 447.00 Tm (Suggested caption: Layered architecture of CytoCV showing the web tier, scientific) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 433.00 Tm (processing services, and persistence boundaries.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 407.00 Tm (Figure 2: End-To-End Workflow) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 384.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 384.00 Tm (Source: docs/diagrams/02-end-to-end-workflow.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 366.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 366.00 Tm (Rendered: docs/diagrams/02-end-to-end-workflow.png) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 348.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 348.00 Tm (Recommended use: methods overview) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 330.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 330.00 Tm (Suggested caption: End-to-end workflow from DeltaVision ingestion through validation,) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 316.00 Tm (segmentation, quantification, and review.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 290.00 Tm (Figure 3: Cell Analysis Flow) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 267.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 267.00 Tm (Source: docs/diagrams/03-cell-analysis-flow.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 249.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 249.00 Tm (Rendered: docs/diagrams/03-cell-analysis-flow.png) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 231.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 231.00 Tm (Recommended use: per-cell measurement subsection) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 213.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 213.00 Tm (Suggested caption: Per-cell analysis pipeline used to derive contour, distance, and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 199.00 Tm (intensity measurements from segmented cell crops, including optional legacy Blue contour) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 185.00 Tm (handling.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 159.00 Tm (Figure 4: Data Model) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 136.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 136.00 Tm (Source: docs/diagrams/11-data-model.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 118.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 118.00 Tm (Rendered: docs/diagrams/11-data-model.png) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 100.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 100.00 Tm (Recommended use: implementation or reproducibility section) Tj ET
 endstream
 endobj
 5 0 obj
 << /Type /Page /Parent 10 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 3816 >>
+<< /Length 4021 >>
 stream
-BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Figure Catalog) Tj ET
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (CytoCV Research Document) Tj ET
 q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (2) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 704.00 Tm (Supplementary Figures) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 668.00 Tm (Validation, Requirements, And Scale) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 645.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 645.00 Tm (docs/diagrams/05-plugin-channel-map.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 625.00 Tm (Suggested caption: Channel requirement model showing DIC as the universal segmentation) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 611.00 Tm (dependency, plugin-driven fluorescence requirements, legacy DAPI analyses, and optional) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 597.00 Tm (validation expansion to all four logical roles.) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 575.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 575.00 Tm (docs/diagrams/06-upload-validation-flow.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 555.00 Tm (Suggested caption: Upload-time validation flow showing configurable layer-count and) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 541.00 Tm (effective channel-requirement checks before a run enters preprocessing.) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 519.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 519.00 Tm (docs/diagrams/07-scale-channel-resolution.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 499.00 Tm (Suggested caption: Scale resolution and channel-mapping path from DeltaVision metadata) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 485.00 Tm (through per-run threshold conversion.) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 455.00 Tm (Processing And Output) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 432.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 432.00 Tm (docs/diagrams/08-preprocess-inference-flow.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 414.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 414.00 Tm (docs/diagrams/09-segmentation-output-flow.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 396.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 396.00 Tm (docs/diagrams/10-display-export-flow.mmd) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 370.00 Tm (Retention And Control Flow) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 347.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 347.00 Tm (docs/diagrams/04-artifact-lifecycle.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 329.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 329.00 Tm (docs/diagrams/12-progress-cancellation-state.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 311.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 311.00 Tm (docs/diagrams/13-run-ownership-retention-state.mmd) Tj ET
-BT /F2 12.50 Tf 1 0 0 1 54.00 285.00 Tm (Authentication And Legacy Behavior) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 262.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 262.00 Tm (docs/diagrams/14-authentication-account-flow.mmd) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 244.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 244.00 Tm (docs/diagrams/15-legacy-dapi-measurements.mmd) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 212.00 Tm (Figure Usage Notes) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 184.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 184.00 Tm (Use the first four figures for the main narrative.) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 166.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 166.00 Tm (Use the supplementary figures for validation logic, appendix material, or implementation) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 152.00 Tm (detail.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 718.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 718.00 Tm (Suggested caption: Core persistent entities for uploads, previews, segmented runs, and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 704.00 Tm (cell-level statistics.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 672.00 Tm (Supplementary Figures) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 636.00 Tm (Validation, Requirements, And Scale) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 613.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 613.00 Tm (docs/diagrams/05-plugin-channel-map.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 593.00 Tm (Suggested caption: Channel requirement model showing DIC as the universal segmentation) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 579.00 Tm (dependency, plugin-driven fluorescence requirements, legacy Blue analyses, and optional) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 565.00 Tm (validation expansion to all four logical roles.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 543.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 543.00 Tm (docs/diagrams/06-upload-validation-flow.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 523.00 Tm (Suggested caption: Upload-time validation flow showing configurable layer-count and) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 509.00 Tm (effective channel-requirement checks before a run enters preprocessing.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 487.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 487.00 Tm (docs/diagrams/07-scale-channel-resolution.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 467.00 Tm (Suggested caption: Scale resolution and channel-mapping path from DeltaVision metadata) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 453.00 Tm (through per-run threshold conversion.) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 423.00 Tm (Processing And Output) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 400.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 400.00 Tm (docs/diagrams/08-preprocess-inference-flow.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 382.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 382.00 Tm (docs/diagrams/09-segmentation-output-flow.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 364.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 364.00 Tm (docs/diagrams/10-display-export-flow.mmd) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 338.00 Tm (Retention And Control Flow) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 315.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 315.00 Tm (docs/diagrams/04-artifact-lifecycle.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 297.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 297.00 Tm (docs/diagrams/12-progress-cancellation-state.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 279.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 279.00 Tm (docs/diagrams/13-run-ownership-retention-state.mmd) Tj ET
+BT /F2 12.50 Tf 1 0 0 1 54.00 253.00 Tm (Authentication And Legacy Behavior) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 230.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 230.00 Tm (docs/diagrams/14-authentication-account-flow.mmd) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 212.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 212.00 Tm (docs/diagrams/15-legacy-blue-measurements.mmd) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 180.00 Tm (Figure Usage Notes) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 152.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 152.00 Tm (Use the first four figures for the main narrative.) Tj ET
 BT /F1 10.50 Tf 1 0 0 1 54.00 134.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 134.00 Tm (Keep Markdown captions as the editable source of truth.) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 116.00 Tm (- ) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 70.00 116.00 Tm (Regenerate PNGs when the underlying flow or model changes.) Tj ET
-BT /F2 15.00 Tf 1 0 0 1 54.00 84.00 Tm (Regeneration) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 134.00 Tm (Use the supplementary figures for validation logic, appendix material, or implementation) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 120.00 Tm (detail.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 102.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 102.00 Tm (Keep Markdown captions as the editable source of truth.) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 84.00 Tm (- ) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 70.00 84.00 Tm (Regenerate PNGs when the underlying flow or model changes.) Tj ET
 endstream
 endobj
 7 0 obj
 << /Type /Page /Parent 10 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
 endobj
 8 0 obj
-<< /Length 285 >>
+<< /Length 356 >>
 stream
-BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (Figure Catalog) Tj ET
+BT /F2 9.00 Tf 1 0 0 1 54.00 750.00 Tm (CytoCV Research Document) Tj ET
 q 0.60 w 0.68 0.72 0.80 RG 54.00 742.00 m 558.00 742.00 l S Q
 BT /F1 9.00 Tf 1 0 0 1 524.00 32.00 Tm (3) Tj ET
-BT /F1 10.50 Tf 1 0 0 1 54.00 716.00 Tm (Diagram PNG regeneration is documented in ../diagrams/README.md.) Tj ET
+BT /F2 15.00 Tf 1 0 0 1 54.00 704.00 Tm (Regeneration) Tj ET
+BT /F1 10.50 Tf 1 0 0 1 54.00 674.00 Tm (Diagram PNG regeneration is documented in ../diagrams/README.md.) Tj ET
 endstream
 endobj
 9 0 obj
@@ -145,15 +146,15 @@ xref
 0000000079 00000 n 
 0000000154 00000 n 
 0000000232 00000 n 
-0000004034 00000 n 
-0000004181 00000 n 
-0000008049 00000 n 
-0000008196 00000 n 
-0000008532 00000 n 
-0000008679 00000 n 
-0000008749 00000 n 
+0000003854 00000 n 
+0000004001 00000 n 
+0000008074 00000 n 
+0000008221 00000 n 
+0000008628 00000 n 
+0000008775 00000 n 
+0000008845 00000 n 
 trailer
 << /Size 12 /Root 11 0 R >>
 startxref
-8800
+8896
 %%EOF

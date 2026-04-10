@@ -48,12 +48,12 @@ class ModernContourStatisticsTests(SimpleTestCase):
             "input_dir": output_dir,
             "output_dir": output_dir,
             "kernel_size": 3,
-            "red_line_width": 1,
+            "puncta_line_width": 1,
             "kernel_deviation": 1,
             "arrested": "Metaphase Arrested",
             "analysis": analysis,
             "puncta_line_mode": puncta_line_mode,
-            "nuclear_cellular_mode": mode,
+            "nuclear_cell_pair_mode": mode,
         }
 
     def _run_get_stats(
@@ -115,7 +115,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
                         puncta_line_mode=puncta_line_mode,
                     ),
                     execution_plan,
-                    red_line_width=1,
+                    puncta_line_width=1,
                     cen_dot_distance=cen_dot_distance,
                     cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
                 )
@@ -132,7 +132,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         cp, debug_red, _, _ = self._run_get_stats(
             mode="red_nucleus",
-            selected_analysis=["GreenRedIntensity", "NuclearCellularIntensity"],
+            selected_analysis=["GreenRedIntensity", "NuclearCellPairIntensity"],
             red_gray=red_gray,
             green_gray=green_gray,
             contours_data=contours_data,
@@ -145,7 +145,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
         expected_green = float(np.sum(green_gray[raw_mask > 0]))
         self.assertEqual(cp.green_intensity_1, expected_green)
         self.assertEqual(cp.nucleus_intensity_sum, expected_green)
-        self.assertEqual(cp.properties["nuclear_cellular_contour_source"], "canonical_slot_1")
+        self.assertEqual(cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
         self.assertTrue(np.array_equal(debug_red[2, 5], np.array([0, 0, 0], dtype=np.uint8)))
         self.assertTrue(np.array_equal(debug_red[4, 5], np.array([255, 0, 0], dtype=np.uint8)))
 
@@ -165,7 +165,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         cp, _, _, _ = self._run_get_stats(
             mode="green_nucleus",
-            selected_analysis=["GreenRedIntensity", "NuclearCellularIntensity"],
+            selected_analysis=["GreenRedIntensity", "NuclearCellPairIntensity"],
             red_gray=red_gray,
             green_gray=green_gray,
             contours_data=contours_data,
@@ -202,7 +202,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         cp, _, _, _ = self._run_get_stats(
             mode="red_nucleus",
-            selected_analysis=["RedLineIntensity", "CENDot", "GreenRedIntensity"],
+            selected_analysis=["PunctaDistance", "CENDot", "GreenRedIntensity"],
             red_gray=red_gray,
             green_gray=green_gray,
             contours_data=contours_data,
@@ -215,7 +215,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertGreater(cp.red_contour_2_size, cp.red_contour_3_size)
         self.assertGreater(cp.red_intensity_1, cp.red_intensity_2)
         self.assertGreater(cp.red_intensity_2, cp.red_intensity_3)
-        self.assertAlmostEqual(cp.distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4)
+        self.assertAlmostEqual(cp.puncta_distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4)
         self.assertEqual(cp.category_cen_dot, 1)
 
     def test_green_puncta_mode_measures_red_intensity_over_green_line(self):
@@ -232,7 +232,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         cp, _, _, _ = self._run_get_stats(
             mode="green_nucleus",
-            selected_analysis=["RedLineIntensity"],
+            selected_analysis=["PunctaDistance"],
             red_gray=red_gray,
             green_gray=green_gray,
             contours_data=contours_data,
@@ -244,5 +244,5 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(cp.properties["puncta_line_mode"], "green_puncta")
         self.assertEqual(cp.properties["puncta_line_source_channel"], "channel_green")
         self.assertEqual(cp.properties["puncta_line_measurement_channel"], "channel_red")
-        self.assertAlmostEqual(cp.distance, 6.0, places=4)
-        self.assertEqual(cp.line_green_intensity, 14.0)
+        self.assertAlmostEqual(cp.puncta_distance, 6.0, places=4)
+        self.assertEqual(cp.puncta_line_intensity, 14.0)

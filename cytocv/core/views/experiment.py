@@ -47,7 +47,7 @@ from core.services.artifact_storage import (
     sweep_user_run_artifacts,
 )
 
-NUCLEAR_CELLULAR_MODES = {"green_nucleus", "red_nucleus"}
+NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
@@ -117,18 +117,18 @@ def _parse_channels(raw_values) -> set[str]:
     return {value for value in values if value in allowed}
 
 
-def _parse_nuclear_cellular_mode(value: str | None, default: str = "green_nucleus") -> str:
-    """Parse nucleus contour mode for Nuclear/Cellular intensity analysis."""
+def _parse_nuclear_cell_pair_mode(value: str | None, default: str = "green_nucleus") -> str:
+    """Parse nucleus contour mode for Nuclear/Cell-Pair intensity analysis."""
 
     raw = str(value or "").strip()
-    return raw if raw in NUCLEAR_CELLULAR_MODES else default
+    return raw if raw in NUCLEAR_CELL_PAIR_MODES else default
 
 
 def _parse_puncta_line_mode(
     value: str | None,
     default: str = DEFAULT_PUNCTA_LINE_MODE,
 ) -> str:
-    """Parse puncta-line mode for RedLineIntensity."""
+    """Parse puncta-line mode for PunctaDistance."""
 
     return normalize_puncta_line_mode(value, default=default)
 
@@ -278,8 +278,11 @@ def experiment(request):
             request.POST.get("stats_use_metadata_scale"),
             default=default_use_metadata_scale,
         )
-        red_line_width_unit = _normalize_length_unit(
-            request.POST.get("stats_red_line_width_unit", request.POST.get("stats_mcherry_width_unit")),
+        puncta_line_width_unit = _normalize_length_unit(
+            request.POST.get(
+                "stats_puncta_line_width_unit",
+                request.POST.get("stats_red_line_width_unit", request.POST.get("stats_mcherry_width_unit")),
+            ),
             default="px",
         )
         cen_dot_distance_unit = _normalize_length_unit(
@@ -289,21 +292,25 @@ def experiment(request):
 
         # Backward compatibility: if raw-value fields are absent, treat submitted
         # legacy width/distance fields as already pixel-normalized.
-        has_raw_red_line_width = (
-            "stats_red_line_width_value" in request.POST
+        has_raw_puncta_line_width = (
+            "stats_puncta_line_width_value" in request.POST
+            or "stats_red_line_width_value" in request.POST
             or "stats_mcherry_width_value" in request.POST
         )
         has_raw_cen_dot_distance = (
             "stats_cen_dot_distance_value" in request.POST
             or "stats_gfp_distance_value" in request.POST
         )
-        red_line_source_unit = red_line_width_unit if has_raw_red_line_width else "px"
+        puncta_line_source_unit = puncta_line_width_unit if has_raw_puncta_line_width else "px"
         cen_dot_source_unit = cen_dot_distance_unit if has_raw_cen_dot_distance else "px"
 
-        red_line_width_value = _parse_positive_float(
+        puncta_line_width_value = _parse_positive_float(
             request.POST.get(
-                "stats_red_line_width_value",
-                request.POST.get("stats_mcherry_width_value", request.POST.get("redLineWidth", request.POST.get("mCherryWidth", "1"))),
+                "stats_puncta_line_width_value",
+                request.POST.get(
+                    "stats_red_line_width_value",
+                    request.POST.get("punctaLineWidth", request.POST.get("redLineWidth", request.POST.get("mCherryWidth", "1"))),
+                ),
             ),
             default=1,
             minimum=0,
@@ -317,9 +324,9 @@ def experiment(request):
             minimum=0,
         )
 
-        red_line_width = _convert_length_to_pixels(
-            red_line_width_value,
-            red_line_source_unit,
+        puncta_line_width = _convert_length_to_pixels(
+            puncta_line_width_value,
+            puncta_line_source_unit,
             minimum_px=1,
             fallback_px=1,
             microns_per_pixel=posted_microns_per_pixel,
@@ -354,21 +361,21 @@ def experiment(request):
 
         # Persist user analysis choices now so preprocess step no longer owns selection.
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
-        request.session["redLineWidth"] = red_line_width
+        request.session["punctaLineWidth"] = puncta_line_width
         request.session["cenDotDistance"] = cen_dot_distance
         request.session["cenDotCollinearityThreshold"] = cen_dot_collinearity_threshold
-        request.session["stats_red_line_width_unit"] = red_line_width_unit
+        request.session["stats_puncta_line_width_unit"] = puncta_line_width_unit
         request.session["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
         request.session["stats_microns_per_pixel"] = posted_microns_per_pixel
         request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
-        request.session["stats_red_line_width_value"] = red_line_width_value
+        request.session["stats_puncta_line_width_value"] = puncta_line_width_value
         request.session["stats_cen_dot_distance_value"] = cen_dot_distance_value
         request.session["puncta_line_mode"] = _parse_puncta_line_mode(
             request.POST.get("puncta_line_mode"),
             default=DEFAULT_PUNCTA_LINE_MODE,
         )
-        request.session["nuclear_cellular_mode"] = _parse_nuclear_cellular_mode(
-            request.POST.get("nuclear_cellular_mode"),
+        request.session["nuclear_cell_pair_mode"] = _parse_nuclear_cell_pair_mode(
+            request.POST.get("nuclear_cell_pair_mode", request.POST.get("nuclear_cellular_mode")),
             default="green_nucleus",
         )
         request.session["greenContourFilterEnabled"] = green_contour_filter_enabled

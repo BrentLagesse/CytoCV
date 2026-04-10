@@ -40,10 +40,10 @@ Per-cell quantification is plugin driven. The current implementation exposes the
 
 | Plugin | Additional channels beyond `DIC` | Legacy | Default modern configuration |
 | --- | --- | --- | --- |
-| `RedLineIntensity` | `Red`, `Green` | No | Yes |
+| `PunctaDistance` | `Red`, `Green` | No | Yes |
 | `CENDot` | `Red`, `Green` | No | Yes |
 | `GreenRedIntensity` | `Red`, `Green` | No | Yes |
-| `NuclearCellularIntensity` | `Red`, `Green` | No | Yes |
+| `NuclearCellPairIntensity` | `Red`, `Green` | No | Yes |
 | `NucleusIntensity` | `Blue`, `Green` | Yes | No |
 | `BlueNucleusIntensity` | `Blue` | Yes | No |
 | `RedBlueIntensity` | `Red`, `Blue` | Yes | No |
@@ -70,7 +70,7 @@ The segmentation stage combines the generated mask with the original DV stack to
 
 ### 5. Per-Cell Quantification
 
-The plugin layer computes cell-level values such as red-dot distance, line Green intensity, green and red contour summaries, nuclear or cellular intensity measurements, and CEN dot classification outputs.
+The plugin layer computes cell-level values such as puncta distance, puncta-line intensity, green and red contour summaries, nuclear or cell-pair intensity measurements, and CEN dot classification outputs.
 
 ### 6. Review, Export, And Retention
 

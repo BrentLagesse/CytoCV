@@ -139,17 +139,17 @@ class RouteSurfaceRefactorTests(TestCase):
             channel_config=DEFAULT_CHANNEL_CONFIG,
             kernel_size=3,
             kernel_deviation=1,
-            red_line_width=1,
+            puncta_line_width=1,
             arrested="Metaphase Arrested",
             selected_analysis=[],
             puncta_line_mode="red_puncta",
-            nuclear_cellular_mode="green_nucleus",
-            red_line_width_px=1,
+            nuclear_cell_pair_mode="green_nucleus",
+            puncta_line_width_px=1,
             cen_dot_distance_value_used=37.0,
             cen_dot_collinearity_threshold=66,
             green_contour_filter_enabled=False,
             alternate_red_detection=False,
-            red_line_width_unit="px",
+            puncta_line_width_unit="px",
             cen_dot_distance_unit="px",
         )
         write_overlay_render_config(uuid_value, render_config)
@@ -166,10 +166,10 @@ class RouteSurfaceRefactorTests(TestCase):
         defaults = dict(
             segmented_image=segmented,
             cell_id=cell_id,
-            distance=0.0,
-            line_green_intensity=0.0,
+            puncta_distance=0.0,
+            puncta_line_intensity=0.0,
             nucleus_intensity_sum=0.0,
-            cellular_intensity_sum=0.0,
+            cell_pair_intensity_sum=0.0,
             red_intensity_1=0.0,
             red_intensity_2=0.0,
             red_intensity_3=0.0,
@@ -188,7 +188,7 @@ class RouteSurfaceRefactorTests(TestCase):
             dv_file_path=f"{segmented.UUID}/{image_stem}.dv",
             image_name=f"{image_stem}.dv",
             properties={
-                "nuclear_cellular_mode": "green_nucleus",
+                "nuclear_cell_pair_mode": "green_nucleus",
                 "puncta_line_mode": "red_puncta",
             },
         )
@@ -554,12 +554,12 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "return 'N/A';", html=False)
         self.assertContains(
             response,
-            "distance: formatStatValue(cellStats ? cellStats.distance : null),",
+            "distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),",
             html=False,
         )
         self.assertContains(
             response,
-            "lineGreenIntensity: formatStatValue(cellStats ? cellStats.line_green_intensity : null),",
+            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
             html=False,
         )
         self.assertContains(
@@ -630,12 +630,12 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            "distance: formatStatValue(cellStats ? cellStats.distance : null),",
+            "distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),",
             html=False,
         )
         self.assertContains(
             response,
-            "lineGreenIntensity: formatStatValue(cellStats ? cellStats.line_green_intensity : null),",
+            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
             html=False,
         )
         self.assertContains(
@@ -712,7 +712,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_in_green_intensity_1=13.0,
                 green_red_intensity_1=99.0,
                 properties={
-                    "nuclear_cellular_mode": "red_nucleus",
+                    "nuclear_cell_pair_mode": "red_nucleus",
                     "puncta_line_mode": "green_puncta",
                 },
                 category_cen_dot=1,
@@ -768,7 +768,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_in_green_intensity_1=31.0,
                 green_red_intensity_1=99.0,
                 properties={
-                    "nuclear_cellular_mode": "green_nucleus",
+                    "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "green_puncta",
                 },
                 category_cen_dot=1,
@@ -825,7 +825,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 green_red_intensity_1=99.0,
                 green_red_intensity_2=99.0,
                 green_red_intensity_3=99.0,
-                properties={"nuclear_cellular_mode": "green_nucleus"},
+                properties={"nuclear_cell_pair_mode": "green_nucleus"},
             )
 
             response = self.client.get(
@@ -847,7 +847,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertLess(
             list(header_row).index("Measurement/Contour Ratio 3 (Red/Green)"),
-            list(header_row).index("Green-to-Red Distance 1"),
+            list(header_row).index("Distance of Green from Red 1"),
         )
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 1 (Red/Green)"], "0.500")
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 2 (Red/Green)"], "2.000")
@@ -857,17 +857,17 @@ class RouteSurfaceRefactorTests(TestCase):
 class PluginMappingRegressionTests(TestCase):
     def test_plugin_loader_maps_stable_ids_to_renamed_modules(self):
         plugin_ids = load_available_plugin_ids()
-        self.assertIn("RedLineIntensity", plugin_ids)
+        self.assertIn("PunctaDistance", plugin_ids)
         self.assertIn("CENDot", plugin_ids)
 
         plugin_class = get_plugin_class("RedLineIntensity")
-        self.assertEqual(plugin_class.__name__, "RedLineIntensity")
+        self.assertEqual(plugin_class.__name__, "PunctaDistance")
         self.assertTrue(issubclass(plugin_class, Analysis))
 
         instances = instantiate_selected_plugins(["RedLineIntensity", "CENDot"])
         self.assertEqual(
             [instance.__class__.__name__ for instance in instances],
-            ["RedLineIntensity", "CENDot"],
+            ["PunctaDistance", "CENDot"],
         )
         self.assertEqual(GrayImage.__name__, "GrayImage")
 
@@ -876,11 +876,11 @@ class PluginMappingRegressionTests(TestCase):
             ["UnknownPlugin", "NucleusIntensity", "NuclearCellularIntensity", "BlueNucleusIntensity"]
         )
 
-        self.assertEqual(plan.normalized_plugins, ("NuclearCellularIntensity",))
-        self.assertEqual(plan.selected_plugins, ("NuclearCellularIntensity",))
+        self.assertEqual(plan.normalized_plugins, ("NuclearCellPairIntensity",))
+        self.assertEqual(plan.selected_plugins, ("NuclearCellPairIntensity",))
         self.assertEqual(plan.required_channels, ("DIC", "channel_red", "channel_green"))
         self.assertEqual(
             [instance.__class__.__name__ for instance in plan.analyses],
-            ["NuclearCellularIntensity"],
+            ["NuclearCellPairIntensity"],
         )
 

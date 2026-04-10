@@ -29,7 +29,7 @@ class Analysis:
         contours_data,
         red_image,
         green_image,
-        red_line_width_input,
+        puncta_line_width_input,
         cen_dot_distance,
         cen_dot_collinearity_threshold,
     ):

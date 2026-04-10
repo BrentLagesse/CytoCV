@@ -15,8 +15,8 @@ from .analysis import Analysis
 logger = logging.getLogger(__name__)
 
 
-class RedLineIntensity(Analysis):
-    name = "RedLineIntensity"
+class PunctaDistance(Analysis):
+    name = "PunctaDistance"
 
     def _measurement_image(self, measurement_channel: str):
         if measurement_channel == CHANNEL_ROLE_GREEN:
@@ -35,11 +35,11 @@ class RedLineIntensity(Analysis):
         contours_data,
         red_image,
         green_image,
-        red_line_width_input,
+        puncta_line_width_input,
         cen_dot_distance,
         cen_dot_collinearity_threshold,
     ):
-        red_line_points = []
+        puncta_line_points = []
         properties = dict(getattr(self.cp, "properties", {}) or {})
         metadata = get_puncta_line_mode_metadata(properties.get("puncta_line_mode"))
         properties["puncta_line_mode"] = metadata["mode"]
@@ -68,13 +68,12 @@ class RedLineIntensity(Analysis):
         try:
             center_1 = source_slots[0].center
             center_2 = source_slots[1].center
-            d = math.dist(center_1, center_2)
-            self.cp.red_dot_distance = d
-            self.cp.distance = float(d)
+            puncta_distance = math.dist(center_1, center_2)
+            self.cp.puncta_distance = float(puncta_distance)
 
             c1x, c1y = source_slots[0].center_int
             c2x, c2y = source_slots[1].center_int
-            thickness = int(red_line_width_input)
+            thickness = int(puncta_line_width_input)
             for canvas in (red_image, green_image):
                 if canvas is None:
                     continue
@@ -94,15 +93,14 @@ class RedLineIntensity(Analysis):
                 255,
                 thickness=thickness,
             )
-            red_line_points = np.transpose(np.nonzero(line_mask))
+            puncta_line_points = np.transpose(np.nonzero(line_mask))
 
             line_intensity_sum = 0.0
-            for p in red_line_points:
+            for p in puncta_line_points:
                 line_intensity_sum += float(measurement_image[p[0]][p[1]])
 
-            self.cp.red_line_green_intensity = int(line_intensity_sum)
-            self.cp.line_green_intensity = float(line_intensity_sum)
-            return red_line_points
+            self.cp.puncta_line_intensity = float(line_intensity_sum)
+            return puncta_line_points
         except Exception as exc:
-            logger.debug("Red contour analysis skipped: %s", exc)
+            logger.debug("Puncta-distance analysis skipped: %s", exc)
             return []

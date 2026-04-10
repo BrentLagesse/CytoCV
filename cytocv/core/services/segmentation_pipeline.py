@@ -476,18 +476,21 @@ def run_segmentation_batch(
         configuration = user.config if getattr(user, "is_authenticated", False) else settings.DEFAULT_SEGMENT_CONFIG
         execution_plan = build_stats_execution_plan(config_snapshot.get("selected_analysis", []))
         selected_analysis = list(execution_plan.selected_plugins)
-        raw_red_line_width = config_snapshot.get(
-            "stats_red_line_width_value",
-            config_snapshot.get("redLineWidth", config_snapshot.get("mCherryWidth", 1)),
+        raw_puncta_line_width = config_snapshot.get(
+            "stats_puncta_line_width_value",
+            config_snapshot.get(
+                "punctaLineWidth",
+                config_snapshot.get("redLineWidth", config_snapshot.get("mCherryWidth", 1)),
+            ),
         )
         raw_cen_dot_distance = config_snapshot.get(
             "stats_cen_dot_distance_value",
             config_snapshot.get("cenDotDistance", config_snapshot.get("distance", 37)),
         )
-        red_line_width_unit = str(
+        puncta_line_width_unit = str(
             config_snapshot.get(
-                "stats_red_line_width_unit",
-                config_snapshot.get("stats_mcherry_width_unit", "px"),
+                "stats_puncta_line_width_unit",
+                config_snapshot.get("stats_red_line_width_unit", config_snapshot.get("stats_mcherry_width_unit", "px")),
             )
         )
         cen_dot_distance_unit = str(
@@ -519,9 +522,9 @@ def run_segmentation_batch(
         )
         cen_dot_distance_unit = normalize_length_unit(cen_dot_distance_unit, default="px")
 
-        red_line_width = convert_length_to_pixels(
-            raw_red_line_width,
-            red_line_width_unit,
+        puncta_line_width = convert_length_to_pixels(
+            raw_puncta_line_width,
+            puncta_line_width_unit,
             minimum_px=1,
             fallback_px=1,
             um_per_px=line_width_proxy_um_per_px,
@@ -573,18 +576,18 @@ def run_segmentation_batch(
             config_snapshot.get("alternateMCherryDetection", False),
         )
 
-        configured_red_line_width = _process_config_value(
+        configured_puncta_line_width = _process_config_value(
             configuration,
+            "puncta_line_width",
             "red_line_width",
-            "mCherry_line_width",
-            DEFAULT_PROCESS_CONFIG.get("red_line_width", 1),
+            DEFAULT_PROCESS_CONFIG.get("puncta_line_width", 1),
         )
 
         conf = {
             "input_dir": input_dir,
             "output_dir": os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
             "kernel_size": configuration["kernel_size"],
-            "red_line_width": configured_red_line_width,
+            "puncta_line_width": configured_puncta_line_width,
             "kernel_deviation": configuration["kernel_deviation"],
             "arrested": configuration["arrested"],
             "analysis": selected_analysis,
@@ -592,9 +595,9 @@ def run_segmentation_batch(
                 config_snapshot.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
             ),
-            "nuclear_cellular_mode": config_snapshot.get(
-                "nuclear_cellular_mode",
-                "green_nucleus",
+            "nuclear_cell_pair_mode": config_snapshot.get(
+                "nuclear_cell_pair_mode",
+                config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
             ),
             "green_contour_filter_enabled": green_contour_filter_enabled,
             "alternate_red_detection": alternate_red_detection,
@@ -606,23 +609,23 @@ def run_segmentation_batch(
                 channel_config=channel_config,
                 kernel_size=configuration["kernel_size"],
                 kernel_deviation=configuration["kernel_deviation"],
-                red_line_width=configured_red_line_width,
+                puncta_line_width=configured_puncta_line_width,
                 arrested=configuration["arrested"],
                 selected_analysis=selected_analysis,
                 puncta_line_mode=normalize_puncta_line_mode(
                     config_snapshot.get("puncta_line_mode"),
                     default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
-                nuclear_cellular_mode=config_snapshot.get(
-                    "nuclear_cellular_mode",
-                    "green_nucleus",
+                nuclear_cell_pair_mode=config_snapshot.get(
+                    "nuclear_cell_pair_mode",
+                    config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
                 ),
-                red_line_width_px=red_line_width,
+                puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
                 cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
                 green_contour_filter_enabled=bool(green_contour_filter_enabled),
                 alternate_red_detection=bool(alternate_red_detection),
-                red_line_width_unit=red_line_width_unit,
+                puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
             ),
         )
@@ -642,10 +645,10 @@ def run_segmentation_batch(
                 segmented_image=instance,
                 cell_id=cell_number,
                 defaults={
-                    "distance": 0.0,
-                    "line_green_intensity": 0.0,
+                    "puncta_distance": 0.0,
+                    "puncta_line_intensity": 0.0,
                     "nucleus_intensity_sum": 0.0,
-                    "cellular_intensity_sum": 0.0,
+                    "cell_pair_intensity_sum": 0.0,
                     "green_red_intensity_1": 0.0,
                     "green_red_intensity_2": 0.0,
                     "green_red_intensity_3": 0.0,
@@ -659,9 +662,9 @@ def run_segmentation_batch(
                 config_snapshot.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
             )
-            cp.properties["nuclear_cellular_mode"] = config_snapshot.get(
-                "nuclear_cellular_mode",
-                "green_nucleus",
+            cp.properties["nuclear_cell_pair_mode"] = config_snapshot.get(
+                "nuclear_cell_pair_mode",
+                config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
             )
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
@@ -676,18 +679,18 @@ def run_segmentation_batch(
             )
             cp.properties["scale_distance_mode"] = scale_context.get("distance_mode", "scalar")
             cp.properties["scale_line_width_proxy_um_per_px"] = line_width_proxy_um_per_px
-            cp.properties["stats_red_line_width_px"] = red_line_width
+            cp.properties["stats_puncta_line_width_px"] = puncta_line_width
             cp.properties["stats_cen_dot_distance_px"] = cen_dot_distance_px_equivalent
             cp.properties["stats_cen_dot_distance_value"] = cen_dot_distance
             cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
-            cp.properties["stats_red_line_width_unit"] = red_line_width_unit
+            cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
             cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
 
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
                 conf,
                 execution_plan,
-                red_line_width,
+                puncta_line_width,
                 cen_dot_distance,
                 cen_dot_collinearity_threshold,
                 green_contour_filter_enabled,

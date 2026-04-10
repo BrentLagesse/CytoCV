@@ -15,6 +15,8 @@ class DummyCellStats:
     def __init__(self, image_names: dict[str, str] | None = None):
         self._image_names = dict(image_names or {})
         self.properties = {}
+        self.image_name = "test.dv"
+        self.cell_id = 1
 
     def get_image(self, channel: str, use_id: bool = False, outline: bool = True):
         return self._image_names.get(channel)
@@ -22,9 +24,9 @@ class DummyCellStats:
 
 class LoadImageCacheTests(SimpleTestCase):
     def test_load_image_uses_cached_images_without_disk_access(self):
-        cp = DummyCellStats({"mCherry": "mcherry.png"})
+        cp = DummyCellStats({"channel_red": "red.png"})
         cached_images = {
-            "mCherry": np.full((4, 4, 3), 17, dtype=np.uint8),
+            "channel_red": np.full((4, 4, 3), 17, dtype=np.uint8),
         }
 
         with patch(
@@ -34,25 +36,25 @@ class LoadImageCacheTests(SimpleTestCase):
             loaded = load_image(
                 cp,
                 output_dir="unused",
-                required_channels={"mCherry"},
+                required_channels={"channel_red"},
                 cached_images=cached_images,
             )
 
-        self.assertTrue(np.array_equal(loaded["mCherry"], cached_images["mCherry"]))
-        self.assertTrue(np.array_equal(np.array(loaded["im_mCherry"]), cached_images["mCherry"]))
+        self.assertTrue(np.array_equal(loaded["red"], cached_images["channel_red"]))
+        self.assertTrue(np.array_equal(np.array(loaded["im_red"]), cached_images["channel_red"]))
 
-        loaded["mCherry"][0, 0, 0] = 99
-        self.assertEqual(cached_images["mCherry"][0, 0, 0], 17)
+        loaded["red"][0, 0, 0] = 99
+        self.assertEqual(cached_images["channel_red"][0, 0, 0], 17)
 
     def test_load_image_falls_back_to_disk_for_missing_cached_channel(self):
         cached_mcherry = np.full((3, 3, 3), 9, dtype=np.uint8)
         disk_gfp = np.full((3, 3, 3), 21, dtype=np.uint8)
-        cp = DummyCellStats({"mCherry": "mcherry.png", "GFP": "gfp.png"})
+        cp = DummyCellStats({"channel_red": "red.png", "channel_green": "green.png"})
 
         with TemporaryDirectory() as temp_dir:
             segmented_dir = Path(temp_dir) / "segmented"
             segmented_dir.mkdir(parents=True, exist_ok=True)
-            Image.fromarray(disk_gfp).save(segmented_dir / "gfp.png")
+            Image.fromarray(disk_gfp).save(segmented_dir / "green.png")
 
             with patch(
                 "core.image_processing.image_operations.Image.open",
@@ -61,13 +63,13 @@ class LoadImageCacheTests(SimpleTestCase):
                 loaded = load_image(
                     cp,
                     output_dir=temp_dir,
-                    required_channels={"mCherry", "GFP"},
-                    cached_images={"mCherry": cached_mcherry},
+                    required_channels={"channel_red", "channel_green"},
+                    cached_images={"channel_red": cached_mcherry},
                 )
 
         self.assertEqual(image_open.call_count, 1)
-        self.assertTrue(np.array_equal(loaded["mCherry"], cached_mcherry))
-        self.assertTrue(np.array_equal(loaded["GFP"], disk_gfp))
+        self.assertTrue(np.array_equal(loaded["red"], cached_mcherry))
+        self.assertTrue(np.array_equal(loaded["green"], disk_gfp))
 
 
 class GetStatsCacheTests(SimpleTestCase):
@@ -77,17 +79,17 @@ class GetStatsCacheTests(SimpleTestCase):
             "input_dir": output_dir,
             "output_dir": output_dir,
             "kernel_size": 3,
-            "red_line_width": 1,
+            "puncta_line_width": 1,
             "kernel_deviation": 1,
             "arrested": "Metaphase Arrested",
             "analysis": list(analysis or []),
-            "nuclear_cellular_mode": "green_nucleus",
+            "nuclear_cell_pair_mode": "green_nucleus",
         }
 
     def test_get_stats_uses_cached_images_for_no_analysis_path(self):
         cp = DummyCellStats()
         cached_images = {
-            "mCherry": np.full((6, 6, 3), 40, dtype=np.uint8),
+            "channel_red": np.full((6, 6, 3), 40, dtype=np.uint8),
         }
         execution_plan = build_stats_execution_plan(["UnknownPlugin"])
 
@@ -112,7 +114,7 @@ class GetStatsCacheTests(SimpleTestCase):
     def test_get_stats_keeps_missing_required_channel_behavior_with_cached_images(self):
         cp = DummyCellStats()
         cached_images = {
-            "GFP": np.full((5, 5, 3), 28, dtype=np.uint8),
+            "channel_green": np.full((5, 5, 3), 28, dtype=np.uint8),
         }
         execution_plan = build_stats_execution_plan(["BlueNucleusIntensity"])
 

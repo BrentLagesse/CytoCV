@@ -525,10 +525,10 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
             CellStatistics.objects.create(
                 segmented_image=segmented,
                 cell_id=1,
-                distance=1.0,
-                line_green_intensity=2.0,
+                puncta_distance=1.0,
+                puncta_line_intensity=2.0,
                 nucleus_intensity_sum=3.0,
-                cellular_intensity_sum=4.0,
+                cell_pair_intensity_sum=4.0,
             )
 
             with patch(

@@ -39,14 +39,14 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(
             defaults["selected_plugins"],
             [
-                "RedLineIntensity",
+                "PunctaDistance",
                 "CENDot",
                 "GreenRedIntensity",
-                "NuclearCellularIntensity",
+                "NuclearCellPairIntensity",
             ],
         )
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
-        self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
@@ -56,17 +56,17 @@ class PreferenceNormalizationTests(TestCase):
         normalized = normalize_preferences_payload(
             {
                 "experiment_defaults": {
-                    "selected_plugins": ["RedLineIntensity", "Unknown"],
+                    "selected_plugins": ["PunctaDistance", "Unknown"],
                     "module_enabled": "true",
                     "enforce_layer_count": "true",
                     "enforce_wavelengths": "false",
                     "manual_required_channels": ["DIC", "BAD"],
-                    "red_line_width": "-5",
+                    "puncta_line_width": "-5",
                     "cen_dot_distance": "abc",
                     "cen_dot_collinearity_threshold": "-1",
                     "puncta_line_mode": "bad_mode",
-                    "nuclear_cellular_mode": "bad_mode",
-                    "red_line_width_unit": "um",
+                    "nuclear_cell_pair_mode": "bad_mode",
+                    "puncta_line_width_unit": "um",
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
                     "use_metadata_scale": "off",
@@ -77,16 +77,16 @@ class PreferenceNormalizationTests(TestCase):
         )
 
         defaults = normalized["experiment_defaults"]
-        self.assertEqual(defaults["selected_plugins"], ["RedLineIntensity"])
+        self.assertEqual(defaults["selected_plugins"], ["PunctaDistance"])
         self.assertTrue(defaults["module_enabled"])
         self.assertTrue(defaults["enforce_layer_count"])
         self.assertFalse(defaults["enforce_wavelengths"])
         self.assertEqual(defaults["manual_required_channels"], ["DIC"])
-        self.assertEqual(defaults["red_line_width"], 1)
+        self.assertEqual(defaults["puncta_line_width"], 1)
         self.assertEqual(defaults["cen_dot_distance"], 37)
         self.assertEqual(defaults["cen_dot_collinearity_threshold"], 66)
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
-        self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -199,10 +199,10 @@ class AccountDeletionIntegrationTests(TestCase):
         CellStatistics.objects.create(
             segmented_image=segmented,
             cell_id=1,
-            distance=1.0,
-            line_green_intensity=2.0,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
             nucleus_intensity_sum=3.0,
-            cellular_intensity_sum=4.0,
+            cell_pair_intensity_sum=4.0,
         )
         self.assertTrue(UploadedImage.objects.filter(pk=uploaded.pk).exists())
         self.assertTrue(SegmentedImage.objects.filter(pk=segmented.pk).exists())
@@ -451,17 +451,17 @@ class DisplayManualSaveTests(TestCase):
         CellStatistics.objects.create(
             segmented_image=segmented,
             cell_id=cell_id,
-            distance=1.0,
-            line_green_intensity=2.0,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
             nucleus_intensity_sum=3.0,
-            cellular_intensity_sum=4.0,
+            cell_pair_intensity_sum=4.0,
             red_intensity_1=5.0,
             green_intensity_1=6.0,
             red_in_green_intensity_1=7.0,
             green_in_green_intensity_1=8.0,
             green_red_intensity_1=6.0 / 5.0,
             category_cen_dot=1,
-            properties={"nuclear_cellular_mode": "red_nucleus"},
+            properties={"nuclear_cell_pair_mode": "red_nucleus"},
         )
 
     def _set_transient_uuids(self, uuids: list[str]) -> None:
@@ -695,7 +695,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", csv_text)
         self.assertIn("5.000", csv_text)
         self.assertIn("8.000", csv_text)
-        self.assertIn("CEN Dot Category", csv_text)
+        self.assertIn("CEN dot Category", csv_text)
         self.assertIn("One green dot with each red dot", csv_text)
 
     def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
@@ -729,8 +729,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Green in Green Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
-        self.assertIn("CEN Dot Category", headers)
-        gfp_dot_col = headers.index("CEN Dot Category") + 1
+        self.assertIn("CEN dot Category", headers)
+        gfp_dot_col = headers.index("CEN dot Category") + 1
         self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "One green dot with each red dot")
 
     def test_display_csv_export_uses_uploaded_file_name(self):
@@ -1435,7 +1435,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '"required_plugins"', html=False)
         self.assertContains(response, '"exclusive_group"', html=False)
-        self.assertContains(response, '"exclusive_group": "nuclear_cellular"', html=False)
+        self.assertContains(response, '"exclusive_group": "nuclear_cell_pair"', html=False)
 
     def test_advanced_settings_override_reports_and_removes_dependent_plugins(self):
         response = self.client.post(
@@ -1449,10 +1449,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Advanced settings saved. Removed dependent plugins:")
         for plugin_id in (
-            "RedLineIntensity",
+            "PunctaDistance",
             "CENDot",
             "GreenRedIntensity",
-            "NuclearCellularIntensity",
+            "NuclearCellPairIntensity",
         ):
             self.assertContains(response, PLUGIN_DEFINITIONS[plugin_id].label)
 
@@ -1638,28 +1638,28 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(
             defaults["selected_plugins"],
             [
-                "RedLineIntensity",
+                "PunctaDistance",
                 "CENDot",
                 "GreenRedIntensity",
-                "NuclearCellularIntensity",
+                "NuclearCellPairIntensity",
             ],
         )
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
-        self.assertEqual(defaults["nuclear_cellular_mode"], "green_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
                 "action": "save_plugin_defaults",
-                "selected_plugins": ["RedLineIntensity"],
-                "red_line_width": "2.5",
-                "red_line_width_unit": "um",
+                "selected_plugins": ["PunctaDistance"],
+                "puncta_line_width": "2.5",
+                "puncta_line_width_unit": "um",
                 "cen_dot_distance": "11.2",
                 "cen_dot_distance_unit": "px",
                 "cen_dot_collinearity_threshold": "77",
                 "puncta_line_mode": "green_puncta",
-                "nuclear_cellular_mode": "red_nucleus",
+                "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
                 "use_metadata_scale": "on",
             },
@@ -1669,14 +1669,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
-        self.assertEqual(defaults["selected_plugins"], ["RedLineIntensity"])
-        self.assertEqual(defaults["red_line_width"], 2.5)
-        self.assertEqual(defaults["red_line_width_unit"], "um")
+        self.assertEqual(defaults["selected_plugins"], ["PunctaDistance"])
+        self.assertEqual(defaults["puncta_line_width"], 2.5)
+        self.assertEqual(defaults["puncta_line_width_unit"], "um")
         self.assertEqual(defaults["cen_dot_distance"], 11.2)
         self.assertEqual(defaults["cen_dot_distance_unit"], "px")
         self.assertEqual(defaults["cen_dot_collinearity_threshold"], 77)
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
-        self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
 
@@ -1684,13 +1684,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         payload = get_user_preferences(self.user)
         payload["experiment_defaults"].update(
             {
-                "red_line_width": 3.5,
-                "red_line_width_unit": "um",
+                "puncta_line_width": 3.5,
+                "puncta_line_width_unit": "um",
                 "cen_dot_distance": 9.0,
                 "cen_dot_distance_unit": "um",
                 "cen_dot_collinearity_threshold": 81,
                 "puncta_line_mode": "green_puncta",
-                "nuclear_cellular_mode": "red_nucleus",
+                "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
                 "use_metadata_scale": False,
             }
@@ -1711,13 +1711,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
-        self.assertEqual(defaults["red_line_width"], 3.5)
-        self.assertEqual(defaults["red_line_width_unit"], "um")
+        self.assertEqual(defaults["puncta_line_width"], 3.5)
+        self.assertEqual(defaults["puncta_line_width_unit"], "um")
         self.assertEqual(defaults["cen_dot_distance"], 9.0)
         self.assertEqual(defaults["cen_dot_distance_unit"], "um")
         self.assertEqual(defaults["cen_dot_collinearity_threshold"], 81)
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
-        self.assertEqual(defaults["nuclear_cellular_mode"], "red_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
 

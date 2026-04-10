@@ -36,13 +36,13 @@ The normalized default preference payload in `accounts.preferences` establishes 
 
 | Setting | Default value | Reproducibility implication |
 | --- | --- | --- |
-| `selected_plugins` | `RedLineIntensity`, `CENDot`, `GreenRedIntensity`, `NuclearCellularIntensity` | Baseline modern run requires `DIC`, `Red`, and `Green` |
+| `selected_plugins` | `PunctaDistance`, `CENDot`, `GreenRedIntensity`, `NuclearCellPairIntensity` | Baseline modern run requires `DIC`, `Red`, and `Green` |
 | `module_enabled` | `False` | Validation overrides are disabled by default |
 | `enforce_layer_count` | `False` | Exact four-layer enforcement is off by default |
 | `enforce_wavelengths` | `False` | All-four-role enforcement is off by default |
 | `show_legacy_plugins` | `False` | Legacy Blue analyses are hidden by default |
 | `manual_required_channels` | empty list | No extra manual channel requirements are applied |
-| `nuclear_cellular_mode` | `green_nucleus` | Modern nuclear or cellular measurements use the green-nucleus mode unless overridden |
+| `nuclear_cell_pair_mode` | `green_nucleus` | Modern nuclear or cell-pair measurements use the green-nucleus mode unless overridden |
 | `use_metadata_scale` | `True` | Metadata-derived scale is preferred when available |
 
 ## Configuration Validation

@@ -12,8 +12,8 @@ from core.services.canonical_contours import (
 from .analysis import Analysis
 
 
-class NuclearCellularIntensity(Analysis):
-    name = "Nuclear, Cellular Intensity"
+class NuclearCellPairIntensity(Analysis):
+    name = "Nuclear, Cell-Pair Intensity"
 
     # Temporary release toggle: keep overlay logic available but disabled by default.
     _DRAW_NUCLEAR_CONTOUR_OVERLAY = False
@@ -91,12 +91,12 @@ class NuclearCellularIntensity(Analysis):
         contours_data,
         red_image=None,
         green_image=None,
-        red_line_width_input=None,
+        puncta_line_width_input=None,
         cen_dot_distance=0,
         cen_dot_collinearity_threshold=0,
     ):
         props = dict(getattr(self.cp, "properties", {}) or {})
-        mode = props.get("nuclear_cellular_mode", "green_nucleus")
+        mode = props.get("nuclear_cell_pair_mode", "green_nucleus")
         if mode not in self._MODE_CONFIG:
             mode = "green_nucleus"
 
@@ -106,12 +106,12 @@ class NuclearCellularIntensity(Analysis):
 
         if contour_img is None or measure_img is None:
             self.cp.nucleus_intensity_sum = 0.0
-            self.cp.cellular_intensity_sum = 0.0
+            self.cp.cell_pair_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
-            props["nuclear_cellular_mode"] = mode
-            props["nuclear_cellular_contour_channel"] = contour_channel
-            props["nuclear_cellular_measurement_channel"] = measurement_channel
-            props["nuclear_cellular_status"] = "missing_channel"
+            props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_channel"] = contour_channel
+            props["nuclear_cell_pair_measurement_channel"] = measurement_channel
+            props["nuclear_cell_pair_status"] = "missing_channel"
             self.cp.properties = props
             return
 
@@ -122,12 +122,12 @@ class NuclearCellularIntensity(Analysis):
 
         if not np.any(cell_mask):
             self.cp.nucleus_intensity_sum = 0.0
-            self.cp.cellular_intensity_sum = 0.0
+            self.cp.cell_pair_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
-            props["nuclear_cellular_mode"] = mode
-            props["nuclear_cellular_contour_channel"] = contour_channel
-            props["nuclear_cellular_measurement_channel"] = measurement_channel
-            props["nuclear_cellular_status"] = "no_cell_points"
+            props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_channel"] = contour_channel
+            props["nuclear_cell_pair_measurement_channel"] = measurement_channel
+            props["nuclear_cell_pair_status"] = "no_cell_points"
             self.cp.properties = props
             return
 
@@ -141,13 +141,13 @@ class NuclearCellularIntensity(Analysis):
 
         if not source_slots:
             self.cp.nucleus_intensity_sum = 0.0
-            self.cp.cellular_intensity_sum = 0.0
+            self.cp.cell_pair_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
-            props["nuclear_cellular_mode"] = mode
-            props["nuclear_cellular_contour_channel"] = contour_channel
-            props["nuclear_cellular_measurement_channel"] = measurement_channel
-            props["nuclear_cellular_contour_source"] = used_contour_source
-            props["nuclear_cellular_status"] = "no_nucleus_contour"
+            props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_channel"] = contour_channel
+            props["nuclear_cell_pair_measurement_channel"] = measurement_channel
+            props["nuclear_cell_pair_contour_source"] = used_contour_source
+            props["nuclear_cell_pair_status"] = "no_nucleus_contour"
             self.cp.properties = props
             return
 
@@ -166,15 +166,15 @@ class NuclearCellularIntensity(Analysis):
         cell_intensity = float(np.sum(cell_pixels)) if cell_pixels.size else 0.0
         nucleus_intensity = float(np.sum(nucleus_pixels)) if nucleus_pixels.size else 0.0
 
-        self.cp.cellular_intensity_sum = cell_intensity
+        self.cp.cell_pair_intensity_sum = cell_intensity
         self.cp.nucleus_intensity_sum = nucleus_intensity
         self.cp.cytoplasmic_intensity = cell_intensity - nucleus_intensity
 
-        props["nuclear_cellular_mode"] = mode
-        props["nuclear_cellular_contour_channel"] = contour_channel
-        props["nuclear_cellular_measurement_channel"] = measurement_channel
-        props["nuclear_cellular_contour_source"] = used_contour_source
-        props["nuclear_cellular_status"] = "ok"
+        props["nuclear_cell_pair_mode"] = mode
+        props["nuclear_cell_pair_contour_channel"] = contour_channel
+        props["nuclear_cell_pair_measurement_channel"] = measurement_channel
+        props["nuclear_cell_pair_contour_source"] = used_contour_source
+        props["nuclear_cell_pair_status"] = "ok"
         self.cp.properties = props
 
         if self._DRAW_NUCLEAR_CONTOUR_OVERLAY:

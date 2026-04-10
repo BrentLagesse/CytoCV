@@ -14,20 +14,20 @@ from core.services.puncta_line_mode import (
     normalize_puncta_line_mode,
 )
 
-NUCLEAR_CELLULAR_MODES = frozenset({"green_nucleus", "red_nucleus"})
+NUCLEAR_CELL_PAIR_MODES = frozenset({"green_nucleus", "red_nucleus"})
 DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "selected_analysis": [],
-    "redLineWidth": 1,
+    "punctaLineWidth": 1,
     "cenDotDistance": 37,
     "cenDotCollinearityThreshold": 66,
-    "stats_red_line_width_unit": "px",
+    "stats_puncta_line_width_unit": "px",
     "stats_cen_dot_distance_unit": "px",
     "stats_microns_per_pixel": 0.1,
     "stats_use_metadata_scale": True,
-    "stats_red_line_width_value": 1.0,
+    "stats_puncta_line_width_value": 1.0,
     "stats_cen_dot_distance_value": 37.0,
     "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
-    "nuclear_cellular_mode": "green_nucleus",
+    "nuclear_cell_pair_mode": "green_nucleus",
     "greenContourFilterEnabled": False,
     "alternateRedDetection": False,
     "auto_save_experiments": True,
@@ -121,11 +121,17 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
     if not isinstance(selected_analysis, list):
         selected_analysis = list(selected_analysis) if isinstance(selected_analysis, tuple) else []
 
-    nuclear_cellular_mode = str(
-        payload.get("nuclear_cellular_mode", DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cellular_mode"])
+    nuclear_cell_pair_mode = str(
+        payload.get(
+            "nuclear_cell_pair_mode",
+            payload.get(
+                "nuclear_cellular_mode",
+                DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cell_pair_mode"],
+            ),
+        )
     ).strip()
-    if nuclear_cellular_mode not in NUCLEAR_CELLULAR_MODES:
-        nuclear_cellular_mode = DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cellular_mode"]
+    if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
+        nuclear_cell_pair_mode = DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cell_pair_mode"]
     puncta_line_mode = normalize_puncta_line_mode(
         payload.get(
             "puncta_line_mode",
@@ -136,8 +142,11 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
 
     normalized = {
         "selected_analysis": [str(item) for item in selected_analysis if str(item)],
-        "redLineWidth": _parse_int(
-            payload.get("redLineWidth", payload.get("mCherryWidth")),
+        "punctaLineWidth": _parse_int(
+            payload.get(
+                "punctaLineWidth",
+                payload.get("redLineWidth", payload.get("mCherryWidth")),
+            ),
             default=1,
             minimum=1,
         ),
@@ -151,8 +160,13 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             default=66,
             minimum=0,
         ),
-        "stats_red_line_width_unit": "um"
-        if str(payload.get("stats_red_line_width_unit", payload.get("stats_mcherry_width_unit", "px"))).strip().lower() == "um"
+        "stats_puncta_line_width_unit": "um"
+        if str(
+            payload.get(
+                "stats_puncta_line_width_unit",
+                payload.get("stats_red_line_width_unit", payload.get("stats_mcherry_width_unit", "px")),
+            )
+        ).strip().lower() == "um"
         else "px",
         "stats_cen_dot_distance_unit": "um"
         if str(payload.get("stats_cen_dot_distance_unit", payload.get("stats_gfp_distance_unit", "px"))).strip().lower() == "um"
@@ -166,8 +180,11 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             payload.get("stats_use_metadata_scale"),
             default=True,
         ),
-        "stats_red_line_width_value": _parse_float(
-            payload.get("stats_red_line_width_value", payload.get("stats_mcherry_width_value")),
+        "stats_puncta_line_width_value": _parse_float(
+            payload.get(
+                "stats_puncta_line_width_value",
+                payload.get("stats_red_line_width_value", payload.get("stats_mcherry_width_value")),
+            ),
             default=1.0,
             minimum=0.0,
         ),
@@ -177,7 +194,7 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             minimum=0.0,
         ),
         "puncta_line_mode": puncta_line_mode,
-        "nuclear_cellular_mode": nuclear_cellular_mode,
+        "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
         "greenContourFilterEnabled": _parse_bool(
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
@@ -200,17 +217,29 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
 
     snapshot = {
         "selected_analysis": request.session.get("selected_analysis", []),
-        "redLineWidth": request.session.get("redLineWidth", request.session.get("mCherryWidth", 1)),
+        "punctaLineWidth": request.session.get(
+            "punctaLineWidth",
+            request.session.get("redLineWidth", request.session.get("mCherryWidth", 1)),
+        ),
         "cenDotDistance": request.session.get("cenDotDistance", request.session.get("distance", 37)),
         "cenDotCollinearityThreshold": request.session.get("cenDotCollinearityThreshold", request.session.get("threshold", 66)),
-        "stats_red_line_width_unit": request.session.get("stats_red_line_width_unit", request.session.get("stats_mcherry_width_unit", "px")),
+        "stats_puncta_line_width_unit": request.session.get(
+            "stats_puncta_line_width_unit",
+            request.session.get("stats_red_line_width_unit", request.session.get("stats_mcherry_width_unit", "px")),
+        ),
         "stats_cen_dot_distance_unit": request.session.get("stats_cen_dot_distance_unit", request.session.get("stats_gfp_distance_unit", "px")),
         "stats_microns_per_pixel": request.session.get("stats_microns_per_pixel", 0.1),
         "stats_use_metadata_scale": request.session.get("stats_use_metadata_scale", True),
-        "stats_red_line_width_value": request.session.get("stats_red_line_width_value", request.session.get("stats_mcherry_width_value", 1.0)),
+        "stats_puncta_line_width_value": request.session.get(
+            "stats_puncta_line_width_value",
+            request.session.get("stats_red_line_width_value", request.session.get("stats_mcherry_width_value", 1.0)),
+        ),
         "stats_cen_dot_distance_value": request.session.get("stats_cen_dot_distance_value", request.session.get("stats_gfp_distance_value", 37.0)),
         "puncta_line_mode": request.session.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
-        "nuclear_cellular_mode": request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        "nuclear_cell_pair_mode": request.session.get(
+            "nuclear_cell_pair_mode",
+            request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        ),
         "greenContourFilterEnabled": request.session.get("greenContourFilterEnabled", request.session.get("gfpFilterEnabled", False)),
         "alternateRedDetection": request.session.get("alternateRedDetection", request.session.get("alternateMCherryDetection", False)),
         "auto_save_experiments": should_auto_save_experiments(request.user)

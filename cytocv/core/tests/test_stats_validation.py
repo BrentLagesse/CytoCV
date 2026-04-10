@@ -27,23 +27,23 @@ class StatsRequirementTests(SimpleTestCase):
         summary = build_requirement_summary(["BlueNucleusIntensity"])
         self.assertEqual(summary["required_channels"], ["DIC", "channel_blue"])
 
-    def test_nuclear_cellular_requires_dic_mcherry_gfp(self):
-        summary = build_requirement_summary(["NuclearCellularIntensity"])
+    def test_nuclear_cell_pair_requires_dic_red_green(self):
+        summary = build_requirement_summary(["NuclearCellPairIntensity"])
         self.assertEqual(summary["required_channels"], ["DIC", "channel_red", "channel_green"])
 
     def test_exclusive_group_keeps_first_plugin_in_order(self):
-        selected = normalize_selected_plugins(["NucleusIntensity", "NuclearCellularIntensity", "BlueNucleusIntensity"])
-        self.assertIn("NuclearCellularIntensity", selected)
+        selected = normalize_selected_plugins(["NucleusIntensity", "NuclearCellPairIntensity", "BlueNucleusIntensity"])
+        self.assertIn("NuclearCellPairIntensity", selected)
         self.assertNotIn("NucleusIntensity", selected)
         self.assertNotIn("BlueNucleusIntensity", selected)
 
     def test_plugin_payload_includes_legacy_metadata(self):
         payload = build_plugin_ui_payload()
         plugins = {item["id"]: item for item in payload["plugins"]}
-        self.assertEqual(plugins["NuclearCellularIntensity"]["exclusive_group"], "nuclear_cellular")
-        self.assertFalse(plugins["NuclearCellularIntensity"]["is_legacy"])
+        self.assertEqual(plugins["NuclearCellPairIntensity"]["exclusive_group"], "nuclear_cell_pair")
+        self.assertFalse(plugins["NuclearCellPairIntensity"]["is_legacy"])
         self.assertTrue(plugins["NucleusIntensity"]["is_legacy"])
-        description = plugins["NuclearCellularIntensity"]["description"].lower()
+        description = plugins["NuclearCellPairIntensity"]["description"].lower()
         self.assertIn("selected channel", description)
         self.assertIn("opposite", description)
 
@@ -191,7 +191,7 @@ class DVChannelParserTests(SimpleTestCase):
 class AnalysisRegressionTests(SimpleTestCase):
     def test_green_red_intensity_does_not_bool_evaluate_numpy_arrays(self):
         plugin = GreenRedIntensity()
-        cp = SimpleNamespace(properties={"nuclear_cellular_mode": "red_nucleus"})
+        cp = SimpleNamespace(properties={"nuclear_cell_pair_mode": "red_nucleus"})
         preprocessed = GrayImage(
             img={
                 "red_no_bg": np.ones((8, 8), dtype=np.uint8),
@@ -207,7 +207,7 @@ class AnalysisRegressionTests(SimpleTestCase):
             contours_data={"dot_contours": [], "contours_green": []},
             red_image=None,
             green_image=None,
-            red_line_width_input=1,
+            puncta_line_width_input=1,
             cen_dot_distance=37,
             cen_dot_collinearity_threshold=66,
         )
@@ -217,7 +217,7 @@ class AnalysisRegressionTests(SimpleTestCase):
 
     def test_green_red_intensity_uses_red_mode_ratio_when_toggle_targets_red_contours(self):
         plugin = GreenRedIntensity()
-        cp = SimpleNamespace(properties={"nuclear_cellular_mode": "red_nucleus"})
+        cp = SimpleNamespace(properties={"nuclear_cell_pair_mode": "red_nucleus"})
         red_image = np.array(
             [
                 [0, 0, 0, 0, 0],
@@ -259,7 +259,7 @@ class AnalysisRegressionTests(SimpleTestCase):
             },
             red_image=None,
             green_image=None,
-            red_line_width_input=1,
+            puncta_line_width_input=1,
             cen_dot_distance=37,
             cen_dot_collinearity_threshold=66,
         )
@@ -287,7 +287,7 @@ class AnalysisRegressionTests(SimpleTestCase):
 
     def test_green_red_intensity_uses_green_mode_ratio_when_toggle_targets_green_contours(self):
         plugin = GreenRedIntensity()
-        cp = SimpleNamespace(properties={"nuclear_cellular_mode": "green_nucleus"})
+        cp = SimpleNamespace(properties={"nuclear_cell_pair_mode": "green_nucleus"})
         red_image = np.array(
             [
                 [0, 0, 0, 0, 0],
@@ -329,7 +329,7 @@ class AnalysisRegressionTests(SimpleTestCase):
             },
             red_image=None,
             green_image=None,
-            red_line_width_input=1,
+            puncta_line_width_input=1,
             cen_dot_distance=37,
             cen_dot_collinearity_threshold=66,
         )

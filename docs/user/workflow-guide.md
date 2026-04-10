@@ -29,10 +29,10 @@ Validation failures are reported immediately. Invalid files are removed from the
 The upload step also captures the active analysis configuration. This includes:
 
 - selected statistics plugins
-- Red line width
+- Puncta line width
 - CEN dot distance threshold
 - CEN dot collinearity threshold
-- nuclear or cellular mode selection
+- nuclear or cell-pair mode selection
 - optional Green contour filtering
 - scale behavior, including metadata preference and manual microns-per-pixel fallback
 

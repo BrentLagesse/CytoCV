@@ -62,38 +62,40 @@ class StatsExecutionPlan:
 
 # Keep order stable for UI rendering.
 PLUGIN_ORDER: tuple[str, ...] = (
-    "RedLineIntensity",
+    "PunctaDistance",
     "CENDot",
     "GreenRedIntensity",
-    "NuclearCellularIntensity",
+    "NuclearCellPairIntensity",
     "NucleusIntensity",
     "BlueNucleusIntensity",
     "RedBlueIntensity",
 )
 
 PLUGIN_ID_ALIASES: dict[str, str] = {
-    "MCherryLine": "RedLineIntensity",
+    "MCherryLine": "PunctaDistance",
+    "RedLineIntensity": "PunctaDistance",
     "GFPDot": "CENDot",
     "DAPI_NucleusIntensity": "BlueNucleusIntensity",
+    "NuclearCellularIntensity": "NuclearCellPairIntensity",
 }
 
 
 PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
-    "RedLineIntensity": StatsPluginDefinition(
-        plugin_id="RedLineIntensity",
+    "PunctaDistance": StatsPluginDefinition(
+        plugin_id="PunctaDistance",
         label="Puncta Distance",
         description=(
             "Draws a line between the selected puncta pair and measures intensity from "
             "the opposite channel along that line."
         ),
-        module_name="core.cell_analysis.red_line_intensity",
-        class_name="RedLineIntensity",
+        module_name="core.cell_analysis.puncta_distance",
+        class_name="PunctaDistance",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
     ),
     "CENDot": StatsPluginDefinition(
         plugin_id="CENDot",
-        label="CEN Dot Classification",
-        description="Classifies CEN-dot category and biorientation relative to paired red dots.",
+        label="CEN dot Classification",
+        description="Classifies CEN-dot category and biorientation relative to paired red puncta.",
         module_name="core.cell_analysis.cen_dot",
         class_name="CENDot",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
@@ -109,17 +111,17 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         class_name="GreenRedIntensity",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
     ),
-    "NuclearCellularIntensity": StatsPluginDefinition(
-        plugin_id="NuclearCellularIntensity",
-        label="Nuclear, Cellular Intensity",
+    "NuclearCellPairIntensity": StatsPluginDefinition(
+        plugin_id="NuclearCellPairIntensity",
+        label="Nuclear, Cell-Pair Intensity",
         description=(
             "Uses selected channel as nucleus contour source and measures intensity in the opposite "
-            "channel within nucleus and whole-cell regions."
+            "channel within nucleus and cell-pair regions."
         ),
-        module_name="core.cell_analysis.nuclear_cellular_intensity",
-        class_name="NuclearCellularIntensity",
+        module_name="core.cell_analysis.nuclear_cell_pair_intensity",
+        class_name="NuclearCellPairIntensity",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
-        exclusive_group="nuclear_cellular",
+        exclusive_group="nuclear_cell_pair",
     ),
     "NucleusIntensity": StatsPluginDefinition(
         plugin_id="NucleusIntensity",
@@ -129,7 +131,7 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         class_name="NucleusIntensity",
         required_channels=frozenset({CHANNEL_ROLE_BLUE, CHANNEL_ROLE_GREEN}),
         is_legacy=True,
-        exclusive_group="nuclear_cellular",
+        exclusive_group="nuclear_cell_pair",
     ),
     "BlueNucleusIntensity": StatsPluginDefinition(
         plugin_id="BlueNucleusIntensity",
@@ -139,7 +141,7 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         class_name="BlueNucleusIntensity",
         required_channels=frozenset({CHANNEL_ROLE_BLUE}),
         is_legacy=True,
-        exclusive_group="nuclear_cellular",
+        exclusive_group="nuclear_cell_pair",
     ),
     "RedBlueIntensity": StatsPluginDefinition(
         plugin_id="RedBlueIntensity",
@@ -149,7 +151,7 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         class_name="RedBlueIntensity",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE}),
         is_legacy=True,
-        exclusive_group="nuclear_cellular",
+        exclusive_group="nuclear_cell_pair",
     ),
 }
 

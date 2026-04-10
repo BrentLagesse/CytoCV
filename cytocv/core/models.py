@@ -201,10 +201,10 @@ class CellStatistics(models.Model):
 
     segmented_image = models.ForeignKey("SegmentedImage", on_delete=models.CASCADE)
     cell_id = models.IntegerField()
-    distance = models.FloatField()
-    line_green_intensity = models.FloatField()
+    puncta_distance = models.FloatField()
+    puncta_line_intensity = models.FloatField()
     nucleus_intensity_sum = models.FloatField()
-    cellular_intensity_sum = models.FloatField()
+    cell_pair_intensity_sum = models.FloatField()
     cytoplasmic_intensity = models.FloatField(default=0.0)
 
     blue_contour_size = models.FloatField(default=0.0)
@@ -233,9 +233,9 @@ class CellStatistics(models.Model):
     green_contour_2_size = models.FloatField(default=0.0)
     green_contour_3_size = models.FloatField(default=0.0)
 
-    green_to_red_distance_1 = models.FloatField(default=0.0)
-    green_to_red_distance_2 = models.FloatField(default=0.0)
-    green_to_red_distance_3 = models.FloatField(default=0.0)
+    distance_of_green_from_red_1 = models.FloatField(default=0.0)
+    distance_of_green_from_red_2 = models.FloatField(default=0.0)
+    distance_of_green_from_red_3 = models.FloatField(default=0.0)
 
     green_red_intensity_1 = models.FloatField(default=0.0)
     green_red_intensity_2 = models.FloatField(default=0.0)
@@ -245,17 +245,17 @@ class CellStatistics(models.Model):
     red_blue_intensity_2 = models.FloatField(default=0.0)
     red_blue_intensity_3 = models.FloatField(default=0.0)
 
-    cellular_intensity_sum_blue = models.FloatField(default=0.0)
+    cell_pair_intensity_sum_blue = models.FloatField(default=0.0)
     nucleus_intensity_sum_blue = models.FloatField(default=0.0)
     cytoplasmic_intensity_blue = models.FloatField(default=0.0)
 
-    # Category in CEN Dot Analysis
+    # Category in CEN dot analysis
     category_cen_dot = models.IntegerField(
         choices = CategoryCENDot.choices,
         default = CategoryCENDot.NONE,
     )
 
-    # Biorientation in CEN Dot Analysis
+    # Biorientation in CEN dot analysis
     biorientation = models.IntegerField(default=0)
 
     dv_file_path = models.TextField(default="")
@@ -264,8 +264,6 @@ class CellStatistics(models.Model):
     is_correct = models.BooleanField(default=True)
     nuclei_count = models.IntegerField(default=1)
     cen_dot_count = models.IntegerField(default=0)
-    red_dot_distance = models.FloatField(default=0.0)
-    cen_red_dot_distance = models.FloatField(default=0.0)
     cyan_dot_count = models.IntegerField(default=1)
     ground_truth = models.BooleanField(default=False)
     nucleus_intensity = models.JSONField(default=dict)
@@ -273,14 +271,12 @@ class CellStatistics(models.Model):
     cell_intensity = models.JSONField(default=dict)
     cell_total_points = models.IntegerField(default=0)
     ignored = models.BooleanField(default=False)
-    red_line_green_intensity = models.FloatField(default=0.0)
-    green_line_green_intensity = models.FloatField(default=0.0)
     properties = models.JSONField(default=dict)
 
     def __str__(self) -> str:
         return (
-            f"Cell ID: {self.cell_id} - Dist: {self.distance}, "
-            f"Line Green: {self.line_green_intensity}"
+            f"Cell ID: {self.cell_id} - Dist: {self.puncta_distance}, "
+            f"Puncta Line: {self.puncta_line_intensity}"
         )
 
     def get_base_name(self) -> str:
@@ -337,26 +333,3 @@ class CellStatistics(models.Model):
 #     CONTOUR = 0
 #     CONVEX = 1
 #     CIRCLE = 2
-
-# class CellPair:
-#     def __init__(self, image_name, id):
-#         # https://docs.opencv.org/4.x/d4/d61/tutorial_warp_affine.html
-#         self.is_correct = True # if is affine and is separable
-#         self.image_name = image_name # 20_1212_M1914_001_R3D_REF.tif
-#         self.id = id # number of cells undergoing mitosis
-#         self.nuclei_count = 1 
-#         self.red_dot_count = 1
-#         self.cen_dot_count = 0
-#         self.red_dot_distance = 0
-#         self.cen_red_dot_distance = 0
-#         self.cyan_dot_count = 1
-#         self.green_dot_count = 1
-#         self.ground_truth = False
-#         self.nucleus_intensity = {}
-#         self.nucleus_total_points = 0
-#         self.cell_intensity = {}
-#         self.cell_total_points = 0
-#         self.ignored = False
-#         self.red_line_green_intensity = 0
-#         self.green_line_green_intensity = 0
-#         self.properties = dict()

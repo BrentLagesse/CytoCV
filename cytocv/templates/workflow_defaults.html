@@ -1043,8 +1043,8 @@ main.main > section.panel {
               <p><strong>{{ plugin.label }}</strong>{% if plugin.is_legacy %}<span class="legacy">Legacy</span>{% endif %}</p>
               <p class="desc">{{ plugin.description }}</p>
               <p class="reqtxt">Requires: {{ plugin.required_channel_labels|join:", " }}</p>
-              {% if plugin.id == 'RedLineIntensity' %}
-              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="RedLineIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+              {% if plugin.id == 'PunctaDistance' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="PunctaDistance" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
                 <div class="plugin-measure-line">
                   <label for="puncta_line_mode">Puncta source:</label>
                   <div class="mode-select-group plugin-measure-right">
@@ -1052,10 +1052,10 @@ main.main > section.panel {
                   </div>
                 </div>
                 <div class="plugin-measure-line">
-                  <label for="red_line_width">Red line width:</label>
+                  <label for="puncta_line_width">Puncta line width:</label>
                   <div class="length-input-group plugin-measure-right">
-                    <input type="number" step="0.01" min="0" id="red_line_width" name="red_line_width" value="{{ preferences.experiment_defaults.red_line_width }}">
-                    <select id="red_line_width_unit" name="red_line_width_unit"><option value="px" {% if preferences.experiment_defaults.red_line_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.red_line_width_unit == 'um' %}selected{% endif %}>µm</option></select>
+                    <input type="number" step="0.01" min="0" id="puncta_line_width" name="puncta_line_width" value="{{ preferences.experiment_defaults.puncta_line_width }}">
+                    <select id="puncta_line_width_unit" name="puncta_line_width_unit"><option value="px" {% if preferences.experiment_defaults.puncta_line_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.puncta_line_width_unit == 'um' %}selected{% endif %}>µm</option></select>
                   </div>
                 </div>
               </div>
@@ -1075,12 +1075,12 @@ main.main > section.panel {
                   </div>
                 </div>
               </div>
-              {% elif plugin.id == 'NuclearCellularIntensity' %}
-              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="NuclearCellularIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
+              {% elif plugin.id == 'NuclearCellPairIntensity' %}
+              <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="NuclearCellPairIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
                 <div class="plugin-measure-line">
-                  <label for="nuclear_cellular_mode">Nucleus contour source:</label>
+                  <label for="nuclear_cell_pair_mode">Nucleus contour source:</label>
                   <div class="mode-select-group plugin-measure-right">
-                    <select id="nuclear_cellular_mode" name="nuclear_cellular_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cellular_mode == 'green_nucleus' %}selected{% endif %}>Green nucleus (measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cellular_mode == 'red_nucleus' %}selected{% endif %}>Red nucleus (measure Green)</option></select>
+                    <select id="nuclear_cell_pair_mode" name="nuclear_cell_pair_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'green_nucleus' %}selected{% endif %}>Green nucleus (measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'red_nucleus' %}selected{% endif %}>Red nucleus (measure Green)</option></select>
                   </div>
                 </div>
               </div>
@@ -2034,13 +2034,13 @@ main.main > section.panel {
   const prefsScaleInput = document.getElementById('microns_per_pixel');
   const prefsScaleLive = document.getElementById('prefsScaleLive');
   const prefsScaleExample = document.getElementById('prefsScaleExample');
-  const redWidthInput = document.getElementById('red_line_width');
-  const redWidthUnit = document.getElementById('red_line_width_unit');
+  const redWidthInput = document.getElementById('puncta_line_width');
+  const redWidthUnit = document.getElementById('puncta_line_width_unit');
   const cenDotDistanceInput = document.getElementById('cen_dot_distance');
   const cenDotDistanceUnit = document.getElementById('cen_dot_distance_unit');
   const cenDotCollinearityThresholdInput = document.getElementById('cen_dot_collinearity_threshold');
   const punctaLineModeInput = document.getElementById('puncta_line_mode');
-  const nuclearCellularModeInput = document.getElementById('nuclear_cellular_mode');
+  const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
@@ -2190,7 +2190,7 @@ main.main > section.panel {
     if (redWidthUnit && redWidthInput && redWidthUnit.value === 'um') {
       const px = convertUmToPixels(redWidthInput.value, umPerPx);
       if (px > 0) {
-        examples.push(`Red line width ${formatNumeric(redWidthInput.value, 3)} µm -> ${px} px`);
+        examples.push(`Puncta line width ${formatNumeric(redWidthInput.value, 3)} µm -> ${px} px`);
       }
     }
     if (cenDotDistanceUnit && cenDotDistanceInput && cenDotDistanceUnit.value === 'um') {
@@ -2220,7 +2220,7 @@ main.main > section.panel {
     cenDotDistanceUnit: normalizeLengthUnit(valueOrEmpty(cenDotDistanceUnit)),
     cenDotCollinearityThreshold: captureNumericField(cenDotCollinearityThresholdInput),
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
-    nuclearCellularMode: valueOrEmpty(nuclearCellularModeInput) || 'green_nucleus',
+    nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
   });
@@ -2271,7 +2271,7 @@ main.main > section.panel {
       fromSnapshot.redWidthUnit !== toSnapshot.redWidthUnit
     ) {
       changes.push(
-        `Red line width: ${numericDisplay(fromSnapshot.redWidth)} ${formatLengthUnitLabel(fromSnapshot.redWidthUnit)} -> ${numericDisplay(toSnapshot.redWidth)} ${formatLengthUnitLabel(toSnapshot.redWidthUnit)}`
+        `Puncta line width: ${numericDisplay(fromSnapshot.redWidth)} ${formatLengthUnitLabel(fromSnapshot.redWidthUnit)} -> ${numericDisplay(toSnapshot.redWidth)} ${formatLengthUnitLabel(toSnapshot.redWidthUnit)}`
       );
     }
     if (
@@ -2287,9 +2287,9 @@ main.main > section.panel {
         `Biorientation collinearity threshold: ${numericDisplay(fromSnapshot.cenDotCollinearityThreshold)} -> ${numericDisplay(toSnapshot.cenDotCollinearityThreshold)}`
       );
     }
-    if (fromSnapshot.nuclearCellularMode !== toSnapshot.nuclearCellularMode) {
+    if (fromSnapshot.nuclearCellPairMode !== toSnapshot.nuclearCellPairMode) {
       changes.push(
-        `Nucleus contour source: ${nucleusModeLabel(fromSnapshot.nuclearCellularMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellularMode)}`
+        `Nucleus contour source: ${nucleusModeLabel(fromSnapshot.nuclearCellPairMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellPairMode)}`
       );
     }
     if (fromSnapshot.micronsPerPixel.normalized !== toSnapshot.micronsPerPixel.normalized) {
@@ -2470,7 +2470,7 @@ main.main > section.panel {
     }
     if (cenDotCollinearityThresholdInput) cenDotCollinearityThresholdInput.value = snapshot.cenDotCollinearityThreshold.raw;
     if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
-    if (nuclearCellularModeInput) nuclearCellularModeInput.value = snapshot.nuclearCellularMode;
+    if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
     syncRows();

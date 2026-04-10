@@ -29,10 +29,10 @@ CytoCV combines:
 
 The code-defined default modern workflow enables these plugins:
 
-- `RedLineIntensity`
+- `PunctaDistance`
 - `CENDot`
 - `GreenRedIntensity`
-- `NuclearCellularIntensity`
+- `NuclearCellPairIntensity`
 
 That default set requires `DIC`, `Red`, and `Green`. `Blue` remains supported for legacy measurements and for optional full-wavelength validation.
 

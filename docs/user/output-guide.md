@@ -46,19 +46,19 @@ Each successful run can create:
 
 Important `CellStatistics` fields include:
 
-- `distance`
-- `line_green_intensity`
+- `puncta_distance`
+- `puncta_line_intensity`
 - raw red/green contour intensity sums such as `red_intensity_1`, `green_intensity_1`, `red_in_green_intensity_1`, and `green_in_green_intensity_1`
 - the internal legacy storage fields `green_red_intensity_1` through `green_red_intensity_3`, which now store the public measurement/contour ratio values
 - `nucleus_intensity_sum`
-- `cellular_intensity_sum`
+- `cell_pair_intensity_sum`
 - `cytoplasmic_intensity`
 - legacy Blue-derived and red-in-blue fields
 - CEN dot classification fields
 
 For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
 
-For the puncta-line measurement, the internal storage fields remain `distance` and `line_green_intensity`, but the public labels are mode-driven:
+For the puncta-line measurement, the persisted fields are `puncta_distance` and `puncta_line_intensity`, and the public labels are mode-driven:
 
 - `red_puncta`: `Distance between Red Puncta` and `Green Intensity over Red Line`
 - `green_puncta`: `Distance between Green Puncta` and `Red Intensity over Green Line`
@@ -75,7 +75,7 @@ As a result, when one contour defines the selected nucleus family, the matching 
 - `red_nucleus`: `Green nuclear intensity` matches `Green in Red intensity 1`
 - `green_nucleus`: `Red nuclear intensity` matches `Red in Green intensity 1`
 
-The viewer, statistics table, and CSV/XLSX exports show three derived `Measurement/Contour Ratio` values. Their meaning follows the selected nucleus/cellular mode:
+The viewer, statistics table, and CSV/XLSX exports show three derived `Measurement/Contour Ratio` values. Their meaning follows the selected nucleus/cell-pair mode:
 
 - `red_nucleus`: `Green in Red / Red in Red`
 - `green_nucleus`: `Red in Green / Green in Green`
@@ -84,7 +84,7 @@ These ratios are derived values and should be interpreted as secondary output, n
 
 `CellStatistics.properties` also stores contextual information such as:
 
-- nuclear or cellular mode
+- nuclear or cell-pair mode
 - scale source and effective scale
 - pixel-equivalent threshold settings
 

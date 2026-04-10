@@ -60,10 +60,14 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
         normalize_channel_role(channel_name) or str(channel_name): int(channel_index)
         for channel_name, channel_index in channel_config.items()
     }
-    if "mCherry_line_width" in normalized and "red_line_width" not in normalized:
-        normalized["red_line_width"] = normalized["mCherry_line_width"]
-    if "mcherry_width_px" in normalized and "red_line_width_px" not in normalized:
-        normalized["red_line_width_px"] = normalized["mcherry_width_px"]
+    if "mCherry_line_width" in normalized and "puncta_line_width" not in normalized:
+        normalized["puncta_line_width"] = normalized["mCherry_line_width"]
+    if "red_line_width" in normalized and "puncta_line_width" not in normalized:
+        normalized["puncta_line_width"] = normalized["red_line_width"]
+    if "mcherry_width_px" in normalized and "puncta_line_width_px" not in normalized:
+        normalized["puncta_line_width_px"] = normalized["mcherry_width_px"]
+    if "red_line_width_px" in normalized and "puncta_line_width_px" not in normalized:
+        normalized["puncta_line_width_px"] = normalized["red_line_width_px"]
     if "gfp_distance_value_used" in normalized and "cen_dot_distance_value_used" not in normalized:
         normalized["cen_dot_distance_value_used"] = normalized["gfp_distance_value_used"]
     if "gfp_threshold" in normalized and "cen_dot_collinearity_threshold" not in normalized:
@@ -72,14 +76,18 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
         normalized["green_contour_filter_enabled"] = normalized["gfp_filter_enabled"]
     if "alternate_mcherry_detection" in normalized and "alternate_red_detection" not in normalized:
         normalized["alternate_red_detection"] = normalized["alternate_mcherry_detection"]
-    if "stats_mcherry_width_unit" in normalized and "stats_red_line_width_unit" not in normalized:
-        normalized["stats_red_line_width_unit"] = normalized["stats_mcherry_width_unit"]
+    if "stats_mcherry_width_unit" in normalized and "stats_puncta_line_width_unit" not in normalized:
+        normalized["stats_puncta_line_width_unit"] = normalized["stats_mcherry_width_unit"]
+    if "stats_red_line_width_unit" in normalized and "stats_puncta_line_width_unit" not in normalized:
+        normalized["stats_puncta_line_width_unit"] = normalized["stats_red_line_width_unit"]
     if "stats_gfp_distance_unit" in normalized and "stats_cen_dot_distance_unit" not in normalized:
         normalized["stats_cen_dot_distance_unit"] = normalized["stats_gfp_distance_unit"]
     normalized["puncta_line_mode"] = normalize_puncta_line_mode(
         normalized.get("puncta_line_mode"),
         default=DEFAULT_PUNCTA_LINE_MODE,
     )
+    if "nuclear_cellular_mode" in normalized and "nuclear_cell_pair_mode" not in normalized:
+        normalized["nuclear_cell_pair_mode"] = normalized["nuclear_cellular_mode"]
     return normalized
 
 
@@ -124,17 +132,17 @@ def build_overlay_render_config(
     channel_config: dict[str, int],
     kernel_size: int,
     kernel_deviation: int,
-    red_line_width: int,
+    puncta_line_width: int,
     arrested: str,
     selected_analysis: list[str],
     puncta_line_mode: str,
-    nuclear_cellular_mode: str,
-    red_line_width_px: int,
+    nuclear_cell_pair_mode: str,
+    puncta_line_width_px: int,
     cen_dot_distance_value_used: float,
     cen_dot_collinearity_threshold: int,
     green_contour_filter_enabled: bool,
     alternate_red_detection: bool,
-    red_line_width_unit: str | None = None,
+    puncta_line_width_unit: str | None = None,
     cen_dot_distance_unit: str | None = None,
 ) -> dict[str, object]:
     render_config: dict[str, object] = {
@@ -148,18 +156,18 @@ def build_overlay_render_config(
         "selected_analysis": [str(plugin_name) for plugin_name in selected_analysis if str(plugin_name)],
         "kernel_size": int(kernel_size),
         "kernel_deviation": int(kernel_deviation),
-        "red_line_width": int(red_line_width),
+        "puncta_line_width": int(puncta_line_width),
         "arrested": str(arrested),
         "puncta_line_mode": normalize_puncta_line_mode(puncta_line_mode),
-        "nuclear_cellular_mode": str(nuclear_cellular_mode),
-        "red_line_width_px": int(red_line_width_px),
+        "nuclear_cell_pair_mode": str(nuclear_cell_pair_mode),
+        "puncta_line_width_px": int(puncta_line_width_px),
         "cen_dot_distance_value_used": float(cen_dot_distance_value_used),
         "cen_dot_collinearity_threshold": int(cen_dot_collinearity_threshold),
         "green_contour_filter_enabled": bool(green_contour_filter_enabled),
         "alternate_red_detection": bool(alternate_red_detection),
     }
-    if red_line_width_unit:
-        render_config["stats_red_line_width_unit"] = str(red_line_width_unit)
+    if puncta_line_width_unit:
+        render_config["stats_puncta_line_width_unit"] = str(puncta_line_width_unit)
     if cen_dot_distance_unit:
         render_config["stats_cen_dot_distance_unit"] = str(cen_dot_distance_unit)
     return render_config
@@ -243,7 +251,7 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
         "input_dir": input_dir,
         "output_dir": str(Path(settings.MEDIA_ROOT) / str(run_uuid)),
         "kernel_size": int(render_config["kernel_size"]),
-        "red_line_width": int(render_config["red_line_width"]),
+        "puncta_line_width": int(render_config["puncta_line_width"]),
         "kernel_deviation": int(render_config["kernel_deviation"]),
         "arrested": str(render_config["arrested"]),
         "analysis": list(render_config.get("selected_analysis", [])),
@@ -251,7 +259,7 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
             render_config.get("puncta_line_mode"),
             default=DEFAULT_PUNCTA_LINE_MODE,
         ),
-        "nuclear_cellular_mode": str(render_config.get("nuclear_cellular_mode", "green_nucleus")),
+        "nuclear_cell_pair_mode": str(render_config.get("nuclear_cell_pair_mode", "green_nucleus")),
         "green_contour_filter_enabled": bool(
             render_config.get("green_contour_filter_enabled", False)
         ),
@@ -307,7 +315,7 @@ def render_overlay_images_for_cell(
         render_cp,
         _build_overlay_conf(run_uuid, render_config),
         execution_plan,
-        int(render_config.get("red_line_width_px", 1)),
+        int(render_config.get("puncta_line_width_px", 1)),
         float(render_config.get("cen_dot_distance_value_used", 37.0)),
         int(render_config.get("cen_dot_collinearity_threshold", 66)),
         bool(render_config.get("green_contour_filter_enabled", False)),

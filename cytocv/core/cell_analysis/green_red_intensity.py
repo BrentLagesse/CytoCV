@@ -6,7 +6,7 @@ from core.services.canonical_contours import (
     get_canonical_red_slots,
 )
 from core.services.measurement_contour_ratio import (
-    normalize_nuclear_cellular_mode,
+    normalize_nuclear_cell_pair_mode,
     store_measurement_contour_ratio_triplet,
 )
 from .analysis import Analysis
@@ -29,7 +29,7 @@ class GreenRedIntensity(Analysis):
         contours_data,
         red_image,
         green_image,
-        red_line_width_input,
+        puncta_line_width_input,
         cen_dot_distance,
         cen_dot_collinearity_threshold,
     ):
@@ -41,8 +41,8 @@ class GreenRedIntensity(Analysis):
         if green_gray is None:
             green_gray = self.preprocessed_images.get_image("green")
         props = dict(getattr(self.cp, "properties", {}) or {})
-        mode = normalize_nuclear_cellular_mode(props.get("nuclear_cellular_mode"))
-        props["nuclear_cellular_mode"] = mode
+        mode = normalize_nuclear_cell_pair_mode(props.get("nuclear_cell_pair_mode"))
+        props["nuclear_cell_pair_mode"] = mode
         self.cp.properties = props
         if red_gray is None or green_gray is None:
             self._set_default_triplet("red_intensity")
@@ -50,7 +50,7 @@ class GreenRedIntensity(Analysis):
             self._set_default_triplet("green_red_intensity")
             self._set_default_triplet("red_in_green_intensity")
             self._set_default_triplet("green_in_green_intensity")
-            self._set_default_triplet("green_to_red_distance")
+            self._set_default_triplet("distance_of_green_from_red")
             self._set_default_red_contour_sizes()
             for idx in range(1, 4):
                 setattr(self.cp, f"green_contour_{idx}_size", 0.0)
@@ -65,7 +65,7 @@ class GreenRedIntensity(Analysis):
         self._set_default_triplet("green_red_intensity")
         self._set_default_triplet("red_in_green_intensity")
         self._set_default_triplet("green_in_green_intensity")
-        self._set_default_triplet("green_to_red_distance")
+        self._set_default_triplet("distance_of_green_from_red")
         self._set_default_red_contour_sizes()
         for idx in range(1, 4):
             setattr(self.cp, f"green_contour_{idx}_size", 0.0)
@@ -88,7 +88,7 @@ class GreenRedIntensity(Analysis):
             setattr(self.cp, f"red_in_green_intensity_{i + 1}", red_in_green)
             setattr(self.cp, f"green_in_green_intensity_{i + 1}", green_in_green)
             setattr(self.cp, f"green_contour_{i + 1}_size", float(slot.area))
-            setattr(self.cp, f"green_to_red_distance_{i + 1}", float(nearest_red_dist))
+            setattr(self.cp, f"distance_of_green_from_red_{i + 1}", float(nearest_red_dist))
 
         # Keep raw masked sums as the source of truth. The legacy
         # green_red_intensity_* storage fields now persist the toggle-driven

@@ -6,8 +6,8 @@ from collections.abc import Mapping
 from typing import Any
 
 
-DEFAULT_NUCLEAR_CELLULAR_MODE = "green_nucleus"
-VALID_NUCLEAR_CELLULAR_MODES = frozenset({"green_nucleus", "red_nucleus"})
+DEFAULT_NUCLEAR_CELL_PAIR_MODE = "green_nucleus"
+VALID_NUCLEAR_CELL_PAIR_MODES = frozenset({"green_nucleus", "red_nucleus"})
 
 _MODE_RATIO_CONFIG = {
     "red_nucleus": {
@@ -25,12 +25,12 @@ _MODE_RATIO_CONFIG = {
 }
 
 
-def normalize_nuclear_cellular_mode(
+def normalize_nuclear_cell_pair_mode(
     value: str | None,
-    default: str = DEFAULT_NUCLEAR_CELLULAR_MODE,
+    default: str = DEFAULT_NUCLEAR_CELL_PAIR_MODE,
 ) -> str:
-    """Return a supported nucleus/cellular mode."""
-    if value in VALID_NUCLEAR_CELLULAR_MODES:
+    """Return a supported nucleus/cell-pair mode."""
+    if value in VALID_NUCLEAR_CELL_PAIR_MODES:
         return str(value)
     return default
 
@@ -50,7 +50,7 @@ def _float_or_zero(value: Any) -> float:
 
 def get_measurement_contour_ratio_metadata(mode: str | None = None) -> dict[str, str]:
     """Return the public label metadata for the selected ratio mode."""
-    normalized_mode = normalize_nuclear_cellular_mode(mode)
+    normalized_mode = normalize_nuclear_cell_pair_mode(mode)
     config = _MODE_RATIO_CONFIG[normalized_mode]
     pair_label = str(config["pair_label"])
     formula_text = str(config["formula_text"])
@@ -70,7 +70,7 @@ def calculate_measurement_contour_ratio_value(
 ) -> float:
     """Calculate a single measurement/contour ratio value from raw sums."""
     metadata = get_measurement_contour_ratio_metadata(
-        mode if mode is not None else _source_value(source, "nuclear_cellular_mode")
+        mode if mode is not None else _source_value(source, "nuclear_cell_pair_mode")
     )
     config = _MODE_RATIO_CONFIG[metadata["mode"]]
     numerator = _float_or_zero(
@@ -92,7 +92,7 @@ def calculate_measurement_contour_ratio_triplet(
     """Calculate all three measurement/contour ratio slots from raw sums."""
     normalized_mode = mode if mode is not None else _source_value(
         source,
-        "nuclear_cellular_mode",
+        "nuclear_cell_pair_mode",
     )
     return tuple(
         calculate_measurement_contour_ratio_value(
@@ -123,7 +123,7 @@ def build_measurement_contour_ratio_payload(
 ) -> dict[str, Any]:
     """Expose public ratio keys and labels for display, dashboard, and export."""
     metadata = get_measurement_contour_ratio_metadata(
-        mode if mode is not None else _source_value(source, "nuclear_cellular_mode")
+        mode if mode is not None else _source_value(source, "nuclear_cell_pair_mode")
     )
     ratios = calculate_measurement_contour_ratio_triplet(source, mode=metadata["mode"])
     return {

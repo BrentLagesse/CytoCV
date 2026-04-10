@@ -81,10 +81,10 @@ Purpose:
 
 Important direct fields include:
 
-- `distance`
-- `line_green_intensity`
+- `puncta_distance`
+- `puncta_line_intensity`
 - `nucleus_intensity_sum`
-- `cellular_intensity_sum`
+- `cell_pair_intensity_sum`
 - `cytoplasmic_intensity`
 - contour sizes
 - red, green, and mixed intensity fields
@@ -94,7 +94,7 @@ Important direct fields include:
 
 `properties` carries dynamic run context such as:
 
-- nuclear or cellular mode
+- nuclear or cell-pair mode
 - scale source and effective scale
 - line width and distance threshold context
 

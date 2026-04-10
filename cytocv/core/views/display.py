@@ -42,11 +42,11 @@ from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from django_tables2.export.export import TableExport
 
 
-def _resolve_nuclear_cellular_mode(stats_iterable):
+def _resolve_nuclear_cell_pair_mode(stats_iterable):
     modes = set()
     for stat in stats_iterable:
         props = stat.properties or {}
-        mode = props.get("nuclear_cellular_mode")
+        mode = props.get("nuclear_cell_pair_mode", props.get("nuclear_cellular_mode"))
         if mode in {"green_nucleus", "red_nucleus"}:
             modes.add(mode)
     return modes.pop() if len(modes) == 1 else None
@@ -254,7 +254,7 @@ def display(request, uuids):
             stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
-                table_mode = _resolve_nuclear_cellular_mode(stats_by_id.values())
+                table_mode = _resolve_nuclear_cell_pair_mode(stats_by_id.values())
                 puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
                 cell_table = CellTable(
                     cell_stats_qs,

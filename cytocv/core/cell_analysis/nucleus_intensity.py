@@ -12,7 +12,7 @@ class NucleusIntensity(Analysis):
         contours_data,
         red_image=None,
         green_image=None,
-        red_line_width_input=None,
+        puncta_line_width_input=None,
         cen_dot_distance=0,
         cen_dot_collinearity_threshold=0,
     ):
@@ -60,6 +60,6 @@ class NucleusIntensity(Analysis):
         self.cp.cell_intensity = int(cell_intensity_sum)
         self.cp.cell_total_points = len(border_cells)
 
-        self.cp.cellular_intensity_sum = float(cell_intensity_sum)
+        self.cp.cell_pair_intensity_sum = float(cell_intensity_sum)
 
         self.cp.cytoplasmic_intensity = float(cell_intensity_sum) - float(intensity_sum)
