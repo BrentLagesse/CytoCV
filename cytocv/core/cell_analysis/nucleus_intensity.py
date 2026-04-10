@@ -15,6 +15,7 @@ class NucleusIntensity(Analysis):
         puncta_line_width_input=None,
         cen_dot_distance=0,
         cen_dot_collinearity_threshold=0,
+        cen_dot_proximity_radius=13,
     ):
         """
             This function calculate the nucleus intensity within the green image

@@ -144,6 +144,8 @@ def build_overlay_render_config(
     alternate_red_detection: bool,
     puncta_line_width_unit: str | None = None,
     cen_dot_distance_unit: str | None = None,
+    cen_dot_proximity_radius: float | None = None,
+    cen_dot_proximity_radius_unit: str | None = None,
 ) -> dict[str, object]:
     render_config: dict[str, object] = {
         "schema_version": OVERLAY_RENDER_SCHEMA_VERSION,
@@ -170,6 +172,10 @@ def build_overlay_render_config(
         render_config["stats_puncta_line_width_unit"] = str(puncta_line_width_unit)
     if cen_dot_distance_unit:
         render_config["stats_cen_dot_distance_unit"] = str(cen_dot_distance_unit)
+    if cen_dot_proximity_radius is not None:
+        render_config["cen_dot_proximity_radius"] = float(cen_dot_proximity_radius)
+    if cen_dot_proximity_radius_unit:
+        render_config["stats_cen_dot_proximity_radius_unit"] = str(cen_dot_proximity_radius_unit)
     return render_config
 
 
@@ -318,6 +324,7 @@ def render_overlay_images_for_cell(
         int(render_config.get("puncta_line_width_px", 1)),
         float(render_config.get("cen_dot_distance_value_used", 37.0)),
         int(render_config.get("cen_dot_collinearity_threshold", 66)),
+        float(render_config.get("cen_dot_proximity_radius", 13)),
         bool(render_config.get("green_contour_filter_enabled", False)),
         bool(render_config.get("alternate_red_detection", False)),
         cached_images=images_to_use,

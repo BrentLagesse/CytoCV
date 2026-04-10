@@ -1865,6 +1865,7 @@
     const initializedKey = 'cytocv.selected_analyses_initialized.v3';
     const widthKey = 'cytocv.puncta_line_width.v3';
     const distanceKey = 'cytocv.cen_dot_distance.v2';
+    const proximityRadiusKey = 'cytocv.cen_dot_proximity_radius.v1';
     const thresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
     const advancedKey = 'cytocv.advanced_validation.v3';
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
@@ -1872,6 +1873,7 @@
     const legacyLengthUnitKey = 'cytocv.stats_length_unit.v2';
     const punctaLineWidthUnitKey = 'cytocv.puncta_line_width_unit.v3';
     const cenDotDistanceUnitKey = 'cytocv.cen_dot_distance_unit.v2';
+    const cenDotProximityRadiusUnitKey = 'cytocv.cen_dot_proximity_radius_unit.v1';
     const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v2';
     const useMetadataScaleKey = 'cytocv.use_metadata_scale.v2';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
@@ -1904,6 +1906,7 @@
         manualRequiredChannels: new Set(),
         punctaLineWidth: 1,
         cenDotDistance: 37,
+        cenDotProximityRadius: 13,
         cenDotCollinearityThreshold: 66,
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
@@ -1911,6 +1914,7 @@
         alternateRedDetection: false,
         punctaLineWidthUnit: 'px',
         cenDotDistanceUnit: 'px',
+        cenDotProximityRadiusUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
         useMetadataScale: true,
     };
@@ -1923,6 +1927,7 @@
     let punctaLineWidthRow = null;
     let cenDotDistanceInput = null;
     let cenDotDistanceRow = null;
+    let cenDotProximityRadiusInput = null;
     let cenDotCollinearityThresholdInput = null;
     let micronsPerPixelInput = null;
     let useMetadataScaleInput = null;
@@ -1964,16 +1969,20 @@
 
         const widthUnit = (serverPreferenceDefaults.puncta_line_width_unit === 'um') ? 'um' : 'px';
         const distanceUnit = (serverPreferenceDefaults.cen_dot_distance_unit === 'um') ? 'um' : 'px';
+        const proximityRadiusUnit = (serverPreferenceDefaults.cen_dot_proximity_radius_unit === 'um') ? 'um' : 'px';
         localStorage.setItem(punctaLineWidthUnitKey, widthUnit);
         localStorage.setItem(cenDotDistanceUnitKey, distanceUnit);
+        localStorage.setItem(cenDotProximityRadiusUnitKey, proximityRadiusUnit);
         localStorage.setItem(legacyLengthUnitKey, widthUnit === distanceUnit ? widthUnit : 'mixed');
 
         const width = Number(serverPreferenceDefaults.puncta_line_width);
         const distance = Number(serverPreferenceDefaults.cen_dot_distance);
+        const proximityRadius = Number(serverPreferenceDefaults.cen_dot_proximity_radius);
         const threshold = Number(serverPreferenceDefaults.cen_dot_collinearity_threshold);
         const micronsPerPixel = Number(serverPreferenceDefaults.microns_per_pixel);
         localStorage.setItem(widthKey, Number.isFinite(width) ? String(width) : '1');
         localStorage.setItem(distanceKey, Number.isFinite(distance) ? String(distance) : '37');
+        localStorage.setItem(proximityRadiusKey, Number.isFinite(proximityRadius) ? String(proximityRadius) : '13');
         localStorage.setItem(thresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
         localStorage.setItem(
             micronsPerPixelKey,
@@ -2457,9 +2466,16 @@
             : 37;
     }
 
+    function defaultProximityRadiusForUnit(unit) {
+        return unit === 'um'
+            ? 13 * sanitizeMicronsPerPixel(statsState.micronsPerPixel)
+            : 13;
+    }
+
     function getLengthUnitForField(field) {
         if (field === 'punctaLineWidth') return statsState.punctaLineWidthUnit;
         if (field === 'cenDotDistance') return statsState.cenDotDistanceUnit;
+        if (field === 'cenDotProximityRadius') return statsState.cenDotProximityRadiusUnit;
         return 'px';
     }
 
@@ -2471,12 +2487,17 @@
         }
         if (field === 'cenDotDistance') {
             statsState.cenDotDistanceUnit = normalized;
+            return;
+        }
+        if (field === 'cenDotProximityRadius') {
+            statsState.cenDotProximityRadiusUnit = normalized;
         }
     }
 
     function getLengthValueForField(field) {
         if (field === 'punctaLineWidth') return statsState.punctaLineWidth;
         if (field === 'cenDotDistance') return statsState.cenDotDistance;
+        if (field === 'cenDotProximityRadius') return statsState.cenDotProximityRadius;
         return 0;
     }
 
@@ -2487,6 +2508,10 @@
         }
         if (field === 'cenDotDistance') {
             statsState.cenDotDistance = value;
+            return;
+        }
+        if (field === 'cenDotProximityRadius') {
+            statsState.cenDotProximityRadius = value;
         }
     }
 
@@ -2505,6 +2530,7 @@
     function persistLengthUnitSettings() {
         localStorage.setItem(punctaLineWidthUnitKey, statsState.punctaLineWidthUnit);
         localStorage.setItem(cenDotDistanceUnitKey, statsState.cenDotDistanceUnit);
+        localStorage.setItem(cenDotProximityRadiusUnitKey, statsState.cenDotProximityRadiusUnit);
         localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
         localStorage.setItem(useMetadataScaleKey, String(!!statsState.useMetadataScale));
     }
@@ -2553,9 +2579,9 @@
         const currentValue = getLengthValueForField(field);
         let converted = convertLengthValueToUnit(currentValue, currentUnit, normalizedNext);
         if (!Number.isFinite(converted)) {
-            converted = field === 'punctaLineWidth'
-                ? defaultWidthForUnit(normalizedNext)
-                : defaultDistanceForUnit(normalizedNext);
+            if (field === 'punctaLineWidth') converted = defaultWidthForUnit(normalizedNext);
+            else if (field === 'cenDotProximityRadius') converted = defaultProximityRadiusForUnit(normalizedNext);
+            else converted = defaultDistanceForUnit(normalizedNext);
         }
 
         if (field === 'punctaLineWidth') {
@@ -2566,9 +2592,12 @@
             if (normalizedNext === 'px') {
                 converted = Math.round(converted);
             }
-        } else if (field === 'cenDotDistance') {
+        } else if (field === 'cenDotDistance' || field === 'cenDotProximityRadius') {
+            const fallback = field === 'cenDotProximityRadius'
+                ? defaultProximityRadiusForUnit(normalizedNext)
+                : defaultDistanceForUnit(normalizedNext);
             if (converted < 0) {
-                converted = defaultDistanceForUnit(normalizedNext);
+                converted = fallback;
             }
             if (normalizedNext === 'px') {
                 converted = Math.round(converted);
@@ -2582,6 +2611,8 @@
             localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
         } else if (field === 'cenDotDistance') {
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
+        } else if (field === 'cenDotProximityRadius') {
+            localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
         }
         syncStatsUI();
     }
@@ -2713,6 +2744,9 @@
         if (statsState.cenDotDistanceUnit === 'px') {
             statsState.cenDotDistance = Math.max(0, Math.round(Number(statsState.cenDotDistance) || 0));
         }
+        if (statsState.cenDotProximityRadiusUnit === 'px') {
+            statsState.cenDotProximityRadius = Math.max(0, Math.round(Number(statsState.cenDotProximityRadius) || 0));
+        }
         lengthUnitSelectElements.forEach((control) => {
             control.setUnit(getLengthUnitForField(control.field));
         });
@@ -2738,6 +2772,17 @@
             }
             cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
         }
+
+        if (cenDotProximityRadiusInput) {
+            if (statsState.cenDotProximityRadiusUnit === 'um') {
+                cenDotProximityRadiusInput.step = '0.01';
+                cenDotProximityRadiusInput.min = '0';
+            } else {
+                cenDotProximityRadiusInput.step = '1';
+                cenDotProximityRadiusInput.min = '0';
+            }
+            cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
+        }
     }
 
     function initializeStatsSettings() {
@@ -2749,6 +2794,7 @@
         loadStoredUseMetadataScale();
         loadStoredWidth();
         loadStoredDistance();
+        loadStoredProximityRadius();
         loadStoredThreshold();
         loadStoredPunctaMode();
         loadStoredNuclearMode();
@@ -2802,6 +2848,7 @@
         punctaLineWidthRow = null;
         cenDotDistanceInput = null;
         cenDotDistanceRow = null;
+        cenDotProximityRadiusInput = null;
         cenDotCollinearityThresholdInput = null;
         micronsPerPixelInput = null;
         punctaLineModeRow = null;
@@ -2975,6 +3022,30 @@
                 });
                 distanceLine.appendChild(distanceGroup.controls);
                 distanceRow.appendChild(distanceLine);
+
+                const proximityRadiusLine = document.createElement('div');
+                proximityRadiusLine.className = 'stats-distance-line';
+                const proximityRadiusLabel = document.createElement('label');
+                proximityRadiusLabel.setAttribute('for', 'cenDotProximityRadiusInput');
+                proximityRadiusLabel.textContent = 'Signal proximity radius:';
+                proximityRadiusLine.appendChild(proximityRadiusLabel);
+
+                const proximityRadiusGroup = buildLengthInputGroup({
+                    field: 'cenDotProximityRadius',
+                    inputId: 'cenDotProximityRadiusInput',
+                    minValue: 0,
+                    defaultValue: 13,
+                    onChange: () => {
+                        const fallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
+                        statsState.cenDotProximityRadius = parseLengthValue(proximityRadiusGroup.input.value, statsState.cenDotProximityRadiusUnit, fallback, 0);
+                        proximityRadiusGroup.input.value = formatNumericInputValue(statsState.cenDotProximityRadius);
+                        localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
+                        updateMeasurementScaleHints();
+                    },
+                });
+                proximityRadiusLine.appendChild(proximityRadiusGroup.controls);
+                distanceRow.appendChild(proximityRadiusLine);
+                cenDotProximityRadiusInput = proximityRadiusGroup.input;
 
                 const thresholdLine = document.createElement('div');
                 thresholdLine.className = 'stats-distance-line stats-threshold-line';
@@ -3214,6 +3285,12 @@
                 `Minimum signal distance ${formatNumericInputValue(statsState.cenDotDistance, 3)} µm -> ${pxValue} px`
             );
         }
+        if (statsState.cenDotProximityRadiusUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, 0, 13);
+            examples.push(
+                `Signal proximity radius ${formatNumericInputValue(statsState.cenDotProximityRadius, 3)} µm -> ${pxValue} px`
+            );
+        }
 
         setSmoothText(
             measurementScaleExampleHint,
@@ -3397,8 +3474,10 @@
         const legacyUnit = normalizeLengthUnit(localStorage.getItem(legacyLengthUnitKey));
         const storedWidthUnit = localStorage.getItem(punctaLineWidthUnitKey);
         const storedDistanceUnit = localStorage.getItem(cenDotDistanceUnitKey);
+        const storedProximityRadiusUnit = localStorage.getItem(cenDotProximityRadiusUnitKey);
         statsState.punctaLineWidthUnit = normalizeLengthUnit(storedWidthUnit || legacyUnit);
         statsState.cenDotDistanceUnit = normalizeLengthUnit(storedDistanceUnit || legacyUnit);
+        statsState.cenDotProximityRadiusUnit = normalizeLengthUnit(storedProximityRadiusUnit || legacyUnit);
     }
 
     function loadStoredMicronsPerPixel() {
@@ -3426,6 +3505,12 @@
         const raw = localStorage.getItem(distanceKey);
         const fallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
         statsState.cenDotDistance = parseLengthValue(raw, statsState.cenDotDistanceUnit, fallback, 0);
+    }
+
+    function loadStoredProximityRadius() {
+        const raw = localStorage.getItem(proximityRadiusKey);
+        const fallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
+        statsState.cenDotProximityRadius = parseLengthValue(raw, statsState.cenDotProximityRadiusUnit, fallback, 0);
     }
 
     function loadStoredThreshold() {
@@ -3565,6 +3650,9 @@
         }
         if (cenDotDistanceInput) {
             cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
+        }
+        if (cenDotProximityRadiusInput) {
+            cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
         }
         if (cenDotDistanceRow) {
             cenDotDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('CENDot'));
@@ -3768,6 +3856,7 @@
             manualRequiredChannels: [...statsState.manualRequiredChannels].sort(),
             punctaLineWidth: Number.isFinite(Number(statsState.punctaLineWidth)) ? Number(statsState.punctaLineWidth) : 1,
             cenDotDistance: Number.isFinite(Number(statsState.cenDotDistance)) ? Number(statsState.cenDotDistance) : 37,
+            cenDotProximityRadius: Number.isFinite(Number(statsState.cenDotProximityRadius)) ? Number(statsState.cenDotProximityRadius) : 13,
             cenDotCollinearityThreshold: Number.isFinite(Number(statsState.cenDotCollinearityThreshold)) ? Number(statsState.cenDotCollinearityThreshold) : 66,
             punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
@@ -3775,6 +3864,7 @@
             alternateRedDetection: !!statsState.alternateRedDetection,
             punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
             cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
+            cenDotProximityRadiusUnit: normalizeLengthUnit(statsState.cenDotProximityRadiusUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
             useMetadataScale: !!statsState.useMetadataScale,
         });
@@ -3803,6 +3893,7 @@
             );
             statsState.punctaLineWidthUnit = normalizeLengthUnit(snapshot.punctaLineWidthUnit);
             statsState.cenDotDistanceUnit = normalizeLengthUnit(snapshot.cenDotDistanceUnit);
+            statsState.cenDotProximityRadiusUnit = normalizeLengthUnit(snapshot.cenDotProximityRadiusUnit);
             statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
             statsState.useMetadataScale = !!snapshot.useMetadataScale;
             const widthMinimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
@@ -3810,6 +3901,8 @@
             statsState.punctaLineWidth = parseLengthValue(snapshot.punctaLineWidth, statsState.punctaLineWidthUnit, widthFallback, widthMinimum);
             const distanceFallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
             statsState.cenDotDistance = parseLengthValue(snapshot.cenDotDistance, statsState.cenDotDistanceUnit, distanceFallback, 0);
+            const proximityRadiusFallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
+            statsState.cenDotProximityRadius = parseLengthValue(snapshot.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, proximityRadiusFallback, 0);
             const parsedThreshold = parseInt(String(snapshot.cenDotCollinearityThreshold ?? 66), 10);
             statsState.cenDotCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
             statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
@@ -3828,6 +3921,7 @@
             persistAdvancedSettings();
             localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
+            localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
             localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
@@ -4555,6 +4649,12 @@
                 cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
                 localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
             }
+            if (cenDotProximityRadiusInput) {
+                const fallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
+                statsState.cenDotProximityRadius = parseLengthValue(cenDotProximityRadiusInput.value, statsState.cenDotProximityRadiusUnit, fallback, 0);
+                cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
+                localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
+            }
             if (cenDotCollinearityThresholdInput) {
                 const parsed = parseInt(cenDotCollinearityThresholdInput.value, 10);
                 statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
@@ -4569,7 +4669,7 @@
                 statsState.nuclearCellPairMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
-            const usingMicrometers = statsState.punctaLineWidthUnit === 'um' || statsState.cenDotDistanceUnit === 'um';
+            const usingMicrometers = statsState.punctaLineWidthUnit === 'um' || statsState.cenDotDistanceUnit === 'um' || statsState.cenDotProximityRadiusUnit === 'um';
             if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
                 showErrors([
                     'Micrometers-per-pixel must be greater than 0 when using micrometer input.',
@@ -4579,6 +4679,7 @@
 
             const punctaLineWidthPixels = convertLengthToPixels(statsState.punctaLineWidth, statsState.punctaLineWidthUnit, 1, 1);
             const cenDotDistancePixels = convertLengthToPixels(statsState.cenDotDistance, statsState.cenDotDistanceUnit, 0, 37);
+            const cenDotProximityRadiusPixels = convertLengthToPixels(statsState.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, 0, 13);
 
             const submitBtn = document.getElementById('uploadSubmit');
             const btnText = submitBtn.querySelector('.btn-text');
@@ -4661,19 +4762,24 @@
             [...statsState.selectedPlugins].forEach((pluginId) => formData.append('selected_analysis', pluginId));
             formData.append('stats_puncta_line_width_value', String(statsState.punctaLineWidth));
             formData.append('stats_cen_dot_distance_value', String(statsState.cenDotDistance));
+            formData.append('stats_cen_dot_proximity_radius_value', String(statsState.cenDotProximityRadius));
             formData.append('punctaLineWidth', String(punctaLineWidthPixels));
             formData.append('cenDotDistance', String(cenDotDistancePixels));
+            formData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));
             formData.append('cenDotCollinearityThreshold', String(statsState.cenDotCollinearityThreshold));
             formData.append('puncta_line_mode', statsState.punctaLineMode);
             formData.append('nuclear_cell_pair_mode', statsState.nuclearCellPairMode);
             formData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
             formData.append('alternateRedDetection', String(statsState.alternateRedDetection));
-            const sharedLengthUnit = statsState.punctaLineWidthUnit === statsState.cenDotDistanceUnit
+            const allUnitsMatch = statsState.punctaLineWidthUnit === statsState.cenDotDistanceUnit
+                && statsState.cenDotDistanceUnit === statsState.cenDotProximityRadiusUnit;
+            const sharedLengthUnit = allUnitsMatch
                 ? statsState.punctaLineWidthUnit
                 : 'mixed';
             formData.append('stats_length_unit', sharedLengthUnit);
             formData.append('stats_puncta_line_width_unit', statsState.punctaLineWidthUnit);
             formData.append('stats_cen_dot_distance_unit', statsState.cenDotDistanceUnit);
+            formData.append('stats_cen_dot_proximity_radius_unit', statsState.cenDotProximityRadiusUnit);
             formData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
             formData.append('stats_use_metadata_scale', statsState.useMetadataScale ? '1' : '0');
 

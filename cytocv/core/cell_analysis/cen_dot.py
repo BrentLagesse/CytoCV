@@ -68,6 +68,27 @@ class CENDot(Analysis):
     def is_close(self, green_center_1, green_center_2):
         return math.dist(green_center_1, green_center_2) <= 8
 
+    def _get_proximity_radius_unit(self) -> str:
+        properties = getattr(self.cp, "properties", {}) or {}
+        return normalize_length_unit(properties.get("stats_cen_dot_proximity_radius_unit"), default="px")
+
+    def _proximity_radius_in_pixels(self, proximity_radius: float) -> float:
+        proximity_radius_unit = self._get_proximity_radius_unit()
+        if proximity_radius_unit == "um":
+            properties = getattr(self.cp, "properties", {}) or {}
+            um_per_px = properties.get(
+                "scale_effective_um_per_px",
+                properties.get("scale_x_um_per_px", 0.1),
+            )
+            try:
+                um_per_px = float(um_per_px)
+            except (TypeError, ValueError):
+                um_per_px = 0.1
+            if um_per_px <= 0:
+                um_per_px = 0.1
+            return proximity_radius / um_per_px
+        return proximity_radius
+
     def calculate_statistics(
         self,
         best_contours,
@@ -77,8 +98,9 @@ class CENDot(Analysis):
         puncta_line_width_input,
         cen_dot_distance=37,
         cen_dot_collinearity_threshold=66,
+        cen_dot_proximity_radius=13,
     ):
-        prox_radius = 13
+        prox_radius = self._proximity_radius_in_pixels(cen_dot_proximity_radius)
         cen_dot_distance = cen_dot_distance if (cen_dot_distance >= 0) else 37
         red_shape = None
         green_shape = None

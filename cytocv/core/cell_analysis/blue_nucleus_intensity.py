@@ -22,6 +22,7 @@ class BlueNucleusIntensity(Analysis):
         puncta_line_width_input=None,
         cen_dot_distance=0,
         cen_dot_collinearity_threshold=66,
+        cen_dot_proximity_radius=13,
     ):
         gray_blue = self.preprocessed_images.get_image("gray_blue")
         gray_blue_no_bg, background = subtract_background_rolling_ball(

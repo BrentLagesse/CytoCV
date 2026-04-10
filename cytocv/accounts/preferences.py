@@ -32,12 +32,14 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "puncta_line_width": 1,
         "cen_dot_distance": 37,
         "cen_dot_collinearity_threshold": 66,
+        "cen_dot_proximity_radius": 13,
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
         "puncta_line_width_unit": "px",
         "cen_dot_distance_unit": "px",
+        "cen_dot_proximity_radius_unit": "px",
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
     },
@@ -201,6 +203,15 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
             defaults_payload.get("gfp_threshold"),
         ),
         default=66,
+        minimum=0,
+    )
+    normalized["experiment_defaults"]["cen_dot_proximity_radius_unit"] = _normalize_unit(
+        defaults_payload.get("cen_dot_proximity_radius_unit"),
+        default="px",
+    )
+    normalized["experiment_defaults"]["cen_dot_proximity_radius"] = _as_float(
+        defaults_payload.get("cen_dot_proximity_radius"),
+        default=13,
         minimum=0,
     )
     normalized["experiment_defaults"]["puncta_line_mode"] = normalize_puncta_line_mode(

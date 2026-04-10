@@ -1069,6 +1069,13 @@ main.main > section.panel {
                   </div>
                 </div>
                 <div class="plugin-measure-line">
+                  <label for="cen_dot_proximity_radius">Signal proximity radius:</label>
+                  <div class="length-input-group plugin-measure-right">
+                    <input type="number" step="0.01" min="0" id="cen_dot_proximity_radius" name="cen_dot_proximity_radius" value="{{ preferences.experiment_defaults.cen_dot_proximity_radius }}">
+                    <select id="cen_dot_proximity_radius_unit" name="cen_dot_proximity_radius_unit"><option value="px" {% if preferences.experiment_defaults.cen_dot_proximity_radius_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.cen_dot_proximity_radius_unit == 'um' %}selected{% endif %}>µm</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
                   <label for="cen_dot_collinearity_threshold">Biorientation collinearity threshold:</label>
                   <div class="boxed-number-group plugin-measure-right">
                     <input type="number" min="0" id="cen_dot_collinearity_threshold" name="cen_dot_collinearity_threshold" value="{{ preferences.experiment_defaults.cen_dot_collinearity_threshold }}">
@@ -2038,6 +2045,8 @@ main.main > section.panel {
   const redWidthUnit = document.getElementById('puncta_line_width_unit');
   const cenDotDistanceInput = document.getElementById('cen_dot_distance');
   const cenDotDistanceUnit = document.getElementById('cen_dot_distance_unit');
+  const cenDotProximityRadiusInput = document.getElementById('cen_dot_proximity_radius');
+  const cenDotProximityRadiusUnit = document.getElementById('cen_dot_proximity_radius_unit');
   const cenDotCollinearityThresholdInput = document.getElementById('cen_dot_collinearity_threshold');
   const punctaLineModeInput = document.getElementById('puncta_line_mode');
   const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
@@ -2199,6 +2208,12 @@ main.main > section.panel {
         examples.push(`Minimum signal distance ${formatNumeric(cenDotDistanceInput.value, 3)} µm -> ${px} px`);
       }
     }
+    if (cenDotProximityRadiusUnit && cenDotProximityRadiusInput && cenDotProximityRadiusUnit.value === 'um') {
+      const px = convertUmToPixels(cenDotProximityRadiusInput.value, umPerPx);
+      if (px > 0) {
+        examples.push(`Signal proximity radius ${formatNumeric(cenDotProximityRadiusInput.value, 3)} µm -> ${px} px`);
+      }
+    }
     prefsScaleExample.textContent = examples.length
       ? `Live conversion: ${examples.join(' | ')}`
       : 'Set a plugin length unit to µm to preview its pixel conversion here.';
@@ -2218,6 +2233,8 @@ main.main > section.panel {
     redWidthUnit: normalizeLengthUnit(valueOrEmpty(redWidthUnit)),
     cenDotDistance: captureNumericField(cenDotDistanceInput),
     cenDotDistanceUnit: normalizeLengthUnit(valueOrEmpty(cenDotDistanceUnit)),
+    cenDotProximityRadius: captureNumericField(cenDotProximityRadiusInput),
+    cenDotProximityRadiusUnit: normalizeLengthUnit(valueOrEmpty(cenDotProximityRadiusUnit)),
     cenDotCollinearityThreshold: captureNumericField(cenDotCollinearityThresholdInput),
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
@@ -2280,6 +2297,14 @@ main.main > section.panel {
     ) {
       changes.push(
         `Minimum signal distance: ${numericDisplay(fromSnapshot.cenDotDistance)} ${formatLengthUnitLabel(fromSnapshot.cenDotDistanceUnit)} -> ${numericDisplay(toSnapshot.cenDotDistance)} ${formatLengthUnitLabel(toSnapshot.cenDotDistanceUnit)}`
+      );
+    }
+    if (
+      fromSnapshot.cenDotProximityRadius.normalized !== toSnapshot.cenDotProximityRadius.normalized ||
+      fromSnapshot.cenDotProximityRadiusUnit !== toSnapshot.cenDotProximityRadiusUnit
+    ) {
+      changes.push(
+        `Signal proximity radius: ${numericDisplay(fromSnapshot.cenDotProximityRadius)} ${formatLengthUnitLabel(fromSnapshot.cenDotProximityRadiusUnit)} -> ${numericDisplay(toSnapshot.cenDotProximityRadius)} ${formatLengthUnitLabel(toSnapshot.cenDotProximityRadiusUnit)}`
       );
     }
     if (fromSnapshot.cenDotCollinearityThreshold.normalized !== toSnapshot.cenDotCollinearityThreshold.normalized) {
@@ -2468,6 +2493,12 @@ main.main > section.panel {
       cenDotDistanceUnit.dataset.prevUnit = snapshot.cenDotDistanceUnit;
       syncLengthInputConstraints(cenDotDistanceInput, snapshot.cenDotDistanceUnit, 0, 0);
     }
+    if (cenDotProximityRadiusInput) cenDotProximityRadiusInput.value = snapshot.cenDotProximityRadius.raw;
+    if (cenDotProximityRadiusUnit) {
+      cenDotProximityRadiusUnit.value = snapshot.cenDotProximityRadiusUnit;
+      cenDotProximityRadiusUnit.dataset.prevUnit = snapshot.cenDotProximityRadiusUnit;
+      syncLengthInputConstraints(cenDotProximityRadiusInput, snapshot.cenDotProximityRadiusUnit, 0, 0);
+    }
     if (cenDotCollinearityThresholdInput) cenDotCollinearityThresholdInput.value = snapshot.cenDotCollinearityThreshold.raw;
     if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
@@ -2653,6 +2684,20 @@ main.main > section.panel {
         minimumPx: 0,
         minimumUm: 0,
         defaultForUnit: (unit, umPerPx) => (normalizeLengthUnit(unit) === 'um' ? 37 * umPerPx : 37),
+        minimumForUnit: () => 0,
+      });
+      updateMeasurementScaleHelp();
+    });
+  }
+
+  if (cenDotProximityRadiusInput && cenDotProximityRadiusUnit) {
+    cenDotProximityRadiusUnit.dataset.prevUnit = normalizeLengthUnit(cenDotProximityRadiusUnit.value);
+    syncLengthInputConstraints(cenDotProximityRadiusInput, cenDotProximityRadiusUnit.value, 0, 0);
+    cenDotProximityRadiusUnit.addEventListener('change', () => {
+      applyUnitConversion(cenDotProximityRadiusInput, cenDotProximityRadiusUnit, {
+        minimumPx: 0,
+        minimumUm: 0,
+        defaultForUnit: (unit, umPerPx) => (normalizeLengthUnit(unit) === 'um' ? 13 * umPerPx : 13),
         minimumForUnit: () => 0,
       });
       updateMeasurementScaleHelp();
