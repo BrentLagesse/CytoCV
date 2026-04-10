@@ -1162,6 +1162,18 @@ main.main > section.panel {
               </div>
             </div>
           </div>
+          <div class="row">
+            <div class="measurement-scale-copy">
+              <label for="spatial_stats_unit">Preferred spatial stat display unit</label>
+              <p>Sets the default px or Âµm view used when display and dashboard first render. Page-level toggles can still override each file without changing this workflow default.</p>
+            </div>
+            <div class="mode-select-group plugin-measure-right">
+              <select id="spatial_stats_unit" name="spatial_stats_unit">
+                <option value="px" {% if preferences.experiment_defaults.spatial_stats_unit == 'px' %}selected{% endif %}>px</option>
+                <option value="um" {% if preferences.experiment_defaults.spatial_stats_unit == 'um' %}selected{% endif %}>Âµm</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div class="card action-card" data-workflow-action-card="plugins">
           <p class="section-eyebrow card-title">Save Plugin Settings</p>
@@ -2801,4 +2813,3 @@ main.main > section.panel {
 })();
 </script>
 {% endblock content %}
-

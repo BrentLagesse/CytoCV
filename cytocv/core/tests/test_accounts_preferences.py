@@ -48,6 +48,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["use_metadata_scale"])
+        self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
         self.assertTrue(normalized["sidebar_starts_open"])
@@ -70,6 +71,7 @@ class PreferenceNormalizationTests(TestCase):
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
                     "use_metadata_scale": "off",
+                    "spatial_stats_unit": "bad_unit",
                 },
                 "auto_save_experiments": "off",
                 "show_saved_file_scales": "off",
@@ -88,6 +90,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertFalse(defaults["use_metadata_scale"])
+        self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertFalse(normalized["show_saved_file_scales"])
@@ -455,13 +458,21 @@ class DisplayManualSaveTests(TestCase):
             puncta_line_intensity=2.0,
             nucleus_intensity_sum=3.0,
             cell_pair_intensity_sum=4.0,
+            blue_contour_size=9.0,
+            distance_of_green_from_red_1=6.0,
             red_intensity_1=5.0,
             green_intensity_1=6.0,
             red_in_green_intensity_1=7.0,
             green_in_green_intensity_1=8.0,
             green_red_intensity_1=6.0 / 5.0,
             category_cen_dot=1,
-            properties={"nuclear_cell_pair_mode": "red_nucleus"},
+            properties={
+                "nuclear_cell_pair_mode": "red_nucleus",
+                "puncta_distance_delta_x_px": 1.0,
+                "puncta_distance_delta_y_px": 0.0,
+                "distance_of_green_from_red_1_delta_x_px": 6.0,
+                "distance_of_green_from_red_1_delta_y_px": 0.0,
+            },
         )
 
     def _set_transient_uuids(self, uuids: list[str]) -> None:
@@ -600,6 +611,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
         self.assertContains(response, 'id="toggleContours"', html=False)
         self.assertContains(response, 'id="statsTablePanel"', html=False)
+        self.assertContains(response, 'id="dashboardSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
@@ -632,10 +644,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
         self.assertContains(response, 'id="toggleContours"', html=False)
         self.assertContains(response, 'id="statsTablePanel"', html=False)
+        self.assertContains(response, 'id="displaySpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, "const defaultSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="dic_form"', html=False)
@@ -729,6 +743,55 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Green in Green Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
+
+    def test_dashboard_csv_export_respects_micron_unit_request(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_csv_export_um",
+        )
+        uploaded = UploadedImage.objects.get(uuid=saved_uuid)
+        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.save(update_fields=["scale_info"])
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {"file_uuid": saved_uuid, "_export": "csv", "_unit": "um"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        csv_text = response.content.decode("utf-8")
+        self.assertIn("Distance between Red Puncta (µm)", csv_text)
+        self.assertIn("Blue Contour Size (µm²)", csv_text)
+        self.assertIn("Distance of Green from Red 1 (µm)", csv_text)
+        self.assertIn("0.500", csv_text)
+        self.assertIn("2.250", csv_text)
+        self.assertIn("3.000", csv_text)
+
+    def test_dashboard_xlsx_export_respects_micron_unit_request(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_xlsx_export_um",
+        )
+        uploaded = UploadedImage.objects.get(uuid=saved_uuid)
+        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.save(update_fields=["scale_info"])
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {"file_uuid": saved_uuid, "_export": "xlsx", "_unit": "um"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        headers = [cell.value for cell in sheet[1]]
+        self.assertIn("Distance between Red Puncta (µm)", headers)
+        self.assertIn("Blue Contour Size (µm²)", headers)
+        self.assertIn("Distance of Green from Red 1 (µm)", headers)
         self.assertIn("CEN dot Category", headers)
         gfp_dot_col = headers.index("CEN dot Category") + 1
         self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "One green dot with each red dot")
@@ -1662,6 +1725,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
                 "use_metadata_scale": "on",
+                "spatial_stats_unit": "um",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -1679,6 +1743,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
+        self.assertEqual(defaults["spatial_stats_unit"], "um")
 
     def test_advanced_settings_save_preserves_measurement_defaults(self):
         payload = get_user_preferences(self.user)
@@ -1693,6 +1758,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
                 "use_metadata_scale": False,
+                "spatial_stats_unit": "um",
             }
         )
         update_user_preferences(self.user, payload)
@@ -1720,6 +1786,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
+        self.assertEqual(defaults["spatial_stats_unit"], "um")
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(

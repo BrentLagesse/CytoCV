@@ -53,7 +53,11 @@ from core.services.puncta_line_mode import (
     VALID_PUNCTA_LINE_MODES,
     normalize_puncta_line_mode,
 )
-from core.scale import get_scale_sidebar_payload
+from core.scale import (
+    get_scale_context_payload,
+    get_scale_sidebar_payload,
+    normalize_spatial_stats_unit,
+)
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
     CHANNEL_INFO,
@@ -168,6 +172,10 @@ def _extract_measurement_defaults(
         minimum=0.0001,
     )
     current_use_metadata_scale = bool(defaults.get("use_metadata_scale", True))
+    current_spatial_stats_unit = normalize_spatial_stats_unit(
+        defaults.get("spatial_stats_unit"),
+        default="px",
+    )
     current_puncta_mode = _normalize_puncta_mode(
         defaults.get("puncta_line_mode"),
         default=DEFAULT_PUNCTA_LINE_MODE,
@@ -228,6 +236,10 @@ def _extract_measurement_defaults(
             minimum=0.0001,
         ),
         "use_metadata_scale": use_metadata_scale,
+        "spatial_stats_unit": normalize_spatial_stats_unit(
+            post_data.get("spatial_stats_unit"),
+            default=current_spatial_stats_unit,
+        ),
     }
 
 
@@ -396,7 +408,16 @@ def _recalculate_user_storage_usage(user: Any) -> None:
     refresh_user_storage_usage(user)
 
 
-def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
+def _build_cell_table_for_uuid(
+    user: Any,
+    uuid: str,
+    *,
+    spatial_stats_unit: str = "px",
+) -> CellTable:
+    preferences = get_user_preferences(user)
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
     try:
         segmented_image = SegmentedImage.objects.get(user=user, UUID=uuid)
     except SegmentedImage.DoesNotExist:
@@ -404,7 +425,15 @@ def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
             CellStatistics.objects.none(),
             intensity_mode=None,
             puncta_line_mode=None,
+            spatial_stats_unit=spatial_stats_unit,
+            scale_context=None,
         )
+
+    uploaded = UploadedImage.objects.filter(user=user, uuid=uuid).only("scale_info").first()
+    scale_context = get_scale_context_payload(
+        getattr(uploaded, "scale_info", None),
+        manual_default=default_manual_scale,
+    )
 
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by("cell_id")
     intensity_mode = _resolve_nuclear_cell_pair_mode(stats_qs)
@@ -413,6 +442,8 @@ def _build_cell_table_for_uuid(user: Any, uuid: str) -> CellTable:
         stats_qs,
         intensity_mode=intensity_mode,
         puncta_line_mode=puncta_line_mode,
+        spatial_stats_unit=spatial_stats_unit,
+        scale_context=scale_context,
     )
 
 
@@ -530,6 +561,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
+    default_spatial_stats_unit = normalize_spatial_stats_unit(
+        preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
+        default="px",
+    )
 
     files_data: dict[str, Any] = {}
     file_list: list[dict[str, Any]] = []
@@ -561,6 +596,14 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             channel_display_label(channel)
             for channel, _ in sorted(channel_config.items(), key=lambda entry: entry[1])
         ]
+        scale_payload = get_scale_sidebar_payload(
+            uploaded.scale_info,
+            manual_default=default_manual_scale,
+        )
+        scale_context = get_scale_context_payload(
+            uploaded.scale_info,
+            manual_default=default_manual_scale,
+        )
         file_list.append(
             {
                 "uuid": uuid,
@@ -568,10 +611,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 "uploaded_date": segmented_image.uploaded_date,
                 "num_cells": segmented_image.NumCells,
                 "detected_channels": detected_channels,
-                "scale": get_scale_sidebar_payload(
-                    uploaded.scale_info,
-                    manual_default=default_manual_scale,
-                ),
+                "scale": scale_payload,
             }
         )
 
@@ -587,6 +627,8 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 stats_qs,
                 intensity_mode=intensity_mode,
                 puncta_line_mode=puncta_line_mode,
+                spatial_stats_unit=default_spatial_stats_unit,
+                scale_context=scale_context,
             )
 
         if stats_by_id:
@@ -685,6 +727,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             "NumberOfCells": number_of_cells,
             "CellPairImages": cell_images,
             "Image_Name": image_name,
+            "ScaleContext": scale_context,
             "ChannelConfig": {
                 channel_slug(channel_name): channel_index
                 for channel_name, channel_index in channel_config.items()
@@ -698,6 +741,8 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             CellStatistics.objects.none(),
             intensity_mode=None,
             puncta_line_mode=None,
+            spatial_stats_unit=default_spatial_stats_unit,
+            scale_context=None,
         )
 
     saved_file_count = len(file_list)
@@ -736,6 +781,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "show_saved_file_channels": show_saved_file_channels,
         "show_saved_file_scales": show_saved_file_scales,
         "sidebar_starts_open": sidebar_starts_open,
+        "default_spatial_stats_unit": default_spatial_stats_unit,
     }
 
 
@@ -838,8 +884,13 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
 
     export_format = request.GET.get("_export")
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
+    export_unit = normalize_spatial_stats_unit(request.GET.get("_unit"), default="px")
     if TableExport.is_valid_format(export_format) and export_uuid:
-        table = _build_cell_table_for_uuid(request.user, export_uuid)
+        table = _build_cell_table_for_uuid(
+            request.user,
+            export_uuid,
+            spatial_stats_unit=export_unit,
+        )
         uploaded_name = (
             UploadedImage.objects.filter(user=request.user, uuid=export_uuid)
             .values_list("name", flat=True)

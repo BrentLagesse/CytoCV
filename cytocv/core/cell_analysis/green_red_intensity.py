@@ -82,14 +82,27 @@ class GreenRedIntensity(Analysis):
             red_in_green = float(calculate_intensity_mask(red_gray, slot.mask))
             green_in_green = float(calculate_intensity_mask(green_gray, slot.mask))
             if red_centers:
-                nearest_red_dist = min(math.dist(slot.center, red_center) for red_center in red_centers)
+                nearest_red_center = min(
+                    red_centers,
+                    key=lambda red_center: math.dist(slot.center, red_center),
+                )
+                nearest_red_dist = math.dist(slot.center, nearest_red_center)
             else:
+                nearest_red_center = None
                 nearest_red_dist = 0.0
 
             setattr(self.cp, f"red_in_green_intensity_{i + 1}", red_in_green)
             setattr(self.cp, f"green_in_green_intensity_{i + 1}", green_in_green)
             setattr(self.cp, f"green_contour_{i + 1}_size", float(slot.area))
             setattr(self.cp, f"distance_of_green_from_red_{i + 1}", float(nearest_red_dist))
+            self.cp.properties = dict(self.cp.properties or {})
+            if nearest_red_center is not None:
+                self.cp.properties[f"distance_of_green_from_red_{i + 1}_delta_x_px"] = float(
+                    nearest_red_center[0] - slot.center[0]
+                )
+                self.cp.properties[f"distance_of_green_from_red_{i + 1}_delta_y_px"] = float(
+                    nearest_red_center[1] - slot.center[1]
+                )
 
         # Keep raw masked sums as the source of truth. The legacy
         # green_red_intensity_* storage fields now persist the toggle-driven

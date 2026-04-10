@@ -36,7 +36,11 @@ from core.services.artifact_storage import (
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
-from core.scale import get_scale_sidebar_payload
+from core.scale import (
+    get_scale_context_payload,
+    get_scale_sidebar_payload,
+    normalize_spatial_stats_unit,
+)
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from django_tables2.export.export import TableExport
@@ -195,6 +199,10 @@ def display(request, uuids):
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
+    default_spatial_stats_unit = normalize_spatial_stats_unit(
+        preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
+        default="px",
+    )
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -214,6 +222,14 @@ def display(request, uuids):
             ]
 
             # Append file info for the sidebar, INCLUDING the channel pills
+            scale_payload = get_scale_sidebar_payload(
+                uploaded_image.scale_info,
+                manual_default=default_manual_scale,
+            )
+            scale_context = get_scale_context_payload(
+                uploaded_image.scale_info,
+                manual_default=default_manual_scale,
+            )
             file_list.append({
                 'uuid': uuid,
                 'name': image_name,
@@ -221,10 +237,7 @@ def display(request, uuids):
                 'uploaded_date': cell_image.uploaded_date,
                 'num_cells': int(cell_image.NumCells or 0),
                 'is_saved': bool(request.user.is_authenticated and cell_image.user_id == request.user.id),
-                'scale': get_scale_sidebar_payload(
-                    uploaded_image.scale_info,
-                    manual_default=default_manual_scale,
-                ),
+                'scale': scale_payload,
             })
             image_name_stem = Path(image_name).stem
             image_index = 0
@@ -260,6 +273,8 @@ def display(request, uuids):
                     cell_stats_qs,
                     intensity_mode=table_mode,
                     puncta_line_mode=puncta_line_mode,
+                    spatial_stats_unit=default_spatial_stats_unit,
+                    scale_context=scale_context,
                 )
             if stats_by_id:
                 cell_ids = list(stats_by_id.keys())
@@ -300,7 +315,16 @@ def display(request, uuids):
                 statistics[str(i)] = serialize_cell_statistics_payload(cell_stat)
 
             export_format = request.GET.get('_export', None)
+            export_unit = normalize_spatial_stats_unit(request.GET.get('_unit'), default="px")
             if TableExport.is_valid_format(export_format) and cell_table is not None:
+                if first_table_uuid == uuid:
+                    cell_table = CellTable(
+                        cell_stats_qs,
+                        intensity_mode=table_mode,
+                        puncta_line_mode=puncta_line_mode,
+                        spatial_stats_unit=export_unit,
+                        scale_context=scale_context,
+                    )
                 exporter = TableExport(export_format,cell_table)
                 return exporter.response(
                     _build_export_download_name(
@@ -316,6 +340,7 @@ def display(request, uuids):
                 'NumberOfCells': number_of_cells,
                 'CellPairImages': images,
                 'Image_Name': image_name,
+                'ScaleContext': scale_context,
                 'ChannelConfig': {
                     channel_slug(channel_name): channel_index
                     for channel_name, channel_index in channel_config.items()
@@ -334,6 +359,8 @@ def display(request, uuids):
             CellStatistics.objects.none(),
             intensity_mode=None,
             puncta_line_mode=None,
+            spatial_stats_unit=default_spatial_stats_unit,
+            scale_context=None,
         )
 
     # Convert the files_data to JSON to be used in the template
@@ -347,6 +374,7 @@ def display(request, uuids):
         'show_saved_file_channels': show_saved_file_channels,
         'show_saved_file_scales': show_saved_file_scales,
         'sidebar_starts_open': sidebar_starts_open,
+        'default_spatial_stats_unit': default_spatial_stats_unit,
     })
 
 

@@ -1905,6 +1905,15 @@
                         </form>
                         <button class="hide" onclick="hidePopUp()">Close</button>
                     </div>
+                    <div class="table-toolbar glass-toolbar">
+                        <p class="section-eyebrow">Statistics Table</p>
+                        <div class="toolbar-actions">
+                            <div class="unit-toggle" id="displaySpatialUnitToggle" role="group" aria-label="Spatial units">
+                                <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                                <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                            </div>
+                        </div>
+                    </div>
                     {% load export_url from django_tables2 %}
                     <div class="export-buttons">
                         <a class="export_btn" id="displayDownloadCsvBtn" href="{% export_url 'csv' %}">Download CSV</a>
@@ -1991,6 +2000,74 @@
             'measurementChannel',
             'nuclearStatus',
         ];
+        const defaultSpatialStatsUnit = "{{ default_spatial_stats_unit|default:'px'|escapejs }}";
+        const spatialUnitSessionKey = 'cytocv.spatial_stats_unit_overrides.v1';
+        const spatialFieldKinds = {
+            puncta_distance: 'distance',
+            blue_contour_size: 'area',
+            red_contour_1_size: 'area',
+            red_contour_2_size: 'area',
+            red_contour_3_size: 'area',
+            green_contour_1_size: 'area',
+            green_contour_2_size: 'area',
+            green_contour_3_size: 'area',
+            distance_of_green_from_red_1: 'distance',
+            distance_of_green_from_red_2: 'distance',
+            distance_of_green_from_red_3: 'distance',
+        };
+        const tableFieldOrder = [
+            'cell_id',
+            'puncta_distance',
+            'puncta_line_intensity',
+            'blue_contour_size',
+            'red_contour_1_size',
+            'red_contour_2_size',
+            'red_contour_3_size',
+            'green_contour_1_size',
+            'green_contour_2_size',
+            'green_contour_3_size',
+            'red_intensity_1',
+            'red_intensity_2',
+            'red_intensity_3',
+            'green_intensity_1',
+            'green_intensity_2',
+            'green_intensity_3',
+            'red_in_green_intensity_1',
+            'red_in_green_intensity_2',
+            'red_in_green_intensity_3',
+            'green_in_green_intensity_1',
+            'green_in_green_intensity_2',
+            'green_in_green_intensity_3',
+            'measurement_contour_ratio_1',
+            'measurement_contour_ratio_2',
+            'measurement_contour_ratio_3',
+            'distance_of_green_from_red_1',
+            'distance_of_green_from_red_2',
+            'distance_of_green_from_red_3',
+            'cell_pair_intensity_sum',
+            'nucleus_intensity_sum',
+            'cytoplasmic_intensity',
+            'category_cen_dot',
+            'biorientation',
+        ];
+        const spatialHeaderBaseLabels = {
+            blue_contour_size: 'Blue Contour Size',
+            red_contour_1_size: 'Red Contour 1 Size',
+            red_contour_2_size: 'Red Contour 2 Size',
+            red_contour_3_size: 'Red Contour 3 Size',
+            green_contour_1_size: 'Green Contour 1 Size',
+            green_contour_2_size: 'Green Contour 2 Size',
+            green_contour_3_size: 'Green Contour 3 Size',
+            distance_of_green_from_red_1: 'Distance of Green from Red 1',
+            distance_of_green_from_red_2: 'Distance of Green from Red 2',
+            distance_of_green_from_red_3: 'Distance of Green from Red 3',
+        };
+        let spatialUnitOverrides = {};
+        try {
+            spatialUnitOverrides = JSON.parse(sessionStorage.getItem(spatialUnitSessionKey) || '{}');
+        } catch (error) {
+            spatialUnitOverrides = {};
+        }
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
         let hasInitializedDisplayFile = false;
@@ -2261,6 +2338,9 @@
             const imageUrls = safeCellPairImages[cellNumber] || safeCellPairImages[String(cellNumber)] || null;
             const visibleImageUrls = getVisibleCellImageUrls(imageUrls, showContours);
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const scaleContext = getScaleContext(filesData[fileUUID]);
+            const spatialUnit = getFileSpatialUnit(fileUUID);
             const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
@@ -2272,7 +2352,7 @@
                 visibleImageUrls,
                 cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
                 metricValues: {
-                    distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),
+                    distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),
                     punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
                     measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
                     measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
@@ -2300,7 +2380,7 @@
                     nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
                 },
                 labels: {
-                    distanceLabel,
+                    distanceLabel: formatSpatialLabel(distanceLabel, 'puncta_distance', spatialUnit),
                     lineIntensityLabel,
                     nucleusIntensityLabel: labels.nuclear,
                     cellularIntensityLabel: labels.cellular,
@@ -2659,6 +2739,117 @@
             }
         }
 
+        function normalizeSpatialUnit(unit) {
+            return unit === 'um' ? 'um' : 'px';
+        }
+
+        function persistSpatialUnitOverrides() {
+            sessionStorage.setItem(spatialUnitSessionKey, JSON.stringify(spatialUnitOverrides));
+        }
+
+        function getFileSpatialUnit(fileUUID) {
+            const overriddenUnit = spatialUnitOverrides[fileUUID];
+            if (overriddenUnit === 'px' || overriddenUnit === 'um') {
+                return overriddenUnit;
+            }
+            return defaultSpatialStatsUnit;
+        }
+
+        function setFileSpatialUnit(fileUUID, unit) {
+            spatialUnitOverrides[fileUUID] = normalizeSpatialUnit(unit);
+            persistSpatialUnitOverrides();
+        }
+
+        function getScaleContext(fileData) {
+            return fileData?.ScaleContext || {};
+        }
+
+        function getSpatialUnitSuffix(fieldName, unit) {
+            const normalizedUnit = normalizeSpatialUnit(unit);
+            if (spatialFieldKinds[fieldName] === 'area') {
+                return normalizedUnit === 'um' ? 'µm²' : 'px²';
+            }
+            if (spatialFieldKinds[fieldName] === 'distance') {
+                return normalizedUnit === 'um' ? 'µm' : 'px';
+            }
+            return '';
+        }
+
+        function formatSpatialLabel(label, fieldName, unit) {
+            const suffix = getSpatialUnitSuffix(fieldName, unit);
+            if (!suffix) {
+                return label;
+            }
+            return `${String(label || '').replace(/\s+\((?:px|µm|px²|µm²)\)$/u, '')} (${suffix})`;
+        }
+
+        function convertSpatialValue(fieldName, value, cellStats, scaleContext, unit) {
+            if (value === null || value === undefined || value === '') {
+                return value;
+            }
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue) || normalizeSpatialUnit(unit) === 'px') {
+                return numericValue;
+            }
+            const effectiveScale = Number(scaleContext?.effective_um_per_px || 0.1);
+            const xScale = Number(scaleContext?.x_um_per_px || effectiveScale || 0.1);
+            const yScale = Number(scaleContext?.y_um_per_px || effectiveScale || 0.1);
+            if (spatialFieldKinds[fieldName] === 'area') {
+                return numericValue * xScale * yScale;
+            }
+            if (spatialFieldKinds[fieldName] === 'distance') {
+                const dx = Number(cellStats?.[`${fieldName}_delta_x_px`]);
+                const dy = Number(cellStats?.[`${fieldName}_delta_y_px`]);
+                if (Number.isFinite(dx) && Number.isFinite(dy)) {
+                    return Math.hypot(dx * xScale, dy * yScale);
+                }
+                return numericValue * effectiveScale;
+            }
+            return numericValue;
+        }
+
+        function formatFieldValue(fieldName, value, cellStats, scaleContext) {
+            if (Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
+                return formatStatValue(convertSpatialValue(fieldName, value, cellStats, scaleContext, getFileSpatialUnit(fileUUIDs[currentFileIndex])));
+            }
+            return formatStatValue(value);
+        }
+
+        function getDynamicSpatialHeaderLabel(fieldName, fileData) {
+            if (fieldName === 'puncta_distance') {
+                const statistics = fileData?.Statistics || {};
+                const firstCellStats = Object.values(statistics).find((row) => row);
+                const baseLabel = firstCellStats?.puncta_distance_label || 'Distance between Red Puncta';
+                return formatSpatialLabel(baseLabel, fieldName, getFileSpatialUnit(fileUUIDs[currentFileIndex]));
+            }
+            return formatSpatialLabel(
+                spatialHeaderBaseLabels[fieldName] || fieldName,
+                fieldName,
+                getFileSpatialUnit(fileUUIDs[currentFileIndex]),
+            );
+        }
+
+        function updateSpatialUnitControls(fileUUID, fileData) {
+            const toggle = document.getElementById('displaySpatialUnitToggle');
+            if (!toggle) {
+                return;
+            }
+            const activeUnit = getFileSpatialUnit(fileUUID);
+            toggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
+                const isActive = button.dataset.spatialUnit === activeUnit;
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                button.classList.toggle('active', isActive);
+            });
+
+            const headers = Array.from(document.querySelectorAll('#celltable thead th'));
+            tableFieldOrder.forEach((fieldName, index) => {
+                if (!Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName) || !headers[index]) {
+                    return;
+                }
+                headers[index].textContent = getDynamicSpatialHeaderLabel(fieldName, fileData);
+            });
+        }
+
         function normalizeHeader(text) {
             return (text || '').replace(/\s+/g, ' ').trim();
         }
@@ -2705,7 +2896,7 @@
             };
         }
 
-        function renderStatisticsTable(statistics) {
+        function renderStatisticsTable(statistics, fileData) {
             const table = document.getElementById('celltable');
             if (!table) return;
             const tbody = table.querySelector('tbody');
@@ -2715,58 +2906,8 @@
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
             ]);
-
-            const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
-            const keyMap = {
-                'Cell ID': 'cell_id',
-                'Distance between Red Puncta': 'puncta_distance',
-                'Distance between Green Puncta': 'puncta_distance',
-                'Green Intensity over Red Line': 'puncta_line_intensity',
-                'Red Intensity over Green Line': 'puncta_line_intensity',
-                'Blue Contour Size': 'blue_contour_size',
-                'Red Contour 1 Size': 'red_contour_1_size',
-                'Red Contour 2 Size': 'red_contour_2_size',
-                'Red Contour 3 Size': 'red_contour_3_size',
-                'Green Contour 1 Size': 'green_contour_1_size',
-                'Green Contour 2 Size': 'green_contour_2_size',
-                'Green Contour 3 Size': 'green_contour_3_size',
-                'Red in Red Intensity 1': 'red_intensity_1',
-                'Red in Red Intensity 2': 'red_intensity_2',
-                'Red in Red Intensity 3': 'red_intensity_3',
-                'Green in Red Intensity 1': 'green_intensity_1',
-                'Green in Red Intensity 2': 'green_intensity_2',
-                'Green in Red Intensity 3': 'green_intensity_3',
-                'Red in Green Intensity 1': 'red_in_green_intensity_1',
-                'Red in Green Intensity 2': 'red_in_green_intensity_2',
-                'Red in Green Intensity 3': 'red_in_green_intensity_3',
-                'Green in Green Intensity 1': 'green_in_green_intensity_1',
-                'Green in Green Intensity 2': 'green_in_green_intensity_2',
-                'Green in Green Intensity 3': 'green_in_green_intensity_3',
-                'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1',
-                'Measurement/Contour Ratio 2 (Green/Red)': 'measurement_contour_ratio_2',
-                'Measurement/Contour Ratio 3 (Green/Red)': 'measurement_contour_ratio_3',
-                'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1',
-                'Measurement/Contour Ratio 2 (Red/Green)': 'measurement_contour_ratio_2',
-                'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3',
-                'Distance of Green from Red 1': 'distance_of_green_from_red_1',
-                'Distance of Green from Red 2': 'distance_of_green_from_red_2',
-                'Distance of Green from Red 3': 'distance_of_green_from_red_3',
-                'CEN dot Category': 'category_cen_dot_label',
-                'Measured cell-pair intensity': 'cell_pair_intensity_sum',
-                'Measured nuclear intensity': 'nucleus_intensity_sum',
-                'Measured Cell-Pair Intensity': 'cell_pair_intensity_sum',
-                'Measured Nuclear Intensity': 'nucleus_intensity_sum',
-                'Red cell-pair intensity': 'cell_pair_intensity_sum',
-                'Red nuclear intensity': 'nucleus_intensity_sum',
-                'Green cell-pair intensity': 'cell_pair_intensity_sum',
-                'Green nuclear intensity': 'nucleus_intensity_sum',
-                'Red Cell-Pair Intensity': 'cell_pair_intensity_sum',
-                'Red Nuclear Intensity': 'nucleus_intensity_sum',
-                'Green Cell-Pair Intensity': 'cell_pair_intensity_sum',
-                'Green Nuclear Intensity': 'nucleus_intensity_sum',
-                'Cytoplasmic Intensity': 'cytoplasmic_intensity',
-                'Biorientation': 'biorientation',
-            };
+            const scaleContext = getScaleContext(fileData);
+            updateSpatialUnitControls(fileUUIDs[currentFileIndex], fileData);
 
             const ids = Object.keys(statistics || {})
                 .map((k) => Number(k))
@@ -2777,17 +2918,21 @@
             for (const id of ids) {
                 const rowStats = statistics[String(id)] || null;
                 const tr = document.createElement('tr');
-                for (const header of headers) {
+                for (const fieldName of tableFieldOrder) {
                     const td = document.createElement('td');
-                    const key = keyMap[header];
-                    if (!key) {
-                        td.textContent = 'N/A';
-                    } else if (key === 'cell_id') {
+                    if (fieldName === 'cell_id') {
                         td.textContent = String(id);
-                    } else if (nuclearCellularFields.has(key) && hasNoNucleusContour(rowStats)) {
+                    } else if (fieldName === 'category_cen_dot') {
+                        td.textContent = rowStats ? (rowStats.category_cen_dot_label || 'N/A') : 'N/A';
+                    } else if (nuclearCellularFields.has(fieldName) && hasNoNucleusContour(rowStats)) {
                         td.textContent = 'N/A';
                     } else {
-                        td.textContent = formatStatValue(rowStats ? rowStats[key] : null);
+                        td.textContent = formatFieldValue(
+                            fieldName,
+                            rowStats ? rowStats[fieldName] : null,
+                            rowStats,
+                            scaleContext,
+                        );
                     }
                     tr.appendChild(td);
                 }
@@ -2809,7 +2954,7 @@
                 }
             }
 
-            renderStatisticsTable(fileData.Statistics || {});
+            renderStatisticsTable(fileData.Statistics || {}, fileData);
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
@@ -2822,7 +2967,44 @@
                 const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
                 const canExportCurrentView = hasRows && fileUUID === serverTableUUID;
                 exportButtons.style.display = canExportCurrentView ? 'flex' : 'none';
+                const spatialUnit = getFileSpatialUnit(fileUUID);
+                const csvBtn = document.getElementById('displayDownloadCsvBtn');
+                const xlsxBtn = document.getElementById('displayDownloadXlsxBtn');
+                if (csvBtn) {
+                    csvBtn.href = `/experiment/${encodeURIComponent(fileUUID)}/display/?_export=csv&_unit=${encodeURIComponent(spatialUnit)}`;
+                }
+                if (xlsxBtn) {
+                    xlsxBtn.href = `/experiment/${encodeURIComponent(fileUUID)}/display/?_export=xlsx&_unit=${encodeURIComponent(spatialUnit)}`;
+                }
             }
+        }
+
+        function rerenderSpatialUnitsForCurrentFile() {
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const fileData = filesData[fileUUID];
+            if (!fileUUID || !fileData) {
+                return;
+            }
+            const nextState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
+                showContours: getContourToggleState(),
+                cellNumber: currentCellNumber,
+            });
+            renderCellDisplayState(nextState, { blendImages: false, blendText: false });
+            updateTableState(fileUUID, fileData);
+        }
+
+        const displaySpatialUnitToggle = document.getElementById('displaySpatialUnitToggle');
+        if (displaySpatialUnitToggle) {
+            displaySpatialUnitToggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const fileUUID = fileUUIDs[currentFileIndex];
+                    if (!fileUUID) {
+                        return;
+                    }
+                    setFileSpatialUnit(fileUUID, button.dataset.spatialUnit || 'px');
+                    rerenderSpatialUnitsForCurrentFile();
+                });
+            });
         }
 
         function updateCellImages(cellPairImages, statistics) {

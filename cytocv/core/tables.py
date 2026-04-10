@@ -7,6 +7,12 @@ from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
 from core.models import CellStatistics, get_cen_dot_category_label
+from core.scale import (
+    convert_area_pixels_to_display_units,
+    convert_distance_pixels_to_display_units,
+    format_spatial_stat_header,
+    normalize_spatial_stats_unit,
+)
 from core.services.measurement_contour_ratio import (
     calculate_measurement_contour_ratio_value,
     get_measurement_contour_ratio_headers,
@@ -45,6 +51,20 @@ class ChoiceLabelColumn(tables.Column):
 
 class CellTable(tables.Table):
     """Table layout for per-cell statistics used in UI and export."""
+
+    SPATIAL_FIELDS = {
+        "puncta_distance": "distance",
+        "blue_contour_size": "area",
+        "red_contour_1_size": "area",
+        "red_contour_2_size": "area",
+        "red_contour_3_size": "area",
+        "green_contour_1_size": "area",
+        "green_contour_2_size": "area",
+        "green_contour_3_size": "area",
+        "distance_of_green_from_red_1": "distance",
+        "distance_of_green_from_red_2": "distance",
+        "distance_of_green_from_red_3": "distance",
+    }
 
     cell_id = tables.Column(verbose_name="Cell ID")
     puncta_distance = NumberColumn(verbose_name="Distance between Red Puncta")
@@ -135,9 +155,18 @@ class CellTable(tables.Table):
         *args,
         intensity_mode: str | None = None,
         puncta_line_mode: str | None = None,
+        spatial_stats_unit: str = "px",
+        scale_context: dict[str, object] | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self._spatial_stats_unit = normalize_spatial_stats_unit(spatial_stats_unit, default="px")
+        resolved_scale_context = dict(scale_context or {})
+        self._scale_context = {
+            "effective_um_per_px": resolved_scale_context.get("effective_um_per_px", 0.1),
+            "x_um_per_px": resolved_scale_context.get("x_um_per_px", 0.1),
+            "y_um_per_px": resolved_scale_context.get("y_um_per_px", 0.1),
+        }
         self._intensity_mode = (
             normalize_nuclear_cell_pair_mode(intensity_mode)
             if intensity_mode in NUCLEAR_CELL_PAIR_LABELS
@@ -156,6 +185,13 @@ class CellTable(tables.Table):
         self.columns["green_red_intensity_1"].column.verbose_name = ratio_headers[0]
         self.columns["green_red_intensity_2"].column.verbose_name = ratio_headers[1]
         self.columns["green_red_intensity_3"].column.verbose_name = ratio_headers[2]
+        for field_name, spatial_kind in self.SPATIAL_FIELDS.items():
+            column = self.columns[field_name].column
+            column.verbose_name = format_spatial_stat_header(
+                str(column.verbose_name),
+                spatial_kind=spatial_kind,
+                unit=self._spatial_stats_unit,
+            )
 
     @staticmethod
     def _has_no_nucleus_contour(record: CellStatistics) -> bool:
@@ -171,6 +207,38 @@ class CellTable(tables.Table):
             return "{:0.3f}".format(float(value))
         except (TypeError, ValueError):
             return "N/A"
+
+    def _converted_spatial_value(
+        self,
+        field_name: str,
+        value: float,
+        record: CellStatistics,
+    ) -> float | None:
+        spatial_kind = self.SPATIAL_FIELDS.get(field_name)
+        if spatial_kind == "area":
+            return convert_area_pixels_to_display_units(
+                value,
+                unit=self._spatial_stats_unit,
+                x_um_per_px=self._scale_context["x_um_per_px"],
+                y_um_per_px=self._scale_context["y_um_per_px"],
+            )
+
+        if spatial_kind == "distance":
+            properties = getattr(record, "properties", {}) or {}
+            return convert_distance_pixels_to_display_units(
+                value,
+                unit=self._spatial_stats_unit,
+                effective_um_per_px=self._scale_context["effective_um_per_px"],
+                x_um_per_px=self._scale_context["x_um_per_px"],
+                y_um_per_px=self._scale_context["y_um_per_px"],
+                delta_x_px=properties.get(f"{field_name}_delta_x_px"),
+                delta_y_px=properties.get(f"{field_name}_delta_y_px"),
+            )
+
+        return value
+
+    def _render_spatial_value(self, field_name: str, value: float, record: CellStatistics) -> str:
+        return self._format_number(self._converted_spatial_value(field_name, value, record))
 
     def _render_nuclear_cell_pair_value(self, record: CellStatistics, value: float) -> str:
         if self._has_no_nucleus_contour(record):
@@ -224,6 +292,72 @@ class CellTable(tables.Table):
 
     def value_green_red_intensity_3(self, record: CellStatistics) -> str:
         return self._format_number(self._measurement_contour_ratio_value(record, 3))
+
+    def render_puncta_distance(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("puncta_distance", value, record)
+
+    def value_puncta_distance(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("puncta_distance", value, record)
+
+    def render_blue_contour_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("blue_contour_size", value, record)
+
+    def value_blue_contour_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("blue_contour_size", value, record)
+
+    def render_red_contour_1_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("red_contour_1_size", value, record)
+
+    def value_red_contour_1_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("red_contour_1_size", value, record)
+
+    def render_red_contour_2_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("red_contour_2_size", value, record)
+
+    def value_red_contour_2_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("red_contour_2_size", value, record)
+
+    def render_red_contour_3_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("red_contour_3_size", value, record)
+
+    def value_red_contour_3_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("red_contour_3_size", value, record)
+
+    def render_green_contour_1_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("green_contour_1_size", value, record)
+
+    def value_green_contour_1_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("green_contour_1_size", value, record)
+
+    def render_green_contour_2_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("green_contour_2_size", value, record)
+
+    def value_green_contour_2_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("green_contour_2_size", value, record)
+
+    def render_green_contour_3_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("green_contour_3_size", value, record)
+
+    def value_green_contour_3_size(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("green_contour_3_size", value, record)
+
+    def render_distance_of_green_from_red_1(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("distance_of_green_from_red_1", value, record)
+
+    def value_distance_of_green_from_red_1(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("distance_of_green_from_red_1", value, record)
+
+    def render_distance_of_green_from_red_2(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("distance_of_green_from_red_2", value, record)
+
+    def value_distance_of_green_from_red_2(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("distance_of_green_from_red_2", value, record)
+
+    def render_distance_of_green_from_red_3(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("distance_of_green_from_red_3", value, record)
+
+    def value_distance_of_green_from_red_3(self, value: float, record: CellStatistics) -> str:
+        return self._render_spatial_value("distance_of_green_from_red_3", value, record)
 
 class CellTableView(ExportMixin, SingleTableView):
     """Table view with CSV/XLSX export support for cell statistics."""

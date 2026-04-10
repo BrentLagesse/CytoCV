@@ -66,6 +66,26 @@ def serialize_cell_statistics_payload(
         "distance_of_green_from_red_1": cell_stat.distance_of_green_from_red_1,
         "distance_of_green_from_red_2": cell_stat.distance_of_green_from_red_2,
         "distance_of_green_from_red_3": cell_stat.distance_of_green_from_red_3,
+        "puncta_distance_delta_x_px": properties.get("puncta_distance_delta_x_px"),
+        "puncta_distance_delta_y_px": properties.get("puncta_distance_delta_y_px"),
+        "distance_of_green_from_red_1_delta_x_px": properties.get(
+            "distance_of_green_from_red_1_delta_x_px"
+        ),
+        "distance_of_green_from_red_1_delta_y_px": properties.get(
+            "distance_of_green_from_red_1_delta_y_px"
+        ),
+        "distance_of_green_from_red_2_delta_x_px": properties.get(
+            "distance_of_green_from_red_2_delta_x_px"
+        ),
+        "distance_of_green_from_red_2_delta_y_px": properties.get(
+            "distance_of_green_from_red_2_delta_y_px"
+        ),
+        "distance_of_green_from_red_3_delta_x_px": properties.get(
+            "distance_of_green_from_red_3_delta_x_px"
+        ),
+        "distance_of_green_from_red_3_delta_y_px": properties.get(
+            "distance_of_green_from_red_3_delta_y_px"
+        ),
         "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
         "cell_pair_intensity_sum": cell_stat.cell_pair_intensity_sum,
         "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,

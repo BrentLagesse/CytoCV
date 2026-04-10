@@ -66,7 +66,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         ratio_1_index = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
         ratio_2_index = header_row.index("Measurement/Contour Ratio 2 (Red/Green)")
         ratio_3_index = header_row.index("Measurement/Contour Ratio 3 (Red/Green)")
-        distance_triplet_index = header_row.index("Distance of Green from Red 1")
+        distance_triplet_index = header_row.index("Distance of Green from Red 1 (px)")
 
         self.assertLess(green_in_green_index, ratio_1_index)
         self.assertLess(ratio_1_index, ratio_2_index)
@@ -83,7 +83,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_line_columns_use_green_puncta_headers_when_requested(self):
         header_row = list(CellTable([], intensity_mode="green_nucleus", puncta_line_mode="green_puncta").as_values())[0]
 
-        self.assertIn("Distance between Green Puncta", header_row)
+        self.assertIn("Distance between Green Puncta (px)", header_row)
         self.assertIn("Red Intensity over Green Line", header_row)
 
     def test_ratio_values_are_derived_from_raw_sums_not_stale_stored_values(self):
@@ -121,4 +121,65 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
             value_row[header_row.index("Measurement/Contour Ratio 3 (Red/Green)")],
             "0.000",
         )
+
+    def test_spatial_headers_include_default_pixel_units(self):
+        header_row = list(self.table.as_values())[0]
+
+        self.assertIn("Distance between Red Puncta (px)", header_row)
+        self.assertIn("Blue Contour Size (px²)", header_row)
+        self.assertIn("Distance of Green from Red 1 (px)", header_row)
+
+    def test_spatial_headers_switch_to_microns_when_requested(self):
+        header_row = list(
+            CellTable(
+                [],
+                intensity_mode="green_nucleus",
+                puncta_line_mode="red_puncta",
+                spatial_stats_unit="um",
+                scale_context={"effective_um_per_px": 0.5, "x_um_per_px": 0.5, "y_um_per_px": 0.5},
+            ).as_values()
+        )[0]
+
+        self.assertIn("Distance between Red Puncta (µm)", header_row)
+        self.assertIn("Blue Contour Size (µm²)", header_row)
+        self.assertIn("Distance of Green from Red 1 (µm)", header_row)
+
+    def test_spatial_values_convert_for_render_and_export(self):
+        record = SimpleNamespace(
+            puncta_distance=4.0,
+            blue_contour_size=10.0,
+            distance_of_green_from_red_1=6.0,
+            properties={
+                "puncta_distance_delta_x_px": 3.0,
+                "puncta_distance_delta_y_px": 4.0,
+                "distance_of_green_from_red_1_delta_x_px": 6.0,
+                "distance_of_green_from_red_1_delta_y_px": 0.0,
+            },
+        )
+        table = CellTable(
+            [record],
+            intensity_mode="green_nucleus",
+            puncta_line_mode="red_puncta",
+            spatial_stats_unit="um",
+            scale_context={"effective_um_per_px": 0.5, "x_um_per_px": 0.5, "y_um_per_px": 0.25},
+        )
+
+        self.assertEqual(table.render_puncta_distance(4.0, record), "1.803")
+        self.assertEqual(table.value_puncta_distance(4.0, record), "1.803")
+        self.assertEqual(table.render_blue_contour_size(10.0, record), "1.250")
+        self.assertEqual(table.value_blue_contour_size(10.0, record), "1.250")
+        self.assertEqual(table.render_distance_of_green_from_red_1(6.0, record), "3.000")
+        self.assertEqual(table.value_distance_of_green_from_red_1(6.0, record), "3.000")
+
+    def test_distance_conversion_falls_back_to_scalar_scale_for_legacy_rows(self):
+        record = SimpleNamespace(puncta_distance=8.0, properties={})
+        table = CellTable(
+            [record],
+            intensity_mode="green_nucleus",
+            puncta_line_mode="red_puncta",
+            spatial_stats_unit="um",
+            scale_context={"effective_um_per_px": 0.25, "x_um_per_px": 0.1, "y_um_per_px": 0.2},
+        )
+
+        self.assertEqual(table.render_puncta_distance(8.0, record), "2.000")
 
