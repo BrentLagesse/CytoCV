@@ -19,7 +19,7 @@ from core.channel_roles import (
     channel_role_from_slug,
     channel_slug,
 )
-from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
+from core.config import get_channel_config_for_uuid
 from core.models import (
     UploadedImage,
     SegmentedImage,
@@ -34,6 +34,7 @@ from core.services.artifact_storage import (
     sweep_user_run_artifacts,
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
+from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
 from core.scale import (
@@ -262,6 +263,13 @@ def display(request, uuids):
                     image_index = channel_config.get(CHANNEL_ROLE_BLUE, 1)
             image_file_name = image_name_stem + "_frame_" + str(image_index)
             full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+            available_frames = _scan_output_frames(str(uuid))
+            main_image_paths = build_main_image_paths(
+                uuid=str(uuid),
+                image_name=image_name,
+                channel_config=channel_config,
+                available_frames=available_frames,
+            )
             has_overlay_render_config = overlay_render_config_exists(uuid)
 
             # Build the images for each cell based on the dynamic channel configuration
@@ -341,6 +349,7 @@ def display(request, uuids):
             # Store all image details and statistics for this UUID
             all_files_data[str(uuid)] = {
                 'MainImagePath': full_outlined,
+                'MainImagePaths': main_image_paths,
                 'NumberOfCells': number_of_cells,
                 'CellPairImages': images,
                 'Image_Name': image_name,
@@ -704,27 +713,14 @@ def main_image_channel(request, uuid):
         return JsonResponse({'error': 'Unauthorized'}, status=401)
 
     channel_config = get_channel_config_for_uuid(str(uuid))
-    fallback_frame_map = {
-        channel_slug(role): DEFAULT_CHANNEL_CONFIG.get(role, 0)
-        for role in (
-            CHANNEL_ROLE_RED,
-            CHANNEL_ROLE_GREEN,
-            CHANNEL_ROLE_BLUE,
-            CHANNEL_ROLE_DIC,
-        )
-    }
-    configured_frame_idx = channel_config.get(channel_role, fallback_frame_map[channel])
     available_frames = _scan_output_frames(str(uuid))
-    full_outlined = available_frames.get(configured_frame_idx)
-    if not full_outlined:
-        full_outlined = available_frames.get(fallback_frame_map[channel])
-    if not full_outlined and available_frames:
-        first_idx = sorted(available_frames.keys())[0]
-        full_outlined = available_frames[first_idx]
-    if not full_outlined:
-        image_name_stem = Path(uploaded_image.name).stem
-        image_file_name = f"{image_name_stem}_frame_{fallback_frame_map[channel]}"
-        full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+    main_image_paths = build_main_image_paths(
+        uuid=str(uuid),
+        image_name=uploaded_image.name,
+        channel_config=channel_config,
+        available_frames=available_frames,
+    )
+    full_outlined = main_image_paths.get(channel) or ""
 
     return JsonResponse({
         'image_url': full_outlined,

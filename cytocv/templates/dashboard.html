@@ -2224,6 +2224,7 @@
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
         let hasInitializedDashboardFile = false;
+        const mainImageWarmStateByFile = new Map();
         const overlayWarmCoordinator = window.CytoCVOverlayPrefetch
             ? window.CytoCVOverlayPrefetch.createWarmCoordinator({
                 resolveUrl: ({ fileKey, cellNumber }) => {
@@ -2569,73 +2570,6 @@
             return Promise.all([...imageUpdates, ...textUpdates]);
         }
 
-        window.onload = function () {
-            if (filesDataParseError) {
-                showChannelError('Saved file preview data could not be loaded. Refresh and try again.');
-                return;
-            }
-            if (dashboardHasFiles && fileUUIDs.length === 0) {
-                showChannelError('Saved files were found, but preview payload is unavailable.');
-                return;
-            }
-            if (fileUUIDs.length > 0) {
-                syncFileNavigationState();
-                loadFile(currentFileIndex);
-                toggleContourOverlays();
-            }
-        };
-
-        function loadFile(fileIndex) {
-            const fileUUID = fileUUIDs[fileIndex];
-            const fileData = filesData[fileUUID];
-            if (!fileData) {
-                return;
-            }
-            document.getElementById("mainImage").src = fileData.MainImagePath || noCellPlaceholder;
-            document.getElementById("imageTitle").textContent = fileData.Image_Name;
-            updateFileContextSummary(fileUUID, fileData);
-            maxCells = Number(fileData.NumberOfCells || 0);
-            if (!Number.isFinite(maxCells) || maxCells < 0) {
-                maxCells = 0;
-            }
-            currentCellNumber = 1;
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-            applyContourToggleState();
-            if (fileData.NoCellsWarning) {
-                showChannelError(fileData.NoCellsWarning);
-            }
-            updateTableState(fileUUID, fileData);
-            updateSidebarActive();
-            syncFileNavigationState();
-            const inferred = inferChannelFromMainImage(fileData.MainImagePath, fileData);
-            if (inferred) {
-                setActiveChannel(inferred);
-            }
-        }
-
-        function updateFileContextSummary(fileUUID, fileData) {
-            const metaLine = document.getElementById('fileContextMetaLine');
-            const scaleLine = document.getElementById('fileContextScaleLine');
-            if (!metaLine || !scaleLine) {
-                return;
-            }
-
-            const fileItem = Array.from(document.querySelectorAll('.file-item')).find(
-                (item) => item.dataset.uuid === fileUUID
-            );
-            const metaText = fileItem?.querySelector('.file-meta')?.textContent?.trim() || '';
-            const scaleValue = fileItem?.querySelector('.file-scale-line span:first-child')?.textContent?.trim() || '';
-            const scaleSource = fileItem?.querySelector('.file-scale-source')?.textContent?.trim() || '';
-            const cellsFallback = Number(fileData?.NumberOfCells || 0);
-
-            metaLine.textContent = metaText || `${cellsFallback} cells`;
-            if (scaleValue || scaleSource) {
-                scaleLine.textContent = scaleSource ? `${scaleValue} · ${scaleSource}` : scaleValue;
-            } else {
-                scaleLine.textContent = 'Scale metadata unavailable.';
-            }
-        }
-
         function ensureChannelMessageContainer() {
             let container = document.querySelector('.message-container.channel-switch');
             if (container) return container;
@@ -2667,45 +2601,6 @@
             msg.appendChild(close);
             container.appendChild(msg);
             setTimeout(() => msg.remove(), 8000);
-        }
-
-        function preloadImage(url) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve();
-                img.onerror = () => reject(new Error('Image failed to load'));
-                img.src = url;
-            });
-        }
-
-        async function switchMainChannel(channel) {
-            const mainImage = document.getElementById('mainImage');
-            if (!mainImage) return;
-            const fileUUID = fileUUIDs[currentFileIndex];
-            if (!fileUUID) return;
-            const requestId = ++activeChannelRequest;
-            try {
-                const response = await fetch(`/experiment/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    credentials: 'same-origin',
-                });
-                if (!response.ok) {
-                    throw new Error(`Channel request failed (${response.status})`);
-                }
-                const data = await response.json();
-                if (!data || !data.image_url) {
-                    throw new Error('Missing image URL');
-                }
-                await preloadImage(data.image_url);
-                if (requestId !== activeChannelRequest) {
-                    return;
-                }
-                mainImage.src = data.image_url;
-                setActiveChannel(channel);
-            } catch (error) {
-                if (error && error.name === 'AbortError') return;
-                showChannelError('Unable to load that channel image. Please try again.');
-            }
         }
 
         function resolveChannelIndexMap(fileData = null) {
@@ -3056,67 +2951,6 @@
             });
         }
 
-        function updateCellImages(cellPairImages, statistics) {
-            const safeCellPairImages = cellPairImages || {};
-            const safeStatistics = statistics || {};
-            const imageUrls = safeCellPairImages[currentCellNumber] || safeCellPairImages[String(currentCellNumber)];
-            if (!imageUrls) {
-                document.getElementById("cellImage1").src = noCellPlaceholder;
-                document.getElementById("cellImage2").src = noCellPlaceholder;
-                document.getElementById("cellImage3").src = noCellPlaceholder;
-                document.getElementById("cellImage4").src = noCellPlaceholder;
-                document.getElementById("cellID").textContent = maxCells > 0 ? currentCellNumber : 0;
-                BLEND_METRIC_IDS.forEach((metricId) => {
-                    document.getElementById(metricId).textContent = "N/A";
-                });
-                document.getElementById("nucleusIntensityLabel").textContent = "Measured Nuclear Intensity";
-                document.getElementById("cellularIntensityLabel").textContent = "Measured Cellular Intensity";
-                return;
-            }
-
-            document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
-            document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
-            document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
-            document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
-            document.getElementById("cellID").textContent = currentCellNumber;
-
-            const cellStats = safeStatistics[currentCellNumber] || safeStatistics[String(currentCellNumber)] || null;
-            const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
-            const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            document.getElementById("distance").textContent = formatStatValue(cellStats ? cellStats.puncta_distance : null);
-            document.getElementById("punctaLineIntensity").textContent = formatStatValue(cellStats ? cellStats.puncta_line_intensity : null);
-            document.getElementById("measurementContourRatioFormula").textContent = cellStats ? (cellStats.measurement_contour_ratio_display_text || "N/A") : "N/A";
-            document.getElementById("measurementContourRatio1").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null);
-            document.getElementById("measurementContourRatio2").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null);
-            document.getElementById("measurementContourRatio3").textContent = formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null);
-            document.getElementById("redInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_intensity_1 : null);
-            document.getElementById("redInRedIntensity2").textContent = formatStatValue(cellStats ? cellStats.red_intensity_2 : null);
-            document.getElementById("redInRedIntensity3").textContent = formatStatValue(cellStats ? cellStats.red_intensity_3 : null);
-            document.getElementById("greenInRedIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_intensity_1 : null);
-            document.getElementById("greenInRedIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_intensity_2 : null);
-            document.getElementById("greenInRedIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_intensity_3 : null);
-            document.getElementById("redInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null);
-            document.getElementById("redInGreenIntensity2").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_2 : null);
-            document.getElementById("redInGreenIntensity3").textContent = formatStatValue(cellStats ? cellStats.red_in_green_intensity_3 : null);
-            document.getElementById("greenInGreenIntensity1").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null);
-            document.getElementById("greenInGreenIntensity2").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_2 : null);
-            document.getElementById("greenInGreenIntensity3").textContent = formatStatValue(cellStats ? cellStats.green_in_green_intensity_3 : null);
-            document.getElementById("nucleusIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.nucleus_intensity_sum);
-            document.getElementById("cellPairIntensitySum").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cell_pair_intensity_sum);
-            document.getElementById("cytoplasmicIntensity").textContent = (!cellStats || nuclearUnavailable) ? "N/A" : formatStatValue(cellStats.cytoplasmic_intensity);
-            document.getElementById("cenDot").textContent = category;
-            document.getElementById("biorientation").textContent = formatStatValue(cellStats ? cellStats.biorientation : null);
-            document.getElementById("distanceLabel").textContent = cellStats ? (cellStats.puncta_distance_label || "Distance between Red Puncta") : "Distance between Red Puncta";
-            document.getElementById("lineIntensityLabel").textContent = cellStats ? (cellStats.puncta_line_intensity_label || "Green Intensity over Red Line") : "Green Intensity over Red Line";
-            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
-            const labels = getNuclearLabelPair(mode);
-            document.getElementById("nucleusIntensityLabel").textContent = labels.nuclear;
-            document.getElementById("cellularIntensityLabel").textContent = labels.cellular;
-            document.getElementById("nucleusContourChannel").textContent = cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour;
-            document.getElementById("measurementChannel").textContent = cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement;
-            document.getElementById("nuclearStatus").textContent = cellStats ? (cellStats.nuclear_cell_pair_status || "unknown") : "N/A";
-        }
-
         function getCurrentCellImageUrls() {
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             if (!fileData) {
@@ -3166,46 +3000,6 @@
                 document.getElementById("cellImage3").src = imageUrls[5] || noCellPlaceholder;
                 document.getElementById("cellImage4").src = imageUrls[7] || noCellPlaceholder;
             }
-        }
-
-        function nextFile() {
-            if (!hasMultipleFiles()) {
-                syncFileNavigationState();
-                return;
-            }
-            currentFileIndex = (currentFileIndex + 1) % fileUUIDs.length;
-            loadFile(currentFileIndex);
-            applyContourToggleState();
-        }
-
-        function previousFile() {
-            if (!hasMultipleFiles()) {
-                syncFileNavigationState();
-                return;
-            }
-            currentFileIndex = (currentFileIndex - 1 + fileUUIDs.length) % fileUUIDs.length;
-            loadFile(currentFileIndex);
-            applyContourToggleState();
-        }
-
-        function nextCell() {
-            if (maxCells < 1) {
-                return;
-            }
-            currentCellNumber = (currentCellNumber % maxCells) + 1;
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-            applyContourToggleState();
-        }
-
-        function previousCell() {
-            if (maxCells < 1) {
-                return;
-            }
-            currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
-            updateCellImages(fileData.CellPairImages, fileData.Statistics);
-            applyContourToggleState();
         }
 
         window.onload = async function () {
@@ -3292,10 +3086,11 @@
             updateSidebarActive();
             syncFileNavigationState();
 
-            const inferred = inferChannelFromMainImage(mainImagePath, fileData);
+            const inferred = primeMainImageWarmState(fileUUID, fileData, mainImagePath);
             if (inferred) {
                 setActiveChannel(inferred);
             }
+            scheduleMainImageWarmup(fileUUID, fileData, inferred);
             if (showContours) {
                 markCurrentCellWarm(fileUUID, true);
                 scheduleCircularOverlayWarmup('initial');
@@ -3369,29 +3164,124 @@
             return Promise.all(uniqueUrls.map((url) => preloadImage(url)));
         }
 
+        function getMainImageWarmState(fileUUID) {
+            const normalizedFileUUID = String(fileUUID || '');
+            if (!mainImageWarmStateByFile.has(normalizedFileUUID)) {
+                mainImageWarmStateByFile.set(normalizedFileUUID, {
+                    warmed: new Set(),
+                    inFlight: new Map(),
+                });
+            }
+            return mainImageWarmStateByFile.get(normalizedFileUUID);
+        }
+
+        function getMainImagePaths(fileData) {
+            if (!fileData || typeof fileData !== 'object') {
+                return {};
+            }
+            if (!fileData.MainImagePaths || typeof fileData.MainImagePaths !== 'object') {
+                fileData.MainImagePaths = {};
+            }
+            return fileData.MainImagePaths;
+        }
+
+        function markMainImageChannelWarm(fileUUID, fileData, channel, url = '') {
+            if (!fileUUID || !channel) {
+                return;
+            }
+            const mainImagePaths = getMainImagePaths(fileData);
+            if (url && !mainImagePaths[channel]) {
+                mainImagePaths[channel] = url;
+            }
+            getMainImageWarmState(fileUUID).warmed.add(channel);
+        }
+
+        async function fetchMainImageChannelUrl(fileUUID, channel) {
+            const response = await fetch(`/experiment/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) {
+                throw new Error(`Channel request failed (${response.status})`);
+            }
+            const data = await response.json();
+            if (!data || !data.image_url) {
+                throw new Error('Missing image URL');
+            }
+            return data.image_url;
+        }
+
+        async function resolveMainImageChannelUrl(fileUUID, fileData, channel) {
+            const mainImagePaths = getMainImagePaths(fileData);
+            const cachedUrl = typeof mainImagePaths[channel] === 'string' ? mainImagePaths[channel] : '';
+            if (cachedUrl) {
+                return cachedUrl;
+            }
+            const resolvedUrl = await fetchMainImageChannelUrl(fileUUID, channel);
+            mainImagePaths[channel] = resolvedUrl;
+            return resolvedUrl;
+        }
+
+        function warmMainImageChannel(fileUUID, fileData, channel) {
+            if (!fileUUID || !fileData || !channel) {
+                return Promise.resolve('');
+            }
+            const state = getMainImageWarmState(fileUUID);
+            if (state.warmed.has(channel)) {
+                return Promise.resolve(getMainImagePaths(fileData)[channel] || '');
+            }
+            if (state.inFlight.has(channel)) {
+                return state.inFlight.get(channel);
+            }
+            const warmPromise = resolveMainImageChannelUrl(fileUUID, fileData, channel)
+                .then(async (imageUrl) => {
+                    await preloadImage(imageUrl);
+                    state.warmed.add(channel);
+                    return imageUrl;
+                })
+                .finally(() => {
+                    state.inFlight.delete(channel);
+                });
+            state.inFlight.set(channel, warmPromise);
+            return warmPromise;
+        }
+
+        function primeMainImageWarmState(fileUUID, fileData, mainImagePath) {
+            const inferredChannel = inferChannelFromMainImage(mainImagePath, fileData);
+            if (!inferredChannel) {
+                return null;
+            }
+            markMainImageChannelWarm(fileUUID, fileData, inferredChannel, mainImagePath);
+            return inferredChannel;
+        }
+
+        function scheduleMainImageWarmup(fileUUID, fileData, activeChannel = null) {
+            if (!fileUUID || !fileData) {
+                return;
+            }
+            channels
+                .filter((channel) => channel !== activeChannel)
+                .forEach((channel) => {
+                    void warmMainImageChannel(fileUUID, fileData, channel).catch(() => {});
+                });
+        }
+
         async function switchMainChannel(channel) {
             const mainImage = document.getElementById('mainImage');
             if (!mainImage) return;
             const fileUUID = fileUUIDs[currentFileIndex];
-            if (!fileUUID) return;
+            const fileData = fileUUID ? filesData[fileUUID] : null;
+            if (!fileUUID || !fileData) return;
             const requestId = ++activeChannelRequest;
             try {
-                const response = await fetch(`/experiment/${fileUUID}/main-channel/?channel=${encodeURIComponent(channel)}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    credentials: 'same-origin',
-                });
-                if (!response.ok) {
-                    throw new Error(`Channel request failed (${response.status})`);
-                }
-                const data = await response.json();
-                if (!data || !data.image_url) {
+                const imageUrl = await warmMainImageChannel(fileUUID, fileData, channel);
+                if (!imageUrl) {
                     throw new Error('Missing image URL');
                 }
-                await preloadImage(data.image_url);
                 if (requestId !== activeChannelRequest) {
                     return;
                 }
-                await setImageWithBlend(mainImage, data.image_url, {
+                await setImageWithBlend(mainImage, imageUrl, {
                     duration: FILE_BLEND_IMAGE_MS,
                     blend: hasInitializedDashboardFile,
                 });
