@@ -1180,6 +1180,15 @@
         }
         .mode-dropdown {
             min-width: 200px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: var(--surface-input);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .mode-dropdown.open {
+            border-color: rgba(86, 147, 220, 0.75);
+            box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .mode-trigger {
             border-left: none;
@@ -1232,6 +1241,10 @@
             margin-top: 4px;
             pointer-events: auto;
             overflow: visible;
+        }
+        .nuclear-mode-inline.mode-menu-open {
+            position: relative;
+            z-index: 10;
         }
         .nuclear-mode-row {
             display: flex;
@@ -2775,21 +2788,11 @@
         trigger.appendChild(caret);
         root.appendChild(trigger);
 
-        // Portal menu to body so it escapes all overflow/stacking contexts
         const menu = document.createElement('div');
-        menu.className = 'length-unit-menu mode-menu-portal';
+        menu.className = 'length-unit-menu';
         menu.setAttribute('role', 'listbox');
         menu.hidden = true;
-        menu.style.position = 'fixed';
-        menu.style.zIndex = '9999';
-        document.body.appendChild(menu);
-
-        function positionMenu() {
-            const rect = trigger.getBoundingClientRect();
-            menu.style.top = (rect.bottom + 4) + 'px';
-            menu.style.left = rect.left + 'px';
-            menu.style.minWidth = rect.width + 'px';
-        }
+        root.appendChild(menu);
 
         const optionButtons = new Map();
         optionsList.forEach(({ value, text }) => {
@@ -2821,15 +2824,18 @@
                 menu.hidden = true;
                 trigger.setAttribute('aria-expanded', 'false');
                 modeDropdownControls.delete(ctrl);
+                const modeInline = root.closest('.nuclear-mode-inline');
+                if (modeInline) modeInline.classList.remove('mode-menu-open');
             },
             open() {
                 modeDropdownControls.forEach((c) => { if (c !== ctrl) c.close(); });
                 closeAllLengthUnitDropdowns();
-                positionMenu();
                 root.classList.add('open');
                 menu.hidden = false;
                 trigger.setAttribute('aria-expanded', 'true');
                 modeDropdownControls.add(ctrl);
+                const modeInline = root.closest('.nuclear-mode-inline');
+                if (modeInline) modeInline.classList.add('mode-menu-open');
             },
         };
 
