@@ -36,6 +36,7 @@ from core.scale import (
     apply_manual_override_scale,
     clear_manual_override_scale,
     get_scale_sidebar_payload,
+    normalize_spatial_stats_unit,
 )
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
@@ -186,6 +187,14 @@ def pre_process(request, uuids):
     sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
+    default_spatial_stats_unit = normalize_spatial_stats_unit(
+        preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
+        default="px",
+    )
+    sidebar_spatial_stats_unit = normalize_spatial_stats_unit(
+        preferences.get("sidebar_spatial_stats_unit"),
+        default=default_spatial_stats_unit,
     )
 
     # clamp file_index into [0, total_files-1]
@@ -463,6 +472,8 @@ def pre_process(request, uuids):
         'show_saved_file_channels': show_saved_file_channels,
         'show_saved_file_scales': show_saved_file_scales,
         'sidebar_starts_open': sidebar_starts_open,
+        'default_spatial_stats_unit': default_spatial_stats_unit,
+        'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'has_selected_stats': bool(request.session.get('selected_analysis', [])),
         'file_scale_map_json': json.dumps(
             {

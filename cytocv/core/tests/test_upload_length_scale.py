@@ -10,10 +10,14 @@ from core.scale import (
     apply_manual_override_scale,
     build_scale_info,
     clear_manual_override_scale,
+    convert_area_pixels_to_display_units,
+    convert_distance_pixels_to_display_units,
     convert_pixel_delta_to_microns,
     convert_length_to_pixels,
+    format_spatial_stat_header,
     get_scale_sidebar_payload,
     normalize_scale_info,
+    normalize_spatial_stats_unit,
     parse_microns_per_pixel,
     resolve_scale_context,
 )
@@ -33,6 +37,10 @@ class UploadLengthScaleHelperTests(SimpleTestCase):
         self.assertEqual(_parse_positive_float("0.25", default=0.1, minimum=0.0001), 0.25)
         self.assertEqual(_parse_positive_float("-1", default=0.1, minimum=0.0001), 0.1)
         self.assertEqual(_parse_positive_float("abc", default=0.1, minimum=0.0001), 0.1)
+
+    def test_normalize_spatial_stats_unit_defaults_to_px(self):
+        self.assertEqual(normalize_spatial_stats_unit("bad"), "px")
+        self.assertEqual(normalize_spatial_stats_unit("UM"), "um")
 
     def test_convert_length_to_pixels_uses_px_value_directly(self):
         self.assertEqual(
@@ -217,6 +225,43 @@ class AnisotropicDistanceConversionTests(SimpleTestCase):
             y_um_per_px=0.2,
         )
         self.assertAlmostEqual(value, (1.0**2 + 2.0**2) ** 0.5, places=6)
+
+    def test_convert_distance_pixels_to_display_units_uses_delta_when_available(self):
+        value = convert_distance_pixels_to_display_units(
+            5.0,
+            unit="um",
+            effective_um_per_px=0.5,
+            x_um_per_px=0.5,
+            y_um_per_px=0.25,
+            delta_x_px=3.0,
+            delta_y_px=4.0,
+        )
+        self.assertAlmostEqual(value, 1.8027756377, places=6)
+
+    def test_convert_distance_pixels_to_display_units_falls_back_to_scalar_scale(self):
+        value = convert_distance_pixels_to_display_units(
+            8.0,
+            unit="um",
+            effective_um_per_px=0.25,
+            x_um_per_px=0.1,
+            y_um_per_px=0.2,
+        )
+        self.assertAlmostEqual(value, 2.0, places=6)
+
+    def test_convert_area_pixels_to_display_units_uses_axis_product(self):
+        value = convert_area_pixels_to_display_units(
+            10.0,
+            unit="um",
+            x_um_per_px=0.5,
+            y_um_per_px=0.25,
+        )
+        self.assertAlmostEqual(value, 1.25, places=6)
+
+    def test_format_spatial_stat_header_adds_unit_suffix(self):
+        self.assertEqual(
+            format_spatial_stat_header("Blue Contour Size", spatial_kind="area", unit="um"),
+            "Blue Contour Size (µm²)",
+        )
 
     def test_gfpdot_distance_switches_to_physical_um_when_unit_is_um(self):
         plugin = CENDot()

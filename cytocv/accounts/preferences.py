@@ -42,11 +42,13 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "cen_dot_proximity_radius_unit": "px",
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
+        "spatial_stats_unit": "px",
     },
     "auto_save_experiments": True,
     "show_saved_file_channels": True,
     "show_saved_file_scales": True,
     "sidebar_starts_open": True,
+    "sidebar_spatial_stats_unit": "px",
 }
 
 
@@ -175,6 +177,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         defaults_payload.get("use_metadata_scale"),
         default=True,
     )
+    normalized["experiment_defaults"]["spatial_stats_unit"] = _normalize_unit(
+        defaults_payload.get("spatial_stats_unit"),
+        default="px",
+    )
     width_minimum = (
         1
         if normalized["experiment_defaults"]["puncta_line_width_unit"] == "px"
@@ -245,6 +251,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     normalized["sidebar_starts_open"] = _as_bool(
         raw_payload.get("sidebar_starts_open"),
         default=True,
+    )
+    normalized["sidebar_spatial_stats_unit"] = _normalize_unit(
+        raw_payload.get("sidebar_spatial_stats_unit"),
+        default=normalized["experiment_defaults"]["spatial_stats_unit"],
     )
     return normalized
 

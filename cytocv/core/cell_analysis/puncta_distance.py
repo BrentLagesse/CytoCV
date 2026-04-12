@@ -71,6 +71,9 @@ class PunctaDistance(Analysis):
             center_2 = source_slots[1].center
             puncta_distance = math.dist(center_1, center_2)
             self.cp.puncta_distance = float(puncta_distance)
+            self.cp.properties = dict(self.cp.properties or {})
+            self.cp.properties["puncta_distance_delta_x_px"] = float(center_2[0] - center_1[0])
+            self.cp.properties["puncta_distance_delta_y_px"] = float(center_2[1] - center_1[1])
 
             c1x, c1y = source_slots[0].center_int
             c2x, c2y = source_slots[1].center_int

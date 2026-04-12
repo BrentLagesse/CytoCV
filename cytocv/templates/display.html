@@ -300,6 +300,48 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
         }
+        .sidebar-unit-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: var(--surface-muted-alt);
+            padding: 4px 4px 4px 10px;
+        }
+        .sidebar-unit-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.82);
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+        .sidebar-unit-track {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex: 1;
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            overflow: hidden;
+        }
+        .sidebar-unit-indicator {
+            position: absolute;
+            top: 1px;
+            bottom: 1px;
+            left: 1px;
+            width: calc(50% - 2px);
+            border-radius: 999px;
+            background: #007bff;
+            transition: left 0.25s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .sidebar-unit-track[data-active-unit="um"] .sidebar-unit-indicator {
+            left: calc(50% + 1px);
+        }
         .selection-toolbar {
             display: flex;
             align-items: center;
@@ -340,6 +382,27 @@
         }
         .channel-visibility-btn.label-fade,
         .scale-visibility-btn.label-fade { opacity: 0.62; }
+        .sidebar-unit-btn {
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.55);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            padding: 8px 16px;
+            text-align: center;
+            transition: color 0.25s ease;
+        }
+        .sidebar-unit-btn:hover {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .sidebar-unit-btn.active,
+        .sidebar-unit-btn[aria-pressed="true"] {
+            color: #ffffff;
+        }
         .select-mode-btn.active {
             background: var(--accent);
             border-color: var(--accent);
@@ -669,17 +732,59 @@
             flex-wrap: wrap;
             width: 100%;
         }
-        .table-fullscreen-btn {
-            padding: 8px 12px;
-            font-size: 12px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
+        .toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
         }
-        .table-fullscreen-btn:hover { background-color: #0056b3; }
+        .table-fullscreen-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 36px;
+            min-width: 88px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            background: rgba(16, 24, 35, 0.6);
+            color: #e7edf8;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.34);
+            border-radius: 999px;
+            cursor: pointer;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+        .table-fullscreen-btn:hover {
+            background: rgba(24, 34, 47, 0.78);
+            border-color: rgba(var(--glass-border-rgb), 0.52);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+        .table-fullscreen-btn .fullscreen-icon {
+            font-size: 12px;
+            line-height: 1;
+            opacity: 0.9;
+        }
+        .table-toolbar .unit-toggle {
+            display: none;
+        }
+        .spatial-unit-btn {
+            min-width: 54px;
+            padding-inline: 16px;
+        }
+        .spatial-unit-btn.active,
+        .spatial-unit-btn[aria-pressed="true"] {
+            background: rgba(18, 92, 56, 0.72);
+            border-color: rgba(76, 199, 129, 0.42);
+            color: #ffffff;
+        }
+        #displayTableSection > .table-toolbar {
+            display: none;
+        }
         .table-scroll-frame {
             width: 100%;
             max-height: 520px;
@@ -865,7 +970,6 @@
             width: 100%;
             flex-wrap: wrap;
             padding-top: 12px;
-            border-top: 1px solid rgba(var(--glass-border-rgb), 0.28);
         }
         .export-buttons .export_btn {
             min-width: 150px;
@@ -1625,6 +1729,14 @@
                         {% if show_saved_file_scales %}Hide Scale{% else %}Show Scale{% endif %}
                     </button>
                 </div>
+                <div class="sidebar-unit-controls">
+                    <span class="sidebar-unit-label">Spatial unit:</span>
+                    <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial units" data-active-unit="px">
+                        <div class="sidebar-unit-indicator" aria-hidden="true"></div>
+                        <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                        <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                    </div>
+                </div>
             </div>
             <div class="sidebar-content">
                 <ul id="fileList">
@@ -1890,7 +2002,16 @@
                     <div class="table-panel" id="statsTablePanel">
                         <div class="table-toolbar glass-toolbar">
                             <p class="section-eyebrow">Statistics Table</p>
-                            <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">Enter Fullscreen</button>
+                            <div class="toolbar-actions">
+                                <div class="unit-toggle" id="displaySpatialUnitToggleLegacy" role="group" aria-label="Spatial units">
+                                    <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                                    <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">Âµm</button>
+                                </div>
+                                <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">
+                                    <span class="fullscreen-icon" aria-hidden="true">⛶</span>
+                                    <span class="fullscreen-label">Fullscreen</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="table-scroll-frame" id="tableScrollFrame">
                             {% render_table cell_table %}
@@ -1904,6 +2025,15 @@
                             <button name="delete" class="deleteCell" type="submit">Delete</button>
                         </form>
                         <button class="hide" onclick="hidePopUp()">Close</button>
+                    </div>
+                    <div class="table-toolbar glass-toolbar">
+                        <p class="section-eyebrow">Statistics Table</p>
+                        <div class="toolbar-actions">
+                            <div class="unit-toggle" id="displaySpatialUnitToggleLegacySecondary" role="group" aria-label="Spatial units">
+                                <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                                <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                            </div>
+                        </div>
                     </div>
                     {% load export_url from django_tables2 %}
                     <div class="export-buttons">
@@ -1991,6 +2121,69 @@
             'measurementChannel',
             'nuclearStatus',
         ];
+        const defaultSpatialStatsUnit = "{{ default_spatial_stats_unit|default:'px'|escapejs }}";
+        const initialSidebarSpatialStatsUnit = "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}";
+        const spatialFieldKinds = {
+            puncta_distance: 'distance',
+            blue_contour_size: 'area',
+            red_contour_1_size: 'area',
+            red_contour_2_size: 'area',
+            red_contour_3_size: 'area',
+            green_contour_1_size: 'area',
+            green_contour_2_size: 'area',
+            green_contour_3_size: 'area',
+            distance_of_green_from_red_1: 'distance',
+            distance_of_green_from_red_2: 'distance',
+            distance_of_green_from_red_3: 'distance',
+        };
+        const tableFieldOrder = [
+            'cell_id',
+            'puncta_distance',
+            'puncta_line_intensity',
+            'blue_contour_size',
+            'red_contour_1_size',
+            'red_contour_2_size',
+            'red_contour_3_size',
+            'green_contour_1_size',
+            'green_contour_2_size',
+            'green_contour_3_size',
+            'red_intensity_1',
+            'red_intensity_2',
+            'red_intensity_3',
+            'green_intensity_1',
+            'green_intensity_2',
+            'green_intensity_3',
+            'red_in_green_intensity_1',
+            'red_in_green_intensity_2',
+            'red_in_green_intensity_3',
+            'green_in_green_intensity_1',
+            'green_in_green_intensity_2',
+            'green_in_green_intensity_3',
+            'measurement_contour_ratio_1',
+            'measurement_contour_ratio_2',
+            'measurement_contour_ratio_3',
+            'distance_of_green_from_red_1',
+            'distance_of_green_from_red_2',
+            'distance_of_green_from_red_3',
+            'cell_pair_intensity_sum',
+            'nucleus_intensity_sum',
+            'cytoplasmic_intensity',
+            'category_cen_dot',
+            'biorientation',
+        ];
+        const spatialHeaderBaseLabels = {
+            blue_contour_size: 'Blue Contour Size',
+            red_contour_1_size: 'Red Contour 1 Size',
+            red_contour_2_size: 'Red Contour 2 Size',
+            red_contour_3_size: 'Red Contour 3 Size',
+            green_contour_1_size: 'Green Contour 1 Size',
+            green_contour_2_size: 'Green Contour 2 Size',
+            green_contour_3_size: 'Green Contour 3 Size',
+            distance_of_green_from_red_1: 'Distance of Green from Red 1',
+            distance_of_green_from_red_2: 'Distance of Green from Red 2',
+            distance_of_green_from_red_3: 'Distance of Green from Red 3',
+        };
+        let currentSpatialStatsUnit = initialSidebarSpatialStatsUnit;
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
         let hasInitializedDisplayFile = false;
@@ -2261,6 +2454,9 @@
             const imageUrls = safeCellPairImages[cellNumber] || safeCellPairImages[String(cellNumber)] || null;
             const visibleImageUrls = getVisibleCellImageUrls(imageUrls, showContours);
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const scaleContext = getScaleContext(filesData[fileUUID]);
+            const spatialUnit = getCurrentSpatialUnit();
             const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
@@ -2272,7 +2468,7 @@
                 visibleImageUrls,
                 cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
                 metricValues: {
-                    distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),
+                    distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),
                     punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
                     measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
                     measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
@@ -2300,7 +2496,7 @@
                     nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
                 },
                 labels: {
-                    distanceLabel,
+                    distanceLabel: formatSpatialLabel(distanceLabel, 'puncta_distance', spatialUnit),
                     lineIntensityLabel,
                     nucleusIntensityLabel: labels.nuclear,
                     cellularIntensityLabel: labels.cellular,
@@ -2659,6 +2855,111 @@
             }
         }
 
+        function normalizeSpatialUnit(unit) {
+            return unit === 'um' ? 'um' : 'px';
+        }
+
+        function getCurrentSpatialUnit() {
+            return normalizeSpatialUnit(currentSpatialStatsUnit || defaultSpatialStatsUnit);
+        }
+
+        function setCurrentSpatialUnit(unit) {
+            currentSpatialStatsUnit = normalizeSpatialUnit(unit);
+        }
+
+        function getScaleContext(fileData) {
+            return fileData?.ScaleContext || {};
+        }
+
+        function getSpatialUnitSuffix(fieldName, unit) {
+            const normalizedUnit = normalizeSpatialUnit(unit);
+            if (spatialFieldKinds[fieldName] === 'area') {
+                return normalizedUnit === 'um' ? 'µm²' : 'px²';
+            }
+            if (spatialFieldKinds[fieldName] === 'distance') {
+                return normalizedUnit === 'um' ? 'µm' : 'px';
+            }
+            return '';
+        }
+
+        function formatSpatialLabel(label, fieldName, unit) {
+            const suffix = getSpatialUnitSuffix(fieldName, unit);
+            if (!suffix) {
+                return label;
+            }
+            return `${String(label || '').replace(/\s+\((?:px|µm|px²|µm²)\)$/u, '')} (${suffix})`;
+        }
+
+        function convertSpatialValue(fieldName, value, cellStats, scaleContext, unit) {
+            if (value === null || value === undefined || value === '') {
+                return value;
+            }
+            const numericValue = Number(value);
+            if (!Number.isFinite(numericValue) || normalizeSpatialUnit(unit) === 'px') {
+                return numericValue;
+            }
+            const effectiveScale = Number(scaleContext?.effective_um_per_px || 0.1);
+            const xScale = Number(scaleContext?.x_um_per_px || effectiveScale || 0.1);
+            const yScale = Number(scaleContext?.y_um_per_px || effectiveScale || 0.1);
+            if (spatialFieldKinds[fieldName] === 'area') {
+                return numericValue * xScale * yScale;
+            }
+            if (spatialFieldKinds[fieldName] === 'distance') {
+                const dx = Number(cellStats?.[`${fieldName}_delta_x_px`]);
+                const dy = Number(cellStats?.[`${fieldName}_delta_y_px`]);
+                if (Number.isFinite(dx) && Number.isFinite(dy)) {
+                    return Math.hypot(dx * xScale, dy * yScale);
+                }
+                return numericValue * effectiveScale;
+            }
+            return numericValue;
+        }
+
+        function formatFieldValue(fieldName, value, cellStats, scaleContext) {
+            if (Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
+                return formatStatValue(convertSpatialValue(fieldName, value, cellStats, scaleContext, getCurrentSpatialUnit()));
+            }
+            return formatStatValue(value);
+        }
+
+        function getDynamicSpatialHeaderLabel(fieldName, fileData) {
+            if (fieldName === 'puncta_distance') {
+                const statistics = fileData?.Statistics || {};
+                const firstCellStats = Object.values(statistics).find((row) => row);
+                const baseLabel = firstCellStats?.puncta_distance_label || 'Distance between Red Puncta';
+                return formatSpatialLabel(baseLabel, fieldName, getCurrentSpatialUnit());
+            }
+            return formatSpatialLabel(
+                spatialHeaderBaseLabels[fieldName] || fieldName,
+                fieldName,
+                getCurrentSpatialUnit(),
+            );
+        }
+
+        function updateSpatialUnitControls(fileData) {
+            const toggle = document.getElementById('sidebarSpatialUnitToggle');
+            if (!toggle) {
+                return;
+            }
+            const activeUnit = getCurrentSpatialUnit();
+            toggle.dataset.activeUnit = activeUnit;
+            toggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
+                const isActive = button.dataset.spatialUnit === activeUnit;
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                button.classList.toggle('active', isActive);
+            });
+
+            const headers = Array.from(document.querySelectorAll('#celltable thead th'));
+            tableFieldOrder.forEach((fieldName, index) => {
+                if (!Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName) || !headers[index]) {
+                    return;
+                }
+                headers[index].textContent = getDynamicSpatialHeaderLabel(fieldName, fileData);
+            });
+        }
+
+        updateSpatialUnitControls(filesData[fileUUIDs[currentFileIndex]] || null);
+
         function normalizeHeader(text) {
             return (text || '').replace(/\s+/g, ' ').trim();
         }
@@ -2705,7 +3006,7 @@
             };
         }
 
-        function renderStatisticsTable(statistics) {
+        function renderStatisticsTable(statistics, fileData) {
             const table = document.getElementById('celltable');
             if (!table) return;
             const tbody = table.querySelector('tbody');
@@ -2715,58 +3016,8 @@
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
             ]);
-
-            const headers = Array.from(table.querySelectorAll('thead th')).map((th) => normalizeHeader(th.textContent));
-            const keyMap = {
-                'Cell ID': 'cell_id',
-                'Distance between Red Puncta': 'puncta_distance',
-                'Distance between Green Puncta': 'puncta_distance',
-                'Green Intensity over Red Line': 'puncta_line_intensity',
-                'Red Intensity over Green Line': 'puncta_line_intensity',
-                'Blue Contour Size': 'blue_contour_size',
-                'Red Contour 1 Size': 'red_contour_1_size',
-                'Red Contour 2 Size': 'red_contour_2_size',
-                'Red Contour 3 Size': 'red_contour_3_size',
-                'Green Contour 1 Size': 'green_contour_1_size',
-                'Green Contour 2 Size': 'green_contour_2_size',
-                'Green Contour 3 Size': 'green_contour_3_size',
-                'Red in Red Intensity 1': 'red_intensity_1',
-                'Red in Red Intensity 2': 'red_intensity_2',
-                'Red in Red Intensity 3': 'red_intensity_3',
-                'Green in Red Intensity 1': 'green_intensity_1',
-                'Green in Red Intensity 2': 'green_intensity_2',
-                'Green in Red Intensity 3': 'green_intensity_3',
-                'Red in Green Intensity 1': 'red_in_green_intensity_1',
-                'Red in Green Intensity 2': 'red_in_green_intensity_2',
-                'Red in Green Intensity 3': 'red_in_green_intensity_3',
-                'Green in Green Intensity 1': 'green_in_green_intensity_1',
-                'Green in Green Intensity 2': 'green_in_green_intensity_2',
-                'Green in Green Intensity 3': 'green_in_green_intensity_3',
-                'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1',
-                'Measurement/Contour Ratio 2 (Green/Red)': 'measurement_contour_ratio_2',
-                'Measurement/Contour Ratio 3 (Green/Red)': 'measurement_contour_ratio_3',
-                'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1',
-                'Measurement/Contour Ratio 2 (Red/Green)': 'measurement_contour_ratio_2',
-                'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3',
-                'Distance of Green from Red 1': 'distance_of_green_from_red_1',
-                'Distance of Green from Red 2': 'distance_of_green_from_red_2',
-                'Distance of Green from Red 3': 'distance_of_green_from_red_3',
-                'CEN dot Category': 'category_cen_dot_label',
-                'Measured cell-pair intensity': 'cell_pair_intensity_sum',
-                'Measured nuclear intensity': 'nucleus_intensity_sum',
-                'Measured Cell-Pair Intensity': 'cell_pair_intensity_sum',
-                'Measured Nuclear Intensity': 'nucleus_intensity_sum',
-                'Red cell-pair intensity': 'cell_pair_intensity_sum',
-                'Red nuclear intensity': 'nucleus_intensity_sum',
-                'Green cell-pair intensity': 'cell_pair_intensity_sum',
-                'Green nuclear intensity': 'nucleus_intensity_sum',
-                'Red Cell-Pair Intensity': 'cell_pair_intensity_sum',
-                'Red Nuclear Intensity': 'nucleus_intensity_sum',
-                'Green Cell-Pair Intensity': 'cell_pair_intensity_sum',
-                'Green Nuclear Intensity': 'nucleus_intensity_sum',
-                'Cytoplasmic Intensity': 'cytoplasmic_intensity',
-                'Biorientation': 'biorientation',
-            };
+            const scaleContext = getScaleContext(fileData);
+            updateSpatialUnitControls(fileData);
 
             const ids = Object.keys(statistics || {})
                 .map((k) => Number(k))
@@ -2777,17 +3028,21 @@
             for (const id of ids) {
                 const rowStats = statistics[String(id)] || null;
                 const tr = document.createElement('tr');
-                for (const header of headers) {
+                for (const fieldName of tableFieldOrder) {
                     const td = document.createElement('td');
-                    const key = keyMap[header];
-                    if (!key) {
-                        td.textContent = 'N/A';
-                    } else if (key === 'cell_id') {
+                    if (fieldName === 'cell_id') {
                         td.textContent = String(id);
-                    } else if (nuclearCellularFields.has(key) && hasNoNucleusContour(rowStats)) {
+                    } else if (fieldName === 'category_cen_dot') {
+                        td.textContent = rowStats ? (rowStats.category_cen_dot_label || 'N/A') : 'N/A';
+                    } else if (nuclearCellularFields.has(fieldName) && hasNoNucleusContour(rowStats)) {
                         td.textContent = 'N/A';
                     } else {
-                        td.textContent = formatStatValue(rowStats ? rowStats[key] : null);
+                        td.textContent = formatFieldValue(
+                            fieldName,
+                            rowStats ? rowStats[fieldName] : null,
+                            rowStats,
+                            scaleContext,
+                        );
                     }
                     tr.appendChild(td);
                 }
@@ -2809,7 +3064,7 @@
                 }
             }
 
-            renderStatisticsTable(fileData.Statistics || {});
+            renderStatisticsTable(fileData.Statistics || {}, fileData);
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
@@ -2822,7 +3077,71 @@
                 const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
                 const canExportCurrentView = hasRows && fileUUID === serverTableUUID;
                 exportButtons.style.display = canExportCurrentView ? 'flex' : 'none';
+                const spatialUnit = getCurrentSpatialUnit();
+                const csvBtn = document.getElementById('displayDownloadCsvBtn');
+                const xlsxBtn = document.getElementById('displayDownloadXlsxBtn');
+                if (csvBtn) {
+                    csvBtn.href = `/experiment/${encodeURIComponent(fileUUID)}/display/?_export=csv&_unit=${encodeURIComponent(spatialUnit)}`;
+                }
+                if (xlsxBtn) {
+                    xlsxBtn.href = `/experiment/${encodeURIComponent(fileUUID)}/display/?_export=xlsx&_unit=${encodeURIComponent(spatialUnit)}`;
+                }
             }
+        }
+
+        function rerenderSpatialUnitsForCurrentFile() {
+            const fileUUID = fileUUIDs[currentFileIndex];
+            const fileData = filesData[fileUUID];
+            if (!fileUUID || !fileData) {
+                return;
+            }
+            const nextState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
+                showContours: getContourToggleState(),
+                cellNumber: currentCellNumber,
+            });
+            renderCellDisplayState(nextState, { blendImages: false, blendText: false });
+            updateTableState(fileUUID, fileData);
+        }
+
+        async function persistSidebarSpatialUnit(unit) {
+            const response = await fetch('/dashboard/preferences/channels/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken || '',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ sidebar_spatial_stats_unit: normalizeSpatialUnit(unit) }),
+            });
+            if (!response.ok) {
+                throw new Error('Unable to save spatial unit preference.');
+            }
+            const payload = await response.json();
+            return normalizeSpatialUnit(payload.sidebar_spatial_stats_unit || unit);
+        }
+
+        const sidebarSpatialUnitToggle = document.getElementById('sidebarSpatialUnitToggle');
+        if (sidebarSpatialUnitToggle) {
+            sidebarSpatialUnitToggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
+                button.addEventListener('click', async () => {
+                    const nextUnit = normalizeSpatialUnit(button.dataset.spatialUnit || 'px');
+                    if (nextUnit === getCurrentSpatialUnit()) {
+                        return;
+                    }
+                    const previousUnit = getCurrentSpatialUnit();
+                    setCurrentSpatialUnit(nextUnit);
+                    rerenderSpatialUnitsForCurrentFile();
+                    try {
+                        const persistedUnit = await persistSidebarSpatialUnit(nextUnit);
+                        setCurrentSpatialUnit(persistedUnit);
+                        rerenderSpatialUnitsForCurrentFile();
+                    } catch (error) {
+                        setCurrentSpatialUnit(previousUnit);
+                        rerenderSpatialUnitsForCurrentFile();
+                        showSidebarMessage('Unable to save spatial unit preference right now.');
+                    }
+                });
+            });
         }
 
         function updateCellImages(cellPairImages, statistics) {
@@ -3700,7 +4019,12 @@
             if (!active && wasTableFullscreen) {
                 playTableExitFade();
             }
-            tableFullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Enter Fullscreen';
+            const fullscreenLabel = tableFullscreenBtn.querySelector('.fullscreen-label');
+            if (fullscreenLabel) {
+                fullscreenLabel.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+            } else {
+                tableFullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+            }
             tableFullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
             wasTableFullscreen = active;
         }

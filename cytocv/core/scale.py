@@ -32,6 +32,8 @@ DISTANCE_MODE_LABELS = {
     "anisotropic_xy": "Anisotropic XY",
 }
 
+SPATIAL_STAT_UNITS = {"px", "um"}
+
 
 def _as_bool(value: Any, default: bool = False) -> bool:
     if isinstance(value, bool):
@@ -48,6 +50,13 @@ def _as_bool(value: Any, default: bool = False) -> bool:
 def normalize_length_unit(value: Any, default: str = "px") -> str:
     normalized = str(value or "").strip().lower()
     if normalized not in LENGTH_UNITS:
+        return default
+    return normalized
+
+
+def normalize_spatial_stats_unit(value: Any, default: str = "px") -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized not in SPATIAL_STAT_UNITS:
         return default
     return normalized
 
@@ -361,6 +370,92 @@ def get_scale_sidebar_payload(
         "scale_summary_label": scale_summary_label,
         "line_width_proxy_label": f"{format_scale_value(normalized['line_width_proxy_um_per_px'])} µm/px",
     }
+
+
+def get_scale_context_payload(
+    raw_scale_info: Any,
+    *,
+    manual_default: Any = DEFAULT_MICRONS_PER_PIXEL,
+) -> dict[str, Any]:
+    """Return the minimal file-level scale context required for stat conversion."""
+
+    resolved = resolve_scale_context(raw_scale_info, manual_default=manual_default)
+    return {
+        "effective_um_per_px": resolved["effective_um_per_px"],
+        "x_um_per_px": resolved["x_um_per_px"],
+        "y_um_per_px": resolved["y_um_per_px"],
+        "distance_mode": resolved["distance_mode"],
+        "is_anisotropic": bool(resolved["is_anisotropic"]),
+    }
+
+
+def convert_area_pixels_to_display_units(
+    pixel_area: Any,
+    *,
+    unit: Any,
+    x_um_per_px: Any,
+    y_um_per_px: Any,
+) -> float | None:
+    """Convert a pixel area to either px² or µm²."""
+
+    try:
+        numeric = float(pixel_area)
+    except (TypeError, ValueError):
+        return None
+    if normalize_spatial_stats_unit(unit, default="px") == "px":
+        return numeric
+    return float(
+        numeric * parse_microns_per_pixel(x_um_per_px) * parse_microns_per_pixel(y_um_per_px)
+    )
+
+
+def convert_distance_pixels_to_display_units(
+    pixel_distance: Any,
+    *,
+    unit: Any,
+    effective_um_per_px: Any,
+    x_um_per_px: Any,
+    y_um_per_px: Any,
+    delta_x_px: Any = None,
+    delta_y_px: Any = None,
+) -> float | None:
+    """Convert a pixel distance to either px or µm, using anisotropic axes when possible."""
+
+    try:
+        numeric = float(pixel_distance)
+    except (TypeError, ValueError):
+        return None
+    if normalize_spatial_stats_unit(unit, default="px") == "px":
+        return numeric
+
+    try:
+        dx_px = float(delta_x_px)
+        dy_px = float(delta_y_px)
+    except (TypeError, ValueError):
+        dx_px = None
+        dy_px = None
+
+    if dx_px is not None and dy_px is not None:
+        return convert_pixel_delta_to_microns(
+            dx_px,
+            dy_px,
+            x_um_per_px=x_um_per_px,
+            y_um_per_px=y_um_per_px,
+        )
+    return float(numeric * parse_microns_per_pixel(effective_um_per_px))
+
+
+def format_spatial_stat_header(label: str, *, spatial_kind: str | None, unit: Any) -> str:
+    """Append the active unit marker to a spatial-stat header label."""
+
+    if spatial_kind not in {"distance", "area"}:
+        return label
+    normalized_unit = normalize_spatial_stats_unit(unit, default="px")
+    if spatial_kind == "area":
+        suffix = "µm²" if normalized_unit == "um" else "px²"
+    else:
+        suffix = "µm" if normalized_unit == "um" else "px"
+    return f"{label} ({suffix})"
 
 
 def convert_length_to_pixels(

@@ -283,6 +283,7 @@ main.main > section.panel {
   opacity: 1;
   max-height: 180px;
   margin-top: 6px;
+  overflow: visible;
   padding: 0;
   pointer-events: auto;
 }
@@ -312,7 +313,6 @@ main.main > section.panel {
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--surface-input);
-  overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -350,18 +350,102 @@ main.main > section.panel {
 .mode-select-group select {
   height: 30px;
   border: none;
-  background: transparent;
+  border-radius: 8px;
+  background: var(--surface-input);
   color: #efefef;
-  padding: 4px 8px;
+  padding: 4px 28px 4px 8px;
   font-size: 11px;
   font-weight: 600;
   font-family: var(--app-font);
   outline: none;
+  color-scheme: dark;
 }
 
-.length-input-group select {
-  border-left: 1px solid var(--panel-border);
+.length-unit-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  align-self: stretch;
+  height: auto;
 }
+.length-unit-trigger {
+  border: none;
+  border-left: 1px solid var(--panel-border);
+  border-radius: 0 7px 7px 0;
+  background: transparent;
+  color: #efefef;
+  padding: 4px 8px;
+  min-width: 54px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--app-font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  align-self: stretch;
+  margin: 0;
+}
+.length-unit-trigger:hover { background: rgba(255, 255, 255, 0.08); }
+.length-unit-dropdown.open .length-unit-trigger { background: rgba(255, 255, 255, 0.13); }
+.length-unit-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #b7bfca;
+  transform: translateY(1px);
+}
+.length-unit-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 100%;
+  background: #2f2f2f;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+  z-index: 4200;
+}
+.length-unit-option {
+  width: 100%;
+  border: none;
+  background: #2f2f2f;
+  color: #efefef;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--app-font);
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.length-unit-option + .length-unit-option {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.length-unit-option:hover { background: #464646; color: #ffffff; }
+.length-unit-option.is-selected { background: #5a5a5a; color: #ffffff; font-weight: 600; }
+/* Mode-select (standalone, no number input to the left) */
+.mode-select-group .length-unit-dropdown { width: 100%; }
+.mode-select-group .length-unit-trigger {
+  border-left: none;
+  border-radius: 7px;
+  width: 100%;
+  justify-content: space-between;
+  padding: 4px 10px;
+}
+.mode-select-group .length-unit-menu { left: 0; right: 0; min-width: unset; width: 100%; }
+.mode-select-group .length-unit-option { font-size: 12px; padding: 7px 10px; }
 
 .legacy {
   font-size: 10px;
@@ -1160,6 +1244,18 @@ main.main > section.panel {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="measurement-scale-copy">
+              <label for="spatial_stats_unit">Preferred spatial stat display unit</label>
+              <p>Sets the default px or µm view used when display and dashboard first render. Page-level toggles can still override each file without changing this workflow default.</p>
+            </div>
+            <div class="mode-select-group plugin-measure-right">
+              <select id="spatial_stats_unit" name="spatial_stats_unit">
+                <option value="px" {% if preferences.experiment_defaults.spatial_stats_unit == 'px' %}selected{% endif %}>px</option>
+                <option value="um" {% if preferences.experiment_defaults.spatial_stats_unit == 'um' %}selected{% endif %}>µm</option>
+              </select>
             </div>
           </div>
         </div>
@@ -2086,6 +2182,100 @@ main.main > section.panel {
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
   const formatLengthUnitLabel = (value) => (normalizeLengthUnit(value) === 'um' ? 'µm' : 'px');
 
+  // Custom styled dropdowns to replace native <select> elements
+  const openCustomDropdowns = new Set();
+
+  function closeAllCustomDropdowns(except = null) {
+    openCustomDropdowns.forEach((ctrl) => {
+      if (ctrl !== except) ctrl.close();
+    });
+  }
+
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.length-unit-dropdown')) {
+      closeAllCustomDropdowns();
+    }
+  });
+
+  function buildCustomSelect(nativeSelect) {
+    nativeSelect.style.display = 'none';
+
+    const root = document.createElement('div');
+    root.className = 'length-unit-dropdown';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'length-unit-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = nativeSelect.options[nativeSelect.selectedIndex]?.text ?? '';
+
+    const caret = document.createElement('span');
+    caret.className = 'length-unit-caret';
+    caret.setAttribute('aria-hidden', 'true');
+
+    trigger.appendChild(labelSpan);
+    trigger.appendChild(caret);
+    root.appendChild(trigger);
+
+    const menu = document.createElement('div');
+    menu.className = 'length-unit-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    root.appendChild(menu);
+
+    const optionButtons = [];
+    Array.from(nativeSelect.options).forEach((opt) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'length-unit-option';
+      btn.setAttribute('role', 'option');
+      btn.textContent = opt.text;
+      btn.dataset.value = opt.value;
+      if (opt.selected) btn.classList.add('is-selected');
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        nativeSelect.value = opt.value;
+        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        labelSpan.textContent = opt.text;
+        optionButtons.forEach((b) => b.classList.toggle('is-selected', b.dataset.value === opt.value));
+        ctrl.close();
+      });
+      menu.appendChild(btn);
+      optionButtons.push(btn);
+    });
+
+    const ctrl = {
+      close() {
+        root.classList.remove('open');
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        openCustomDropdowns.delete(ctrl);
+      },
+      open() {
+        closeAllCustomDropdowns(ctrl);
+        root.classList.add('open');
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        openCustomDropdowns.add(ctrl);
+      },
+    };
+
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (root.classList.contains('open')) ctrl.close();
+      else ctrl.open();
+    });
+
+    nativeSelect.parentNode.insertBefore(root, nativeSelect.nextSibling);
+    return ctrl;
+  }
+
+  document.querySelectorAll('.length-input-group select, .mode-select-group select').forEach(buildCustomSelect);
+
   const formatNumeric = (value, precision) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return '0';
@@ -2801,4 +2991,3 @@ main.main > section.panel {
 })();
 </script>
 {% endblock content %}
-

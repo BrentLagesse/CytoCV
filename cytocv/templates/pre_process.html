@@ -259,6 +259,48 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
+      .sidebar-unit-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid var(--panel-border);
+        border-radius: 8px;
+        background: var(--surface-muted-alt);
+        padding: 4px 4px 4px 10px;
+      }
+      .sidebar-unit-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.82);
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+      .sidebar-unit-track {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        flex: 1;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        overflow: hidden;
+      }
+      .sidebar-unit-indicator {
+        position: absolute;
+        top: 1px;
+        bottom: 1px;
+        left: 1px;
+        width: calc(50% - 2px);
+        border-radius: 999px;
+        background: #007bff;
+        transition: left 0.25s ease;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .sidebar-unit-track[data-active-unit="um"] .sidebar-unit-indicator {
+        left: calc(50% + 1px);
+      }
       .channel-visibility-btn,
       .scale-visibility-btn {
         border: 1px solid var(--panel-border);
@@ -279,6 +321,27 @@
       }
       .channel-visibility-btn.label-fade,
       .scale-visibility-btn.label-fade { opacity: 0.62; }
+      .sidebar-unit-btn {
+        position: relative;
+        z-index: 1;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.55);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        padding: 8px 16px;
+        text-align: center;
+        transition: color 0.25s ease;
+      }
+      .sidebar-unit-btn:hover {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .sidebar-unit-btn.active,
+      .sidebar-unit-btn[aria-pressed="true"] {
+        color: #ffffff;
+      }
 
       /* Each file-item */
       .file-item {
@@ -1105,6 +1168,14 @@
               {% if show_saved_file_scales %}Hide Scale{% else %}Show Scale{% endif %}
             </button>
           </div>
+          <div class="sidebar-unit-controls">
+            <span class="sidebar-unit-label">Spatial unit:</span>
+            <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial units" data-active-unit="px">
+              <div class="sidebar-unit-indicator" aria-hidden="true"></div>
+              <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+              <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+            </div>
+          </div>
         </div>
         <div class="sidebar-content">
           <ul id="fileList">
@@ -1250,6 +1321,7 @@
       const toggleBtn = document.getElementById("toggleSidebarBtn");
       const channelVisibilityBtn = document.getElementById("toggleChannelVisibilityBtn");
       const scaleVisibilityBtn = document.getElementById("toggleScaleVisibilityBtn");
+      const sidebarSpatialUnitToggle = document.getElementById("sidebarSpatialUnitToggle");
       const fileItems = document.querySelectorAll(".file-item");
       const preprocessMainShell = document.querySelector('[data-ui-region="preprocess-main-shell"]');
       const imageContainerStage = document.getElementById("imageContainerStage");
@@ -1285,6 +1357,69 @@
         return value;
       }
       const sidebarCsrfToken = getSidebarCsrfToken();
+      const defaultSpatialStatsUnit = "{{ default_spatial_stats_unit|default:'px'|escapejs }}";
+      let currentSpatialStatsUnit = "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}";
+
+      function normalizeSpatialUnit(unit) {
+        return unit === "um" ? "um" : "px";
+      }
+
+      function getCurrentSpatialUnit() {
+        return normalizeSpatialUnit(currentSpatialStatsUnit || defaultSpatialStatsUnit);
+      }
+
+      function setCurrentSpatialUnit(unit) {
+        currentSpatialStatsUnit = normalizeSpatialUnit(unit);
+      }
+
+      function updateSidebarSpatialUnitControls() {
+        if (!sidebarSpatialUnitToggle) return;
+        const activeUnit = getCurrentSpatialUnit();
+        sidebarSpatialUnitToggle.dataset.activeUnit = activeUnit;
+        sidebarSpatialUnitToggle.querySelectorAll("[data-spatial-unit]").forEach((button) => {
+          const isActive = button.dataset.spatialUnit === activeUnit;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      }
+
+      async function persistSidebarSpatialUnit(unit) {
+        const response = await fetch("/dashboard/preferences/channels/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": sidebarCsrfToken || "",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ sidebar_spatial_stats_unit: normalizeSpatialUnit(unit) }),
+        });
+        if (!response.ok) {
+          throw new Error("Unable to save spatial unit preference.");
+        }
+        const payload = await response.json();
+        return normalizeSpatialUnit(payload.sidebar_spatial_stats_unit || unit);
+      }
+
+      updateSidebarSpatialUnitControls();
+      if (sidebarSpatialUnitToggle) {
+        sidebarSpatialUnitToggle.querySelectorAll("[data-spatial-unit]").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const nextUnit = normalizeSpatialUnit(button.dataset.spatialUnit || "px");
+            if (nextUnit === getCurrentSpatialUnit()) return;
+            const previousUnit = getCurrentSpatialUnit();
+            setCurrentSpatialUnit(nextUnit);
+            updateSidebarSpatialUnitControls();
+            try {
+              const persistedUnit = await persistSidebarSpatialUnit(nextUnit);
+              setCurrentSpatialUnit(persistedUnit);
+              updateSidebarSpatialUnitControls();
+            } catch (error) {
+              setCurrentSpatialUnit(previousUnit);
+              updateSidebarSpatialUnitControls();
+            }
+          });
+        });
+      }
 
       function parseScalePayload() {
         const payloadElement = document.getElementById("preprocessScalePayload");
