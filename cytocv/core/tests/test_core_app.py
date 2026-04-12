@@ -133,6 +133,28 @@ class RouteSurfaceRefactorTests(TestCase):
         return channel_pixels
 
     @staticmethod
+    def _write_output_frame_assets(
+        media_root: Path,
+        uuid_value: str,
+        image_stem: str,
+        *,
+        frame_indices: tuple[int, ...] = (0, 1, 2, 3),
+    ) -> None:
+        output_dir = media_root / uuid_value / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        frame_colors = {
+            0: (120, 120, 120),
+            1: (30, 30, 220),
+            2: (30, 220, 30),
+            3: (220, 30, 30),
+        }
+        for frame_index in frame_indices:
+            color = frame_colors.get(frame_index, (200, 200, 200))
+            Image.fromarray(
+                np.full((8, 8, 3), color, dtype=np.uint8)
+            ).save(output_dir / f"{image_stem}_frame_{frame_index}.png")
+
+    @staticmethod
     def _write_overlay_config(uuid_value: str, image_stem: str) -> dict[str, object]:
         render_config = build_overlay_render_config(
             image_stem=image_stem,
@@ -334,6 +356,134 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
         self._assert_removed_paths(response)
+
+    def test_display_payload_includes_main_image_paths_for_all_channels(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-main-paths")
+            self._create_segmented_image(uuid_value, name="display-main-paths")
+            self._write_output_frame_assets(media_root, uuid_value, "display-main-paths")
+
+            response = self.client.get(reverse("display", args=[uuid_value]))
+
+        self.assertEqual(response.status_code, 200)
+        files_data = json.loads(response.context["files_data"])
+        payload = files_data[uuid_value]
+        self.assertEqual(
+            set(payload["MainImagePaths"].keys()),
+            {"dic", "blue", "red", "green"},
+        )
+        self.assertEqual(
+            payload["MainImagePaths"]["dic"],
+            f"/media/{uuid_value}/output/display-main-paths_frame_0.png",
+        )
+        self.assertEqual(
+            payload["MainImagePaths"]["blue"],
+            f"/media/{uuid_value}/output/display-main-paths_frame_1.png",
+        )
+        self.assertEqual(
+            payload["MainImagePaths"]["green"],
+            f"/media/{uuid_value}/output/display-main-paths_frame_2.png",
+        )
+        self.assertEqual(
+            payload["MainImagePaths"]["red"],
+            f"/media/{uuid_value}/output/display-main-paths_frame_3.png",
+        )
+
+    def test_dashboard_payload_includes_main_image_paths_for_all_channels(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-main-paths")
+            segmented = self._create_segmented_image(uuid_value, name="dashboard-main-paths")
+            segmented.user = self.user
+            segmented.save(update_fields=["user"])
+            self._write_output_frame_assets(media_root, uuid_value, "dashboard-main-paths")
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        files_data = json.loads(response.context["files_data_json"])
+        payload = files_data[uuid_value]
+        self.assertEqual(
+            set(payload["MainImagePaths"].keys()),
+            {"dic", "blue", "red", "green"},
+        )
+        self.assertEqual(
+            payload["MainImagePaths"]["red"],
+            f"/media/{uuid_value}/output/dashboard-main-paths_frame_3.png",
+        )
+
+    def test_viewers_use_payload_backed_main_image_warmup(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="viewer-main-warmup")
+            segmented = self._create_segmented_image(uuid_value, name="viewer-main-warmup")
+            segmented.user = self.user
+            segmented.save(update_fields=["user"])
+
+            display_response = self.client.get(reverse("display", args=[uuid_value]))
+            dashboard_response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(display_response, "scheduleMainImageWarmup(fileUUID, fileData, inferred);", html=False)
+        self.assertContains(display_response, "const imageUrl = await warmMainImageChannel(fileUUID, fileData, channel);", html=False)
+        self.assertContains(display_response, "fileData.MainImagePaths = {};", html=False)
+        self.assertContains(dashboard_response, "scheduleMainImageWarmup(fileUUID, fileData, inferred);", html=False)
+        self.assertContains(dashboard_response, "const imageUrl = await warmMainImageChannel(fileUUID, fileData, channel);", html=False)
+
+    def test_main_image_channel_matches_display_and_dashboard_payload_paths(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="main-channel-match")
+            segmented = self._create_segmented_image(uuid_value, name="main-channel-match")
+            segmented.user = self.user
+            segmented.save(update_fields=["user"])
+            self._write_output_frame_assets(media_root, uuid_value, "main-channel-match")
+
+            display_response = self.client.get(reverse("display", args=[uuid_value]))
+            dashboard_response = self.client.get(reverse("dashboard"))
+
+            display_payload = json.loads(display_response.context["files_data"])[uuid_value]
+            dashboard_payload = json.loads(dashboard_response.context["files_data_json"])[uuid_value]
+
+            for channel in ("dic", "blue", "red", "green"):
+                response = self.client.get(
+                    reverse("main_image_channel", args=[uuid_value]),
+                    {"channel": channel},
+                )
+                self.assertEqual(response.status_code, 200)
+                payload = response.json()
+                self.assertEqual(payload["image_url"], display_payload["MainImagePaths"][channel])
+                self.assertEqual(payload["image_url"], dashboard_payload["MainImagePaths"][channel])
+
+    def test_main_image_channel_and_payload_fall_back_to_first_available_frame(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="main-channel-fallback")
+            self._create_segmented_image(uuid_value, name="main-channel-fallback")
+            self._write_output_frame_assets(
+                media_root,
+                uuid_value,
+                "main-channel-fallback",
+                frame_indices=(0,),
+            )
+
+            display_response = self.client.get(reverse("display", args=[uuid_value]))
+            display_payload = json.loads(display_response.context["files_data"])[uuid_value]
+
+            response = self.client.get(
+                reverse("main_image_channel", args=[uuid_value]),
+                {"channel": "green"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        expected_url = f"/media/{uuid_value}/output/main-channel-fallback_frame_0.png"
+        self.assertEqual(display_payload["MainImagePaths"]["green"], expected_url)
+        self.assertEqual(response.json()["image_url"], expected_url)
 
     def test_display_uses_overlay_endpoint_for_fluorescence_contour_on_images(self):
         uuid_value = str(uuid4())
@@ -554,7 +704,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "return 'N/A';", html=False)
         self.assertContains(
             response,
-            "distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),",
+            "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
             html=False,
         )
         self.assertContains(
@@ -604,17 +754,12 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1'",
+            "'measurement_contour_ratio_1',",
             html=False,
         )
         self.assertContains(
             response,
-            "'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1'",
-            html=False,
-        )
-        self.assertContains(
-            response,
-            "'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3'",
+            "'measurement_contour_ratio_3',",
             html=False,
         )
 
@@ -630,7 +775,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            "distance: formatStatValue(cellStats ? cellStats.puncta_distance : null),",
+            "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
             html=False,
         )
         self.assertContains(
@@ -680,17 +825,12 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "'Measurement/Contour Ratio 1 (Green/Red)': 'measurement_contour_ratio_1'",
+            "'measurement_contour_ratio_1',",
             html=False,
         )
         self.assertContains(
             response,
-            "'Measurement/Contour Ratio 1 (Red/Green)': 'measurement_contour_ratio_1'",
-            html=False,
-        )
-        self.assertContains(
-            response,
-            "'Measurement/Contour Ratio 3 (Red/Green)': 'measurement_contour_ratio_3'",
+            "'measurement_contour_ratio_3',",
             html=False,
         )
 
@@ -847,7 +987,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertLess(
             list(header_row).index("Measurement/Contour Ratio 3 (Red/Green)"),
-            list(header_row).index("Distance of Green from Red 1"),
+            list(header_row).index("Distance of Green from Red 1 (px)"),
         )
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 1 (Red/Green)"], "0.500")
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 2 (Red/Green)"], "2.000")

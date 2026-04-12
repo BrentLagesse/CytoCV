@@ -47,6 +47,7 @@ from core.services.artifact_storage import (
     sweep_user_run_artifacts,
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
+from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
@@ -715,6 +716,12 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 "The statistics table is still available when data exists."
             )
 
+        main_image_paths = build_main_image_paths(
+            uuid=uuid,
+            image_name=image_name,
+            channel_config=channel_config,
+            available_frames=output_frames,
+        )
         default_frame_idx = channel_config.get(
             CHANNEL_ROLE_RED,
             DEFAULT_CHANNEL_CONFIG.get(CHANNEL_ROLE_RED, 0),
@@ -728,6 +735,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
 
         files_data[uuid] = {
             "MainImagePath": main_image_url or "",
+            "MainImagePaths": main_image_paths,
             "NumberOfCells": number_of_cells,
             "CellPairImages": cell_images,
             "Image_Name": image_name,
