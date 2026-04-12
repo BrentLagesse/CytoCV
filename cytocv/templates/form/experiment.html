@@ -723,7 +723,7 @@
             gap: 12px;
         }
         #statsPrimaryView {
-            overflow: hidden;
+            overflow: visible;
             padding-right: 0;
         }
         .stats-primary-scroll {
@@ -939,7 +939,8 @@
             position: relative;
             flex-wrap: wrap;
         }
-        .stats-toggle-row.unit-menu-open {
+        .stats-toggle-row.unit-menu-open,
+        .stats-toggle-row.mode-menu-open {
             z-index: 4300;
         }
         .stats-toggle-left {
@@ -1177,6 +1178,28 @@
             outline: 1px solid #6ca4df;
             outline-offset: -1px;
         }
+        .mode-dropdown {
+            min-width: 200px;
+        }
+        .mode-trigger {
+            border-left: none;
+            border-radius: 7px;
+            width: 100%;
+            justify-content: space-between;
+            padding: 4px 10px;
+            white-space: nowrap;
+        }
+        .mode-dropdown .length-unit-menu {
+            left: 0;
+            right: 0;
+            min-width: unset;
+            width: 100%;
+        }
+        .mode-dropdown .length-unit-option {
+            font-size: 12px;
+            padding: 7px 10px;
+            white-space: nowrap;
+        }
         .nuclear-mode-inline {
             display: flex;
             flex-direction: column;
@@ -1208,6 +1231,7 @@
             transform: translateY(0);
             margin-top: 4px;
             pointer-events: auto;
+            overflow: visible;
         }
         .nuclear-mode-row {
             display: flex;
@@ -1923,6 +1947,7 @@
     const channelToggleElements = new Map();
     const channelRowElements = new Map();
     const lengthUnitSelectElements = new Set();
+    const modeDropdownControls = new Set();
     let punctaLineWidthInput = null;
     let punctaLineWidthRow = null;
     let cenDotDistanceInput = null;
@@ -2182,15 +2207,20 @@
         document.addEventListener('click', (event) => {
             const target = event.target;
             let clickedInsideLengthUnit = false;
+            let clickedInsideMode = false;
             if (target instanceof Element) {
                 lengthUnitSelectElements.forEach((control) => {
-                    if (control.root.contains(target)) {
-                        clickedInsideLengthUnit = true;
-                    }
+                    if (control.root.contains(target)) clickedInsideLengthUnit = true;
+                });
+                modeDropdownControls.forEach((ctrl) => {
+                    if (ctrl.root.contains(target)) clickedInsideMode = true;
                 });
             }
             if (!clickedInsideLengthUnit) {
                 closeAllLengthUnitDropdowns();
+            }
+            if (!clickedInsideMode) {
+                modeDropdownControls.forEach((ctrl) => ctrl.close());
             }
             if (!(target instanceof Element) || !target.classList.contains('info-dot')) {
                 hideInfoTooltip();
@@ -2199,6 +2229,7 @@
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 closeAllLengthUnitDropdowns();
+                modeDropdownControls.forEach((ctrl) => ctrl.close());
                 hideInfoTooltip();
             }
         });
@@ -2721,6 +2752,109 @@
         return root;
     }
 
+    function buildCustomModeSelect(optionsList, initialValue, onChange) {
+        let currentValue = initialValue;
+
+        const root = document.createElement('div');
+        root.className = 'length-unit-dropdown mode-dropdown';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'length-unit-trigger mode-trigger';
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+
+        const labelSpan = document.createElement('span');
+        const getLabel = (val) => (optionsList.find((o) => o.value === val) || {}).text || val;
+        labelSpan.textContent = getLabel(currentValue);
+
+        const caret = document.createElement('span');
+        caret.className = 'length-unit-caret';
+        caret.setAttribute('aria-hidden', 'true');
+        trigger.appendChild(labelSpan);
+        trigger.appendChild(caret);
+        root.appendChild(trigger);
+
+        // Portal menu to body so it escapes all overflow/stacking contexts
+        const menu = document.createElement('div');
+        menu.className = 'length-unit-menu mode-menu-portal';
+        menu.setAttribute('role', 'listbox');
+        menu.hidden = true;
+        menu.style.position = 'fixed';
+        menu.style.zIndex = '9999';
+        document.body.appendChild(menu);
+
+        function positionMenu() {
+            const rect = trigger.getBoundingClientRect();
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.style.left = rect.left + 'px';
+            menu.style.minWidth = rect.width + 'px';
+        }
+
+        const optionButtons = new Map();
+        optionsList.forEach(({ value, text }) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'length-unit-option';
+            btn.setAttribute('role', 'option');
+            btn.textContent = text;
+            btn.dataset.value = value;
+            if (value === currentValue) btn.classList.add('is-selected');
+            btn.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                currentValue = value;
+                optionButtons.forEach((b, v) => b.classList.toggle('is-selected', v === value));
+                labelSpan.textContent = getLabel(value);
+                ctrl.close();
+                onChange(value);
+            });
+            menu.appendChild(btn);
+            optionButtons.set(value, btn);
+        });
+
+        const ctrl = {
+            root,
+            menu,
+            close() {
+                root.classList.remove('open');
+                menu.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+                modeDropdownControls.delete(ctrl);
+            },
+            open() {
+                modeDropdownControls.forEach((c) => { if (c !== ctrl) c.close(); });
+                closeAllLengthUnitDropdowns();
+                positionMenu();
+                root.classList.add('open');
+                menu.hidden = false;
+                trigger.setAttribute('aria-expanded', 'true');
+                modeDropdownControls.add(ctrl);
+            },
+        };
+
+        trigger.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (root.classList.contains('open')) ctrl.close();
+            else ctrl.open();
+        });
+
+        const handle = Object.create(null);
+        Object.defineProperty(handle, 'value', {
+            get() { return currentValue; },
+            set(val) {
+                currentValue = val;
+                optionButtons.forEach((b, v) => b.classList.toggle('is-selected', v === val));
+                labelSpan.textContent = getLabel(val);
+            },
+            enumerable: true,
+            configurable: true,
+        });
+        handle.root = root;
+        handle.ctrl = ctrl;
+        return handle;
+    }
+
     function buildLengthInputGroup({ field, inputId, minValue, defaultValue, onChange }) {
         const controls = document.createElement('div');
         controls.className = 'length-input-group';
@@ -2939,22 +3073,18 @@
                 modeLabel.textContent = 'Puncta source:';
                 modeTop.appendChild(modeLabel);
 
-                const select = document.createElement('select');
-                select.id = 'punctaLineMode';
-                const redOption = document.createElement('option');
-                redOption.value = 'red_puncta';
-                redOption.textContent = 'Red puncta (measure Green)';
-                const greenOption = document.createElement('option');
-                greenOption.value = 'green_puncta';
-                greenOption.textContent = 'Green puncta (measure Red)';
-                select.appendChild(redOption);
-                select.appendChild(greenOption);
-                select.addEventListener('change', () => {
-                    const nextMode = select.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
-                    statsState.punctaLineMode = nextMode;
-                    localStorage.setItem(punctaModeKey, nextMode);
-                });
-                modeTop.appendChild(select);
+                const select = buildCustomModeSelect(
+                    [
+                        { value: 'red_puncta', text: 'Red puncta (measure Green)' },
+                        { value: 'green_puncta', text: 'Green puncta (measure Red)' },
+                    ],
+                    statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
+                    (nextMode) => {
+                        statsState.punctaLineMode = nextMode;
+                        localStorage.setItem(punctaModeKey, nextMode);
+                    },
+                );
+                modeTop.appendChild(select.root);
                 modeRow.appendChild(modeTop);
 
                 const modeHelper = document.createElement('div');
@@ -3088,22 +3218,18 @@
                 modeLabel.textContent = 'Nucleus contour source (Nuclear/Cell-Pair mode):';
                 modeTop.appendChild(modeLabel);
 
-                const select = document.createElement('select');
-                select.id = 'nuclearCellPairMode';
-                const greenOption = document.createElement('option');
-                greenOption.value = 'green_nucleus';
-                greenOption.textContent = 'Green nucleus (measure Red)';
-                const redOption = document.createElement('option');
-                redOption.value = 'red_nucleus';
-                redOption.textContent = 'Red nucleus (measure Green)';
-                select.appendChild(greenOption);
-                select.appendChild(redOption);
-                select.addEventListener('change', () => {
-                    const nextMode = select.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
-                    statsState.nuclearCellPairMode = nextMode;
-                    localStorage.setItem(nuclearModeKey, nextMode);
-                });
-                modeTop.appendChild(select);
+                const select = buildCustomModeSelect(
+                    [
+                        { value: 'green_nucleus', text: 'Green nucleus (measure Red)' },
+                        { value: 'red_nucleus', text: 'Red nucleus (measure Green)' },
+                    ],
+                    statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
+                    (nextMode) => {
+                        statsState.nuclearCellPairMode = nextMode;
+                        localStorage.setItem(nuclearModeKey, nextMode);
+                    },
+                );
+                modeTop.appendChild(select.root);
                 modeRow.appendChild(modeTop);
 
                 const modeHelper = document.createElement('div');
