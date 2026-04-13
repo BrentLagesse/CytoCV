@@ -2101,6 +2101,12 @@
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
     <script>
+        function getCsrfToken() {
+            const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        }
+        const csrfToken = getCsrfToken();
+
         // Parse JSON file data
         let filesData = {};
         let filesDataParseError = false;
@@ -2902,6 +2908,7 @@
             if (!fileUUID || !fileData) {
                 return;
             }
+            updateSpatialUnitControls(fileData);
             const nextState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
                 showContours: getContourToggleState(),
                 cellNumber: currentCellNumber,
@@ -2937,13 +2944,16 @@
                     }
                     const previousUnit = getCurrentSpatialUnit();
                     setCurrentSpatialUnit(nextUnit);
+                    updateSpatialUnitControls(filesData[fileUUIDs[currentFileIndex]] || null);
                     rerenderSpatialUnitsForCurrentFile();
                     try {
                         const persistedUnit = await persistSidebarSpatialUnit(nextUnit);
                         setCurrentSpatialUnit(persistedUnit);
+                        updateSpatialUnitControls(filesData[fileUUIDs[currentFileIndex]] || null);
                         rerenderSpatialUnitsForCurrentFile();
                     } catch (error) {
                         setCurrentSpatialUnit(previousUnit);
+                        updateSpatialUnitControls(filesData[fileUUIDs[currentFileIndex]] || null);
                         rerenderSpatialUnitsForCurrentFile();
                         showMessage('Unable to save spatial unit preference right now.');
                     }
