@@ -16,6 +16,7 @@ CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy st
 - [Deployment](#deployment)
 - [Runtime Requirements](#runtime-requirements)
 - [Security Notes](#security-notes)
+- [Historical Notes](#historical-notes)
 - [License](#license)
 
 ## Overview
