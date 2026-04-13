@@ -47,6 +47,17 @@ def dilate_mask_volume(mask_volume: np.ndarray) -> np.ndarray:
     return dilated_masks
 
 
+def fill_mask_volume_holes(mask_volume: np.ndarray) -> np.ndarray:
+    """Fill enclosed holes inside each instance mask without mutating input."""
+
+    filled_masks = _copy_mask_volume(mask_volume)
+    for index in range(filled_masks.shape[2]):
+        filled_masks[:, :, index] = ndimage.binary_fill_holes(
+            filled_masks[:, :, index] > 0
+        ).astype(np.uint8)
+    return filled_masks
+
+
 def remove_duplicate_masks(
     mask_volume: np.ndarray,
     *,
@@ -95,6 +106,7 @@ def postprocess_prediction_masks(
     processed_masks = _copy_mask_volume(mask_volume)
     if dilation:
         processed_masks = dilate_mask_volume(processed_masks)
+    processed_masks = fill_mask_volume_holes(processed_masks)
     return remove_duplicate_masks(
         processed_masks,
         threshold=threshold,
@@ -117,6 +129,22 @@ def label_mask_volume(mask_volume: np.ndarray) -> np.ndarray:
         current_label += 1
 
     return label_image
+
+
+def fill_label_image_holes(label_image: np.ndarray) -> np.ndarray:
+    """Fill enclosed background holes for each label without overwriting other labels."""
+
+    filled_labels = np.asarray(label_image, dtype=np.uint16).copy()
+    for label in range(1, int(filled_labels.max()) + 1):
+        label_mask = filled_labels == label
+        if not np.any(label_mask):
+            continue
+        hole_pixels = np.logical_and(
+            ndimage.binary_fill_holes(label_mask),
+            filled_labels == 0,
+        )
+        filled_labels[hole_pixels] = label
+    return filled_labels
 
 
 def build_labeled_mask_image(
@@ -146,7 +174,7 @@ def build_labeled_mask_image(
             anti_aliasing=False,
         ).astype(np.uint16)
 
-    return label_image
+    return fill_label_image_holes(label_image)
 
 
 def save_mask_tiff(mask_image: np.ndarray, destination: Path) -> Path:
@@ -157,4 +185,3 @@ def save_mask_tiff(mask_image: np.ndarray, destination: Path) -> Path:
     normalized_mask = np.asarray(mask_image, dtype=np.uint16)
     Image.fromarray(normalized_mask).save(destination, format="TIFF")
     return destination
-

@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import cv2
 import numpy as np
 from django.test import SimpleTestCase
 from PIL import Image
@@ -158,6 +159,42 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
 
         self.assertEqual(label_image.dtype, np.uint16)
         self.assertTrue(np.array_equal(label_image, np.zeros((4, 4), dtype=np.uint16)))
+
+    def test_build_labeled_mask_image_fills_donut_mask_holes_and_removes_child_contours(self):
+        pred_masks = np.zeros((7, 7, 1), dtype=np.uint8)
+        pred_masks[1:6, 1:6, 0] = 1
+        pred_masks[2:5, 2:5, 0] = 0
+
+        label_image = build_labeled_mask_image(pred_masks)
+
+        self.assertEqual(int(label_image[3, 3]), 1)
+        contour_mask = (label_image == 1).astype(np.uint8)
+        contours, hierarchy = cv2.findContours(
+            contour_mask.copy(),
+            cv2.RETR_CCOMP,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        self.assertEqual(len(contours), 1)
+        self.assertIsNotNone(hierarchy)
+        self.assertFalse(any(node[3] != -1 for node in hierarchy[0]))
+
+    def test_build_labeled_mask_image_preserves_order_when_surviving_instances_have_filled_holes(self):
+        pred_masks = np.zeros((10, 10, 3), dtype=np.uint8)
+        pred_masks[1:5, 1:5, 0] = 1
+        pred_masks[2:4, 2:4, 0] = 0
+        pred_masks[1:5, 1:5, 1] = 1
+        pred_masks[2:4, 2:4, 1] = 0
+        pred_masks[5:9, 5:9, 2] = 1
+        pred_masks[6:8, 6:8, 2] = 0
+
+        label_image = build_labeled_mask_image(
+            pred_masks,
+            scores=np.array([0.1, 0.9, 0.8], dtype=np.float32),
+        )
+
+        self.assertTrue(np.array_equal(np.unique(label_image), np.array([0, 1, 2], dtype=np.uint16)))
+        self.assertEqual(int(label_image[2, 2]), 1)
+        self.assertEqual(int(label_image[6, 6]), 2)
 
     def test_predict_images_writes_blank_mask_when_model_returns_no_detections(self):
         with TemporaryDirectory() as temp_dir:
