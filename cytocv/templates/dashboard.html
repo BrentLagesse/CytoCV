@@ -130,6 +130,7 @@
             overflow-y: auto;
             min-height: 0;       /* critical for flex children to allow scrolling */
             padding-bottom: 12px;
+            margin-bottom: 10px;
             scrollbar-gutter: auto;
             scrollbar-width: auto;
             scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
@@ -470,6 +471,8 @@
             display: none;
         }
         .table-fullscreen-btn {
+            position: relative;
+            z-index: 1;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -492,7 +495,6 @@
             background: rgba(24, 34, 47, 0.78);
             border-color: rgba(var(--glass-border-rgb), 0.52);
             color: #ffffff;
-            transform: translateY(-1px);
         }
         .table-fullscreen-btn .fullscreen-icon {
             font-size: 12px;
@@ -733,7 +735,7 @@
         }
         .sidebar-content::-webkit-scrollbar-track {
             background: transparent !important;
-            margin-block: 4px;
+            margin-block: 4px 14px;
         }
         .sidebar-content::-webkit-scrollbar-thumb {
             background: rgba(127, 127, 127, 0.24);
