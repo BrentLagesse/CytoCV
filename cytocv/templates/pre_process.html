@@ -240,9 +240,11 @@
       .sidebar-content.has-scrollbar {
         scrollbar-gutter: stable;
       }
-      .sidebar.has-scrollbar .sidebar-header,
-      .sidebar.has-scrollbar .sidebar-actions {
+      .sidebar.has-scrollbar .sidebar-header {
         margin-right: 6px;
+      }
+      .sidebar.has-scrollbar .sidebar-actions {
+        margin-right: 12px;
       }
       .sidebar-content.has-scrollbar .file-item {
         margin-right: 6px;
@@ -400,6 +402,8 @@
       .file-scale-input {
         width: 88px;
         min-width: 88px;
+        box-sizing: border-box;
+        height: 30px;
         border: 1px solid var(--scale-input-border);
         border-radius: 7px;
         background-color: var(--scale-input-bg);
@@ -407,8 +411,8 @@
         transition: background-color 0.2s ease, border-color 0.2s ease;
         color: #fff;
         font-size: 12px;
-        line-height: 1.1;
-        padding: 5px 7px 5px 8px;
+        line-height: 1.25;
+        padding: 4px 7px 4px 8px;
       }
       .file-scale-input::-webkit-outer-spin-button,
       .file-scale-input::-webkit-inner-spin-button {
