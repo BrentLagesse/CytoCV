@@ -15,6 +15,10 @@ from core.mrcnn.preprocess_images import preprocess_images
 from core.services.analysis_context import AnalysisBatchContext
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_progress import AnalysisProgressHandle
+from core.services.analysis_progress_contract import (
+    SAFE_ANALYSIS_FAILURE_SUMMARY,
+    progress_log_ref,
+)
 from core.services.artifact_storage import (
     cleanup_failed_processing_artifacts,
     delete_uploaded_run_by_uuid,
@@ -152,7 +156,10 @@ def run_analysis_batch(
         progress.set_phase(
             "Failed",
             status="failed",
-            failure_summary=str(exc),
+            failure_summary=SAFE_ANALYSIS_FAILURE_SUMMARY,
         )
-        logger.exception("Analysis pipeline failed for batch %s", context.batch_key)
+        logger.exception(
+            "Analysis pipeline failed for progress ref %s",
+            progress_log_ref(context.batch_key),
+        )
         raise

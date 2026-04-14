@@ -14,6 +14,7 @@ from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import claim_next_analysis_job, finalize_job
 from core.services.analysis_pipeline import run_analysis_batch
 from core.services.analysis_progress import AnalysisProgressHandle
+from core.services.analysis_progress_contract import SAFE_ANALYSIS_FAILURE_SUMMARY
 
 logger = logging.getLogger(__name__)
 
@@ -68,22 +69,24 @@ class Command(BaseCommand):
                     current_phase="Cancelled",
                 )
                 logger.info(
-                    "Cancelled analysis job %s for batch %s at %s",
+                    "Cancelled analysis job %s for user %s (%s runs) at %s",
                     job.job_uuid,
-                    job.batch_key,
+                    job.user_id,
+                    len(job.run_uuids),
                     timezone.now().isoformat(),
                 )
-            except Exception as exc:
+            except Exception:
                 finalize_job(
                     job,
                     status=job.Status.FAILED,
                     current_phase="Failed",
-                    failure_summary=str(exc),
+                    failure_summary=SAFE_ANALYSIS_FAILURE_SUMMARY,
                 )
                 logger.exception(
-                    "Analysis worker failed job %s for batch %s at %s",
+                    "Analysis worker failed job %s for user %s (%s runs) at %s",
                     job.job_uuid,
-                    job.batch_key,
+                    job.user_id,
+                    len(job.run_uuids),
                     timezone.now().isoformat(),
                 )
             else:
@@ -94,9 +97,10 @@ class Command(BaseCommand):
                     failure_summary=result.storage_warning_message,
                 )
                 logger.info(
-                    "Completed analysis job %s for batch %s at %s",
+                    "Completed analysis job %s for user %s (%s runs) at %s",
                     job.job_uuid,
-                    job.batch_key,
+                    job.user_id,
+                    len(job.run_uuids),
                     timezone.now().isoformat(),
                 )
 

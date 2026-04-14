@@ -10,6 +10,10 @@ from django.utils import timezone
 
 from core.models import AnalysisJob
 from core.services.analysis_context import build_batch_key, normalize_analysis_config_snapshot
+from core.services.analysis_progress_contract import (
+    STALE_QUEUE_FAILURE_SUMMARY,
+    STALE_RUNNING_FAILURE_SUMMARY,
+)
 
 ACTIVE_ANALYSIS_JOB_STATUSES = (
     AnalysisJob.Status.QUEUED,
@@ -58,6 +62,7 @@ def enqueue_analysis_job(
     batch_key = build_batch_key(raw_uuids)
     normalized_uuids = list(batch_key.split(",")) if batch_key else []
     normalized_snapshot = normalize_analysis_config_snapshot(config_snapshot)
+    reap_stale_analysis_jobs(user_id=user_id, batch_key=batch_key)
 
     with transaction.atomic():
         existing = get_active_analysis_job(user_id=user_id, batch_key=batch_key)
@@ -83,6 +88,7 @@ def enqueue_analysis_job(
 def claim_next_analysis_job() -> AnalysisJob | None:
     """Claim the next queued analysis job for a worker process."""
 
+    reap_stale_analysis_jobs()
     with transaction.atomic():
         queryset = AnalysisJob.objects.filter(status=AnalysisJob.Status.QUEUED).order_by(
             "created_at"
@@ -155,11 +161,11 @@ def finalize_job(
     return job
 
 
-def resolve_stale_job(job: AnalysisJob) -> AnalysisJob:
-    """Finalize jobs that can no longer make forward progress."""
+def get_stale_job_terminal_state(job: AnalysisJob) -> tuple[str, str, str] | None:
+    """Return a terminal state for a stale job without mutating persistence."""
 
     if job.status in TERMINAL_ANALYSIS_JOB_STATUSES:
-        return job
+        return None
 
     now = timezone.now()
     queue_stale_seconds = max(
@@ -174,21 +180,18 @@ def resolve_stale_job(job: AnalysisJob) -> AnalysisJob:
     if job.status == AnalysisJob.Status.QUEUED:
         age_seconds = (now - job.created_at).total_seconds()
         if age_seconds < queue_stale_seconds:
-            return job
-        return finalize_job(
-            job,
-            status=AnalysisJob.Status.FAILED,
-            current_phase="Failed",
-            failure_summary=(
-                "Analysis worker did not pick up the queued job before it expired."
-            ),
+            return None
+        return (
+            AnalysisJob.Status.FAILED,
+            "Failed",
+            STALE_QUEUE_FAILURE_SUMMARY,
         )
 
     if job.status in {AnalysisJob.Status.RUNNING, AnalysisJob.Status.CANCELLING}:
         started_at = job.started_at or job.created_at
         age_seconds = (now - started_at).total_seconds()
         if age_seconds < running_stale_seconds:
-            return job
+            return None
         terminal_status = (
             AnalysisJob.Status.CANCELLED
             if job.status == AnalysisJob.Status.CANCELLING
@@ -198,13 +201,41 @@ def resolve_stale_job(job: AnalysisJob) -> AnalysisJob:
         failure_summary = (
             ""
             if terminal_status == AnalysisJob.Status.CANCELLED
-            else "Analysis job exceeded the maximum runtime and was marked failed."
+            else STALE_RUNNING_FAILURE_SUMMARY
         )
-        return finalize_job(
-            job,
-            status=terminal_status,
-            current_phase=terminal_phase,
-            failure_summary=failure_summary,
+        return (
+            terminal_status,
+            terminal_phase,
+            failure_summary,
         )
 
-    return job
+    return None
+
+
+def reap_stale_analysis_jobs(
+    *,
+    user_id: int | None = None,
+    batch_key: str | None = None,
+) -> int:
+    """Persist terminal state for stale active jobs from explicit non-GET code paths."""
+
+    queryset = AnalysisJob.objects.filter(status__in=ACTIVE_ANALYSIS_JOB_STATUSES)
+    if user_id is not None:
+        queryset = queryset.filter(user_id=user_id)
+    if batch_key is not None:
+        queryset = queryset.filter(batch_key=batch_key)
+
+    finalized = 0
+    for job in queryset.order_by("created_at"):
+        stale_state = get_stale_job_terminal_state(job)
+        if stale_state is None:
+            continue
+        status, current_phase, failure_summary = stale_state
+        finalize_job(
+            job,
+            status=status,
+            current_phase=current_phase,
+            failure_summary=failure_summary,
+        )
+        finalized += 1
+    return finalized

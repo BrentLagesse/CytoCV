@@ -2251,26 +2251,6 @@
           analysisPopover.classList.remove("open");
           analysisPopover.setAttribute("aria-hidden", "true");
         }
-        // Reset server-side phase immediately to avoid stale reads
-        try {
-          const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
-          const csrfToken = csrfEl?.value;
-          if (csrfToken) {
-            const setUrl = new URL(`/api/progress/${encodeURIComponent("{{ uuids|escapejs }}")}/set/`, window.location.origin);
-            await fetch(setUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-              },
-              body: JSON.stringify({ phase: 'Preprocessing Images' }),
-              credentials: 'same-origin',
-            });
-          } else {
-            console.warn('CSRF token not found; skipping progress reset.');
-          }
-        } catch (e) { /* ignore */ }
-
         // Poll progress for accurate phases
         const uuids = "{{ uuids|escapejs }}";
         analysisPollTimer = null;
