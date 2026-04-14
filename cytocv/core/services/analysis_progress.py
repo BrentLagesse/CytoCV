@@ -10,9 +10,80 @@ from pathlib import Path
 
 from cytocv.settings import MEDIA_ROOT
 from core.models import AnalysisJob
-from core.services.analysis_jobs import get_latest_analysis_job, request_job_cancellation
+from core.services.analysis_jobs import (
+    get_latest_analysis_job,
+    request_job_cancellation,
+    resolve_stale_job,
+)
 
 logger = logging.getLogger(__name__)
+NORMALIZED_PROGRESS_STATUSES = frozenset(
+    {
+        "idle",
+        "queued",
+        "running",
+        "cancelling",
+        "succeeded",
+        "failed",
+        "cancelled",
+    }
+)
+
+
+def _normalize_status(*, phase: str, status: str | None) -> str:
+    candidate = str(status or "").strip().lower()
+    phase_candidate = str(phase or "").strip().lower()
+    status_map = {
+        "completed": "succeeded",
+        "complete": "succeeded",
+        "success": "succeeded",
+        "queued": "queued",
+        "queue": "queued",
+        "running": "running",
+        "preprocessing images": "running",
+        "detecting cells": "running",
+        "segmenting images": "running",
+        "calculating statistics": "running",
+        "cancelling": "cancelling",
+        "canceling": "cancelling",
+        "cancelled": "cancelled",
+        "canceled": "cancelled",
+        "failed": "failed",
+        "error": "failed",
+        "idle": "idle",
+    }
+    normalized = status_map.get(candidate)
+    if normalized:
+        return normalized
+
+    phase_normalized = status_map.get(phase_candidate)
+    if phase_normalized:
+        return phase_normalized
+
+    if candidate in NORMALIZED_PROGRESS_STATUSES:
+        return candidate
+    return "failed" if candidate else "idle"
+
+
+def _log_inconsistent_snapshot(
+    *,
+    batch_key: str,
+    phase: str,
+    status: str,
+    failure_summary: str,
+) -> None:
+    terminal_phase = str(phase).strip().lower() in {"completed", "failed", "cancelled", "canceled"}
+    terminal_status = status in {"succeeded", "failed", "cancelled"}
+    if terminal_phase and not terminal_status:
+        logger.warning(
+            "Progress snapshot has terminal phase with non-terminal status",
+            extra={
+                "batch_key": batch_key,
+                "phase": phase,
+                "status": status,
+                "failure_summary": failure_summary,
+            },
+        )
 
 
 def progress_path(key: str) -> Path:
@@ -168,24 +239,38 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
 
     job = get_latest_analysis_job(user_id=user_id, batch_key=batch_key)
     if job is not None:
-        return AnalysisProgressSnapshot(
+        job = resolve_stale_job(job)
+        status = _normalize_status(
             phase=job.current_phase or "Idle",
             status=job.status,
-            failure_summary=job.failure_summary or "",
+        )
+        phase = job.current_phase or "Idle"
+        failure_summary = job.failure_summary or ""
+        _log_inconsistent_snapshot(
+            batch_key=batch_key,
+            phase=phase,
+            status=status,
+            failure_summary=failure_summary,
+        )
+        return AnalysisProgressSnapshot(
+            phase=phase,
+            status=status,
+            failure_summary=failure_summary if status == "failed" else "",
         )
 
     file_progress = read_file_progress(batch_key)
     phase = str(file_progress.get("phase") or "Idle")
-    status = str(file_progress.get("status") or phase.lower() or "idle")
-    status_map = {
-        "completed": "succeeded",
-        "complete": "succeeded",
-        "idle": "idle",
-    }
-    status = status_map.get(status.lower(), status.lower())
+    raw_status = str(file_progress.get("status") or "")
+    status = _normalize_status(phase=phase, status=raw_status)
     failure_summary = str(file_progress.get("failure_summary") or "")
-    return AnalysisProgressSnapshot(
+    _log_inconsistent_snapshot(
+        batch_key=batch_key,
         phase=phase,
         status=status,
         failure_summary=failure_summary,
+    )
+    return AnalysisProgressSnapshot(
+        phase=phase,
+        status=status,
+        failure_summary=failure_summary if status == "failed" else "",
     )

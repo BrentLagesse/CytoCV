@@ -45,10 +45,10 @@ POST responsibilities:
 - normalize persisted measurement values back into session state
 - choose execution mode from `CYTOCV_ANALYSIS_EXECUTION_MODE`
 - in `sync` mode:
-  - run preprocess and inference for each UUID
-  - write progress phases
+  - run the full preprocess, inference, segmentation, and statistics batch in the preprocess POST
+  - write progress phases through the shared analysis pipeline
   - honor cancellation requests
-  - redirect to segmentation
+  - return directly to display when the batch completes
 - in `worker` mode:
   - persist a whitelisted batch config snapshot
   - enqueue one `AnalysisJob`
@@ -97,6 +97,7 @@ Worker-backed production flow:
 Compatibility note:
 
 - the legacy `/segment/` route remains available for the existing sync flow and manual/local compatibility
+- preprocess AJAX no longer uses `/segment/` as its normal success path in `sync` mode
 - production deployments should prefer `worker` mode so Gunicorn does not block on segmentation/statistics
 
 ## Display Flow
@@ -158,4 +159,3 @@ Key behaviors:
 - [`architecture-overview.md`](architecture-overview.md)
 - [`../reference/routes-and-endpoints.md`](../reference/routes-and-endpoints.md)
 - [`../diagrams/README.md`](../diagrams/README.md)
-

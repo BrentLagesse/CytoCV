@@ -7,12 +7,13 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.urls import reverse
 import math
 from uuid import UUID
+import logging
 
 from core.models import UploadedImage, get_guest_user
 from core.services.analysis_context import build_analysis_batch_context, build_batch_key
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import enqueue_analysis_job, get_active_analysis_job
-from core.services.analysis_pipeline import run_preprocess_and_inference_batch
+from core.services.analysis_pipeline import run_analysis_batch
 from core.services.analysis_progress import AnalysisProgressHandle, get_progress_snapshot
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
@@ -38,8 +39,6 @@ from core.scale import (
     get_scale_sidebar_payload,
     normalize_spatial_stats_unit,
 )
-from core.mrcnn.my_inference import predict_images
-from core.mrcnn.preprocess_images import preprocess_images
 from core.services.artifact_storage import (
     cleanup_failed_processing_artifacts,
     delete_uploaded_run_by_uuid,
@@ -53,6 +52,7 @@ NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
+logger = logging.getLogger(__name__)
 
 
 def _current_owner_filter(request) -> dict:
@@ -153,12 +153,19 @@ def get_progress(request, uuids):
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
         if snapshot.status in {"succeeded", "failed", "cancelled"}:
             sync_transient_run_session_state(request, batch_key.split(","))
+        redirect_url = (
+            reverse("display", kwargs={"uuids": batch_key})
+            if snapshot.status == "succeeded"
+            else None
+        )
+        if snapshot.status == "succeeded" and not redirect_url:
+            logger.warning("Progress endpoint missing redirect for successful batch %s", batch_key)
         return JsonResponse(
             {
                 "phase": snapshot.phase,
                 "status": snapshot.status,
                 "failure_summary": snapshot.failure_summary,
-                "redirect": reverse("display", kwargs={"uuids": batch_key}),
+                "redirect": redirect_url,
             }
         )
     except Exception:
@@ -434,12 +441,12 @@ def pre_process(request, uuids):
         progress = AnalysisProgressHandle(batch_key)
         progress.clear_cancel()
         try:
-            run_preprocess_and_inference_batch(
+            # Sync mode must complete the full batch in this POST so the UI does not
+            # hand off expensive work to a hidden redirect-followed segment request.
+            result = run_analysis_batch(
                 user=request.user,
                 context=context,
                 progress=progress,
-                preprocess_fn=preprocess_images,
-                predict_fn=predict_images,
             )
         except AnalysisCancelled:
             return cancel_response()
@@ -448,7 +455,18 @@ def pre_process(request, uuids):
                 raise
             return storage_full_response(exc)
 
-        return redirect("experiment_segment", uuids=batch_key)
+        payload = {
+            "status": "succeeded",
+            "phase": "Completed",
+            "redirect": reverse("display", kwargs={"uuids": batch_key}),
+        }
+        if result.storage_warning_message:
+            payload["storage_warning_message"] = result.storage_warning_message
+        if is_ajax:
+            return JsonResponse(payload)
+        if result.storage_warning_message:
+            messages.warning(request, result.storage_warning_message)
+        return redirect("display", uuids=batch_key)
 
     # AJAX navigation
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

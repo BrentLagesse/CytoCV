@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from django.conf import settings
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
@@ -151,4 +152,59 @@ def finalize_job(
             "finished_at",
         ]
     )
+    return job
+
+
+def resolve_stale_job(job: AnalysisJob) -> AnalysisJob:
+    """Finalize jobs that can no longer make forward progress."""
+
+    if job.status in TERMINAL_ANALYSIS_JOB_STATUSES:
+        return job
+
+    now = timezone.now()
+    queue_stale_seconds = max(
+        int(getattr(settings, "ANALYSIS_QUEUE_STALE_SECONDS", 300)),
+        1,
+    )
+    running_stale_seconds = max(
+        int(getattr(settings, "ANALYSIS_RUNNING_STALE_SECONDS", 7200)),
+        1,
+    )
+
+    if job.status == AnalysisJob.Status.QUEUED:
+        age_seconds = (now - job.created_at).total_seconds()
+        if age_seconds < queue_stale_seconds:
+            return job
+        return finalize_job(
+            job,
+            status=AnalysisJob.Status.FAILED,
+            current_phase="Failed",
+            failure_summary=(
+                "Analysis worker did not pick up the queued job before it expired."
+            ),
+        )
+
+    if job.status in {AnalysisJob.Status.RUNNING, AnalysisJob.Status.CANCELLING}:
+        started_at = job.started_at or job.created_at
+        age_seconds = (now - started_at).total_seconds()
+        if age_seconds < running_stale_seconds:
+            return job
+        terminal_status = (
+            AnalysisJob.Status.CANCELLED
+            if job.status == AnalysisJob.Status.CANCELLING
+            else AnalysisJob.Status.FAILED
+        )
+        terminal_phase = "Cancelled" if terminal_status == AnalysisJob.Status.CANCELLED else "Failed"
+        failure_summary = (
+            ""
+            if terminal_status == AnalysisJob.Status.CANCELLED
+            else "Analysis job exceeded the maximum runtime and was marked failed."
+        )
+        return finalize_job(
+            job,
+            status=terminal_status,
+            current_phase=terminal_phase,
+            failure_summary=failure_summary,
+        )
+
     return job

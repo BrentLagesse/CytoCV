@@ -88,6 +88,7 @@ What it does not do:
 - it does not activate the venv in your parent shell
 - it does not search the whole machine for the repo
 - it does not repair missing setup; it tells you to run the installer first
+- it does not start `manage.py run_analysis_worker`; if local `CYTOCV_ANALYSIS_EXECUTION_MODE=worker` is enabled, the preprocess page will keep polling until a separate worker process is running
 
 Examples:
 
@@ -528,4 +529,3 @@ For Windows PowerShell users, use:
 - [`../user/getting-started.md`](../user/getting-started.md)
 - [`../user/troubleshooting.md`](../user/troubleshooting.md)
 - [`../ops/postgres-setup.md`](../ops/postgres-setup.md)
-

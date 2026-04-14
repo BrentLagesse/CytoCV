@@ -7,6 +7,7 @@ import time
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from core.services.analysis_context import AnalysisBatchContext, normalize_analysis_config_snapshot
 from core.services.analysis_exceptions import AnalysisCancelled
@@ -66,7 +67,12 @@ class Command(BaseCommand):
                     status=job.Status.CANCELLED,
                     current_phase="Cancelled",
                 )
-                logger.info("Cancelled analysis job %s", job.job_uuid)
+                logger.info(
+                    "Cancelled analysis job %s for batch %s at %s",
+                    job.job_uuid,
+                    job.batch_key,
+                    timezone.now().isoformat(),
+                )
             except Exception as exc:
                 finalize_job(
                     job,
@@ -74,7 +80,12 @@ class Command(BaseCommand):
                     current_phase="Failed",
                     failure_summary=str(exc),
                 )
-                logger.exception("Analysis worker failed job %s", job.job_uuid)
+                logger.exception(
+                    "Analysis worker failed job %s for batch %s at %s",
+                    job.job_uuid,
+                    job.batch_key,
+                    timezone.now().isoformat(),
+                )
             else:
                 finalize_job(
                     job,
@@ -82,7 +93,12 @@ class Command(BaseCommand):
                     current_phase="Completed",
                     failure_summary=result.storage_warning_message,
                 )
-                logger.info("Completed analysis job %s", job.job_uuid)
+                logger.info(
+                    "Completed analysis job %s for batch %s at %s",
+                    job.job_uuid,
+                    job.batch_key,
+                    timezone.now().isoformat(),
+                )
 
             if run_once:
                 return

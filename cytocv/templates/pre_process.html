@@ -2274,13 +2274,39 @@
         // Poll progress for accurate phases
         const uuids = "{{ uuids|escapejs }}";
         analysisPollTimer = null;
+        let consecutivePollFailures = 0;
+        const maxConsecutivePollFailures = 5;
+        const knownStatuses = new Set(["idle", "queued", "running", "cancelling", "succeeded", "failed", "cancelled"]);
+        const stopPollingWithMessage = (message) => {
+          if (analysisPollTimer) clearInterval(analysisPollTimer);
+          window.isAnalysisRunning = false;
+          btn.disabled = false;
+          btn.classList.remove("loading");
+          if (textEl) textEl.textContent = "Start Analysis";
+          setAnalysisLocked(false);
+          if (window.showGlobalMessage && message) {
+            window.showGlobalMessage(message);
+          }
+        };
         const startPolling = () => {
           const poll = async () => {
             try {
               const pollUrl = new URL(`/api/progress/${encodeURIComponent(uuids)}/`, window.location.origin);
               const resp = await fetch(pollUrl, { cache: 'no-store' });
-              if (!resp.ok) return;
+              if (!resp.ok) {
+                consecutivePollFailures += 1;
+                if (consecutivePollFailures >= maxConsecutivePollFailures) {
+                  stopPollingWithMessage("Lost connection to analysis status. Please refresh and check the run state.");
+                }
+                return;
+              }
               const data = await resp.json();
+              consecutivePollFailures = 0;
+              const status = typeof data?.status === "string" ? data.status.toLowerCase() : "";
+              if (!knownStatuses.has(status)) {
+                stopPollingWithMessage("Received an unexpected analysis status. Please refresh and try again.");
+                return;
+              }
               if (data && data.phase && textEl) {
                 if (data.phase === "Queued") {
                   textEl.textContent = "Queued";
@@ -2296,38 +2322,31 @@
                   if (hasStats) textEl.textContent = data.phase;
                 }
               }
-              if (data && data.status === "succeeded" && data.redirect) {
+              if (status === "succeeded" && data.redirect) {
                 if (analysisPollTimer) clearInterval(analysisPollTimer);
                 window.isAnalysisRunning = false;
                 window.location.href = data.redirect;
                 return;
               }
-              if (data && data.status === "failed") {
-                if (analysisPollTimer) clearInterval(analysisPollTimer);
-                window.isAnalysisRunning = false;
-                btn.disabled = false;
-                btn.classList.remove("loading");
-                if (textEl) textEl.textContent = "Start Analysis";
-                setAnalysisLocked(false);
+              if (status === "succeeded" && !data.redirect) {
+                stopPollingWithMessage("Analysis completed, but the result page could not be resolved. Please refresh.");
+                return;
+              }
+              if (status === "failed") {
                 const failureMessage = data.failure_summary || "Analysis failed. Please try again.";
-                if (window.showGlobalMessage) {
-                  window.showGlobalMessage(failureMessage);
-                }
+                stopPollingWithMessage(failureMessage);
                 return;
               }
-              if (data && data.status === "cancelled") {
-                if (analysisPollTimer) clearInterval(analysisPollTimer);
-                window.isAnalysisRunning = false;
-                btn.disabled = false;
-                btn.classList.remove("loading");
-                if (textEl) textEl.textContent = "Start Analysis";
-                setAnalysisLocked(false);
-                if (window.showGlobalMessage) {
-                  window.showGlobalMessage("Analysis cancelled.");
-                }
+              if (status === "cancelled") {
+                stopPollingWithMessage("Analysis cancelled.");
                 return;
               }
-            } catch (err) { /* ignore polling errors */ }
+            } catch (err) {
+              consecutivePollFailures += 1;
+              if (consecutivePollFailures >= maxConsecutivePollFailures) {
+                stopPollingWithMessage("Lost connection to analysis status. Please refresh and check the run state.");
+              }
+            }
           };
           analysisPollTimer = setInterval(poll, 1000);
           // Kick off immediately
@@ -2335,7 +2354,7 @@
         };
         startPolling();
 
-        // Submit via fetch, allowing backend to run through redirects
+        // Submit via fetch and expect a terminal JSON handoff from preprocess.
         try {
           analysisAbortController = new AbortController();
           const resp = await fetch(window.location.href, {
@@ -2343,9 +2362,22 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: new FormData(form),
             credentials: 'same-origin',
-            redirect: 'follow',
             signal: analysisAbortController.signal,
           });
+          if (!resp.ok) {
+            const contentType = resp.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              const payload = await resp.json();
+              if (payload.status === 'cancelled') {
+                stopPollingWithMessage("Analysis cancelled.");
+                return;
+              }
+              if (payload.error) {
+                throw new Error(payload.error);
+              }
+            }
+            throw new Error('Analysis request failed.');
+          }
           const contentType = resp.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
             const payload = await resp.json();
@@ -2356,22 +2388,26 @@
               if (textEl) textEl.textContent = payload.phase || "Queued";
               return;
             }
-            if (payload.redirect) {
+            if (payload.status === 'succeeded' && payload.redirect) {
               if (analysisPollTimer) clearInterval(analysisPollTimer);
               window.isAnalysisRunning = false;
+              if (payload.storage_warning_message && window.showGlobalMessage) {
+                window.showGlobalMessage(payload.storage_warning_message, 'warning');
+              }
               window.location.href = payload.redirect;
               return;
             }
-            return;
+            if (payload.status === 'cancelled') {
+              stopPollingWithMessage("Analysis cancelled.");
+              return;
+            }
+            if (payload.status === 'failed') {
+              stopPollingWithMessage(payload.failure_summary || "Analysis failed. Please try again.");
+              return;
+            }
+            throw new Error('Unexpected analysis response.');
           }
-          if (analysisPollTimer) clearInterval(analysisPollTimer);
-          if (resp && resp.url) {
-            window.isAnalysisRunning = false;
-            window.location.href = resp.url;
-            return;
-          }
-          window.isAnalysisRunning = false;
-          window.location.href = '{% url "display" uuids=uuids %}';
+          throw new Error('Analysis response was not JSON.');
         } catch (err) {
           if (analysisPollTimer) clearInterval(analysisPollTimer);
           if (suppressAnalysisErrors || (err && err.name === "AbortError")) {
@@ -2514,4 +2550,3 @@
       })();
     </script>
 {% endblock content %}
-
