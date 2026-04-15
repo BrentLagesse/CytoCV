@@ -48,6 +48,7 @@ POST responsibilities:
   - run the full preprocess, inference, segmentation, and statistics batch in the preprocess POST
   - write progress phases through the shared analysis pipeline
   - honor cancellation requests
+  - reconcile transient session access from final segmented-image ownership before redirecting
   - return directly to display when the batch completes
 - in `worker` mode:
   - persist a whitelisted batch config snapshot

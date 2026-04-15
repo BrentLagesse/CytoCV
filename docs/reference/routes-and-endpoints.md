@@ -83,7 +83,7 @@ This document lists the current public routes and route-level behavior defined i
 - Auth: required
 - Purpose: preview review, scale overrides, and analysis kickoff
 - Notes:
-  - `sync` mode keeps the legacy preprocess/inference then redirect-to-segment behavior
+  - `sync` mode completes preprocess, inference, segmentation, and statistics inline, then redirects directly to display
   - `worker` mode enqueues a background `AnalysisJob` and returns immediately for polling
 
 ### `GET /experiment/<uuids>/convert/`
@@ -193,4 +193,3 @@ This document lists the current public routes and route-level behavior defined i
 - [`data-model.md`](data-model.md)
 - [`file-format-and-artifact-spec.md`](file-format-and-artifact-spec.md)
 - [`../developer/request-flows.md`](../developer/request-flows.md)
-

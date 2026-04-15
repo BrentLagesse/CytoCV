@@ -10,7 +10,11 @@ from uuid import UUID
 import logging
 
 from core.models import SegmentedImage, UploadedImage, get_guest_user
-from core.services.analysis_context import build_analysis_batch_context, build_batch_key
+from core.services.analysis_context import (
+    build_analysis_batch_context,
+    build_batch_key,
+    normalize_execution_mode,
+)
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import (
     enqueue_analysis_job,
@@ -269,8 +273,7 @@ def get_progress(request, uuids):
         batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
         if snapshot.status in TERMINAL_PROGRESS_STATUSES:
-            sync_transient_run_session_state(request, uuid_list)
-            _release_progress_batch(request, batch_key)
+            _finalize_terminal_progress_batch(request, batch_key, uuid_list)
         redirect_url = (
             reverse("display", kwargs={"uuids": batch_key})
             if snapshot.status == PROGRESS_STATUS_SUCCEEDED
@@ -302,6 +305,17 @@ def get_progress(request, uuids):
         )
 
 
+def _finalize_terminal_progress_batch(
+    request,
+    batch_key: str,
+    uuid_list: list[str],
+) -> None:
+    """Reconcile transient display access and clear progress authorization."""
+
+    sync_transient_run_session_state(request, uuid_list)
+    _release_progress_batch(request, batch_key)
+
+
 def pre_process(request, uuids):
     """
     GET: Render previews + sidebar (with auto-detected channel order).
@@ -329,6 +343,7 @@ def pre_process(request, uuids):
         preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
         default="px",
     )
+    analysis_execution_mode = normalize_execution_mode()
     sidebar_spatial_stats_unit = normalize_spatial_stats_unit(
         preferences.get("sidebar_spatial_stats_unit"),
         default=default_spatial_stats_unit,
@@ -595,7 +610,7 @@ def pre_process(request, uuids):
             messages.error(request, SAFE_ANALYSIS_FAILURE_SUMMARY)
             return redirect("pre_process", uuids=batch_key)
 
-        _release_progress_batch(request, batch_key)
+        _finalize_terminal_progress_batch(request, batch_key, list(context.run_uuids))
         payload = {
             "status": PROGRESS_STATUS_SUCCEEDED,
             "phase": "Completed",
@@ -603,10 +618,9 @@ def pre_process(request, uuids):
         }
         if result.storage_warning_message:
             payload["storage_warning_message"] = result.storage_warning_message
+            messages.warning(request, result.storage_warning_message)
         if is_ajax:
             return JsonResponse(payload)
-        if result.storage_warning_message:
-            messages.warning(request, result.storage_warning_message)
         return redirect("display", uuids=batch_key)
 
     # AJAX navigation
@@ -632,6 +646,7 @@ def pre_process(request, uuids):
         'show_saved_file_scales': show_saved_file_scales,
         'sidebar_starts_open': sidebar_starts_open,
         'default_spatial_stats_unit': default_spatial_stats_unit,
+        'analysis_execution_mode': analysis_execution_mode,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'has_selected_stats': bool(request.session.get('selected_analysis', [])),
         'file_scale_map_json': json.dumps(

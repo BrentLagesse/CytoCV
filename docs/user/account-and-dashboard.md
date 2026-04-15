@@ -70,6 +70,8 @@ A run becomes transient when:
 - autosave fails because of storage quota limits
 - a saved run is explicitly unsaved
 
+When autosave falls back because retained quota is full, the run remains viewable in the active session but is not added to dashboard history until it is saved later.
+
 ## Deletion Behavior
 
 Dashboard deletion permanently removes:
@@ -105,4 +107,3 @@ Account deletion removes:
 - [`workflow-guide.md`](workflow-guide.md)
 - [`../ops/security-and-privacy.md`](../ops/security-and-privacy.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
-

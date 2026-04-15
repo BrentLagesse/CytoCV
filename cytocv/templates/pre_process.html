@@ -2254,6 +2254,7 @@
         }
         // Poll progress for accurate phases
         const uuids = "{{ uuids|escapejs }}";
+        const isWorkerAnalysis = "{{ analysis_execution_mode|escapejs }}" === "worker";
         analysisPollTimer = null;
         let consecutivePollFailures = 0;
         const maxConsecutivePollFailures = 5;
@@ -2303,13 +2304,18 @@
                   if (hasStats) textEl.textContent = data.phase;
                 }
               }
-              if (status === "succeeded" && data.redirect) {
+              if (status === "succeeded") {
                 if (analysisPollTimer) clearInterval(analysisPollTimer);
-                window.isAnalysisRunning = false;
-                window.location.href = data.redirect;
-                return;
-              }
-              if (status === "succeeded" && !data.redirect) {
+                analysisPollTimer = null;
+                if (isWorkerAnalysis && data.redirect) {
+                  window.isAnalysisRunning = false;
+                  window.location.href = data.redirect;
+                  return;
+                }
+                if (!isWorkerAnalysis) {
+                  if (textEl) textEl.textContent = "Completed";
+                  return;
+                }
                 stopPollingWithMessage("Analysis completed, but the result page could not be resolved. Please refresh.");
                 return;
               }
@@ -2372,9 +2378,6 @@
             if (payload.status === 'succeeded' && payload.redirect) {
               if (analysisPollTimer) clearInterval(analysisPollTimer);
               window.isAnalysisRunning = false;
-              if (payload.storage_warning_message && window.showGlobalMessage) {
-                window.showGlobalMessage(payload.storage_warning_message, 'warning');
-              }
               window.location.href = payload.redirect;
               return;
             }
