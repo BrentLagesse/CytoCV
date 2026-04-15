@@ -7,12 +7,14 @@ import time
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from core.services.analysis_context import AnalysisBatchContext, normalize_analysis_config_snapshot
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import claim_next_analysis_job, finalize_job
 from core.services.analysis_pipeline import run_analysis_batch
 from core.services.analysis_progress import AnalysisProgressHandle
+from core.services.analysis_progress_contract import SAFE_ANALYSIS_FAILURE_SUMMARY
 
 logger = logging.getLogger(__name__)
 
@@ -66,15 +68,27 @@ class Command(BaseCommand):
                     status=job.Status.CANCELLED,
                     current_phase="Cancelled",
                 )
-                logger.info("Cancelled analysis job %s", job.job_uuid)
-            except Exception as exc:
+                logger.info(
+                    "Cancelled analysis job %s for user %s (%s runs) at %s",
+                    job.job_uuid,
+                    job.user_id,
+                    len(job.run_uuids),
+                    timezone.now().isoformat(),
+                )
+            except Exception:
                 finalize_job(
                     job,
                     status=job.Status.FAILED,
                     current_phase="Failed",
-                    failure_summary=str(exc),
+                    failure_summary=SAFE_ANALYSIS_FAILURE_SUMMARY,
                 )
-                logger.exception("Analysis worker failed job %s", job.job_uuid)
+                logger.exception(
+                    "Analysis worker failed job %s for user %s (%s runs) at %s",
+                    job.job_uuid,
+                    job.user_id,
+                    len(job.run_uuids),
+                    timezone.now().isoformat(),
+                )
             else:
                 finalize_job(
                     job,
@@ -82,7 +96,13 @@ class Command(BaseCommand):
                     current_phase="Completed",
                     failure_summary=result.storage_warning_message,
                 )
-                logger.info("Completed analysis job %s", job.job_uuid)
+                logger.info(
+                    "Completed analysis job %s for user %s (%s runs) at %s",
+                    job.job_uuid,
+                    job.user_id,
+                    len(job.run_uuids),
+                    timezone.now().isoformat(),
+                )
 
             if run_once:
                 return

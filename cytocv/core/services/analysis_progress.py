@@ -10,9 +10,37 @@ from pathlib import Path
 
 from cytocv.settings import MEDIA_ROOT
 from core.models import AnalysisJob
-from core.services.analysis_jobs import get_latest_analysis_job, request_job_cancellation
+from core.services.analysis_jobs import (
+    get_stale_job_terminal_state,
+    get_latest_analysis_job,
+    request_job_cancellation,
+)
+from core.services.analysis_progress_contract import (
+    PROGRESS_STATUS_FAILED,
+    normalize_progress_status,
+    progress_log_ref,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _log_inconsistent_snapshot(
+    *,
+    batch_key: str,
+    phase: str,
+    status: str,
+) -> None:
+    terminal_phase = str(phase).strip().lower() in {"completed", "failed", "cancelled", "canceled"}
+    terminal_status = status in {"succeeded", "failed", "cancelled"}
+    if terminal_phase and not terminal_status:
+        logger.warning(
+            "Progress snapshot has terminal phase with non-terminal status",
+            extra={
+                "progress_ref": progress_log_ref(batch_key),
+                "phase": phase,
+                "status": status,
+            },
+        )
 
 
 def progress_path(key: str) -> Path:
@@ -62,7 +90,7 @@ def write_file_progress(
     try:
         progress_path(key).write_text(json.dumps(payload))
     except (OSError, IOError, PermissionError):
-        logger.debug("Failed to write progress payload for %s", key)
+        logger.debug("Failed to write progress payload for ref %s", progress_log_ref(key))
 
 
 def is_cancelled(key: str) -> bool:
@@ -80,7 +108,7 @@ def set_cancelled(key: str) -> None:
     try:
         cancel_path(key).write_text("1")
     except (OSError, IOError, PermissionError):
-        logger.debug("Failed to write cancel flag for %s", key)
+        logger.debug("Failed to write cancel flag for ref %s", progress_log_ref(key))
 
 
 def clear_cancelled(key: str) -> None:
@@ -91,7 +119,7 @@ def clear_cancelled(key: str) -> None:
         if path.exists():
             path.unlink()
     except (OSError, IOError, PermissionError):
-        logger.debug("Failed to clear cancel flag for %s", key)
+        logger.debug("Failed to clear cancel flag for ref %s", progress_log_ref(key))
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,24 +196,39 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
 
     job = get_latest_analysis_job(user_id=user_id, batch_key=batch_key)
     if job is not None:
+        stale_state = get_stale_job_terminal_state(job)
+        if stale_state is None:
+            phase = job.current_phase or "Idle"
+            status = normalize_progress_status(
+                phase=phase,
+                status=job.status,
+            )
+            failure_summary = job.failure_summary or ""
+        else:
+            status, phase, failure_summary = stale_state
+        _log_inconsistent_snapshot(
+            batch_key=batch_key,
+            phase=phase,
+            status=status,
+        )
         return AnalysisProgressSnapshot(
-            phase=job.current_phase or "Idle",
-            status=job.status,
-            failure_summary=job.failure_summary or "",
+            phase=phase,
+            status=status,
+            failure_summary=failure_summary if status == PROGRESS_STATUS_FAILED else "",
         )
 
     file_progress = read_file_progress(batch_key)
     phase = str(file_progress.get("phase") or "Idle")
-    status = str(file_progress.get("status") or phase.lower() or "idle")
-    status_map = {
-        "completed": "succeeded",
-        "complete": "succeeded",
-        "idle": "idle",
-    }
-    status = status_map.get(status.lower(), status.lower())
+    raw_status = str(file_progress.get("status") or "")
+    status = normalize_progress_status(phase=phase, status=raw_status)
     failure_summary = str(file_progress.get("failure_summary") or "")
+    _log_inconsistent_snapshot(
+        batch_key=batch_key,
+        phase=phase,
+        status=status,
+    )
     return AnalysisProgressSnapshot(
         phase=phase,
         status=status,
-        failure_summary=failure_summary,
+        failure_summary=failure_summary if status == PROGRESS_STATUS_FAILED else "",
     )

@@ -7,13 +7,35 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.urls import reverse
 import math
 from uuid import UUID
+import logging
 
-from core.models import UploadedImage, get_guest_user
-from core.services.analysis_context import build_analysis_batch_context, build_batch_key
+from core.models import SegmentedImage, UploadedImage, get_guest_user
+from core.services.analysis_context import (
+    build_analysis_batch_context,
+    build_batch_key,
+    normalize_execution_mode,
+)
 from core.services.analysis_exceptions import AnalysisCancelled
-from core.services.analysis_jobs import enqueue_analysis_job, get_active_analysis_job
-from core.services.analysis_pipeline import run_preprocess_and_inference_batch
+from core.services.analysis_jobs import (
+    enqueue_analysis_job,
+    get_active_analysis_job,
+    get_latest_analysis_job,
+    reap_stale_analysis_jobs,
+)
+from core.services.analysis_pipeline import run_analysis_batch
 from core.services.analysis_progress import AnalysisProgressHandle, get_progress_snapshot
+from core.services.analysis_progress_contract import (
+    PROGRESS_PHASE_FAILED,
+    PROGRESS_STATUS_FAILED,
+    PROGRESS_STATUS_SUCCEEDED,
+    SAFE_ANALYSIS_FAILURE_SUMMARY,
+    SAFE_PROGRESS_ERROR_MESSAGE,
+    SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+    TERMINAL_PROGRESS_STATUSES,
+    normalize_progress_phase,
+    progress_log_ref,
+    validate_progress_status,
+)
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
@@ -38,8 +60,6 @@ from core.scale import (
     get_scale_sidebar_payload,
     normalize_spatial_stats_unit,
 )
-from core.mrcnn.my_inference import predict_images
-from core.mrcnn.preprocess_images import preprocess_images
 from core.services.artifact_storage import (
     cleanup_failed_processing_artifacts,
     delete_uploaded_run_by_uuid,
@@ -53,6 +73,17 @@ NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
+logger = logging.getLogger(__name__)
+PROGRESS_BATCH_SESSION_KEY = "authorized_progress_batches"
+
+
+class ProgressRequestError(Exception):
+    """Controlled progress request error carrying an HTTP status code."""
+
+    def __init__(self, message: str, *, status_code: int) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
 
 
 def _current_owner_filter(request) -> dict:
@@ -77,6 +108,99 @@ def _delete_cancelled_runs(request, uuid_values: list[str]) -> None:
     for run_uuid in owned_uuids:
         delete_uploaded_run_by_uuid(run_uuid)
     prune_experiment_session_state(request, owned_uuids)
+
+
+def _get_authorized_progress_batches(request) -> set[str]:
+    """Return session-tracked progress batches authorized for the current user."""
+
+    return {
+        str(value)
+        for value in request.session.get(PROGRESS_BATCH_SESSION_KEY, [])
+        if str(value)
+    }
+
+
+def _track_progress_batch(request, batch_key: str) -> None:
+    """Persist a session-scoped allowlist for in-flight progress lookups."""
+
+    tracked = _get_authorized_progress_batches(request)
+    if batch_key in tracked:
+        return
+    tracked.add(batch_key)
+    request.session[PROGRESS_BATCH_SESSION_KEY] = sorted(tracked)
+    request.session.modified = True
+
+
+def _release_progress_batch(request, batch_key: str) -> None:
+    """Remove a finished batch from the session-scoped progress allowlist."""
+
+    tracked = _get_authorized_progress_batches(request)
+    if batch_key not in tracked:
+        return
+    tracked.remove(batch_key)
+    request.session[PROGRESS_BATCH_SESSION_KEY] = sorted(tracked)
+    request.session.modified = True
+
+
+def _resolve_owned_progress_batch(request, raw_uuids: str) -> tuple[str, list[str]]:
+    """Return the canonical owned batch key for progress routes."""
+
+    if not raw_uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", raw_uuids):
+        raise ProgressRequestError("Invalid analysis batch.", status_code=400)
+    try:
+        batch_key = build_batch_key(raw_uuids)
+    except (TypeError, ValueError):
+        raise ProgressRequestError("Invalid analysis batch.", status_code=400)
+    uuid_list = [value for value in batch_key.split(",") if value]
+    if not uuid_list:
+        raise ProgressRequestError("Invalid analysis batch.", status_code=400)
+
+    owner_filter = _current_owner_filter(request)
+    owned_uploads = {
+        str(value)
+        for value in UploadedImage.objects.filter(
+            uuid__in=uuid_list,
+            **owner_filter,
+        ).values_list("uuid", flat=True)
+    }
+    owned_segmented = {
+        str(value)
+        for value in SegmentedImage.objects.filter(
+            UUID__in=uuid_list,
+            user=request.user,
+        ).values_list("UUID", flat=True)
+    }
+    owned_uuids = owned_uploads | owned_segmented
+    if set(uuid_list).issubset(owned_uuids):
+        return batch_key, uuid_list
+
+    if batch_key in _get_authorized_progress_batches(request):
+        return batch_key, uuid_list
+
+    if get_latest_analysis_job(user_id=request.user.id, batch_key=batch_key) is not None:
+        return batch_key, uuid_list
+
+    raise ProgressRequestError("Forbidden", status_code=403)
+
+
+def _progress_read_error_response(message: str, *, status_code: int) -> JsonResponse:
+    """Return a controlled progress-read error payload."""
+
+    return JsonResponse(
+        {
+            "phase": PROGRESS_PHASE_FAILED,
+            "status": PROGRESS_STATUS_FAILED,
+            "failure_summary": message,
+            "redirect": None,
+        },
+        status=status_code,
+    )
+
+
+def _progress_write_error_response(message: str, *, status_code: int) -> JsonResponse:
+    """Return a controlled progress-write error payload."""
+
+    return JsonResponse({"status": "error", "message": message}, status=status_code)
 
 
 def _parse_file_scale_map_payload(
@@ -146,23 +270,50 @@ def _parse_file_scale_revert_payload(
 @require_GET
 def get_progress(request, uuids):
     try:
-        # Basic validation: non-empty and only hex/commas/dashes
-        if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
-            return JsonResponse({"phase": "Idle", "status": "idle"})
-        batch_key = build_batch_key(uuids)
+        batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
-        if snapshot.status in {"succeeded", "failed", "cancelled"}:
-            sync_transient_run_session_state(request, batch_key.split(","))
+        if snapshot.status in TERMINAL_PROGRESS_STATUSES:
+            _finalize_terminal_progress_batch(request, batch_key, uuid_list)
+        redirect_url = (
+            reverse("display", kwargs={"uuids": batch_key})
+            if snapshot.status == PROGRESS_STATUS_SUCCEEDED
+            else None
+        )
+        if snapshot.status == PROGRESS_STATUS_SUCCEEDED and not redirect_url:
+            logger.warning(
+                "Progress endpoint missing redirect for progress ref %s",
+                progress_log_ref(batch_key),
+            )
         return JsonResponse(
             {
                 "phase": snapshot.phase,
                 "status": snapshot.status,
                 "failure_summary": snapshot.failure_summary,
-                "redirect": reverse("display", kwargs={"uuids": batch_key}),
+                "redirect": redirect_url,
             }
         )
+    except ProgressRequestError as exc:
+        return _progress_read_error_response(
+            SAFE_PROGRESS_ERROR_MESSAGE,
+            status_code=exc.status_code,
+        )
     except Exception:
-        return JsonResponse({"phase": "Idle", "status": "idle"})
+        logger.exception("Progress read failed")
+        return _progress_read_error_response(
+            SAFE_PROGRESS_ERROR_MESSAGE,
+            status_code=500,
+        )
+
+
+def _finalize_terminal_progress_batch(
+    request,
+    batch_key: str,
+    uuid_list: list[str],
+) -> None:
+    """Reconcile transient display access and clear progress authorization."""
+
+    sync_transient_run_session_state(request, uuid_list)
+    _release_progress_batch(request, batch_key)
 
 
 def pre_process(request, uuids):
@@ -192,6 +343,7 @@ def pre_process(request, uuids):
         preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
         default="px",
     )
+    analysis_execution_mode = normalize_execution_mode()
     sidebar_spatial_stats_unit = normalize_spatial_stats_unit(
         preferences.get("sidebar_spatial_stats_unit"),
         default=default_spatial_stats_unit,
@@ -378,6 +530,7 @@ def pre_process(request, uuids):
         context = build_analysis_batch_context(request, uuid_list)
         batch_key = context.batch_key
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        _track_progress_batch(request, batch_key)
 
         def cancel_response():
             _delete_cancelled_runs(request, list(context.run_uuids))
@@ -397,6 +550,7 @@ def pre_process(request, uuids):
             progress = AnalysisProgressHandle(batch_key)
             progress.clear_cancel()
             progress.set_phase("Idle", status="idle")
+            _release_progress_batch(request, batch_key)
             messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
             if is_ajax:
                 return JsonResponse({"error": PROCESSING_STORAGE_FULL_MESSAGE}, status=507)
@@ -434,21 +588,40 @@ def pre_process(request, uuids):
         progress = AnalysisProgressHandle(batch_key)
         progress.clear_cancel()
         try:
-            run_preprocess_and_inference_batch(
+            # Sync mode must complete the full batch in this POST so the UI does not
+            # hand off expensive work to a hidden redirect-followed segment request.
+            result = run_analysis_batch(
                 user=request.user,
                 context=context,
                 progress=progress,
-                preprocess_fn=preprocess_images,
-                predict_fn=predict_images,
             )
         except AnalysisCancelled:
             return cancel_response()
         except Exception as exc:
-            if not is_storage_full_error(exc):
-                raise
-            return storage_full_response(exc)
+            if is_storage_full_error(exc):
+                return storage_full_response(exc)
+            logger.exception(
+                "Preprocess sync analysis failed for progress ref %s",
+                progress_log_ref(batch_key),
+            )
+            _release_progress_batch(request, batch_key)
+            if is_ajax:
+                return JsonResponse({"error": SAFE_ANALYSIS_FAILURE_SUMMARY}, status=500)
+            messages.error(request, SAFE_ANALYSIS_FAILURE_SUMMARY)
+            return redirect("pre_process", uuids=batch_key)
 
-        return redirect("experiment_segment", uuids=batch_key)
+        _finalize_terminal_progress_batch(request, batch_key, list(context.run_uuids))
+        payload = {
+            "status": PROGRESS_STATUS_SUCCEEDED,
+            "phase": "Completed",
+            "redirect": reverse("display", kwargs={"uuids": batch_key}),
+        }
+        if result.storage_warning_message:
+            payload["storage_warning_message"] = result.storage_warning_message
+            messages.warning(request, result.storage_warning_message)
+        if is_ajax:
+            return JsonResponse(payload)
+        return redirect("display", uuids=batch_key)
 
     # AJAX navigation
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -473,6 +646,7 @@ def pre_process(request, uuids):
         'show_saved_file_scales': show_saved_file_scales,
         'sidebar_starts_open': sidebar_starts_open,
         'default_spatial_stats_unit': default_spatial_stats_unit,
+        'analysis_execution_mode': analysis_execution_mode,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'has_selected_stats': bool(request.session.get('selected_analysis', [])),
         'file_scale_map_json': json.dumps(
@@ -487,27 +661,41 @@ def pre_process(request, uuids):
 def set_progress(request, key):
     try:
         body = json.loads(request.body or '{}')
-    except Exception:
-        body = {}
-    phase = body.get('phase', 'idle')
-    status = body.get('status')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return _progress_write_error_response(
+            SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+            status_code=400,
+        )
     try:
-        batch_key = build_batch_key(key) if re.fullmatch(r"[0-9a-fA-F,-]+", key) else key
+        batch_key, _ = _resolve_owned_progress_batch(request, key)
+        phase = normalize_progress_phase(body.get("phase"))
+        status = validate_progress_status(body.get("status"))
+        if phase is None:
+            raise ProgressRequestError("Invalid progress phase.", status_code=400)
+        if body.get("status") is not None and status is None:
+            raise ProgressRequestError("Invalid progress status.", status_code=400)
         progress = AnalysisProgressHandle(batch_key)
-        progress.set_phase(str(phase), status=str(status) if status else None)
+        progress.set_phase(phase, status=status)
         return JsonResponse({"status": "ok"})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    except ProgressRequestError as exc:
+        return _progress_write_error_response(
+            SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("Progress write failed")
+        return _progress_write_error_response(
+            SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+            status_code=500,
+        )
 
 
 @csrf_protect
 @require_POST
 def cancel_progress(request, uuids):
     try:
-        if not uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", uuids):
-            return JsonResponse({"status": "invalid"}, status=400)
-        batch_key = build_batch_key(uuids)
-        uuid_list = [value for value in batch_key.split(",") if value]
+        batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
+        reap_stale_analysis_jobs(user_id=request.user.id, batch_key=batch_key)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
         if snapshot.status in {"idle", "succeeded", "failed", "cancelled"}:
             _delete_cancelled_runs(request, uuid_list)
@@ -520,8 +708,17 @@ def cancel_progress(request, uuids):
         progress.request_cancel()
         progress.set_phase("Cancelling", status="cancelling")
         return JsonResponse({"status": "cancelling"})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    except ProgressRequestError as exc:
+        return _progress_write_error_response(
+            SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("Progress cancel failed")
+        return _progress_write_error_response(
+            SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+            status_code=500,
+        )
 
 
 @require_POST

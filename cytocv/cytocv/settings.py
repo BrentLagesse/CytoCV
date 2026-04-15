@@ -139,6 +139,14 @@ ANALYSIS_EXECUTION_MODE = _parse_env_choice(
     default="sync",
     allowed_values=("sync", "worker"),
 )
+ANALYSIS_QUEUE_STALE_SECONDS = _parse_env_int(
+    "CYTOCV_ANALYSIS_QUEUE_STALE_SECONDS",
+    default=300,
+)
+ANALYSIS_RUNNING_STALE_SECONDS = _parse_env_int(
+    "CYTOCV_ANALYSIS_RUNNING_STALE_SECONDS",
+    default=7200,
+)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("CYTOCV_ALLOWED_HOSTS", "").split(",")

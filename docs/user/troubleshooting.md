@@ -85,6 +85,7 @@ Saving files to the dashboard returns a storage error or unavailable-file messag
 
 - retry while the display session is still active
 - free space by deleting saved runs
+- if autosave was skipped because quota is full, open the transient run from the current session and save it later after freeing space
 - confirm you are signed into the expected account
 
 ## Account Access Problems
@@ -111,4 +112,3 @@ Login, signup, or password recovery fails.
 - [`getting-started.md`](getting-started.md)
 - [`../ops/environment-reference.md`](../ops/environment-reference.md)
 - [`../ops/security-and-privacy.md`](../ops/security-and-privacy.md)
-

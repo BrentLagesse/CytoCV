@@ -4840,42 +4840,6 @@
                 settingsBackdrop.setAttribute('aria-hidden', 'true');
             }
 
-            (async () => {
-                try {
-                    const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-                    const csrfToken = csrfEl?.value;
-                    if (!csrfToken) {
-                        return;
-                    }
-                    const setUrl = new URL(`/api/progress/${encodeURIComponent("{{ progress_key|escapejs }}")}/set/`, window.location.origin);
-                    await fetch(setUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken,
-                        },
-                        body: JSON.stringify({ phase: 'Preprocessing Images' }),
-                        credentials: 'same-origin',
-                    });
-                } catch (e) { /* ignore */ }
-            })();
-
-            const progressKey = "{{ progress_key|escapejs }}";
-            let pollTimer = null;
-            const startPolling = () => {
-                const poll = async () => {
-                    try {
-                        const pollUrl = new URL(`/api/progress/${encodeURIComponent(progressKey)}/`, window.location.origin);
-                        const resp = await fetch(pollUrl, { cache: 'no-store' });
-                        if (!resp.ok) return;
-                        await resp.json();
-                    } catch (e) { /* ignore */ }
-                };
-                pollTimer = setInterval(poll, 1000);
-                poll();
-            };
-            startPolling();
-
             const moduleEnabled = !!statsState.moduleEnabled;
             const layerEnabled = moduleEnabled && !!statsState.enforceLayerCount;
             const wavelengthEnabled = moduleEnabled && !!statsState.enforceAllWavelengths;
@@ -4930,7 +4894,6 @@
                 signal: uploadController.signal,
             })
             .then(res => res.json().then(data => {
-                if (pollTimer) clearInterval(pollTimer);
                 clearTimeout(uploadTimeout);
                 if (data.errors && !data.redirect) {
                     sessionStorage.setItem('dvErrors', JSON.stringify(data.errors));
@@ -4945,7 +4908,6 @@
                 }
             }))
             .catch(err => {
-                if (pollTimer) clearInterval(pollTimer);
                 clearTimeout(uploadTimeout);
                 console.error(err);
                 if (err && err.name === 'AbortError') {
@@ -4971,4 +4933,3 @@
 </script>
 
 {% endblock content %}
-

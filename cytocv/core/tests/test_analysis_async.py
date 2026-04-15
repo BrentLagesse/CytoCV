@@ -11,12 +11,19 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
+from accounts.preferences import update_user_preferences
 from core.config import DEFAULT_CHANNEL_CONFIG
-from core.models import AnalysisJob, UploadedImage
+from core.models import AnalysisJob, SegmentedImage, UploadedImage, get_guest_user
+from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import enqueue_analysis_job
-from core.services.analysis_progress import write_file_progress
+from core.services.analysis_progress_contract import (
+    SAFE_ANALYSIS_FAILURE_SUMMARY,
+    SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
+)
+from core.services.analysis_progress import get_progress_snapshot, write_file_progress
 from core.services.artifact_storage import (
     PNG_PROFILE_ANALYSIS_FAST,
     save_png_image,
@@ -31,7 +38,16 @@ class AnalysisAsyncTestCase(TestCase):
             email="analysis-async@example.com",
             password="TestPass123!",
         )
+        self.other_user = user_model.objects.create_user(
+            email="analysis-async-other@example.com",
+            password="TestPass123!",
+        )
         self.client.login(email=self.user.email, password="TestPass123!")
+        self.other_client = self.client_class()
+        self.other_client.login(
+            email=self.other_user.email,
+            password="TestPass123!",
+        )
 
     @staticmethod
     def _write_channel_config(media_root: Path, uuid_value: str) -> None:
@@ -61,17 +77,38 @@ class AnalysisAsyncTestCase(TestCase):
         self._write_channel_config(media_root, file_uuid)
         return uploaded
 
+    @staticmethod
+    def _create_segmented_image(
+        media_root: Path,
+        *,
+        uploaded: UploadedImage,
+        owner_id: int,
+    ) -> SegmentedImage:
+        file_uuid = str(uploaded.uuid)
+        run_dir = media_root / file_uuid
+        output_dir = run_dir / "output"
+        segmented_dir = run_dir / "segmented"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        segmented_dir.mkdir(parents=True, exist_ok=True)
+        frame_path = output_dir / f"{Path(uploaded.name).stem}_frame_1.png"
+        Image.new("RGB", (2, 2), color=(1, 2, 3)).save(frame_path)
+        return SegmentedImage.objects.create(
+            user_id=owner_id,
+            UUID=file_uuid,
+            file_location=f"user_{file_uuid}/segmented.png",
+            ImagePath=str(frame_path),
+            CellPairPrefix=str(segmented_dir / "cell"),
+            NumCells=0,
+        )
+
     @override_settings(ANALYSIS_EXECUTION_MODE="worker")
     def test_pre_process_worker_mode_enqueues_job_without_running_inline(self):
         with temporary_media_root() as media_root:
             uploaded = self._create_uploaded_image(media_root, name="worker_enqueue")
 
             with patch(
-                "core.views.pre_process.preprocess_images",
-                side_effect=AssertionError("worker mode should not preprocess inline"),
-            ), patch(
-                "core.views.pre_process.predict_images",
-                side_effect=AssertionError("worker mode should not infer inline"),
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=AssertionError("worker mode should not run full analysis inline"),
             ), patch(
                 "core.views.pre_process.ensure_preview_assets",
                 return_value=[],
@@ -93,6 +130,198 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(progress.status_code, 200)
             self.assertEqual(progress.json()["status"], "queued")
             self.assertEqual(progress.json()["phase"], "Queued")
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_runs_full_batch_and_redirects_to_display(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_success")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                return_value=SimpleNamespace(storage_warning_message=""),
+            ) as run_batch_mock:
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "succeeded")
+            self.assertEqual(
+                payload["redirect"],
+                reverse("display", args=[str(uploaded.uuid)]),
+            )
+            self.assertNotIn("/segment/", payload["redirect"])
+            run_batch_mock.assert_called_once()
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_cancel_returns_cancelled_without_segment_redirect(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_cancel")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=AnalysisCancelled(),
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 409)
+            payload = response.json()
+            self.assertEqual(payload["status"], "cancelled")
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_non_ajax_redirects_directly_to_display(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_redirect")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                return_value=SimpleNamespace(storage_warning_message=""),
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                )
+
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(
+                response["Location"],
+                reverse("display", args=[str(uploaded.uuid)]),
+            )
+            self.assertNotIn("/segment/", response["Location"])
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_ajax_keeps_transient_quota_fallback_displayable(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_quota_ajax")
+            warning_message = "Storage quota prevented autosave."
+
+            def run_batch_side_effect(*, user, context, progress):
+                self._create_segmented_image(
+                    media_root,
+                    uploaded=uploaded,
+                    owner_id=get_guest_user(),
+                )
+                return SimpleNamespace(storage_warning_message=warning_message)
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=run_batch_side_effect,
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "succeeded")
+            self.assertEqual(payload["storage_warning_message"], warning_message)
+            self.assertIn(
+                str(uploaded.uuid),
+                self.client.session.get("transient_experiment_uuids", []),
+            )
+
+            display_response = self.client.get(reverse("display", args=[str(uploaded.uuid)]))
+            self.assertEqual(display_response.status_code, 200)
+            self.assertContains(display_response, warning_message)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_non_ajax_keeps_transient_quota_fallback_displayable(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_quota_html")
+            warning_message = "Storage quota prevented autosave."
+
+            def run_batch_side_effect(*, user, context, progress):
+                self._create_segmented_image(
+                    media_root,
+                    uploaded=uploaded,
+                    owner_id=get_guest_user(),
+                )
+                return SimpleNamespace(storage_warning_message=warning_message)
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=run_batch_side_effect,
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                )
+
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(
+                response["Location"],
+                reverse("display", args=[str(uploaded.uuid)]),
+            )
+            self.assertIn(
+                str(uploaded.uuid),
+                self.client.session.get("transient_experiment_uuids", []),
+            )
+
+            display_response = self.client.get(reverse("display", args=[str(uploaded.uuid)]))
+            self.assertEqual(display_response.status_code, 200)
+            self.assertContains(display_response, warning_message)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_keeps_autosave_disabled_run_displayable(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_autosave_disabled")
+            update_user_preferences(self.user, {"auto_save_experiments": False})
+
+            def run_batch_side_effect(*, user, context, progress):
+                self.assertFalse(context.config_snapshot["auto_save_experiments"])
+                self._create_segmented_image(
+                    media_root,
+                    uploaded=uploaded,
+                    owner_id=get_guest_user(),
+                )
+                return SimpleNamespace(storage_warning_message="")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=run_batch_side_effect,
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["status"], "succeeded")
+            self.assertIn(
+                str(uploaded.uuid),
+                self.client.session.get("transient_experiment_uuids", []),
+            )
+
+            display_response = self.client.get(reverse("display", args=[str(uploaded.uuid)]))
+            self.assertEqual(display_response.status_code, 200)
 
     @override_settings(ANALYSIS_EXECUTION_MODE="worker")
     def test_cancel_progress_marks_worker_job_cancelling(self):
@@ -116,6 +345,56 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(job.current_phase, "Cancelling")
 
     @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_progress_endpoint_forbids_other_user_batch(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_forbidden_progress")
+
+            response = self.other_client.get(
+                reverse("analysis_progress", args=[str(uploaded.uuid)]),
+            )
+
+            self.assertEqual(response.status_code, 403)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_cancel_progress_forbids_other_user_batch(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_forbidden_cancel")
+
+            response = self.other_client.post(
+                reverse("cancel_progress", args=[str(uploaded.uuid)]),
+            )
+
+            self.assertEqual(response.status_code, 403)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_set_progress_forbids_other_user_batch(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_forbidden_set")
+
+            response = self.other_client.post(
+                reverse("set_progress", args=[str(uploaded.uuid)]),
+                data=json.dumps({"phase": "Queued"}),
+                content_type="application/json",
+            )
+
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.json()["message"], SAFE_PROGRESS_WRITE_ERROR_MESSAGE)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_set_progress_rejects_invalid_status(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_invalid_set")
+
+            response = self.client.post(
+                reverse("set_progress", args=[str(uploaded.uuid)]),
+                data=json.dumps({"phase": "Queued", "status": "definitely-not-valid"}),
+                content_type="application/json",
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()["message"], SAFE_PROGRESS_WRITE_ERROR_MESSAGE)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
     def test_progress_endpoint_prefers_job_state_over_file_progress(self):
         with temporary_media_root() as media_root:
             uploaded = self._create_uploaded_image(media_root, name="worker_progress")
@@ -137,6 +416,145 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(response.json()["status"], "queued")
             self.assertEqual(response.json()["phase"], "Queued")
             self.assertEqual(response.json()["failure_summary"], "")
+            self.assertIsNone(response.json()["redirect"])
+
+    def test_progress_snapshot_normalizes_legacy_file_progress_completed(self):
+        batch_key = str(uuid4())
+        write_file_progress(
+            batch_key,
+            phase="Completed",
+            status=None,
+        )
+
+        snapshot = get_progress_snapshot(batch_key=batch_key, user_id=self.user.id)
+
+        self.assertEqual(snapshot.status, "succeeded")
+        self.assertEqual(snapshot.phase, "Completed")
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_progress_endpoint_includes_redirect_only_for_success(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_success")
+            job, _ = enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uploaded.uuid)],
+                config_snapshot={"execution_mode": "worker"},
+            )
+            AnalysisJob.objects.filter(pk=job.pk).update(
+                status=AnalysisJob.Status.SUCCEEDED,
+                current_phase="Completed",
+                finished_at=timezone.now(),
+            )
+
+            response = self.client.get(reverse("analysis_progress", args=[str(uploaded.uuid)]))
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["status"], "succeeded")
+            self.assertTrue(response.json()["redirect"])
+
+    @override_settings(
+        ANALYSIS_EXECUTION_MODE="worker",
+        ANALYSIS_QUEUE_STALE_SECONDS=1,
+    )
+    def test_progress_endpoint_surfaces_stale_queued_job_without_mutating_get(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_stale_queue")
+            job, _ = enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uploaded.uuid)],
+                config_snapshot={"execution_mode": "worker"},
+            )
+            AnalysisJob.objects.filter(pk=job.pk).update(
+                created_at=timezone.now() - timezone.timedelta(seconds=5),
+            )
+
+            response = self.client.get(reverse("analysis_progress", args=[str(uploaded.uuid)]))
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["status"], "failed")
+            self.assertIn("expired", response.json()["failure_summary"].lower())
+            self.assertIsNone(response.json()["redirect"])
+            job.refresh_from_db()
+            self.assertEqual(job.status, AnalysisJob.Status.QUEUED)
+            self.assertIsNone(job.finished_at)
+
+    @override_settings(
+        ANALYSIS_EXECUTION_MODE="worker",
+        ANALYSIS_RUNNING_STALE_SECONDS=1,
+    )
+    def test_progress_endpoint_surfaces_stale_running_job_without_mutating_get(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_stale_running")
+            job, _ = enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uploaded.uuid)],
+                config_snapshot={"execution_mode": "worker"},
+            )
+            AnalysisJob.objects.filter(pk=job.pk).update(
+                status=AnalysisJob.Status.RUNNING,
+                current_phase="Detecting Cells",
+                started_at=timezone.now() - timezone.timedelta(seconds=5),
+            )
+
+            response = self.client.get(reverse("analysis_progress", args=[str(uploaded.uuid)]))
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["status"], "failed")
+            self.assertIn("maximum runtime", response.json()["failure_summary"].lower())
+            self.assertIsNone(response.json()["redirect"])
+            job.refresh_from_db()
+            self.assertEqual(job.status, AnalysisJob.Status.RUNNING)
+            self.assertIsNone(job.finished_at)
+
+    @override_settings(
+        ANALYSIS_EXECUTION_MODE="worker",
+        ANALYSIS_QUEUE_STALE_SECONDS=1,
+    )
+    def test_enqueue_analysis_job_reaps_stale_job_outside_get(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_reap_queue")
+            stale_job, _ = enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uploaded.uuid)],
+                config_snapshot={"execution_mode": "worker"},
+            )
+            AnalysisJob.objects.filter(pk=stale_job.pk).update(
+                created_at=timezone.now() - timezone.timedelta(seconds=5),
+            )
+
+            replacement_job, created = enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uploaded.uuid)],
+                config_snapshot={"execution_mode": "worker"},
+            )
+
+            self.assertTrue(created)
+            stale_job.refresh_from_db()
+            self.assertEqual(stale_job.status, AnalysisJob.Status.FAILED)
+            self.assertNotEqual(replacement_job.pk, stale_job.pk)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_sync_mode_sanitizes_internal_failures(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_sanitized_failure")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=RuntimeError("database password leaked"),
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 500)
+            payload = response.json()
+            self.assertEqual(payload["error"], SAFE_ANALYSIS_FAILURE_SUMMARY)
+            self.assertNotIn("database password leaked", payload["error"])
 
     def test_run_analysis_worker_once_finalizes_claimed_job(self):
         job, _ = enqueue_analysis_job(
@@ -157,6 +575,23 @@ class AnalysisAsyncTestCase(TestCase):
         self.assertIsNotNone(job.started_at)
         self.assertIsNotNone(job.finished_at)
 
+    def test_run_analysis_worker_once_sanitizes_failure_summary(self):
+        job, _ = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        with patch(
+            "core.management.commands.run_analysis_worker.run_analysis_batch",
+            side_effect=RuntimeError("secret credentials"),
+        ):
+            call_command("run_analysis_worker", once=True)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, AnalysisJob.Status.FAILED)
+        self.assertEqual(job.failure_summary, SAFE_ANALYSIS_FAILURE_SUMMARY)
+
     def test_save_png_image_fast_profile_uses_low_cost_options(self):
         with TemporaryDirectory() as temp_dir:
             destination = Path(temp_dir) / "fast-profile.png"
@@ -174,4 +609,3 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(kwargs["format"], "PNG")
             self.assertFalse(kwargs["optimize"])
             self.assertEqual(kwargs["compress_level"], 1)
-
