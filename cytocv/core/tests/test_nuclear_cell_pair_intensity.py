@@ -15,9 +15,8 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         output_path.mkdir(parents=True, exist_ok=True)
         outline_path = output_path / f"{image_stem}-{cell_id}.outline"
         with outline_path.open("w", encoding="utf-8") as handle:
-            for y in range(4, 20):
-                for x in range(4, 20):
-                    handle.write(f"{y},{x}\n")
+            for vy, vx in ((4, 4), (4, 19), (19, 19), (19, 4)):
+                handle.write(f"{vy},{vx}\n")
 
     def _build_gray_images(self) -> GrayImage:
         mcherry = np.zeros((24, 24), dtype=np.uint8)

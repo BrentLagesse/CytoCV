@@ -50,6 +50,7 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     save_png_array,
 )
+from core.services.pair_refinement import refine_pair_label_image
 from core.services.overlay_rendering import (
     build_overlay_render_config,
     persist_debug_overlay_exports,
@@ -190,7 +191,6 @@ def run_segmentation_batch(
 
         seg = np.array(Image.open(Path(settings.MEDIA_ROOT) / str(uuid) / "output" / "mask.tif"))
 
-        outlines = np.zeros(seg.shape)
         lines_to_draw: dict[int, tuple[tuple[int, int], tuple[int, int]]] = {}
         outputdirectory = str(Path(settings.MEDIA_ROOT) / str(uuid) / "output") + "/"
 
@@ -337,6 +337,8 @@ def run_segmentation_batch(
             for i, x in enumerate(to_rebase):
                 seg[np.where(seg == x)] = i + 1
 
+            seg = refine_pair_label_image(seg)
+
             seg_image = Image.fromarray(seg)
             seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
 
@@ -349,14 +351,14 @@ def run_segmentation_batch(
                 image = np.expand_dims(image, axis=-1)
                 image = np.tile(image, 3)
 
-            for i in range(1, int(np.max(seg) + 1)):
-                tmp = np.zeros(seg.shape)
-                tmp[np.where(seg == i)] = 1
-                tmp = tmp - skimage.morphology.erosion(tmp)
-                outlines += tmp
-
             image_outlined = image.copy()
-            image_outlined[outlines > 0] = (0, 255, 255)
+            for i in range(1, int(np.max(seg) + 1)):
+                cell_mask_full = (seg == i).astype(np.uint8) * 255
+                contours, _ = cv2.findContours(
+                    cell_mask_full, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+                )
+                if contours:
+                    cv2.drawContours(image_outlined, contours, -1, (0, 255, 255), 1)
 
             fig = plt.figure(frameon=False)
             ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
@@ -414,31 +416,53 @@ def run_segmentation_batch(
                 image = np.tile(image, 3)
 
             cached_channel_name = layer_channel_lookup.get(image_num)
-            outlines = np.zeros(seg.shape)
-            for i in range(1, int(np.max(seg) + 1)):
-                tmp = np.zeros(seg.shape)
-                tmp[np.where(seg == i)] = 1
-                tmp = tmp - skimage.morphology.erosion(tmp)
-                outlines += tmp
-
             image_outlined = image.copy()
-            image_outlined[outlines > 0] = (0, 255, 255)
+            cell_contour_cache: dict[
+                int, tuple[tuple[np.ndarray, ...], int, int, int, int]
+            ] = {}
+            for i in range(1, int(np.max(seg) + 1)):
+                a = np.where(seg == i)
+                if a[0].size == 0:
+                    continue
+                min_x = max(int(np.min(a[0])) - 4, 0)
+                max_x = min(int(np.max(a[0])) + 4 + 1, seg.shape[0])
+                min_y = max(int(np.min(a[1])) - 4, 0)
+                max_y = min(int(np.max(a[1])) + 4 + 1, seg.shape[1])
+                local_mask = ((seg[min_x:max_x, min_y:max_y] == i).astype(np.uint8)) * 255
+                local_contours, _ = cv2.findContours(
+                    local_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+                )
+                cell_contour_cache[i] = (
+                    tuple(local_contours),
+                    min_x,
+                    max_x,
+                    min_y,
+                    max_y,
+                )
+                for contour in local_contours:
+                    shifted = contour.copy()
+                    shifted[:, :, 0] += min_y
+                    shifted[:, :, 1] += min_x
+                    cv2.drawContours(image_outlined, [shifted], -1, (0, 255, 255), 1)
 
             for i in range(1, int(np.max(seg) + 1)):
                 cell_tif_image = f"{dv_name}-{image_num}-{i}.png"
                 no_outline_image = f"{dv_name}-{image_num}-{i}-no_outline.png"
 
-                a = np.where(seg == i)
-                min_x = max(np.min(a[0]) - 1, 0)
-                max_x = min(np.max(a[0]) + 1, seg.shape[0])
-                min_y = max(np.min(a[1]) - 1, 0)
-                max_y = min(np.max(a[1]) + 1, seg.shape[1])
+                entry = cell_contour_cache.get(i)
+                if entry is None:
+                    continue
+                local_contours, min_x, max_x, min_y, max_y = entry
 
                 outline_path = Path(f"{outputdirectory}{dv_name}-{i}.outline")
                 if not outline_path.exists() or not use_cache:
                     with open(outline_path, "w", newline="") as csvfile:
                         csvwriter = csv.writer(csvfile, lineterminator="\n")
-                        csvwriter.writerows(zip(a[0] - min_x, a[1] - min_y))
+                        for idx, contour in enumerate(local_contours):
+                            if idx > 0:
+                                csvwriter.writerow([])
+                            for point in contour.reshape(-1, 2):
+                                csvwriter.writerow([int(point[1]), int(point[0])])
 
                 cellpair_image = image_outlined[min_x:max_x, min_y:max_y]
                 not_outlined_image = image[min_x:max_x, min_y:max_y]

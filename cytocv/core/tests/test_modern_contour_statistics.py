@@ -31,10 +31,20 @@ class ModernContourStatisticsTests(SimpleTestCase):
         output_path = output_dir / "output"
         output_path.mkdir(parents=True, exist_ok=True)
         outline_path = output_path / f"{image_stem}-{cell_id}.outline"
+        ys = list(y_range)
+        xs = list(x_range)
         with outline_path.open("w", encoding="utf-8") as handle:
-            for y in y_range:
-                for x in x_range:
-                    handle.write(f"{y},{x}\n")
+            if not ys or not xs:
+                return
+            y_min, y_max = ys[0], ys[-1]
+            x_min, x_max = xs[0], xs[-1]
+            for vy, vx in (
+                (y_min, x_min),
+                (y_min, x_max),
+                (y_max, x_max),
+                (y_max, x_min),
+            ):
+                handle.write(f"{vy},{vx}\n")
 
     @staticmethod
     def _conf(

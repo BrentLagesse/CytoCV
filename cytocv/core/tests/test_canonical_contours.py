@@ -76,7 +76,7 @@ class CanonicalContourHelpersTests(SimpleTestCase):
         self.assertAlmostEqual(slots[0].center[0], expected_center[0], places=4)
         self.assertAlmostEqual(slots[0].center[1], expected_center[1], places=4)
 
-    def test_build_canonical_contour_payload_reads_outline_pixels_into_cell_mask(self):
+    def test_build_canonical_contour_payload_reads_outline_contour_into_cell_mask(self):
         raw_red = self._rect_contour(1, 1, 9, 9)
         raw_green = self._rect_contour(2, 2, 8, 8)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -84,9 +84,9 @@ class CanonicalContourHelpersTests(SimpleTestCase):
             output_dir.mkdir(parents=True, exist_ok=True)
             outline_path = output_dir / "test-1.outline"
             with outline_path.open("w", encoding="utf-8") as handle:
-                for y in range(3, 9):
-                    for x in range(4, 10):
-                        handle.write(f"{y},{x}\n")
+                # External contour vertices (y, x) of the final pair support.
+                for vy, vx in ((3, 4), (3, 9), (8, 9), (8, 4)):
+                    handle.write(f"{vy},{vx}\n")
 
             payload = build_canonical_contour_payload(
                 {"dot_contours": [raw_red], "contours_green": [raw_green]},
@@ -111,9 +111,8 @@ class CanonicalContourHelpersTests(SimpleTestCase):
             output_dir.mkdir(parents=True, exist_ok=True)
             outline_path = output_dir / "test-1.outline"
             with outline_path.open("w", encoding="utf-8") as handle:
-                for y in range(1, 11):
-                    for x in range(1, 11):
-                        handle.write(f"{y},{x}\n")
+                for vy, vx in ((1, 1), (1, 10), (10, 10), (10, 1)):
+                    handle.write(f"{vy},{vx}\n")
 
             payload = build_canonical_contour_payload(
                 {"contours_blue": [raw_blue]},
