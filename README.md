@@ -193,6 +193,7 @@ For operational deployment material, use these documents:
 
 - General deployment guide: [docs/ops/deployment-guide.md](docs/ops/deployment-guide.md)
 - PostgreSQL setup: [docs/ops/postgres-setup.md](docs/ops/postgres-setup.md)
+- Example `systemd` units: [deploy/systemd/README.md](deploy/systemd/README.md)
 - March 2026 VM step-by-step guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
 - March 2026 VM rollout record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
 - Replacement `cytocv2.uwb.edu` VM rollout record: [docs/vm-deployment-record-cytocv2/README.md](docs/vm-deployment-record-cytocv2/README.md)
@@ -245,4 +246,3 @@ License reference:
 
 - [docs/license/README.md](docs/license/README.md)
 - <https://creativecommons.org/licenses/by-nc-sa/4.0/>
-

@@ -395,6 +395,14 @@ Important:
 
 ## 12. Create the Gunicorn `systemd` Service
 
+The repository now includes example units under:
+
+- `deploy/systemd/cytocv.service.example`
+- `deploy/systemd/cytocv-worker.service.example`
+
+You can either copy those files to `/etc/systemd/system/` and replace the
+deploy-user path placeholders, or create the service manually as shown below.
+
 Create the service file:
 
 ```bash
@@ -428,6 +436,46 @@ sudo systemctl daemon-reload
 sudo systemctl enable cytocv
 sudo systemctl start cytocv
 sudo systemctl status cytocv --no-pager
+```
+
+### Background Analysis Worker `systemd` Service
+
+Production worker mode also needs a second service so the queued analysis jobs
+survive logout and reboot.
+
+Create the worker file:
+
+```bash
+sudo nano /etc/systemd/system/cytocv-worker.service
+```
+
+Paste this:
+
+```ini
+[Unit]
+Description=CytoCV Analysis Worker
+After=network.target postgresql.service cytocv.service
+
+[Service]
+User=ngioanni
+Group=ngioanni
+WorkingDirectory=/home/NETID/ngioanni/CytoCV/cytocv
+Environment="PATH=/home/NETID/ngioanni/CytoCV/cyto_cv/bin"
+ExecStart=/home/NETID/ngioanni/CytoCV/cyto_cv/bin/python /home/NETID/ngioanni/CytoCV/cytocv/manage.py run_analysis_worker
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then enable and start it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable cytocv-worker
+sudo systemctl start cytocv-worker
+sudo systemctl status cytocv-worker --no-pager
 ```
 
 ## 13. Install and Configure Nginx
@@ -784,4 +832,3 @@ After the server is up:
 2. Lock provider settings to the production domain only.
 3. Finish SMTP configuration with UW IT.
 4. Confirm the VM or analysis host has AVX-capable CPU support before expecting image analysis to work.
-
