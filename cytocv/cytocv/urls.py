@@ -28,23 +28,25 @@ from accounts.views import (
     preferences_view,
     signup,
 )
-from core.views import (
-    cancel_progress,
-    cell_overlay_image,
-    convert_to_image,
+from core.views.convert_to_image import convert_to_image
+from core.views.display import (
     display,
-    experiment,
-    get_progress,
-    home,
     main_image_channel,
-    pre_process,
     save_display_files,
-    segment_image,
-    set_progress,
     sync_display_file_selection,
     unsave_display_files,
+)
+from core.views.experiment import experiment
+from core.views.home import home
+from core.views.overlay import cell_overlay_image
+from core.views.pre_process import (
+    cancel_progress,
+    get_progress,
+    pre_process,
+    set_progress,
     update_channel_order,
 )
+from core.views.segment_image import segment_image
 from core.views.media import serve_media
 
 urlpatterns = [

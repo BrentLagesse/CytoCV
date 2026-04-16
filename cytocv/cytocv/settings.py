@@ -413,7 +413,8 @@ SITE_ID = 1
 SOCIALACCOUNT_LOGIN_ON_GET = False
 
 # Static files
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
