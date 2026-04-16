@@ -139,6 +139,34 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
         self.assertGreater(int(processed_masks[:, :, 0].sum()), 1)
         self.assertFalse(np.any(processed_masks[:, :, 1]))
 
+    def test_postprocess_prediction_masks_fills_convex_hull_fjords_after_dedupe(self):
+        pred_masks = np.zeros((7, 7, 1), dtype=np.uint8)
+        pred_masks[1:6, 1, 0] = 1
+        pred_masks[1:6, 5, 0] = 1
+        pred_masks[5, 1:6, 0] = 1
+
+        processed_masks = postprocess_prediction_masks(pred_masks)
+
+        expected_mask = np.zeros((7, 7), dtype=np.uint8)
+        expected_mask[1:6, 1:6] = 1
+        self.assertTrue(np.array_equal(processed_masks[:, :, 0], expected_mask))
+
+    def test_postprocess_prediction_masks_does_not_fill_over_other_instances(self):
+        pred_masks = np.zeros((7, 7, 2), dtype=np.uint8)
+        pred_masks[1:6, 1, 0] = 1
+        pred_masks[1:6, 5, 0] = 1
+        pred_masks[5, 1:6, 0] = 1
+        pred_masks[3, 3, 1] = 1
+
+        processed_masks = postprocess_prediction_masks(
+            pred_masks,
+            scores=np.array([0.9, 0.8], dtype=np.float32),
+        )
+
+        self.assertEqual(int(processed_masks[3, 3, 1]), 1)
+        self.assertEqual(int(processed_masks[3, 3, 0]), 0)
+        self.assertEqual(int(processed_masks[2, 2, 0]), 1)
+
     def test_build_labeled_mask_image_preserves_surviving_original_order(self):
         pred_masks = np.zeros((4, 4, 3), dtype=np.uint8)
         pred_masks[1, 1, 0] = 1
@@ -298,4 +326,3 @@ class PredictImagesRuntimeReuseTests(SimpleTestCase):
             self.assertEqual(second_result.name, "mask.tif")
             self.assertTrue(np.array_equal(np.array(Image.open(first_result)), np.ones((4, 4), dtype=np.uint16)))
             self.assertTrue(np.array_equal(np.array(Image.open(second_result)), np.ones((4, 4), dtype=np.uint16)))
-
