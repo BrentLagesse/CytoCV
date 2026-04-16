@@ -33,26 +33,41 @@ class CanonicalContourSlot:
 
 
 def load_cell_mask(image_name: str, cell_id: int, output_dir: str, shape: tuple[int, int]) -> np.ndarray:
-    """Build the segmented cell mask from the saved outline pixel list."""
+    """Fill a binary support mask from the saved external contour vertices.
+
+    The `.outline` file stores ordered `y,x` vertices of the finalized pair
+    boundary. Multiple external contours are separated by a blank CSV row.
+    """
 
     mask = np.zeros(shape, np.uint8)
     outline_filename = os.path.splitext(str(image_name))[0] + f"-{cell_id}.outline"
     mask_file_path = os.path.join(output_dir, "output", outline_filename)
+    groups: list[list[list[int]]] = []
+    current: list[list[int]] = []
     try:
         with open(mask_file_path, "r", encoding="utf-8") as csvfile:
             csvreader = csv.reader(csvfile)
             for row in csvreader:
                 if len(row) < 2:
+                    if current:
+                        groups.append(current)
+                        current = []
                     continue
                 try:
                     y = int(row[0])
                     x = int(row[1])
                 except (TypeError, ValueError):
                     continue
-                if 0 <= y < shape[0] and 0 <= x < shape[1]:
-                    mask[y, x] = 255
+                current.append([x, y])
+            if current:
+                groups.append(current)
     except FileNotFoundError:
         return mask
+    for points in groups:
+        if not points:
+            continue
+        contour = np.asarray(points, dtype=np.int32).reshape(-1, 1, 2)
+        cv2.drawContours(mask, [contour], -1, 255, thickness=-1)
     return mask
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import cv2
 import numpy as np
 import skimage.transform
 from PIL import Image
@@ -94,6 +95,60 @@ def remove_duplicate_masks(
     return deduplicated_masks
 
 
+def _instance_convex_hull_fill(instance_mask: np.ndarray) -> np.ndarray:
+    """Return the filled convex hull of a single binary instance mask."""
+
+    mask_u8 = (instance_mask > 0).astype(np.uint8)
+    contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not contours:
+        return mask_u8
+
+    hull_canvas = np.zeros_like(mask_u8, dtype=np.uint8)
+    for contour in contours:
+        if contour.shape[0] < 3:
+            cv2.drawContours(hull_canvas, [contour], -1, 1, thickness=cv2.FILLED)
+            continue
+        hull = cv2.convexHull(contour)
+        cv2.drawContours(hull_canvas, [hull], -1, 1, thickness=cv2.FILLED)
+    return hull_canvas
+
+
+def fill_mask_volume_convex_hulls(mask_volume: np.ndarray) -> np.ndarray:
+    """Fill each instance to its convex hull without painting over other instances.
+
+    For every instance, pixels inside the convex hull that are currently
+    background are added to the instance, unless another instance already owns
+    them. Outward shape is preserved; inward fjords and enclosed holes are
+    closed. Pixels are only ever added, never removed.
+    """
+
+    filled_masks = _copy_mask_volume(mask_volume)
+    instance_count = filled_masks.shape[2]
+    if instance_count == 0:
+        return filled_masks
+
+    others_any = np.zeros(filled_masks.shape[:2], dtype=bool)
+    for index in range(instance_count):
+        others_any |= filled_masks[:, :, index] > 0
+
+    for index in range(instance_count):
+        this_mask = filled_masks[:, :, index] > 0
+        if not np.any(this_mask):
+            continue
+
+        hull_canvas = _instance_convex_hull_fill(this_mask) > 0
+        others_mask = others_any & ~this_mask
+        accepted = hull_canvas & ~this_mask & ~others_mask
+        if not np.any(accepted):
+            continue
+
+        updated_mask = this_mask | accepted
+        filled_masks[:, :, index] = updated_mask.astype(np.uint8)
+        others_any |= accepted
+
+    return filled_masks
+
+
 def postprocess_prediction_masks(
     mask_volume: np.ndarray,
     *,
@@ -107,11 +162,12 @@ def postprocess_prediction_masks(
     if dilation:
         processed_masks = dilate_mask_volume(processed_masks)
     processed_masks = fill_mask_volume_holes(processed_masks)
-    return remove_duplicate_masks(
+    deduplicated_masks = remove_duplicate_masks(
         processed_masks,
         threshold=threshold,
         scores=scores,
     )
+    return fill_mask_volume_convex_hulls(deduplicated_masks)
 
 
 def label_mask_volume(mask_volume: np.ndarray) -> np.ndarray:

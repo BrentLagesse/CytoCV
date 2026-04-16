@@ -1,6 +1,3 @@
-import csv
-import os
-
 import cv2
 import numpy as np
 
@@ -39,16 +36,6 @@ class NuclearCellPairIntensity(Analysis):
             if image is not None:
                 return image
         return None
-
-    def _cell_points(self):
-        outline_filename = os.path.splitext(self.cp.image_name)[0] + "-" + str(self.cp.cell_id) + ".outline"
-        mask_file_path = os.path.join(self.output_dir, "output", outline_filename)
-        points = []
-        with open(mask_file_path, "r") as csvfile:
-            csvreader = csv.reader(csvfile)
-            for row in csvreader:
-                points.append((int(row[0]), int(row[1])))
-        return points
 
     @staticmethod
     def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1):

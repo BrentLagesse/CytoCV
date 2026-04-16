@@ -100,6 +100,7 @@ from core.services.canonical_contours import (
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
+from core.services.pair_refinement import refine_pair_label_image
 from core.services.overlay_rendering import (
     build_overlay_render_config,
     persist_debug_overlay_exports,
@@ -448,7 +449,6 @@ def segment_image(request, uuids):
 
         #TODO:   If G1 Arrested, we don't want to merge neighbors and ignore non-budding cells
         #choices = ['Metaphase Arrested', 'G1 Arrested']
-        outlines = np.zeros(seg.shape)
         if choice_var == 'Metaphase Arrested':
             # Create a raw file to store the outlines
             ignore_list = list()
@@ -684,6 +684,8 @@ def segment_image(request, uuids):
             for i, x in enumerate(to_rebase):
                 seg[np.where(seg == x)] = i + 1
 
+            seg = refine_pair_label_image(seg)
+
             # now seg has the updated masks, so lets save them so we don't have to do this every time
             outputdirectory = str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/output/'
             seg_image = Image.fromarray(seg)
@@ -736,16 +738,15 @@ def segment_image(request, uuids):
                 image = np.expand_dims(image, axis=-1)
                 image = np.tile(image, 3)
 
-            # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
-            for i in range(1, int(np.max(seg) + 1)):
-                tmp = np.zeros(seg.shape)
-                tmp[np.where(seg == i)] = 1
-                tmp = tmp - skimage.morphology.erosion(tmp)
-                outlines += tmp
-
-            # Overlay the outlines on the original image in green
+            # Draw cell-pair external contours (canonical boundary) on the frame overlay.
             image_outlined = image.copy()
-            image_outlined[outlines > 0] = (0, 255, 255)
+            for i in range(1, int(np.max(seg) + 1)):
+                cell_mask_full = (seg == i).astype(np.uint8) * 255
+                contours, _ = cv2.findContours(
+                    cell_mask_full, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+                )
+                if contours:
+                    cv2.drawContours(image_outlined, contours, -1, (0, 255, 255), 1)
 
             # Display the outline file
             fig = plt.figure(frameon=False)
@@ -866,45 +867,46 @@ def segment_image(request, uuids):
             # plt.imsave(str(Path(MEDIA_ROOT)) + '/' + str(uuid) + '/' + DV_Name + '-' + str(image_num) + '.tif', image, dpi=600, format='TIFF')
             cached_channel_name = layer_channel_lookup.get(image_num)
 
-            outlines = np.zeros(seg.shape)
-            # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
-            for i in range(1, int(np.max(seg) + 1)):
-                tmp = np.zeros(seg.shape)
-                tmp[np.where(seg == i)] = 1
-                tmp = tmp - skimage.morphology.erosion(tmp)
-                outlines += tmp
-            
-            # Overlay the outlines on the original image in green
             image_outlined = image.copy()
-            # image_outlined[outlines > 0] = (0, 255, 0)
-            # NOTE: Temporarily changing to cyan to debug the Green channel
-            image_outlined[outlines > 0] = (0, 255, 255)
+            cell_contour_cache = {}
+            for i in range(1, int(np.max(seg) + 1)):
+                a = np.where(seg == i)
+                if a[0].size == 0:
+                    continue
+                min_x = max(int(np.min(a[0])) - 4, 0)
+                max_x = min(int(np.max(a[0])) + 4 + 1, seg.shape[0])
+                min_y = max(int(np.min(a[1])) - 4, 0)
+                max_y = min(int(np.max(a[1])) + 4 + 1, seg.shape[1])
+                local_mask = ((seg[min_x:max_x, min_y:max_y] == i).astype(np.uint8)) * 255
+                local_contours, _ = cv2.findContours(
+                    local_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+                )
+                cell_contour_cache[i] = (tuple(local_contours), min_x, max_x, min_y, max_y)
+                for contour in local_contours:
+                    shifted = contour.copy()
+                    shifted[:, :, 0] += min_y
+                    shifted[:, :, 1] += min_x
+                    cv2.drawContours(image_outlined, [shifted], -1, (0, 255, 255), 1)
 
             # Iterate over each integer in the segmentation and save the outline of each cell onto the outline file
             for i in range(1, int(np.max(seg) + 1)):
-                #cell_tif_image = tif_image.split('.')[0] + '-' + str(i) + '.tif'
-                #no_outline_image = tif_image.split('.')[0] + '-' + str(i) + '-no_outline.tif'
-                # cell_tif_image = images.split('.')[0] + '-' + str(i) + '.tif'
-                # no_outline_image = images.split('.')[0] + '-' + str(i) + '-no_outline.tif'
                 cell_tif_image = DV_Name + '-' + str(image_num) + '-' + str(i) + '.png'
                 no_outline_image = DV_Name + '-' + str(image_num) + '-'  + str(i) + '-no_outline.png'
 
-                a = np.where(seg == i)   # somethin bad is happening when i = 4 on my tests
-                min_x = max(np.min(a[0]) - 1, 0)
-                max_x = min(np.max(a[0]) + 1, seg.shape[0])
-                min_y = max(np.min(a[1]) - 1, 0)
-                max_y = min(np.max(a[1]) + 1, seg.shape[1])
-
-                # a[0] contains the x coords and a[1] contains the y coords
-                # save this to use later when I want to calculate cellular intensity
-
-                #convert from absolute location to relative location for later use
+                entry = cell_contour_cache.get(i)
+                if entry is None:
+                    continue
+                local_contours, min_x, max_x, min_y, max_y = entry
 
                 if not os.path.exists(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline')  or not use_cache:
                     try:
                         with open(str(outputdirectory) + DV_Name + '-' + str(i) + '.outline', 'w') as csvfile:
                             csvwriter = csv.writer(csvfile, lineterminator='\n')
-                            csvwriter.writerows(zip(a[0] - min_x, a[1] - min_y))
+                            for idx, contour in enumerate(local_contours):
+                                if idx > 0:
+                                    csvwriter.writerow([])
+                                for point in contour.reshape(-1, 2):
+                                    csvwriter.writerow([int(point[1]), int(point[0])])
                     except Exception as exc:
                         if is_storage_full_error(exc):
                             return storage_full_response(exc)
