@@ -1,12 +1,14 @@
 ﻿from __future__ import annotations
 
 import threading
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import cv2
+import keras
 import numpy as np
 from django.test import SimpleTestCase
 from PIL import Image
@@ -14,6 +16,7 @@ from PIL import Image
 from core.mrcnn.inference_runtime import (
     InferenceRuntimeKey,
     _resolve_runtime_cache_key,
+    _resolve_weights_path,
     clear_inference_runtime_cache,
     get_inference_runtime,
 )
@@ -87,6 +90,80 @@ class InferenceRuntimeCacheTests(SimpleTestCase):
         self.assertEqual(
             [call.args[0] for call in build_runtime.call_args_list],
             [first_key, second_key],
+        )
+
+
+class InferenceGraphSmokeTests(SimpleTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        try:
+            _resolve_weights_path()
+        except FileNotFoundError as exc:
+            raise unittest.SkipTest(str(exc))
+        cls.runtime = get_inference_runtime()
+
+    @classmethod
+    def tearDownClass(cls):
+        clear_inference_runtime_cache()
+        super().tearDownClass()
+
+    def test_detect_runs_real_keras_graph_on_zero_image(self):
+        image = np.zeros((512, 512, 3), dtype=np.uint8)
+
+        results = self.runtime.model.detect([image], verbose=0)
+
+        self.assertEqual(len(results), 1)
+        result = results[0]
+        self.assertEqual(set(result.keys()), {"rois", "class_ids", "scores", "masks"})
+        self.assertEqual(result["rois"].shape[1:], (4,))
+        self.assertEqual(result["class_ids"].ndim, 1)
+        self.assertEqual(result["scores"].ndim, 1)
+        self.assertEqual(result["masks"].shape[:2], image.shape[:2])
+        self.assertEqual(result["masks"].shape[2], result["class_ids"].shape[0])
+        self.assertEqual(result["scores"].shape[0], result["class_ids"].shape[0])
+
+    def test_classifier_head_probe_runs_past_first_roi_conv(self):
+        runtime_model = self.runtime.model
+        keras_model = runtime_model.keras_model
+        probe_model = keras.Model(
+            keras_model.inputs,
+            [
+                keras_model.get_layer("roi_align_classifier").output,
+                keras_model.get_layer("mrcnn_class_conv1").output,
+            ],
+        )
+        image = np.zeros((512, 512, 3), dtype=np.uint8)
+        molded_images, image_metas, _ = runtime_model.mold_inputs([image])
+        anchors = runtime_model.get_anchors(molded_images[0].shape)
+        anchors = np.broadcast_to(
+            anchors,
+            (runtime_model.config.BATCH_SIZE,) + anchors.shape,
+        )
+
+        roi_align_output, conv1_output = probe_model.predict(
+            [molded_images, image_metas, anchors],
+            verbose=0,
+        )
+
+        self.assertEqual(
+            roi_align_output.shape,
+            (
+                runtime_model.config.BATCH_SIZE,
+                runtime_model.config.POST_NMS_ROIS_INFERENCE,
+                7,
+                7,
+                256,
+            ),
+        )
+        self.assertEqual(
+            conv1_output.shape,
+            (
+                runtime_model.config.POST_NMS_ROIS_INFERENCE,
+                1,
+                1,
+                runtime_model.config.FPN_CLASSIF_FC_LAYERS_SIZE,
+            ),
         )
 
 

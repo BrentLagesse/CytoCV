@@ -8,10 +8,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ["KERAS_BACKEND"] = "tensorflow"
-os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+from .bootstrap import configure_environment
+
+configure_environment(cpu_only=True)
 
 from core.mrcnn import config
 import core
