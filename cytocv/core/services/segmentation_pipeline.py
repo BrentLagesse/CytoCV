@@ -30,6 +30,7 @@ from core.channel_roles import (
 )
 from core.config import DEFAULT_CHANNEL_CONFIG, DEFAULT_PROCESS_CONFIG, input_dir
 from core.contour_processing import get_contour_center, get_neighbor_count
+from core.image_processing.dashed_line import draw_dashed_line
 from core.models import CellStatistics, SegmentedImage, UploadedImage, get_guest_user
 from core.scale import (
     convert_length_to_pixels,
@@ -49,6 +50,13 @@ from core.services.artifact_storage import (
     log_storage_capacity_failure,
     refresh_user_storage_usage,
     save_png_array,
+)
+from core.services.neck_split import (
+    NeckSplit,
+    compute_side_areas,
+    detect_neck_split,
+    sidecar_path as neck_split_sidecar_path,
+    write_neck_split,
 )
 from core.services.pair_refinement import refine_pair_label_image
 from core.services.overlay_rendering import (
@@ -70,6 +78,8 @@ from core.views.segment_image import (
 )
 
 logger = logging.getLogger(__name__)
+CYAN_DEBUG_COLOR = (0, 255, 255)
+PAIR_CROP_MARGIN_PX = 4
 
 
 def _process_config_value(
@@ -88,6 +98,23 @@ class SegmentationBatchResult:
     storage_warning_message: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class PairGeometryCacheEntry:
+    """Cached pair geometry reused across frame render, crop, and stats phases."""
+
+    cell_id: int
+    full_contours: tuple[np.ndarray, ...]
+    local_contours: tuple[np.ndarray, ...]
+    min_x: int
+    max_x: int
+    min_y: int
+    max_y: int
+    local_split: NeckSplit | None = None
+    full_split: NeckSplit | None = None
+    side_area_large_px: int = 0
+    side_area_small_px: int = 0
+
+
 def _current_owner_filter_for_user(user) -> dict[str, object]:
     if getattr(user, "is_authenticated", False):
         return {"user": user}
@@ -97,6 +124,150 @@ def _current_owner_filter_for_user(user) -> dict[str, object]:
 def _raise_if_cancelled(progress: AnalysisProgressHandle) -> None:
     if progress.is_cancel_requested():
         raise AnalysisCancelled()
+
+
+def _offset_neck_split(
+    split: NeckSplit | None,
+    *,
+    row_offset: int,
+    col_offset: int,
+) -> NeckSplit | None:
+    """Return a shifted copy of a split, or ``None`` when absent."""
+
+    if split is None:
+        return None
+    return NeckSplit(
+        x1=int(split.x1) + int(col_offset),
+        y1=int(split.y1) + int(row_offset),
+        x2=int(split.x2) + int(col_offset),
+        y2=int(split.y2) + int(row_offset),
+        status=split.status,
+        defect_depth_1=int(split.defect_depth_1),
+        defect_depth_2=int(split.defect_depth_2),
+    )
+
+
+def _crop_bounds_for_label_mask(
+    label_mask: np.ndarray,
+    *,
+    margin_px: int = PAIR_CROP_MARGIN_PX,
+) -> tuple[int, int, int, int] | None:
+    """Return symmetric crop bounds for a single pair mask."""
+
+    points = np.where(label_mask > 0)
+    if points[0].size == 0:
+        return None
+    min_x = max(int(np.min(points[0])) - int(margin_px), 0)
+    max_x = min(int(np.max(points[0])) + int(margin_px) + 1, label_mask.shape[0])
+    min_y = max(int(np.min(points[1])) - int(margin_px), 0)
+    max_y = min(int(np.max(points[1])) + int(margin_px) + 1, label_mask.shape[1])
+    return min_x, max_x, min_y, max_y
+
+
+def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEntry]:
+    """Build one shared geometry cache per pair label from the finalized mask."""
+
+    cache: dict[int, PairGeometryCacheEntry] = {}
+    for cell_id in range(1, int(np.max(seg) + 1)):
+        cell_mask_full = ((seg == cell_id).astype(np.uint8)) * 255
+        if not np.any(cell_mask_full):
+            continue
+        bounds = _crop_bounds_for_label_mask(cell_mask_full)
+        if bounds is None:
+            continue
+        min_x, max_x, min_y, max_y = bounds
+        full_contours, _ = cv2.findContours(
+            cell_mask_full,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_NONE,
+        )
+        local_mask = cell_mask_full[min_x:max_x, min_y:max_y]
+        local_contours, _ = cv2.findContours(
+            local_mask,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_NONE,
+        )
+        local_split = None
+        full_split = None
+        side_area_large_px = 0
+        side_area_small_px = 0
+        if local_contours:
+            primary_contour = max(local_contours, key=len)
+            try:
+                local_split = detect_neck_split(primary_contour, local_mask)
+            except Exception:
+                logger.debug(
+                    "Neck-split detection failed for cell %s",
+                    cell_id,
+                    exc_info=True,
+                )
+                local_split = None
+            if local_split is not None:
+                full_split = _offset_neck_split(
+                    local_split,
+                    row_offset=min_x,
+                    col_offset=min_y,
+                )
+                try:
+                    side_area_large_px, side_area_small_px, _, _ = compute_side_areas(
+                        local_mask,
+                        local_split,
+                    )
+                except Exception:
+                    logger.debug(
+                        "Neck-split side-area computation failed for cell %s",
+                        cell_id,
+                        exc_info=True,
+                    )
+                    side_area_large_px = 0
+                    side_area_small_px = 0
+        cache[cell_id] = PairGeometryCacheEntry(
+            cell_id=cell_id,
+            full_contours=tuple(full_contours),
+            local_contours=tuple(local_contours),
+            min_x=min_x,
+            max_x=max_x,
+            min_y=min_y,
+            max_y=max_y,
+            local_split=local_split,
+            full_split=full_split,
+            side_area_large_px=int(side_area_large_px),
+            side_area_small_px=int(side_area_small_px),
+        )
+    return cache
+
+
+def _draw_pair_geometry_overlay(
+    image: np.ndarray,
+    pair_geometry_cache: dict[int, PairGeometryCacheEntry],
+) -> None:
+    """Draw the solid pair contour and dashed neck seam onto one frame."""
+
+    for entry in pair_geometry_cache.values():
+        if entry.full_contours:
+            cv2.drawContours(image, list(entry.full_contours), -1, CYAN_DEBUG_COLOR, 1)
+        if entry.full_split is not None:
+            draw_dashed_line(
+                image,
+                (entry.full_split.x1, entry.full_split.y1),
+                (entry.full_split.x2, entry.full_split.y2),
+                CYAN_DEBUG_COLOR,
+                dash_px=2,
+                gap_px=2,
+                thickness=1,
+            )
+
+
+def _build_neck_split_properties(entry: PairGeometryCacheEntry | None) -> dict:
+    """Return the persisted-style neutral neck-split payload for one pair."""
+
+    if entry is None or entry.local_split is None:
+        return {"status": "no_neck"}
+    return {
+        **entry.local_split.to_dict(),
+        "side_area_large_px": int(entry.side_area_large_px),
+        "side_area_small_px": int(entry.side_area_small_px),
+    }
 
 
 def _finalize_segmented_run_batch_for_user(
@@ -342,6 +513,8 @@ def run_segmentation_batch(
             seg_image = Image.fromarray(seg)
             seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
 
+        pair_geometry_cache = _build_pair_geometry_cache(seg)
+
         for frame_idx in range(image_stack.shape[0]):
             _raise_if_cancelled(progress)
             image = Image.fromarray(image_stack[frame_idx])
@@ -352,13 +525,7 @@ def run_segmentation_batch(
                 image = np.tile(image, 3)
 
             image_outlined = image.copy()
-            for i in range(1, int(np.max(seg) + 1)):
-                cell_mask_full = (seg == i).astype(np.uint8) * 255
-                contours, _ = cv2.findContours(
-                    cell_mask_full, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
-                )
-                if contours:
-                    cv2.drawContours(image_outlined, contours, -1, (0, 255, 255), 1)
+            _draw_pair_geometry_overlay(image_outlined, pair_geometry_cache)
 
             fig = plt.figure(frameon=False)
             ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
@@ -417,42 +584,22 @@ def run_segmentation_batch(
 
             cached_channel_name = layer_channel_lookup.get(image_num)
             image_outlined = image.copy()
-            cell_contour_cache: dict[
-                int, tuple[tuple[np.ndarray, ...], int, int, int, int]
-            ] = {}
-            for i in range(1, int(np.max(seg) + 1)):
-                a = np.where(seg == i)
-                if a[0].size == 0:
-                    continue
-                min_x = max(int(np.min(a[0])) - 4, 0)
-                max_x = min(int(np.max(a[0])) + 4 + 1, seg.shape[0])
-                min_y = max(int(np.min(a[1])) - 4, 0)
-                max_y = min(int(np.max(a[1])) + 4 + 1, seg.shape[1])
-                local_mask = ((seg[min_x:max_x, min_y:max_y] == i).astype(np.uint8)) * 255
-                local_contours, _ = cv2.findContours(
-                    local_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
-                )
-                cell_contour_cache[i] = (
-                    tuple(local_contours),
-                    min_x,
-                    max_x,
-                    min_y,
-                    max_y,
-                )
-                for contour in local_contours:
-                    shifted = contour.copy()
-                    shifted[:, :, 0] += min_y
-                    shifted[:, :, 1] += min_x
-                    cv2.drawContours(image_outlined, [shifted], -1, (0, 255, 255), 1)
+            if cached_channel_name == CHANNEL_ROLE_DIC:
+                _draw_pair_geometry_overlay(image_outlined, pair_geometry_cache)
 
             for i in range(1, int(np.max(seg) + 1)):
                 cell_tif_image = f"{dv_name}-{image_num}-{i}.png"
                 no_outline_image = f"{dv_name}-{image_num}-{i}-no_outline.png"
 
-                entry = cell_contour_cache.get(i)
+                entry = pair_geometry_cache.get(i)
                 if entry is None:
                     continue
-                local_contours, min_x, max_x, min_y, max_y = entry
+                local_contours = entry.local_contours
+                min_x = entry.min_x
+                max_x = entry.max_x
+                min_y = entry.min_y
+                max_y = entry.max_y
+                local_split = entry.local_split
 
                 outline_path = Path(f"{outputdirectory}{dv_name}-{i}.outline")
                 if not outline_path.exists() or not use_cache:
@@ -463,6 +610,15 @@ def run_segmentation_batch(
                                 csvwriter.writerow([])
                             for point in contour.reshape(-1, 2):
                                 csvwriter.writerow([int(point[1]), int(point[0])])
+
+                if local_split is not None:
+                    neck_split_path = neck_split_sidecar_path(
+                        os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
+                        f"{dv_name}.dv",
+                        i,
+                    )
+                    if not neck_split_path.exists() or not use_cache:
+                        write_neck_split(neck_split_path, local_split)
 
                 cellpair_image = image_outlined[min_x:max_x, min_y:max_y]
                 not_outlined_image = image[min_x:max_x, min_y:max_y]
@@ -747,6 +903,10 @@ def run_segmentation_batch(
             cp.properties["stats_cen_dot_proximity_radius_px"] = cen_dot_proximity_radius_px_equivalent
             cp.properties["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius
             cp.properties["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
+
+            cp.properties["neck_split"] = _build_neck_split_properties(
+                pair_geometry_cache.get(cell_number)
+            )
 
             debug_red, debug_green, debug_blue = get_stats(
                 cp,

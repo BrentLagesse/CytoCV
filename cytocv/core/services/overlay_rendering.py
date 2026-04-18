@@ -34,7 +34,7 @@ from core.stats_plugins import build_stats_execution_plan
 
 logger = logging.getLogger(__name__)
 
-OVERLAY_RENDER_SCHEMA_VERSION = 1
+OVERLAY_RENDER_SCHEMA_VERSION = 2
 OVERLAY_RENDER_CONFIG_FILENAME = "overlay-render-config.json"
 OVERLAY_CACHE_DIRNAME = f"overlay-cache-v{OVERLAY_RENDER_SCHEMA_VERSION}"
 OVERLAY_CHANNEL_LABELS = {

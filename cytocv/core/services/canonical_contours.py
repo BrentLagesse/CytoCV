@@ -5,16 +5,19 @@ from __future__ import annotations
 import csv
 import os
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 import cv2
 import numpy as np
+
+from core.services.neck_split import NeckSplit, read_neck_split, sidecar_path
 
 
 CELL_MASK_KEY = "cell_mask"
 CANONICAL_RED_SLOTS_KEY = "canonical_red_slots"
 CANONICAL_GREEN_SLOTS_KEY = "canonical_green_slots"
 CANONICAL_BLUE_SLOTS_KEY = "canonical_blue_slots"
+NECK_SPLIT_KEY = "neck_split"
 
 
 @dataclass(slots=True)
@@ -69,6 +72,12 @@ def load_cell_mask(image_name: str, cell_id: int, output_dir: str, shape: tuple[
         contour = np.asarray(points, dtype=np.int32).reshape(-1, 1, 2)
         cv2.drawContours(mask, [contour], -1, 255, thickness=-1)
     return mask
+
+
+def load_neck_split(image_name: str, cell_id: int, output_dir: str) -> Optional[NeckSplit]:
+    """Return the persisted neck-split for a pair, or ``None`` when absent."""
+
+    return read_neck_split(sidecar_path(output_dir, image_name, cell_id))
 
 
 def _shape_tuple(shape: tuple[int, ...] | Iterable[int]) -> tuple[int, int]:

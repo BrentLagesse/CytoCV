@@ -13,7 +13,9 @@ from core.services.canonical_contours import (
     build_canonical_contour_payload,
     build_canonical_contour_slots,
     get_canonical_blue_slots,
+    load_neck_split,
 )
+from core.services.neck_split import NeckSplit, sidecar_path, write_neck_split
 
 
 class CanonicalContourHelpersTests(SimpleTestCase):
@@ -159,3 +161,12 @@ class CanonicalContourHelpersTests(SimpleTestCase):
         slots = get_canonical_blue_slots(contours_data, shape)
 
         self.assertEqual(slots, [])
+
+    def test_load_neck_split_round_trips_sidecar(self):
+        expected = NeckSplit(x1=2, y1=3, x2=8, y2=9, defect_depth_1=512, defect_depth_2=384)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            write_neck_split(sidecar_path(temp_dir, "test.dv", 1), expected)
+            loaded = load_neck_split("test.dv", 1, temp_dir)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.to_dict(), expected.to_dict())
