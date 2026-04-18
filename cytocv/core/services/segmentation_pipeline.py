@@ -478,7 +478,7 @@ def run_segmentation_batch(
     choice_var = "Metaphase Arrested"
     start_time = time.time()
 
-    progress.set_phase("Segmenting Images", status="running")
+    progress.set_phase("Segmenting Cell-Pairs", status="running")
 
     for uuid in uuid_list:
         _raise_if_cancelled(progress)
