@@ -16,6 +16,7 @@ from core.services.canonical_contours import (
     load_neck_split,
 )
 from core.services.neck_split import NeckSplit, sidecar_path, write_neck_split
+from core.services.neck_split import manifest_path, write_neck_split_manifest
 
 
 class CanonicalContourHelpersTests(SimpleTestCase):
@@ -162,7 +163,30 @@ class CanonicalContourHelpersTests(SimpleTestCase):
 
         self.assertEqual(slots, [])
 
-    def test_load_neck_split_round_trips_sidecar(self):
+    def test_load_neck_split_prefers_manifest(self):
+        expected = {
+            "status": "ok",
+            "x1": 2,
+            "y1": 3,
+            "x2": 8,
+            "y2": 9,
+            "defect_depth_1": 512,
+            "defect_depth_2": 384,
+            "side_area_large_px": 120,
+            "side_area_small_px": 50,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            write_neck_split_manifest(
+                manifest_path(temp_dir),
+                image_name="test.dv",
+                pairs={1: expected},
+            )
+            loaded = load_neck_split("test.dv", 1, temp_dir)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.to_dict(), NeckSplit.from_dict(expected).to_dict())
+
+    def test_load_neck_split_falls_back_to_legacy_sidecar(self):
         expected = NeckSplit(x1=2, y1=3, x2=8, y2=9, defect_depth_1=512, defect_depth_2=384)
         with tempfile.TemporaryDirectory() as temp_dir:
             write_neck_split(sidecar_path(temp_dir, "test.dv", 1), expected)

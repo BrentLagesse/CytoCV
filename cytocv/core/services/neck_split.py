@@ -1,12 +1,9 @@
-"""Detect and persist the internal neck-split line of a connected cell pair.
-
-Phase 1 scope: pure geometry, sidecar persistence, and non-destructive area
-computation.
-"""
+"""Detect and persist the internal neck-split line of a connected cell pair."""
 
 from __future__ import annotations
 
 import csv
+import json
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -15,7 +12,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from core.artifact_constants import NECK_SPLIT_SUFFIX
+from core.artifact_constants import NECK_SPLIT_SUFFIX, PAIR_GEOMETRY_FILENAME
 
 
 # `cv2.convexityDefects` returns depth in fixed-point units where 256 == 1 px.
@@ -45,6 +42,8 @@ SIDECAR_HEADER = (
     "defect_depth_1",
     "defect_depth_2",
 )
+
+PAIR_GEOMETRY_SCHEMA_VERSION = 1
 
 
 @dataclass(slots=True)
@@ -221,6 +220,12 @@ def sidecar_path(output_dir: str | os.PathLike, image_name: str, cell_id: int) -
     return Path(output_dir) / "output" / f"{stem}-{int(cell_id)}{NECK_SPLIT_SUFFIX}"
 
 
+def manifest_path(output_dir: str | os.PathLike) -> Path:
+    """Path to the run-level pair geometry manifest."""
+
+    return Path(output_dir) / "output" / PAIR_GEOMETRY_FILENAME
+
+
 def write_neck_split(path: str | os.PathLike, split: NeckSplit) -> None:
     """Persist a ``NeckSplit`` as a one-row CSV with a header."""
 
@@ -278,3 +283,73 @@ def read_neck_split(path: str | os.PathLike) -> Optional[NeckSplit]:
         defect_depth_1=depth_1,
         defect_depth_2=depth_2,
     )
+
+
+def write_neck_split_manifest(
+    path: str | os.PathLike,
+    *,
+    image_name: str,
+    pairs: dict[int | str, dict],
+) -> None:
+    """Persist all pair geometry metadata for one run as a JSON manifest."""
+
+    normalized_pairs = {
+        str(cell_id): dict(payload or {})
+        for cell_id, payload in sorted(
+            pairs.items(),
+            key=lambda item: int(item[0]),
+        )
+    }
+    payload = {
+        "schema_version": PAIR_GEOMETRY_SCHEMA_VERSION,
+        "image_name": str(image_name),
+        "pairs": normalized_pairs,
+    }
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def read_neck_split_manifest(path: str | os.PathLike) -> Optional[dict]:
+    """Read a pair geometry manifest. Missing or malformed files return ``None``."""
+
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def load_neck_split_from_manifest(
+    output_dir: str | os.PathLike,
+    image_name: str,
+    cell_id: int,
+) -> Optional[NeckSplit]:
+    """Load one neck split from the run-level manifest, if present."""
+
+    payload = read_neck_split_manifest(manifest_path(output_dir))
+    if not payload:
+        return None
+    manifest_image_name = str(payload.get("image_name", "") or "")
+    if manifest_image_name and manifest_image_name != str(image_name):
+        return None
+    pairs = payload.get("pairs", {})
+    if not isinstance(pairs, dict):
+        return None
+    entry = pairs.get(str(int(cell_id)))
+    if not isinstance(entry, dict):
+        return None
+    status = str(entry.get("status", "") or "")
+    if status != STATUS_OK:
+        return None
+    try:
+        return NeckSplit.from_dict(entry)
+    except (KeyError, TypeError, ValueError):
+        return None

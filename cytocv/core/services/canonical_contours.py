@@ -10,7 +10,12 @@ from typing import Iterable, Optional
 import cv2
 import numpy as np
 
-from core.services.neck_split import NeckSplit, read_neck_split, sidecar_path
+from core.services.neck_split import (
+    NeckSplit,
+    load_neck_split_from_manifest,
+    read_neck_split,
+    sidecar_path,
+)
 
 
 CELL_MASK_KEY = "cell_mask"
@@ -77,6 +82,9 @@ def load_cell_mask(image_name: str, cell_id: int, output_dir: str, shape: tuple[
 def load_neck_split(image_name: str, cell_id: int, output_dir: str) -> Optional[NeckSplit]:
     """Return the persisted neck-split for a pair, or ``None`` when absent."""
 
+    split = load_neck_split_from_manifest(output_dir, image_name, cell_id)
+    if split is not None:
+        return split
     return read_neck_split(sidecar_path(output_dir, image_name, cell_id))
 
 

@@ -11,11 +11,14 @@ import numpy as np
 from django.test import SimpleTestCase
 
 from core.services.canonical_contours import load_cell_mask
+from core.services.neck_split import manifest_path, sidecar_path
 from core.services.segmentation_pipeline import (
     CYAN_DEBUG_COLOR,
     _build_pair_geometry_cache,
+    _build_neck_split_manifest_pairs,
     _crop_bounds_for_label_mask,
     _draw_pair_geometry_overlay,
+    _write_neck_split_manifest_for_run,
 )
 
 
@@ -161,3 +164,34 @@ class OutlineContourArtifactTests(SimpleTestCase):
 
         self.assertGreater(int(np.count_nonzero(self._cyan_like_mask(dic_crop))), 0)
         self.assertEqual(int(np.count_nonzero(self._cyan_like_mask(fluorescence_crop))), 0)
+
+    def test_neck_split_manifest_writer_persists_one_run_file(self):
+        seg = np.zeros((80, 100), dtype=np.int32)
+        binary = np.zeros(seg.shape, dtype=np.uint8)
+        cv2.circle(binary, (38, 40), 18, 255, -1)
+        cv2.circle(binary, (58, 40), 18, 255, -1)
+        seg[binary > 0] = 1
+
+        cache = _build_pair_geometry_cache(seg)
+        manifest_pairs = _build_neck_split_manifest_pairs(cache)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = _write_neck_split_manifest_for_run(
+                temp_dir,
+                image_name="test.dv",
+                pair_geometry_cache=cache,
+                use_cache=False,
+            )
+
+            self.assertEqual(manifest, manifest_path(temp_dir))
+            self.assertTrue(manifest.exists())
+            self.assertFalse(sidecar_path(temp_dir, "test.dv", 1).exists())
+
+            payload = manifest.read_text(encoding="utf-8")
+
+        self.assertIn('"image_name": "test.dv"', payload)
+        self.assertIn('"pairs"', payload)
+        self.assertIn('"1"', payload)
+        self.assertEqual(manifest_pairs[1]["status"], "ok")
+        self.assertIn("side_area_large_px", manifest_pairs[1])
+        self.assertIn("side_area_small_px", manifest_pairs[1])

@@ -55,8 +55,8 @@ from core.services.neck_split import (
     NeckSplit,
     compute_side_areas,
     detect_neck_split,
-    sidecar_path as neck_split_sidecar_path,
-    write_neck_split,
+    manifest_path as neck_split_manifest_path,
+    write_neck_split_manifest,
 )
 from core.services.pair_refinement import refine_pair_label_image
 from core.services.overlay_rendering import (
@@ -268,6 +268,36 @@ def _build_neck_split_properties(entry: PairGeometryCacheEntry | None) -> dict:
         "side_area_large_px": int(entry.side_area_large_px),
         "side_area_small_px": int(entry.side_area_small_px),
     }
+
+
+def _build_neck_split_manifest_pairs(
+    pair_geometry_cache: dict[int, PairGeometryCacheEntry],
+) -> dict[int, dict]:
+    """Build the persisted neck-split payload map for one run."""
+
+    return {
+        int(cell_id): _build_neck_split_properties(entry)
+        for cell_id, entry in sorted(pair_geometry_cache.items())
+    }
+
+
+def _write_neck_split_manifest_for_run(
+    output_dir: str | os.PathLike,
+    *,
+    image_name: str,
+    pair_geometry_cache: dict[int, PairGeometryCacheEntry],
+    use_cache: bool,
+) -> Path:
+    """Persist one run-level pair geometry manifest for all neck splits."""
+
+    path = neck_split_manifest_path(output_dir)
+    if not path.exists() or not use_cache:
+        write_neck_split_manifest(
+            path,
+            image_name=image_name,
+            pairs=_build_neck_split_manifest_pairs(pair_geometry_cache),
+        )
+    return path
 
 
 def _finalize_segmented_run_batch_for_user(
@@ -514,6 +544,12 @@ def run_segmentation_batch(
             seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
 
         pair_geometry_cache = _build_pair_geometry_cache(seg)
+        _write_neck_split_manifest_for_run(
+            os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
+            image_name=f"{dv_name}.dv",
+            pair_geometry_cache=pair_geometry_cache,
+            use_cache=use_cache,
+        )
 
         for frame_idx in range(image_stack.shape[0]):
             _raise_if_cancelled(progress)
@@ -599,7 +635,6 @@ def run_segmentation_batch(
                 max_x = entry.max_x
                 min_y = entry.min_y
                 max_y = entry.max_y
-                local_split = entry.local_split
 
                 outline_path = Path(f"{outputdirectory}{dv_name}-{i}.outline")
                 if not outline_path.exists() or not use_cache:
@@ -610,15 +645,6 @@ def run_segmentation_batch(
                                 csvwriter.writerow([])
                             for point in contour.reshape(-1, 2):
                                 csvwriter.writerow([int(point[1]), int(point[0])])
-
-                if local_split is not None:
-                    neck_split_path = neck_split_sidecar_path(
-                        os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
-                        f"{dv_name}.dv",
-                        i,
-                    )
-                    if not neck_split_path.exists() or not use_cache:
-                        write_neck_split(neck_split_path, local_split)
 
                 cellpair_image = image_outlined[min_x:max_x, min_y:max_y]
                 not_outlined_image = image[min_x:max_x, min_y:max_y]

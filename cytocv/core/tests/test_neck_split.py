@@ -10,12 +10,17 @@ import numpy as np
 from django.test import SimpleTestCase
 
 from core.services.neck_split import (
+    PAIR_GEOMETRY_SCHEMA_VERSION,
     STATUS_OK,
     NeckSplit,
     compute_side_areas,
     detect_neck_split,
+    load_neck_split_from_manifest,
+    manifest_path,
+    read_neck_split_manifest,
     read_neck_split,
     sidecar_path,
+    write_neck_split_manifest,
     write_neck_split,
 )
 
@@ -139,3 +144,65 @@ class SidecarRoundTripTests(SimpleTestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("garbage", encoding="utf-8")
             self.assertIsNone(read_neck_split(path))
+
+
+class ManifestRoundTripTests(SimpleTestCase):
+    def test_write_then_read_manifest_equal(self):
+        pairs = {
+            1: {
+                "status": "ok",
+                "x1": 10,
+                "y1": 20,
+                "x2": 30,
+                "y2": 40,
+                "defect_depth_1": 512,
+                "defect_depth_2": 400,
+                "side_area_large_px": 100,
+                "side_area_small_px": 40,
+            },
+            2: {
+                "status": "no_neck",
+            },
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = manifest_path(temp_dir)
+            write_neck_split_manifest(path, image_name="image.dv", pairs=pairs)
+            loaded = read_neck_split_manifest(path)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(int(loaded["schema_version"]), PAIR_GEOMETRY_SCHEMA_VERSION)
+        self.assertEqual(str(loaded["image_name"]), "image.dv")
+        self.assertEqual(dict(loaded["pairs"]), {"1": pairs[1], "2": pairs[2]})
+
+    def test_load_from_manifest_returns_single_entry(self):
+        expected = {
+            "status": "ok",
+            "x1": 2,
+            "y1": 3,
+            "x2": 8,
+            "y2": 9,
+            "defect_depth_1": 512,
+            "defect_depth_2": 384,
+            "side_area_large_px": 111,
+            "side_area_small_px": 42,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            write_neck_split_manifest(
+                manifest_path(temp_dir),
+                image_name="test.dv",
+                pairs={1: expected},
+            )
+            loaded = load_neck_split_from_manifest(temp_dir, "test.dv", 1)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.to_dict(), NeckSplit.from_dict(expected).to_dict())
+
+    def test_manifest_missing_or_no_neck_returns_none(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.assertIsNone(load_neck_split_from_manifest(temp_dir, "test.dv", 1))
+            write_neck_split_manifest(
+                manifest_path(temp_dir),
+                image_name="test.dv",
+                pairs={1: {"status": "no_neck"}},
+            )
+            self.assertIsNone(load_neck_split_from_manifest(temp_dir, "test.dv", 1))
