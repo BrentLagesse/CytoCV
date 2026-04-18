@@ -38,19 +38,40 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(self.table.value_nucleus_intensity_sum(234.567, record), "234.567")
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "345.678")
 
-    def test_render_gfp_dot_category_uses_choice_label(self):
-        category_table = CellTable([SimpleNamespace(category_cen_dot=1)], intensity_mode="green_nucleus")
+    def test_render_cen_dot_location_uses_schema_aware_choice_label(self):
+        record = SimpleNamespace(
+            category_cen_dot=1,
+            properties={"cen_dot_schema_version": 2},
+        )
+        category_table = CellTable([record], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
 
-        self.assertEqual(row.get_cell("category_cen_dot"), "One green dot with each red dot")
-        self.assertEqual(list(category_table.as_values())[1][-2], "One green dot with each red dot")
+        self.assertEqual(row.get_cell("category_cen_dot"), "Mother and daughter")
+        self.assertEqual(list(category_table.as_values())[1][-2], "Mother and daughter")
 
-    def test_render_gfp_dot_category_falls_back_to_na_for_invalid_values(self):
-        category_table = CellTable([SimpleNamespace(category_cen_dot=999)], intensity_mode="green_nucleus")
+    def test_render_cen_dot_location_falls_back_to_na_for_invalid_values(self):
+        record = SimpleNamespace(
+            category_cen_dot=999,
+            properties={"cen_dot_schema_version": 2},
+        )
+        category_table = CellTable([record], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
 
         self.assertEqual(row.get_cell("category_cen_dot"), "N/A")
         self.assertEqual(list(category_table.as_values())[1][-2], "N/A")
+
+    def test_legacy_rows_render_rerun_required_label_for_non_na_cen_values(self):
+        record = SimpleNamespace(category_cen_dot=1, properties={})
+        category_table = CellTable([record], intensity_mode="green_nucleus")
+        row = list(category_table.rows)[0]
+
+        self.assertEqual(row.get_cell("category_cen_dot"), "Rerun analysis for CEN location")
+
+    def test_cen_dot_location_header_replaces_legacy_category_header(self):
+        header_row = list(self.table.as_values())[0]
+
+        self.assertIn("CEN dot Location", header_row)
+        self.assertNotIn("CEN dot Category", header_row)
 
     def test_ratio_columns_are_present_with_explicit_compatibility_labels(self):
         header_row = list(self.table.as_values())[0]

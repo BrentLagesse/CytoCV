@@ -174,17 +174,26 @@ class Contour(Enum):
     CIRCLE = 2
 
 
-class CategoryCENDot(models.IntegerChoices):
-    """Categories for CEN dot analysis classification."""
+CEN_DOT_SCHEMA_VERSION = 2
+CEN_DOT_LEGACY_RERUN_LABEL = "Rerun analysis for CEN location"
 
-    ONEEACH = 1, "One green dot with each red dot"
-    ONEONE = 2, "One green dot with one red dot"
-    TWOONE = 3, "Two green dots with one red dot"
+
+class CategoryCENDot(models.IntegerChoices):
+    """Mother/daughter CEN dot location classification codes."""
+
+    MOTHER_AND_DAUGHTER = 1, "Mother and daughter"
+    MOTHER_ONLY = 2, "Mother only"
+    DAUGHTER_ONLY = 3, "Daughter only"
     NONE = 4, "N/A"
 
 
-def get_cen_dot_category_label(value: int | None) -> str:
-    """Return the user-facing label for a stored CEN dot category code."""
+def get_cen_dot_category_label(value: int | None, *, schema_version: int | None = None) -> str:
+    """Return the user-facing label for a stored CEN dot category code.
+
+    Schema-aware: rows that predate ``CEN_DOT_SCHEMA_VERSION`` and still carry
+    a non-default CEN value no longer carry a valid mother/daughter meaning, so
+    they surface a rerun-required label instead of being reinterpreted.
+    """
     labels = dict(CategoryCENDot.choices)
     if isinstance(value, str):
         if value in labels.values():
@@ -193,6 +202,20 @@ def get_cen_dot_category_label(value: int | None) -> str:
         category_value = int(value)
     except (TypeError, ValueError):
         return CategoryCENDot.NONE.label
+
+    try:
+        resolved_schema = int(schema_version) if schema_version is not None else None
+    except (TypeError, ValueError):
+        resolved_schema = None
+
+    if resolved_schema is None or resolved_schema < CEN_DOT_SCHEMA_VERSION:
+        if category_value in (
+            CategoryCENDot.MOTHER_AND_DAUGHTER.value,
+            CategoryCENDot.MOTHER_ONLY.value,
+            CategoryCENDot.DAUGHTER_ONLY.value,
+        ):
+            return CEN_DOT_LEGACY_RERUN_LABEL
+
     return labels.get(category_value, CategoryCENDot.NONE.label)
 
 

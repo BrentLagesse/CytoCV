@@ -290,7 +290,8 @@ class AnisotropicDistanceConversionTests(SimpleTestCase):
                 "scale_y_um_per_px": 0.2,
             }
         )
-        self.assertTrue(plugin._is_distance_above_threshold((0, 0), (10, 0), 1.5))
+        meets, _, _ = plugin._distance_meets_threshold((0, 0), (10, 0), 1.5)
+        self.assertTrue(meets)
 
         plugin.cp = SimpleNamespace(
             properties={
@@ -299,7 +300,8 @@ class AnisotropicDistanceConversionTests(SimpleTestCase):
                 "scale_y_um_per_px": 0.1,
             }
         )
-        self.assertFalse(plugin._is_distance_above_threshold((0, 0), (10, 0), 1.5))
+        meets, _, _ = plugin._distance_meets_threshold((0, 0), (10, 0), 1.5)
+        self.assertFalse(meets)
 
 
 class DVScaleMetadataParserTests(SimpleTestCase):

@@ -12,6 +12,7 @@ import numpy as np
 
 from core.services.neck_split import (
     NeckSplit,
+    compute_side_areas,
     load_neck_split_from_manifest,
     read_neck_split,
     sidecar_path,
@@ -23,6 +24,8 @@ CANONICAL_RED_SLOTS_KEY = "canonical_red_slots"
 CANONICAL_GREEN_SLOTS_KEY = "canonical_green_slots"
 CANONICAL_BLUE_SLOTS_KEY = "canonical_blue_slots"
 NECK_SPLIT_KEY = "neck_split"
+MOTHER_MASK_KEY = "mother_mask"
+DAUGHTER_MASK_KEY = "daughter_mask"
 
 
 @dataclass(slots=True)
@@ -179,6 +182,27 @@ def _select_raw_blue_contours(contours_data: dict, shape: tuple[int, int]) -> li
     return []
 
 
+def _derive_side_masks(
+    cell_mask: np.ndarray,
+    split: Optional[NeckSplit],
+) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """Return (mother_mask, daughter_mask) from the DIC pair mask and neck split.
+
+    Mother is the larger side, daughter the smaller side. Returns ``(None, None)``
+    when no split is available or the chord does not cleanly separate the mask.
+    """
+
+    if split is None or cell_mask is None or not np.any(cell_mask):
+        return None, None
+    try:
+        _, smaller_px, larger_mask, smaller_mask = compute_side_areas(cell_mask, split)
+    except ValueError:
+        return None, None
+    if smaller_px <= 0:
+        return None, None
+    return larger_mask, smaller_mask
+
+
 def build_canonical_contour_payload(
     contours_data: dict,
     *,
@@ -194,6 +218,11 @@ def build_canonical_contour_payload(
     payload = dict(contours_data or {})
     cell_mask = load_cell_mask(image_name, cell_id, output_dir, height_width)
     payload[CELL_MASK_KEY] = cell_mask
+    neck_split = load_neck_split(image_name, cell_id, output_dir)
+    payload[NECK_SPLIT_KEY] = neck_split
+    mother_mask, daughter_mask = _derive_side_masks(cell_mask, neck_split)
+    payload[MOTHER_MASK_KEY] = mother_mask
+    payload[DAUGHTER_MASK_KEY] = daughter_mask
     payload[CANONICAL_RED_SLOTS_KEY] = build_canonical_contour_slots(
         payload.get("dot_contours", []),
         cell_mask,
@@ -279,6 +308,27 @@ def get_canonical_blue_slots(
         shape,
         limit=limit,
     )
+
+
+def get_side_masks(
+    contours_data: dict,
+) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """Return the (mother_mask, daughter_mask) pair stored on the payload."""
+
+    mother = contours_data.get(MOTHER_MASK_KEY)
+    daughter = contours_data.get(DAUGHTER_MASK_KEY)
+    if not isinstance(mother, np.ndarray):
+        mother = None
+    if not isinstance(daughter, np.ndarray):
+        daughter = None
+    return mother, daughter
+
+
+def get_neck_split(contours_data: dict) -> Optional[NeckSplit]:
+    """Return the persisted neck split attached to the payload, if any."""
+
+    split = contours_data.get(NECK_SPLIT_KEY)
+    return split if isinstance(split, NeckSplit) else None
 
 
 def flatten_slot_contours(slots: Iterable[CanonicalContourSlot]) -> list[np.ndarray]:

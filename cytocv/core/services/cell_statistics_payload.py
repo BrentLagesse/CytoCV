@@ -123,7 +123,12 @@ def serialize_cell_statistics_payload(
             properties.get("nuclear_cellular_status", "unknown"),
         ),
         "category_cen_dot": cell_stat.category_cen_dot,
-        "category_cen_dot_label": get_cen_dot_category_label(cell_stat.category_cen_dot),
+        "category_cen_dot_label": get_cen_dot_category_label(
+            cell_stat.category_cen_dot,
+            schema_version=properties.get("cen_dot_schema_version"),
+        ),
+        "cen_dot_schema_version": properties.get("cen_dot_schema_version"),
+        "cen_dot_location": properties.get("cen_dot_location"),
         "biorientation": cell_stat.biorientation,
         **build_measurement_contour_ratio_payload(
             cell_stat,

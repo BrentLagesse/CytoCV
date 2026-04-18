@@ -904,6 +904,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 properties={
                     "nuclear_cell_pair_mode": "red_nucleus",
                     "puncta_line_mode": "green_puncta",
+                    "cen_dot_schema_version": 2,
                 },
                 category_cen_dot=1,
             )
@@ -932,7 +933,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
         self.assertContains(
             response,
-            '"category_cen_dot_label": "One green dot with each red dot"',
+            '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
@@ -960,6 +961,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 properties={
                     "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "green_puncta",
+                    "cen_dot_schema_version": 2,
                 },
                 category_cen_dot=1,
             )
@@ -987,7 +989,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
         self.assertContains(
             response,
-            '"category_cen_dot_label": "One green dot with each red dot"',
+            '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
