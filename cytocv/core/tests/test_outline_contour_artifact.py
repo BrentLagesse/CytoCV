@@ -17,6 +17,7 @@ from core.services.segmentation_pipeline import (
     _build_pair_geometry_cache,
     _build_neck_split_manifest_pairs,
     _crop_bounds_for_label_mask,
+    _draw_pair_parentage_labels,
     _draw_pair_geometry_overlay,
     _write_neck_split_manifest_for_run,
 )
@@ -43,6 +44,14 @@ class OutlineContourArtifactTests(SimpleTestCase):
             (image[:, :, 0] < 80)
             & (image[:, :, 1] > 150)
             & (image[:, :, 2] > 150)
+        )
+
+    @staticmethod
+    def _bright_label_mask(image: np.ndarray) -> np.ndarray:
+        return (
+            (image[:, :, 0] > 200)
+            & (image[:, :, 1] > 200)
+            & (image[:, :, 2] > 200)
         )
 
     def test_contour_roundtrip_reconstructs_support_mask(self):
@@ -164,6 +173,28 @@ class OutlineContourArtifactTests(SimpleTestCase):
 
         self.assertGreater(int(np.count_nonzero(self._cyan_like_mask(dic_crop))), 0)
         self.assertEqual(int(np.count_nonzero(self._cyan_like_mask(fluorescence_crop))), 0)
+
+    def test_parentage_labels_are_applied_only_to_dic_like_crop(self):
+        seg = np.zeros((80, 100), dtype=np.int32)
+        binary = np.zeros(seg.shape, dtype=np.uint8)
+        cv2.circle(binary, (38, 40), 18, 255, -1)
+        cv2.circle(binary, (58, 40), 18, 255, -1)
+        seg[binary > 0] = 1
+
+        cache = _build_pair_geometry_cache(seg)
+        entry = cache[1]
+
+        self.assertIsNotNone(entry.local_split)
+        self.assertIsNotNone(entry.mother_label_position)
+        self.assertIsNotNone(entry.daughter_label_position)
+
+        dic_crop = np.zeros((entry.max_x - entry.min_x, entry.max_y - entry.min_y, 3), dtype=np.uint8)
+        fluorescence_crop = np.zeros_like(dic_crop)
+
+        _draw_pair_parentage_labels(dic_crop, entry)
+
+        self.assertGreater(int(np.count_nonzero(self._bright_label_mask(dic_crop))), 0)
+        self.assertEqual(int(np.count_nonzero(self._bright_label_mask(fluorescence_crop))), 0)
 
     def test_neck_split_manifest_writer_persists_one_run_file(self):
         seg = np.zeros((80, 100), dtype=np.int32)

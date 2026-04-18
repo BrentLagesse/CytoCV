@@ -16,7 +16,7 @@ import matplotlib.patheffects as PathEffects
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from cv2_rolling_ball import subtract_background_rolling_ball
 from django.conf import settings
 from django.db import transaction
@@ -80,6 +80,21 @@ from core.views.segment_image import (
 logger = logging.getLogger(__name__)
 CYAN_DEBUG_COLOR = (0, 255, 255)
 PAIR_CROP_MARGIN_PX = 4
+_PARENTAGE_FONT_CANDIDATES = (
+    "C:/Windows/Fonts/segoeui.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+    "DejaVuSans.ttf",
+    "Segoe UI.ttf",
+    "segoeui.ttf",
+    "Arial.ttf",
+    "arial.ttf",
+    "SegoeUI.ttf",
+    "C:/Windows/Fonts/segoeuib.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "DejaVuSans-Bold.ttf",
+)
 
 
 def _process_config_value(
@@ -113,6 +128,8 @@ class PairGeometryCacheEntry:
     full_split: NeckSplit | None = None
     side_area_large_px: int = 0
     side_area_small_px: int = 0
+    mother_label_position: tuple[int, int] | None = None
+    daughter_label_position: tuple[int, int] | None = None
 
 
 def _current_owner_filter_for_user(user) -> dict[str, object]:
@@ -164,6 +181,97 @@ def _crop_bounds_for_label_mask(
     return min_x, max_x, min_y, max_y
 
 
+def _mask_centroid(mask: np.ndarray) -> tuple[int, int] | None:
+    """Return the integer x,y centroid of a binary mask."""
+
+    binary = (mask > 0).astype(np.uint8)
+    if not np.any(binary):
+        return None
+    moments = cv2.moments(binary, binaryImage=True)
+    if moments["m00"] != 0:
+        x = int(round(moments["m10"] / moments["m00"]))
+        y = int(round(moments["m01"] / moments["m00"]))
+        return x, y
+    points = np.column_stack(np.nonzero(binary))
+    if points.size == 0:
+        return None
+    return int(round(float(np.mean(points[:, 1])))), int(round(float(np.mean(points[:, 0]))))
+
+
+def _draw_centered_label(
+    image: np.ndarray,
+    label: str,
+    center: tuple[int, int] | None,
+    *,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+    stroke_color: tuple[int, int, int] = (0, 0, 0),
+    font_size: int = 10,
+    stroke_width: int = 1,
+) -> None:
+    """Draw centered debug text with a smooth stroked font for DIC readability."""
+
+    if image is None or center is None:
+        return
+    height, width = image.shape[:2]
+    if height <= 0 or width <= 0:
+        return
+    pil_image = Image.fromarray(image)
+    draw = ImageDraw.Draw(pil_image)
+    resolved_font_size = max(int(font_size), 8)
+    font = None
+    for candidate in _PARENTAGE_FONT_CANDIDATES:
+        try:
+            font = ImageFont.truetype(candidate, resolved_font_size)
+            break
+        except OSError:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+    x0, y0, x1, y1 = draw.textbbox((0, 0), label, font=font, stroke_width=int(stroke_width))
+    text_width = x1 - x0
+    text_height = y1 - y0
+    x = int(round(center[0] - (text_width / 2.0) - x0))
+    y = int(round(center[1] - (text_height / 2.0) - y0))
+    x = max(0, min(x, max(width - text_width, 0)))
+    y = max(0, min(y, max(height - text_height, 0)))
+    draw.text(
+        (x, y),
+        label,
+        font=font,
+        fill=text_color,
+        stroke_width=int(stroke_width),
+        stroke_fill=stroke_color,
+    )
+    np.copyto(image, np.asarray(pil_image))
+
+
+def _draw_pair_parentage_labels(
+    image: np.ndarray,
+    entry: PairGeometryCacheEntry,
+) -> None:
+    """Draw inferred mother/daughter labels on one DIC crop only."""
+
+    if entry.local_split is None:
+        return
+    label_font_size = max(7, min(image.shape[:2]) // 8)
+    _draw_centered_label(
+        image,
+        "M",
+        entry.mother_label_position,
+        font_size=label_font_size,
+        text_color=(255, 255, 255),
+        stroke_color=(0, 0, 0),
+    )
+    _draw_centered_label(
+        image,
+        "D",
+        entry.daughter_label_position,
+        font_size=label_font_size,
+        text_color=(255, 255, 255),
+        stroke_color=(0, 0, 0),
+    )
+
+
 def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEntry]:
     """Build one shared geometry cache per pair label from the finalized mask."""
 
@@ -191,6 +299,8 @@ def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEn
         full_split = None
         side_area_large_px = 0
         side_area_small_px = 0
+        mother_label_position = None
+        daughter_label_position = None
         if local_contours:
             primary_contour = max(local_contours, key=len)
             try:
@@ -209,10 +319,17 @@ def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEn
                     col_offset=min_y,
                 )
                 try:
-                    side_area_large_px, side_area_small_px, _, _ = compute_side_areas(
+                    (
+                        side_area_large_px,
+                        side_area_small_px,
+                        mother_mask,
+                        daughter_mask,
+                    ) = compute_side_areas(
                         local_mask,
                         local_split,
                     )
+                    mother_label_position = _mask_centroid(mother_mask)
+                    daughter_label_position = _mask_centroid(daughter_mask)
                 except Exception:
                     logger.debug(
                         "Neck-split side-area computation failed for cell %s",
@@ -233,6 +350,8 @@ def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEn
             full_split=full_split,
             side_area_large_px=int(side_area_large_px),
             side_area_small_px=int(side_area_small_px),
+            mother_label_position=mother_label_position,
+            daughter_label_position=daughter_label_position,
         )
     return cache
 
@@ -648,6 +767,8 @@ def run_segmentation_batch(
 
                 cellpair_image = image_outlined[min_x:max_x, min_y:max_y]
                 not_outlined_image = image[min_x:max_x, min_y:max_y]
+                if cached_channel_name == CHANNEL_ROLE_DIC:
+                    _draw_pair_parentage_labels(cellpair_image, entry)
                 if cached_channel_name:
                     cell_image_cache[i][cached_channel_name] = np.array(
                         not_outlined_image,
