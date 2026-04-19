@@ -131,7 +131,7 @@
             min-height: 0;       /* critical for flex children to allow scrolling */
             padding-bottom: 12px;
             margin-bottom: 10px;
-            scrollbar-gutter: auto;
+            scrollbar-gutter: stable;
             scrollbar-width: auto;
             scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
         }
@@ -145,7 +145,7 @@
             margin-right: 12px;
         }
         .sidebar-content.has-scrollbar .file-item {
-            margin-right: 6px;
+            margin-right: 12px;
         }
 
         .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
@@ -844,7 +844,10 @@
         .file-title {
             padding-right: 28px;
             font-weight: 600;
-            word-break: break-word;
+            min-width: 0;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: normal;
         }
         .file-meta {
             color: var(--muted);
