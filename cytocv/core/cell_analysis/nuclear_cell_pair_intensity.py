@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from core.image_processing.dashed_line import draw_dashed_polyline
 from core.services.canonical_contours import (
     get_canonical_green_slots,
     get_canonical_red_slots,
@@ -38,39 +39,18 @@ class NuclearCellPairIntensity(Analysis):
         return None
 
     @staticmethod
-    def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1):
+    def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=2, gap_px=2, thickness=1):
         if image is None or contour is None or len(contour) < 2:
             return
-        dash_px = max(int(dash_px), 1)
-        gap_px = max(int(gap_px), 1)
-        points = contour.reshape(-1, 2).astype(np.float32)
-        if points.shape[0] < 2:
-            return
-        points = np.vstack([points, points[0]])
-        draw_segment = True
-        remaining = float(dash_px)
-        for idx in range(points.shape[0] - 1):
-            start = points[idx]
-            end = points[idx + 1]
-            segment = end - start
-            segment_length = float(np.linalg.norm(segment))
-            if segment_length <= 0:
-                continue
-            direction = segment / segment_length
-            traversed = 0.0
-            while traversed < segment_length:
-                step = min(remaining, segment_length - traversed)
-                seg_start = start + (direction * traversed)
-                seg_end = start + (direction * (traversed + step))
-                if draw_segment:
-                    p1 = tuple(np.round(seg_start).astype(int))
-                    p2 = tuple(np.round(seg_end).astype(int))
-                    cv2.line(image, p1, p2, color, thickness=thickness, lineType=cv2.LINE_AA)
-                traversed += step
-                remaining -= step
-                if remaining <= 1e-6:
-                    draw_segment = not draw_segment
-                    remaining = float(dash_px if draw_segment else gap_px)
+        draw_dashed_polyline(
+            image,
+            contour.reshape(-1, 2),
+            color,
+            closed=True,
+            dash_px=dash_px,
+            gap_px=gap_px,
+            thickness=thickness,
+        )
 
     def calculate_statistics(
         self,
@@ -167,6 +147,6 @@ class NuclearCellPairIntensity(Analysis):
 
         if self._DRAW_NUCLEAR_CONTOUR_OVERLAY:
             if red_image is not None:
-                self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
+                self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=2, gap_px=2, thickness=1)
             if green_image is not None:
-                self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=6, gap_px=4, thickness=1)
+                self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=2, gap_px=2, thickness=1)

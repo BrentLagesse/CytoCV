@@ -22,6 +22,7 @@ from core.cell_analysis import Analysis
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
 from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
+from core.services.neck_split import NeckSplit, sidecar_path, write_neck_split
 from core.services.overlay_rendering import (
     build_legacy_debug_image_path,
     build_overlay_render_config,
@@ -176,6 +177,22 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         write_overlay_render_config(uuid_value, render_config)
         return render_config
+
+    @staticmethod
+    def _write_neck_split_sidecar(
+        media_root: Path,
+        uuid_value: str,
+        image_stem: str,
+        *,
+        cell_id: int = 1,
+        split: NeckSplit | None = None,
+    ) -> Path:
+        target = sidecar_path(media_root / uuid_value, f"{image_stem}.dv", cell_id)
+        write_neck_split(
+            target,
+            split or NeckSplit(x1=0, y1=0, x2=5, y2=5),
+        )
+        return target
 
     @staticmethod
     def _create_cell_stats(
@@ -582,6 +599,39 @@ class RouteSurfaceRefactorTests(TestCase):
                 overlay_cache_image_path(uuid_value, 1, "green").exists()
             )
 
+    def test_overlay_endpoint_ignores_neck_split_sidecar_for_fluorescence_channels(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="overlay-neck")
+            segmented = self._create_segmented_image(uuid_value, name="overlay-neck")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "overlay-neck")
+            self._create_cell_stats(segmented, "overlay-neck")
+            self._write_overlay_config(uuid_value, "overlay-neck")
+            self._write_neck_split_sidecar(media_root, uuid_value, "overlay-neck")
+
+            response = self.client.get(
+                reverse("cell_overlay_image", args=[uuid_value, 1, "green"])
+            )
+            payload = b"".join(response.streaming_content)
+            response.close()
+
+        self.assertEqual(response.status_code, 200)
+        rendered = np.array(Image.open(BytesIO(payload)))
+        cyan_like = (
+            (rendered[:, :, 0] < 100)
+            & (rendered[:, :, 1] > 150)
+            & (rendered[:, :, 2] > 150)
+        )
+        self.assertEqual(int(np.count_nonzero(cyan_like)), 0)
+
+    def test_overlay_cache_path_uses_schema_v2_directory(self):
+        uuid_value = str(uuid4())
+        cache_path = overlay_cache_image_path(uuid_value, 1, "green")
+        self.assertIn("overlay-cache-v2", str(cache_path))
+
     def test_overlay_endpoint_returns_404_for_unauthorized_user(self):
         other_user = get_user_model().objects.create_user(
             email="overlay-other@example.com",
@@ -854,6 +904,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 properties={
                     "nuclear_cell_pair_mode": "red_nucleus",
                     "puncta_line_mode": "green_puncta",
+                    "cen_dot_schema_version": 2,
                 },
                 category_cen_dot=1,
             )
@@ -882,7 +933,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
         self.assertContains(
             response,
-            '"category_cen_dot_label": "One green dot with each red dot"',
+            '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
@@ -910,6 +961,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 properties={
                     "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "green_puncta",
+                    "cen_dot_schema_version": 2,
                 },
                 category_cen_dot=1,
             )
@@ -937,7 +989,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
         self.assertContains(
             response,
-            '"category_cen_dot_label": "One green dot with each red dot"',
+            '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
@@ -1023,4 +1075,3 @@ class PluginMappingRegressionTests(TestCase):
             [instance.__class__.__name__ for instance in plan.analyses],
             ["NuclearCellPairIntensity"],
         )
-

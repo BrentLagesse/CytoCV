@@ -5,9 +5,15 @@
 __pycache__/
 db.sqlite3
 media/
-cytocv_venv/
 cyto_cv/
 .cytocv-local-install/
+
+# Local Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+cytocv_venv*/
 
 # Neural network
 deepretina_final.h5

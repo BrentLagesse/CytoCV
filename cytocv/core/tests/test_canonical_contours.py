@@ -10,10 +10,16 @@ from core.services.canonical_contours import (
     CANONICAL_GREEN_SLOTS_KEY,
     CANONICAL_RED_SLOTS_KEY,
     CELL_MASK_KEY,
+    DAUGHTER_MASK_KEY,
+    MOTHER_MASK_KEY,
+    NECK_SPLIT_KEY,
     build_canonical_contour_payload,
     build_canonical_contour_slots,
     get_canonical_blue_slots,
+    load_neck_split,
 )
+from core.services.neck_split import NeckSplit, sidecar_path, write_neck_split
+from core.services.neck_split import manifest_path, write_neck_split_manifest
 
 
 class CanonicalContourHelpersTests(SimpleTestCase):
@@ -159,3 +165,106 @@ class CanonicalContourHelpersTests(SimpleTestCase):
         slots = get_canonical_blue_slots(contours_data, shape)
 
         self.assertEqual(slots, [])
+
+    def test_load_neck_split_prefers_manifest(self):
+        expected = {
+            "status": "ok",
+            "x1": 2,
+            "y1": 3,
+            "x2": 8,
+            "y2": 9,
+            "defect_depth_1": 512,
+            "defect_depth_2": 384,
+            "side_area_large_px": 120,
+            "side_area_small_px": 50,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            write_neck_split_manifest(
+                manifest_path(temp_dir),
+                image_name="test.dv",
+                pairs={1: expected},
+            )
+            loaded = load_neck_split("test.dv", 1, temp_dir)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.to_dict(), NeckSplit.from_dict(expected).to_dict())
+
+    def test_load_neck_split_falls_back_to_legacy_sidecar(self):
+        expected = NeckSplit(x1=2, y1=3, x2=8, y2=9, defect_depth_1=512, defect_depth_2=384)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            write_neck_split(sidecar_path(temp_dir, "test.dv", 1), expected)
+            loaded = load_neck_split("test.dv", 1, temp_dir)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.to_dict(), expected.to_dict())
+
+    def test_build_canonical_contour_payload_attaches_mother_and_daughter_masks(self):
+        """Mother/daughter masks derive from the persisted neck split and DIC mask."""
+
+        shape = (30, 30)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            # Pair outline: tall rectangle covering y=2..27, x=10..19.
+            outline_path = output_dir / "test-1.outline"
+            with outline_path.open("w", encoding="utf-8") as handle:
+                for vy, vx in ((2, 10), (2, 19), (27, 19), (27, 10)):
+                    handle.write(f"{vy},{vx}\n")
+            # Horizontal neck split dividing the rectangle just below the middle
+            # so the top half is strictly larger.
+            write_neck_split(
+                sidecar_path(temp_dir, "test.dv", 1),
+                NeckSplit(x1=10, y1=17, x2=19, y2=17, status="ok"),
+            )
+
+            payload = build_canonical_contour_payload(
+                {"dot_contours": [], "contours_green": []},
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=temp_dir,
+                shape=shape,
+            )
+
+        mother = payload[MOTHER_MASK_KEY]
+        daughter = payload[DAUGHTER_MASK_KEY]
+        cell = payload[CELL_MASK_KEY]
+        self.assertIsNotNone(mother)
+        self.assertIsNotNone(daughter)
+        self.assertEqual(mother.shape, shape)
+        self.assertEqual(daughter.shape, shape)
+        # Larger side (mother) is the top half; smaller side (daughter) is below.
+        self.assertGreater(int(np.count_nonzero(mother)), int(np.count_nonzero(daughter)))
+        # The masks must be disjoint and both live inside the cell mask.
+        overlap = cv2.bitwise_and(mother, daughter)
+        self.assertEqual(int(np.count_nonzero(overlap)), 0)
+        self.assertEqual(int(np.count_nonzero(cv2.bitwise_and(mother, cv2.bitwise_not(cell)))), 0)
+        self.assertEqual(int(np.count_nonzero(cv2.bitwise_and(daughter, cv2.bitwise_not(cell)))), 0)
+        # Mother is above the neck chord, daughter below.
+        self.assertGreater(int(np.count_nonzero(mother[5, 10:20])), 0)
+        self.assertEqual(int(np.count_nonzero(mother[25, 10:20])), 0)
+        self.assertGreater(int(np.count_nonzero(daughter[25, 10:20])), 0)
+        self.assertEqual(int(np.count_nonzero(daughter[5, 10:20])), 0)
+        # Payload also exposes the NeckSplit for downstream consumers.
+        self.assertIsNotNone(payload[NECK_SPLIT_KEY])
+
+    def test_build_canonical_contour_payload_yields_none_side_masks_without_neck_split(self):
+        shape = (20, 20)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            outline_path = output_dir / "test-1.outline"
+            with outline_path.open("w", encoding="utf-8") as handle:
+                for vy, vx in ((2, 2), (2, 17), (17, 17), (17, 2)):
+                    handle.write(f"{vy},{vx}\n")
+
+            payload = build_canonical_contour_payload(
+                {"dot_contours": [], "contours_green": []},
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=temp_dir,
+                shape=shape,
+            )
+
+        self.assertIsNone(payload[MOTHER_MASK_KEY])
+        self.assertIsNone(payload[DAUGHTER_MASK_KEY])
+        self.assertIsNone(payload[NECK_SPLIT_KEY])

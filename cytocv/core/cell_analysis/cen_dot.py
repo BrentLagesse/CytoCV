@@ -1,16 +1,34 @@
 import logging
 import math
+
+import cv2
 import numpy as np
 
 from core.services.canonical_contours import (
+    CanonicalContourSlot,
     get_canonical_green_slots,
     get_canonical_red_slots,
+    get_neck_split,
+    get_side_masks,
 )
 from core.scale import convert_pixel_delta_to_microns, normalize_length_unit
 
 from .analysis import Analysis
 
 logger = logging.getLogger(__name__)
+
+
+CEN_DOT_SCHEMA_VERSION = 2
+
+_CATEGORY_BOTH = 1
+_CATEGORY_MOTHER_ONLY = 2
+_CATEGORY_DAUGHTER_ONLY = 3
+_CATEGORY_NA = 4
+
+_SIDE_MOTHER = "mother"
+_SIDE_DAUGHTER = "daughter"
+
+_MAX_RED_SLOTS_FOR_CLASSIFICATION = 3
 
 
 class CENDot(Analysis):
@@ -39,7 +57,7 @@ class CENDot(Analysis):
             )
         return float(math.dist(center_1, center_2))
 
-    def _is_distance_above_threshold(self, center_1, center_2, threshold_value) -> bool:
+    def _distance_meets_threshold(self, center_1, center_2, threshold_value) -> tuple[bool, float, float]:
         threshold_unit = self._get_distance_threshold_unit()
         distance = self._distance_between_centers(
             center_1,
@@ -50,7 +68,7 @@ class CENDot(Analysis):
             threshold = float(threshold_value)
         except (TypeError, ValueError):
             threshold = 0.0
-        return distance > threshold
+        return distance >= threshold, distance, threshold
 
     def point_is_between(self, point, endpoint1, endpoint2, eps):
         point = np.array(point)
@@ -64,9 +82,6 @@ class CENDot(Analysis):
         dot = (point[0] - endpoint1[0]) * (endpoint2[0] - endpoint1[0]) + (point[1] - endpoint1[1]) * (endpoint2[1] - endpoint1[1])
         squared_dist = math.dist(endpoint1, endpoint2) * math.dist(endpoint1, endpoint2)
         return not (dot < 0 or dot > squared_dist)
-
-    def is_close(self, green_center_1, green_center_2):
-        return math.dist(green_center_1, green_center_2) <= 8
 
     def _get_proximity_radius_unit(self) -> str:
         properties = getattr(self.cp, "properties", {}) or {}
@@ -89,6 +104,62 @@ class CENDot(Analysis):
             return proximity_radius / um_per_px
         return proximity_radius
 
+    @staticmethod
+    def _deduplicate_slots(
+        slots: list[CanonicalContourSlot],
+        min_center_distance: float = 8.0,
+    ) -> list[CanonicalContourSlot]:
+        """Drop slots whose center lies within ``min_center_distance`` of a kept slot."""
+
+        kept: list[CanonicalContourSlot] = []
+        for slot in slots:
+            keep = True
+            for existing in kept:
+                if math.dist(slot.center, existing.center) <= min_center_distance:
+                    keep = False
+                    break
+            if keep:
+                kept.append(slot)
+        return kept
+
+    @staticmethod
+    def _assign_slot_side(
+        slot: CanonicalContourSlot,
+        mother_mask: np.ndarray | None,
+        daughter_mask: np.ndarray | None,
+    ) -> str | None:
+        """Return ``mother``/``daughter`` based on which side mask overlaps most."""
+
+        if mother_mask is None or daughter_mask is None:
+            return None
+        slot_mask = slot.mask
+        if slot_mask is None or not np.any(slot_mask):
+            return None
+        mother_overlap = int(np.count_nonzero(cv2.bitwise_and(slot_mask, mother_mask)))
+        daughter_overlap = int(np.count_nonzero(cv2.bitwise_and(slot_mask, daughter_mask)))
+        if mother_overlap == 0 and daughter_overlap == 0:
+            return None
+        return _SIDE_MOTHER if mother_overlap >= daughter_overlap else _SIDE_DAUGHTER
+
+    @staticmethod
+    def _green_slot_inside_pair_mask(
+        slot: CanonicalContourSlot,
+        cell_mask: np.ndarray | None,
+    ) -> bool:
+        """Require a non-empty green footprint inside the DIC pair mask."""
+
+        if cell_mask is None or slot.mask is None:
+            return False
+        clipped = cv2.bitwise_and(slot.mask, cell_mask)
+        return bool(np.any(clipped))
+
+    @staticmethod
+    def _set_location_properties(cp, payload: dict) -> None:
+        properties = dict(getattr(cp, "properties", {}) or {})
+        properties["cen_dot_schema_version"] = CEN_DOT_SCHEMA_VERSION
+        properties["cen_dot_location"] = payload
+        cp.properties = properties
+
     def calculate_statistics(
         self,
         best_contours,
@@ -102,6 +173,7 @@ class CENDot(Analysis):
     ):
         prox_radius = self._proximity_radius_in_pixels(cen_dot_proximity_radius)
         cen_dot_distance = cen_dot_distance if (cen_dot_distance >= 0) else 37
+
         red_shape = None
         green_shape = None
         red_gray = self.preprocessed_images.get_image("gray_red")
@@ -113,53 +185,71 @@ class CENDot(Analysis):
         if red_shape is None and green_shape is None:
             return
         base_shape = red_shape or green_shape
-        red_slots = get_canonical_red_slots(contours_data, base_shape, limit=2)
-        if len(red_slots) <= 1:
-            return
-        green_slots = get_canonical_green_slots(contours_data, green_shape or base_shape)
+
+        cell_mask = contours_data.get("cell_mask")
+        mother_mask, daughter_mask = get_side_masks(contours_data)
+        neck_split = get_neck_split(contours_data)
+        threshold_unit = self._get_distance_threshold_unit()
+        proximity_unit = self._get_proximity_radius_unit()
+
+        def _finalize(category: int, status: str, extra: dict | None = None) -> None:
+            payload: dict = {
+                "status": status,
+                "category": int(category),
+                "threshold_unit": threshold_unit,
+                "proximity_unit": proximity_unit,
+                "proximity_radius_value": float(cen_dot_proximity_radius),
+                "proximity_radius_px": float(prox_radius),
+                "red_distance_threshold": float(cen_dot_distance),
+                "has_neck_split": neck_split is not None and mother_mask is not None,
+            }
+            if extra:
+                payload.update(extra)
+            self.cp.category_cen_dot = int(category)
+            self._set_location_properties(self.cp, payload)
 
         try:
-            centers = [red_slots[0].center, red_slots[1].center]
-            green_centers = {index: slot.center for index, slot in enumerate(green_slots)}
+            raw_red_slots = get_canonical_red_slots(
+                contours_data,
+                base_shape,
+                limit=_MAX_RED_SLOTS_FOR_CLASSIFICATION,
+            )
+            red_slots = self._deduplicate_slots(raw_red_slots)
 
-            if not green_centers:
-                self.cp.category_cen_dot = 4
+            raw_green_slots = get_canonical_green_slots(
+                contours_data,
+                green_shape or base_shape,
+                limit=_MAX_RED_SLOTS_FOR_CLASSIFICATION,
+            )
+            green_slots = self._deduplicate_slots(raw_green_slots)
+
+            red_count = len(red_slots)
+            if red_count != 2:
                 self.cp.biorientation = 0
+                reason = "too_few_reds" if red_count < 2 else "too_many_reds"
+                _finalize(
+                    _CATEGORY_NA,
+                    reason,
+                    {"usable_red_count": int(red_count)},
+                )
                 return
 
-            filtered_centers = {0: green_centers[0]}
-            if len(green_centers) > 1:
-                for i in range(1, len(green_centers)):
-                    close = False
-                    for j in range(len(filtered_centers)):
-                        if self.is_close(filtered_centers[j], green_centers[i]):
-                            close = True
-                    if not close:
-                        filtered_centers[i] = green_centers[i]
-            green_centers = filtered_centers
+            center_1 = red_slots[0].center
+            center_2 = red_slots[1].center
+            meets_threshold, distance, threshold = self._distance_meets_threshold(
+                center_1,
+                center_2,
+                cen_dot_distance,
+            )
 
-            if self._is_distance_above_threshold(centers[0], centers[1], cen_dot_distance):
-                num_signals = [0] * len(centers)
-                for i in range(len(centers)):
-                    for green_center in green_centers.values():
-                        if math.dist(centers[i], green_center) <= prox_radius:
-                            num_signals[i] += 1
-
-                if num_signals[0] >= 1 and num_signals[1] >= 1:
-                    self.cp.category_cen_dot = 1
-                elif (num_signals[0] == 1 and num_signals[1] == 0) or (num_signals[0] == 0 and num_signals[1] == 1):
-                    self.cp.category_cen_dot = 2
-                elif (num_signals[0] == 2 and num_signals[1] == 0) or (num_signals[0] == 0 and num_signals[1] == 2):
-                    self.cp.category_cen_dot = 3
-                else:
-                    self.cp.category_cen_dot = 4
-            else:
+            if not meets_threshold:
+                # Biorientation path: close reds preserve the legacy calculation.
                 num_between = 0
-                for green_center in green_centers.values():
+                for green_slot in green_slots:
                     if self.point_is_between(
-                        green_center,
-                        centers[0],
-                        centers[1],
+                        green_slot.center,
+                        center_1,
+                        center_2,
                         cen_dot_collinearity_threshold,
                     ):
                         num_between += 1
@@ -170,8 +260,122 @@ class CENDot(Analysis):
                     self.cp.biorientation = 2
                 else:
                     self.cp.biorientation = 0
+
+                _finalize(
+                    _CATEGORY_NA,
+                    "reds_below_threshold",
+                    {
+                        "red_distance": float(distance),
+                        "red_distance_threshold_effective": float(threshold),
+                        "biorientation_between_count": int(num_between),
+                    },
+                )
+                return
+
+            self.cp.biorientation = 0
+
+            if mother_mask is None or daughter_mask is None or neck_split is None:
+                _finalize(
+                    _CATEGORY_NA,
+                    "missing_neck_split",
+                    {"red_distance": float(distance)},
+                )
+                return
+
+            side_by_red_index: dict[int, str] = {}
+            for index, slot in enumerate(red_slots[:2]):
+                side = self._assign_slot_side(slot, mother_mask, daughter_mask)
+                if side is not None:
+                    side_by_red_index[index] = side
+
+            if len(side_by_red_index) != 2:
+                _finalize(
+                    _CATEGORY_NA,
+                    "red_side_unassigned",
+                    {"red_distance": float(distance)},
+                )
+                return
+
+            if side_by_red_index[0] == side_by_red_index[1]:
+                _finalize(
+                    _CATEGORY_NA,
+                    "reds_same_side",
+                    {
+                        "red_distance": float(distance),
+                        "red_sides": [side_by_red_index[0], side_by_red_index[1]],
+                    },
+                )
+                return
+
+            mother_red_index = next(
+                idx for idx, side in side_by_red_index.items() if side == _SIDE_MOTHER
+            )
+            daughter_red_index = next(
+                idx for idx, side in side_by_red_index.items() if side == _SIDE_DAUGHTER
+            )
+            mother_red_center = red_slots[mother_red_index].center
+            daughter_red_center = red_slots[daughter_red_index].center
+
+            mother_green_centers: list[tuple[float, float]] = []
+            daughter_green_centers: list[tuple[float, float]] = []
+            for green_slot in green_slots:
+                if not self._green_slot_inside_pair_mask(green_slot, cell_mask):
+                    continue
+                side = self._assign_slot_side(green_slot, mother_mask, daughter_mask)
+                if side is None:
+                    continue
+                if side == _SIDE_MOTHER:
+                    if math.dist(mother_red_center, green_slot.center) <= prox_radius:
+                        mother_green_centers.append(green_slot.center)
+                else:
+                    if math.dist(daughter_red_center, green_slot.center) <= prox_radius:
+                        daughter_green_centers.append(green_slot.center)
+
+            has_mother = bool(mother_green_centers)
+            has_daughter = bool(daughter_green_centers)
+
+            if has_mother and has_daughter:
+                category = _CATEGORY_BOTH
+                status = "mother_and_daughter"
+            elif has_mother:
+                category = _CATEGORY_MOTHER_ONLY
+                status = "mother_only"
+            elif has_daughter:
+                category = _CATEGORY_DAUGHTER_ONLY
+                status = "daughter_only"
+            else:
+                category = _CATEGORY_NA
+                status = "no_valid_green"
+
+            _finalize(
+                category,
+                status,
+                {
+                    "red_distance": float(distance),
+                    "red_distance_threshold_effective": float(threshold),
+                    "mother_red_center": [float(mother_red_center[0]), float(mother_red_center[1])],
+                    "daughter_red_center": [float(daughter_red_center[0]), float(daughter_red_center[1])],
+                    "mother_green_centers": [
+                        [float(c[0]), float(c[1])] for c in mother_green_centers
+                    ],
+                    "daughter_green_centers": [
+                        [float(c[0]), float(c[1])] for c in daughter_green_centers
+                    ],
+                    "green_in_mother": has_mother,
+                    "green_in_daughter": has_daughter,
+                },
+            )
         except Exception as exc:
             logger.debug("CENDot analysis skipped due to contour error: %s", exc)
-            self.cp.category_cen_dot = 4
+            self.cp.category_cen_dot = _CATEGORY_NA
             self.cp.biorientation = 0
-            return
+            self._set_location_properties(
+                self.cp,
+                {
+                    "status": "error",
+                    "category": int(_CATEGORY_NA),
+                    "threshold_unit": threshold_unit,
+                    "proximity_unit": proximity_unit,
+                    "error": str(exc),
+                },
+            )

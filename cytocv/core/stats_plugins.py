@@ -94,12 +94,16 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     ),
     "CENDot": StatsPluginDefinition(
         plugin_id="CENDot",
-        label="CEN dot Classification",
+        label="CEN dot Location",
         description=(
-            "Classifies CEN-dot category and biorientation relative to paired red puncta. "
-            "Minimum signal distance sets the threshold between the two red signals for "
-            "category vs. biorientation mode. Signal proximity radius controls how close "
-            "a green signal must be to a red signal to count as co-localized."
+            "Classifies CEN-dot location as mother and/or daughter and evaluates "
+            "biorientation for close red pairs. Requires exactly two usable red puncta "
+            "on opposite sides of the DIC-derived neck split; green puncta only count "
+            "when they lie inside the DIC pair mask, on the same side as the red punctum "
+            "being tested, and within the signal proximity radius. When the red-to-red "
+            "distance meets the minimum threshold, mother/daughter location is reported; "
+            "below threshold, the biorientation calculation runs instead and the location "
+            "stays N/A. Legacy runs must be rerun to surface the new mother/daughter label."
         ),
         module_name="core.cell_analysis.cen_dot",
         class_name="CENDot",

@@ -42,11 +42,16 @@ class NumberColumn(tables.Column):
 class ChoiceLabelColumn(tables.Column):
     """Render stored choice codes using their human-readable labels."""
 
-    def render(self, value: int) -> str:
-        return get_cen_dot_category_label(value)
+    @staticmethod
+    def _schema_version(record) -> int | None:
+        properties = getattr(record, "properties", {}) or {}
+        return properties.get("cen_dot_schema_version")
 
-    def value(self, value: int) -> str:
-        return self.render(value)
+    def render(self, value: int, record=None) -> str:
+        return get_cen_dot_category_label(value, schema_version=self._schema_version(record))
+
+    def value(self, value: int, record=None) -> str:
+        return self.render(value, record=record)
 
 
 class CellTable(tables.Table):
@@ -107,7 +112,7 @@ class CellTable(tables.Table):
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
-    category_cen_dot = ChoiceLabelColumn(verbose_name="CEN dot Category")
+    category_cen_dot = ChoiceLabelColumn(verbose_name="CEN dot Location")
     biorientation = tables.Column(verbose_name="Biorientation")
 
     class Meta:
