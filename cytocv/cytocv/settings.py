@@ -415,6 +415,11 @@ SOCIALACCOUNT_LOGIN_ON_GET = False
 # Static files
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+PUBLIC_BASE_URL = (_get_env(
+    "CYTOCV_PUBLIC_BASE_URL",
+    "",
+    prefer_env_file=True,
+) or "").strip().rstrip("/")
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -454,16 +459,28 @@ _default_from_email = (_get_env(
     "",
     prefer_env_file=True,
 ) or "").strip()
-DEFAULT_FROM_EMAIL = _default_from_email or EMAIL_HOST_USER
-EMAIL_REPLY_TO = ((_get_env(
+_support_email_raw = (_get_env(
+    "CYTOCV_SUPPORT_EMAIL",
+    "",
+    prefer_env_file=True,
+) or "").strip()
+DEFAULT_FROM_EMAIL = _default_from_email or _support_email_raw or EMAIL_HOST_USER
+_email_reply_to_raw = (_get_env(
     "CYTOCV_EMAIL_REPLY_TO",
     "",
     prefer_env_file=True,
-) or "").strip()) or DEFAULT_FROM_EMAIL
+) or "").strip()
+EMAIL_REPLY_TO = _email_reply_to_raw or _support_email_raw or DEFAULT_FROM_EMAIL
+SUPPORT_EMAIL = _support_email_raw or EMAIL_REPLY_TO
+AUTH_EMAIL_FROM = (_get_env(
+    "CYTOCV_AUTH_EMAIL_FROM",
+    "",
+    prefer_env_file=True,
+) or "").strip() or DEFAULT_FROM_EMAIL
 
-if ACCOUNT_EMAIL_VERIFICATION != "none" and not DEFAULT_FROM_EMAIL:
+if ACCOUNT_EMAIL_VERIFICATION != "none" and not AUTH_EMAIL_FROM:
     raise ImproperlyConfigured(
-        "Configure CYTOCV_DEFAULT_FROM_EMAIL or CYTOCV_EMAIL_HOST_USER "
+        "Configure CYTOCV_AUTH_EMAIL_FROM, CYTOCV_SUPPORT_EMAIL, CYTOCV_DEFAULT_FROM_EMAIL, or CYTOCV_EMAIL_HOST_USER "
         "when email verification is enabled."
     )
 

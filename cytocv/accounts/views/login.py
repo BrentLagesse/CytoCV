@@ -5,13 +5,14 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import timedelta
+from email.utils import parseaddr
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from django.core.validators import EmailValidator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
@@ -19,6 +20,12 @@ from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from accounts.email_content import (
+    AuthEmailContent,
+    attach_auth_email_logo,
+    build_auth_email_logo_src,
+    build_password_recovery_email,
+)
 from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import (
     build_rate_limit_keys,
@@ -101,14 +108,20 @@ def _recovery_resend_wait_seconds(request: HttpRequest) -> int:
 def _recovery_sender_email() -> str:
     """Return the sender address used for password recovery emails."""
     return (
-        (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+        (getattr(settings, "AUTH_EMAIL_FROM", "") or "").strip()
+        or (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
         or (getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
     )
 
 
+def _recovery_sender_display_email() -> str:
+    """Return the plain address shown in the recovery UI."""
+    return parseaddr(_recovery_sender_email())[1] or _recovery_sender_email()
+
+
 def _recovery_reply_to_list() -> list[str] | None:
     """Return a normalized reply-to list for recovery emails."""
-    reply_to = (getattr(settings, "EMAIL_REPLY_TO", "") or "").strip()
+    reply_to = _recovery_sender_email()
     return [reply_to] if reply_to else None
 
 
@@ -164,20 +177,37 @@ def _build_recovery_email(
     code: str,
     minutes_valid: int,
     recipient_name: str | None = None,
-) -> tuple[str, str]:
+    logo_url: str = "",
+    sender_email: str = "",
+) -> AuthEmailContent:
     """Build the password recovery email subject/body pair."""
-    safe_name = (recipient_name or "").strip()
-    greeting = f"Hello {safe_name},\n\n" if safe_name else "Hello,\n\n"
-    subject = f"CytoCV password reset verification code: {code}"
-    body = greeting + (
-        f"Your password reset verification code is: {code}\n\n"
-        f"The verification code is valid for {minutes_valid} minutes. "
-        "Please complete password recovery as soon as possible.\n\n"
-        "If you did not request this change, you can ignore this email.\n\n"
-        "Kind regards,\n"
-        "CytoCV Team"
+    return build_password_recovery_email(
+        code=code,
+        minutes_valid=minutes_valid,
+        recipient_name=recipient_name,
+        logo_url=logo_url,
+        sender_email=sender_email,
     )
-    return subject, body
+
+
+def _send_recovery_email(
+    *,
+    email_content: AuthEmailContent,
+    from_email: str,
+    recipient: str,
+    reply_to: list[str] | None,
+) -> None:
+    """Send a multipart password recovery email."""
+    message = EmailMultiAlternatives(
+        email_content.subject,
+        email_content.text_body,
+        from_email,
+        [recipient],
+        reply_to=reply_to,
+    )
+    message.attach_alternative(email_content.html_body, "text/html")
+    attach_auth_email_logo(message)
+    message.send(fail_silently=False)
 
 
 def _render_recovery(
@@ -287,7 +317,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
     code_verified = bool(session.get("recovery_code_verified", False))
     code_locked = bool(session.get("recovery_verify_code_locked", False))
     resend_available_in = _recovery_resend_wait_seconds(request)
-    sender_email = _recovery_sender_email()
+    sender_email = _recovery_sender_display_email()
     if code_locked:
         values["verify_code"] = ""
 
@@ -329,22 +359,22 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             .first()
             or ""
         )
-        subject, message = _build_recovery_email(
+        from_email = _recovery_sender_email()
+        email_content = build_password_recovery_email(
             code=code,
             minutes_valid=RECOVERY_CODE_TTL_SECONDS // 60,
             recipient_name=recipient_name,
+            logo_url=build_auth_email_logo_src(request),
+            sender_email=from_email,
         )
-        from_email = _recovery_sender_email()
         reply_to_list = _recovery_reply_to_list()
         try:
-            email_message = EmailMessage(
-                subject,
-                message,
-                from_email,
-                [email],
+            _send_recovery_email(
+                email_content=email_content,
+                from_email=from_email,
+                recipient=email,
                 reply_to=reply_to_list,
             )
-            email_message.send(fail_silently=False)
             return True
         except Exception:
             logger.exception("Failed to send password recovery verification email.")

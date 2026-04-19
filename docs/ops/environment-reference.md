@@ -224,15 +224,40 @@ This document is the authoritative reference for environment variables consumed 
 
 - Required: no
 - Type: string
-- Default: empty, then falls back to `CYTOCV_EMAIL_HOST_USER`
-- Effect: default sender
+- Default: empty, then falls back to `CYTOCV_SUPPORT_EMAIL`, then `CYTOCV_EMAIL_HOST_USER`
+- Effect: general Django default sender for non-auth emails
+- Notes: legacy/general fallback; normal CytoCV deployments should usually set only `CYTOCV_SUPPORT_EMAIL` and `CYTOCV_AUTH_EMAIL_FROM`
 
 ### `CYTOCV_EMAIL_REPLY_TO`
 
 - Required: no
 - Type: string
+- Default: empty, then falls back to `CYTOCV_SUPPORT_EMAIL`, then `CYTOCV_DEFAULT_FROM_EMAIL`
+- Effect: general Django reply-to address for non-auth emails
+- Notes: legacy/general fallback; verification and password-reset emails intentionally use `CYTOCV_AUTH_EMAIL_FROM` as their reply-to address
+
+### `CYTOCV_SUPPORT_EMAIL`
+
+- Required: no
+- Type: string
+- Default: empty, then falls back to `CYTOCV_EMAIL_REPLY_TO`
+- Effect: public CytoCV support contact available for future support pages and fallback sender behavior
+- Example: `cytocv@uw.edu`
+
+### `CYTOCV_AUTH_EMAIL_FROM`
+
+- Required: no
+- Type: string
 - Default: empty, then falls back to `CYTOCV_DEFAULT_FROM_EMAIL`
-- Effect: reply-to address
+- Effect: sender used for account verification and password recovery emails
+- Notes: may include a display name, for example `"CytoCV<cytocv-noreply@uw.edu>"`, if the SMTP relay is authorized to send as that address. The signup and password-recovery UI displays only the parsed email address.
+
+### `CYTOCV_PUBLIC_BASE_URL`
+
+- Required: no
+- Type: URL
+- Default: empty
+- Effect: public absolute base URL used when account emails need absolute static asset links, such as the UWB STEM logo
 
 ## Storage Quota Settings
 
@@ -375,4 +400,3 @@ Startup fails when:
 - [`deployment-guide.md`](deployment-guide.md)
 - [`postgres-setup.md`](postgres-setup.md)
 - [`security-and-privacy.md`](security-and-privacy.md)
-

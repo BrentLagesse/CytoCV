@@ -5,12 +5,13 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import timedelta
+from email.utils import parseaddr
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from django.core.validators import EmailValidator
 from django.db import IntegrityError
 from django.http import HttpRequest, HttpResponse
@@ -18,6 +19,12 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 
+from accounts.email_content import (
+    AuthEmailContent,
+    attach_auth_email_logo,
+    build_auth_email_logo_src,
+    build_signup_verification_email,
+)
 from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import get_client_ip
 
@@ -172,14 +179,20 @@ def _resend_wait_seconds(request: HttpRequest) -> int:
 def _sender_email() -> str:
     """Return the from address used for verification emails."""
     return (
-        (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+        (getattr(settings, "AUTH_EMAIL_FROM", "") or "").strip()
+        or (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
         or (getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
     )
 
 
+def _sender_display_email() -> str:
+    """Return the plain address shown in the signup UI."""
+    return parseaddr(_sender_email())[1] or _sender_email()
+
+
 def _reply_to_list() -> list[str] | None:
     """Return a normalized reply-to list for outbound auth emails."""
-    reply_to = (getattr(settings, "EMAIL_REPLY_TO", "") or "").strip()
+    reply_to = _sender_email()
     return [reply_to] if reply_to else None
 
 
@@ -231,7 +244,9 @@ def _build_verification_email(
     minutes_valid: int,
     subject_prefix: str,
     recipient_name: str | None = None,
-) -> tuple[str, str]:
+    logo_url: str = "",
+    sender_email: str = "",
+) -> AuthEmailContent:
     """Build a verification email subject/body pair.
 
     Args:
@@ -241,19 +256,36 @@ def _build_verification_email(
         recipient_name: Optional first name for a personalized greeting.
 
     Returns:
-        Tuple of (subject, body).
+        Subject, text body, and HTML body.
     """
-    safe_name = (recipient_name or "").strip()
-    greeting = f"Hello {safe_name},\n\n" if safe_name else "Hello,\n\n"
-    subject = f"{subject_prefix} verification code: {code}"
-    body = greeting + (
-        f"Your verification code is: {code}\n\n"
-        f"The verification code is valid for {minutes_valid} minutes. "
-        "Please complete the verification as soon as possible.\n\n"
-        "Kind regards,\n"
-        "CytoCV Team"
+    return build_signup_verification_email(
+        code=code,
+        minutes_valid=minutes_valid,
+        subject_prefix=subject_prefix,
+        recipient_name=recipient_name,
+        logo_url=logo_url,
+        sender_email=sender_email,
     )
-    return subject, body
+
+
+def _send_auth_email(
+    *,
+    email_content: AuthEmailContent,
+    from_email: str,
+    recipient: str,
+    reply_to: list[str] | None,
+) -> None:
+    """Send a multipart account email with text and HTML alternatives."""
+    message = EmailMultiAlternatives(
+        email_content.subject,
+        email_content.text_body,
+        from_email,
+        [recipient],
+        reply_to=reply_to,
+    )
+    message.attach_alternative(email_content.html_body, "text/html")
+    attach_auth_email_logo(message)
+    message.send(fail_silently=False)
 
 
 def _is_recaptcha_gate_verified(request: HttpRequest, *, session_key: str) -> bool:
@@ -346,7 +378,7 @@ def signup(request: HttpRequest) -> HttpResponse:
     code_verified = bool(session.get("signup_code_verified", False))
     code_locked = bool(session.get("verify_code_locked", False))
     resend_available_in = _resend_wait_seconds(request)
-    sender_email = _sender_email()
+    sender_email = _sender_display_email()
     if code_locked:
         values["verify_code"] = ""
 
@@ -451,25 +483,25 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_verify_code()
-            subject, message = _build_verification_email(
+            from_email = _sender_email()
+            email_content = build_signup_verification_email(
                 code=verify_code,
                 minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
                 subject_prefix="CytoCV",
                 recipient_name=values.get("first_name", ""),
+                logo_url=build_auth_email_logo_src(request),
+                sender_email=from_email,
             )
 
-            from_email = _sender_email()
             reply_to_list = _reply_to_list()
 
             try:
-                email_message = EmailMessage(
-                    subject,
-                    message,
-                    from_email,
-                    [values["email"]],
+                _send_auth_email(
+                    email_content=email_content,
+                    from_email=from_email,
+                    recipient=values["email"],
                     reply_to=reply_to_list,
                 )
-                email_message.send(fail_silently=False)
             except Exception:
                 logger.exception("Failed to send signup verification email.")
                 page_error = "Something went wrong. Try again."
@@ -504,25 +536,25 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_verify_code()
-            subject, message = _build_verification_email(
+            from_email = _sender_email()
+            email_content = build_signup_verification_email(
                 code=verify_code,
                 minutes_valid=VERIFY_CODE_TTL_SECONDS // 60,
                 subject_prefix="CytoCV",
                 recipient_name=values.get("first_name", ""),
+                logo_url=build_auth_email_logo_src(request),
+                sender_email=from_email,
             )
 
-            from_email = _sender_email()
             reply_to_list = _reply_to_list()
 
             try:
-                email_message = EmailMessage(
-                    subject,
-                    message,
-                    from_email,
-                    [values["email"]],
+                _send_auth_email(
+                    email_content=email_content,
+                    from_email=from_email,
+                    recipient=values["email"],
                     reply_to=reply_to_list,
                 )
-                email_message.send(fail_silently=False)
             except Exception:
                 logger.exception("Failed to resend signup verification email.")
                 page_error = "Something went wrong. Try again."
