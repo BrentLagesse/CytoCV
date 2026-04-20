@@ -51,6 +51,7 @@ Optional worker startup paths:
 - Docker Compose includes an optional `analysis-worker` service profile
 - local or server installs can run `python manage.py run_analysis_worker`
 - production should supervise the worker separately from Gunicorn
+- repo-owned example `systemd` units live under `deploy/systemd/`
 
 ## Application Startup Sequence
 
@@ -86,6 +87,14 @@ Example `systemd` service command:
 
 `/path/to/venv/bin/python /path/to/repo/cytocv/manage.py run_analysis_worker`
 
+Repository examples:
+
+- `deploy/systemd/cytocv.service.example`
+- `deploy/systemd/cytocv-worker.service.example`
+
+These example units should be copied to `/etc/systemd/system/` and adjusted for
+the actual deploy user and checkout path.
+
 Rollback guidance:
 
 - if the worker is unavailable, set `CYTOCV_ANALYSIS_EXECUTION_MODE=sync` and restart the web process to fall back to the legacy request-driven flow
@@ -112,4 +121,3 @@ After deployment:
 - [`environment-reference.md`](environment-reference.md)
 - [`postgres-setup.md`](postgres-setup.md)
 - [`backup-retention-and-storage.md`](backup-retention-and-storage.md)
-

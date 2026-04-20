@@ -234,7 +234,7 @@
         min-height: 0;       /* allow flex child to shrink and scroll */
         padding-bottom: 12px;
         margin-bottom: 10px;
-        scrollbar-gutter: auto;
+        scrollbar-gutter: stable;
         scrollbar-width: auto;
         scrollbar-color: rgba(127, 127, 127, 0.42) transparent;
       }
@@ -248,7 +248,7 @@
         margin-right: 12px;
       }
       .sidebar-content.has-scrollbar .file-item {
-        margin-right: 6px;
+        margin-right: 12px;
       }
       .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
       .sidebar-content li { margin: 0; padding: 0; border: none; }
@@ -361,6 +361,10 @@
       .file-title {
         font-weight: 700;
         letter-spacing: 0.2px;
+        min-width: 0;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: normal;
         transition: color 0.12s ease;
       }
       .file-item:hover { background-color: #3399ff; }
@@ -2296,7 +2300,7 @@
                   textEl.textContent = "Processing Images";
                 } else if (data.phase === "Detecting Cells") {
                   textEl.textContent = data.phase;
-                } else if (data.phase === "Segmenting Images") {
+                } else if (data.phase === "Segmenting Cell-Pairs") {
                   textEl.textContent = data.phase;
                 } else if (data.phase === "Calculating Statistics") {
                   // Only show statistics phase if user selected at least one analysis at upload step.

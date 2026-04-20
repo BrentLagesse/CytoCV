@@ -1,0 +1,15 @@
+[Unit]
+Description=CytoCV Gunicorn
+After=network.target postgresql.service
+
+[Service]
+User=REPLACE_WITH_DEPLOY_USER
+Group=REPLACE_WITH_DEPLOY_USER
+WorkingDirectory=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv
+Environment="PATH=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin"
+ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/gunicorn --workers 5 --timeout 120 --bind 127.0.0.1:8000 cytocv.wsgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -480,6 +480,7 @@ class DisplayManualSaveTests(TestCase):
             category_cen_dot=1,
             properties={
                 "nuclear_cell_pair_mode": "red_nucleus",
+                "cen_dot_schema_version": 2,
                 "puncta_distance_delta_x_px": 1.0,
                 "puncta_distance_delta_y_px": 0.0,
                 "distance_of_green_from_red_1_delta_x_px": 6.0,
@@ -724,8 +725,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", csv_text)
         self.assertIn("5.000", csv_text)
         self.assertIn("8.000", csv_text)
-        self.assertIn("CEN dot Category", csv_text)
-        self.assertIn("One green dot with each red dot", csv_text)
+        self.assertIn("CEN dot Location", csv_text)
+        self.assertIn("Mother and daughter", csv_text)
 
     def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
         file_name = "dashboard_xlsx_export"
@@ -807,9 +808,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Distance between Red Puncta (µm)", headers)
         self.assertIn("Blue Contour Size (µm²)", headers)
         self.assertIn("Distance of Green from Red 1 (µm)", headers)
-        self.assertIn("CEN dot Category", headers)
-        gfp_dot_col = headers.index("CEN dot Category") + 1
-        self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "One green dot with each red dot")
+        self.assertIn("CEN dot Location", headers)
+        gfp_dot_col = headers.index("CEN dot Location") + 1
+        self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "Mother and daughter")
 
     def test_display_csv_export_uses_uploaded_file_name(self):
         file_name = "display_csv_export_source"

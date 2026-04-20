@@ -8,7 +8,7 @@ PROGRESS_PHASE_IDLE = "Idle"
 PROGRESS_PHASE_QUEUED = "Queued"
 PROGRESS_PHASE_PREPROCESSING = "Preprocessing Images"
 PROGRESS_PHASE_DETECTING = "Detecting Cells"
-PROGRESS_PHASE_SEGMENTING = "Segmenting Images"
+PROGRESS_PHASE_SEGMENTING = "Segmenting Cell-Pairs"
 PROGRESS_PHASE_STATISTICS = "Calculating Statistics"
 PROGRESS_PHASE_CANCELLING = "Cancelling"
 PROGRESS_PHASE_CANCELLED = "Cancelled"
@@ -78,6 +78,8 @@ _PHASE_ALIASES = {
     "preprocessing images": PROGRESS_PHASE_PREPROCESSING,
     "detecting cells": PROGRESS_PHASE_DETECTING,
     "segmenting images": PROGRESS_PHASE_SEGMENTING,
+    "segmenting cell-pairs": PROGRESS_PHASE_SEGMENTING,
+    "segmenting cell pairs": PROGRESS_PHASE_SEGMENTING,
     "calculating statistics": PROGRESS_PHASE_STATISTICS,
     "cancelling": PROGRESS_PHASE_CANCELLING,
     "canceling": PROGRESS_PHASE_CANCELLING,
@@ -96,6 +98,8 @@ _STATUS_ALIASES = {
     "preprocessing images": PROGRESS_STATUS_RUNNING,
     "detecting cells": PROGRESS_STATUS_RUNNING,
     "segmenting images": PROGRESS_STATUS_RUNNING,
+    "segmenting cell-pairs": PROGRESS_STATUS_RUNNING,
+    "segmenting cell pairs": PROGRESS_STATUS_RUNNING,
     "calculating statistics": PROGRESS_STATUS_RUNNING,
     "cancelling": PROGRESS_STATUS_CANCELLING,
     "canceling": PROGRESS_STATUS_CANCELLING,

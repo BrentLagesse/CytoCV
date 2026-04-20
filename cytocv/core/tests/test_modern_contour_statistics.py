@@ -226,7 +226,8 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertGreater(cp.red_intensity_1, cp.red_intensity_2)
         self.assertGreater(cp.red_intensity_2, cp.red_intensity_3)
         self.assertAlmostEqual(cp.puncta_distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4)
-        self.assertEqual(cp.category_cen_dot, 1)
+        self.assertEqual(cp.category_cen_dot, 4)
+        self.assertEqual(cp.properties["cen_dot_location"]["status"], "too_many_reds")
 
     def test_green_puncta_mode_measures_red_intensity_over_green_line(self):
         shape = (16, 16)
