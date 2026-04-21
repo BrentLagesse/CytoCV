@@ -152,6 +152,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: string
 - Default: `https://login.microsoftonline.com`
 - Effect: Microsoft identity endpoint base URL
+- Notes: CytoCV requests Microsoft's account picker on OAuth start with `prompt=select_account`. Microsoft still owns its browser session, so the provider may use its own session rules after the picker is shown.
 
 ## Account And Email Settings
 
@@ -161,7 +162,8 @@ This document is the authoritative reference for environment variables consumed 
 - Type: enum
 - Allowed values: `none`, `optional`, `mandatory`
 - Default: `none` when debug is on, `optional` otherwise
-- Effect: allauth email verification mode
+- Effect: allauth email verification mode for Google/Microsoft provider accounts
+- Notes: provider verification uses a signed confirmation link generated from the active request host and scheme. Native CytoCV signup and password recovery are separate flows and use numeric verification codes.
 
 ### `CYTOCV_EMAIL_BACKEND`
 
@@ -250,7 +252,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: string
 - Default: empty, then falls back to `CYTOCV_DEFAULT_FROM_EMAIL`
 - Effect: sender used for account verification and password recovery emails
-- Notes: may include a display name, for example `"CytoCV<cytocv-noreply@uw.edu>"`, if the SMTP relay is authorized to send as that address. The signup and password-recovery UI displays only the parsed email address.
+- Notes: may include a display name, for example `"CytoCV<cytocv-noreply@uw.edu>"`, if the SMTP relay is authorized to send as that address. The signup, password-recovery, and OAuth verification UI surfaces display only the parsed email address when shown to users.
 
 ### `CYTOCV_PUBLIC_BASE_URL`
 
@@ -258,6 +260,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: URL
 - Default: empty
 - Effect: public absolute base URL used when account emails need absolute static asset links, such as the UWB STEM logo
+- Notes: OAuth confirmation links are not built from this value; allauth generates those links from the request host and scheme so local and deployed links follow the active site configuration.
 
 ## Storage Quota Settings
 
