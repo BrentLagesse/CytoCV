@@ -181,6 +181,7 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 # Allow social providers to auto-create/link accounts when a verified email is present.
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -364,6 +365,7 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': ['profile', 'email']
     },
     "microsoft": {
+        "AUTH_PARAMS": {"prompt": "select_account"},
         "APPS": [
             {
                 "client_id": MICROSOFT_OAUTH_CLIENT_ID,
@@ -387,6 +389,7 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_VERIFICATION = os.getenv(
     "CYTOCV_ACCOUNT_EMAIL_VERIFICATION",
     "none" if DEBUG else "optional",
@@ -415,6 +418,11 @@ SOCIALACCOUNT_LOGIN_ON_GET = False
 # Static files
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+PUBLIC_BASE_URL = (_get_env(
+    "CYTOCV_PUBLIC_BASE_URL",
+    "",
+    prefer_env_file=True,
+) or "").strip().rstrip("/")
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -454,16 +462,28 @@ _default_from_email = (_get_env(
     "",
     prefer_env_file=True,
 ) or "").strip()
-DEFAULT_FROM_EMAIL = _default_from_email or EMAIL_HOST_USER
-EMAIL_REPLY_TO = ((_get_env(
+_support_email_raw = (_get_env(
+    "CYTOCV_SUPPORT_EMAIL",
+    "",
+    prefer_env_file=True,
+) or "").strip()
+DEFAULT_FROM_EMAIL = _default_from_email or _support_email_raw or EMAIL_HOST_USER
+_email_reply_to_raw = (_get_env(
     "CYTOCV_EMAIL_REPLY_TO",
     "",
     prefer_env_file=True,
-) or "").strip()) or DEFAULT_FROM_EMAIL
+) or "").strip()
+EMAIL_REPLY_TO = _email_reply_to_raw or _support_email_raw or DEFAULT_FROM_EMAIL
+SUPPORT_EMAIL = _support_email_raw or EMAIL_REPLY_TO
+AUTH_EMAIL_FROM = (_get_env(
+    "CYTOCV_AUTH_EMAIL_FROM",
+    "",
+    prefer_env_file=True,
+) or "").strip() or DEFAULT_FROM_EMAIL
 
-if ACCOUNT_EMAIL_VERIFICATION != "none" and not DEFAULT_FROM_EMAIL:
+if ACCOUNT_EMAIL_VERIFICATION != "none" and not AUTH_EMAIL_FROM:
     raise ImproperlyConfigured(
-        "Configure CYTOCV_DEFAULT_FROM_EMAIL or CYTOCV_EMAIL_HOST_USER "
+        "Configure CYTOCV_AUTH_EMAIL_FROM, CYTOCV_SUPPORT_EMAIL, CYTOCV_DEFAULT_FROM_EMAIL, or CYTOCV_EMAIL_HOST_USER "
         "when email verification is enabled."
     )
 

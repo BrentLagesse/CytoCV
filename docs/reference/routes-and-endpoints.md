@@ -24,6 +24,16 @@ This document lists the current public routes and route-level behavior defined i
 - Auth: provider dependent
 - Purpose: provider login and account integration
 
+### `GET /signin/oauth/verification-status/`
+
+- Name: `oauth_verification_status`
+- Auth: public, session-scoped
+- Purpose: report whether the current browser session has completed OAuth verification and, when authenticated, provide the safe dashboard redirect URL
+- Notes:
+  - does not accept an email, token, key, or user id
+  - does not verify email addresses itself
+  - used by the branded `Check your email` page for polling and the `I verified` button
+
 ### `POST|GET /logout/`
 
 - Name: `logout`

@@ -25,6 +25,7 @@ from accounts.views import (
     dashboard_bulk_delete_view,
     dashboard_channel_visibility_view,
     dashboard_view,
+    oauth_verification_status,
     preferences_view,
     signup,
 )
@@ -53,6 +54,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name="home"),
     path('signin/', auth_login, name="signin"),
+    path(
+        'signin/oauth/verification-status/',
+        oauth_verification_status,
+        name="oauth_verification_status",
+    ),
     path('signin/oauth/', include('allauth.urls')),
     path('logout/', auth_logout, name="logout"),
     path('signup/', signup, name="signup"),

@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}Check your email | CytoCV{% endblock title %}
+
+{% block head %}
+<style>
+    .auth-page {
+        min-height: calc(100dvh - var(--nav-height));
+        padding: calc(var(--nav-height) + 32px) 16px 40px;
+        display: grid;
+        place-items: center;
+        background: var(--page-bg-gradient), var(--page-bg);
+    }
+    .auth-shell {
+        width: min(720px, 96vw);
+        display: grid;
+        gap: 20px;
+    }
+    .auth-card {
+        width: 100%;
+        background:
+            var(--liquid-linear-highlight),
+            var(--glass-card-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 18px;
+        padding: 30px 34px;
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
+        display: grid;
+        gap: 18px;
+    }
+    .card-intro {
+        display: grid;
+        gap: 6px;
+    }
+    .step-indicator {
+        margin: 0;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(211, 220, 242, 0.72);
+    }
+    h1 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.16;
+        letter-spacing: 0.01em;
+        color: var(--text);
+    }
+    .subtitle,
+    .auth-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .auth-panel {
+        background:
+            var(--liquid-linear-highlight-soft),
+            var(--surface-mid);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        display: grid;
+        gap: 10px;
+    }
+    .auth-panel-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+    }
+    .form-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 4px;
+    }
+    .btn {
+        border: none;
+        border-radius: 999px;
+        padding: 12px 42px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+    .btn.primary {
+        background: var(--accent);
+        color: #fff;
+    }
+    .btn.primary:hover {
+        background: var(--accent-dark);
+    }
+    .btn.secondary {
+        background: var(--surface-muted-alt);
+        color: var(--text);
+        border: 1px solid var(--panel-border);
+    }
+    .btn.secondary:hover {
+        background: var(--surface-hover-strong);
+    }
+    .btn:disabled {
+        opacity: 0.68;
+        cursor: wait;
+    }
+    .verification-status {
+        min-height: 20px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+    }
+    @media (max-width: 640px) {
+        .auth-card {
+            padding: 24px 20px;
+        }
+        h1 {
+            font-size: 24px;
+        }
+        .form-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+{% endblock head %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-shell">
+        <div class="auth-card soft-fade-in">
+            <div class="card-intro">
+                <div class="step-indicator">Account verification</div>
+                <h1>Check your email</h1>
+                <p class="subtitle">We sent a secure verification link to your email address.</p>
+            </div>
+            <div class="auth-panel">
+                <p class="auth-panel-title">Open the verification link to finish signing in.</p>
+                <p class="auth-note">
+                    If you do not see the email in your inbox, check your spam or junk folder.
+                    The link verifies your email address automatically and returns you to CytoCV.
+                </p>
+            </div>
+            <p class="verification-status" id="verificationStatus" role="status" aria-live="polite"></p>
+            <div class="form-footer">
+                <a class="btn secondary" href="{% url 'signin' %}">Back</a>
+                <button
+                    class="btn primary"
+                    type="button"
+                    id="verifiedCheckButton"
+                    data-status-url="{% url 'oauth_verification_status' %}"
+                >
+                    I verified
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    (() => {
+        const button = document.getElementById('verifiedCheckButton');
+        const statusEl = document.getElementById('verificationStatus');
+        if (!button || !statusEl) {
+            return;
+        }
+
+        const statusUrl = button.dataset.statusUrl;
+        const setStatus = (message) => {
+            statusEl.textContent = message || '';
+        };
+        const checkStatus = async (manual = false) => {
+            if (!statusUrl) {
+                return;
+            }
+            if (manual) {
+                button.disabled = true;
+                setStatus('Checking verification status...');
+            }
+            try {
+                const response = await fetch(statusUrl, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    cache: 'no-store',
+                });
+                if (!response.ok) {
+                    throw new Error('status check failed');
+                }
+                const payload = await response.json();
+                if (payload.authenticated && payload.redirect_url) {
+                    window.location.assign(payload.redirect_url);
+                    return;
+                }
+                if (manual) {
+                    setStatus('We are still waiting for verification to complete. Open the newest email link, then try again.');
+                }
+            } catch (error) {
+                if (manual) {
+                    setStatus('Unable to check right now. Try again in a moment.');
+                }
+            } finally {
+                if (manual) {
+                    button.disabled = false;
+                }
+            }
+        };
+
+        button.addEventListener('click', () => {
+            void checkStatus(true);
+        });
+        setInterval(() => {
+            void checkStatus(false);
+        }, 4000);
+        void checkStatus(false);
+    })();
+</script>
+{% endblock content %}
