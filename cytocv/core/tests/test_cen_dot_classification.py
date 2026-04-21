@@ -156,7 +156,10 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertEqual(payload["status"], "mother_and_daughter")
         self.assertTrue(payload["green_in_mother"])
         self.assertTrue(payload["green_in_daughter"])
-        self.assertEqual(cp.properties["cen_dot_schema_version"], 2)
+        self.assertTrue(payload["mother_red_has_green"])
+        self.assertTrue(payload["daughter_red_has_green"])
+        self.assertEqual(payload["green_assignment_rule"], "nearest_red_inside_pair_mask")
+        self.assertEqual(cp.properties["cen_dot_schema_version"], 3)
         self.assertEqual(cp.biorientation, 0)
 
     def test_green_only_in_mother_yields_mother_only(self):
@@ -279,32 +282,24 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertFalse(payload["green_in_mother"])
         self.assertFalse(payload["green_in_daughter"])
 
-    def test_greens_in_wrong_side_do_not_count_even_if_near_other_red(self):
-        """Side assignment is mask-driven; proximity only counts for same-side red.
-
-        A green whose *mask* lies in mother-side but whose *center* is near
-        daughter_red must not contribute to either side: it is assigned to
-        mother, so only mother_red proximity is considered (and fails).
-        """
+    def test_green_with_daughter_footprint_can_credit_nearest_mother_red(self):
         cell, mother, daughter = _build_side_masks()
         red_top = _disk_slot(0, (20, 15))
         red_bot = _disk_slot(1, (20, 45))
 
-        # Build a green whose mask is fully inside mother-side but override
-        # the center to be next to daughter_red's location.
-        mother_only_mask = np.zeros(SHAPE, dtype=np.uint8)
-        cv2.circle(mother_only_mask, (20, 15), 2, 255, -1)
-        mother_only_mask = cv2.bitwise_and(mother_only_mask, mother)
-        self.assertTrue(np.any(mother_only_mask))
-        wrong_side_green = _slot_with_override(
+        daughter_only_mask = np.zeros(SHAPE, dtype=np.uint8)
+        cv2.circle(daughter_only_mask, (20, 45), 2, 255, -1)
+        daughter_only_mask = cv2.bitwise_and(daughter_only_mask, daughter)
+        self.assertTrue(np.any(daughter_only_mask))
+        daughter_footprint_green = _slot_with_override(
             source_index=0,
-            mask=mother_only_mask,
-            center_xy=(20, 45),  # center close to daughter_red
+            mask=daughter_only_mask,
+            center_xy=(20, 17),
         )
 
         cp = self._run(
             red_slots=[red_top, red_bot],
-            green_slots=[wrong_side_green],
+            green_slots=[daughter_footprint_green],
             cell_mask=cell,
             mother_mask=mother,
             daughter_mask=daughter,
@@ -312,9 +307,94 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
             cen_dot_proximity_radius=5.0,
         )
 
+        self.assertEqual(cp.category_cen_dot, 2)
+        payload = cp.properties["cen_dot_location"]
+        self.assertEqual(payload["status"], "mother_only")
+        self.assertTrue(payload["mother_red_has_green"])
+        self.assertFalse(payload["daughter_red_has_green"])
+        self.assertEqual(payload["mother_associated_green_centers"], [[20.0, 17.0]])
+        self.assertEqual(payload["ambiguous_green_centers"], [])
+
+    def test_green_with_mother_footprint_can_credit_nearest_daughter_red(self):
+        cell, mother, daughter = _build_side_masks()
+        red_top = _disk_slot(0, (20, 15))
+        red_bot = _disk_slot(1, (20, 45))
+
+        mother_only_mask = np.zeros(SHAPE, dtype=np.uint8)
+        cv2.circle(mother_only_mask, (20, 15), 2, 255, -1)
+        mother_only_mask = cv2.bitwise_and(mother_only_mask, mother)
+        self.assertTrue(np.any(mother_only_mask))
+        mother_footprint_green = _slot_with_override(
+            source_index=0,
+            mask=mother_only_mask,
+            center_xy=(20, 43),
+        )
+
+        cp = self._run(
+            red_slots=[red_top, red_bot],
+            green_slots=[mother_footprint_green],
+            cell_mask=cell,
+            mother_mask=mother,
+            daughter_mask=daughter,
+            neck_split=self._standard_split(),
+            cen_dot_proximity_radius=5.0,
+        )
+
+        self.assertEqual(cp.category_cen_dot, 3)
+        payload = cp.properties["cen_dot_location"]
+        self.assertEqual(payload["status"], "daughter_only")
+        self.assertFalse(payload["mother_red_has_green"])
+        self.assertTrue(payload["daughter_red_has_green"])
+        self.assertEqual(payload["daughter_associated_green_centers"], [[20.0, 43.0]])
+        self.assertEqual(payload["ambiguous_green_centers"], [])
+
+    def test_green_inside_both_red_radii_credits_nearest_red_only(self):
+        cell, mother, daughter = _build_side_masks()
+        red_top = _disk_slot(0, (20, 15))
+        red_bot = _disk_slot(1, (20, 45))
+        green_nearer_mother = _disk_slot(0, (20, 27))
+
+        cp = self._run(
+            red_slots=[red_top, red_bot],
+            green_slots=[green_nearer_mother],
+            cell_mask=cell,
+            mother_mask=mother,
+            daughter_mask=daughter,
+            neck_split=self._standard_split(),
+            cen_dot_proximity_radius=20.0,
+        )
+
+        self.assertEqual(cp.category_cen_dot, 2)
+        payload = cp.properties["cen_dot_location"]
+        self.assertEqual(payload["status"], "mother_only")
+        self.assertTrue(payload["mother_red_has_green"])
+        self.assertFalse(payload["daughter_red_has_green"])
+        self.assertEqual(payload["mother_associated_green_centers"], [[20.0, 27.0]])
+        self.assertEqual(payload["daughter_associated_green_centers"], [])
+        self.assertEqual(payload["ambiguous_green_centers"], [])
+
+    def test_green_exactly_tied_between_reds_is_recorded_as_ambiguous(self):
+        cell, mother, daughter = _build_side_masks()
+        red_top = _disk_slot(0, (20, 15))
+        red_bot = _disk_slot(1, (20, 45))
+        green_tied = _disk_slot(0, (20, 30))
+
+        cp = self._run(
+            red_slots=[red_top, red_bot],
+            green_slots=[green_tied],
+            cell_mask=cell,
+            mother_mask=mother,
+            daughter_mask=daughter,
+            neck_split=self._standard_split(),
+            cen_dot_proximity_radius=20.0,
+        )
+
         self.assertEqual(cp.category_cen_dot, 4)
         payload = cp.properties["cen_dot_location"]
         self.assertEqual(payload["status"], "no_valid_green")
+        self.assertFalse(payload["mother_red_has_green"])
+        self.assertFalse(payload["daughter_red_has_green"])
+        self.assertEqual(payload["ambiguous_green_centers"], [[20.0, 30.0]])
         self.assertFalse(payload["green_in_mother"])
         self.assertFalse(payload["green_in_daughter"])
 

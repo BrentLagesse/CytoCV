@@ -18,7 +18,7 @@ from .analysis import Analysis
 logger = logging.getLogger(__name__)
 
 
-CEN_DOT_SCHEMA_VERSION = 2
+CEN_DOT_SCHEMA_VERSION = 3
 
 _CATEGORY_BOTH = 1
 _CATEGORY_MOTHER_ONLY = 2
@@ -29,6 +29,8 @@ _SIDE_MOTHER = "mother"
 _SIDE_DAUGHTER = "daughter"
 
 _MAX_RED_SLOTS_FOR_CLASSIFICATION = 3
+_GREEN_ASSIGNMENT_RULE = "nearest_red_inside_pair_mask"
+_DISTANCE_TIE_EPSILON = 1e-9
 
 
 class CENDot(Analysis):
@@ -71,16 +73,18 @@ class CENDot(Analysis):
         return distance >= threshold, distance, threshold
 
     def point_is_between(self, point, endpoint1, endpoint2, eps):
-        point = np.array(point)
-        endpoint1 = np.array(endpoint1)
-        endpoint2 = np.array(endpoint2)
+        px, py = float(point[0]), float(point[1])
+        x1, y1 = float(endpoint1[0]), float(endpoint1[1])
+        x2, y2 = float(endpoint2[0]), float(endpoint2[1])
+        dx = x2 - x1
+        dy = y2 - y1
 
-        cross = (point[1] - endpoint1[1]) * (endpoint2[0] - endpoint1[0]) - (point[0] - endpoint1[0]) * (endpoint2[1] - endpoint1[1])
+        cross = (py - y1) * dx - (px - x1) * dy
         if abs(cross) > eps:
             return False
 
-        dot = (point[0] - endpoint1[0]) * (endpoint2[0] - endpoint1[0]) + (point[1] - endpoint1[1]) * (endpoint2[1] - endpoint1[1])
-        squared_dist = math.dist(endpoint1, endpoint2) * math.dist(endpoint1, endpoint2)
+        dot = (px - x1) * dx + (py - y1) * dy
+        squared_dist = dx * dx + dy * dy
         return not (dot < 0 or dot > squared_dist)
 
     def _get_proximity_radius_unit(self) -> str:
@@ -105,6 +109,12 @@ class CENDot(Analysis):
         return proximity_radius
 
     @staticmethod
+    def _center_distance_sq(center_1, center_2) -> float:
+        dx = float(center_1[0]) - float(center_2[0])
+        dy = float(center_1[1]) - float(center_2[1])
+        return dx * dx + dy * dy
+
+    @staticmethod
     def _deduplicate_slots(
         slots: list[CanonicalContourSlot],
         min_center_distance: float = 8.0,
@@ -112,10 +122,14 @@ class CENDot(Analysis):
         """Drop slots whose center lies within ``min_center_distance`` of a kept slot."""
 
         kept: list[CanonicalContourSlot] = []
+        min_center_distance_sq = float(min_center_distance) * float(min_center_distance)
         for slot in slots:
             keep = True
             for existing in kept:
-                if math.dist(slot.center, existing.center) <= min_center_distance:
+                if (
+                    CENDot._center_distance_sq(slot.center, existing.center)
+                    <= min_center_distance_sq
+                ):
                     keep = False
                     break
             if keep:
@@ -152,6 +166,60 @@ class CENDot(Analysis):
             return False
         clipped = cv2.bitwise_and(slot.mask, cell_mask)
         return bool(np.any(clipped))
+
+    @classmethod
+    def _associate_green_slots_to_reds(
+        cls,
+        green_slots: list[CanonicalContourSlot],
+        cell_mask: np.ndarray | None,
+        mother_red_center,
+        daughter_red_center,
+        prox_radius: float,
+    ) -> tuple[
+        list[tuple[float, float]],
+        list[tuple[float, float]],
+        list[tuple[float, float]],
+    ]:
+        """Associate eligible green centers to the nearest in-radius red center."""
+
+        if prox_radius < 0:
+            return [], [], []
+
+        proximity_radius_sq = float(prox_radius) * float(prox_radius)
+        mother_associated_centers: list[tuple[float, float]] = []
+        daughter_associated_centers: list[tuple[float, float]] = []
+        ambiguous_centers: list[tuple[float, float]] = []
+
+        for green_slot in green_slots:
+            if not cls._green_slot_inside_pair_mask(green_slot, cell_mask):
+                continue
+
+            mother_distance_sq = cls._center_distance_sq(
+                mother_red_center,
+                green_slot.center,
+            )
+            daughter_distance_sq = cls._center_distance_sq(
+                daughter_red_center,
+                green_slot.center,
+            )
+            within_mother = mother_distance_sq <= proximity_radius_sq
+            within_daughter = daughter_distance_sq <= proximity_radius_sq
+
+            if not within_mother and not within_daughter:
+                continue
+            if within_mother and within_daughter:
+                if abs(mother_distance_sq - daughter_distance_sq) <= _DISTANCE_TIE_EPSILON:
+                    ambiguous_centers.append(green_slot.center)
+                elif mother_distance_sq < daughter_distance_sq:
+                    mother_associated_centers.append(green_slot.center)
+                else:
+                    daughter_associated_centers.append(green_slot.center)
+            elif within_mother:
+                mother_associated_centers.append(green_slot.center)
+            else:
+                daughter_associated_centers.append(green_slot.center)
+
+        return mother_associated_centers, daughter_associated_centers, ambiguous_centers
 
     @staticmethod
     def _set_location_properties(cp, payload: dict) -> None:
@@ -316,23 +384,20 @@ class CENDot(Analysis):
             mother_red_center = red_slots[mother_red_index].center
             daughter_red_center = red_slots[daughter_red_index].center
 
-            mother_green_centers: list[tuple[float, float]] = []
-            daughter_green_centers: list[tuple[float, float]] = []
-            for green_slot in green_slots:
-                if not self._green_slot_inside_pair_mask(green_slot, cell_mask):
-                    continue
-                side = self._assign_slot_side(green_slot, mother_mask, daughter_mask)
-                if side is None:
-                    continue
-                if side == _SIDE_MOTHER:
-                    if math.dist(mother_red_center, green_slot.center) <= prox_radius:
-                        mother_green_centers.append(green_slot.center)
-                else:
-                    if math.dist(daughter_red_center, green_slot.center) <= prox_radius:
-                        daughter_green_centers.append(green_slot.center)
+            (
+                mother_associated_green_centers,
+                daughter_associated_green_centers,
+                ambiguous_green_centers,
+            ) = self._associate_green_slots_to_reds(
+                green_slots,
+                cell_mask,
+                mother_red_center,
+                daughter_red_center,
+                prox_radius,
+            )
 
-            has_mother = bool(mother_green_centers)
-            has_daughter = bool(daughter_green_centers)
+            has_mother = bool(mother_associated_green_centers)
+            has_daughter = bool(daughter_associated_green_centers)
 
             if has_mother and has_daughter:
                 category = _CATEGORY_BOTH
@@ -355,11 +420,24 @@ class CENDot(Analysis):
                     "red_distance_threshold_effective": float(threshold),
                     "mother_red_center": [float(mother_red_center[0]), float(mother_red_center[1])],
                     "daughter_red_center": [float(daughter_red_center[0]), float(daughter_red_center[1])],
+                    "green_assignment_rule": _GREEN_ASSIGNMENT_RULE,
+                    "mother_red_has_green": has_mother,
+                    "daughter_red_has_green": has_daughter,
+                    "mother_associated_green_centers": [
+                        [float(c[0]), float(c[1])] for c in mother_associated_green_centers
+                    ],
+                    "daughter_associated_green_centers": [
+                        [float(c[0]), float(c[1])] for c in daughter_associated_green_centers
+                    ],
+                    "ambiguous_green_centers": [
+                        [float(c[0]), float(c[1])] for c in ambiguous_green_centers
+                    ],
+                    # Compatibility aliases retained for older display/export callers.
                     "mother_green_centers": [
-                        [float(c[0]), float(c[1])] for c in mother_green_centers
+                        [float(c[0]), float(c[1])] for c in mother_associated_green_centers
                     ],
                     "daughter_green_centers": [
-                        [float(c[0]), float(c[1])] for c in daughter_green_centers
+                        [float(c[0]), float(c[1])] for c in daughter_associated_green_centers
                     ],
                     "green_in_mother": has_mother,
                     "green_in_daughter": has_daughter,

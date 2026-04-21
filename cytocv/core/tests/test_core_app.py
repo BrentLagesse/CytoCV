@@ -904,7 +904,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 properties={
                     "nuclear_cell_pair_mode": "red_nucleus",
                     "puncta_line_mode": "green_puncta",
-                    "cen_dot_schema_version": 2,
+                    "cen_dot_schema_version": 3,
                 },
                 category_cen_dot=1,
             )
@@ -961,7 +961,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 properties={
                     "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "green_puncta",
-                    "cen_dot_schema_version": 2,
+                    "cen_dot_schema_version": 3,
                 },
                 category_cen_dot=1,
             )

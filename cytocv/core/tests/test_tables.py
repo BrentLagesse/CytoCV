@@ -41,7 +41,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_render_cen_dot_location_uses_schema_aware_choice_label(self):
         record = SimpleNamespace(
             category_cen_dot=1,
-            properties={"cen_dot_schema_version": 2},
+            properties={"cen_dot_schema_version": 3},
         )
         category_table = CellTable([record], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
@@ -52,7 +52,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_render_cen_dot_location_falls_back_to_na_for_invalid_values(self):
         record = SimpleNamespace(
             category_cen_dot=999,
-            properties={"cen_dot_schema_version": 2},
+            properties={"cen_dot_schema_version": 3},
         )
         category_table = CellTable([record], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
@@ -62,6 +62,16 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
 
     def test_legacy_rows_render_rerun_required_label_for_non_na_cen_values(self):
         record = SimpleNamespace(category_cen_dot=1, properties={})
+        category_table = CellTable([record], intensity_mode="green_nucleus")
+        row = list(category_table.rows)[0]
+
+        self.assertEqual(row.get_cell("category_cen_dot"), "Rerun analysis for CEN location")
+
+    def test_schema_2_rows_render_rerun_required_label_for_non_na_cen_values(self):
+        record = SimpleNamespace(
+            category_cen_dot=1,
+            properties={"cen_dot_schema_version": 2},
+        )
         category_table = CellTable([record], intensity_mode="green_nucleus")
         row = list(category_table.rows)[0]
 
@@ -203,4 +213,3 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         )
 
         self.assertEqual(table.render_puncta_distance(8.0, record), "2.000")
-

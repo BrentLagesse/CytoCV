@@ -480,7 +480,7 @@ class DisplayManualSaveTests(TestCase):
             category_cen_dot=1,
             properties={
                 "nuclear_cell_pair_mode": "red_nucleus",
-                "cen_dot_schema_version": 2,
+                "cen_dot_schema_version": 3,
                 "puncta_distance_delta_x_px": 1.0,
                 "puncta_distance_delta_y_px": 0.0,
                 "distance_of_green_from_red_1_delta_x_px": 6.0,
@@ -1947,4 +1947,3 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Paused manually<"), 2)
-

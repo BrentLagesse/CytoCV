@@ -174,7 +174,7 @@ class Contour(Enum):
     CIRCLE = 2
 
 
-CEN_DOT_SCHEMA_VERSION = 2
+CEN_DOT_SCHEMA_VERSION = 3
 CEN_DOT_LEGACY_RERUN_LABEL = "Rerun analysis for CEN location"
 
 
