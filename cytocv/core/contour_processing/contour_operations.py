@@ -81,21 +81,41 @@ def find_contours(
             )
             best_contours = get_largest(contours)
             best_contours_red = get_largest(contours_red)
-    else:
-        gray_red_3 = cv2.GaussianBlur(gray_red_3, (9, 9), 0)
-        if gray_red_3 is not None:
-            _, bright_thresh = cv2.threshold(
-                gray_red_3,
-                3,
+    else: # Alternate mode
+        # Flag for trying to connect red signals
+        bridge_red = False
+
+        # Find the number of blue contours
+        if gray_blue is not None:
+            gray_blue_blur = cv2.GaussianBlur(gray_blue, (9, 9), 0)
+            _, thresh_blue_blur = cv2.threshold(
+                gray_blue_blur,
+                40,
                 255,
                 cv2.THRESH_BINARY,
             )
+            blue_blur_contours, _ = cv2.findContours(
+                thresh_blue_blur,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            blue_blur_contours = [cnt for cnt in blue_blur_contours if cv2.contourArea(cnt) >= 150]
+            bridge_red = len(blue_blur_contours) < 2
+
+        if gray_red_3 is not None:
+            gray_red_3 = cv2.GaussianBlur(gray_red_3, (9, 9), 0)
+            _, bright_thresh = cv2.threshold(
+                gray_red_3,
+                5,
+                255,
+                cv2.THRESH_BINARY,
+            )
+            # NOTE: Adaptive doesn't work well when there are strong signals
             dot_contours, _ = cv2.findContours(
                 bright_thresh,
                 cv2.RETR_EXTERNAL,
                 cv2.CHAIN_APPROX_SIMPLE,
             )
-
         if gray_red_3 is not None and gray_red is not None:
             _, thresh = cv2.threshold(
                 gray_red,
@@ -112,6 +132,40 @@ def find_contours(
             )
             best_contours = get_largest(contours)
             best_contours_red = get_largest(contours_red)
+
+            # Checking whether we need to try to connect red contours
+            if bridge_red and (len(best_contours) > 1 or len(best_contours_red) > 1):
+                # Try lower thresholds to connect red contours
+                # NOTE: Other approaches have been tried, such as morphological ops and geometric bridging.
+                # However, they were decided against due to basically making up the data.
+                if gray_red_3 is not None and gray_red is not None:
+                    _, bright_thresh = cv2.threshold(
+                        gray_red_3,
+                        4,
+                        255,
+                        cv2.THRESH_BINARY,
+                    )
+                    dot_contours, _ = cv2.findContours(
+                        bright_thresh,
+                        cv2.RETR_EXTERNAL,
+                        cv2.CHAIN_APPROX_SIMPLE,
+                    )
+                    _, thresh = cv2.threshold(
+                        gray_red,
+                        4,
+                        255,
+                        cv2.THRESH_BINARY,
+                    )
+                    thresh_red = bright_thresh
+                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    contours_red, _ = cv2.findContours(
+                        thresh_red,
+                        cv2.RETR_EXTERNAL,
+                        cv2.CHAIN_APPROX_SIMPLE,
+                    )
+                    best_contours = get_largest(contours)
+                    best_contours_red = get_largest(contours_red)
+
 
     contours_blue = []
     contours_blue_3 = []
