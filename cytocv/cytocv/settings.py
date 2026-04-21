@@ -181,6 +181,7 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 # Allow social providers to auto-create/link accounts when a verified email is present.
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -364,6 +365,7 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': ['profile', 'email']
     },
     "microsoft": {
+        "AUTH_PARAMS": {"prompt": "select_account"},
         "APPS": [
             {
                 "client_id": MICROSOFT_OAUTH_CLIENT_ID,
@@ -387,6 +389,7 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_VERIFICATION = os.getenv(
     "CYTOCV_ACCOUNT_EMAIL_VERIFICATION",
     "none" if DEBUG else "optional",

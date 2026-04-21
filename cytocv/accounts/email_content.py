@@ -31,6 +31,17 @@ AUTH_EMAIL_WARNING_TITLE = "Do not share this email"
 AUTH_EMAIL_WARNING_TEXT = (
     "University of Washington Bothell will never ask you to share this email or its contents."
 )
+PLACEHOLDER_RECIPIENT_NAMES = {
+    "-",
+    "--",
+    "_",
+    "n/a",
+    "na",
+    "none",
+    "null",
+    "\u2013",
+    "\u2014",
+}
 
 
 @dataclass(frozen=True)
@@ -121,6 +132,77 @@ def build_password_recovery_email(
     )
 
 
+def build_email_confirmation_email(
+    *,
+    activate_url: str,
+    days_valid: int,
+    recipient_email: str = "",
+    recipient_name: str | None = None,
+    logo_url: str = "",
+    sender_email: str = "",
+) -> AuthEmailContent:
+    """Build the OAuth/allauth email-confirmation email."""
+    title = "Verify your email address"
+    instruction = (
+        "Open the secure link below to verify your email address and finish signing in to CytoCV."
+    )
+    validity_line = _confirmation_validity_line(days_valid)
+    sender_address = _email_address(sender_email)
+    automated_notice = _automated_notice(sender_address)
+    security_note = "If you did not request this email, you can safely ignore it."
+    email_date = _formatted_email_date()
+    safe_name = normalize_recipient_name(recipient_name)
+    greeting = f"Hello {safe_name}," if safe_name else "Hello,"
+
+    text_parts = [
+        f"CytoCV | {email_date}",
+        "",
+        title,
+        "University of Washington Bothell School of STEM",
+        "",
+        greeting,
+        "",
+        instruction,
+        "",
+        f"Warning: {AUTH_EMAIL_WARNING_TITLE}",
+        AUTH_EMAIL_WARNING_TEXT,
+        "",
+        "Verify email address:",
+        activate_url,
+        "",
+        "If the button in the HTML email does not work, copy and paste this link into your browser:",
+        activate_url,
+        "",
+        validity_line,
+        "",
+        security_note,
+    ]
+    if recipient_email:
+        text_parts.extend(["", f"Email address: {recipient_email}"])
+    text_parts.extend(["", "--"])
+    text_parts.extend(INSTITUTION_LINES)
+    text_parts.append(f"School of STEM website: {UWB_STEM_URL}")
+    text_parts.append(automated_notice)
+
+    html_body = _render_html_link_email(
+        title=title,
+        greeting=greeting,
+        instruction=instruction,
+        activate_url=activate_url,
+        validity_line=validity_line,
+        logo_url=logo_url,
+        sender_address=sender_address,
+        security_note=security_note,
+        email_date=email_date,
+        recipient_email=recipient_email,
+    )
+    return AuthEmailContent(
+        subject="Verify your CytoCV email address",
+        text_body="\n".join(text_parts),
+        html_body=html_body,
+    )
+
+
 def _build_branded_auth_email(
     *,
     subject: str,
@@ -133,7 +215,7 @@ def _build_branded_auth_email(
     sender_email: str,
 ) -> AuthEmailContent:
     """Build text and HTML alternatives for a verification-code email."""
-    safe_name = (recipient_name or "").strip()
+    safe_name = normalize_recipient_name(recipient_name)
     greeting = f"Hello {safe_name}," if safe_name else "Hello,"
     validity_line = f"This code expires in {minutes_valid} minutes."
     sender_address = _email_address(sender_email)
@@ -275,9 +357,123 @@ def _render_html_email(
 </html>"""
 
 
+def _render_html_link_email(
+    *,
+    title: str,
+    greeting: str,
+    instruction: str,
+    activate_url: str,
+    validity_line: str,
+    logo_url: str,
+    sender_address: str,
+    security_note: str,
+    email_date: str,
+    recipient_email: str,
+) -> str:
+    """Render an HTML email with a secure verification-link CTA."""
+    logo_markup = ""
+    if logo_url:
+        logo_markup = (
+            '<img src="{logo_url}" width="160" alt="{alt}" '
+            'style="display:block;width:160px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">'
+        ).format(logo_url=escape(logo_url), alt=AUTH_EMAIL_LOGO_ALT)
+
+    recipient_markup = ""
+    if recipient_email:
+        recipient_markup = (
+            '<p style="margin:18px 0 0;color:#4b5563;font-size:14px;line-height:1.5;">'
+            f"Email address: <strong style=\"color:#111827;\">{escape(recipient_email)}</strong></p>"
+        )
+
+    automated_notice = _automated_notice(sender_address)
+
+    return f"""<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Verdana,sans-serif;color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f3f4f6;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;max-width:620px;background:#ffffff;border:1px solid #d1d5db;">
+            <tr>
+              <td style="padding:28px 32px 22px;border-top:6px solid #4b2e83;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px;">
+                  <tr>
+                    <td style="padding:0;color:#4b2e83;font-size:18px;line-height:1.3;font-weight:800;letter-spacing:.01em;">CytoCV</td>
+                    <td align="right" style="padding:0;color:#6b7280;font-size:14px;line-height:1.3;font-weight:400;">{escape(email_date)}</td>
+                  </tr>
+                </table>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="vertical-align:middle;width:185px;padding:0 24px 0 0;">
+                      {logo_markup}
+                    </td>
+                    <td style="vertical-align:middle;padding:0;">
+                      <p style="margin:0;color:#4b2e83;font-size:13px;line-height:1.2;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">University of Washington Bothell</p>
+                      <p style="margin:6px 0 0;color:#4b2e83;font-size:20px;line-height:1.25;font-weight:700;">School of STEM</p>
+                      <p style="margin:6px 0 0;color:#4b5563;font-size:13px;line-height:1.45;">School of Science, Technology, Engineering &amp; Mathematics</p>
+                      <p style="margin:3px 0 0;color:#4b5563;font-size:13px;line-height:1.45;">Department of Computing &amp; Software Systems</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 28px;">
+                <h1 style="margin:0 0 18px;color:#111827;font-size:24px;line-height:1.25;font-weight:700;">{escape(title)}</h1>
+                <p style="margin:0 0 18px;color:#374151;font-size:16px;line-height:1.6;">{escape(greeting)}</p>
+                <p style="margin:0;color:#374151;font-size:16px;line-height:1.6;">{escape(instruction)}</p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:18px 0 0;background:#fffbeb;border:1px solid #f59e0b;">
+                  <tr>
+                    <td style="width:34px;padding:14px 0 14px 16px;vertical-align:top;color:#92400e;font-size:20px;line-height:1;">&#9888;</td>
+                    <td style="padding:14px 16px 14px 10px;vertical-align:top;">
+                      <p style="margin:0;color:#92400e;font-size:15px;line-height:1.35;font-weight:700;">Do not share this email</p>
+                      <p style="margin:4px 0 0;color:#78350f;font-size:14px;line-height:1.5;">University of Washington Bothell will never ask you to share this email or its contents.</p>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:22px 0 0;text-align:center;">
+                  <a href="{escape(activate_url)}" style="display:inline-block;padding:13px 24px;background:#4b2e83;color:#ffffff;font-size:15px;line-height:1.2;font-weight:700;text-decoration:none;border-radius:4px;">Verify email address</a>
+                </p>
+                <p style="margin:20px 0 0;color:#374151;font-size:15px;line-height:1.6;">{escape(validity_line)}</p>
+                <p style="margin:12px 0 0;color:#374151;font-size:15px;line-height:1.6;">{escape(security_note)}</p>
+                {recipient_markup}
+                <p style="margin:18px 0 0;color:#6b7280;font-size:13px;line-height:1.5;">If the button does not work, copy and paste this link into your browser:</p>
+                <p style="margin:6px 0 0;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;color:#4b5563;font-size:12px;line-height:1.5;word-break:break-all;">{escape(activate_url)}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+                <p style="margin:0;color:#111827;font-size:15px;line-height:1.45;font-weight:700;">CytoCV Account Services</p>
+                <p style="margin:4px 0 0;color:#374151;font-size:13px;line-height:1.45;">University of Washington Bothell</p>
+                <p style="margin:0;color:#374151;font-size:13px;line-height:1.45;">School of Science, Technology, Engineering &amp; Mathematics</p>
+                <p style="margin:0;color:#374151;font-size:13px;line-height:1.45;">Department of Computing &amp; Software Systems</p>
+                <p style="margin:10px 0 0;color:#374151;font-size:13px;line-height:1.45;"><a href="{UWB_STEM_URL}" style="color:#4b2e83;text-decoration:underline;">School of STEM website</a></p>
+                <p style="margin:14px 0 0;color:#6b7280;font-size:13px;line-height:1.5;">{escape(automated_notice)}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
+
+
 def _email_address(value: str) -> str:
     """Extract the address from a plain or display-name email value."""
     return parseaddr(value or "")[1]
+
+
+def normalize_recipient_name(value: str | None) -> str:
+    """Return a usable greeting name, excluding provider placeholder values."""
+    normalized = " ".join((value or "").strip().split())
+    if not normalized:
+        return ""
+    if normalized.lower() in PLACEHOLDER_RECIPIENT_NAMES:
+        return ""
+    if not any(char.isalnum() for char in normalized):
+        return ""
+    return normalized
 
 
 def _automated_notice(sender_address: str) -> str:
@@ -294,3 +490,10 @@ def _formatted_email_date() -> str:
     """Return the current local date for the email header."""
     today = timezone.localdate()
     return f"{today:%B} {today.day}, {today:%Y}"
+
+
+def _confirmation_validity_line(days_valid: int) -> str:
+    """Return a concise expiration sentence for confirmation-link emails."""
+    if days_valid == 1:
+        return "This verification link expires in 1 day."
+    return f"This verification link expires in {days_valid} days."

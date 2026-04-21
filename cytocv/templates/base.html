@@ -461,7 +461,8 @@
             padding-right: 36px;
             pointer-events: auto;
         }
-        .message.success {
+        .message.success,
+        .message.info {
             background: rgba(34, 197, 94, 0.16);
             border: 1px solid rgba(34, 197, 94, 0.45);
             color: #c3f1d5;
@@ -480,11 +481,13 @@
             border-radius: 6px;
         }
         .message-close:hover { background: #5a2a31; }
-        .message.success .message-close {
+        .message.success .message-close,
+        .message.info .message-close {
             background: rgba(34, 197, 94, 0.16);
             color: #c3f1d5;
         }
-        .message.success .message-close:hover {
+        .message.success .message-close:hover,
+        .message.info .message-close:hover {
             background: rgba(34, 197, 94, 0.28);
         }
 

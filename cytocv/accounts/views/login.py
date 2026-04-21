@@ -14,11 +14,13 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import EmailValidator
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
 
 from accounts.email_content import (
     AuthEmailContent,
@@ -46,6 +48,20 @@ RECOVERY_CODE_MAX_ATTEMPTS = VERIFY_CODE_MAX_ATTEMPTS
 RECOVERY_CODE_RESEND_SECONDS = VERIFY_CODE_RESEND_SECONDS
 AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
 logger = logging.getLogger(__name__)
+
+
+@require_GET
+def oauth_verification_status(request: HttpRequest) -> JsonResponse:
+    """Return only the current session's OAuth verification completion state."""
+    is_authenticated = bool(request.user.is_authenticated)
+    response = JsonResponse(
+        {
+            "authenticated": is_authenticated,
+            "redirect_url": reverse("dashboard") if is_authenticated else "",
+        }
+    )
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 def _normalize_email(email: str) -> str:
