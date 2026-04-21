@@ -17,22 +17,23 @@ from collections import OrderedDict
 import multiprocessing
 import numpy as np
 import skimage.transform
-os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+
+try:
+    from .bootstrap import configure_environment
+    from .hdf5_weights import load_legacy_hdf5_weights
+    from . import utils
+except ImportError:
+    from bootstrap import configure_environment
+    from hdf5_weights import load_legacy_hdf5_weights
+    import utils
+
+configure_environment()
+
 import tensorflow as tf
-import tensorflow.keras as keras
-
-# from keras import backend as K
-# from keras import layers as KL
-# # from keras.python import engine as KE
-# from keras import models as KM
-
-import tensorflow.keras.backend as K
-import tensorflow.keras.layers as KL
-import tensorflow.python.keras.engine as KE
-import tensorflow.keras.models as KM
-
-# from mrcnn import utils
-from . import utils
+import keras
+import keras.backend as K
+import keras.layers as KL
+import keras.models as KM
 
 # Requires TensorFlow 1.3+ and Keras 2.0.8+.
 from distutils.version import LooseVersion
@@ -44,15 +45,7 @@ def _resolve_keras_version():
 
     candidates = [
         getattr(keras, "__version__", None),
-        getattr(tf.keras, "__version__", None),
     ]
-    try:
-        import keras as standalone_keras
-
-        candidates.append(getattr(standalone_keras, "__version__", None))
-    except Exception:
-        pass
-    # As a safe fallback, use TF version (bundled tf.keras tracks TF release).
     candidates.append(getattr(tf, "__version__", None))
 
     for value in candidates:
@@ -940,8 +933,39 @@ def build_rpn_model(anchor_stride, anchors_per_location, depth):
 #  Feature Pyramid Network Heads
 ############################################################
 
+def _require_static_roi_count(inputs, context, *, fallback=None, fallback_value=None):
+    """Return the statically-known ROI count for one ROI head tensor."""
+
+    roi_count = inputs.shape[1]
+    if roi_count is None and fallback is not None:
+        roi_count = fallback.shape[1]
+    if roi_count is None and fallback_value is not None:
+        roi_count = fallback_value
+    if roi_count is None:
+        raise ValueError(f"{context} requires a statically-known ROI dimension.")
+    return int(roi_count)
+
+
+def _apply_roi_layer(inputs, layer, *, context, roi_count=None, **call_kwargs):
+    """Apply one layer across `[batch, rois, ...]` without `TimeDistributed`."""
+
+    input_shape = tuple(inputs.shape)
+    if roi_count is None:
+        roi_count = _require_static_roi_count(inputs, context)
+    child_input_shape = (None,) + tuple(input_shape[2:])
+    reshape_op = keras.ops.reshape if hasattr(keras, "ops") else tf.reshape
+    flattened_inputs = reshape_op(inputs, (-1,) + tuple(input_shape[2:]))
+    flattened_outputs = layer(flattened_inputs, **call_kwargs) if call_kwargs else layer(
+        flattened_inputs
+    )
+    child_output_shape = tuple(layer.compute_output_shape(child_input_shape))
+    restored_shape = (-1, roi_count) + tuple(child_output_shape[1:])
+    return reshape_op(flattened_outputs, restored_shape)
+
+
 def fpn_classifier_graph(rois, feature_maps, image_meta,
                          pool_size, num_classes, train_bn=True,
+                         roi_count=None,
                          fc_layers_size=1024):
     """Builds the computation graph of the feature pyramid network classifier
     and regressor heads.
@@ -966,43 +990,60 @@ def fpn_classifier_graph(rois, feature_maps, image_meta,
     # Shape: [batch, num_boxes, pool_height, pool_width, channels]
     x = PyramidROIAlign([pool_size, pool_size],
                         name="roi_align_classifier")([rois, image_meta] + feature_maps)
+    roi_count = _require_static_roi_count(
+        x,
+        "fpn_classifier_graph",
+        fallback=rois,
+        fallback_value=roi_count,
+    )
     # Two 1024 FC layers (implemented with Conv2D for consistency)
-    x = KL.TimeDistributed(KL.Conv2D(fc_layers_size, (pool_size, pool_size), padding="valid"),
-                           name="mrcnn_class_conv1")(x)
-    x = KL.TimeDistributed(BatchNorm(), name='mrcnn_class_bn1')(x, training=train_bn)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(fc_layers_size, (pool_size, pool_size), padding="valid", name="mrcnn_class_conv1"),
+        context="mrcnn_class_conv1",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        BatchNorm(name="mrcnn_class_bn1"),
+        context="mrcnn_class_bn1",
+        roi_count=roi_count,
+        training=train_bn,
+    )
     x = KL.Activation('relu')(x)
-    x = KL.TimeDistributed(KL.Conv2D(fc_layers_size, (1, 1)),
-                           name="mrcnn_class_conv2")(x)
-    x = KL.TimeDistributed(BatchNorm(), name='mrcnn_class_bn2')(x, training=train_bn)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(fc_layers_size, (1, 1), name="mrcnn_class_conv2"),
+        context="mrcnn_class_conv2",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        BatchNorm(name="mrcnn_class_bn2"),
+        context="mrcnn_class_bn2",
+        roi_count=roi_count,
+        training=train_bn,
+    )
     x = KL.Activation('relu')(x)
 
-    shared = KL.Lambda(lambda x: K.squeeze(K.squeeze(x, 3), 2),
-                       name="pool_squeeze")(x)
+    shared = KL.Reshape((roi_count, fc_layers_size), name="pool_squeeze")(x)
 
     # Classifier head
-    mrcnn_class_logits = KL.TimeDistributed(KL.Dense(num_classes),
-                                            name='mrcnn_class_logits')(shared)
-    mrcnn_probs = KL.TimeDistributed(KL.Activation("softmax"),
-                                     name="mrcnn_class")(mrcnn_class_logits)
+    mrcnn_class_logits = KL.Dense(num_classes, name='mrcnn_class_logits')(shared)
+    mrcnn_probs = KL.Activation("softmax", name="mrcnn_class")(mrcnn_class_logits)
 
     # BBox head
     # [batch, boxes, num_classes * (dy, dx, log(dh), log(dw))]
-    x = KL.TimeDistributed(KL.Dense(num_classes * 4, activation='linear'),
-                           name='mrcnn_bbox_fc')(shared)
+    x = KL.Dense(num_classes * 4, activation='linear', name='mrcnn_bbox_fc')(shared)
     # Reshape to [batch, boxes, num_classes, (dy, dx, log(dh), log(dw))]
-    s = K.int_shape(x)
-    #mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
-    if s[1]==None:
-        mrcnn_bbox = KL.Reshape((-1, num_classes, 4), name="mrcnn_bbox")(x)
-    else:
-        mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
-
+    mrcnn_bbox = KL.Reshape((roi_count, num_classes, 4), name="mrcnn_bbox")(x)
 
     return mrcnn_class_logits, mrcnn_probs, mrcnn_bbox
 
 
 def build_fpn_mask_graph(rois, feature_maps, image_meta,
-                         pool_size, num_classes, train_bn=True):
+                         pool_size, num_classes, train_bn=True,
+                         roi_count=None):
     """Builds the computation graph of the mask head of Feature Pyramid Network.
 
     rois: [batch, num_rois, (y1, x1, y2, x2)] Proposal boxes in normalized
@@ -1020,36 +1061,86 @@ def build_fpn_mask_graph(rois, feature_maps, image_meta,
     # Shape: [batch, boxes, pool_height, pool_width, channels]
     x = PyramidROIAlign([pool_size, pool_size],
                         name="roi_align_mask")([rois, image_meta] + feature_maps)
+    roi_count = _require_static_roi_count(
+        x,
+        "build_fpn_mask_graph",
+        fallback=rois,
+        fallback_value=roi_count,
+    )
 
     # Conv layers
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv1")(x)
-    x = KL.TimeDistributed(BatchNorm(),
-                           name='mrcnn_mask_bn1')(x, training=train_bn)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(256, (3, 3), padding="same", name="mrcnn_mask_conv1"),
+        context="mrcnn_mask_conv1",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        BatchNorm(name='mrcnn_mask_bn1'),
+        context="mrcnn_mask_bn1",
+        roi_count=roi_count,
+        training=train_bn,
+    )
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv2")(x)
-    x = KL.TimeDistributed(BatchNorm(),
-                           name='mrcnn_mask_bn2')(x, training=train_bn)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(256, (3, 3), padding="same", name="mrcnn_mask_conv2"),
+        context="mrcnn_mask_conv2",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        BatchNorm(name='mrcnn_mask_bn2'),
+        context="mrcnn_mask_bn2",
+        roi_count=roi_count,
+        training=train_bn,
+    )
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv3")(x)
-    x = KL.TimeDistributed(BatchNorm(),
-                           name='mrcnn_mask_bn3')(x, training=train_bn)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(256, (3, 3), padding="same", name="mrcnn_mask_conv3"),
+        context="mrcnn_mask_conv3",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        BatchNorm(name='mrcnn_mask_bn3'),
+        context="mrcnn_mask_bn3",
+        roi_count=roi_count,
+        training=train_bn,
+    )
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv4")(x)
-    x = KL.TimeDistributed(BatchNorm(),
-                           name='mrcnn_mask_bn4')(x, training=train_bn)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(256, (3, 3), padding="same", name="mrcnn_mask_conv4"),
+        context="mrcnn_mask_conv4",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        BatchNorm(name='mrcnn_mask_bn4'),
+        context="mrcnn_mask_bn4",
+        roi_count=roi_count,
+        training=train_bn,
+    )
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
-                           name="mrcnn_mask_deconv")(x)
-    x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"),
-                           name="mrcnn_mask")(x)
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu", name="mrcnn_mask_deconv"),
+        context="mrcnn_mask_deconv",
+        roi_count=roi_count,
+    )
+    x = _apply_roi_layer(
+        x,
+        KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid", name="mrcnn_mask"),
+        context="mrcnn_mask",
+        roi_count=roi_count,
+    )
     return x
 
 
@@ -2131,13 +2222,15 @@ class MaskRCNN():
                 fpn_classifier_graph(rois, mrcnn_feature_maps, input_image_meta,
                                      config.POOL_SIZE, config.NUM_CLASSES,
                                      train_bn=config.TRAIN_BN,
+                                     roi_count=config.TRAIN_ROIS_PER_IMAGE,
                                      fc_layers_size=config.FPN_CLASSIF_FC_LAYERS_SIZE)
 
             mrcnn_mask = build_fpn_mask_graph(rois, mrcnn_feature_maps,
                                               input_image_meta,
                                               config.MASK_POOL_SIZE,
                                               config.NUM_CLASSES,
-                                              train_bn=config.TRAIN_BN)
+                                              train_bn=config.TRAIN_BN,
+                                              roi_count=config.TRAIN_ROIS_PER_IMAGE)
 
             # TODO: clean up (use tf.identify if necessary)
             output_rois = KL.Lambda(lambda x: x * 1, name="output_rois")(rois)
@@ -2171,6 +2264,7 @@ class MaskRCNN():
                 fpn_classifier_graph(rpn_rois, mrcnn_feature_maps, input_image_meta,
                                      config.POOL_SIZE, config.NUM_CLASSES,
                                      train_bn=config.TRAIN_BN,
+                                     roi_count=config.POST_NMS_ROIS_INFERENCE,
                                      fc_layers_size=config.FPN_CLASSIF_FC_LAYERS_SIZE)
 
             # Detections
@@ -2185,7 +2279,8 @@ class MaskRCNN():
                                               input_image_meta,
                                               config.MASK_POOL_SIZE,
                                               config.NUM_CLASSES,
-                                              train_bn=config.TRAIN_BN)
+                                              train_bn=config.TRAIN_BN,
+                                              roi_count=config.DETECTION_MAX_INSTANCES)
 
             model = KM.Model([input_image, input_image_meta, input_anchors],
                              [detections, mrcnn_class, mrcnn_bbox,
@@ -2234,34 +2329,12 @@ class MaskRCNN():
         some layers from loading.
         exlude: list of layer names to excluce
         """
-        import h5py
-        from tensorflow.python.keras import saving as topology
-
-        if exclude:
-            by_name = True
-
-        if h5py is None:
-            raise ImportError('`load_weights` requires h5py.')
-        f = h5py.File(filepath, mode='r')
-        if 'layer_names' not in f.attrs and 'model_weights' in f:
-            f = f['model_weights']
-
-        # In multi-GPU training, we wrap the model. Get layers
-        # of the inner model because they have the weights.
-        keras_model = self.keras_model
-        layers = keras_model.inner_model.layers if hasattr(keras_model, "inner_model")\
-            else keras_model.layers
-
-        # Exclude some layers
-        if exclude:
-            layers = filter(lambda l: l.name not in exclude, layers)
-
-        if by_name:
-            topology.hdf5_format.load_weights_from_hdf5_group_by_name(f, layers)
-        else:
-            topology.hdf5_format.load_weights_from_hdf5_group(f, layers)
-        if hasattr(f, 'close'):
-            f.close()
+        load_legacy_hdf5_weights(
+            self.keras_model,
+            filepath,
+            by_name=by_name,
+            exclude=exclude,
+        )
 
         # Update the log directory
         self.set_log_dir(filepath)
@@ -2270,7 +2343,7 @@ class MaskRCNN():
         """Downloads ImageNet trained weights from Keras.
         Returns path to weights file.
         """
-        from tensorflow.keras.utils import get_file
+        from keras.utils import get_file
         TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/'\
                                  'releases/download/v0.2/'\
                                  'resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
@@ -2805,11 +2878,7 @@ class MaskRCNN():
         for o in outputs.values():
             assert o is not None
 
-        # Build a Keras function to run parts of the computation graph
-        inputs = model.inputs
-        if model.uses_learning_phase and not isinstance(K.learning_phase(), int):
-            inputs += [K.learning_phase()]
-        kf = K.function(model.inputs, list(outputs.values()))
+        debug_model = KM.Model(model.inputs, list(outputs.values()))
 
         # Prepare inputs
         if image_metas is None:
@@ -2824,10 +2893,9 @@ class MaskRCNN():
         anchors = np.broadcast_to(anchors, (self.config.BATCH_SIZE,) + anchors.shape)
         model_in = [molded_images, image_metas, anchors]
 
-        # Run inference
-        if model.uses_learning_phase and not isinstance(K.learning_phase(), int):
-            model_in.append(0.)
-        outputs_np = kf(model_in)
+        outputs_np = debug_model.predict(model_in, verbose=0)
+        if not isinstance(outputs_np, list):
+            outputs_np = [outputs_np]
 
         # Pack the generated Numpy arrays into a a dict and log the results.
         outputs_np = OrderedDict([(k, v)
