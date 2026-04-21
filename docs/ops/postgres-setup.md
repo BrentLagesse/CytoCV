@@ -94,12 +94,19 @@ python manage.py check
 ## Common Errors
 
 - missing required PostgreSQL settings
+
   One of the required DB variables is blank.
+
 - connection refused
+
   PostgreSQL is not running or the host and port are incorrect.
+
 - password authentication failed
+
   The configured password does not match the role.
+
 - database does not exist
+
   The target database was not created before migration.
 
 ## Related Documents

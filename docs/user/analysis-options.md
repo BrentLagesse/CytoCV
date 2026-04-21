@@ -123,10 +123,15 @@ The selected options influence:
 ## Common Errors
 
 - missing required wavelengths
+
   Upload validation rejects the run before it enters the processing queue.
+
 - unexpected Blue requirement
+
   A legacy plugin or all-wavelength enforcement is active.
+
 - invalid unit or negative numeric values
+
   The application normalizes or falls back to safe defaults.
 
 ## Related Documents

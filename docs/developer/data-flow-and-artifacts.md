@@ -34,7 +34,9 @@ Generated transient or regenerable artifacts may include:
 - preprocess images
 - inference logs
 - `mask.tif`
+
   Written from the postprocessed Mask R-CNN output; enclosed interior holes are filled so later DIC outlines and fluorescence contour clipping operate on solid cell regions.
+
 - generated temporary image assets
 - CSV helper artifacts such as `compressed_masks.csv`
 

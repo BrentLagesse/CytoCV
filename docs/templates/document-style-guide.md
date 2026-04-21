@@ -27,9 +27,9 @@ Tutorial and user-operation documents should use this order:
 Reference documents should use this order:
 
 1. Purpose
-2. definitions
-3. constraints and edge cases
-4. related documents
+2. Definitions
+3. Constraints and edge cases
+4. Related documents
 
 ## Naming Conventions
 

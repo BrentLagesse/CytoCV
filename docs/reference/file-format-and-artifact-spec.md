@@ -35,7 +35,9 @@ Common artifacts under `MEDIA_ROOT/<uuid>/`:
 - preview PNG files
 - preprocess intermediates
 - `output/mask.tif`
+
   Labeled segmentation mask written after mask postprocessing; enclosed interior holes are filled before downstream outlines, crops, and contour clipping use it.
+
 - `output/*_frame_<n>.png`
 - `segmented/cell_<n>.png`
 - `segmented/*-no_outline.png`

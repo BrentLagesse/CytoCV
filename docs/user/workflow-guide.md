@@ -108,10 +108,15 @@ From display or dashboard, users can:
 ## Common Errors
 
 - unauthorized access to a display UUID
+
   The run is not owned by the current user or is no longer transiently available in the session.
+
 - storage full while saving
+
   The selected set exceeds remaining quota.
+
 - no segmented cells produced
+
   The model or downstream segmentation did not produce usable cell instances.
 
 ## Related Documents

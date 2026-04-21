@@ -39,10 +39,15 @@ This catalog maps the current diagram set to manuscript, report, or appendix usa
 ### Validation, Requirements, And Scale
 
 - `docs/diagrams/05-plugin-channel-map.mmd`
+
   Suggested caption: Channel requirement model showing `DIC` as the universal segmentation dependency, plugin-driven fluorescence requirements, legacy Blue analyses, and optional validation expansion to all four logical roles.
+
 - `docs/diagrams/06-upload-validation-flow.mmd`
+
   Suggested caption: Upload-time validation flow showing configurable layer-count and effective channel-requirement checks before a run enters preprocessing.
+
 - `docs/diagrams/07-scale-channel-resolution.mmd`
+
   Suggested caption: Scale resolution and channel-mapping path from DeltaVision metadata through per-run threshold conversion.
 
 ### Processing And Output

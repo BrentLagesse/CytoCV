@@ -110,10 +110,15 @@ Account deletion removes:
 ## Common Errors
 
 - file unavailable during save or unsave
+
   The selected UUID is not currently accessible to the signed-in user.
+
 - quota exceeded during manual save
+
   The selected run set would exceed remaining retained storage.
+
 - incorrect email entered during account deletion
+
   The deletion confirmation did not match the active account email.
 
 ## Related Documents

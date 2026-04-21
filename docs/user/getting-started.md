@@ -85,12 +85,19 @@ After a successful run, CytoCV should produce:
 ## Common Errors
 
 - `CYTOCV_DB_BACKEND is required`
+
   Your `.env` file is missing a required database backend selector.
+
 - `SQLite is not allowed when CYTOCV_DEBUG=0`
+
   Production-like mode requires PostgreSQL.
+
 - invalid or missing channels during upload
+
   The file does not satisfy the selected plugin requirements or enabled validation rules.
+
 - missing weights file
+
   The ML inference path cannot run until the expected weights are present.
 
 ## Related Documents

@@ -116,10 +116,15 @@ After a fully successful run you should expect:
 ## Common Errors
 
 - no cells warning
+
   The run finished but segmentation did not produce cell instances.
+
 - missing preview assets
+
   The dashboard may still show table data even when preview imagery has been cleaned up.
+
 - missing main frame for a chosen channel
+
   CytoCV falls back to another available output frame when possible.
 
 ## Related Documents
