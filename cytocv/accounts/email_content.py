@@ -135,7 +135,7 @@ def build_password_recovery_email(
 def build_email_confirmation_email(
     *,
     activate_url: str,
-    days_valid: int,
+    minutes_valid: int,
     recipient_email: str = "",
     recipient_name: str | None = None,
     logo_url: str = "",
@@ -146,7 +146,7 @@ def build_email_confirmation_email(
     instruction = (
         "Open the secure link below to verify your email address and finish signing in to CytoCV."
     )
-    validity_line = _confirmation_validity_line(days_valid)
+    validity_line = _confirmation_validity_line(minutes_valid)
     sender_address = _email_address(sender_email)
     automated_notice = _automated_notice(sender_address)
     security_note = "If you did not request this email, you can safely ignore it."
@@ -492,8 +492,8 @@ def _formatted_email_date() -> str:
     return f"{today:%B} {today.day}, {today:%Y}"
 
 
-def _confirmation_validity_line(days_valid: int) -> str:
+def _confirmation_validity_line(minutes_valid: int) -> str:
     """Return a concise expiration sentence for confirmation-link emails."""
-    if days_valid == 1:
-        return "This verification link expires in 1 day."
-    return f"This verification link expires in {days_valid} days."
+    if minutes_valid == 1:
+        return "This verification link expires in 1 minute."
+    return f"This verification link expires in {minutes_valid} minutes."

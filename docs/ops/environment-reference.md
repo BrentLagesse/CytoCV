@@ -163,7 +163,7 @@ This document is the authoritative reference for environment variables consumed 
 - Allowed values: `none`, `optional`, `mandatory`
 - Default: `none` when debug is on, `optional` otherwise
 - Effect: allauth email verification mode for Google/Microsoft provider accounts
-- Notes: provider verification uses a signed confirmation link generated from the active request host and scheme. Native CytoCV signup and password recovery are separate flows and use numeric verification codes.
+- Notes: provider verification uses a signed confirmation link generated from the active request host and scheme. Native CytoCV signup and password recovery are separate flows and use numeric verification codes. All account verification codes and provider confirmation links use `CYTOCV_AUTH_VERIFICATION_EXPIRY_MINUTES`.
 
 ### `CYTOCV_EMAIL_BACKEND`
 
@@ -221,6 +221,14 @@ This document is the authoritative reference for environment variables consumed 
 - Type: integer or blank
 - Default: blank, which maps to Django default timeout behavior
 - Effect: SMTP timeout
+
+### `CYTOCV_AUTH_VERIFICATION_EXPIRY_MINUTES`
+
+- Required: no
+- Type: positive integer
+- Default: `5`
+- Effect: expiry window, in minutes, for native signup verification codes, password-recovery verification codes, and Google/Microsoft provider confirmation links
+- Notes: this is separate from `CYTOCV_EMAIL_TIMEOUT`, which only controls SMTP connection/send timeout.
 
 ### `CYTOCV_DEFAULT_FROM_EMAIL`
 
