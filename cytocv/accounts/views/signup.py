@@ -28,7 +28,7 @@ from accounts.email_content import (
 from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import get_client_ip
 
-VERIFY_CODE_TTL_SECONDS = 30 * 60
+VERIFY_CODE_TTL_SECONDS = settings.AUTH_VERIFICATION_EXPIRY_SECONDS
 VERIFY_CODE_MAX_ATTEMPTS = 5
 VERIFY_CODE_RESEND_SECONDS = 10 if settings.DEBUG else 60
 AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"

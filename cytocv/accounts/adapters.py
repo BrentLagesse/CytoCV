@@ -65,7 +65,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         user = emailconfirmation.email_address.user
         email_content = build_email_confirmation_email(
             activate_url=self.get_email_confirmation_url(request, emailconfirmation),
-            days_valid=app_settings.EMAIL_CONFIRMATION_EXPIRE_DAYS,
+            minutes_valid=settings.AUTH_VERIFICATION_EXPIRY_MINUTES,
             recipient_email=recipient,
             recipient_name=_user_display_name(user),
             logo_url=build_auth_email_logo_src(request) if request else "",

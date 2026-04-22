@@ -1,3 +1,6 @@
+import time
+from unittest.mock import patch
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -19,9 +22,11 @@ from accounts.adapters import CustomAccountAdapter
 from accounts.views.login import _recovery_sender_email
 from accounts.views.login import _recovery_sender_display_email
 from accounts.views.login import _build_recovery_email
+from accounts.views.login import RECOVERY_CODE_TTL_SECONDS
 from accounts.views.signup import _sender_display_email
 from accounts.views.signup import _build_verification_email
 from accounts.views.signup import _sender_email
+from accounts.views.signup import VERIFY_CODE_TTL_SECONDS
 
 
 class AuthEmailSenderConfigTests(SimpleTestCase):
@@ -87,6 +92,15 @@ class OAuthProviderConfigTests(SimpleTestCase):
         )
 
 
+class AuthVerificationExpiryPolicyTests(SimpleTestCase):
+    def test_account_verification_expiry_policy_is_five_minutes(self):
+        self.assertEqual(settings.AUTH_VERIFICATION_EXPIRY_MINUTES, 5)
+        self.assertEqual(settings.AUTH_VERIFICATION_EXPIRY_SECONDS, 300)
+        self.assertEqual(VERIFY_CODE_TTL_SECONDS, 300)
+        self.assertEqual(RECOVERY_CODE_TTL_SECONDS, 300)
+        self.assertEqual(settings.ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS, 5 / 1440)
+
+
 class AuthEmailContentTests(SimpleTestCase):
     def test_recipient_name_normalization_drops_placeholder_provider_names(self):
         self.assertEqual(normalize_recipient_name("Ada Lovelace"), "Ada Lovelace")
@@ -101,7 +115,7 @@ class AuthEmailContentTests(SimpleTestCase):
     def test_signup_verification_email_includes_institutional_text_and_html(self):
         email = _build_verification_email(
             code="123456",
-            minutes_valid=30,
+            minutes_valid=5,
             subject_prefix="CytoCV",
             recipient_name="Ada",
             logo_url="https://cytocv.uwb.edu/static/assets/UWBSTEM.png",
@@ -124,7 +138,8 @@ class AuthEmailContentTests(SimpleTestCase):
             email.text_body,
         )
         self.assertIn("123456", email.text_body)
-        self.assertIn("This code expires in 30 minutes.", email.text_body)
+        self.assertIn("This code expires in 5 minutes.", email.text_body)
+        self.assertNotIn("This code expires in 30 minutes.", email.text_body)
         self.assertIn(
             "If you did not request this code, you can safely ignore this email.",
             email.text_body,
@@ -158,7 +173,8 @@ class AuthEmailContentTests(SimpleTestCase):
             "University of Washington Bothell will never ask you to share this email or its contents.",
             email.html_body,
         )
-        self.assertIn("This code expires in 30 minutes.", email.html_body)
+        self.assertIn("This code expires in 5 minutes.", email.html_body)
+        self.assertNotIn("This code expires in 30 minutes.", email.html_body)
         self.assertIn(
             "If you did not request this code, you can safely ignore this email.",
             email.html_body,
@@ -180,7 +196,7 @@ class AuthEmailContentTests(SimpleTestCase):
     def test_recovery_email_includes_security_note_and_footer(self):
         email = _build_recovery_email(
             code="654321",
-            minutes_valid=30,
+            minutes_valid=5,
             recipient_name="Grace",
             logo_url="https://cytocv.uwb.edu/static/assets/UWBSTEM.png",
             sender_email="cytocv-noreply@uw.edu",
@@ -195,7 +211,8 @@ class AuthEmailContentTests(SimpleTestCase):
         )
         self.assertIn("Warning: Do not share this email", email.text_body)
         self.assertIn("654321", email.text_body)
-        self.assertIn("This code expires in 30 minutes.", email.text_body)
+        self.assertIn("This code expires in 5 minutes.", email.text_body)
+        self.assertNotIn("This code expires in 30 minutes.", email.text_body)
         self.assertIn(
             "If you did not request this code, you can safely ignore this email.",
             email.text_body,
@@ -238,7 +255,7 @@ class AuthEmailContentTests(SimpleTestCase):
     def test_email_confirmation_email_includes_link_cta_and_institutional_footer(self):
         email = build_email_confirmation_email(
             activate_url="https://cytocv.uwb.edu/signin/oauth/confirm-email/key/",
-            days_valid=3,
+            minutes_valid=5,
             recipient_email="ada@example.com",
             recipient_name="Ada",
             logo_url="https://cytocv.uwb.edu/static/assets/UWBSTEM.png",
@@ -257,7 +274,8 @@ class AuthEmailContentTests(SimpleTestCase):
             "https://cytocv.uwb.edu/signin/oauth/confirm-email/key/",
             email.text_body,
         )
-        self.assertIn("This verification link expires in 3 days.", email.text_body)
+        self.assertIn("This verification link expires in 5 minutes.", email.text_body)
+        self.assertNotIn("This verification link expires in 3 days.", email.text_body)
         self.assertIn("If you did not request this email, you can safely ignore it.", email.text_body)
         self.assertIn("Warning: Do not share this email", email.text_body)
         self.assertIn(
@@ -275,7 +293,8 @@ class AuthEmailContentTests(SimpleTestCase):
             "https://cytocv.uwb.edu/signin/oauth/confirm-email/key/",
             email.html_body,
         )
-        self.assertIn("This verification link expires in 3 days.", email.html_body)
+        self.assertIn("This verification link expires in 5 minutes.", email.html_body)
+        self.assertNotIn("This verification link expires in 3 days.", email.html_body)
         self.assertIn("If you did not request this email, you can safely ignore it.", email.html_body)
         self.assertIn("Do not share this email", email.html_body)
         self.assertIn("ada@example.com", email.html_body)
@@ -291,7 +310,7 @@ class AuthEmailContentTests(SimpleTestCase):
     def test_confirmation_email_uses_plain_greeting_for_placeholder_name(self):
         email = build_email_confirmation_email(
             activate_url="https://cytocv.uwb.edu/signin/oauth/confirm-email/key/",
-            days_valid=3,
+            minutes_valid=5,
             recipient_email="placeholder@example.com",
             recipient_name="-",
             logo_url="https://cytocv.uwb.edu/static/assets/UWBSTEM.png",
@@ -332,7 +351,8 @@ class AuthEmailViewSendTests(TestCase):
             message.body,
         )
         self.assertIn("Warning: Do not share this email", message.body)
-        self.assertIn("This code expires in 30 minutes.", message.body)
+        self.assertIn("This code expires in 5 minutes.", message.body)
+        self.assertNotIn("This code expires in 30 minutes.", message.body)
         self.assertIn(
             "If you did not request this code, you can safely ignore this email.",
             message.body,
@@ -344,6 +364,8 @@ class AuthEmailViewSendTests(TestCase):
         self.assertNotIn("cytocv@uw.edu", message.body)
         content = response.content.decode()
         self.assertIn("from <strong>cytocv-noreply@uw.edu</strong>", content)
+        self.assertIn("This code expires in 5 minutes.", content)
+        self.assertNotIn("This code expires in 30 minutes.", content)
         self.assertNotIn("CytoCV&lt;cytocv-noreply@uw.edu&gt;", content)
         self.assertEqual(len(message.alternatives), 1)
         html_body, mime_type = message.alternatives[0]
@@ -390,13 +412,16 @@ class AuthEmailViewSendTests(TestCase):
             message.body,
         )
         self.assertIn("Warning: Do not share this email", message.body)
-        self.assertIn("This code expires in 30 minutes.", message.body)
+        self.assertIn("This code expires in 5 minutes.", message.body)
+        self.assertNotIn("This code expires in 30 minutes.", message.body)
         self.assertIn(
             "If you did not request this code, you can safely ignore this email.",
             message.body,
         )
         content = response.content.decode()
         self.assertIn("from <strong>cytocv-noreply@uw.edu</strong>", content)
+        self.assertIn("This code expires in 5 minutes.", content)
+        self.assertNotIn("This code expires in 30 minutes.", content)
         self.assertNotIn("CytoCV&lt;cytocv-noreply@uw.edu&gt;", content)
         self.assertEqual(len(message.alternatives), 1)
         html_body, mime_type = message.alternatives[0]
@@ -450,7 +475,8 @@ class AllauthEmailConfirmationTests(TestCase):
         self.assertIn("Hello Nicolas,", message.body)
         self.assertIn("Verify email address:", message.body)
         self.assertIn("/signin/oauth/confirm-email/", message.body)
-        self.assertIn("This verification link expires in 3 days.", message.body)
+        self.assertIn("This verification link expires in 5 minutes.", message.body)
+        self.assertNotIn("This verification link expires in 3 days.", message.body)
         self.assertIn("cytocv-noreply@uw.edu", message.body)
         self.assertNotIn("CytoCV<cytocv-noreply@uw.edu>", message.body)
         self.assertEqual(len(message.alternatives), 1)
@@ -459,6 +485,8 @@ class AllauthEmailConfirmationTests(TestCase):
         self.assertIn(AUTH_EMAIL_LOGO_CID_URL, html_body)
         self.assertIn("Verify email address", html_body)
         self.assertIn("/signin/oauth/confirm-email/", html_body)
+        self.assertIn("This verification link expires in 5 minutes.", html_body)
+        self.assertNotIn("This verification link expires in 3 days.", html_body)
         self.assertIn("Do not share this email", html_body)
         self.assertIn("Department of Computing &amp; Software Systems", html_body)
         self.assertNotIn("18115 Campus Way NE", html_body)
@@ -535,6 +563,8 @@ class AllauthEmailConfirmationTests(TestCase):
         content = response.content.decode()
         self.assertIn("Check your email", content)
         self.assertIn("secure verification link", content)
+        self.assertIn("This verification link expires in 5 minutes.", content)
+        self.assertIn("Open the newest email link to finish signing in.", content)
         self.assertIn("auth-card", content)
         self.assertIn(">Back<", content)
         self.assertIn("I verified", content)
@@ -603,3 +633,25 @@ class AllauthEmailConfirmationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         email_address.refresh_from_db()
         self.assertTrue(email_address.verified)
+
+    def test_confirmation_get_rejects_expired_email_link(self):
+        user = get_user_model().objects.create_user(
+            email="expired-oauth@example.com",
+            password="TestPass123!",
+        )
+        email_address = EmailAddress.objects.create(
+            user=user,
+            email="expired-oauth@example.com",
+            primary=True,
+            verified=False,
+        )
+        confirmation = EmailConfirmationHMAC(email_address)
+        key = confirmation.key
+
+        with patch("django.core.signing.time.time", return_value=time.time() + 301):
+            response = self.client.get(reverse("account_confirm_email", args=[key]))
+
+        self.assertEqual(response.status_code, 200)
+        email_address.refresh_from_db()
+        self.assertFalse(email_address.verified)
+        self.assertIn("Verification link expired", response.content.decode())

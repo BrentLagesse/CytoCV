@@ -7,32 +7,52 @@ This document provides a practical map of the current repository structure.
 ## Top-Level Repository Structure
 
 - `cytocv/`
+
   Django project root containing the apps, templates, media, cache, and `manage.py`
+
 - `docs/`
-  project documentation and research deliverables
+
+  Project documentation and research deliverables
+
 - `Test_Files/`
-  local testing input material
+
+  Local testing input material
+
 - `requirements.txt`
+
   Python dependency lock surface for the application environment
+
 - `Dockerfile` and `compose.yml`
-  containerization and service bootstrap material
+
+  Containerization and service bootstrap material
 
 ## Django Project Package
 
 Inside `cytocv/`:
 
 - `cytocv/cytocv/`
+
   Django settings, URL configuration, and WSGI entrypoint
+
 - `cytocv/accounts/`
-  auth model, preferences, signup/login/profile views, security helpers
+
+  Auth model, preferences, signup/login/profile views, security helpers
+
 - `cytocv/core/`
-  scientific workflow, models, services, views, analysis logic, and tests
+
+  Scientific workflow, models, services, views, analysis logic, and tests
+
 - `cytocv/templates/`
-  shared templates for the UI
+
+  Shared templates for the UI
+
 - `cytocv/media/`
-  runtime media storage root
+
+  Runtime media storage root
+
 - `cytocv/cache/`
-  file-based Django cache backend
+
+  File-based Django cache backend
 
 ## Accounts App
 

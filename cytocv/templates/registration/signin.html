@@ -509,7 +509,9 @@
                         <p class="subtitle">Enter your account email to receive a verification code.</p>
                     {% elif recovery_step == 2 %}
                         <h1>Verify your email</h1>
-                        <p class="subtitle">Enter the verification code to continue.</p>
+                        <p class="subtitle">
+                            Enter the verification code to continue. This code expires in {{ auth_verification_expiry_label }}.
+                        </p>
                     {% else %}
                         <h1>Create a new password</h1>
                         <p class="subtitle">Set your new password and sign in automatically.</p>

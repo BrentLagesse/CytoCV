@@ -253,6 +253,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.media',
                 'django.template.context_processors.request',
+                'accounts.context_processors.auth_verification_policy',
             ],
         },
     },
@@ -390,6 +391,17 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+AUTH_VERIFICATION_EXPIRY_MINUTES = _parse_env_int(
+    "CYTOCV_AUTH_VERIFICATION_EXPIRY_MINUTES",
+    5,
+    prefer_env_file=True,
+)
+if AUTH_VERIFICATION_EXPIRY_MINUTES < 1:
+    raise ImproperlyConfigured(
+        "CYTOCV_AUTH_VERIFICATION_EXPIRY_MINUTES must be at least 1."
+    )
+AUTH_VERIFICATION_EXPIRY_SECONDS = AUTH_VERIFICATION_EXPIRY_MINUTES * 60
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = AUTH_VERIFICATION_EXPIRY_MINUTES / (24 * 60)
 ACCOUNT_EMAIL_VERIFICATION = os.getenv(
     "CYTOCV_ACCOUNT_EMAIL_VERIFICATION",
     "none" if DEBUG else "optional",
