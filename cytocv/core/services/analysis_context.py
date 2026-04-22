@@ -28,7 +28,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "biorientationRedMinDistance": 0,
     "biorientationRedMaxDistance": 37,
     "biorientationCollinearityThreshold": 66,
-    "biorientationGreenSplitEnabled": True,
+    "greenDotSplitEnabled": True,
     "stats_biorientation_red_min_distance_unit": "px",
     "stats_biorientation_red_min_distance_value": 0.0,
     "stats_biorientation_red_max_distance_unit": "px",
@@ -186,8 +186,11 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             default=66,
             minimum=0,
         ),
-        "biorientationGreenSplitEnabled": _parse_bool(
-            payload.get("biorientationGreenSplitEnabled"),
+        "greenDotSplitEnabled": _parse_bool(
+            payload.get(
+                "greenDotSplitEnabled",
+                payload.get("biorientationGreenSplitEnabled"),
+            ),
             default=True,
         ),
         "stats_biorientation_red_min_distance_unit": "um"
@@ -292,7 +295,10 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
             "biorientationCollinearityThreshold",
             request.session.get("cenDotCollinearityThreshold", 66),
         ),
-        "biorientationGreenSplitEnabled": request.session.get("biorientationGreenSplitEnabled", True),
+        "greenDotSplitEnabled": request.session.get(
+            "greenDotSplitEnabled",
+            request.session.get("biorientationGreenSplitEnabled", True),
+        ),
         "stats_biorientation_red_min_distance_unit": request.session.get(
             "stats_biorientation_red_min_distance_unit", "px"
         ),

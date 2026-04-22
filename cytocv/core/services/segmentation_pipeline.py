@@ -956,8 +956,11 @@ def run_segmentation_batch(
             biorientation_collinearity_threshold = 66
         if biorientation_collinearity_threshold < 0:
             biorientation_collinearity_threshold = 66
-        biorientation_green_split_enabled = bool(
-            config_snapshot.get("biorientationGreenSplitEnabled", True)
+        green_dot_split_enabled = bool(
+            config_snapshot.get(
+                "greenDotSplitEnabled",
+                config_snapshot.get("biorientationGreenSplitEnabled", True),
+            )
         )
 
         configured_puncta_line_width = _process_config_value(
@@ -985,7 +988,7 @@ def run_segmentation_batch(
             ),
             "green_contour_filter_enabled": green_contour_filter_enabled,
             "alternate_red_detection": alternate_red_detection,
-            "biorientation_green_split_enabled": biorientation_green_split_enabled,
+            "green_dot_split_enabled": green_dot_split_enabled,
         }
         write_overlay_render_config(
             uuid,
@@ -1018,7 +1021,7 @@ def run_segmentation_batch(
                 biorientation_red_max_distance_value=biorientation_red_max_distance_value,
                 biorientation_red_max_distance_unit=biorientation_red_max_distance_unit,
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
-                biorientation_green_split_enabled=biorientation_green_split_enabled,
+                green_dot_split_enabled=green_dot_split_enabled,
             ),
         )
 
@@ -1085,7 +1088,7 @@ def run_segmentation_batch(
             cp.properties["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value
             cp.properties["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
-            cp.properties["stats_biorientation_green_split_enabled"] = biorientation_green_split_enabled
+            cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
 
             cp.properties["neck_split"] = _build_neck_split_properties(
                 pair_geometry_cache.get(cell_number)
@@ -1100,7 +1103,7 @@ def run_segmentation_batch(
                 cen_dot_proximity_radius,
                 green_contour_filter_enabled,
                 alternate_red_detection,
-                biorientation_green_split_enabled,
+                green_dot_split_enabled,
                 cached_images=cell_image_cache.get(cell_number),
             )
             rendered_overlay_images = {

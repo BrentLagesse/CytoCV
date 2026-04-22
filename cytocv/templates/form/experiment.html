@@ -1672,6 +1672,24 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row" id="greenDotSplitRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label-row">
+                                <span class="toggle-label">Split Merged Green Dots</span>
+                                <button
+                                    type="button"
+                                    class="info-dot compact advanced-info-dot"
+                                    id="greenDotSplitInfoDot"
+                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated."
+                                    aria-label="Split connected multi-peak Green signal into separate dot contours before statistics are calculated."
+                                >i</button>
+                            </span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="greenDotSplitEnabled">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="toggle-row" id="alternateRedRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1907,7 +1925,8 @@
     const biorientationRedMinDistanceKey = 'cytocv.biorientation_red_min_distance.v1';
     const biorientationRedMaxDistanceKey = 'cytocv.biorientation_red_max_distance.v1';
     const biorientationThresholdKey = 'cytocv.biorientation_collinearity_threshold.v1';
-    const biorientationGreenSplitKey = 'cytocv.biorientation_green_split_enabled.v1';
+    const greenDotSplitKey = 'cytocv.green_dot_split_enabled.v1';
+    const legacyBiorientationGreenSplitKey = 'cytocv.biorientation_green_split_enabled.v1';
     const advancedKey = 'cytocv.advanced_validation.v3';
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
     const nuclearModeKey = 'cytocv.nuclear_cell_pair_mode.v3';
@@ -1953,7 +1972,7 @@
         biorientationRedMinDistance: 0,
         biorientationRedMaxDistance: 37,
         biorientationCollinearityThreshold: 66,
-        biorientationGreenSplitEnabled: true,
+        greenDotSplitEnabled: true,
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
         greenContourFilterEnabled: false,
@@ -1980,7 +1999,6 @@
     let biorientationRedMinDistanceInput = null;
     let biorientationRedMaxDistanceInput = null;
     let biorientationCollinearityThresholdInput = null;
-    let biorientationGreenSplitEnabledInput = null;
     let biorientationRow = null;
     let micronsPerPixelInput = null;
     let useMetadataScaleInput = null;
@@ -2009,6 +2027,9 @@
         const manualChannels = Array.isArray(serverPreferenceDefaults.manual_required_channels)
             ? serverPreferenceDefaults.manual_required_channels.filter((channel) => channelOrder.includes(channel))
             : [];
+        const rawGreenDotSplitDefault = Object.prototype.hasOwnProperty.call(serverPreferenceDefaults, 'green_dot_split_enabled')
+            ? serverPreferenceDefaults.green_dot_split_enabled
+            : serverPreferenceDefaults.biorientation_green_split_enabled;
         const advancedPayload = {
             moduleEnabled: !!serverPreferenceDefaults.module_enabled,
             enforceLayerCount: !!serverPreferenceDefaults.enforce_layer_count,
@@ -2016,6 +2037,7 @@
             showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
             manualRequiredChannels: manualChannels,
             greenContourFilterEnabled: !!serverPreferenceDefaults.green_contour_filter_enabled,
+            greenDotSplitEnabled: rawGreenDotSplitDefault !== false,
             alternateRedDetection: !!serverPreferenceDefaults.alternate_red_detection,
         };
         localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
@@ -2045,7 +2067,7 @@
         localStorage.setItem(biorientationRedMinDistanceKey, Number.isFinite(biorientationMinDistance) ? String(biorientationMinDistance) : '0');
         localStorage.setItem(biorientationRedMaxDistanceKey, Number.isFinite(biorientationMaxDistance) ? String(biorientationMaxDistance) : '37');
         localStorage.setItem(biorientationThresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
-        localStorage.setItem(biorientationGreenSplitKey, String(serverPreferenceDefaults.biorientation_green_split_enabled !== false));
+        localStorage.setItem(greenDotSplitKey, String(rawGreenDotSplitDefault !== false));
         localStorage.setItem(
             micronsPerPixelKey,
             Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
@@ -3076,7 +3098,6 @@
         biorientationRedMinDistanceInput = null;
         biorientationRedMaxDistanceInput = null;
         biorientationCollinearityThresholdInput = null;
-        biorientationGreenSplitEnabledInput = null;
         biorientationRow = null;
         micronsPerPixelInput = null;
         punctaLineModeRow = null;
@@ -3356,34 +3377,11 @@
                 thresholdLine.appendChild(thresholdInputGroup);
                 orientationRow.appendChild(thresholdLine);
 
-                const splitLine = document.createElement('div');
-                splitLine.className = 'stats-distance-line';
-                const splitLabel = document.createElement('label');
-                splitLabel.setAttribute('for', 'biorientationGreenSplitEnabled');
-                splitLabel.textContent = 'Split Merged Green Dots:';
-                splitLine.appendChild(splitLabel);
-                const splitSwitch = document.createElement('label');
-                splitSwitch.className = 'switch';
-                const splitInput = document.createElement('input');
-                splitInput.type = 'checkbox';
-                splitInput.id = 'biorientationGreenSplitEnabled';
-                splitInput.addEventListener('change', () => {
-                    statsState.biorientationGreenSplitEnabled = !!splitInput.checked;
-                    localStorage.setItem(biorientationGreenSplitKey, String(statsState.biorientationGreenSplitEnabled));
-                });
-                const splitSlider = document.createElement('span');
-                splitSlider.className = 'slider';
-                splitSwitch.appendChild(splitInput);
-                splitSwitch.appendChild(splitSlider);
-                splitLine.appendChild(splitSwitch);
-                orientationRow.appendChild(splitLine);
-
                 row.appendChild(orientationRow);
                 biorientationRow = orientationRow;
                 biorientationRedMinDistanceInput = minGroup.input;
                 biorientationRedMaxDistanceInput = maxGroup.input;
                 biorientationCollinearityThresholdInput = thresholdInput;
-                biorientationGreenSplitEnabledInput = splitInput;
             }
 
             if (plugin.id === 'NuclearCellPairIntensity') {
@@ -3682,6 +3680,7 @@
         });
 
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
+        const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
         const alternateRedDetection = document.getElementById('alternateRedDetection');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
@@ -3690,6 +3689,13 @@
         if (greenContourFilterEnabled) {
             greenContourFilterEnabled.addEventListener('change', () => {
                 statsState.greenContourFilterEnabled = greenContourFilterEnabled.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+        if (greenDotSplitEnabled) {
+            greenDotSplitEnabled.addEventListener('change', () => {
+                statsState.greenDotSplitEnabled = greenDotSplitEnabled.checked;
                 persistAdvancedSettings();
                 syncStatsUI();
             });
@@ -3777,6 +3783,14 @@
         }
 
         statsState.greenContourFilterEnabled = typeof stored.greenContourFilterEnabled === 'boolean' ? stored.greenContourFilterEnabled : false;
+        if (typeof stored.greenDotSplitEnabled === 'boolean') {
+            statsState.greenDotSplitEnabled = stored.greenDotSplitEnabled;
+        } else {
+            const splitRaw = localStorage.getItem(greenDotSplitKey) ?? localStorage.getItem(legacyBiorientationGreenSplitKey);
+            statsState.greenDotSplitEnabled = splitRaw === null
+                ? true
+                : !['0', 'false', 'off', 'no'].includes(String(splitRaw).trim().toLowerCase());
+        }
         statsState.alternateRedDetection = typeof stored.alternateRedDetection === 'boolean' ? stored.alternateRedDetection : false;
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
@@ -3854,10 +3868,6 @@
         const raw = localStorage.getItem(biorientationThresholdKey) || localStorage.getItem(oldThresholdKey);
         const parsed = parseInt(raw || '66', 10);
         statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-        const splitRaw = localStorage.getItem(biorientationGreenSplitKey);
-        statsState.biorientationGreenSplitEnabled = splitRaw === null
-            ? true
-            : !['0', 'false', 'off', 'no'].includes(String(splitRaw).trim().toLowerCase());
     }
 
     function loadStoredPunctaMode() {
@@ -3883,8 +3893,10 @@
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             alternateRedDetection: !!statsState.alternateRedDetection,
         }));
+        localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
     }
 
     function enforceExclusiveGroup(pluginId) {
@@ -3966,6 +3978,7 @@
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
         const optionalChecksNote = document.getElementById('optionalChecksNote');
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
+        const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
         const alternateRedDetection = document.getElementById('alternateRedDetection');
         const greenFilterRow = document.getElementById('greenFilterRow');
         const alternateRedRow = document.getElementById('alternateRedRow');
@@ -4010,9 +4023,6 @@
         if (biorientationCollinearityThresholdInput) {
             biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
         }
-        if (biorientationGreenSplitEnabledInput) {
-            biorientationGreenSplitEnabledInput.checked = !!statsState.biorientationGreenSplitEnabled;
-        }
         if (micronsPerPixelInput) {
             micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
         }
@@ -4037,6 +4047,9 @@
                 greenContourFilterEnabled.checked = false;
                 statsState.greenContourFilterEnabled = greenContourFilterEnabled.checked;
             }
+        }
+        if (greenDotSplitEnabled) {
+            greenDotSplitEnabled.checked = !!statsState.greenDotSplitEnabled;
         }
         if (alternateRedDetection) {
             alternateRedDetection.checked = !!statsState.alternateRedDetection;
@@ -4213,10 +4226,10 @@
             biorientationRedMinDistance: Number.isFinite(Number(statsState.biorientationRedMinDistance)) ? Number(statsState.biorientationRedMinDistance) : 0,
             biorientationRedMaxDistance: Number.isFinite(Number(statsState.biorientationRedMaxDistance)) ? Number(statsState.biorientationRedMaxDistance) : 37,
             biorientationCollinearityThreshold: Number.isFinite(Number(statsState.biorientationCollinearityThreshold)) ? Number(statsState.biorientationCollinearityThreshold) : 66,
-            biorientationGreenSplitEnabled: !!statsState.biorientationGreenSplitEnabled,
             punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             alternateRedDetection: !!statsState.alternateRedDetection,
             punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
             cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
@@ -4277,10 +4290,10 @@
             );
             const parsedThreshold = parseInt(String(snapshot.biorientationCollinearityThreshold ?? 66), 10);
             statsState.biorientationCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
-            statsState.biorientationGreenSplitEnabled = snapshot.biorientationGreenSplitEnabled !== false;
             statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
+            statsState.greenDotSplitEnabled = snapshot.greenDotSplitEnabled !== false;
             statsState.alternateRedDetection = !!snapshot.alternateRedDetection;
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
@@ -4298,7 +4311,7 @@
             localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
             localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
             localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
-            localStorage.setItem(biorientationGreenSplitKey, String(statsState.biorientationGreenSplitEnabled));
+            localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             persistLengthUnitSettings();
@@ -5057,10 +5070,6 @@
                 biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
                 localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
             }
-            if (biorientationGreenSplitEnabledInput) {
-                statsState.biorientationGreenSplitEnabled = !!biorientationGreenSplitEnabledInput.checked;
-                localStorage.setItem(biorientationGreenSplitKey, String(statsState.biorientationGreenSplitEnabled));
-            }
             if (punctaLineModeSelect) {
                 statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             }
@@ -5134,7 +5143,7 @@
             formData.append('biorientationRedMinDistance', String(statsState.biorientationRedMinDistance));
             formData.append('biorientationRedMaxDistance', String(statsState.biorientationRedMaxDistance));
             formData.append('biorientationCollinearityThreshold', String(statsState.biorientationCollinearityThreshold));
-            formData.append('biorientationGreenSplitEnabled', String(statsState.biorientationGreenSplitEnabled));
+            formData.append('greenDotSplitEnabled', String(statsState.greenDotSplitEnabled));
             formData.append('punctaLineWidth', String(punctaLineWidthPixels));
             formData.append('cenDotDistance', String(cenDotDistancePixels));
             formData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));

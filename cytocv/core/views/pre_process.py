@@ -493,9 +493,15 @@ def pre_process(request, uuids):
             'biorientationCollinearityThreshold',
             request.session.get('biorientationCollinearityThreshold', 66),
         )
-        biorientation_green_split_enabled_raw = request.POST.get(
-            'biorientationGreenSplitEnabled',
-            request.session.get('biorientationGreenSplitEnabled', 'True'),
+        green_dot_split_enabled_raw = request.POST.get(
+            'greenDotSplitEnabled',
+            request.POST.get(
+                'biorientationGreenSplitEnabled',
+                request.session.get(
+                    'greenDotSplitEnabled',
+                    request.session.get('biorientationGreenSplitEnabled', 'True'),
+                ),
+            ),
         )
         puncta_line_mode = normalize_puncta_line_mode(
             request.POST.get(
@@ -564,10 +570,10 @@ def pre_process(request, uuids):
             biorientation_collinearity_threshold = 66
         if biorientation_collinearity_threshold < 0:
             biorientation_collinearity_threshold = 66
-        biorientation_green_split_enabled = (
-            biorientation_green_split_enabled_raw
-            if isinstance(biorientation_green_split_enabled_raw, bool)
-            else str(biorientation_green_split_enabled_raw).strip().lower()
+        green_dot_split_enabled = (
+            green_dot_split_enabled_raw
+            if isinstance(green_dot_split_enabled_raw, bool)
+            else str(green_dot_split_enabled_raw).strip().lower()
             in {"1", "true", "yes", "on"}
         )
 
@@ -579,7 +585,7 @@ def pre_process(request, uuids):
         request.session['stats_biorientation_red_max_distance_value'] = biorientation_red_max_distance_value
         request.session['stats_biorientation_red_max_distance_unit'] = biorientation_red_max_distance_unit
         request.session['biorientationCollinearityThreshold'] = biorientation_collinearity_threshold
-        request.session['biorientationGreenSplitEnabled'] = biorientation_green_split_enabled
+        request.session['greenDotSplitEnabled'] = green_dot_split_enabled
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled

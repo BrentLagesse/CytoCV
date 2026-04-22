@@ -79,7 +79,7 @@ def find_contours(
     images: GrayImage,
     green_contour_filter_enabled: bool = False,
     alternate_red_detection: bool = False,
-    biorientation_green_split_enabled: bool = True,
+    green_dot_split_enabled: bool = True,
 ):
     """
     Find red dot contours, blue nucleus contours, and green signal contours.
@@ -294,7 +294,7 @@ def find_contours(
         )
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_green = cv2.morphologyEx(thresh_green, cv2.MORPH_CLOSE, kernel)
-        if biorientation_green_split_enabled:
+        if green_dot_split_enabled:
             thresh_green = _split_merged_green_contours(thresh_green)
         contours_green, _ = cv2.findContours(
             thresh_green,

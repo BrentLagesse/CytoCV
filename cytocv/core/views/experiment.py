@@ -405,8 +405,11 @@ def experiment(request):
         biorientation_red_max_distance_unit = _normalize_length_unit(
             biorientation_red_max_distance_unit_raw
         )
-        biorientation_green_split_enabled = _parse_bool(
-            request.POST.get("biorientationGreenSplitEnabled"),
+        green_dot_split_enabled = _parse_bool(
+            request.POST.get(
+                "greenDotSplitEnabled",
+                request.POST.get("biorientationGreenSplitEnabled"),
+            ),
             default=True,
         )
 
@@ -435,7 +438,7 @@ def experiment(request):
         request.session["biorientationRedMinDistance"] = biorientation_red_min_distance_value
         request.session["biorientationRedMaxDistance"] = biorientation_red_max_distance_value
         request.session["biorientationCollinearityThreshold"] = biorientation_collinearity_threshold
-        request.session["biorientationGreenSplitEnabled"] = biorientation_green_split_enabled
+        request.session["greenDotSplitEnabled"] = green_dot_split_enabled
         request.session["stats_biorientation_red_min_distance_value"] = biorientation_red_min_distance_value
         request.session["stats_biorientation_red_min_distance_unit"] = biorientation_red_min_distance_unit
         request.session["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value

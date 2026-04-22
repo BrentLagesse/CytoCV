@@ -36,7 +36,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_red_min_distance": 0,
         "biorientation_red_max_distance": 37,
         "biorientation_collinearity_threshold": 66,
-        "biorientation_green_split_enabled": True,
+        "green_dot_split_enabled": True,
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
@@ -250,8 +250,11 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         default=66,
         minimum=0,
     )
-    normalized["experiment_defaults"]["biorientation_green_split_enabled"] = _as_bool(
-        defaults_payload.get("biorientation_green_split_enabled"),
+    normalized["experiment_defaults"]["green_dot_split_enabled"] = _as_bool(
+        defaults_payload.get(
+            "green_dot_split_enabled",
+            defaults_payload.get("biorientation_green_split_enabled"),
+        ),
         default=True,
     )
     normalized["experiment_defaults"]["puncta_line_mode"] = normalize_puncta_line_mode(

@@ -187,7 +187,7 @@ def get_stats(
     cen_dot_proximity_radius=13,
     green_contour_filter_enabled=False,
     alternate_red_detection=False,
-    biorientation_green_split_enabled=True,
+    green_dot_split_enabled=True,
     cached_images=None,
 ):
     # loading configuration
@@ -253,7 +253,7 @@ def get_stats(
         preprocessed_images,
         green_contour_filter_enabled,
         alternate_red_detection,
-        biorientation_green_split_enabled,
+        green_dot_split_enabled,
     )
     contours_data = build_canonical_contour_payload(
         contours_data,
@@ -1112,14 +1112,14 @@ def segment_image(request, uuids):
             biorientation_collinearity_threshold = 66
         if biorientation_collinearity_threshold < 0:
             biorientation_collinearity_threshold = 66
-        biorientation_green_split_enabled_raw = request.session.get(
-            'biorientationGreenSplitEnabled',
-            True,
+        green_dot_split_enabled_raw = request.session.get(
+            'greenDotSplitEnabled',
+            request.session.get('biorientationGreenSplitEnabled', True),
         )
-        biorientation_green_split_enabled = (
-            biorientation_green_split_enabled_raw
-            if isinstance(biorientation_green_split_enabled_raw, bool)
-            else str(biorientation_green_split_enabled_raw).strip().lower()
+        green_dot_split_enabled = (
+            green_dot_split_enabled_raw
+            if isinstance(green_dot_split_enabled_raw, bool)
+            else str(green_dot_split_enabled_raw).strip().lower()
             in {"1", "true", "yes", "on"}
         )
 
@@ -1149,7 +1149,7 @@ def segment_image(request, uuids):
             ),
             'green_contour_filter_enabled': green_contour_filter_enabled,
             'alternate_red_detection': alternate_red_detection,
-            'biorientation_green_split_enabled': biorientation_green_split_enabled,
+            'green_dot_split_enabled': green_dot_split_enabled,
         }
         write_overlay_render_config(
             uuid,
@@ -1190,7 +1190,7 @@ def segment_image(request, uuids):
                 biorientation_red_max_distance_value=biorientation_red_max_distance_value,
                 biorientation_red_max_distance_unit=biorientation_red_max_distance_unit,
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
-                biorientation_green_split_enabled=biorientation_green_split_enabled,
+                green_dot_split_enabled=green_dot_split_enabled,
             ),
         )
 
@@ -1269,7 +1269,7 @@ def segment_image(request, uuids):
             cp.properties["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value
             cp.properties["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
-            cp.properties["stats_biorientation_green_split_enabled"] = biorientation_green_split_enabled
+            cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
             # Call get_stats to do the real work
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1280,7 +1280,7 @@ def segment_image(request, uuids):
                 cen_dot_proximity_radius,
                 green_contour_filter_enabled,
                 alternate_red_detection,
-                biorientation_green_split_enabled,
+                green_dot_split_enabled,
                 cached_images=cell_image_cache.get(cell_number),
             )
 

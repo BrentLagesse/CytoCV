@@ -1182,14 +1182,6 @@ main.main > section.panel {
                     <input type="number" min="0" id="biorientation_collinearity_threshold" name="biorientation_collinearity_threshold" value="{{ preferences.experiment_defaults.biorientation_collinearity_threshold }}">
                   </div>
                 </div>
-                <div class="plugin-measure-line">
-                  <label for="biorientation_green_split_enabled">Split Merged Green Dots:</label>
-                  <label class="sw plugin-measure-right">
-                    <input type="hidden" name="biorientation_green_split_enabled" value="0">
-                    <input type="checkbox" id="biorientation_green_split_enabled" name="biorientation_green_split_enabled" value="1" {% if preferences.experiment_defaults.biorientation_green_split_enabled %}checked{% endif %}>
-                    <span class="sl"></span>
-                  </label>
-                </div>
               </div>
               {% elif plugin.id == 'NuclearCellPairIntensity' %}
               <div class="plugin-inline{% if plugin.checked %} is-active{% endif %}" data-plugin-inline="NuclearCellPairIntensity" aria-hidden="{% if plugin.checked %}false{% else %}true{% endif %}">
@@ -1320,6 +1312,7 @@ main.main > section.panel {
           </div>
           <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show Legacy Plugins By Default</label><p>Reveal legacy Blue-channel plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><span class="row-label-line"><label for="green_contour_filter_enabled">Enable Green Minimum-Size Filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filters low-confidence Green signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="green_contour_filter_enabled" name="green_contour_filter_enabled" {% if preferences.experiment_defaults.green_contour_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="green_dot_split_enabled">Split Merged Green Dots</label><button type="button" class="prefs-info-dot" data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated." aria-label="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.">i</button></span><p>Split connected multi-peak Green signal into separate dot contours before statistics are calculated.</p></div><input type="hidden" name="green_dot_split_enabled" value="0"><label class="sw"><input type="checkbox" id="green_dot_split_enabled" name="green_dot_split_enabled" value="1" {% if preferences.experiment_defaults.green_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><span class="row-label-line"><label for="alternate_red_detection">Enable Alternate Red Detection Where A Contour Surrounds All Speckles</label></span><p>Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p></div><label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
         <div class="card action-card" data-workflow-action-card="advanced">
@@ -2173,7 +2166,6 @@ main.main > section.panel {
   const biorientationRedMaxDistanceInput = document.getElementById('biorientation_red_max_distance');
   const biorientationRedMaxDistanceUnit = document.getElementById('biorientation_red_max_distance_unit');
   const biorientationCollinearityThresholdInput = document.getElementById('biorientation_collinearity_threshold');
-  const biorientationGreenSplitEnabledInput = document.getElementById('biorientation_green_split_enabled');
   const punctaLineModeInput = document.getElementById('puncta_line_mode');
   const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
@@ -2188,6 +2180,7 @@ main.main > section.panel {
   const advancedWavelengthCheckRow = document.getElementById('advancedWavelengthCheckRow');
   const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
   const greenContourFilterEnabledInput = document.getElementById('green_contour_filter_enabled');
+  const greenDotSplitEnabledInput = document.getElementById('green_dot_split_enabled');
   const alternateRedDetectionInput = document.getElementById('alternate_red_detection');
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
@@ -2468,7 +2461,6 @@ main.main > section.panel {
     biorientationRedMaxDistance: captureNumericField(biorientationRedMaxDistanceInput),
     biorientationRedMaxDistanceUnit: normalizeLengthUnit(valueOrEmpty(biorientationRedMaxDistanceUnit)),
     biorientationCollinearityThreshold: captureNumericField(biorientationCollinearityThresholdInput),
-    biorientationGreenSplitEnabled: !!(biorientationGreenSplitEnabledInput && biorientationGreenSplitEnabledInput.checked),
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
     micronsPerPixel: captureNumericField(prefsScaleInput),
@@ -2481,6 +2473,7 @@ main.main > section.panel {
     enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
     greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
+    greenDotSplitEnabled: !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked),
     alternateRedDetection: !!(alternateRedDetectionInput && alternateRedDetectionInput.checked),
     requiredChannels: sortByOrder([...manualRequiredChannels], channelOrder),
     overrideChannels: sortByOrder([...overrides], channelOrder),
@@ -2561,12 +2554,6 @@ main.main > section.panel {
         `Biorientation Collinearity Threshold: ${numericDisplay(fromSnapshot.biorientationCollinearityThreshold)} -> ${numericDisplay(toSnapshot.biorientationCollinearityThreshold)}`
       );
     }
-    pushToggleChange(
-      changes,
-      'Split Merged Green Dots',
-      fromSnapshot.biorientationGreenSplitEnabled,
-      toSnapshot.biorientationGreenSplitEnabled
-    );
     if (fromSnapshot.nuclearCellPairMode !== toSnapshot.nuclearCellPairMode) {
       changes.push(
         `Nucleus Contour Source: ${nucleusModeLabel(fromSnapshot.nuclearCellPairMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellPairMode)}`
@@ -2630,6 +2617,12 @@ main.main > section.panel {
       'Enable Green Minimum-Size Filter',
       fromSnapshot.greenContourFilterEnabled,
       toSnapshot.greenContourFilterEnabled
+    );
+    pushToggleChange(
+      changes,
+      'Split Merged Green Dots',
+      fromSnapshot.greenDotSplitEnabled,
+      toSnapshot.greenDotSplitEnabled
     );
     pushToggleChange(
       changes,
@@ -2767,7 +2760,6 @@ main.main > section.panel {
       syncLengthInputConstraints(biorientationRedMaxDistanceInput, snapshot.biorientationRedMaxDistanceUnit, 0, 0);
     }
     if (biorientationCollinearityThresholdInput) biorientationCollinearityThresholdInput.value = snapshot.biorientationCollinearityThreshold.raw;
-    if (biorientationGreenSplitEnabledInput) biorientationGreenSplitEnabledInput.checked = snapshot.biorientationGreenSplitEnabled;
     if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
@@ -2783,6 +2775,7 @@ main.main > section.panel {
     if (enforceWavelengthsInput) enforceWavelengthsInput.checked = snapshot.enforceWavelengths;
     if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
     if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
+    if (greenDotSplitEnabledInput) greenDotSplitEnabledInput.checked = snapshot.greenDotSplitEnabled;
     if (alternateRedDetectionInput) alternateRedDetectionInput.checked = snapshot.alternateRedDetection;
     manualRequiredChannels.clear();
     (snapshot.requiredChannels || []).forEach((channel) => {

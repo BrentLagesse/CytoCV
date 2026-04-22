@@ -80,6 +80,15 @@ def _post_bool(request: HttpRequest, key: str) -> bool:
     return str(request.POST.get(key, "")).strip().lower() in {"1", "true", "on", "yes"}
 
 
+def _payload_bool(post_data: Any, key: str, *, default: bool = False, legacy_key: str | None = None) -> bool:
+    raw_value = post_data.get(key)
+    if raw_value is None and legacy_key is not None:
+        raw_value = post_data.get(legacy_key)
+    if raw_value is None:
+        return default
+    return str(raw_value).strip().lower() in {"1", "true", "on", "yes"}
+
+
 def _parse_positive_int(raw_value: Any, default: int, minimum: int = 0) -> int:
     try:
         value = int(raw_value)
@@ -188,9 +197,6 @@ def _extract_measurement_defaults(
         default=66,
         minimum=0,
     )
-    current_biorientation_green_split_enabled = bool(
-        defaults.get("biorientation_green_split_enabled", True)
-    )
     current_microns_per_pixel = _parse_positive_float(
         defaults.get("microns_per_pixel"),
         default=0.1,
@@ -226,16 +232,6 @@ def _extract_measurement_defaults(
         post_data.get("biorientation_red_max_distance_unit"),
         default=current_biorientation_red_max_distance_unit,
     )
-    raw_biorientation_green_split_enabled = post_data.get("biorientation_green_split_enabled")
-    if raw_biorientation_green_split_enabled is None:
-        biorientation_green_split_enabled = current_biorientation_green_split_enabled
-    else:
-        biorientation_green_split_enabled = str(raw_biorientation_green_split_enabled).strip().lower() in {
-            "1",
-            "true",
-            "on",
-            "yes",
-        }
     puncta_line_minimum = 1 if puncta_line_width_unit == "px" else 0
     raw_use_metadata_scale = post_data.get("use_metadata_scale")
     if raw_use_metadata_scale is None:
@@ -273,7 +269,6 @@ def _extract_measurement_defaults(
             default=current_biorientation_collinearity_threshold,
             minimum=0,
         ),
-        "biorientation_green_split_enabled": biorientation_green_split_enabled,
         "puncta_line_mode": _normalize_puncta_mode(
             post_data.get("puncta_line_mode"),
             default=current_puncta_mode,
@@ -1143,6 +1138,12 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
             green_contour_filter_enabled = _post_bool(request, "green_contour_filter_enabled")
+            green_dot_split_enabled = _payload_bool(
+                request.POST,
+                "green_dot_split_enabled",
+                default=bool(defaults.get("green_dot_split_enabled", True)),
+                legacy_key="biorientation_green_split_enabled",
+            )
             alternate_red_detection = _post_bool(request, "alternate_red_detection")
             manual_required_channels = [
                 channel
@@ -1178,6 +1179,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     "show_legacy_plugins": show_legacy_plugins,
                     "manual_required_channels": manual_required_channels,
                     "green_contour_filter_enabled": green_contour_filter_enabled,
+                    "green_dot_split_enabled": green_dot_split_enabled,
                     "alternate_red_detection": alternate_red_detection,
                 }
             )

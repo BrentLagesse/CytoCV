@@ -48,6 +48,7 @@ class PreferenceNormalizationTests(TestCase):
         )
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -97,6 +98,19 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertFalse(normalized["show_saved_file_scales"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
+
+    def test_normalize_preferences_migrates_legacy_green_split_default(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "biorientation_green_split_enabled": "false",
+                },
+            }
+        )
+
+        defaults = normalized["experiment_defaults"]
+        self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertNotIn("biorientation_green_split_enabled", defaults)
 
     def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
         normalized = normalize_preferences_payload(
@@ -1480,6 +1494,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="advancedWavelengthCheckRow"', html=False)
         self.assertContains(response, 'id="sidebar_starts_open"', html=False)
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
+        self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
+        self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
         self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
         self.assertContains(
             response,
@@ -1764,6 +1780,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertTrue(defaults["green_dot_split_enabled"])
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
@@ -1780,7 +1797,6 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "biorientation_red_max_distance": "44.5",
                 "biorientation_red_max_distance_unit": "um",
                 "biorientation_collinearity_threshold": "77",
-                "biorientation_green_split_enabled": "on",
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
@@ -1803,7 +1819,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["biorientation_red_max_distance"], 44.5)
         self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 77)
-        self.assertTrue(defaults["biorientation_green_split_enabled"])
+        self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
@@ -1823,7 +1839,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "biorientation_red_max_distance": 41,
                 "biorientation_red_max_distance_unit": "um",
                 "biorientation_collinearity_threshold": 81,
-                "biorientation_green_split_enabled": False,
+                "green_dot_split_enabled": False,
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
@@ -1856,12 +1872,40 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["biorientation_red_max_distance"], 41)
         self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 81)
-        self.assertFalse(defaults["biorientation_green_split_enabled"])
+        self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
+
+    def test_advanced_settings_form_persists_green_dot_split_default(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_advanced_settings",
+                "green_dot_split_enabled": "0",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertFalse(defaults["green_dot_split_enabled"])
+
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_advanced_settings",
+                "green_dot_split_enabled": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertTrue(defaults["green_dot_split_enabled"])
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(
