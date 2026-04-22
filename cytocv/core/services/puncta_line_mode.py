@@ -59,8 +59,7 @@ def get_puncta_line_mode_metadata(mode: Any = None) -> dict[str, str]:
         "measurement_channel": measurement_channel,
         "source_label": source_label,
         "measurement_label": measurement_label,
-        "distance_label": f"Distance between {source_label} Puncta",
-        "intensity_label": f"{measurement_label} Intensity over {source_label} Line",
-        "selector_label": f"{source_label} puncta (measure {measurement_label})",
+        "distance_label": f"Distance Between {source_label} Puncta",
+        "intensity_label": f"{measurement_label} Intensity Over {source_label} Line",
+        "selector_label": f"{source_label} Puncta (Measure {measurement_label})",
     }
-

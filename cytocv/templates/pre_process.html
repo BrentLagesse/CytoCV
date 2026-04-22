@@ -1178,8 +1178,8 @@
             </button>
           </div>
           <div class="sidebar-unit-controls">
-            <span class="sidebar-unit-label">Spatial unit:</span>
-            <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial units" data-active-unit="px">
+            <span class="sidebar-unit-label">Spatial Unit:</span>
+            <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-active-unit="px">
               <div class="sidebar-unit-indicator" aria-hidden="true"></div>
               <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
               <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
@@ -1261,7 +1261,7 @@
               </div>
             </div>
             <div class="analysis">
-              <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
+              <form action="" method="post" enctype="multipart/form-data" id="preprocessForm" data-results-href="{% url 'display' uuids %}">
                 {% csrf_token %}
                 <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
                 <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />

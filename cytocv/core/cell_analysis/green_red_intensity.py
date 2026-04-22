@@ -31,7 +31,6 @@ class GreenRedIntensity(Analysis):
         green_image,
         puncta_line_width_input,
         cen_dot_distance,
-        cen_dot_collinearity_threshold,
         cen_dot_proximity_radius=13,
     ):
         red_gray = self.preprocessed_images.get_image("red_no_bg")

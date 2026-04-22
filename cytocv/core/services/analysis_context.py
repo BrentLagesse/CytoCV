@@ -19,13 +19,20 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "selected_analysis": [],
     "punctaLineWidth": 1,
     "cenDotDistance": 37,
-    "cenDotCollinearityThreshold": 66,
     "stats_puncta_line_width_unit": "px",
     "stats_cen_dot_distance_unit": "px",
     "stats_microns_per_pixel": 0.1,
     "stats_use_metadata_scale": True,
     "stats_puncta_line_width_value": 1.0,
     "stats_cen_dot_distance_value": 37.0,
+    "biorientationRedMinDistance": 0,
+    "biorientationRedMaxDistance": 37,
+    "biorientationCollinearityThreshold": 66,
+    "biorientationGreenSplitEnabled": True,
+    "stats_biorientation_red_min_distance_unit": "px",
+    "stats_biorientation_red_min_distance_value": 0.0,
+    "stats_biorientation_red_max_distance_unit": "px",
+    "stats_biorientation_red_max_distance_value": 37.0,
     "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
     "nuclear_cell_pair_mode": "green_nucleus",
     "greenContourFilterEnabled": False,
@@ -155,10 +162,49 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             default=37,
             minimum=0,
         ),
-        "cenDotCollinearityThreshold": _parse_int(
-            payload.get("cenDotCollinearityThreshold", payload.get("threshold")),
+        "biorientationRedMinDistance": _parse_float(
+            payload.get(
+                "biorientationRedMinDistance",
+                payload.get("stats_biorientation_red_min_distance_value"),
+            ),
+            default=0,
+            minimum=0,
+        ),
+        "biorientationRedMaxDistance": _parse_float(
+            payload.get(
+                "biorientationRedMaxDistance",
+                payload.get("stats_biorientation_red_max_distance_value"),
+            ),
+            default=37,
+            minimum=0,
+        ),
+        "biorientationCollinearityThreshold": _parse_int(
+            payload.get(
+                "biorientationCollinearityThreshold",
+                payload.get("cenDotCollinearityThreshold", payload.get("threshold")),
+            ),
             default=66,
             minimum=0,
+        ),
+        "biorientationGreenSplitEnabled": _parse_bool(
+            payload.get("biorientationGreenSplitEnabled"),
+            default=True,
+        ),
+        "stats_biorientation_red_min_distance_unit": "um"
+        if str(payload.get("stats_biorientation_red_min_distance_unit", "px")).strip().lower() == "um"
+        else "px",
+        "stats_biorientation_red_min_distance_value": _parse_float(
+            payload.get("stats_biorientation_red_min_distance_value"),
+            default=0.0,
+            minimum=0.0,
+        ),
+        "stats_biorientation_red_max_distance_unit": "um"
+        if str(payload.get("stats_biorientation_red_max_distance_unit", "px")).strip().lower() == "um"
+        else "px",
+        "stats_biorientation_red_max_distance_value": _parse_float(
+            payload.get("stats_biorientation_red_max_distance_value"),
+            default=37.0,
+            minimum=0.0,
         ),
         "stats_puncta_line_width_unit": "um"
         if str(
@@ -222,7 +268,6 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
             request.session.get("redLineWidth", request.session.get("mCherryWidth", 1)),
         ),
         "cenDotDistance": request.session.get("cenDotDistance", request.session.get("distance", 37)),
-        "cenDotCollinearityThreshold": request.session.get("cenDotCollinearityThreshold", request.session.get("threshold", 66)),
         "stats_puncta_line_width_unit": request.session.get(
             "stats_puncta_line_width_unit",
             request.session.get("stats_red_line_width_unit", request.session.get("stats_mcherry_width_unit", "px")),
@@ -235,6 +280,31 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
             request.session.get("stats_red_line_width_value", request.session.get("stats_mcherry_width_value", 1.0)),
         ),
         "stats_cen_dot_distance_value": request.session.get("stats_cen_dot_distance_value", request.session.get("stats_gfp_distance_value", 37.0)),
+        "biorientationRedMinDistance": request.session.get(
+            "biorientationRedMinDistance",
+            request.session.get("stats_biorientation_red_min_distance_value", 0),
+        ),
+        "biorientationRedMaxDistance": request.session.get(
+            "biorientationRedMaxDistance",
+            request.session.get("stats_biorientation_red_max_distance_value", 37),
+        ),
+        "biorientationCollinearityThreshold": request.session.get(
+            "biorientationCollinearityThreshold",
+            request.session.get("cenDotCollinearityThreshold", 66),
+        ),
+        "biorientationGreenSplitEnabled": request.session.get("biorientationGreenSplitEnabled", True),
+        "stats_biorientation_red_min_distance_unit": request.session.get(
+            "stats_biorientation_red_min_distance_unit", "px"
+        ),
+        "stats_biorientation_red_min_distance_value": request.session.get(
+            "stats_biorientation_red_min_distance_value", 0.0
+        ),
+        "stats_biorientation_red_max_distance_unit": request.session.get(
+            "stats_biorientation_red_max_distance_unit", "px"
+        ),
+        "stats_biorientation_red_max_distance_value": request.session.get(
+            "stats_biorientation_red_max_distance_value", 37.0
+        ),
         "puncta_line_mode": request.session.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
         "nuclear_cell_pair_mode": request.session.get(
             "nuclear_cell_pair_mode",

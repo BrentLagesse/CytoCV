@@ -209,7 +209,6 @@ class AnalysisRegressionTests(SimpleTestCase):
             green_image=None,
             puncta_line_width_input=1,
             cen_dot_distance=37,
-            cen_dot_collinearity_threshold=66,
         )
 
         self.assertEqual(cp.red_intensity_1, 0.0)
@@ -261,7 +260,6 @@ class AnalysisRegressionTests(SimpleTestCase):
             green_image=None,
             puncta_line_width_input=1,
             cen_dot_distance=37,
-            cen_dot_collinearity_threshold=66,
         )
 
         red_mask = np.zeros(red_image.shape, dtype=np.uint8)
@@ -331,7 +329,6 @@ class AnalysisRegressionTests(SimpleTestCase):
             green_image=None,
             puncta_line_width_input=1,
             cen_dot_distance=37,
-            cen_dot_collinearity_threshold=66,
         )
 
         green_mask = np.zeros(green_image.shape, dtype=np.uint8)
@@ -346,4 +343,3 @@ class AnalysisRegressionTests(SimpleTestCase):
             expected_red_in_green / expected_green_in_green,
         )
         self.assertEqual(cp.green_red_intensity_2, 0.0)
-

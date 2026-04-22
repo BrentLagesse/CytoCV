@@ -47,6 +47,8 @@ from .utils import (
 )
 from core.channel_roles import CHANNEL_ROLE_ORDER, channel_display_label
 from core.metadata_processing.dv_channel_parser import extract_channel_config
+from core.mrcnn.my_inference import predict_images
+from core.mrcnn.preprocess_images import preprocess_images
 
 from cytocv.settings import MEDIA_ROOT
 from pathlib import Path
@@ -58,6 +60,7 @@ from core.scale import (
     apply_manual_override_scale,
     clear_manual_override_scale,
     get_scale_sidebar_payload,
+    normalize_length_unit,
     normalize_spatial_stats_unit,
 )
 from core.services.artifact_storage import (
@@ -470,12 +473,29 @@ def pre_process(request, uuids):
             'cenDotDistance',
             request.session.get('cenDotDistance', request.session.get('distance', 37)),
         )
-        cen_dot_collinearity_threshold_raw = request.POST.get(
-            'cenDotCollinearityThreshold',
-            request.session.get(
-                'cenDotCollinearityThreshold',
-                request.session.get('threshold', 66),
-            ),
+        biorientation_red_min_distance_value_raw = request.POST.get(
+            'biorientationRedMinDistance',
+            request.session.get('stats_biorientation_red_min_distance_value', 0.0),
+        )
+        biorientation_red_min_distance_unit_raw = request.POST.get(
+            'biorientationRedMinDistanceUnit',
+            request.session.get('stats_biorientation_red_min_distance_unit', 'px'),
+        )
+        biorientation_red_max_distance_value_raw = request.POST.get(
+            'biorientationRedMaxDistance',
+            request.session.get('stats_biorientation_red_max_distance_value', 37.0),
+        )
+        biorientation_red_max_distance_unit_raw = request.POST.get(
+            'biorientationRedMaxDistanceUnit',
+            request.session.get('stats_biorientation_red_max_distance_unit', 'px'),
+        )
+        biorientation_collinearity_threshold_raw = request.POST.get(
+            'biorientationCollinearityThreshold',
+            request.session.get('biorientationCollinearityThreshold', 66),
+        )
+        biorientation_green_split_enabled_raw = request.POST.get(
+            'biorientationGreenSplitEnabled',
+            request.session.get('biorientationGreenSplitEnabled', 'True'),
         )
         puncta_line_mode = normalize_puncta_line_mode(
             request.POST.get(
@@ -513,16 +533,53 @@ def pre_process(request, uuids):
         if cen_dot_distance < 0:
             cen_dot_distance = 37
         try:
-            cen_dot_collinearity_threshold = int(cen_dot_collinearity_threshold_raw)
+            biorientation_red_min_distance_value = float(
+                biorientation_red_min_distance_value_raw
+            )
         except (TypeError, ValueError):
-            cen_dot_collinearity_threshold = 66
-        if cen_dot_collinearity_threshold < 0:
-            cen_dot_collinearity_threshold = 66
+            biorientation_red_min_distance_value = 0.0
+        if biorientation_red_min_distance_value < 0:
+            biorientation_red_min_distance_value = 0.0
+        try:
+            biorientation_red_max_distance_value = float(
+                biorientation_red_max_distance_value_raw
+            )
+        except (TypeError, ValueError):
+            biorientation_red_max_distance_value = 37.0
+        if biorientation_red_max_distance_value < 0:
+            biorientation_red_max_distance_value = 37.0
+        biorientation_red_min_distance_unit = normalize_length_unit(
+            biorientation_red_min_distance_unit_raw,
+            default="px",
+        )
+        biorientation_red_max_distance_unit = normalize_length_unit(
+            biorientation_red_max_distance_unit_raw,
+            default="px",
+        )
+        try:
+            biorientation_collinearity_threshold = int(
+                biorientation_collinearity_threshold_raw
+            )
+        except (TypeError, ValueError):
+            biorientation_collinearity_threshold = 66
+        if biorientation_collinearity_threshold < 0:
+            biorientation_collinearity_threshold = 66
+        biorientation_green_split_enabled = (
+            biorientation_green_split_enabled_raw
+            if isinstance(biorientation_green_split_enabled_raw, bool)
+            else str(biorientation_green_split_enabled_raw).strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
 
         request.session['selected_analysis'] = selected_analysis
         request.session['punctaLineWidth'] = puncta_line_width
         request.session['cenDotDistance'] = cen_dot_distance
-        request.session['cenDotCollinearityThreshold'] = cen_dot_collinearity_threshold
+        request.session['stats_biorientation_red_min_distance_value'] = biorientation_red_min_distance_value
+        request.session['stats_biorientation_red_min_distance_unit'] = biorientation_red_min_distance_unit
+        request.session['stats_biorientation_red_max_distance_value'] = biorientation_red_max_distance_value
+        request.session['stats_biorientation_red_max_distance_unit'] = biorientation_red_max_distance_unit
+        request.session['biorientationCollinearityThreshold'] = biorientation_collinearity_threshold
+        request.session['biorientationGreenSplitEnabled'] = biorientation_green_split_enabled
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
@@ -594,6 +651,8 @@ def pre_process(request, uuids):
                 user=request.user,
                 context=context,
                 progress=progress,
+                preprocess_fn=preprocess_images,
+                predict_fn=predict_images,
             )
         except AnalysisCancelled:
             return cancel_response()

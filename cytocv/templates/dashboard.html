@@ -1362,17 +1362,29 @@
             contain: layout paint;
             isolation: isolate;
         }
-        .cell-stats-section {
+        .cell-stats-column {
             display: grid;
-            gap: 10px;
+            gap: 0;
             min-width: 0;
             padding: 16px 14px;
             text-align: left;
             font-size: 12px;
             align-content: start;
         }
-        .cell-stats-section + .cell-stats-section {
+        .cell-stats-column + .cell-stats-column {
             border-left: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .cell-stats-section {
+            display: grid;
+            gap: 10px;
+            min-width: 0;
+            text-align: left;
+            align-content: start;
+        }
+        .cell-stats-section + .cell-stats-section {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         .metric-lead {
             margin: 0;
@@ -1696,13 +1708,13 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 width: min(100%, 538px);
             }
-            .cell-stats-section + .cell-stats-section {
+            .cell-stats-column + .cell-stats-column {
                 border-left: none;
             }
-            .cell-stats-section:nth-child(odd) {
+            .cell-stats-column:nth-child(odd) {
                 border-right: 1px solid rgba(255, 255, 255, 0.12);
             }
-            .cell-stats-section:nth-child(n + 3) {
+            .cell-stats-column:nth-child(n + 3) {
                 border-top: 1px solid rgba(255, 255, 255, 0.12);
             }
             .main-image {
@@ -1739,10 +1751,10 @@
                 grid-template-columns: 1fr;
                 width: 100%;
             }
-            .cell-stats-section:nth-child(odd) {
+            .cell-stats-column:nth-child(odd) {
                 border-right: none;
             }
-            .cell-stats-section:nth-child(n + 2) {
+            .cell-stats-column:nth-child(n + 2) {
                 border-top: 1px solid rgba(255, 255, 255, 0.12);
             }
             .cell-toolbar-actions {
@@ -1783,8 +1795,8 @@
                     </button>
                 </div>
                 <div class="sidebar-unit-controls">
-                    <span class="sidebar-unit-label">Spatial unit:</span>
-                    <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial units" data-active-unit="px">
+                    <span class="sidebar-unit-label">Spatial Unit:</span>
+                    <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-active-unit="px">
                         <div class="sidebar-unit-indicator" aria-hidden="true"></div>
                         <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
                         <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
@@ -1911,136 +1923,168 @@
                                     </div>
                                 </div>
                                 <div class="cell-stats-strip" data-ui-region="cell-metrics-strip">
-                                    <div class="cell-stats-section">
-                                        <p class="metric-lead">Reference Channel</p>
-                                        <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Contours</span>
-                                            <span class="metric-value" id="contourStateValue">On</span>
+                                    <div class="cell-stats-column">
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Reference Channel</p>
+                                            <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Contours</span>
+                                                <span class="metric-value" id="contourStateValue">On</span>
+                                            </div>
+                                        </div>
+                                        <div class="cell-stats-section">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Biorientation</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Counts green dots inside the DIC-defined cell contour as colinear with the red-red axis or off-axis, after applying the configured red-puncta distance range and collinearity threshold."
+                                                    aria-label="Biorientation Details"
+                                                    title="Biorientation Details"
+                                                >i</span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Colinear Dots</span>
+                                                <span class="metric-value" id="colinearDots"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Off Axis Dots</span>
+                                                <span class="metric-value" id="offAxisDots"></span>
+                                            </div>
+                                        </div>
+                                        <div class="cell-stats-section">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Red In Red Raw Sums</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell, size and intensity values for the same slot match, and Nuclear Intensity uses slot 1 of the selected nucleus contour family."
+                                                    aria-label="Contour Slot Ranking Details"
+                                                    title="Contour Slot Ranking Details"
+                                                >i</span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Red Intensity 1</span>
+                                                <span class="metric-value" id="redInRedIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Red Intensity 2</span>
+                                                <span class="metric-value" id="redInRedIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Red Intensity 3</span>
+                                                <span class="metric-value" id="redInRedIntensity3"></span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="cell-stats-section">
-                                        <p class="metric-lead">Nucleus + Measurement</p>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Nucleus contour source</span>
-                                            <span class="metric-value" id="nucleusContourChannel"></span>
+                                    <div class="cell-stats-column">
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Nucleus + Measurement</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Nucleus Contour Source</span>
+                                                <span class="metric-value" id="nucleusContourChannel"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Measurement Channel</span>
+                                                <span class="metric-value" id="measurementChannel"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Nuclear Status</span>
+                                                <span class="metric-value" id="nuclearStatus"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span></span>
+                                                <span class="metric-value" id="nucleusIntensitySum"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
+                                                <span class="metric-value" id="cellPairIntensitySum"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Cytoplasmic Intensity</span>
+                                                <span class="metric-value" id="cytoplasmicIntensity"></span>
+                                            </div>
                                         </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Measurement channel</span>
-                                            <span class="metric-value" id="measurementChannel"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Nuclear status</span>
-                                            <span class="metric-value" id="nuclearStatus"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span></span>
-                                            <span class="metric-value" id="nucleusIntensitySum"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
-                                            <span class="metric-value" id="cellPairIntensitySum"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Cytoplasmic intensity</span>
-                                            <span class="metric-value" id="cytoplasmicIntensity"></span>
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Green In Red Raw Sums</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Red Intensity 1</span>
+                                                <span class="metric-value" id="greenInRedIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Red Intensity 2</span>
+                                                <span class="metric-value" id="greenInRedIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Red Intensity 3</span>
+                                                <span class="metric-value" id="greenInRedIntensity3"></span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="cell-stats-section">
-                                        <p class="metric-lead">Line + Spot Metrics</p>
-                                        <div class="metric-row">
-                                            <span class="metric-label" id="distanceLabel">Distance between Red Puncta</span>
-                                            <span class="metric-value" id="distance"></span>
+                                    <div class="cell-stats-column">
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Line + Spot Metrics</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label" id="distanceLabel">Distance Between Red Puncta</span>
+                                                <span class="metric-value" id="distance"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label" id="lineIntensityLabel">Green Intensity Over Red Line</span>
+                                                <span class="metric-value" id="punctaLineIntensity"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Cen Dot Location</span>
+                                                <span class="metric-value" id="cenDot"></span>
+                                            </div>
                                         </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label" id="lineIntensityLabel">Green Intensity over Red Line</span>
-                                            <span class="metric-value" id="punctaLineIntensity"></span>
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Red In Green Raw Sums</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Green Intensity 1</span>
+                                                <span class="metric-value" id="redInGreenIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Green Intensity 2</span>
+                                                <span class="metric-value" id="redInGreenIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Green Intensity 3</span>
+                                                <span class="metric-value" id="redInGreenIntensity3"></span>
+                                            </div>
                                         </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">CEN dot</span>
-                                            <span class="metric-value" id="cenDot"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Biorientation</span>
-                                            <span class="metric-value" id="biorientation"></span>
-                                        </div>
-                                        <div class="metric-subsection">
-                                            <p class="metric-sublead">Measurement/Contour</p>
+                                    </div>
+                                    <div class="cell-stats-column">
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Measurement/Contour</p>
                                             <div class="metric-detail">
                                                 <span class="metric-detail-label">Formula</span>
                                                 <span class="metric-detail-value" id="measurementContourRatioFormula"></span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Measurement/Contour ratio 1</span>
+                                                <span class="metric-label">Measurement/Contour Ratio 1</span>
                                                 <span class="metric-value" id="measurementContourRatio1"></span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Measurement/Contour ratio 2</span>
+                                                <span class="metric-label">Measurement/Contour Ratio 2</span>
                                                 <span class="metric-value" id="measurementContourRatio2"></span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Measurement/Contour ratio 3</span>
+                                                <span class="metric-label">Measurement/Contour Ratio 3</span>
                                                 <span class="metric-value" id="measurementContourRatio3"></span>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div class="cell-stats-section">
-                                        <div class="metric-lead-row">
-                                            <p class="metric-lead">Raw Contour Intensity Sums</p>
-                                            <span
-                                                class="selection-info-dot metric-info-dot"
-                                                data-info-text="Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell, size and intensity values for the same slot match, and nuclear intensity uses slot 1 of the selected nucleus contour family."
-                                                aria-label="Contour slot ranking details"
-                                                title="Contour slot ranking details"
-                                            >i</span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Red in Red intensity 1</span>
-                                            <span class="metric-value" id="redInRedIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Red in Red intensity 2</span>
-                                            <span class="metric-value" id="redInRedIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Red in Red intensity 3</span>
-                                            <span class="metric-value" id="redInRedIntensity3"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green in Red intensity 1</span>
-                                            <span class="metric-value" id="greenInRedIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green in Red intensity 2</span>
-                                            <span class="metric-value" id="greenInRedIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green in Red intensity 3</span>
-                                            <span class="metric-value" id="greenInRedIntensity3"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Red in Green intensity 1</span>
-                                            <span class="metric-value" id="redInGreenIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Red in Green intensity 2</span>
-                                            <span class="metric-value" id="redInGreenIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Red in Green intensity 3</span>
-                                            <span class="metric-value" id="redInGreenIntensity3"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green in Green intensity 1</span>
-                                            <span class="metric-value" id="greenInGreenIntensity1"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green in Green intensity 2</span>
-                                            <span class="metric-value" id="greenInGreenIntensity2"></span>
-                                        </div>
-                                        <div class="metric-row">
-                                            <span class="metric-label">Green in Green intensity 3</span>
-                                            <span class="metric-value" id="greenInGreenIntensity3"></span>
+                                        <div class="cell-stats-section">
+                                            <p class="metric-lead">Green In Green Raw Sums</p>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Green Intensity 1</span>
+                                                <span class="metric-value" id="greenInGreenIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Green Intensity 2</span>
+                                                <span class="metric-value" id="greenInGreenIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Green Intensity 3</span>
+                                                <span class="metric-value" id="greenInGreenIntensity3"></span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2059,7 +2103,7 @@
                         <div class="table-toolbar glass-toolbar">
                             <p class="section-eyebrow">Statistics Table</p>
                             <div class="toolbar-actions">
-                                <div class="unit-toggle" id="dashboardSpatialUnitToggleLegacy" role="group" aria-label="Spatial units">
+                                <div class="unit-toggle" id="dashboardSpatialUnitToggleLegacy" role="group" aria-label="Spatial Units">
                                     <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
                                     <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
                                 </div>
@@ -2166,7 +2210,8 @@
             'cellPairIntensitySum',
             'cytoplasmicIntensity',
             'cenDot',
-            'biorientation',
+            'colinearDots',
+            'offAxisDots',
             'nucleusContourChannel',
             'measurementChannel',
             'nuclearStatus',
@@ -2219,7 +2264,8 @@
             'nucleus_intensity_sum',
             'cytoplasmic_intensity',
             'category_cen_dot',
-            'biorientation',
+            'colinear_dots',
+            'off_axis_dots',
         ];
         const spatialHeaderBaseLabels = {
             blue_contour_size: 'Blue Contour Size',
@@ -2229,9 +2275,9 @@
             green_contour_1_size: 'Green Contour 1 Size',
             green_contour_2_size: 'Green Contour 2 Size',
             green_contour_3_size: 'Green Contour 3 Size',
-            distance_of_green_from_red_1: 'Distance of Green from Red 1',
-            distance_of_green_from_red_2: 'Distance of Green from Red 2',
-            distance_of_green_from_red_3: 'Distance of Green from Red 3',
+            distance_of_green_from_red_1: 'Distance Of Green From Red 1',
+            distance_of_green_from_red_2: 'Distance Of Green From Red 2',
+            distance_of_green_from_red_3: 'Distance Of Green From Red 3',
         };
         let currentSpatialStatsUnit = initialSidebarSpatialStatsUnit;
         let activeFileLoadToken = 0;
@@ -2512,8 +2558,8 @@
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
             const labels = getNuclearLabelPair(mode);
-            const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance between Red Puncta') : 'Distance between Red Puncta';
-            const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity over Red Line') : 'Green Intensity over Red Line';
+            const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance Between Red Puncta') : 'Distance Between Red Puncta';
+            const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity Over Red Line') : 'Green Intensity Over Red Line';
 
             return {
                 visibleImageUrls,
@@ -2541,7 +2587,8 @@
                     cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
                     cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
                     cenDot: category,
-                    biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),
+                    colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),
+                    offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),
                     nucleusContourChannel: cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour,
                     measurementChannel: cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement,
                     nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
@@ -2732,7 +2779,7 @@
             if (fieldName === 'puncta_distance') {
                 const statistics = fileData?.Statistics || {};
                 const firstCellStats = Object.values(statistics).find((row) => row);
-                const baseLabel = firstCellStats?.puncta_distance_label || 'Distance between Red Puncta';
+                const baseLabel = firstCellStats?.puncta_distance_label || 'Distance Between Red Puncta';
                 return formatSpatialLabel(baseLabel, fieldName, getCurrentSpatialUnit());
             }
             return formatSpatialLabel(
@@ -2790,23 +2837,23 @@
         function getNuclearLabelPair(mode) {
             if (mode === 'red_nucleus') {
                 return {
-                    cellular: 'Green cell-pair intensity',
-                    nuclear: 'Green nuclear intensity',
+                    cellular: 'Green Cell-Pair Intensity',
+                    nuclear: 'Green Nuclear Intensity',
                     contour: 'Red',
                     measurement: 'Green',
                 };
             }
             if (mode === 'green_nucleus') {
                 return {
-                    cellular: 'Red cell-pair intensity',
-                    nuclear: 'Red nuclear intensity',
+                    cellular: 'Red Cell-Pair Intensity',
+                    nuclear: 'Red Nuclear Intensity',
                     contour: 'Green',
                     measurement: 'Red',
                 };
             }
             return {
-                cellular: 'Measured cell-pair intensity',
-                nuclear: 'Measured nuclear intensity',
+                cellular: 'Measured Cell-Pair Intensity',
+                nuclear: 'Measured Nuclear Intensity',
                 contour: 'N/A',
                 measurement: 'N/A',
             };

@@ -1608,7 +1608,7 @@
         <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
             <div class="settings-modal-header">
                 <span class="settings-modal-title" id="settingsTitle">Statistics Plugins</span>
-                <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">x</button>
+                <button type="button" class="settings-close" id="settingsClose" aria-label="Close Settings">x</button>
             </div>
             <div class="settings-view" id="statsPrimaryView">
                 <div class="stats-view-header">
@@ -1655,8 +1655,8 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     id="greenFilterInfoDot"
-                                    data-info-text="Filter out low-confidence Green signal contours in challenging images."
-                                    aria-label="Filter out low-confidence Green signal contours in challenging images."
+                                    data-info-text="Filters low-confidence Green signal contours in challenging images."
+                                    aria-label="Filter Out Low-Confidence Green Signal Contours"
                                 >i</button>
                                 <button
                                     type="button"
@@ -1680,8 +1680,8 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     id="alternateRedInfoDot"
-                                    data-info-text="Use an alternate Red detection mode where the tool attempts to find a single contour around all speckles."
-                                    aria-label="Use an alternate Red detection mode where the tool attempts to find a single contour around all speckles."
+                                    data-info-text="Uses alternate Red detection when the tool attempts to find a single contour around all speckles."
+                                    aria-label="Use Alternate Red Detection"
                                 >i</button>
                             </span>
                         </div>
@@ -1698,7 +1698,7 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     data-info-text="If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced."
-                                    aria-label="If off, all optional checks below are inactive even when selected; required checks from selected statistics are still enforced."
+                                    aria-label="Enable Optional Metadata Checks Below"
                                 >i</button>
                             </span>
                             <span class="toggle-state-note" id="optionalChecksNote" aria-live="polite"></span>
@@ -1712,12 +1712,12 @@
                         <div class="toggle-row subtoggle" id="layerCheckRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Enforce 4-image DV files</span>
+                                    <span class="toggle-label">Enforce 4-Image DV Files</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
                                         data-info-text="Require exactly four layers before preprocessing."
-                                        aria-label="Require exactly four layers before preprocessing."
+                                        aria-label="Require Exactly Four Layers"
                                     >i</button>
                                 </span>
                             </div>
@@ -1729,12 +1729,12 @@
                         <div class="toggle-row subtoggle" id="wavelengthCheckRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Require all channels</span>
+                                    <span class="toggle-label">Require All Channels</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
                                         data-info-text="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
-                                        aria-label="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
+                                        aria-label="Require DIC, Blue, Red, And Green"
                                     >i</button>
                                 </span>
                             </div>
@@ -1747,7 +1747,7 @@
                     </div>
                 </div>
                 <div class="advanced-header">
-                    <button type="button" class="back-btn" id="advancedBackButton" aria-label="Back to stats settings">Back</button>
+                    <button type="button" class="back-btn" id="advancedBackButton" aria-label="Back To Stats Settings">Back</button>
                 </div>
             </div>
         </div>
@@ -1784,13 +1784,13 @@
         <div class="form-toolbar">
             <p class="upload-toolbar-title section-eyebrow">Experiment</p>
             <div class="form-toolbar-actions">
-                <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear selected files" title="Clear selected files">
+                <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear Selected Files" title="Clear Selected Files">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 20 12h-1.5a6.5 6.5 0 1 1-1.9-4.6L14.5 9.5H20V4l-2.35 2.35Z"/>
                     </svg>
                     <span>Clear Queue</span>
                 </button>
-                <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics plugins" title="Statistics plugins">
+                <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics Plugins" title="Statistics Plugins">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
                     </svg>
@@ -1903,7 +1903,11 @@
     const widthKey = 'cytocv.puncta_line_width.v3';
     const distanceKey = 'cytocv.cen_dot_distance.v2';
     const proximityRadiusKey = 'cytocv.cen_dot_proximity_radius.v1';
-    const thresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
+    const oldThresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
+    const biorientationRedMinDistanceKey = 'cytocv.biorientation_red_min_distance.v1';
+    const biorientationRedMaxDistanceKey = 'cytocv.biorientation_red_max_distance.v1';
+    const biorientationThresholdKey = 'cytocv.biorientation_collinearity_threshold.v1';
+    const biorientationGreenSplitKey = 'cytocv.biorientation_green_split_enabled.v1';
     const advancedKey = 'cytocv.advanced_validation.v3';
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
     const nuclearModeKey = 'cytocv.nuclear_cell_pair_mode.v3';
@@ -1911,6 +1915,8 @@
     const punctaLineWidthUnitKey = 'cytocv.puncta_line_width_unit.v3';
     const cenDotDistanceUnitKey = 'cytocv.cen_dot_distance_unit.v2';
     const cenDotProximityRadiusUnitKey = 'cytocv.cen_dot_proximity_radius_unit.v1';
+    const biorientationRedMinDistanceUnitKey = 'cytocv.biorientation_red_min_distance_unit.v1';
+    const biorientationRedMaxDistanceUnitKey = 'cytocv.biorientation_red_max_distance_unit.v1';
     const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v2';
     const useMetadataScaleKey = 'cytocv.use_metadata_scale.v2';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
@@ -1944,7 +1950,10 @@
         punctaLineWidth: 1,
         cenDotDistance: 37,
         cenDotProximityRadius: 13,
-        cenDotCollinearityThreshold: 66,
+        biorientationRedMinDistance: 0,
+        biorientationRedMaxDistance: 37,
+        biorientationCollinearityThreshold: 66,
+        biorientationGreenSplitEnabled: true,
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
         greenContourFilterEnabled: false,
@@ -1952,6 +1961,8 @@
         punctaLineWidthUnit: 'px',
         cenDotDistanceUnit: 'px',
         cenDotProximityRadiusUnit: 'px',
+        biorientationRedMinDistanceUnit: 'px',
+        biorientationRedMaxDistanceUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
         useMetadataScale: true,
     };
@@ -1966,7 +1977,11 @@
     let cenDotDistanceInput = null;
     let cenDotDistanceRow = null;
     let cenDotProximityRadiusInput = null;
-    let cenDotCollinearityThresholdInput = null;
+    let biorientationRedMinDistanceInput = null;
+    let biorientationRedMaxDistanceInput = null;
+    let biorientationCollinearityThresholdInput = null;
+    let biorientationGreenSplitEnabledInput = null;
+    let biorientationRow = null;
     let micronsPerPixelInput = null;
     let useMetadataScaleInput = null;
     let measurementScalePxPerUmValue = null;
@@ -2008,20 +2023,29 @@
         const widthUnit = (serverPreferenceDefaults.puncta_line_width_unit === 'um') ? 'um' : 'px';
         const distanceUnit = (serverPreferenceDefaults.cen_dot_distance_unit === 'um') ? 'um' : 'px';
         const proximityRadiusUnit = (serverPreferenceDefaults.cen_dot_proximity_radius_unit === 'um') ? 'um' : 'px';
+        const biorientationMinUnit = (serverPreferenceDefaults.biorientation_red_min_distance_unit === 'um') ? 'um' : 'px';
+        const biorientationMaxUnit = (serverPreferenceDefaults.biorientation_red_max_distance_unit === 'um') ? 'um' : 'px';
         localStorage.setItem(punctaLineWidthUnitKey, widthUnit);
         localStorage.setItem(cenDotDistanceUnitKey, distanceUnit);
         localStorage.setItem(cenDotProximityRadiusUnitKey, proximityRadiusUnit);
+        localStorage.setItem(biorientationRedMinDistanceUnitKey, biorientationMinUnit);
+        localStorage.setItem(biorientationRedMaxDistanceUnitKey, biorientationMaxUnit);
         localStorage.setItem(legacyLengthUnitKey, widthUnit === distanceUnit ? widthUnit : 'mixed');
 
         const width = Number(serverPreferenceDefaults.puncta_line_width);
         const distance = Number(serverPreferenceDefaults.cen_dot_distance);
         const proximityRadius = Number(serverPreferenceDefaults.cen_dot_proximity_radius);
-        const threshold = Number(serverPreferenceDefaults.cen_dot_collinearity_threshold);
+        const biorientationMinDistance = Number(serverPreferenceDefaults.biorientation_red_min_distance);
+        const biorientationMaxDistance = Number(serverPreferenceDefaults.biorientation_red_max_distance);
+        const threshold = Number(serverPreferenceDefaults.biorientation_collinearity_threshold);
         const micronsPerPixel = Number(serverPreferenceDefaults.microns_per_pixel);
         localStorage.setItem(widthKey, Number.isFinite(width) ? String(width) : '1');
         localStorage.setItem(distanceKey, Number.isFinite(distance) ? String(distance) : '37');
         localStorage.setItem(proximityRadiusKey, Number.isFinite(proximityRadius) ? String(proximityRadius) : '13');
-        localStorage.setItem(thresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
+        localStorage.setItem(biorientationRedMinDistanceKey, Number.isFinite(biorientationMinDistance) ? String(biorientationMinDistance) : '0');
+        localStorage.setItem(biorientationRedMaxDistanceKey, Number.isFinite(biorientationMaxDistance) ? String(biorientationMaxDistance) : '37');
+        localStorage.setItem(biorientationThresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
+        localStorage.setItem(biorientationGreenSplitKey, String(serverPreferenceDefaults.biorientation_green_split_enabled !== false));
         localStorage.setItem(
             micronsPerPixelKey,
             Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
@@ -2510,6 +2534,16 @@
             : 37;
     }
 
+    function defaultBiorientationMinDistanceForUnit() {
+        return 0;
+    }
+
+    function defaultBiorientationMaxDistanceForUnit(unit) {
+        return unit === 'um'
+            ? 37 * sanitizeMicronsPerPixel(statsState.micronsPerPixel)
+            : 37;
+    }
+
     function defaultProximityRadiusForUnit(unit) {
         return unit === 'um'
             ? 13 * sanitizeMicronsPerPixel(statsState.micronsPerPixel)
@@ -2520,6 +2554,8 @@
         if (field === 'punctaLineWidth') return statsState.punctaLineWidthUnit;
         if (field === 'cenDotDistance') return statsState.cenDotDistanceUnit;
         if (field === 'cenDotProximityRadius') return statsState.cenDotProximityRadiusUnit;
+        if (field === 'biorientationRedMinDistance') return statsState.biorientationRedMinDistanceUnit;
+        if (field === 'biorientationRedMaxDistance') return statsState.biorientationRedMaxDistanceUnit;
         return 'px';
     }
 
@@ -2535,6 +2571,14 @@
         }
         if (field === 'cenDotProximityRadius') {
             statsState.cenDotProximityRadiusUnit = normalized;
+            return;
+        }
+        if (field === 'biorientationRedMinDistance') {
+            statsState.biorientationRedMinDistanceUnit = normalized;
+            return;
+        }
+        if (field === 'biorientationRedMaxDistance') {
+            statsState.biorientationRedMaxDistanceUnit = normalized;
         }
     }
 
@@ -2542,6 +2586,8 @@
         if (field === 'punctaLineWidth') return statsState.punctaLineWidth;
         if (field === 'cenDotDistance') return statsState.cenDotDistance;
         if (field === 'cenDotProximityRadius') return statsState.cenDotProximityRadius;
+        if (field === 'biorientationRedMinDistance') return statsState.biorientationRedMinDistance;
+        if (field === 'biorientationRedMaxDistance') return statsState.biorientationRedMaxDistance;
         return 0;
     }
 
@@ -2556,6 +2602,14 @@
         }
         if (field === 'cenDotProximityRadius') {
             statsState.cenDotProximityRadius = value;
+            return;
+        }
+        if (field === 'biorientationRedMinDistance') {
+            statsState.biorientationRedMinDistance = value;
+            return;
+        }
+        if (field === 'biorientationRedMaxDistance') {
+            statsState.biorientationRedMaxDistance = value;
         }
     }
 
@@ -2575,6 +2629,8 @@
         localStorage.setItem(punctaLineWidthUnitKey, statsState.punctaLineWidthUnit);
         localStorage.setItem(cenDotDistanceUnitKey, statsState.cenDotDistanceUnit);
         localStorage.setItem(cenDotProximityRadiusUnitKey, statsState.cenDotProximityRadiusUnit);
+        localStorage.setItem(biorientationRedMinDistanceUnitKey, statsState.biorientationRedMinDistanceUnit);
+        localStorage.setItem(biorientationRedMaxDistanceUnitKey, statsState.biorientationRedMaxDistanceUnit);
         localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
         localStorage.setItem(useMetadataScaleKey, String(!!statsState.useMetadataScale));
     }
@@ -2625,6 +2681,8 @@
         if (!Number.isFinite(converted)) {
             if (field === 'punctaLineWidth') converted = defaultWidthForUnit(normalizedNext);
             else if (field === 'cenDotProximityRadius') converted = defaultProximityRadiusForUnit(normalizedNext);
+            else if (field === 'biorientationRedMinDistance') converted = defaultBiorientationMinDistanceForUnit();
+            else if (field === 'biorientationRedMaxDistance') converted = defaultBiorientationMaxDistanceForUnit(normalizedNext);
             else converted = defaultDistanceForUnit(normalizedNext);
         }
 
@@ -2636,10 +2694,16 @@
             if (normalizedNext === 'px') {
                 converted = Math.round(converted);
             }
-        } else if (field === 'cenDotDistance' || field === 'cenDotProximityRadius') {
-            const fallback = field === 'cenDotProximityRadius'
-                ? defaultProximityRadiusForUnit(normalizedNext)
-                : defaultDistanceForUnit(normalizedNext);
+        } else if (
+            field === 'cenDotDistance' ||
+            field === 'cenDotProximityRadius' ||
+            field === 'biorientationRedMinDistance' ||
+            field === 'biorientationRedMaxDistance'
+        ) {
+            let fallback = defaultDistanceForUnit(normalizedNext);
+            if (field === 'cenDotProximityRadius') fallback = defaultProximityRadiusForUnit(normalizedNext);
+            if (field === 'biorientationRedMinDistance') fallback = defaultBiorientationMinDistanceForUnit();
+            if (field === 'biorientationRedMaxDistance') fallback = defaultBiorientationMaxDistanceForUnit(normalizedNext);
             if (converted < 0) {
                 converted = fallback;
             }
@@ -2657,6 +2721,10 @@
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
         } else if (field === 'cenDotProximityRadius') {
             localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
+        } else if (field === 'biorientationRedMinDistance') {
+            localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+        } else if (field === 'biorientationRedMaxDistance') {
+            localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
         }
         syncStatsUI();
     }
@@ -2887,6 +2955,12 @@
         if (statsState.cenDotProximityRadiusUnit === 'px') {
             statsState.cenDotProximityRadius = Math.max(0, Math.round(Number(statsState.cenDotProximityRadius) || 0));
         }
+        if (statsState.biorientationRedMinDistanceUnit === 'px') {
+            statsState.biorientationRedMinDistance = Math.max(0, Math.round(Number(statsState.biorientationRedMinDistance) || 0));
+        }
+        if (statsState.biorientationRedMaxDistanceUnit === 'px') {
+            statsState.biorientationRedMaxDistance = Math.max(0, Math.round(Number(statsState.biorientationRedMaxDistance) || 0));
+        }
         lengthUnitSelectElements.forEach((control) => {
             control.setUnit(getLengthUnitForField(control.field));
         });
@@ -2923,6 +2997,16 @@
             }
             cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
         }
+        if (biorientationRedMinDistanceInput) {
+            biorientationRedMinDistanceInput.step = statsState.biorientationRedMinDistanceUnit === 'um' ? '0.01' : '1';
+            biorientationRedMinDistanceInput.min = '0';
+            biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+        }
+        if (biorientationRedMaxDistanceInput) {
+            biorientationRedMaxDistanceInput.step = statsState.biorientationRedMaxDistanceUnit === 'um' ? '0.01' : '1';
+            biorientationRedMaxDistanceInput.min = '0';
+            biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+        }
     }
 
     function initializeStatsSettings() {
@@ -2935,7 +3019,7 @@
         loadStoredWidth();
         loadStoredDistance();
         loadStoredProximityRadius();
-        loadStoredThreshold();
+        loadStoredBiorientationSettings();
         loadStoredPunctaMode();
         loadStoredNuclearMode();
         if (!statsState.showLegacyPlugins) {
@@ -2989,7 +3073,11 @@
         cenDotDistanceInput = null;
         cenDotDistanceRow = null;
         cenDotProximityRadiusInput = null;
-        cenDotCollinearityThresholdInput = null;
+        biorientationRedMinDistanceInput = null;
+        biorientationRedMaxDistanceInput = null;
+        biorientationCollinearityThresholdInput = null;
+        biorientationGreenSplitEnabledInput = null;
+        biorientationRow = null;
         micronsPerPixelInput = null;
         punctaLineModeRow = null;
         punctaLineModeSelect = null;
@@ -3076,13 +3164,13 @@
 
                 const modeLabel = document.createElement('label');
                 modeLabel.setAttribute('for', 'punctaLineMode');
-                modeLabel.textContent = 'Puncta source:';
+                modeLabel.textContent = 'Puncta Source:';
                 modeTop.appendChild(modeLabel);
 
                 const select = buildCustomModeSelect(
                     [
-                        { value: 'red_puncta', text: 'Red puncta (measure Green)' },
-                        { value: 'green_puncta', text: 'Green puncta (measure Red)' },
+                        { value: 'red_puncta', text: 'Red Puncta (Measure Green)' },
+                        { value: 'green_puncta', text: 'Green Puncta (Measure Red)' },
                     ],
                     statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
                     (nextMode) => {
@@ -3108,7 +3196,7 @@
 
                 const widthLabel = document.createElement('label');
                 widthLabel.setAttribute('for', 'punctaLineWidthInput');
-                widthLabel.textContent = 'Puncta line width:';
+                widthLabel.textContent = 'Puncta Line Width:';
                 widthLine.appendChild(widthLabel);
 
                 const widthGroup = buildLengthInputGroup({
@@ -3140,7 +3228,7 @@
 
                 const distanceLabel = document.createElement('label');
                 distanceLabel.setAttribute('for', 'cenDotDistanceInput');
-                distanceLabel.textContent = 'Minimum signal distance:';
+                distanceLabel.textContent = 'Minimum Signal Distance:';
                 distanceLine.appendChild(distanceLabel);
 
                 const distanceGroup = buildLengthInputGroup({
@@ -3163,7 +3251,7 @@
                 proximityRadiusLine.className = 'stats-distance-line';
                 const proximityRadiusLabel = document.createElement('label');
                 proximityRadiusLabel.setAttribute('for', 'cenDotProximityRadiusInput');
-                proximityRadiusLabel.textContent = 'Signal proximity radius:';
+                proximityRadiusLabel.textContent = 'Signal Proximity Radius:';
                 proximityRadiusLine.appendChild(proximityRadiusLabel);
 
                 const proximityRadiusGroup = buildLengthInputGroup({
@@ -3183,33 +3271,119 @@
                 distanceRow.appendChild(proximityRadiusLine);
                 cenDotProximityRadiusInput = proximityRadiusGroup.input;
 
+                row.appendChild(distanceRow);
+                cenDotDistanceRow = distanceRow;
+                cenDotDistanceInput = distanceGroup.input;
+            }
+
+            if (plugin.id === 'Biorientation') {
+                const orientationRow = document.createElement('div');
+                orientationRow.className = 'stats-distance-inline';
+
+                const minLine = document.createElement('div');
+                minLine.className = 'stats-distance-line';
+                const minLabel = document.createElement('label');
+                minLabel.setAttribute('for', 'biorientationRedMinDistanceInput');
+                minLabel.textContent = 'Minimum Red Puncta Distance:';
+                minLine.appendChild(minLabel);
+                const minGroup = buildLengthInputGroup({
+                    field: 'biorientationRedMinDistance',
+                    inputId: 'biorientationRedMinDistanceInput',
+                    minValue: 0,
+                    defaultValue: 0,
+                    onChange: () => {
+                        statsState.biorientationRedMinDistance = parseLengthValue(
+                            minGroup.input.value,
+                            statsState.biorientationRedMinDistanceUnit,
+                            defaultBiorientationMinDistanceForUnit(),
+                            0
+                        );
+                        minGroup.input.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+                        localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+                        updateMeasurementScaleHints();
+                    },
+                });
+                minLine.appendChild(minGroup.controls);
+                orientationRow.appendChild(minLine);
+
+                const maxLine = document.createElement('div');
+                maxLine.className = 'stats-distance-line';
+                const maxLabel = document.createElement('label');
+                maxLabel.setAttribute('for', 'biorientationRedMaxDistanceInput');
+                maxLabel.textContent = 'Maximum Red Puncta Distance:';
+                maxLine.appendChild(maxLabel);
+                const maxGroup = buildLengthInputGroup({
+                    field: 'biorientationRedMaxDistance',
+                    inputId: 'biorientationRedMaxDistanceInput',
+                    minValue: 0,
+                    defaultValue: 37,
+                    onChange: () => {
+                        const fallback = defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit);
+                        statsState.biorientationRedMaxDistance = parseLengthValue(
+                            maxGroup.input.value,
+                            statsState.biorientationRedMaxDistanceUnit,
+                            fallback,
+                            0
+                        );
+                        maxGroup.input.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+                        localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+                        updateMeasurementScaleHints();
+                    },
+                });
+                maxLine.appendChild(maxGroup.controls);
+                orientationRow.appendChild(maxLine);
+
                 const thresholdLine = document.createElement('div');
                 thresholdLine.className = 'stats-distance-line stats-threshold-line';
                 const thresholdLabel = document.createElement('label');
-                thresholdLabel.setAttribute('for', 'cenDotCollinearityThresholdInput');
-                thresholdLabel.textContent = 'Biorientation collinearity threshold:';
+                thresholdLabel.setAttribute('for', 'biorientationCollinearityThresholdInput');
+                thresholdLabel.textContent = 'Collinearity Threshold:';
                 thresholdLine.appendChild(thresholdLabel);
-
                 const thresholdInput = document.createElement('input');
                 thresholdInput.type = 'number';
-                thresholdInput.id = 'cenDotCollinearityThresholdInput';
+                thresholdInput.id = 'biorientationCollinearityThresholdInput';
                 thresholdInput.min = '0';
                 thresholdInput.value = '66';
                 thresholdInput.addEventListener('change', () => {
                     const parsed = parseInt(thresholdInput.value, 10);
-                    statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                    thresholdInput.value = String(statsState.cenDotCollinearityThreshold);
-                    localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+                    statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                    thresholdInput.value = String(statsState.biorientationCollinearityThreshold);
+                    localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
                 });
                 const thresholdInputGroup = document.createElement('div');
                 thresholdInputGroup.className = 'boxed-number-group';
                 thresholdInputGroup.appendChild(thresholdInput);
                 thresholdLine.appendChild(thresholdInputGroup);
-                distanceRow.appendChild(thresholdLine);
-                row.appendChild(distanceRow);
-                cenDotDistanceRow = distanceRow;
-                cenDotDistanceInput = distanceGroup.input;
-                cenDotCollinearityThresholdInput = thresholdInput;
+                orientationRow.appendChild(thresholdLine);
+
+                const splitLine = document.createElement('div');
+                splitLine.className = 'stats-distance-line';
+                const splitLabel = document.createElement('label');
+                splitLabel.setAttribute('for', 'biorientationGreenSplitEnabled');
+                splitLabel.textContent = 'Split Merged Green Dots:';
+                splitLine.appendChild(splitLabel);
+                const splitSwitch = document.createElement('label');
+                splitSwitch.className = 'switch';
+                const splitInput = document.createElement('input');
+                splitInput.type = 'checkbox';
+                splitInput.id = 'biorientationGreenSplitEnabled';
+                splitInput.addEventListener('change', () => {
+                    statsState.biorientationGreenSplitEnabled = !!splitInput.checked;
+                    localStorage.setItem(biorientationGreenSplitKey, String(statsState.biorientationGreenSplitEnabled));
+                });
+                const splitSlider = document.createElement('span');
+                splitSlider.className = 'slider';
+                splitSwitch.appendChild(splitInput);
+                splitSwitch.appendChild(splitSlider);
+                splitLine.appendChild(splitSwitch);
+                orientationRow.appendChild(splitLine);
+
+                row.appendChild(orientationRow);
+                biorientationRow = orientationRow;
+                biorientationRedMinDistanceInput = minGroup.input;
+                biorientationRedMaxDistanceInput = maxGroup.input;
+                biorientationCollinearityThresholdInput = thresholdInput;
+                biorientationGreenSplitEnabledInput = splitInput;
             }
 
             if (plugin.id === 'NuclearCellPairIntensity') {
@@ -3221,13 +3395,13 @@
 
                 const modeLabel = document.createElement('label');
                 modeLabel.setAttribute('for', 'nuclearCellPairMode');
-                modeLabel.textContent = 'Nucleus contour source (Nuclear/Cell-Pair mode):';
+                modeLabel.textContent = 'Nucleus Contour Source (Nuclear/Cell-Pair Mode):';
                 modeTop.appendChild(modeLabel);
 
                 const select = buildCustomModeSelect(
                     [
-                        { value: 'green_nucleus', text: 'Green nucleus (measure Red)' },
-                        { value: 'red_nucleus', text: 'Red nucleus (measure Green)' },
+                        { value: 'green_nucleus', text: 'Green Nucleus (Measure Red)' },
+                        { value: 'red_nucleus', text: 'Red Nucleus (Measure Green)' },
                     ],
                     statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
                     (nextMode) => {
@@ -3270,7 +3444,7 @@
 
         const title = document.createElement('span');
         title.className = 'measurement-scale-title';
-        title.textContent = 'Micrometers per pixel (µm/px)';
+        title.textContent = 'Micrometers Per Pixel (µm/px)';
         titleRow.appendChild(title);
 
         const info = buildInfoDot(
@@ -3284,7 +3458,7 @@
         const metadataRow = document.createElement('div');
         metadataRow.className = 'measurement-metadata-row';
         const metadataText = document.createElement('span');
-        metadataText.textContent = 'Use metadata scale per file';
+        metadataText.textContent = 'Use Metadata Scale Per File';
         metadataRow.appendChild(metadataText);
         const metadataSwitch = document.createElement('label');
         metadataSwitch.className = 'switch';
@@ -3310,7 +3484,7 @@
 
         const live = document.createElement('p');
         live.className = 'measurement-scale-live';
-        live.appendChild(document.createTextNode('Current scale: 1 µm = '));
+        live.appendChild(document.createTextNode('Current Scale: 1 µm = '));
         const livePxValue = document.createElement('span');
         livePxValue.className = 'measurement-scale-value';
         live.appendChild(livePxValue);
@@ -3408,26 +3582,39 @@
         if (statsState.punctaLineWidthUnit === 'um') {
             const pxValue = convertLengthToPixels(statsState.punctaLineWidth, statsState.punctaLineWidthUnit, 1, 1);
             examples.push(
-                `Puncta line width ${formatNumericInputValue(statsState.punctaLineWidth, 3)} µm -> ${pxValue} px`
+                `Puncta Line Width ${formatNumericInputValue(statsState.punctaLineWidth, 3)} µm -> ${pxValue} px`
             );
         }
         if (statsState.cenDotDistanceUnit === 'um') {
             const pxValue = convertLengthToPixels(statsState.cenDotDistance, statsState.cenDotDistanceUnit, 0, 37);
             examples.push(
-                `Minimum signal distance ${formatNumericInputValue(statsState.cenDotDistance, 3)} µm -> ${pxValue} px`
+                `Minimum Signal Distance ${formatNumericInputValue(statsState.cenDotDistance, 3)} µm -> ${pxValue} px`
             );
         }
         if (statsState.cenDotProximityRadiusUnit === 'um') {
             const pxValue = convertLengthToPixels(statsState.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, 0, 13);
             examples.push(
-                `Signal proximity radius ${formatNumericInputValue(statsState.cenDotProximityRadius, 3)} µm -> ${pxValue} px`
+                `Signal Proximity Radius ${formatNumericInputValue(statsState.cenDotProximityRadius, 3)} µm -> ${pxValue} px`
+            );
+        }
+
+        if (statsState.biorientationRedMinDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.biorientationRedMinDistance, statsState.biorientationRedMinDistanceUnit, 0, 0);
+            examples.push(
+                `Biorientation Minimum Red Distance ${formatNumericInputValue(statsState.biorientationRedMinDistance, 3)} µm -> ${pxValue} px`
+            );
+        }
+        if (statsState.biorientationRedMaxDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.biorientationRedMaxDistance, statsState.biorientationRedMaxDistanceUnit, 0, 37);
+            examples.push(
+                `Biorientation Maximum Red Distance ${formatNumericInputValue(statsState.biorientationRedMaxDistance, 3)} µm -> ${pxValue} px`
             );
         }
 
         setSmoothText(
             measurementScaleExampleHint,
             examples.length
-                ? `Live conversion: ${examples.join(' | ')}`
+                ? `Live Conversion: ${examples.join(' | ')}`
                 : 'Set a plugin length unit to µm to preview its pixel conversion here.'
         );
 
@@ -3607,9 +3794,13 @@
         const storedWidthUnit = localStorage.getItem(punctaLineWidthUnitKey);
         const storedDistanceUnit = localStorage.getItem(cenDotDistanceUnitKey);
         const storedProximityRadiusUnit = localStorage.getItem(cenDotProximityRadiusUnitKey);
+        const storedBiorientationMinUnit = localStorage.getItem(biorientationRedMinDistanceUnitKey);
+        const storedBiorientationMaxUnit = localStorage.getItem(biorientationRedMaxDistanceUnitKey);
         statsState.punctaLineWidthUnit = normalizeLengthUnit(storedWidthUnit || legacyUnit);
         statsState.cenDotDistanceUnit = normalizeLengthUnit(storedDistanceUnit || legacyUnit);
         statsState.cenDotProximityRadiusUnit = normalizeLengthUnit(storedProximityRadiusUnit || legacyUnit);
+        statsState.biorientationRedMinDistanceUnit = normalizeLengthUnit(storedBiorientationMinUnit || legacyUnit);
+        statsState.biorientationRedMaxDistanceUnit = normalizeLengthUnit(storedBiorientationMaxUnit || legacyUnit);
     }
 
     function loadStoredMicronsPerPixel() {
@@ -3645,10 +3836,28 @@
         statsState.cenDotProximityRadius = parseLengthValue(raw, statsState.cenDotProximityRadiusUnit, fallback, 0);
     }
 
-    function loadStoredThreshold() {
-        const raw = localStorage.getItem(thresholdKey);
+    function loadStoredBiorientationSettings() {
+        const minRaw = localStorage.getItem(biorientationRedMinDistanceKey);
+        const maxRaw = localStorage.getItem(biorientationRedMaxDistanceKey);
+        statsState.biorientationRedMinDistance = parseLengthValue(
+            minRaw,
+            statsState.biorientationRedMinDistanceUnit,
+            defaultBiorientationMinDistanceForUnit(),
+            0
+        );
+        statsState.biorientationRedMaxDistance = parseLengthValue(
+            maxRaw,
+            statsState.biorientationRedMaxDistanceUnit,
+            defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+            0
+        );
+        const raw = localStorage.getItem(biorientationThresholdKey) || localStorage.getItem(oldThresholdKey);
         const parsed = parseInt(raw || '66', 10);
-        statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+        statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+        const splitRaw = localStorage.getItem(biorientationGreenSplitKey);
+        statsState.biorientationGreenSplitEnabled = splitRaw === null
+            ? true
+            : !['0', 'false', 'off', 'no'].includes(String(splitRaw).trim().toLowerCase());
     }
 
     function loadStoredPunctaMode() {
@@ -3789,8 +3998,20 @@
         if (cenDotDistanceRow) {
             cenDotDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('CENDot'));
         }
-        if (cenDotCollinearityThresholdInput) {
-            cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
+        if (biorientationRow) {
+            biorientationRow.classList.toggle('visible', statsState.selectedPlugins.has('Biorientation'));
+        }
+        if (biorientationRedMinDistanceInput) {
+            biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+        }
+        if (biorientationRedMaxDistanceInput) {
+            biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+        }
+        if (biorientationCollinearityThresholdInput) {
+            biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
+        }
+        if (biorientationGreenSplitEnabledInput) {
+            biorientationGreenSplitEnabledInput.checked = !!statsState.biorientationGreenSplitEnabled;
         }
         if (micronsPerPixelInput) {
             micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
@@ -3989,7 +4210,10 @@
             punctaLineWidth: Number.isFinite(Number(statsState.punctaLineWidth)) ? Number(statsState.punctaLineWidth) : 1,
             cenDotDistance: Number.isFinite(Number(statsState.cenDotDistance)) ? Number(statsState.cenDotDistance) : 37,
             cenDotProximityRadius: Number.isFinite(Number(statsState.cenDotProximityRadius)) ? Number(statsState.cenDotProximityRadius) : 13,
-            cenDotCollinearityThreshold: Number.isFinite(Number(statsState.cenDotCollinearityThreshold)) ? Number(statsState.cenDotCollinearityThreshold) : 66,
+            biorientationRedMinDistance: Number.isFinite(Number(statsState.biorientationRedMinDistance)) ? Number(statsState.biorientationRedMinDistance) : 0,
+            biorientationRedMaxDistance: Number.isFinite(Number(statsState.biorientationRedMaxDistance)) ? Number(statsState.biorientationRedMaxDistance) : 37,
+            biorientationCollinearityThreshold: Number.isFinite(Number(statsState.biorientationCollinearityThreshold)) ? Number(statsState.biorientationCollinearityThreshold) : 66,
+            biorientationGreenSplitEnabled: !!statsState.biorientationGreenSplitEnabled,
             punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
@@ -3997,6 +4221,8 @@
             punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
             cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
             cenDotProximityRadiusUnit: normalizeLengthUnit(statsState.cenDotProximityRadiusUnit),
+            biorientationRedMinDistanceUnit: normalizeLengthUnit(statsState.biorientationRedMinDistanceUnit),
+            biorientationRedMaxDistanceUnit: normalizeLengthUnit(statsState.biorientationRedMaxDistanceUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
             useMetadataScale: !!statsState.useMetadataScale,
         });
@@ -4026,6 +4252,8 @@
             statsState.punctaLineWidthUnit = normalizeLengthUnit(snapshot.punctaLineWidthUnit);
             statsState.cenDotDistanceUnit = normalizeLengthUnit(snapshot.cenDotDistanceUnit);
             statsState.cenDotProximityRadiusUnit = normalizeLengthUnit(snapshot.cenDotProximityRadiusUnit);
+            statsState.biorientationRedMinDistanceUnit = normalizeLengthUnit(snapshot.biorientationRedMinDistanceUnit);
+            statsState.biorientationRedMaxDistanceUnit = normalizeLengthUnit(snapshot.biorientationRedMaxDistanceUnit);
             statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
             statsState.useMetadataScale = !!snapshot.useMetadataScale;
             const widthMinimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
@@ -4035,8 +4263,21 @@
             statsState.cenDotDistance = parseLengthValue(snapshot.cenDotDistance, statsState.cenDotDistanceUnit, distanceFallback, 0);
             const proximityRadiusFallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
             statsState.cenDotProximityRadius = parseLengthValue(snapshot.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, proximityRadiusFallback, 0);
-            const parsedThreshold = parseInt(String(snapshot.cenDotCollinearityThreshold ?? 66), 10);
-            statsState.cenDotCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
+            statsState.biorientationRedMinDistance = parseLengthValue(
+                snapshot.biorientationRedMinDistance,
+                statsState.biorientationRedMinDistanceUnit,
+                defaultBiorientationMinDistanceForUnit(),
+                0
+            );
+            statsState.biorientationRedMaxDistance = parseLengthValue(
+                snapshot.biorientationRedMaxDistance,
+                statsState.biorientationRedMaxDistanceUnit,
+                defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+                0
+            );
+            const parsedThreshold = parseInt(String(snapshot.biorientationCollinearityThreshold ?? 66), 10);
+            statsState.biorientationCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
+            statsState.biorientationGreenSplitEnabled = snapshot.biorientationGreenSplitEnabled !== false;
             statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
@@ -4054,7 +4295,10 @@
             localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
             localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
-            localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+            localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+            localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+            localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
+            localStorage.setItem(biorientationGreenSplitKey, String(statsState.biorientationGreenSplitEnabled));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             persistLengthUnitSettings();
@@ -4787,11 +5031,35 @@
                 cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
                 localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
             }
-            if (cenDotCollinearityThresholdInput) {
-                const parsed = parseInt(cenDotCollinearityThresholdInput.value, 10);
-                statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
-                localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+            if (biorientationRedMinDistanceInput) {
+                statsState.biorientationRedMinDistance = parseLengthValue(
+                    biorientationRedMinDistanceInput.value,
+                    statsState.biorientationRedMinDistanceUnit,
+                    defaultBiorientationMinDistanceForUnit(),
+                    0
+                );
+                biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+                localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+            }
+            if (biorientationRedMaxDistanceInput) {
+                statsState.biorientationRedMaxDistance = parseLengthValue(
+                    biorientationRedMaxDistanceInput.value,
+                    statsState.biorientationRedMaxDistanceUnit,
+                    defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+                    0
+                );
+                biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+                localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+            }
+            if (biorientationCollinearityThresholdInput) {
+                const parsed = parseInt(biorientationCollinearityThresholdInput.value, 10);
+                statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
+                localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
+            }
+            if (biorientationGreenSplitEnabledInput) {
+                statsState.biorientationGreenSplitEnabled = !!biorientationGreenSplitEnabledInput.checked;
+                localStorage.setItem(biorientationGreenSplitKey, String(statsState.biorientationGreenSplitEnabled));
             }
             if (punctaLineModeSelect) {
                 statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
@@ -4801,7 +5069,11 @@
                 statsState.nuclearCellPairMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
-            const usingMicrometers = statsState.punctaLineWidthUnit === 'um' || statsState.cenDotDistanceUnit === 'um' || statsState.cenDotProximityRadiusUnit === 'um';
+            const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
+                || statsState.cenDotDistanceUnit === 'um'
+                || statsState.cenDotProximityRadiusUnit === 'um'
+                || statsState.biorientationRedMinDistanceUnit === 'um'
+                || statsState.biorientationRedMaxDistanceUnit === 'um';
             if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
                 showErrors([
                     'Micrometers-per-pixel must be greater than 0 when using micrometer input.',
@@ -4859,10 +5131,13 @@
             formData.append('stats_puncta_line_width_value', String(statsState.punctaLineWidth));
             formData.append('stats_cen_dot_distance_value', String(statsState.cenDotDistance));
             formData.append('stats_cen_dot_proximity_radius_value', String(statsState.cenDotProximityRadius));
+            formData.append('biorientationRedMinDistance', String(statsState.biorientationRedMinDistance));
+            formData.append('biorientationRedMaxDistance', String(statsState.biorientationRedMaxDistance));
+            formData.append('biorientationCollinearityThreshold', String(statsState.biorientationCollinearityThreshold));
+            formData.append('biorientationGreenSplitEnabled', String(statsState.biorientationGreenSplitEnabled));
             formData.append('punctaLineWidth', String(punctaLineWidthPixels));
             formData.append('cenDotDistance', String(cenDotDistancePixels));
             formData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));
-            formData.append('cenDotCollinearityThreshold', String(statsState.cenDotCollinearityThreshold));
             formData.append('puncta_line_mode', statsState.punctaLineMode);
             formData.append('nuclear_cell_pair_mode', statsState.nuclearCellPairMode);
             formData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
@@ -4876,6 +5151,12 @@
             formData.append('stats_puncta_line_width_unit', statsState.punctaLineWidthUnit);
             formData.append('stats_cen_dot_distance_unit', statsState.cenDotDistanceUnit);
             formData.append('stats_cen_dot_proximity_radius_unit', statsState.cenDotProximityRadiusUnit);
+            formData.append('biorientationRedMinDistanceUnit', statsState.biorientationRedMinDistanceUnit);
+            formData.append('biorientationRedMaxDistanceUnit', statsState.biorientationRedMaxDistanceUnit);
+            formData.append('stats_biorientation_red_min_distance_value', String(statsState.biorientationRedMinDistance));
+            formData.append('stats_biorientation_red_max_distance_value', String(statsState.biorientationRedMaxDistance));
+            formData.append('stats_biorientation_red_min_distance_unit', statsState.biorientationRedMinDistanceUnit);
+            formData.append('stats_biorientation_red_max_distance_unit', statsState.biorientationRedMaxDistanceUnit);
             formData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
             formData.append('stats_use_metadata_scale', statsState.useMetadataScale ? '1' : '0');
 

@@ -9,10 +9,77 @@ from core.image_processing import GrayImage
 logger = logging.getLogger(__name__)
 
 
+def _split_merged_green_contours(
+    thresh_green: np.ndarray,
+    min_peak_distance: int = 4,
+    min_peak_ratio: float = 0.55,
+) -> np.ndarray:
+    """Split obviously-merged GFP blobs using a distance-transform watershed.
+
+    Peaks in the euclidean distance transform identify distinct dot centers even
+    when their thresholded masks are bridged by background signal. We keep peaks
+    whose height is at least ``min_peak_ratio`` of the local maximum within each
+    connected component and that sit at least ``min_peak_distance`` pixels apart.
+    Watershed boundaries then carve the merged blob into separate contours.
+    """
+
+    num_labels, labels = cv2.connectedComponents(thresh_green)
+    if num_labels <= 1:
+        return thresh_green
+
+    dist = cv2.distanceTransform(thresh_green, cv2.DIST_L2, 3)
+    split_mask = np.zeros_like(thresh_green)
+
+    for label in range(1, num_labels):
+        component = (labels == label).astype(np.uint8)
+        if np.count_nonzero(component) == 0:
+            continue
+
+        component_dist = dist * component
+        local_max = component_dist.max()
+        if local_max <= 0:
+            split_mask[component.astype(bool)] = 255
+            continue
+
+        kernel_size = max(3, int(min_peak_distance) | 1)
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        dilated = cv2.dilate(component_dist, kernel)
+        peaks = (component_dist == dilated) & (
+            component_dist >= local_max * min_peak_ratio
+        ) & (component_dist > 0)
+
+        peak_labels_count, peak_labels = cv2.connectedComponents(peaks.astype(np.uint8))
+        if peak_labels_count <= 2:
+            split_mask[component.astype(bool)] = 255
+            continue
+
+        markers = np.zeros(thresh_green.shape, dtype=np.int32)
+        peak_count = peak_labels_count - 1
+        for marker_idx in range(1, peak_labels_count):
+            markers[(peak_labels == marker_idx) & (component == 1)] = marker_idx
+
+        inverse_dist = cv2.normalize(
+            component_dist.max() - component_dist,
+            None,
+            0,
+            255,
+            cv2.NORM_MINMAX,
+        ).astype(np.uint8)
+        ws_input = cv2.cvtColor(inverse_dist, cv2.COLOR_GRAY2BGR)
+        cv2.watershed(ws_input, markers)
+
+        for marker_idx in range(1, peak_count + 1):
+            region = ((markers == marker_idx) & (component == 1)).astype(np.uint8) * 255
+            split_mask = cv2.bitwise_or(split_mask, region)
+
+    return split_mask
+
+
 def find_contours(
     images: GrayImage,
     green_contour_filter_enabled: bool = False,
     alternate_red_detection: bool = False,
+    biorientation_green_split_enabled: bool = True,
 ):
     """
     Find red dot contours, blue nucleus contours, and green signal contours.
@@ -227,6 +294,8 @@ def find_contours(
         )
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_green = cv2.morphologyEx(thresh_green, cv2.MORPH_CLOSE, kernel)
+        if biorientation_green_split_enabled:
+            thresh_green = _split_merged_green_contours(thresh_green)
         contours_green, _ = cv2.findContours(
             thresh_green,
             cv2.RETR_LIST,

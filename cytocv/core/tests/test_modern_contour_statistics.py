@@ -78,7 +78,6 @@ class ModernContourStatisticsTests(SimpleTestCase):
         x_range,
         puncta_line_mode: str = "red_puncta",
         cen_dot_distance: float = 37.0,
-        cen_dot_collinearity_threshold: int = 66,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -127,7 +126,6 @@ class ModernContourStatisticsTests(SimpleTestCase):
                     execution_plan,
                     puncta_line_width=1,
                     cen_dot_distance=cen_dot_distance,
-                    cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
                 )
 
         return cp, np.array(debug_red), np.array(debug_green), np.array(debug_blue)

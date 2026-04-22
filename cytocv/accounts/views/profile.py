@@ -152,6 +152,14 @@ def _extract_measurement_defaults(
         defaults.get("cen_dot_distance_unit"),
         default="px",
     )
+    current_biorientation_red_min_distance_unit = _normalize_unit(
+        defaults.get("biorientation_red_min_distance_unit"),
+        default="px",
+    )
+    current_biorientation_red_max_distance_unit = _normalize_unit(
+        defaults.get("biorientation_red_max_distance_unit"),
+        default="px",
+    )
     current_puncta_line_width = _parse_positive_float(
         defaults.get("puncta_line_width", defaults.get("red_line_width")),
         default=1,
@@ -162,10 +170,26 @@ def _extract_measurement_defaults(
         default=37,
         minimum=0,
     )
-    current_cen_dot_collinearity_threshold = _parse_positive_int(
-        defaults.get("cen_dot_collinearity_threshold"),
+    current_biorientation_red_min_distance = _parse_positive_float(
+        defaults.get("biorientation_red_min_distance"),
+        default=0,
+        minimum=0,
+    )
+    current_biorientation_red_max_distance = _parse_positive_float(
+        defaults.get("biorientation_red_max_distance"),
+        default=37,
+        minimum=0,
+    )
+    current_biorientation_collinearity_threshold = _parse_positive_int(
+        defaults.get(
+            "biorientation_collinearity_threshold",
+            defaults.get("cen_dot_collinearity_threshold"),
+        ),
         default=66,
         minimum=0,
+    )
+    current_biorientation_green_split_enabled = bool(
+        defaults.get("biorientation_green_split_enabled", True)
     )
     current_microns_per_pixel = _parse_positive_float(
         defaults.get("microns_per_pixel"),
@@ -194,6 +218,24 @@ def _extract_measurement_defaults(
         post_data.get("cen_dot_distance_unit"),
         default=current_cen_dot_distance_unit,
     )
+    biorientation_red_min_distance_unit = _normalize_unit(
+        post_data.get("biorientation_red_min_distance_unit"),
+        default=current_biorientation_red_min_distance_unit,
+    )
+    biorientation_red_max_distance_unit = _normalize_unit(
+        post_data.get("biorientation_red_max_distance_unit"),
+        default=current_biorientation_red_max_distance_unit,
+    )
+    raw_biorientation_green_split_enabled = post_data.get("biorientation_green_split_enabled")
+    if raw_biorientation_green_split_enabled is None:
+        biorientation_green_split_enabled = current_biorientation_green_split_enabled
+    else:
+        biorientation_green_split_enabled = str(raw_biorientation_green_split_enabled).strip().lower() in {
+            "1",
+            "true",
+            "on",
+            "yes",
+        }
     puncta_line_minimum = 1 if puncta_line_width_unit == "px" else 0
     raw_use_metadata_scale = post_data.get("use_metadata_scale")
     if raw_use_metadata_scale is None:
@@ -216,11 +258,22 @@ def _extract_measurement_defaults(
             default=current_cen_dot_distance,
             minimum=0,
         ),
-        "cen_dot_collinearity_threshold": _parse_positive_int(
-            post_data.get("cen_dot_collinearity_threshold"),
-            default=current_cen_dot_collinearity_threshold,
+        "biorientation_red_min_distance": _parse_positive_float(
+            post_data.get("biorientation_red_min_distance"),
+            default=current_biorientation_red_min_distance,
             minimum=0,
         ),
+        "biorientation_red_max_distance": _parse_positive_float(
+            post_data.get("biorientation_red_max_distance"),
+            default=current_biorientation_red_max_distance,
+            minimum=0,
+        ),
+        "biorientation_collinearity_threshold": _parse_positive_int(
+            post_data.get("biorientation_collinearity_threshold"),
+            default=current_biorientation_collinearity_threshold,
+            minimum=0,
+        ),
+        "biorientation_green_split_enabled": biorientation_green_split_enabled,
         "puncta_line_mode": _normalize_puncta_mode(
             post_data.get("puncta_line_mode"),
             default=current_puncta_mode,
@@ -231,6 +284,8 @@ def _extract_measurement_defaults(
         ),
         "puncta_line_width_unit": puncta_line_width_unit,
         "cen_dot_distance_unit": cen_dot_distance_unit,
+        "biorientation_red_min_distance_unit": biorientation_red_min_distance_unit,
+        "biorientation_red_max_distance_unit": biorientation_red_max_distance_unit,
         "microns_per_pixel": _parse_positive_float(
             post_data.get("microns_per_pixel"),
             default=current_microns_per_pixel,
@@ -252,7 +307,7 @@ def _channel_summary_meta(channel: str) -> str:
     if channel == CHANNEL_ROLE_RED:
         return "Red fluorescence signal channel"
     if channel == CHANNEL_ROLE_GREEN:
-        return "Green fluorescence signal channel and CEN dot measurements."
+        return "Green fluorescence signal channel and Cen Dot Measurements."
     return "Channel data used in analysis"
 
 
@@ -297,7 +352,7 @@ def _resolve_required_channel_state(
             "toggle_disabled": True,
             "row_disabled": True,
             "row_locked": False,
-            "row_help": 'Required because "Enforce required channels" is enabled.',
+            "row_help": 'Required because "Enforce Required Channels" is enabled.',
         }
 
     if module_enabled and channel in manual_required:
@@ -321,7 +376,7 @@ def _resolve_required_channel_state(
             "toggle_disabled": True,
             "row_disabled": True,
             "row_locked": False,
-            "row_help": 'Paused because "Enforce required channels" is saved while the validation module is OFF.',
+            "row_help": 'Paused because "Enforce Required Channels" is saved while the validation module is OFF.',
         }
 
     if channel in manual_required:

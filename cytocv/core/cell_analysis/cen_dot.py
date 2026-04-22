@@ -72,21 +72,6 @@ class CENDot(Analysis):
             threshold = 0.0
         return distance >= threshold, distance, threshold
 
-    def point_is_between(self, point, endpoint1, endpoint2, eps):
-        px, py = float(point[0]), float(point[1])
-        x1, y1 = float(endpoint1[0]), float(endpoint1[1])
-        x2, y2 = float(endpoint2[0]), float(endpoint2[1])
-        dx = x2 - x1
-        dy = y2 - y1
-
-        cross = (py - y1) * dx - (px - x1) * dy
-        if abs(cross) > eps:
-            return False
-
-        dot = (px - x1) * dx + (py - y1) * dy
-        squared_dist = dx * dx + dy * dy
-        return not (dot < 0 or dot > squared_dist)
-
     def _get_proximity_radius_unit(self) -> str:
         properties = getattr(self.cp, "properties", {}) or {}
         return normalize_length_unit(properties.get("stats_cen_dot_proximity_radius_unit"), default="px")
@@ -236,7 +221,6 @@ class CENDot(Analysis):
         green_image,
         puncta_line_width_input,
         cen_dot_distance=37,
-        cen_dot_collinearity_threshold=66,
         cen_dot_proximity_radius=13,
     ):
         prox_radius = self._proximity_radius_in_pixels(cen_dot_proximity_radius)
@@ -293,7 +277,6 @@ class CENDot(Analysis):
 
             red_count = len(red_slots)
             if red_count != 2:
-                self.cp.biorientation = 0
                 reason = "too_few_reds" if red_count < 2 else "too_many_reds"
                 _finalize(
                     _CATEGORY_NA,
@@ -311,36 +294,15 @@ class CENDot(Analysis):
             )
 
             if not meets_threshold:
-                # Biorientation path: close reds preserve the legacy calculation.
-                num_between = 0
-                for green_slot in green_slots:
-                    if self.point_is_between(
-                        green_slot.center,
-                        center_1,
-                        center_2,
-                        cen_dot_collinearity_threshold,
-                    ):
-                        num_between += 1
-
-                if num_between == 1:
-                    self.cp.biorientation = 1
-                elif num_between > 1:
-                    self.cp.biorientation = 2
-                else:
-                    self.cp.biorientation = 0
-
                 _finalize(
                     _CATEGORY_NA,
                     "reds_below_threshold",
                     {
                         "red_distance": float(distance),
                         "red_distance_threshold_effective": float(threshold),
-                        "biorientation_between_count": int(num_between),
                     },
                 )
                 return
-
-            self.cp.biorientation = 0
 
             if mother_mask is None or daughter_mask is None or neck_split is None:
                 _finalize(
@@ -446,7 +408,6 @@ class CENDot(Analysis):
         except Exception as exc:
             logger.debug("CENDot analysis skipped due to contour error: %s", exc)
             self.cp.category_cen_dot = _CATEGORY_NA
-            self.cp.biorientation = 0
             self._set_location_properties(
                 self.cp,
                 {

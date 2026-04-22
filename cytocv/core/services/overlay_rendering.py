@@ -70,8 +70,13 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
         normalized["puncta_line_width_px"] = normalized["red_line_width_px"]
     if "gfp_distance_value_used" in normalized and "cen_dot_distance_value_used" not in normalized:
         normalized["cen_dot_distance_value_used"] = normalized["gfp_distance_value_used"]
-    if "gfp_threshold" in normalized and "cen_dot_collinearity_threshold" not in normalized:
-        normalized["cen_dot_collinearity_threshold"] = normalized["gfp_threshold"]
+    if "gfp_threshold" in normalized and "biorientation_collinearity_threshold" not in normalized:
+        normalized["biorientation_collinearity_threshold"] = normalized["gfp_threshold"]
+    if (
+        "cen_dot_collinearity_threshold" in normalized
+        and "biorientation_collinearity_threshold" not in normalized
+    ):
+        normalized["biorientation_collinearity_threshold"] = normalized["cen_dot_collinearity_threshold"]
     if "gfp_filter_enabled" in normalized and "green_contour_filter_enabled" not in normalized:
         normalized["green_contour_filter_enabled"] = normalized["gfp_filter_enabled"]
     if "alternate_mcherry_detection" in normalized and "alternate_red_detection" not in normalized:
@@ -139,13 +144,18 @@ def build_overlay_render_config(
     nuclear_cell_pair_mode: str,
     puncta_line_width_px: int,
     cen_dot_distance_value_used: float,
-    cen_dot_collinearity_threshold: int,
     green_contour_filter_enabled: bool,
     alternate_red_detection: bool,
     puncta_line_width_unit: str | None = None,
     cen_dot_distance_unit: str | None = None,
     cen_dot_proximity_radius: float | None = None,
     cen_dot_proximity_radius_unit: str | None = None,
+    biorientation_red_min_distance_value: float = 0.0,
+    biorientation_red_min_distance_unit: str = "px",
+    biorientation_red_max_distance_value: float = 37.0,
+    biorientation_red_max_distance_unit: str = "px",
+    biorientation_collinearity_threshold: int = 66,
+    biorientation_green_split_enabled: bool = True,
 ) -> dict[str, object]:
     render_config: dict[str, object] = {
         "schema_version": OVERLAY_RENDER_SCHEMA_VERSION,
@@ -164,9 +174,14 @@ def build_overlay_render_config(
         "nuclear_cell_pair_mode": str(nuclear_cell_pair_mode),
         "puncta_line_width_px": int(puncta_line_width_px),
         "cen_dot_distance_value_used": float(cen_dot_distance_value_used),
-        "cen_dot_collinearity_threshold": int(cen_dot_collinearity_threshold),
+        "biorientation_collinearity_threshold": int(biorientation_collinearity_threshold),
         "green_contour_filter_enabled": bool(green_contour_filter_enabled),
         "alternate_red_detection": bool(alternate_red_detection),
+        "biorientation_green_split_enabled": bool(biorientation_green_split_enabled),
+        "stats_biorientation_red_min_distance_value": float(biorientation_red_min_distance_value),
+        "stats_biorientation_red_min_distance_unit": str(biorientation_red_min_distance_unit),
+        "stats_biorientation_red_max_distance_value": float(biorientation_red_max_distance_value),
+        "stats_biorientation_red_max_distance_unit": str(biorientation_red_max_distance_unit),
     }
     if puncta_line_width_unit:
         render_config["stats_puncta_line_width_unit"] = str(puncta_line_width_unit)
@@ -272,6 +287,9 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
         "alternate_red_detection": bool(
             render_config.get("alternate_red_detection", False)
         ),
+        "biorientation_green_split_enabled": bool(
+            render_config.get("biorientation_green_split_enabled", True)
+        ),
     }
 
 
@@ -317,16 +335,41 @@ def render_overlay_images_for_cell(
         render_config,
     )
     execution_plan = build_stats_execution_plan(render_config.get("selected_analysis", []))
+    render_cp.properties = dict(render_cp.properties or {})
+    render_cp.properties["stats_biorientation_red_min_distance_value"] = render_config.get(
+        "stats_biorientation_red_min_distance_value",
+        0.0,
+    )
+    render_cp.properties["stats_biorientation_red_min_distance_unit"] = render_config.get(
+        "stats_biorientation_red_min_distance_unit",
+        "px",
+    )
+    render_cp.properties["stats_biorientation_red_max_distance_value"] = render_config.get(
+        "stats_biorientation_red_max_distance_value",
+        37.0,
+    )
+    render_cp.properties["stats_biorientation_red_max_distance_unit"] = render_config.get(
+        "stats_biorientation_red_max_distance_unit",
+        "px",
+    )
+    render_cp.properties["stats_biorientation_collinearity_threshold"] = render_config.get(
+        "biorientation_collinearity_threshold",
+        66,
+    )
+    render_cp.properties["stats_biorientation_green_split_enabled"] = render_config.get(
+        "biorientation_green_split_enabled",
+        True,
+    )
     debug_red, debug_green, debug_blue = get_stats(
         render_cp,
         _build_overlay_conf(run_uuid, render_config),
         execution_plan,
         int(render_config.get("puncta_line_width_px", 1)),
         float(render_config.get("cen_dot_distance_value_used", 37.0)),
-        int(render_config.get("cen_dot_collinearity_threshold", 66)),
         float(render_config.get("cen_dot_proximity_radius", 13)),
         bool(render_config.get("green_contour_filter_enabled", False)),
         bool(render_config.get("alternate_red_detection", False)),
+        bool(render_config.get("biorientation_green_split_enabled", True)),
         cached_images=images_to_use,
     )
     return {

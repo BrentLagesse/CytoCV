@@ -129,7 +129,8 @@ def serialize_cell_statistics_payload(
         ),
         "cen_dot_schema_version": properties.get("cen_dot_schema_version"),
         "cen_dot_location": properties.get("cen_dot_location"),
-        "biorientation": cell_stat.biorientation,
+        "colinear_dots": cell_stat.colinear_dots,
+        "off_axis_dots": cell_stat.off_axis_dots,
         **build_measurement_contour_ratio_payload(
             cell_stat,
             mode=nuclear_cell_pair_mode,
