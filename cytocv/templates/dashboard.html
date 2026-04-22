@@ -1363,13 +1363,13 @@
             isolation: isolate;
         }
         .cell-stats-column {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 0;
             min-width: 0;
             padding: 16px 14px;
             text-align: left;
             font-size: 12px;
-            align-content: start;
         }
         .cell-stats-column + .cell-stats-column {
             border-left: 1px solid rgba(255, 255, 255, 0.12);
@@ -1382,9 +1382,15 @@
             align-content: start;
         }
         .cell-stats-section + .cell-stats-section {
-            margin-top: 14px;
-            padding-top: 12px;
+            margin-top: 16px;
+            padding-top: 16px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .cell-stats-section.raw-sum-section {
+            margin-top: auto;
+        }
+        .cell-stats-column:first-child .cell-stats-section.raw-sum-section {
+            margin-top: 28px;
         }
         .metric-lead {
             margin: 0;
@@ -1925,7 +1931,15 @@
                                 <div class="cell-stats-strip" data-ui-region="cell-metrics-strip">
                                     <div class="cell-stats-column">
                                         <div class="cell-stats-section">
-                                            <p class="metric-lead">Reference Channel</p>
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Reference Channel</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Shows the brightfield/DIC reference used to inspect cell outlines and segmentation overlays. Contours indicates whether the detected cell-pair outline is currently visible on the cell images."
+                                                    aria-label="Reference Channel Details"
+                                                    title="Reference Channel Details"
+                                                >i</span>
+                                            </div>
                                             <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
                                             <div class="metric-row">
                                                 <span class="metric-label">Contours</span>
@@ -1937,7 +1951,7 @@
                                                 <p class="metric-lead">Biorientation</p>
                                                 <span
                                                     class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Counts green dots inside the DIC-defined cell contour as colinear with the red-red axis or off-axis, after applying the configured red-puncta distance range and collinearity threshold."
+                                                    data-info-text="Counts Green dots inside the DIC-defined cell contour after the two Red puncta pass the configured min/max distance check. Colinear Dots project between the two Red puncta and lie close to the red-red line; other inside-cell Green dots are counted as Off Axis Dots."
                                                     aria-label="Biorientation Details"
                                                     title="Biorientation Details"
                                                 >i</span>
@@ -1951,14 +1965,14 @@
                                                 <span class="metric-value" id="offAxisDots"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section">
+                                        <div class="cell-stats-section raw-sum-section">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Red In Red Raw Sums</p>
                                                 <span
                                                     class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell, size and intensity values for the same slot match, and Nuclear Intensity uses slot 1 of the selected nucleus contour family."
-                                                    aria-label="Contour Slot Ranking Details"
-                                                    title="Contour Slot Ranking Details"
+                                                    data-info-text="Raw Red-channel intensity summed inside each ranked Red contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other raw-sum sections."
+                                                    aria-label="Red In Red Raw Sum Details"
+                                                    title="Red In Red Raw Sum Details"
                                                 >i</span>
                                             </div>
                                             <div class="metric-row">
@@ -1977,7 +1991,15 @@
                                     </div>
                                     <div class="cell-stats-column">
                                         <div class="cell-stats-section">
-                                            <p class="metric-lead">Nucleus + Measurement</p>
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Nucleus + Measurement</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Shows which contour family is used as the nucleus, which fluorescence channel is measured, whether a nucleus contour is available, and the nuclear, whole cell-pair, and cytoplasmic intensity values."
+                                                    aria-label="Nucleus And Measurement Details"
+                                                    title="Nucleus And Measurement Details"
+                                                >i</span>
+                                            </div>
                                             <div class="metric-row">
                                                 <span class="metric-label">Nucleus Contour Source</span>
                                                 <span class="metric-value" id="nucleusContourChannel"></span>
@@ -2003,8 +2025,16 @@
                                                 <span class="metric-value" id="cytoplasmicIntensity"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section">
-                                            <p class="metric-lead">Green In Red Raw Sums</p>
+                                        <div class="cell-stats-section raw-sum-section">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Green In Red Raw Sums</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Raw Green-channel intensity summed inside each ranked Red contour slot after clipping to the DIC cell mask. Use this to compare Green signal captured by Red contour regions."
+                                                    aria-label="Green In Red Raw Sum Details"
+                                                    title="Green In Red Raw Sum Details"
+                                                >i</span>
+                                            </div>
                                             <div class="metric-row">
                                                 <span class="metric-label">Green In Red Intensity 1</span>
                                                 <span class="metric-value" id="greenInRedIntensity1"></span>
@@ -2021,7 +2051,15 @@
                                     </div>
                                     <div class="cell-stats-column">
                                         <div class="cell-stats-section">
-                                            <p class="metric-lead">Line + Spot Metrics</p>
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">CEN Dot Measurements</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Shows the selected puncta distance, the intensity measured along the line between the puncta, and the mother/daughter Cen Dot Location classification for this cell pair."
+                                                    aria-label="CEN Dot Measurement Details"
+                                                    title="CEN Dot Measurement Details"
+                                                >i</span>
+                                            </div>
                                             <div class="metric-row">
                                                 <span class="metric-label" id="distanceLabel">Distance Between Red Puncta</span>
                                                 <span class="metric-value" id="distance"></span>
@@ -2035,8 +2073,16 @@
                                                 <span class="metric-value" id="cenDot"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section">
-                                            <p class="metric-lead">Red In Green Raw Sums</p>
+                                        <div class="cell-stats-section raw-sum-section">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Red In Green Raw Sums</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Raw Red-channel intensity summed inside each ranked Green contour slot after clipping to the DIC cell mask. Use this to compare Red signal captured by Green contour regions."
+                                                    aria-label="Red In Green Raw Sum Details"
+                                                    title="Red In Green Raw Sum Details"
+                                                >i</span>
+                                            </div>
                                             <div class="metric-row">
                                                 <span class="metric-label">Red In Green Intensity 1</span>
                                                 <span class="metric-value" id="redInGreenIntensity1"></span>
@@ -2053,7 +2099,15 @@
                                     </div>
                                     <div class="cell-stats-column">
                                         <div class="cell-stats-section">
-                                            <p class="metric-lead">Measurement/Contour</p>
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Measurement/Contour</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Shows normalized intensity ratios for contour slots 1 through 3. The formula divides the selected measurement channel by the selected contour channel so values can be compared across contour regions."
+                                                    aria-label="Measurement Contour Details"
+                                                    title="Measurement Contour Details"
+                                                >i</span>
+                                            </div>
                                             <div class="metric-detail">
                                                 <span class="metric-detail-label">Formula</span>
                                                 <span class="metric-detail-value" id="measurementContourRatioFormula"></span>
@@ -2071,8 +2125,16 @@
                                                 <span class="metric-value" id="measurementContourRatio3"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section">
-                                            <p class="metric-lead">Green In Green Raw Sums</p>
+                                        <div class="cell-stats-section raw-sum-section">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Green In Green Raw Sums</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Raw Green-channel intensity summed inside each ranked Green contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other raw-sum sections."
+                                                    aria-label="Green In Green Raw Sum Details"
+                                                    title="Green In Green Raw Sum Details"
+                                                >i</span>
+                                            </div>
                                             <div class="metric-row">
                                                 <span class="metric-label">Green In Green Intensity 1</span>
                                                 <span class="metric-value" id="greenInGreenIntensity1"></span>

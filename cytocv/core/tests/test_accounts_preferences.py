@@ -633,12 +633,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
-        self.assertContains(response, 'Line + Spot Metrics')
+        self.assertContains(response, 'CEN Dot Measurements')
         self.assertContains(response, 'Red In Red Raw Sums')
         self.assertContains(response, 'Green In Red Raw Sums')
         self.assertContains(response, 'Red In Green Raw Sums')
         self.assertContains(response, 'Green In Green Raw Sums')
-        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
+        self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
@@ -675,12 +675,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="blue_form"', html=False)
         self.assertContains(response, 'id="red_form"', html=False)
         self.assertContains(response, 'id="green_form"', html=False)
-        self.assertContains(response, 'Line + Spot Metrics')
+        self.assertContains(response, 'CEN Dot Measurements')
         self.assertContains(response, 'Red In Red Raw Sums')
         self.assertContains(response, 'Green In Red Raw Sums')
         self.assertContains(response, 'Red In Green Raw Sums')
         self.assertContains(response, 'Green In Green Raw Sums')
-        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
+        self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
