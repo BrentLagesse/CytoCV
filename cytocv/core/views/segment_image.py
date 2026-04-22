@@ -275,7 +275,6 @@ def get_stats(
         cv2.drawContours(edit_blue_img, canonical_red_contours, -1, (0, 0, 255), 1)
 
     if canonical_blue_contours:
-        cv2.drawContours(edit_green_img, canonical_blue_contours, -1, (255, 0, 0), 1)
         cv2.drawContours(edit_blue_img, canonical_blue_contours, -1, (255, 0, 0), 1)
 
     if canonical_green_contours:
