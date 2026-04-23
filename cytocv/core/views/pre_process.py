@@ -40,6 +40,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 from .utils import (
     tif_to_jpg,
     prune_experiment_session_state,
@@ -503,6 +507,12 @@ def pre_process(request, uuids):
                 ),
             ),
         )
+        green_dot_split_mode = normalize_green_dot_split_mode(
+            request.POST.get(
+                "greenDotSplitMode",
+                request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE),
+            )
+        )
         puncta_line_mode = normalize_puncta_line_mode(
             request.POST.get(
                 "puncta_line_mode",
@@ -586,6 +596,7 @@ def pre_process(request, uuids):
         request.session['stats_biorientation_red_max_distance_unit'] = biorientation_red_max_distance_unit
         request.session['biorientationCollinearityThreshold'] = biorientation_collinearity_threshold
         request.session['greenDotSplitEnabled'] = green_dot_split_enabled
+        request.session['greenDotSplitMode'] = green_dot_split_mode
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled

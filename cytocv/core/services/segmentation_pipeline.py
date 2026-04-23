@@ -69,6 +69,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import (
     AUTOSAVE_STORAGE_FULL_MESSAGE,
@@ -962,6 +966,9 @@ def run_segmentation_batch(
                 config_snapshot.get("biorientationGreenSplitEnabled", True),
             )
         )
+        green_dot_split_mode = normalize_green_dot_split_mode(
+            config_snapshot.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        )
 
         configured_puncta_line_width = _process_config_value(
             configuration,
@@ -989,6 +996,7 @@ def run_segmentation_batch(
             "green_contour_filter_enabled": green_contour_filter_enabled,
             "alternate_red_detection": alternate_red_detection,
             "green_dot_split_enabled": green_dot_split_enabled,
+            "green_dot_split_mode": green_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -1022,6 +1030,7 @@ def run_segmentation_batch(
                 biorientation_red_max_distance_unit=biorientation_red_max_distance_unit,
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
                 green_dot_split_enabled=green_dot_split_enabled,
+                green_dot_split_mode=green_dot_split_mode,
             ),
         )
 
@@ -1089,6 +1098,7 @@ def run_segmentation_batch(
             cp.properties["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
+            cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
 
             cp.properties["neck_split"] = _build_neck_split_properties(
                 pair_geometry_cache.get(cell_number)
@@ -1104,6 +1114,7 @@ def run_segmentation_batch(
                 green_contour_filter_enabled,
                 alternate_red_detection,
                 green_dot_split_enabled,
+                green_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
             )
             rendered_overlay_images = {

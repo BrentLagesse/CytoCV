@@ -476,6 +476,38 @@ main.main > section.panel {
   opacity: 0.56;
 }
 
+.row.combo {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.row.combo .row-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.row-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.row-sub .row-label-line label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.row-sub.disabled {
+  opacity: 0.56;
+  pointer-events: none;
+}
+
 .row p {
   margin: 4px 0 0;
   color: var(--muted);
@@ -606,7 +638,7 @@ main.main > section.panel {
   padding: 8px 10px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
-  background: rgba(14, 16, 20, 0.98);
+  background: #0e1014;
   color: #e9e9e9;
   font-size: 12px;
   line-height: 1.35;
@@ -1296,24 +1328,101 @@ main.main > section.panel {
           </div>
           {% endfor %}
         </div></div>
-        <div class="card" data-workflow-card="validation-enforcement"><p class="section-eyebrow card-title">Validation Enforcement</p>
-          <div class="row" id="advancedModuleRow"><div class="row-copy"><label for="module_enabled">Enable Analysis Validation Module</label><p>Stats-required channels always stay enforced. Manual channel requirements and all-channel enforcement are saved here and pause when this module is OFF.</p><p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p></div><label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label></div>
+        <div class="card" data-workflow-card="advanced-plugin-behavior"><p class="section-eyebrow card-title">Plugin Behavior</p>
+          <div class="row">
+            <div class="row-copy">
+              <span class="row-label-line">
+                <label for="show_legacy_plugins">Show Legacy Blue-Channel Plugins</label>
+                <button type="button" class="prefs-info-dot" data-info-text="Shows legacy Blue-channel statistics in the plugin list. Turn this on only when you need older Blue-nucleus or Red-in-Blue outputs; modern Red/Green modules stay available either way.&#10;&#10;Required channels: Blue when a legacy plugin is selected." aria-label="Show Legacy Blue-Channel Plugins info">i</button>
+                <span class="legacy">Legacy</span>
+              </span>
+            </div>
+            <label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label>
+          </div>
+          <div class="row">
+            <div class="row-copy">
+              <span class="row-label-line">
+                <label for="green_contour_filter_enabled">Filter Green Contours</label>
+                <button type="button" class="prefs-info-dot" data-info-text="Filters Green contours before statistics run by removing low-confidence Green objects that often come from noisy background. This changes which Green dots or contours downstream plugins see, so validate a sample of overlays before using it for conclusions.&#10;&#10;Required channels: Green." aria-label="Filter Green Contours info">i</button>
+                <button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button>
+              </span>
+            </div>
+            <label class="sw"><input type="checkbox" id="green_contour_filter_enabled" name="green_contour_filter_enabled" {% if preferences.experiment_defaults.green_contour_filter_enabled %}checked{% endif %}><span class="sl"></span></label>
+          </div>
+          <div class="row combo" id="greenDotSplitRow">
+            <div class="row-line">
+              <div class="row-copy">
+                <span class="row-label-line">
+                  <label for="green_dot_split_enabled">Split Merged Green Dots</label>
+                  <button type="button" class="prefs-info-dot" data-info-text="Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use it when two nearby Green dots are detected as one merged contour.&#10;&#10;Green Dot Split Mode: Balanced uses standard split sensitivity; Aggressive attempts harder splits for very close or unequal Green dots.&#10;&#10;Required channels: Green." aria-label="Split Merged Green Dots info">i</button>
+                </span>
+              </div>
+              <input type="hidden" name="green_dot_split_enabled" value="0">
+              <label class="sw"><input type="checkbox" id="green_dot_split_enabled" name="green_dot_split_enabled" value="1" {% if preferences.experiment_defaults.green_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label>
+            </div>
+            <div class="row-sub" id="greenDotSplitModeRow">
+              <div class="row-copy">
+                <span class="row-label-line"><label for="green_dot_split_mode">Green Dot Split Mode</label></span>
+              </div>
+              <div class="mode-select-group plugin-measure-right"><select id="green_dot_split_mode" name="green_dot_split_mode"><option value="balanced" {% if preferences.experiment_defaults.green_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.green_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-copy">
+              <span class="row-label-line">
+                <label for="alternate_red_detection">Enable Alternate Red Detection</label>
+                <button type="button" class="prefs-info-dot" data-info-text="Uses alternate Red detection when standard detection creates one contour around all Red speckles. It tries to recover separate Red-dot contours so Red-dependent statistics can still run.&#10;&#10;Required channels: Red." aria-label="Enable Alternate Red Detection info">i</button>
+              </span>
+            </div>
+            <label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label>
+          </div>
+        </div>
+        <div class="card" data-workflow-card="validation-enforcement"><p class="section-eyebrow card-title">Optional Metadata Checks</p>
+          <div class="row" id="advancedModuleRow">
+            <div class="row-copy">
+              <span class="row-label-line">
+                <label for="module_enabled">Enable Optional Metadata Checks Below</label>
+                <button type="button" class="prefs-info-dot" data-info-text="Controls the optional metadata and file validation checks below. When off, saved optional channel and layer requirements are paused, but channels required by selected statistics are still enforced.&#10;&#10;Enforce 4-Image DV Files: requires exactly four DV layers before preprocessing.&#10;&#10;Require All Channels: requires DIC, Blue, Red, and Green for every upload.&#10;&#10;Manual channel toggles: require individual channels even when selected statistics do not need them.&#10;&#10;Required channels: DIC is always required; optional checks can also require Blue, Red, and Green." aria-label="Enable Optional Metadata Checks Below info">i</button>
+              </span>
+              <p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p>
+            </div>
+            <label class="sw"><input type="checkbox" id="module_enabled" name="module_enabled" {% if preferences.experiment_defaults.module_enabled %}checked{% endif %}><span class="sl"></span></label>
+          </div>
           <div class="validation-subgroup{% if not preferences.experiment_defaults.module_enabled %} is-disabled{% endif %}" id="advancedOptionalChecksGroup">
-            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedLayerCheckRow"><div class="row-copy"><label for="enforce_layer_count">Enforce Expected Layer Count</label><p>Require exactly four layers before preprocessing.</p></div><input type="hidden" id="enforce_layer_count_state" name="enforce_layer_count" value="{% if preferences.experiment_defaults.enforce_layer_count %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
-            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedWavelengthCheckRow"><div class="row-copy"><label for="enforce_wavelengths">Enforce Required Channels</label><p>Require DIC, Blue, Red, and Green even if not needed by selected statistics.</p></div><input type="hidden" id="enforce_wavelengths_state" name="enforce_wavelengths" value="{% if preferences.experiment_defaults.enforce_wavelengths %}1{% else %}0{% endif %}"><label class="sw"><input type="checkbox" id="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label></div>
+            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedLayerCheckRow">
+              <div class="row-copy">
+                <span class="row-label-line">
+                  <label for="enforce_layer_count">Enforce 4-Image DV Files</label>
+                  <button type="button" class="prefs-info-dot" data-info-text="Requires each DV file to have exactly four image layers before preprocessing. Use this to catch incomplete acquisitions or files exported with missing layers.&#10;&#10;Required channels: not channel-specific." aria-label="Enforce 4-Image DV Files info">i</button>
+                </span>
+              </div>
+              <input type="hidden" id="enforce_layer_count_state" name="enforce_layer_count" value="{% if preferences.experiment_defaults.enforce_layer_count %}1{% else %}0{% endif %}">
+              <label class="sw"><input type="checkbox" id="enforce_layer_count" {% if preferences.experiment_defaults.enforce_layer_count %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label>
+            </div>
+            <div class="row{% if not preferences.experiment_defaults.module_enabled %} disabled{% endif %}" id="advancedWavelengthCheckRow">
+              <div class="row-copy">
+                <span class="row-label-line">
+                  <label for="enforce_wavelengths">Require All Channels</label>
+                  <button type="button" class="prefs-info-dot" data-info-text="Requires every upload to include DIC, Blue, Red, and Green, even if the selected statistics only need a subset.&#10;&#10;Required channels: DIC, Blue, Red, and Green." aria-label="Require All Channels info">i</button>
+                </span>
+              </div>
+              <input type="hidden" id="enforce_wavelengths_state" name="enforce_wavelengths" value="{% if preferences.experiment_defaults.enforce_wavelengths %}1{% else %}0{% endif %}">
+              <label class="sw"><input type="checkbox" id="enforce_wavelengths" {% if preferences.experiment_defaults.enforce_wavelengths %}checked{% endif %} {% if not preferences.experiment_defaults.module_enabled %}disabled{% endif %}><span class="sl"></span></label>
+            </div>
             <div class="validation-channel-list" id="advancedManualChannelsGroup">
               {% for row in required_channel_rows %}
               <div class="row{% if row.row_locked %} locked{% endif %}{% if row.row_disabled and not row.row_locked %} disabled{% endif %}" data-ch-row="{{ row.channel }}">
-                <div><label for="manual_{{ row.channel }}">Require {{ row.channel_label }} Channel</label><p data-ch-help="{{ row.channel }}">{{ row.row_help }}</p></div>
+                <div class="row-copy">
+                  <span class="row-label-line">
+                    <label for="manual_{{ row.channel }}">Require {{ row.channel_label }} channel</label>
+                    <button type="button" class="prefs-info-dot" data-ch-info="{{ row.channel }}" data-info-text="{{ row.channel_label }} channel requirement." aria-label="Require {{ row.channel_label }} channel info">i</button>
+                  </span>
+                </div>
                 <label class="sw"><input type="checkbox" id="manual_{{ row.channel }}" class="channel-toggle" value="{{ row.channel }}" data-channel="{{ row.channel }}" {% if row.row_checked %}checked{% endif %} {% if row.toggle_disabled %}disabled{% endif %}><span class="sl"></span></label>
               </div>
               {% endfor %}
             </div>
           </div>
-          <div class="row"><div class="row-copy"><label for="show_legacy_plugins">Show Legacy Plugins By Default</label><p>Reveal legacy Blue-channel plugins in the statistics list.</p></div><label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="green_contour_filter_enabled">Enable Green Minimum-Size Filter</label><button type="button" class="prefs-info-dot prefs-warning-dot" id="prefsGfpFilterExperimentalDot" data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions." aria-label="Experimental setting warning">&#9888;</button></span><p>Filters low-confidence Green signal contours in challenging images.</p></div><label class="sw"><input type="checkbox" id="green_contour_filter_enabled" name="green_contour_filter_enabled" {% if preferences.experiment_defaults.green_contour_filter_enabled %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="green_dot_split_enabled">Split Merged Green Dots</label><button type="button" class="prefs-info-dot" data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated." aria-label="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.">i</button></span><p>Split connected multi-peak Green signal into separate dot contours before statistics are calculated.</p></div><input type="hidden" name="green_dot_split_enabled" value="0"><label class="sw"><input type="checkbox" id="green_dot_split_enabled" name="green_dot_split_enabled" value="1" {% if preferences.experiment_defaults.green_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label></div>
-          <div class="row"><div class="row-copy"><span class="row-label-line"><label for="alternate_red_detection">Enable Alternate Red Detection Where A Contour Surrounds All Speckles</label></span><p>Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p></div><label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
         <div class="card action-card" data-workflow-action-card="advanced">
           <p class="section-eyebrow card-title">Save Advanced Settings</p>
@@ -1493,6 +1602,23 @@ main.main > section.panel {
   let pending = null;
 
   const displayChannelLabel = (channel) => channelLabels[channel] || channel;
+  const joinLabels = (labels) => {
+    const values = Array.isArray(labels) ? labels.filter(Boolean) : [];
+    if (values.length === 0) return 'None';
+    if (values.length === 1) return values[0];
+    if (values.length === 2) return `${values[0]} and ${values[1]}`;
+    return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
+  };
+  const buildInfoSections = (sections) =>
+    sections
+      .filter((section) => typeof section === 'string' && section.trim())
+      .join('\n\n');
+  const channelPurposeInfo = {
+    channel_dic: 'DIC is the transmitted-light channel used for segmentation/CNN preprocessing and cell-pair geometry.',
+    channel_blue: 'Blue is the fluorescence channel used for nucleus-related contours and legacy Blue-channel statistics.',
+    channel_red: 'Red is the fluorescence channel used for Red dot contour detection and Red intensity measurements.',
+    channel_green: 'Green is the fluorescence channel used for Green intensity, contour, Cen Dot, and merged-dot measurements.',
+  };
   let pendingReview = null;
   let pendingLeaveTarget = null;
   let allowWindowUnloadWithoutPrompt = false;
@@ -1630,6 +1756,32 @@ main.main > section.panel {
     return required;
   };
 
+  const selectedPluginLabelsRequiringChannel = (channel) => {
+    const labels = [];
+    selectedPlugins.forEach((pluginId) => {
+      const plugin = pluginMap.get(pluginId);
+      if (!plugin || !Array.isArray(plugin.required_channels)) return;
+      if (plugin.required_channels.includes(channel)) {
+        labels.push(plugin.label || plugin.id);
+      }
+    });
+    return labels;
+  };
+
+  const buildChannelRequirementInfoText = (channel, state) => {
+    const channelLabel = displayChannelLabel(channel);
+    const basePurpose = channelPurposeInfo[channel] || `${channelLabel} channel requirement.`;
+    const requiringStats = selectedPluginLabelsRequiringChannel(channel);
+    const status = state
+      ? `Current status: ${state.helpText}${requiringStats.length ? ` Selected statistics requiring this channel: ${joinLabels(requiringStats)}.` : ''}`
+      : '';
+    return buildInfoSections([
+      basePurpose,
+      status,
+      `Required channels: ${channelLabel}.`,
+    ]);
+  };
+
   const enforceExclusiveGroup = (pluginId) => {
     const plugin = pluginMap.get(pluginId);
     if (!plugin || !plugin.exclusive_group) return;
@@ -1758,7 +1910,7 @@ main.main > section.panel {
         toggleDisabled: false,
         rowDisabled: false,
         rowLocked: true,
-        helpText: 'Required because selected statistical plugins need this channel.',
+        helpText: 'Required because selected statistics need this channel.',
       };
     }
 
@@ -1771,7 +1923,7 @@ main.main > section.panel {
         toggleDisabled: true,
         rowDisabled: true,
         rowLocked: false,
-        helpText: 'Required because "Enforce Required Channels" is enabled.',
+        helpText: 'Required because "Require All Channels" is enabled.',
       };
     }
 
@@ -1784,7 +1936,7 @@ main.main > section.panel {
         toggleDisabled: false,
         rowDisabled: false,
         rowLocked: false,
-        helpText: 'Optional advanced enforcement is enabled.',
+        helpText: 'Manual channel requirement is enabled.',
       };
     }
 
@@ -1797,7 +1949,7 @@ main.main > section.panel {
         toggleDisabled: true,
         rowDisabled: true,
         rowLocked: false,
-        helpText: 'Paused because "Enforce Required Channels" is saved while the validation module is OFF.',
+        helpText: 'Paused because "Require All Channels" is saved while optional metadata checks are OFF.',
       };
     }
 
@@ -1810,7 +1962,7 @@ main.main > section.panel {
         toggleDisabled: true,
         rowDisabled: true,
         rowLocked: false,
-        helpText: 'Paused until the validation module is turned back on.',
+        helpText: 'Paused until optional metadata checks are turned back on.',
       };
     }
 
@@ -1822,7 +1974,7 @@ main.main > section.panel {
       toggleDisabled: !moduleEnabled,
       rowDisabled: !moduleEnabled,
       rowLocked: false,
-      helpText: moduleEnabled ? 'Optional.' : 'Optional. Turn the validation module on to edit.',
+      helpText: moduleEnabled ? 'Optional.' : 'Optional. Turn optional metadata checks on to edit.',
     };
   };
 
@@ -1852,8 +2004,8 @@ main.main > section.panel {
     const prevText = advancedOptionalChecksNote.textContent || '';
     const nextState = moduleEnabled ? 'on' : 'off';
     const nextText = moduleEnabled
-      ? 'Optional validations below are ON. Stats-required channels stay enforced, and saved manual or all-channel requirements are active as shown.'
-      : 'Optional validations below are OFF. Stats-required channels stay enforced; saved manual and all-channel requirements are paused until this module is turned back on.';
+      ? 'Optional checks below are ON. Saved optional selections are active; required checks from selected statistics are still enforced.'
+      : 'Optional checks below are OFF. Saved optional selections are paused; required checks from selected statistics are still enforced.';
     const shouldAnimate = prevState !== nextState || prevText !== nextText;
 
     advancedOptionalChecksNote.classList.remove('on', 'off');
@@ -1907,6 +2059,7 @@ main.main > section.panel {
       if (!channel) return;
       const row = document.querySelector(`[data-ch-row=\"${channel}\"]`);
       const help = document.querySelector(`[data-ch-help=\"${channel}\"]`);
+      const info = document.querySelector(`[data-ch-info=\"${channel}\"]`);
       const state = resolveChannelState(channel, statsRequired);
 
       toggle.checked = state.rowChecked;
@@ -1916,6 +2069,11 @@ main.main > section.panel {
         row.classList.toggle('disabled', state.rowDisabled && !state.rowLocked);
       }
       if (help) help.textContent = state.helpText;
+      if (info) {
+        const infoText = buildChannelRequirementInfoText(channel, state);
+        info.dataset.infoText = infoText;
+        info.setAttribute('aria-label', infoText || `${displayChannelLabel(channel)} channel info`);
+      }
     });
     syncOverrideInputs();
     syncManualRequiredInputs();
@@ -2181,6 +2339,7 @@ main.main > section.panel {
   const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
   const greenContourFilterEnabledInput = document.getElementById('green_contour_filter_enabled');
   const greenDotSplitEnabledInput = document.getElementById('green_dot_split_enabled');
+  const greenDotSplitModeInput = document.getElementById('green_dot_split_mode');
   const alternateRedDetectionInput = document.getElementById('alternate_red_detection');
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
@@ -2203,6 +2362,7 @@ main.main > section.panel {
   };
 
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
+  const normalizeGreenDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
   const formatLengthUnitLabel = (value) => (normalizeLengthUnit(value) === 'um' ? 'µm' : 'px');
 
   // Custom styled dropdowns to replace native <select> elements
@@ -2474,6 +2634,7 @@ main.main > section.panel {
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
     greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
     greenDotSplitEnabled: !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked),
+    greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
     alternateRedDetection: !!(alternateRedDetectionInput && alternateRedDetectionInput.checked),
     requiredChannels: sortByOrder([...manualRequiredChannels], channelOrder),
     overrideChannels: sortByOrder([...overrides], channelOrder),
@@ -2590,31 +2751,13 @@ main.main > section.panel {
     const changes = [];
     pushToggleChange(
       changes,
-      'Enable Analysis Validation Module',
-      fromSnapshot.moduleEnabled,
-      toSnapshot.moduleEnabled
-    );
-    pushToggleChange(
-      changes,
-      'Enforce Expected Layer Count',
-      fromSnapshot.enforceLayerCount,
-      toSnapshot.enforceLayerCount
-    );
-    pushToggleChange(
-      changes,
-      'Enforce Required Channels',
-      fromSnapshot.enforceWavelengths,
-      toSnapshot.enforceWavelengths
-    );
-    pushToggleChange(
-      changes,
-      'Show Legacy Plugins By Default',
+      'Show Legacy Blue-Channel Plugins',
       fromSnapshot.showLegacyPlugins,
       toSnapshot.showLegacyPlugins
     );
     pushToggleChange(
       changes,
-      'Enable Green Minimum-Size Filter',
+      'Filter Green Contours',
       fromSnapshot.greenContourFilterEnabled,
       toSnapshot.greenContourFilterEnabled
     );
@@ -2624,11 +2767,32 @@ main.main > section.panel {
       fromSnapshot.greenDotSplitEnabled,
       toSnapshot.greenDotSplitEnabled
     );
+    if (normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode) !== normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)) {
+      changes.push(`Green Dot Split Mode: ${normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode)} -> ${normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)}`);
+    }
     pushToggleChange(
       changes,
-      'Enable Alternate Red Detection Where A Contour Surrounds All Speckles',
+      'Enable Alternate Red Detection',
       fromSnapshot.alternateRedDetection,
       toSnapshot.alternateRedDetection
+    );
+    pushToggleChange(
+      changes,
+      'Enable Optional Metadata Checks Below',
+      fromSnapshot.moduleEnabled,
+      toSnapshot.moduleEnabled
+    );
+    pushToggleChange(
+      changes,
+      'Enforce 4-Image DV Files',
+      fromSnapshot.enforceLayerCount,
+      toSnapshot.enforceLayerCount
+    );
+    pushToggleChange(
+      changes,
+      'Require All Channels',
+      fromSnapshot.enforceWavelengths,
+      toSnapshot.enforceWavelengths
     );
 
     const beforeRequired = new Set(fromSnapshot.requiredChannels || []);
@@ -2638,7 +2802,7 @@ main.main > section.panel {
       const wasRequired = beforeRequired.has(channel);
       const isRequired = afterRequired.has(channel);
       if (wasRequired === isRequired) return;
-      changes.push(`Require ${displayChannelLabel(channel)} Channel: ${asOnOff(wasRequired)} -> ${asOnOff(isRequired)}`);
+      changes.push(`Require ${displayChannelLabel(channel)} channel: ${asOnOff(wasRequired)} -> ${asOnOff(isRequired)}`);
     });
 
     const beforeOverrides = JSON.stringify(fromSnapshot.overrideChannels || []);
@@ -2776,6 +2940,7 @@ main.main > section.panel {
     if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
     if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
     if (greenDotSplitEnabledInput) greenDotSplitEnabledInput.checked = snapshot.greenDotSplitEnabled;
+    if (greenDotSplitModeInput) greenDotSplitModeInput.value = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
     if (alternateRedDetectionInput) alternateRedDetectionInput.checked = snapshot.alternateRedDetection;
     manualRequiredChannels.clear();
     (snapshot.requiredChannels || []).forEach((channel) => {

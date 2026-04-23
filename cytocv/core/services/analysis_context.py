@@ -13,6 +13,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 
 NUCLEAR_CELL_PAIR_MODES = frozenset({"green_nucleus", "red_nucleus"})
 DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
@@ -29,6 +33,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "biorientationRedMaxDistance": 37,
     "biorientationCollinearityThreshold": 66,
     "greenDotSplitEnabled": True,
+    "greenDotSplitMode": DEFAULT_GREEN_DOT_SPLIT_MODE,
     "stats_biorientation_red_min_distance_unit": "px",
     "stats_biorientation_red_min_distance_value": 0.0,
     "stats_biorientation_red_max_distance_unit": "px",
@@ -193,6 +198,9 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             ),
             default=True,
         ),
+        "greenDotSplitMode": normalize_green_dot_split_mode(
+            payload.get("greenDotSplitMode", payload.get("green_dot_split_mode"))
+        ),
         "stats_biorientation_red_min_distance_unit": "um"
         if str(payload.get("stats_biorientation_red_min_distance_unit", "px")).strip().lower() == "um"
         else "px",
@@ -298,6 +306,10 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         "greenDotSplitEnabled": request.session.get(
             "greenDotSplitEnabled",
             request.session.get("biorientationGreenSplitEnabled", True),
+        ),
+        "greenDotSplitMode": request.session.get(
+            "greenDotSplitMode",
+            request.session.get("green_dot_split_mode", DEFAULT_GREEN_DOT_SPLIT_MODE),
         ),
         "stats_biorientation_red_min_distance_unit": request.session.get(
             "stats_biorientation_red_min_distance_unit", "px"

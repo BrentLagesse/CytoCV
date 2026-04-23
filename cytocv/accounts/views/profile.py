@@ -54,6 +54,7 @@ from core.services.puncta_line_mode import (
     VALID_PUNCTA_LINE_MODES,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import normalize_green_dot_split_mode
 from core.scale import (
     get_scale_context_payload,
     get_scale_sidebar_payload,
@@ -1144,6 +1145,12 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 default=bool(defaults.get("green_dot_split_enabled", True)),
                 legacy_key="biorientation_green_split_enabled",
             )
+            green_dot_split_mode = normalize_green_dot_split_mode(
+                request.POST.get(
+                    "green_dot_split_mode",
+                    defaults.get("green_dot_split_mode"),
+                )
+            )
             alternate_red_detection = _post_bool(request, "alternate_red_detection")
             manual_required_channels = [
                 channel
@@ -1180,6 +1187,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     "manual_required_channels": manual_required_channels,
                     "green_contour_filter_enabled": green_contour_filter_enabled,
                     "green_dot_split_enabled": green_dot_split_enabled,
+                    "green_dot_split_mode": green_dot_split_mode,
                     "alternate_red_detection": alternate_red_detection,
                 }
             )

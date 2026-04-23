@@ -2,75 +2,199 @@ import cv2
 import math
 import numpy as np
 import logging
+from scipy import ndimage as ndi
+from skimage.feature import peak_local_max
+from skimage.segmentation import find_boundaries, watershed
 
 from core.contour_processing import get_largest
 from core.image_processing import GrayImage
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 
 logger = logging.getLogger(__name__)
+
+GREEN_DOT_SPLIT_PARAMS = {
+    "balanced": {
+        "min_peak_distance": 3,
+        "min_peak_ratio": 0.40,
+        "min_defect_depth_px": 1.0,
+        "min_split_circularity": 0.30,
+        "min_split_area_px": 8,
+    },
+    "aggressive": {
+        "min_peak_distance": 2,
+        "min_peak_ratio": 0.30,
+        "min_defect_depth_px": 0.5,
+        "min_split_circularity": 0.30,
+        "min_split_area_px": 8,
+    },
+}
+
+
+def _component_has_neck_defect(
+    component: np.ndarray,
+    *,
+    min_defect_depth_px: float,
+) -> bool:
+    contours, _ = cv2.findContours(
+        (component.astype(np.uint8) * 255),
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_NONE,
+    )
+    if not contours:
+        return False
+
+    contour = max(contours, key=cv2.contourArea)
+    if len(contour) < 4:
+        return False
+
+    hull = cv2.convexHull(contour, returnPoints=False)
+    if hull is None or len(hull) < 3:
+        return False
+
+    hull = np.sort(hull.flatten()).reshape(-1, 1)
+    try:
+        defects = cv2.convexityDefects(contour, hull)
+    except cv2.error:
+        return False
+    if defects is None:
+        return False
+
+    min_depth = int(round(float(min_defect_depth_px) * 256))
+    return any(int(depth) >= min_depth for _start, _end, _far, depth in defects[:, 0])
+
+
+def _region_circularity(region: np.ndarray) -> float:
+    contours, _ = cv2.findContours(
+        (region.astype(np.uint8) * 255),
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+    if not contours:
+        return 0.0
+
+    contour = max(contours, key=cv2.contourArea)
+    area = cv2.contourArea(contour)
+    perimeter = cv2.arcLength(contour, True)
+    if perimeter <= 0:
+        return 0.0
+    return float((4.0 * math.pi * area) / (perimeter * perimeter))
+
+
+def _internal_watershed_boundaries(labels: np.ndarray) -> np.ndarray:
+    """Return boundary pixels between positive watershed regions only."""
+
+    if labels.max() <= 1:
+        return np.zeros(labels.shape, dtype=bool)
+
+    positive_high = labels.max() + 1
+    positive_min = ndi.minimum_filter(
+        np.where(labels > 0, labels, positive_high),
+        size=3,
+        mode="constant",
+        cval=positive_high,
+    )
+    positive_max = ndi.maximum_filter(
+        np.where(labels > 0, labels, 0),
+        size=3,
+        mode="constant",
+        cval=0,
+    )
+    has_positive_neighbor = (positive_min <= labels.max()) & (positive_max > 0)
+    return (
+        find_boundaries(labels, mode="thick")
+        & (labels > 0)
+        & has_positive_neighbor
+        & (positive_min != positive_max)
+    )
 
 
 def _split_merged_green_contours(
     thresh_green: np.ndarray,
-    min_peak_distance: int = 4,
-    min_peak_ratio: float = 0.55,
+    split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
 ) -> np.ndarray:
-    """Split obviously-merged GFP blobs using a distance-transform watershed.
+    """Split obviously-merged GFP blobs using a neck-gated watershed.
 
-    Peaks in the euclidean distance transform identify distinct dot centers even
-    when their thresholded masks are bridged by background signal. We keep peaks
-    whose height is at least ``min_peak_ratio`` of the local maximum within each
-    connected component and that sit at least ``min_peak_distance`` pixels apart.
-    Watershed boundaries then carve the merged blob into separate contours.
+    Distance-transform peaks identify candidate dot centers. A component is only
+    split when its outline also has a real concave neck and the watershed output
+    remains plausible dot-like geometry.
     """
 
-    num_labels, labels = cv2.connectedComponents(thresh_green)
+    mode = normalize_green_dot_split_mode(split_mode)
+    params = GREEN_DOT_SPLIT_PARAMS[mode]
+    binary_green = (thresh_green > 0).astype(np.uint8)
+    num_labels, labels = cv2.connectedComponents(binary_green)
     if num_labels <= 1:
         return thresh_green
 
-    dist = cv2.distanceTransform(thresh_green, cv2.DIST_L2, 3)
     split_mask = np.zeros_like(thresh_green)
 
     for label in range(1, num_labels):
-        component = (labels == label).astype(np.uint8)
+        component = labels == label
         if np.count_nonzero(component) == 0:
             continue
 
-        component_dist = dist * component
-        local_max = component_dist.max()
+        component_dist = ndi.distance_transform_edt(component)
+        local_max = float(component_dist.max())
         if local_max <= 0:
-            split_mask[component.astype(bool)] = 255
+            split_mask[component] = 255
             continue
 
-        kernel_size = max(3, int(min_peak_distance) | 1)
-        kernel = np.ones((kernel_size, kernel_size), np.uint8)
-        dilated = cv2.dilate(component_dist, kernel)
-        peaks = (component_dist == dilated) & (
-            component_dist >= local_max * min_peak_ratio
-        ) & (component_dist > 0)
+        peak_coords = peak_local_max(
+            component_dist,
+            min_distance=int(params["min_peak_distance"]),
+            threshold_abs=local_max * float(params["min_peak_ratio"]),
+            labels=component,
+            exclude_border=False,
+        )
+        if len(peak_coords) < 2:
+            split_mask[component] = 255
+            continue
 
-        peak_labels_count, peak_labels = cv2.connectedComponents(peaks.astype(np.uint8))
-        if peak_labels_count <= 2:
-            split_mask[component.astype(bool)] = 255
+        if not _component_has_neck_defect(
+            component,
+            min_defect_depth_px=float(params["min_defect_depth_px"]),
+        ):
+            split_mask[component] = 255
             continue
 
         markers = np.zeros(thresh_green.shape, dtype=np.int32)
-        peak_count = peak_labels_count - 1
-        for marker_idx in range(1, peak_labels_count):
-            markers[(peak_labels == marker_idx) & (component == 1)] = marker_idx
+        for marker_idx, (y_coord, x_coord) in enumerate(peak_coords, start=1):
+            markers[int(y_coord), int(x_coord)] = marker_idx
 
-        inverse_dist = cv2.normalize(
-            component_dist.max() - component_dist,
-            None,
-            0,
-            255,
-            cv2.NORM_MINMAX,
-        ).astype(np.uint8)
-        ws_input = cv2.cvtColor(inverse_dist, cv2.COLOR_GRAY2BGR)
-        cv2.watershed(ws_input, markers)
+        watershed_labels = watershed(-component_dist, markers, mask=component)
+        regions: list[np.ndarray] = []
+        reject_split = False
+        for marker_idx in range(1, len(peak_coords) + 1):
+            region = watershed_labels == marker_idx
+            if np.count_nonzero(region) < int(params["min_split_area_px"]):
+                reject_split = True
+                break
+            if _region_circularity(region) < float(params["min_split_circularity"]):
+                reject_split = True
+                break
+            regions.append(region)
 
-        for marker_idx in range(1, peak_count + 1):
-            region = ((markers == marker_idx) & (component == 1)).astype(np.uint8) * 255
-            split_mask = cv2.bitwise_or(split_mask, region)
+        if reject_split or len(regions) < 2:
+            split_mask[component] = 255
+            continue
+
+        split_component = (watershed_labels > 0) & ~_internal_watershed_boundaries(
+            watershed_labels
+        )
+        if np.count_nonzero(split_component) == 0:
+            split_mask[component] = 255
+            continue
+        split_component_count, _ = cv2.connectedComponents(
+            split_component.astype(np.uint8),
+            connectivity=8,
+        )
+        if split_component_count <= 2:
+            split_mask[component] = 255
+            continue
+        split_mask[split_component] = 255
 
     return split_mask
 
@@ -80,6 +204,7 @@ def find_contours(
     green_contour_filter_enabled: bool = False,
     alternate_red_detection: bool = False,
     green_dot_split_enabled: bool = True,
+    green_dot_split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
 ):
     """
     Find red dot contours, blue nucleus contours, and green signal contours.
@@ -295,7 +420,10 @@ def find_contours(
         kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
         thresh_green = cv2.morphologyEx(thresh_green, cv2.MORPH_CLOSE, kernel)
         if green_dot_split_enabled:
-            thresh_green = _split_merged_green_contours(thresh_green)
+            thresh_green = _split_merged_green_contours(
+                thresh_green,
+                split_mode=green_dot_split_mode,
+            )
         contours_green, _ = cv2.findContours(
             thresh_green,
             cv2.RETR_LIST,

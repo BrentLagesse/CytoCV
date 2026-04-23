@@ -37,6 +37,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 from core.services.artifact_storage import (
     delete_uploaded_run,
     delete_uploaded_run_by_uuid,
@@ -412,6 +416,9 @@ def experiment(request):
             ),
             default=True,
         )
+        green_dot_split_mode = normalize_green_dot_split_mode(
+            request.POST.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        )
 
         green_contour_filter_enabled = request.POST.get(
             "greenContourFilterEnabled",
@@ -439,6 +446,7 @@ def experiment(request):
         request.session["biorientationRedMaxDistance"] = biorientation_red_max_distance_value
         request.session["biorientationCollinearityThreshold"] = biorientation_collinearity_threshold
         request.session["greenDotSplitEnabled"] = green_dot_split_enabled
+        request.session["greenDotSplitMode"] = green_dot_split_mode
         request.session["stats_biorientation_red_min_distance_value"] = biorientation_red_min_distance_value
         request.session["stats_biorientation_red_min_distance_unit"] = biorientation_red_min_distance_unit
         request.session["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value

@@ -10,6 +10,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 from core.stats_plugins import CHANNEL_ORDER, normalize_selected_plugins
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
@@ -37,6 +41,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_red_max_distance": 37,
         "biorientation_collinearity_threshold": 66,
         "green_dot_split_enabled": True,
+        "green_dot_split_mode": DEFAULT_GREEN_DOT_SPLIT_MODE,
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
@@ -256,6 +261,12 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
             defaults_payload.get("biorientation_green_split_enabled"),
         ),
         default=True,
+    )
+    normalized["experiment_defaults"]["green_dot_split_mode"] = normalize_green_dot_split_mode(
+        defaults_payload.get(
+            "green_dot_split_mode",
+            defaults_payload.get("greenDotSplitMode"),
+        )
     )
     normalized["experiment_defaults"]["puncta_line_mode"] = normalize_puncta_line_mode(
         defaults_payload.get("puncta_line_mode"),

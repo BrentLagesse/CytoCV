@@ -895,6 +895,7 @@
             font-size: 11px;
             color: #d7c68a;
             line-height: 1.35;
+            min-height: 2.7em;
         }
         .measurement-scale-input-group {
             margin-left: 0;
@@ -931,17 +932,35 @@
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            gap: 10px;
+            column-gap: 10px;
+            row-gap: 0;
             padding: 8px 10px;
             border-radius: 8px;
             background: var(--surface-rail);
             border: 1px solid var(--panel-border);
             position: relative;
             flex-wrap: wrap;
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                filter 0.2s ease;
         }
         .stats-toggle-row.unit-menu-open,
         .stats-toggle-row.mode-menu-open {
             z-index: 4300;
+        }
+        .stats-toggle-row.is-off {
+            background-color: rgba(34, 34, 34, 0.82);
+            border-color: rgba(255, 255, 255, 0.07);
+            filter: saturate(0.76);
+        }
+        .stats-toggle-row.is-off .stats-toggle-left {
+            opacity: 0.58;
+        }
+        .stats-toggle-row.is-off .switch,
+        .stats-toggle-row.is-off .info-dot,
+        .stats-toggle-row.is-off .legacy-pill {
+            opacity: 0.72;
         }
         .stats-toggle-left {
             display: flex;
@@ -971,11 +990,6 @@
             border: 1px solid #6a5a3c;
             border-radius: 999px;
             padding: 2px 6px;
-            white-space: nowrap;
-        }
-        .stats-toggle-meta {
-            font-size: 11px;
-            color: #bababa;
             white-space: nowrap;
         }
         .stats-toggle-right {
@@ -1278,13 +1292,6 @@
             border-color: rgba(86, 147, 220, 0.75);
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
-        .nuclear-mode-helper {
-            font-size: 10px;
-            color: #b8b8b8;
-            line-height: 1.2;
-            max-width: none;
-            white-space: normal;
-        }
         .info-dot {
             border: 1px solid var(--panel-border);
             border-radius: 999px;
@@ -1355,7 +1362,7 @@
             padding: 8px 10px;
             border: 1px solid var(--panel-border);
             border-radius: 8px;
-            background: rgba(14, 16, 20, 0.98);
+            background: #0e1014;
             color: #e9e9e9;
             font-size: 12px;
             line-height: 1.35;
@@ -1376,7 +1383,8 @@
         #statsAdvancedView {
             overflow: hidden;
             background:
-                var(--liquid-linear-highlight-soft);
+                var(--liquid-linear-highlight-soft),
+                #181818;
             border-radius: 10px;
         }
         #statsAdvancedView .settings-body {
@@ -1437,6 +1445,10 @@
             border-radius: 6px;
             background-color: var(--surface-rail);
             border: 1px solid var(--panel-border);
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                filter 0.2s ease;
         }
         .toggle-subgroup {
             margin-left: 10px;
@@ -1451,6 +1463,55 @@
         }
         .toggle-row.disabled {
             opacity: 0.5;
+        }
+        .toggle-row.is-off:not(.locked) {
+            background-color: rgba(34, 34, 34, 0.82);
+            border-color: rgba(255, 255, 255, 0.07);
+            filter: saturate(0.76);
+        }
+        .toggle-row.is-off:not(.locked) .toggle-text {
+            opacity: 0.58;
+        }
+        .toggle-row.is-off:not(.locked) .switch,
+        .toggle-row.is-off:not(.locked) .info-dot,
+        .toggle-row.is-off:not(.locked) .legacy-pill {
+            opacity: 0.72;
+        }
+        .toggle-row.combo {
+            flex-wrap: wrap;
+            align-items: center;
+            column-gap: 10px;
+            row-gap: 0;
+            position: relative;
+        }
+        .toggle-row.combo.mode-menu-open {
+            z-index: 4300;
+        }
+        .toggle-row.combo .stats-distance-inline.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .split-mode-mount {
+            flex: 0 0 auto;
+            margin-left: auto;
+            position: relative;
+        }
+        .split-mode-mount .length-unit-dropdown.mode-dropdown {
+            min-width: 0;
+            width: auto;
+        }
+        .split-mode-mount .length-unit-trigger.mode-trigger {
+            width: auto;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 4px 10px;
+            min-width: 110px;
+        }
+        .split-mode-mount .length-unit-menu {
+            left: 0;
+            right: 0;
+            min-width: 100%;
+            width: auto;
         }
         .toggle-text {
             display: flex;
@@ -1472,6 +1533,8 @@
             line-height: 1.25;
             color: #b8b8b8;
             opacity: 1;
+            display: block;
+            min-height: 2.5em;
             transition: color 0.18s ease, opacity 0.18s ease;
         }
         .toggle-state-note.on {
@@ -1629,6 +1692,7 @@
             </div>
             <div class="settings-view" id="statsAdvancedView" hidden>
                 <div class="settings-body">
+                    <div class="stats-view-title">Plugin Behavior</div>
                     <div class="toggle-row" id="legacyPluginRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1636,6 +1700,7 @@
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
+                                    id="legacyPluginInfoDot"
                                     data-info-text="Reveal legacy Blue-channel plugins in the statistics list."
                                     aria-label="Reveal legacy Blue-channel plugins in the statistics list."
                                 >i</button>
@@ -1672,7 +1737,7 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="toggle-row" id="greenDotSplitRow">
+                    <div class="toggle-row combo" id="greenDotSplitRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
                                 <span class="toggle-label">Split Merged Green Dots</span>
@@ -1680,8 +1745,8 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     id="greenDotSplitInfoDot"
-                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated."
-                                    aria-label="Split connected multi-peak Green signal into separate dot contours before statistics are calculated."
+                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: default mode with standard split sensitivity.&#10;- Aggressive: attempts harder splits for very close or unequal Green dots."
+                                    aria-label="Split merged Green dots info"
                                 >i</button>
                             </span>
                         </div>
@@ -1689,6 +1754,12 @@
                             <input type="checkbox" id="greenDotSplitEnabled">
                             <span class="slider"></span>
                         </label>
+                        <div class="stats-distance-inline" id="greenDotSplitModeRow">
+                            <div class="stats-distance-line">
+                                <label for="greenDotSplitMode">Green Dot Split Mode:</label>
+                                <div id="greenDotSplitModeMount" class="split-mode-mount"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="toggle-row" id="alternateRedRow">
                         <div class="toggle-text">
@@ -1708,6 +1779,8 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="stats-divider"></div>
+                    <div class="stats-view-title">Optional Metadata Checks</div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1715,6 +1788,7 @@
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
+                                    id="optionalChecksInfoDot"
                                     data-info-text="If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced."
                                     aria-label="Enable Optional Metadata Checks Below"
                                 >i</button>
@@ -1734,6 +1808,7 @@
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
+                                        id="layerCheckInfoDot"
                                         data-info-text="Require exactly four layers before preprocessing."
                                         aria-label="Require Exactly Four Layers"
                                     >i</button>
@@ -1751,6 +1826,7 @@
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
+                                        id="wavelengthCheckInfoDot"
                                         data-info-text="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
                                         aria-label="Require DIC, Blue, Red, And Green"
                                     >i</button>
@@ -1926,6 +2002,7 @@
     const biorientationRedMaxDistanceKey = 'cytocv.biorientation_red_max_distance.v1';
     const biorientationThresholdKey = 'cytocv.biorientation_collinearity_threshold.v1';
     const greenDotSplitKey = 'cytocv.green_dot_split_enabled.v1';
+    const greenDotSplitModeKey = 'cytocv.green_dot_split_mode.v1';
     const legacyBiorientationGreenSplitKey = 'cytocv.biorientation_green_split_enabled.v1';
     const advancedKey = 'cytocv.advanced_validation.v3';
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
@@ -1973,6 +2050,7 @@
         biorientationRedMaxDistance: 37,
         biorientationCollinearityThreshold: 66,
         greenDotSplitEnabled: true,
+        greenDotSplitMode: 'balanced',
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
         greenContourFilterEnabled: false,
@@ -2010,8 +2088,144 @@
     let punctaLineModeSelect = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
+    let greenDotSplitModeSelect = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
+
+    function normalizeGreenDotSplitMode(value) {
+        return value === 'aggressive' ? 'aggressive' : 'balanced';
+    }
+
+    function joinLabels(labels) {
+        const values = Array.isArray(labels) ? labels.filter(Boolean) : [];
+        if (values.length === 0) return 'None';
+        if (values.length === 1) return values[0];
+        if (values.length === 2) return `${values[0]} and ${values[1]}`;
+        return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
+    }
+
+    function buildInfoSections(sections) {
+        return sections
+            .filter((section) => typeof section === 'string' && section.trim())
+            .join('\n\n');
+    }
+
+    const pluginInfoExplanations = {
+        PunctaDistance: 'Measures the distance between two puncta in the chosen source channel and sums the opposite-channel intensity along the line connecting them. It uses the first two detected source puncta, draws a line mask between their centers, and records the line intensity from the measurement channel.',
+        CENDot: 'Classifies whether Green CEN dots are associated with the mother side, daughter side, both sides, or neither side. It uses the DIC cell/neck split to separate mother and daughter regions, checks for two usable Red puncta, then assigns nearby Green dots to the closest eligible Red punctum.',
+        Biorientation: 'Counts Green dots as colinear or off-axis relative to the line between the two Red puncta. Counts are reported only when exactly two Red puncta are present and their separation is inside the configured distance range.',
+        GreenRedIntensity: 'Measures raw intensity sums inside detected Red and Green contour masks. For Red contours it records Red and Green signal in the Red mask; for Green contours it records Red and Green signal in the Green mask and the distance to the nearest Red contour.',
+        NuclearCellPairIntensity: 'Measures intensity in the selected nucleus contour and the full DIC cell-pair mask. The selected Red or Green nucleus contour defines the nucleus, and the opposite channel is summed inside the nucleus, whole cell pair, and cytoplasm.',
+        NucleusIntensity: 'Legacy Blue-channel workflow that uses the Blue nucleus contour as the nuclear mask, then measures Green signal in the nucleus, whole cell, and cytoplasm.',
+        BlueNucleusIntensity: 'Legacy Blue-channel workflow that uses the Blue nucleus contour as the nuclear mask, then measures Blue signal in the nucleus, whole cell, and cytoplasm.',
+        RedBlueIntensity: 'Legacy workflow that measures Blue signal inside each detected Red-dot contour, up to the first three Red contours.',
+    };
+
+    const pluginAdjustmentInfo = {
+        PunctaDistance: [
+            'Puncta Source: chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.',
+            'Puncta Line Width: sets the thickness of the line mask used for the intensity sum. Use px or um; um values are converted from the measurement scale.',
+        ],
+        CENDot: [
+            'Minimum Signal Distance: minimum allowed distance between the two Red puncta before CEN dot location is classified.',
+            'Signal Proximity Radius: maximum distance a Green dot can be from a Red punctum and still count as associated with it.',
+        ],
+        Biorientation: [
+            'Minimum Red Puncta Distance: smallest allowed spacing between the two Red puncta for biorientation counts to run.',
+            'Maximum Red Puncta Distance: largest allowed spacing between the two Red puncta for biorientation counts to run.',
+            'Collinearity Threshold: maximum allowed perpendicular offset from the Red-puncta line for a Green dot to count as colinear.',
+        ],
+        NuclearCellPairIntensity: [
+            'Nucleus Contour Source: chooses which channel supplies the nucleus contour. Green Nucleus measures Red signal; Red Nucleus measures Green signal.',
+        ],
+    };
+
+    function buildPluginInfoText(plugin, requiredLabels) {
+        const explanation = pluginInfoExplanations[plugin.id] || plugin.description || 'Statistic plugin.';
+        const adjustmentLines = pluginAdjustmentInfo[plugin.id] || [];
+        return buildInfoSections([
+            explanation,
+            ...adjustmentLines,
+            `Required channels: ${joinLabels(requiredLabels)}`,
+        ]);
+    }
+
+    const advancedInfoTextById = {
+        legacyPluginInfoDot: buildInfoSections([
+            'Shows legacy Blue-channel statistics in the plugin list. Turn this on only when you need older Blue-nucleus or Red-in-Blue outputs; modern Red/Green modules stay available either way.',
+            'Required channels: Blue when a legacy plugin is selected.',
+        ]),
+        greenFilterInfoDot: buildInfoSections([
+            'Filters Green contours before statistics run by removing low-confidence Green objects that often come from noisy background. This changes which Green dots or contours downstream plugins see, so validate a sample of overlays before using it for conclusions.',
+            'Required channels: Green.',
+        ]),
+        greenFilterExperimentalDot: 'Experimental setting: behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions.',
+        greenDotSplitInfoDot: buildInfoSections([
+            'Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use it when two nearby Green dots are detected as one merged contour.',
+            'Green Dot Split Mode: Balanced uses standard split sensitivity; Aggressive attempts harder splits for very close or unequal Green dots.',
+            'Availability: enabled only when a selected statistic requires the Green channel.',
+            'Required channels: Green.',
+        ]),
+        alternateRedInfoDot: buildInfoSections([
+            'Uses alternate Red detection when standard detection creates one contour around all Red speckles. It tries to recover separate Red-dot contours so Red-dependent statistics can still run.',
+            'Required channels: Red.',
+        ]),
+        optionalChecksInfoDot: buildInfoSections([
+            'Controls the optional metadata and file validation checks below. When off, saved optional channel and layer requirements are paused, but channels required by selected statistics are still enforced.',
+            'Enforce 4-Image DV Files: requires exactly four DV layers before preprocessing.',
+            'Require All Channels: requires DIC, Blue, Red, and Green for every upload.',
+            'Manual channel toggles: require individual channels even when selected statistics do not need them.',
+            'Required channels: DIC is always required; optional checks can also require Blue, Red, and Green.',
+        ]),
+        layerCheckInfoDot: buildInfoSections([
+            'Requires each DV file to have exactly four image layers before preprocessing. Use this to catch incomplete acquisitions or files exported with missing layers.',
+            'Required channels: not channel-specific.',
+        ]),
+        wavelengthCheckInfoDot: buildInfoSections([
+            'Requires every upload to include DIC, Blue, Red, and Green, even if the selected statistics only need a subset.',
+            'Required channels: DIC, Blue, Red, and Green.',
+        ]),
+    };
+
+    function hydrateAdvancedInfoDots() {
+        Object.entries(advancedInfoTextById).forEach(([id, text]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const normalized = normalizeInfoText(text);
+            el.dataset.infoText = normalized;
+            el.setAttribute('aria-label', normalized || 'Information');
+        });
+    }
+
+    function buildChannelInfoText(channel) {
+        const channelLabel = displayChannelLabel(channel);
+        return buildInfoSections([
+            `Channel purpose: ${channelInfo[channel] || `${channelLabel} channel.`}`,
+            `Required channels: ${channelLabel}.`,
+        ]);
+    }
+
+    function selectedPluginLabelsRequiringChannel(channel) {
+        const labels = [];
+        statsState.selectedPlugins.forEach((pluginId) => {
+            const plugin = pluginMap.get(pluginId);
+            if (!plugin || !Array.isArray(plugin.required_channels)) return;
+            if (plugin.required_channels.includes(channel)) {
+                labels.push(plugin.label || plugin.id);
+            }
+        });
+        return labels;
+    }
+
+    function buildAdvancedChannelInfo(channel, statusText = '') {
+        const channelLabel = displayChannelLabel(channel);
+        return buildInfoSections([
+            `Channel purpose: ${channelInfo[channel] || `${channelLabel} channel.`}`,
+            `Manual requirement: when this toggle is on and optional metadata checks are enabled, uploads must include the ${channelLabel} channel even if selected statistics do not need it.`,
+            statusText ? `Current requirement status: ${statusText}` : '',
+            `Required channels: ${channelLabel}.`,
+        ]);
+    }
 
     function applyServerPreferenceDefaults() {
         if (!serverPreferenceDefaults || typeof serverPreferenceDefaults !== 'object') {
@@ -2038,6 +2252,7 @@
             manualRequiredChannels: manualChannels,
             greenContourFilterEnabled: !!serverPreferenceDefaults.green_contour_filter_enabled,
             greenDotSplitEnabled: rawGreenDotSplitDefault !== false,
+            greenDotSplitMode: normalizeGreenDotSplitMode(serverPreferenceDefaults.green_dot_split_mode),
             alternateRedDetection: !!serverPreferenceDefaults.alternate_red_detection,
         };
         localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
@@ -2251,6 +2466,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         applyServerPreferenceDefaults();
         infoTooltipElement = document.getElementById('statsInfoTooltip');
+        hydrateAdvancedInfoDots();
         document.querySelectorAll('.advanced-info-dot').forEach((el) => {
             attachInfoTooltipBehavior(el);
         });
@@ -2916,6 +3132,8 @@
                 modeDropdownControls.delete(ctrl);
                 const modeInline = root.closest('.nuclear-mode-inline');
                 if (modeInline) modeInline.classList.remove('mode-menu-open');
+                const comboRow = root.closest('.toggle-row.combo');
+                if (comboRow) comboRow.classList.remove('mode-menu-open');
             },
             open() {
                 modeDropdownControls.forEach((c) => { if (c !== ctrl) c.close(); });
@@ -2926,6 +3144,8 @@
                 modeDropdownControls.add(ctrl);
                 const modeInline = root.closest('.nuclear-mode-inline');
                 if (modeInline) modeInline.classList.add('mode-menu-open');
+                const comboRow = root.closest('.toggle-row.combo');
+                if (comboRow) comboRow.classList.add('mode-menu-open');
             },
         };
 
@@ -3071,7 +3291,7 @@
             name.textContent = channelLabel;
             row.appendChild(name);
 
-            const info = buildInfoDot(channelInfo[channel] || `${channelLabel} channel`);
+            const info = buildInfoDot(buildChannelInfoText(channel));
             row.appendChild(info);
 
             const state = document.createElement('span');
@@ -3126,8 +3346,7 @@
             const reqLabels = Array.isArray(plugin.required_channel_labels) && plugin.required_channel_labels.length
                 ? plugin.required_channel_labels
                 : (Array.isArray(plugin.required_channels) ? plugin.required_channels.map(displayChannelLabel) : []);
-            const req = reqLabels.join(', ');
-            const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired channels: ${req}` : ''}`);
+            const info = buildInfoDot(buildPluginInfoText(plugin, reqLabels));
             left.appendChild(info);
             if (plugin.is_legacy) {
                 const legacyBadge = document.createElement('span');
@@ -3139,11 +3358,6 @@
 
             const right = document.createElement('div');
             right.className = 'stats-toggle-right';
-
-            const meta = document.createElement('span');
-            meta.className = 'stats-toggle-meta';
-            meta.textContent = req ? req : 'No extra channels';
-            right.appendChild(meta);
 
             const switchLabel = document.createElement('label');
             switchLabel.className = 'switch';
@@ -3202,10 +3416,6 @@
                 modeTop.appendChild(select.root);
                 modeRow.appendChild(modeTop);
 
-                const modeHelper = document.createElement('div');
-                modeHelper.className = 'nuclear-mode-helper';
-                modeHelper.textContent = 'Choose which puncta pair defines the line; intensity is measured from the opposite channel along that line.';
-                modeRow.appendChild(modeHelper);
                 row.appendChild(modeRow);
                 punctaLineModeRow = modeRow;
                 punctaLineModeSelect = select;
@@ -3410,10 +3620,6 @@
                 modeTop.appendChild(select.root);
                 modeRow.appendChild(modeTop);
 
-                const modeHelper = document.createElement('div');
-                modeHelper.className = 'nuclear-mode-helper';
-                modeHelper.textContent = 'Selected channel outlines the nucleus; intensity is measured in the other channel inside the nucleus and cell pair.';
-                modeRow.appendChild(modeHelper);
                 row.appendChild(modeRow);
                 nuclearModeSelect = select;
                 nuclearModeRow = modeRow;
@@ -3647,7 +3853,7 @@
             label.className = 'toggle-label';
             label.textContent = `Require ${channelLabel} channel`;
             labelRow.appendChild(label);
-            const info = buildInfoDot(channelInfo[channel] || `${channelLabel} channel`);
+            const info = buildInfoDot(buildAdvancedChannelInfo(channel));
             info.classList.add('compact');
             labelRow.appendChild(info);
             text.appendChild(labelRow);
@@ -3681,6 +3887,7 @@
 
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
         const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
+        const greenDotSplitModeMount = document.getElementById('greenDotSplitModeMount');
         const alternateRedDetection = document.getElementById('alternateRedDetection');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
@@ -3699,6 +3906,21 @@
                 persistAdvancedSettings();
                 syncStatsUI();
             });
+        }
+        if (greenDotSplitModeMount && !greenDotSplitModeSelect) {
+            greenDotSplitModeSelect = buildCustomModeSelect(
+                [
+                    { value: 'balanced', text: 'Balanced' },
+                    { value: 'aggressive', text: 'Aggressive' },
+                ],
+                normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
+                (nextMode) => {
+                    statsState.greenDotSplitMode = normalizeGreenDotSplitMode(nextMode);
+                    persistAdvancedSettings();
+                    syncStatsUI();
+                },
+            );
+            greenDotSplitModeMount.appendChild(greenDotSplitModeSelect.root);
         }
         if (alternateRedDetection) {
             alternateRedDetection.addEventListener('change', () => {
@@ -3791,6 +4013,9 @@
                 ? true
                 : !['0', 'false', 'off', 'no'].includes(String(splitRaw).trim().toLowerCase());
         }
+        statsState.greenDotSplitMode = normalizeGreenDotSplitMode(
+            stored.greenDotSplitMode || localStorage.getItem(greenDotSplitModeKey)
+        );
         statsState.alternateRedDetection = typeof stored.alternateRedDetection === 'boolean' ? stored.alternateRedDetection : false;
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
@@ -3894,9 +4119,11 @@
             manualRequiredChannels: [...statsState.manualRequiredChannels],
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
+            greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
             alternateRedDetection: !!statsState.alternateRedDetection,
         }));
         localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
+        localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
     }
 
     function enforceExclusiveGroup(pluginId) {
@@ -3967,6 +4194,21 @@
         return used;
     }
 
+    function selectedStatsRequireChannel(channel) {
+        for (const pluginId of statsState.selectedPlugins) {
+            const plugin = pluginMap.get(pluginId);
+            if (plugin && Array.isArray(plugin.required_channels) && plugin.required_channels.includes(channel)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function setOffVisualState(row, isOff) {
+        if (!row) return;
+        row.classList.toggle('is-off', !!isOff);
+    }
+
     function syncStatsUI() {
         const statsRequired = getStatsRequiredChannels();
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
@@ -3979,13 +4221,17 @@
         const optionalChecksNote = document.getElementById('optionalChecksNote');
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
         const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
+        const greenDotSplitModeRow = document.getElementById('greenDotSplitModeRow');
         const alternateRedDetection = document.getElementById('alternateRedDetection');
         const greenFilterRow = document.getElementById('greenFilterRow');
+        const greenDotSplitRow = document.getElementById('greenDotSplitRow');
         const alternateRedRow = document.getElementById('alternateRedRow');
+        const moduleRow = document.getElementById('moduleToggleRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
             toggle.checked = statsState.selectedPlugins.has(pluginId);
             toggle.disabled = isPluginRequiredBySelection(pluginId);
+            setOffVisualState(toggle.closest('.stats-toggle-row'), !toggle.checked);
         });
 
         syncLengthControls();
@@ -4047,9 +4293,24 @@
                 greenContourFilterEnabled.checked = false;
                 statsState.greenContourFilterEnabled = greenContourFilterEnabled.checked;
             }
+            setOffVisualState(greenFilterRow, !greenContourFilterEnabled.checked);
         }
         if (greenDotSplitEnabled) {
-            greenDotSplitEnabled.checked = !!statsState.greenDotSplitEnabled;
+            const greenStatSelected = selectedStatsRequireChannel('channel_green');
+            greenDotSplitEnabled.disabled = !greenStatSelected;
+            greenDotSplitEnabled.checked = greenStatSelected && !!statsState.greenDotSplitEnabled;
+            if (greenDotSplitRow) {
+                greenDotSplitRow.classList.toggle('disabled', !greenStatSelected);
+            }
+        }
+        if (greenDotSplitModeSelect) {
+            greenDotSplitModeSelect.value = normalizeGreenDotSplitMode(statsState.greenDotSplitMode);
+        }
+        if (greenDotSplitRow) {
+            setOffVisualState(greenDotSplitRow, !greenDotSplitEnabled || greenDotSplitEnabled.disabled || !greenDotSplitEnabled.checked);
+        }
+        if (greenDotSplitModeRow) {
+            greenDotSplitModeRow.classList.toggle('visible', !!greenDotSplitEnabled && !greenDotSplitEnabled.disabled && greenDotSplitEnabled.checked);
         }
         if (alternateRedDetection) {
             alternateRedDetection.checked = !!statsState.alternateRedDetection;
@@ -4062,6 +4323,7 @@
                 alternateRedDetection.checked = false;
                 statsState.alternateRedDetection = alternateRedDetection.checked;
             }
+            setOffVisualState(alternateRedRow, !alternateRedDetection.checked);
         }
 
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
@@ -4070,14 +4332,13 @@
         if (legacyToggle) legacyToggle.checked = !!statsState.showLegacyPlugins;
         if (legacyRow) legacyRow.classList.remove('disabled');
         if (legacyToggle) legacyToggle.disabled = false;
+        setOffVisualState(moduleRow, moduleToggle ? !moduleToggle.checked : false);
+        setOffVisualState(legacyRow, legacyToggle ? !legacyToggle.checked : false);
         if (optionalChecksNote) {
-            const prevState = optionalChecksNote.dataset.state || '';
-            const prevText = optionalChecksNote.textContent || '';
             const nextState = statsState.moduleEnabled ? 'on' : 'off';
             const nextText = statsState.moduleEnabled
                 ? 'Optional checks below are ON. Required checks from selected statistics are still enforced.'
                 : 'Optional checks below are OFF. Saved optional selections are paused; required checks from selected statistics are still enforced.';
-            const shouldAnimate = prevState !== nextState || prevText !== nextText;
             if (statsState.moduleEnabled) {
                 optionalChecksNote.classList.remove('off');
                 optionalChecksNote.classList.add('on');
@@ -4086,18 +4347,14 @@
                 optionalChecksNote.classList.add('off');
             }
             optionalChecksNote.dataset.state = nextState;
-            if (shouldAnimate) {
-                optionalChecksNote.classList.remove('reveal');
-                void optionalChecksNote.offsetWidth;
-                optionalChecksNote.classList.add('reveal');
-            }
-            setSmoothText(optionalChecksNote, nextText);
+            setSlideInText(optionalChecksNote, nextText);
         }
 
         if (layerToggle && layerRow) {
             layerToggle.disabled = !statsState.moduleEnabled;
             layerRow.classList.toggle('disabled', !statsState.moduleEnabled);
             layerRow.classList.remove('locked');
+            setOffVisualState(layerRow, !layerToggle.checked);
         }
 
         const allChannelsRequiredByStats = channelOrder.every((channel) => statsRequired.has(channel));
@@ -4109,6 +4366,7 @@
             wavelengthToggle.disabled = allChannelsRequiredByStats || !statsState.moduleEnabled;
             wavelengthRow.classList.toggle('disabled', !statsState.moduleEnabled && !allChannelsRequiredByStats);
             wavelengthRow.classList.toggle('locked', allChannelsRequiredByStats);
+            setOffVisualState(wavelengthRow, !wavelengthToggle.checked);
         }
 
         channelOrder.forEach((channel) => {
@@ -4119,7 +4377,9 @@
 
             const requiredByStats = statsRequired.has(channel);
             const requiredByAllToggle = statsState.moduleEnabled && statsState.enforceAllWavelengths;
-            let infoText = channelInfo[channel] || `${displayChannelLabel(channel)} channel`;
+            let statusText = statsState.moduleEnabled
+                ? 'optional; enable this toggle to require it manually.'
+                : 'optional checks are off, so manual channel requirements are paused.';
 
             if (requiredByStats) {
                 toggle.checked = true;
@@ -4127,26 +4387,29 @@
                 statsState.manualRequiredChannels.delete(channel);
                 row.classList.add('locked');
                 row.classList.remove('disabled');
-                infoText = alwaysRequiredChannels.has(channel)
-                    ? 'Always required for segmentation/CNN.'
-                    : 'Required by selected statistic(s).';
+                const requiringStats = selectedPluginLabelsRequiringChannel(channel);
+                statusText = alwaysRequiredChannels.has(channel)
+                    ? 'always required for segmentation/CNN.'
+                    : `required by selected statistic(s)${requiringStats.length ? `: ${joinLabels(requiringStats)}.` : '.'}`;
             } else if (requiredByAllToggle) {
                 toggle.checked = true;
                 toggle.disabled = true;
                 row.classList.remove('locked');
                 row.classList.add('disabled');
-                infoText = 'Required because "Require all channels" is enabled.';
+                statusText = 'required because "Require All Channels" is enabled.';
             } else {
                 toggle.checked = statsState.manualRequiredChannels.has(channel);
                 toggle.disabled = !statsState.moduleEnabled;
                 row.classList.toggle('disabled', !statsState.moduleEnabled);
                 row.classList.remove('locked');
-                infoText = toggle.checked
-                    ? 'Optional advanced enforcement is enabled.'
-                    : (channelInfo[channel] || `${displayChannelLabel(channel)} channel`);
+                if (toggle.checked) {
+                    statusText = 'manual requirement is enabled.';
+                }
             }
+            setOffVisualState(row, !toggle.checked);
 
             if (info) {
+                const infoText = buildAdvancedChannelInfo(channel, statusText);
                 const normalizedInfoText = normalizeInfoText(infoText);
                 info.dataset.infoText = normalizedInfoText;
                 info.setAttribute('aria-label', normalizedInfoText || 'Information');
@@ -4230,6 +4493,7 @@
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
+            greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
             alternateRedDetection: !!statsState.alternateRedDetection,
             punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
             cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
@@ -4294,6 +4558,7 @@
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
             statsState.greenDotSplitEnabled = snapshot.greenDotSplitEnabled !== false;
+            statsState.greenDotSplitMode = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
             statsState.alternateRedDetection = !!snapshot.alternateRedDetection;
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
@@ -4312,6 +4577,7 @@
             localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
             localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
             localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
+            localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             persistLengthUnitSettings();
@@ -5143,7 +5409,10 @@
             formData.append('biorientationRedMinDistance', String(statsState.biorientationRedMinDistance));
             formData.append('biorientationRedMaxDistance', String(statsState.biorientationRedMaxDistance));
             formData.append('biorientationCollinearityThreshold', String(statsState.biorientationCollinearityThreshold));
-            formData.append('greenDotSplitEnabled', String(statsState.greenDotSplitEnabled));
+            formData.append('greenDotSplitEnabled', String(
+                selectedStatsRequireChannel('channel_green') && statsState.greenDotSplitEnabled
+            ));
+            formData.append('greenDotSplitMode', normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
             formData.append('punctaLineWidth', String(punctaLineWidthPixels));
             formData.append('cenDotDistance', String(cenDotDistancePixels));
             formData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));

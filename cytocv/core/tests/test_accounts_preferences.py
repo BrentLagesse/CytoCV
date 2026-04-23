@@ -49,6 +49,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -70,6 +71,7 @@ class PreferenceNormalizationTests(TestCase):
                     "cen_dot_collinearity_threshold": "-1",
                     "puncta_line_mode": "bad_mode",
                     "nuclear_cell_pair_mode": "bad_mode",
+                    "green_dot_split_mode": "bad_mode",
                     "puncta_line_width_unit": "um",
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
@@ -92,6 +94,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 66)
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(normalized["auto_save_experiments"])
@@ -1495,6 +1498,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="sidebar_starts_open"', html=False)
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
         self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
+        self.assertContains(response, 'id="green_dot_split_mode"', html=False)
         self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
         self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
         self.assertContains(
@@ -1781,6 +1785,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
@@ -1840,6 +1845,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "biorientation_red_max_distance_unit": "um",
                 "biorientation_collinearity_threshold": 81,
                 "green_dot_split_enabled": False,
+                "green_dot_split_mode": "aggressive",
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
@@ -1873,6 +1879,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 81)
         self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
@@ -1885,6 +1892,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             {
                 "action": "save_advanced_settings",
                 "green_dot_split_enabled": "0",
+                "green_dot_split_mode": "aggressive",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -1893,12 +1901,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
         self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
 
         response = self.client.post(
             reverse("workflow_defaults"),
             {
                 "action": "save_advanced_settings",
                 "green_dot_split_enabled": "on",
+                "green_dot_split_mode": "invalid",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -1906,6 +1916,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
         self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(

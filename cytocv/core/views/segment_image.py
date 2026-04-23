@@ -112,6 +112,10 @@ from core.services.puncta_line_mode import (
     get_puncta_line_mode_metadata,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -188,12 +192,18 @@ def get_stats(
     green_contour_filter_enabled=False,
     alternate_red_detection=False,
     green_dot_split_enabled=True,
+    green_dot_split_mode=DEFAULT_GREEN_DOT_SPLIT_MODE,
     cached_images=None,
 ):
     # loading configuration
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cell_pair_mode = conf.get("nuclear_cell_pair_mode", "green_nucleus")
     puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
+    green_dot_split_mode = normalize_green_dot_split_mode(
+        green_dot_split_mode
+        or conf.get("green_dot_split_mode")
+        or conf.get("greenDotSplitMode")
+    )
     cp.properties = dict(cp.properties or {})
     cp.properties["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
     cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
@@ -254,6 +264,7 @@ def get_stats(
         green_contour_filter_enabled,
         alternate_red_detection,
         green_dot_split_enabled,
+        green_dot_split_mode,
     )
     contours_data = build_canonical_contour_payload(
         contours_data,
@@ -1122,6 +1133,9 @@ def segment_image(request, uuids):
             else str(green_dot_split_enabled_raw).strip().lower()
             in {"1", "true", "yes", "on"}
         )
+        green_dot_split_mode = normalize_green_dot_split_mode(
+            request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        )
 
         configured_puncta_line_width = _process_config_value(
             configuration,
@@ -1150,6 +1164,7 @@ def segment_image(request, uuids):
             'green_contour_filter_enabled': green_contour_filter_enabled,
             'alternate_red_detection': alternate_red_detection,
             'green_dot_split_enabled': green_dot_split_enabled,
+            'green_dot_split_mode': green_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -1191,6 +1206,7 @@ def segment_image(request, uuids):
                 biorientation_red_max_distance_unit=biorientation_red_max_distance_unit,
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
                 green_dot_split_enabled=green_dot_split_enabled,
+                green_dot_split_mode=green_dot_split_mode,
             ),
         )
 
@@ -1270,6 +1286,7 @@ def segment_image(request, uuids):
             cp.properties["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
+            cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
             # Call get_stats to do the real work
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1281,6 +1298,7 @@ def segment_image(request, uuids):
                 green_contour_filter_enabled,
                 alternate_red_detection,
                 green_dot_split_enabled,
+                green_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
             )
 
