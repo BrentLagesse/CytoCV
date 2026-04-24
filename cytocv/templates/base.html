@@ -43,6 +43,20 @@
             --surface-rail: var(--surface-mid);
             --surface-rail-alt: #202020;
             --surface-toggle-off: #555;
+            --popup-secondary-button-bg: var(--surface-muted-alt);
+            --popup-secondary-button-hover-bg: var(--surface-hover-strong);
+            --popup-secondary-button-border: var(--panel-border);
+            --settings-module-bg: var(--surface-rail);
+            --settings-module-subtle-bg: var(--surface-rail-alt);
+            --settings-module-border: var(--panel-border);
+            --settings-module-off-bg: rgba(34, 34, 34, 0.82);
+            --settings-module-off-border: rgba(255, 255, 255, 0.07);
+            --settings-module-off-filter: saturate(0.76);
+            --settings-module-off-text-opacity: 0.58;
+            --settings-module-off-control-opacity: 0.72;
+            --settings-module-disabled-opacity: 0.5;
+            --settings-module-locked-bg: rgba(47, 143, 78, 0.15);
+            --settings-module-locked-border: #2f8f4e;
             --surface-media: #1b1b1b;
             --border-subtle: #2f2f2f;
             --border-strong: #4a4a4a;
@@ -67,6 +81,9 @@
             --popup-surface-bg:
                 var(--liquid-linear-highlight),
                 #181818;
+            --popup-surface-border: rgba(var(--glass-border-rgb), 0.34);
+            --popup-surface-shadow: var(--glass-glow);
+            --popup-surface-filter: blur(calc(var(--glass-blur) - 1px));
             --glass-border-rgb: 112, 134, 158;
             --glass-border-alpha: 0.34;
             --glass-highlight: rgba(255, 255, 255, 0.04);
@@ -542,12 +559,12 @@
         .logout-modal {
             width: min(420px, 90vw);
             background: var(--popup-surface-bg);
-            border: 1px solid rgba(var(--glass-border-rgb), 0.34);
+            border: 1px solid var(--popup-surface-border);
             border-radius: var(--glass-radius-lg);
             padding: 24px;
-            box-shadow: var(--glass-glow);
-            backdrop-filter: blur(calc(var(--glass-blur) - 1px));
-            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            box-shadow: var(--popup-surface-shadow);
+            backdrop-filter: var(--popup-surface-filter);
+            -webkit-backdrop-filter: var(--popup-surface-filter);
         }
         .logout-modal.modal-enter {
             animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -632,6 +649,48 @@
         }
     </style>
     {% block head %}{% endblock head %}
+    <style>
+        body [role="dialog"],
+        body .popup-surface,
+        body .settings-modal,
+        body .reset-modal,
+        body .folder-issue-modal,
+        body .nav-exit-modal,
+        body .delete-modal,
+        body .save-modal,
+        body .review-modal,
+        body .confirm[role="dialog"],
+        body .analysis-popover,
+        body .popup {
+            background: var(--popup-surface-bg) !important;
+            border: 1px solid var(--popup-surface-border) !important;
+            box-shadow: var(--popup-surface-shadow) !important;
+            backdrop-filter: var(--popup-surface-filter) !important;
+            -webkit-backdrop-filter: var(--popup-surface-filter) !important;
+        }
+        body .logout-btn.confirm,
+        body .nav-exit-btn.confirm,
+        body .reset-btn.confirm,
+        body .folder-issue-btn.no,
+        body .save-modal-btn.cancel,
+        body .delete-modal-btn.cancel,
+        body .review-btn.review-keep-old,
+        body .confirm-actions .cancel {
+            background: var(--popup-secondary-button-bg) !important;
+            border: 1px solid var(--popup-secondary-button-border) !important;
+            color: #fff !important;
+        }
+        body .logout-btn.confirm:hover,
+        body .nav-exit-btn.confirm:hover,
+        body .reset-btn.confirm:hover,
+        body .folder-issue-btn.no:hover,
+        body .save-modal-btn.cancel:hover,
+        body .delete-modal-btn.cancel:hover,
+        body .review-btn.review-keep-old:hover,
+        body .confirm-actions .cancel:hover {
+            background: var(--popup-secondary-button-hover-bg) !important;
+        }
+    </style>
 </head>
 <body>
     {% block navbar %}

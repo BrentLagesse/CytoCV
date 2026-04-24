@@ -5,6 +5,9 @@
 {% block head %}
     <style>
         body {
+            --stats-popup-control-width: 196px;
+            --stats-popup-compact-control-width: 112px;
+            --stats-popup-control-inner-height: 30px;
             font-family: var(--app-font);
             background-color: var(--page-bg);
             color: var(--text);
@@ -785,15 +788,15 @@
             justify-content: space-between;
             gap: 8px;
             padding: 8px 10px;
-            border: 1px solid var(--panel-border);
+            border: 1px solid var(--settings-module-border);
             border-radius: 8px;
-            background: var(--surface-rail);
+            background: var(--settings-module-bg);
             opacity: 0.55;
             transition: opacity 0.15s ease, border-color 0.15s ease;
         }
         .required-channel-row.required {
             opacity: 1;
-            border-color: #2f8f4e;
+            border-color: var(--settings-module-locked-border);
         }
         .required-channel-name {
             font-size: 13px;
@@ -814,25 +817,47 @@
             isolation: isolate;
         }
         .measurement-scale-card {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 8px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            background: var(--surface-rail);
-            border: 1px solid var(--panel-border);
+            padding: 0;
+            border: 0;
+            background: transparent;
         }
         .measurement-scale-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
+            align-items: flex-start;
+            column-gap: 10px;
+            row-gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--settings-module-bg);
+            border: 1px solid var(--settings-module-border);
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                filter 0.2s ease;
+        }
+        .measurement-scale-row.is-off {
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
+        }
+        .measurement-scale-row.is-off .measurement-scale-text {
+            opacity: var(--settings-module-off-text-opacity);
+        }
+        .measurement-scale-row.is-off .switch {
+            opacity: var(--settings-module-off-control-opacity);
+        }
+        .measurement-scale-row > .switch {
+            justify-self: end;
+            align-self: start;
         }
         .measurement-scale-text {
             display: grid;
             gap: 4px;
             min-width: 0;
-            flex: 1 1 auto;
         }
         .measurement-scale-title-row {
             display: inline-flex;
@@ -844,18 +869,6 @@
             font-size: 13px;
             font-weight: 600;
             line-height: 1.2;
-        }
-        .measurement-metadata-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding-top: 2px;
-        }
-        .measurement-metadata-row span {
-            font-size: 11px;
-            font-weight: 600;
-            color: #d7e8f6;
         }
         .measurement-scale-live {
             margin: 0;
@@ -874,22 +887,6 @@
             color: #b8c8db;
             line-height: 1.35;
         }
-        .measurement-scale-control-row {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-            min-width: 0;
-            flex: 0 1 auto;
-        }
-        .measurement-scale-inline-note {
-            margin: 0;
-            font-size: 11px;
-            line-height: 1.2;
-            color: #cfcfcf;
-            text-align: right;
-            max-width: 360px;
-        }
         .measurement-scale-fallback {
             margin: 0;
             font-size: 11px;
@@ -899,9 +896,18 @@
         }
         .measurement-scale-input-group {
             margin-left: 0;
+            justify-self: end;
+            align-self: start;
+            width: var(--stats-popup-control-width);
+        }
+        .measurement-scale-input-group.compact-control {
+            width: var(--stats-popup-compact-control-width);
         }
         .measurement-scale-input {
-            width: 92px;
+            box-sizing: border-box;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
             border: none;
             border-radius: 0;
             background: transparent;
@@ -918,16 +924,6 @@
             background: var(--surface-input);
             filter: grayscale(1) brightness(0.68);
         }
-        @media (max-width: 860px) {
-            .measurement-scale-control-row {
-                flex: 1 1 100%;
-                justify-content: space-between;
-            }
-            .measurement-scale-inline-note {
-                max-width: none;
-                text-align: left;
-            }
-        }
         .stats-toggle-row {
             display: flex;
             align-items: flex-start;
@@ -936,8 +932,8 @@
             row-gap: 0;
             padding: 8px 10px;
             border-radius: 8px;
-            background: var(--surface-rail);
-            border: 1px solid var(--panel-border);
+            background: var(--settings-module-bg);
+            border: 1px solid var(--settings-module-border);
             position: relative;
             flex-wrap: wrap;
             transition:
@@ -950,17 +946,17 @@
             z-index: 4300;
         }
         .stats-toggle-row.is-off {
-            background-color: rgba(34, 34, 34, 0.82);
-            border-color: rgba(255, 255, 255, 0.07);
-            filter: saturate(0.76);
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
         }
         .stats-toggle-row.is-off .stats-toggle-left {
-            opacity: 0.58;
+            opacity: var(--settings-module-off-text-opacity);
         }
         .stats-toggle-row.is-off .switch,
         .stats-toggle-row.is-off .info-dot,
         .stats-toggle-row.is-off .legacy-pill {
-            opacity: 0.72;
+            opacity: var(--settings-module-off-control-opacity);
         }
         .stats-toggle-left {
             display: flex;
@@ -1034,24 +1030,34 @@
             white-space: nowrap;
         }
         .stats-distance-line {
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
+            align-items: start;
+            column-gap: 10px;
             width: 100%;
             min-width: 0;
         }
         .stats-distance-line .length-input-group,
-        .stats-distance-line .threshold-input-group {
-            margin-left: auto;
+        .stats-distance-line .threshold-input-group,
+        .stats-distance-line .boxed-number-group {
+            justify-self: end;
+            margin-left: 0;
+            width: var(--stats-popup-control-width);
+        }
+        .stats-distance-line .boxed-number-group.compact-control {
+            width: var(--stats-popup-compact-control-width);
         }
         .stats-threshold-line > label {
             white-space: normal;
             line-height: 1.2;
         }
         .length-input-group {
+            box-sizing: border-box;
             display: inline-flex;
             align-items: stretch;
             margin-left: auto;
+            height: var(--stats-popup-control-inner-height);
+            min-height: var(--stats-popup-control-inner-height);
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             overflow: visible;
@@ -1064,9 +1070,12 @@
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .boxed-number-group {
+            box-sizing: border-box;
             display: inline-flex;
             align-items: center;
             margin-left: auto;
+            height: var(--stats-popup-control-inner-height);
+            min-height: var(--stats-popup-control-inner-height);
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             overflow: hidden;
@@ -1079,7 +1088,11 @@
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .stats-distance-inline input[type="number"] {
-            width: 68px;
+            box-sizing: border-box;
+            flex: 1 1 auto;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
             border: none;
             border-radius: 0;
             background: transparent;
@@ -1099,6 +1112,9 @@
         .boxed-number-group input[type="number"] {
             width: 72px;
         }
+        .measurement-scale-input-group input[type="number"] {
+            width: 100%;
+        }
         .length-unit-dropdown {
             position: relative;
             display: inline-flex;
@@ -1108,9 +1124,12 @@
             min-width: 54px;
         }
         .length-unit-trigger {
+            box-sizing: border-box;
             border: none;
             border-left: 1px solid var(--panel-border);
             border-radius: 0 7px 7px 0;
+            height: 100%;
+            min-height: 0;
             background: transparent;
             color: #efefef;
             padding: 4px 6px;
@@ -1193,7 +1212,11 @@
             outline-offset: -1px;
         }
         .mode-dropdown {
-            min-width: 200px;
+            box-sizing: border-box;
+            width: var(--stats-popup-control-width);
+            min-width: 0;
+            height: var(--stats-popup-control-inner-height);
+            min-height: var(--stats-popup-control-inner-height);
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             background: var(--surface-input);
@@ -1207,6 +1230,9 @@
         .mode-trigger {
             border-left: none;
             border-radius: 7px;
+            box-sizing: border-box;
+            min-height: 0;
+            height: 100%;
             width: 100%;
             justify-content: space-between;
             padding: 4px 10px;
@@ -1261,10 +1287,10 @@
             z-index: 10;
         }
         .nuclear-mode-row {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
+            align-items: start;
+            column-gap: 10px;
             width: 100%;
         }
         .nuclear-mode-inline label {
@@ -1430,8 +1456,8 @@
         }
         .toggle-row.locked {
             opacity: 0.75;
-            border-color: #2f8f4e;
-            background: rgba(47, 143, 78, 0.15);
+            border-color: var(--settings-module-locked-border);
+            background: var(--settings-module-locked-bg);
         }
         .toggle-row.locked .slider {
             background-color: #2f8f4e;
@@ -1443,8 +1469,8 @@
             gap: 12px;
             padding: 8px 10px;
             border-radius: 6px;
-            background-color: var(--surface-rail);
-            border: 1px solid var(--panel-border);
+            background-color: var(--settings-module-bg);
+            border: 1px solid var(--settings-module-border);
             transition:
                 background-color 0.2s ease,
                 border-color 0.2s ease,
@@ -1459,23 +1485,23 @@
             gap: 10px;
         }
         .toggle-row.subtoggle {
-            background-color: var(--surface-rail-alt);
+            background-color: var(--settings-module-subtle-bg);
         }
         .toggle-row.disabled {
-            opacity: 0.5;
+            opacity: var(--settings-module-disabled-opacity);
         }
         .toggle-row.is-off:not(.locked) {
-            background-color: rgba(34, 34, 34, 0.82);
-            border-color: rgba(255, 255, 255, 0.07);
-            filter: saturate(0.76);
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
         }
         .toggle-row.is-off:not(.locked) .toggle-text {
-            opacity: 0.58;
+            opacity: var(--settings-module-off-text-opacity);
         }
         .toggle-row.is-off:not(.locked) .switch,
         .toggle-row.is-off:not(.locked) .info-dot,
         .toggle-row.is-off:not(.locked) .legacy-pill {
-            opacity: 0.72;
+            opacity: var(--settings-module-off-control-opacity);
         }
         .toggle-row.combo {
             flex-wrap: wrap;
@@ -1495,17 +1521,18 @@
             flex: 0 0 auto;
             margin-left: auto;
             position: relative;
+            width: var(--stats-popup-compact-control-width);
         }
         .split-mode-mount .length-unit-dropdown.mode-dropdown {
             min-width: 0;
-            width: auto;
+            width: 100%;
         }
         .split-mode-mount .length-unit-trigger.mode-trigger {
-            width: auto;
+            width: 100%;
             justify-content: space-between;
             gap: 6px;
             padding: 4px 10px;
-            min-width: 110px;
+            min-width: 0;
         }
         .split-mode-mount .length-unit-menu {
             left: 0;
@@ -1620,6 +1647,24 @@
                 max-height: 88dvh;
             }
             .required-channel-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-distance-line,
+            .nuclear-mode-row {
+                grid-template-columns: 1fr;
+                row-gap: 6px;
+            }
+            .stats-distance-line .length-input-group,
+            .stats-distance-line .threshold-input-group,
+            .stats-distance-line .boxed-number-group,
+            .split-mode-mount,
+            .mode-dropdown,
+            .measurement-scale-row,
+            .measurement-scale-input-group {
+                justify-self: stretch;
+                width: 100%;
+            }
+            .measurement-scale-row {
                 grid-template-columns: 1fr;
             }
         }
@@ -2744,7 +2789,7 @@
     }
 
     function formatLengthUnitLabel(value) {
-        return normalizeLengthUnit(value) === 'um' ? 'µm' : 'px';
+        return normalizeLengthUnit(value) === 'um' ? '\u00b5m' : 'px';
     }
 
     function sanitizeMicronsPerPixel(value, fallback = DEFAULT_MICRONS_PER_PIXEL) {
@@ -3582,7 +3627,7 @@
                     localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
                 });
                 const thresholdInputGroup = document.createElement('div');
-                thresholdInputGroup.className = 'boxed-number-group';
+                thresholdInputGroup.className = 'boxed-number-group compact-control';
                 thresholdInputGroup.appendChild(thresholdInput);
                 thresholdLine.appendChild(thresholdInputGroup);
                 orientationRow.appendChild(thresholdLine);
@@ -3637,42 +3682,42 @@
         measurementScaleExampleHint = null;
         measurementScaleFallbackHint = null;
 
-        const row = document.createElement('div');
-        row.className = 'measurement-scale-row';
-
-        const text = document.createElement('div');
-        text.className = 'measurement-scale-text';
-
-        const titleRow = document.createElement('div');
-        titleRow.className = 'measurement-scale-title-row';
-
-        const title = document.createElement('span');
-        title.className = 'measurement-scale-title';
-        title.textContent = 'Micrometers Per Pixel (µm/px)';
-        titleRow.appendChild(title);
-
-        const info = buildInfoDot(
-            'Enter image scale as µm/px (how many micrometers one pixel represents).\n\nEnter µm/px, not px/µm. Example: if 1 pixel = 0.1 µm, enter 0.1.\nFormula: pixels = micrometers / (µm/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance in µm = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy µm/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is µm.'
-        );
-        info.classList.add('compact');
-        titleRow.appendChild(info);
-
-        text.appendChild(titleRow);
-
         const metadataRow = document.createElement('div');
-        metadataRow.className = 'measurement-metadata-row';
-        const metadataText = document.createElement('span');
-        metadataText.textContent = 'Use Metadata Scale Per File';
+        metadataRow.className = 'measurement-scale-row measurement-scale-toggle-row';
+
+        const metadataText = document.createElement('div');
+        metadataText.className = 'measurement-scale-text';
+        const metadataTitleRow = document.createElement('div');
+        metadataTitleRow.className = 'measurement-scale-title-row';
+        const metadataTitle = document.createElement('span');
+        metadataTitle.className = 'measurement-scale-title';
+        metadataTitle.textContent = 'Use Metadata Scale Per File';
+        metadataTitleRow.appendChild(metadataTitle);
+        const metadataInfo = buildInfoDot(
+            'When enabled, each file uses DV header dx/dy scale when valid. If metadata is missing or invalid, the manual micrometers-per-pixel fallback below is used.\n\nTurn this off to apply the manual fallback scale to every file in this run.'
+        );
+        metadataInfo.classList.add('compact');
+        metadataTitleRow.appendChild(metadataInfo);
+        metadataText.appendChild(metadataTitleRow);
+
+        const fallback = document.createElement('p');
+        fallback.className = 'measurement-scale-fallback';
         metadataRow.appendChild(metadataText);
+        metadataText.appendChild(fallback);
+
         const metadataSwitch = document.createElement('label');
         metadataSwitch.className = 'switch';
         const metadataInput = document.createElement('input');
         metadataInput.type = 'checkbox';
         metadataInput.id = 'statsUseMetadataScale';
         metadataInput.checked = !!statsState.useMetadataScale;
+        const syncMetadataVisualState = () => {
+            metadataRow.classList.toggle('is-off', !metadataInput.checked);
+        };
         metadataInput.addEventListener('change', () => {
             statsState.useMetadataScale = metadataInput.checked;
             persistLengthUnitSettings();
+            syncMetadataVisualState();
             updateMeasurementScaleHints();
         });
         const metadataSlider = document.createElement('span');
@@ -3680,15 +3725,33 @@
         metadataSwitch.appendChild(metadataInput);
         metadataSwitch.appendChild(metadataSlider);
         metadataRow.appendChild(metadataSwitch);
-        text.appendChild(metadataRow);
+        syncMetadataVisualState();
 
-        const fallback = document.createElement('p');
-        fallback.className = 'measurement-scale-fallback';
-        text.appendChild(fallback);
+        const scaleRow = document.createElement('div');
+        scaleRow.className = 'measurement-scale-row measurement-scale-manual-row';
+
+        const scaleText = document.createElement('div');
+        scaleText.className = 'measurement-scale-text';
+
+        const scaleTitleRow = document.createElement('div');
+        scaleTitleRow.className = 'measurement-scale-title-row';
+
+        const scaleTitle = document.createElement('span');
+        scaleTitle.className = 'measurement-scale-title';
+        scaleTitle.textContent = 'Micrometers Per Pixel (\u00b5m/px)';
+        scaleTitleRow.appendChild(scaleTitle);
+
+        const scaleInfo = buildInfoDot(
+            'Enter image scale as \u00b5m/px (how many micrometers one pixel represents).\n\nEnter \u00b5m/px, not px/\u00b5m. Example: if 1 pixel = 0.1 \u00b5m, enter 0.1.\nFormula: pixels = micrometers / (\u00b5m/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance in \u00b5m = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy \u00b5m/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is \u00b5m.'
+        );
+        scaleInfo.classList.add('compact');
+        scaleTitleRow.appendChild(scaleInfo);
+
+        scaleText.appendChild(scaleTitleRow);
 
         const live = document.createElement('p');
         live.className = 'measurement-scale-live';
-        live.appendChild(document.createTextNode('Current Scale: 1 µm = '));
+        live.appendChild(document.createTextNode('Current Scale: 1 \u00b5m = '));
         const livePxValue = document.createElement('span');
         livePxValue.className = 'measurement-scale-value';
         live.appendChild(livePxValue);
@@ -3696,19 +3759,17 @@
         const liveUmValue = document.createElement('span');
         liveUmValue.className = 'measurement-scale-value';
         live.appendChild(liveUmValue);
-        live.appendChild(document.createTextNode(' µm/px).'));
-        text.appendChild(live);
+        live.appendChild(document.createTextNode(' \u00b5m/px).'));
+        scaleText.appendChild(live);
 
-        row.appendChild(text);
-
-        const controlRow = document.createElement('div');
-        controlRow.className = 'measurement-scale-control-row';
         const example = document.createElement('p');
-        example.className = 'measurement-scale-example measurement-scale-inline-note';
-        controlRow.appendChild(example);
+        example.className = 'measurement-scale-example';
+        scaleText.appendChild(example);
+
+        scaleRow.appendChild(scaleText);
 
         const inputGroup = document.createElement('div');
-        inputGroup.className = 'boxed-number-group measurement-scale-input-group';
+        inputGroup.className = 'boxed-number-group measurement-scale-input-group compact-control';
         const input = document.createElement('input');
         input.type = 'number';
         input.id = 'statsMicronsPerPixelInput';
@@ -3725,10 +3786,10 @@
             updateMeasurementScaleHints();
         });
         inputGroup.appendChild(input);
-        controlRow.appendChild(inputGroup);
-        row.appendChild(controlRow);
+        scaleRow.appendChild(inputGroup);
 
-        container.appendChild(row);
+        container.appendChild(metadataRow);
+        container.appendChild(scaleRow);
         micronsPerPixelInput = input;
         useMetadataScaleInput = metadataInput;
         measurementScalePxPerUmValue = livePxValue;
@@ -3776,6 +3837,11 @@
 
     function updateMeasurementScaleHints() {
         if (!measurementScalePxPerUmValue || !measurementScaleUmPerPxValue || !measurementScaleExampleHint) return;
+
+        if (useMetadataScaleInput) {
+            const metadataRow = useMetadataScaleInput.closest('.measurement-scale-row');
+            if (metadataRow) metadataRow.classList.toggle('is-off', !useMetadataScaleInput.checked);
+        }
 
         const umPerPx = sanitizeMicronsPerPixel(statsState.micronsPerPixel);
         const pxPerUm = umPerPx > 0 ? (1 / umPerPx) : 0;

@@ -100,8 +100,7 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
             "Classifies Cen Dot Location as mother and/or daughter. Requires exactly two "
             "usable red puncta on opposite sides of the DIC-derived neck split; green puncta "
             "only count when they lie inside the DIC pair mask, on the same side as the red "
-            "punctum being tested, and within the signal proximity radius. Biorientation "
-            "counts are produced by the separate Biorientation plugin."
+            "punctum being tested, and within the signal proximity radius."
         ),
         module_name="core.cell_analysis.cen_dot",
         class_name="CENDot",
