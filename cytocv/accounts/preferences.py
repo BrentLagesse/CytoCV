@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import math
 from typing import Any
 
 from core.channel_roles import CHANNEL_ROLE_ORDER
@@ -14,11 +15,21 @@ from core.services.green_dot_split import (
     DEFAULT_GREEN_DOT_SPLIT_MODE,
     normalize_green_dot_split_mode,
 )
-from core.stats_plugins import CHANNEL_ORDER, normalize_selected_plugins
+from core.stats_plugins import (
+    ALWAYS_REQUIRED_CHANNELS,
+    CHANNEL_ORDER,
+    PLUGIN_DEFINITIONS,
+    PLUGIN_ID_ALIASES,
+    normalize_selected_plugins,
+)
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
 DEFAULT_MICRONS_PER_PIXEL = 0.1
+
+
+class PreferenceValidationError(ValueError):
+    """Raised when an interactive preference payload is invalid."""
 
 DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "experiment_defaults": {
@@ -100,6 +111,61 @@ def _normalize_unit(value: Any, default: str) -> str:
     if unit not in LENGTH_UNITS:
         return default
     return unit
+
+
+def _strict_bool(value: Any, *, field: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in {0, 1}:
+        return bool(value)
+    if isinstance(value, float) and value in {0.0, 1.0}:
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    raise PreferenceValidationError(f"{field} must be a boolean.")
+
+
+def _strict_float(value: Any, *, field: str, minimum: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        raise PreferenceValidationError(f"{field} must be a number.") from None
+    if not math.isfinite(parsed) or parsed < minimum:
+        raise PreferenceValidationError(f"{field} must be at least {minimum}.")
+    return parsed
+
+
+def _strict_int(value: Any, *, field: str, minimum: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise PreferenceValidationError(f"{field} must be an integer.") from None
+    if parsed < minimum:
+        raise PreferenceValidationError(f"{field} must be at least {minimum}.")
+    return parsed
+
+
+def _strict_unit(value: Any, *, field: str) -> str:
+    unit = str(value or "").strip().lower()
+    if unit not in LENGTH_UNITS:
+        raise PreferenceValidationError(f"{field} must be 'px' or 'um'.")
+    return unit
+
+
+def _strict_mode(
+    value: Any,
+    *,
+    field: str,
+    allowed: set[str],
+) -> str:
+    mode = str(value or "").strip()
+    if mode not in allowed:
+        raise PreferenceValidationError(f"{field} is invalid.")
+    return mode
 
 
 def _first_present(*values: Any) -> Any:
@@ -305,6 +371,238 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         default=normalized["experiment_defaults"]["spatial_stats_unit"],
     )
     return normalized
+
+
+def build_experiment_defaults_from_popup_payload(
+    raw_payload: Any,
+    *,
+    current_defaults: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate experiment-popup JSON and return normalized experiment defaults."""
+
+    if not isinstance(raw_payload, dict):
+        raise PreferenceValidationError("Request body must be a JSON object.")
+
+    allowed_fields = {
+        "selected_plugins",
+        "module_enabled",
+        "enforce_layer_count",
+        "enforce_wavelengths",
+        "show_legacy_plugins",
+        "manual_required_channels",
+        "green_contour_filter_enabled",
+        "green_dot_split_enabled",
+        "green_dot_split_mode",
+        "alternate_red_detection",
+        "puncta_line_width",
+        "puncta_line_width_unit",
+        "cen_dot_distance",
+        "cen_dot_distance_unit",
+        "cen_dot_proximity_radius",
+        "cen_dot_proximity_radius_unit",
+        "biorientation_red_min_distance",
+        "biorientation_red_min_distance_unit",
+        "biorientation_red_max_distance",
+        "biorientation_red_max_distance_unit",
+        "biorientation_collinearity_threshold",
+        "puncta_line_mode",
+        "nuclear_cell_pair_mode",
+        "microns_per_pixel",
+        "use_metadata_scale",
+    }
+    unknown_fields = sorted(set(raw_payload.keys()) - allowed_fields)
+    if unknown_fields:
+        raise PreferenceValidationError(
+            f"Unknown workflow-default fields: {', '.join(unknown_fields)}."
+        )
+
+    current = normalize_preferences_payload(
+        {"experiment_defaults": current_defaults or {}}
+    )["experiment_defaults"]
+
+    raw_selected_plugins = raw_payload.get("selected_plugins")
+    if not isinstance(raw_selected_plugins, list):
+        raise PreferenceValidationError("selected_plugins must be a list.")
+    resolved_plugins: list[str] = []
+    exclusive_groups: dict[str, str] = {}
+    for raw_plugin in raw_selected_plugins:
+        if not isinstance(raw_plugin, str):
+            raise PreferenceValidationError("selected_plugins must contain strings.")
+        plugin_id = PLUGIN_ID_ALIASES.get(raw_plugin.strip(), raw_plugin.strip())
+        if plugin_id not in PLUGIN_DEFINITIONS:
+            raise PreferenceValidationError(f"Unknown plugin ID: {raw_plugin}.")
+        definition = PLUGIN_DEFINITIONS[plugin_id]
+        if definition.exclusive_group:
+            existing = exclusive_groups.get(definition.exclusive_group)
+            if existing and existing != plugin_id:
+                raise PreferenceValidationError(
+                    "Only one plugin can be selected in each exclusive group."
+                )
+            exclusive_groups[definition.exclusive_group] = plugin_id
+        resolved_plugins.append(plugin_id)
+    selected_plugins = normalize_selected_plugins(resolved_plugins)
+
+    raw_manual_channels = raw_payload.get("manual_required_channels")
+    if not isinstance(raw_manual_channels, list):
+        raise PreferenceValidationError("manual_required_channels must be a list.")
+    manual_required_channels: list[str] = []
+    seen_channels: set[str] = set()
+    for raw_channel in raw_manual_channels:
+        if not isinstance(raw_channel, str):
+            raise PreferenceValidationError(
+                "manual_required_channels must contain strings."
+            )
+        channel = raw_channel.strip()
+        if channel not in CHANNEL_ORDER or channel in ALWAYS_REQUIRED_CHANNELS:
+            raise PreferenceValidationError(
+                f"manual_required_channels contains an invalid channel: {raw_channel}."
+            )
+        if channel in seen_channels:
+            continue
+        seen_channels.add(channel)
+        manual_required_channels.append(channel)
+
+    puncta_line_width_unit = _strict_unit(
+        raw_payload.get("puncta_line_width_unit"),
+        field="puncta_line_width_unit",
+    )
+    cen_dot_distance_unit = _strict_unit(
+        raw_payload.get("cen_dot_distance_unit"),
+        field="cen_dot_distance_unit",
+    )
+    cen_dot_proximity_radius_unit = _strict_unit(
+        raw_payload.get("cen_dot_proximity_radius_unit"),
+        field="cen_dot_proximity_radius_unit",
+    )
+    biorientation_red_min_distance_unit = _strict_unit(
+        raw_payload.get("biorientation_red_min_distance_unit"),
+        field="biorientation_red_min_distance_unit",
+    )
+    biorientation_red_max_distance_unit = _strict_unit(
+        raw_payload.get("biorientation_red_max_distance_unit"),
+        field="biorientation_red_max_distance_unit",
+    )
+
+    puncta_line_width_minimum = 1.0 if puncta_line_width_unit == "px" else 0.01
+    puncta_line_width = _strict_float(
+        raw_payload.get("puncta_line_width"),
+        field="puncta_line_width",
+        minimum=puncta_line_width_minimum,
+    )
+    cen_dot_distance = _strict_float(
+        raw_payload.get("cen_dot_distance"),
+        field="cen_dot_distance",
+        minimum=0.0,
+    )
+    cen_dot_proximity_radius = _strict_float(
+        raw_payload.get("cen_dot_proximity_radius"),
+        field="cen_dot_proximity_radius",
+        minimum=0.0,
+    )
+    biorientation_red_min_distance = _strict_float(
+        raw_payload.get("biorientation_red_min_distance"),
+        field="biorientation_red_min_distance",
+        minimum=0.0,
+    )
+    biorientation_red_max_distance = _strict_float(
+        raw_payload.get("biorientation_red_max_distance"),
+        field="biorientation_red_max_distance",
+        minimum=0.0,
+    )
+    biorientation_collinearity_threshold = _strict_int(
+        raw_payload.get("biorientation_collinearity_threshold"),
+        field="biorientation_collinearity_threshold",
+        minimum=0,
+    )
+    microns_per_pixel = _strict_float(
+        raw_payload.get("microns_per_pixel"),
+        field="microns_per_pixel",
+        minimum=0.0001,
+    )
+
+    puncta_line_mode = _strict_mode(
+        raw_payload.get("puncta_line_mode"),
+        field="puncta_line_mode",
+        allowed={"red_puncta", "green_puncta"},
+    )
+    nuclear_cell_pair_mode = _strict_mode(
+        raw_payload.get("nuclear_cell_pair_mode"),
+        field="nuclear_cell_pair_mode",
+        allowed=NUCLEAR_CELL_PAIR_MODES,
+    )
+    green_dot_split_mode = _strict_mode(
+        raw_payload.get("green_dot_split_mode"),
+        field="green_dot_split_mode",
+        allowed={"balanced", "aggressive"},
+    )
+
+    show_legacy_plugins = _strict_bool(
+        raw_payload.get("show_legacy_plugins"),
+        field="show_legacy_plugins",
+    )
+    if not show_legacy_plugins:
+        legacy_plugins = [
+            plugin_id
+            for plugin_id in selected_plugins
+            if PLUGIN_DEFINITIONS[plugin_id].is_legacy
+        ]
+        if legacy_plugins:
+            raise PreferenceValidationError(
+                "Legacy plugins can only be saved when show_legacy_plugins is enabled."
+            )
+
+    next_defaults = dict(current)
+    next_defaults.update(
+        {
+            "selected_plugins": selected_plugins,
+            "module_enabled": _strict_bool(
+                raw_payload.get("module_enabled"),
+                field="module_enabled",
+            ),
+            "enforce_layer_count": _strict_bool(
+                raw_payload.get("enforce_layer_count"),
+                field="enforce_layer_count",
+            ),
+            "enforce_wavelengths": _strict_bool(
+                raw_payload.get("enforce_wavelengths"),
+                field="enforce_wavelengths",
+            ),
+            "show_legacy_plugins": show_legacy_plugins,
+            "manual_required_channels": manual_required_channels,
+            "green_contour_filter_enabled": _strict_bool(
+                raw_payload.get("green_contour_filter_enabled"),
+                field="green_contour_filter_enabled",
+            ),
+            "green_dot_split_enabled": _strict_bool(
+                raw_payload.get("green_dot_split_enabled"),
+                field="green_dot_split_enabled",
+            ),
+            "green_dot_split_mode": green_dot_split_mode,
+            "alternate_red_detection": _strict_bool(
+                raw_payload.get("alternate_red_detection"),
+                field="alternate_red_detection",
+            ),
+            "puncta_line_width": puncta_line_width,
+            "puncta_line_width_unit": puncta_line_width_unit,
+            "cen_dot_distance": cen_dot_distance,
+            "cen_dot_distance_unit": cen_dot_distance_unit,
+            "cen_dot_proximity_radius": cen_dot_proximity_radius,
+            "cen_dot_proximity_radius_unit": cen_dot_proximity_radius_unit,
+            "biorientation_red_min_distance": biorientation_red_min_distance,
+            "biorientation_red_min_distance_unit": biorientation_red_min_distance_unit,
+            "biorientation_red_max_distance": biorientation_red_max_distance,
+            "biorientation_red_max_distance_unit": biorientation_red_max_distance_unit,
+            "biorientation_collinearity_threshold": biorientation_collinearity_threshold,
+            "puncta_line_mode": puncta_line_mode,
+            "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+            "microns_per_pixel": microns_per_pixel,
+            "use_metadata_scale": _strict_bool(
+                raw_payload.get("use_metadata_scale"),
+                field="use_metadata_scale",
+            ),
+        }
+    )
+    return next_defaults
 
 
 def get_user_preferences(user: Any) -> dict[str, Any]:

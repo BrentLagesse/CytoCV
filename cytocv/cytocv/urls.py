@@ -41,6 +41,7 @@ from core.views.experiment import (
     cancel_upload_preparation,
     enqueue_upload_preparation,
     experiment,
+    save_experiment_workflow_defaults,
     upload_file_batch,
     upload_preparation_status,
 )
@@ -86,6 +87,11 @@ urlpatterns = [
         'api/experiment/uploads/',
         login_required(upload_file_batch),
         name="experiment_upload_batch",
+    ),
+    path(
+        'api/experiment/workflow-defaults/',
+        login_required(save_experiment_workflow_defaults),
+        name="experiment_workflow_defaults",
     ),
     path(
         'api/experiment/upload-prep/',

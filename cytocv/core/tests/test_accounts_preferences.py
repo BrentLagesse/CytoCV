@@ -1474,6 +1474,35 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         return str(file_uuid)
 
+    def _build_experiment_workflow_defaults_payload(self) -> dict[str, object]:
+        return {
+            "selected_plugins": ["PunctaDistance", "GreenRedIntensity"],
+            "module_enabled": True,
+            "enforce_layer_count": True,
+            "enforce_wavelengths": False,
+            "show_legacy_plugins": False,
+            "manual_required_channels": ["channel_blue"],
+            "green_contour_filter_enabled": True,
+            "green_dot_split_enabled": False,
+            "green_dot_split_mode": "aggressive",
+            "alternate_red_detection": True,
+            "puncta_line_width": 2.5,
+            "puncta_line_width_unit": "um",
+            "cen_dot_distance": 11.2,
+            "cen_dot_distance_unit": "px",
+            "cen_dot_proximity_radius": 6.5,
+            "cen_dot_proximity_radius_unit": "um",
+            "biorientation_red_min_distance": 1.5,
+            "biorientation_red_min_distance_unit": "px",
+            "biorientation_red_max_distance": 44.5,
+            "biorientation_red_max_distance_unit": "um",
+            "biorientation_collinearity_threshold": 77,
+            "puncta_line_mode": "green_puncta",
+            "nuclear_cell_pair_mode": "red_nucleus",
+            "microns_per_pixel": 0.25,
+            "use_metadata_scale": False,
+        }
+
     def test_preferences_page_renders_review_modal_and_form_review_hooks(self):
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
@@ -1539,6 +1568,126 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Keep Old")
         self.assertContains(response, "Confirm Changes")
         self.assertContains(response, "Confirm New")
+
+    def test_experiment_page_renders_workflow_default_save_controls(self):
+        response = self.client.get(reverse("experiment"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="saveWorkflowDefaultsPrimary"', html=False)
+        self.assertContains(response, 'id="saveWorkflowDefaultsAdvanced"', html=False)
+        self.assertContains(response, 'id="saveWorkflowDefaultsBackdrop"', html=False)
+        self.assertContains(response, 'id="saveWorkflowDefaultsConfirm"', html=False)
+        self.assertContains(response, "Save as Workflow Default")
+        self.assertContains(response, "Save as workflow default?")
+        self.assertContains(response, "Keep Old Settings")
+        self.assertContains(response, "Keep New Changes")
+
+    def test_experiment_workflow_defaults_endpoint_persists_popup_settings(self):
+        payload = self._build_experiment_workflow_defaults_payload()
+
+        response = self.client.post(
+            reverse("experiment_workflow_defaults"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["message"],
+            "Workflow default updated. Future experiments will start with this configuration.",
+        )
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertEqual(defaults["selected_plugins"], ["PunctaDistance", "GreenRedIntensity"])
+        self.assertTrue(defaults["module_enabled"])
+        self.assertTrue(defaults["enforce_layer_count"])
+        self.assertFalse(defaults["enforce_wavelengths"])
+        self.assertFalse(defaults["show_legacy_plugins"])
+        self.assertEqual(defaults["manual_required_channels"], ["channel_blue"])
+        self.assertTrue(defaults["green_contour_filter_enabled"])
+        self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertTrue(defaults["alternate_red_detection"])
+        self.assertEqual(defaults["puncta_line_width"], 2.5)
+        self.assertEqual(defaults["puncta_line_width_unit"], "um")
+        self.assertEqual(defaults["cen_dot_distance"], 11.2)
+        self.assertEqual(defaults["cen_dot_distance_unit"], "px")
+        self.assertEqual(defaults["cen_dot_proximity_radius"], 6.5)
+        self.assertEqual(defaults["cen_dot_proximity_radius_unit"], "um")
+        self.assertEqual(defaults["biorientation_red_min_distance"], 1.5)
+        self.assertEqual(defaults["biorientation_red_min_distance_unit"], "px")
+        self.assertEqual(defaults["biorientation_red_max_distance"], 44.5)
+        self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
+        self.assertEqual(defaults["biorientation_collinearity_threshold"], 77)
+        self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
+        self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
+        self.assertEqual(defaults["microns_per_pixel"], 0.25)
+        self.assertFalse(defaults["use_metadata_scale"])
+        self.assertEqual(defaults["spatial_stats_unit"], "px")
+
+    def test_experiment_workflow_defaults_endpoint_preserves_non_popup_preferences(self):
+        preferences = get_user_preferences(self.user)
+        preferences["auto_save_experiments"] = False
+        preferences["show_saved_file_channels"] = False
+        preferences["show_saved_file_scales"] = False
+        preferences["sidebar_starts_open"] = False
+        preferences["sidebar_spatial_stats_unit"] = "um"
+        preferences["experiment_defaults"]["spatial_stats_unit"] = "um"
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.post(
+            reverse("experiment_workflow_defaults"),
+            data=json.dumps(self._build_experiment_workflow_defaults_payload()),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        updated = get_user_preferences(self.user)
+        self.assertFalse(updated["auto_save_experiments"])
+        self.assertFalse(updated["show_saved_file_channels"])
+        self.assertFalse(updated["show_saved_file_scales"])
+        self.assertFalse(updated["sidebar_starts_open"])
+        self.assertEqual(updated["sidebar_spatial_stats_unit"], "um")
+        self.assertEqual(updated["experiment_defaults"]["spatial_stats_unit"], "um")
+
+    def test_experiment_workflow_defaults_endpoint_rejects_invalid_payload(self):
+        baseline = get_user_preferences(self.user)
+        cases = (
+            {"selected_plugins": ["UnknownPlugin"]},
+            {"puncta_line_width_unit": "bad"},
+            {"green_dot_split_mode": "invalid"},
+            {"manual_required_channels": ["DIC"]},
+        )
+
+        for overrides in cases:
+            payload = self._build_experiment_workflow_defaults_payload()
+            payload.update(overrides)
+            response = self.client.post(
+                reverse("experiment_workflow_defaults"),
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertTrue(response.json()["errors"])
+            self.user.refresh_from_db()
+            self.assertEqual(get_user_preferences(self.user), baseline)
+
+    def test_experiment_page_uses_updated_saved_workflow_defaults(self):
+        response = self.client.post(
+            reverse("experiment_workflow_defaults"),
+            data=json.dumps(self._build_experiment_workflow_defaults_payload()),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        experiment_response = self.client.get(reverse("experiment"))
+        self.assertEqual(experiment_response.status_code, 200)
+        rendered_defaults = json.loads(experiment_response.context["user_preference_defaults_json"])
+        self.assertEqual(rendered_defaults["selected_plugins"], ["PunctaDistance", "GreenRedIntensity"])
+        self.assertEqual(rendered_defaults["cen_dot_proximity_radius"], 6.5)
+        self.assertEqual(rendered_defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "red_nucleus")
 
     def test_preferences_plugin_payload_includes_exclusive_and_dependency_fields(self):
         response = self.client.get(reverse("workflow_defaults"))
