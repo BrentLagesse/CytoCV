@@ -57,6 +57,7 @@ def enqueue_upload_preparation_job(
         error_lines=[],
         status=UploadPreparationJob.Status.QUEUED,
         current_phase="Queued",
+        progress_detail={"message": "Waiting for upload-preparation worker."},
         failure_summary="",
     )
 
@@ -105,12 +106,14 @@ def claim_next_upload_preparation_job() -> UploadPreparationJob | None:
             return None
         job.status = UploadPreparationJob.Status.RUNNING
         job.current_phase = "Queued"
+        job.progress_detail = {"message": "Waiting for upload-preparation worker."}
         job.started_at = timezone.now()
         job.failure_summary = ""
         job.save(
             update_fields=[
                 "status",
                 "current_phase",
+                "progress_detail",
                 "started_at",
                 "failure_summary",
             ]
@@ -134,8 +137,11 @@ def request_upload_preparation_cancellation(
         cancellation_requested=True,
         status=next_status,
         current_phase="Cancelling",
+        progress_detail={"message": "Cancelling upload preparation."},
     )
-    job.refresh_from_db(fields=["cancellation_requested", "status", "current_phase"])
+    job.refresh_from_db(
+        fields=["cancellation_requested", "status", "current_phase", "progress_detail"]
+    )
     return job
 
 
@@ -147,12 +153,14 @@ def finalize_upload_preparation_job(
     valid_run_uuids: Iterable[object] | None = None,
     error_lines: Iterable[object] | None = None,
     failure_summary: str = "",
+    progress_detail: dict[str, object] | None = None,
 ) -> UploadPreparationJob:
     """Persist the terminal state for a completed upload-preparation job."""
 
     update_fields: dict[str, object] = {
         "status": status,
         "current_phase": current_phase,
+        "progress_detail": progress_detail or {},
         "failure_summary": failure_summary,
         "finished_at": timezone.now(),
     }

@@ -39,6 +39,7 @@ from core.services.artifact_storage import (
     log_storage_capacity_failure,
     sweep_user_run_artifacts,
 )
+from core.services.analysis_progress import normalize_progress_detail
 from core.services.upload_preparation_jobs import (
     enqueue_upload_preparation_job,
     finalize_upload_preparation_job,
@@ -61,6 +62,10 @@ def _parse_bool(value, default=False):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _upload_job_detail(job: UploadPreparationJob) -> dict[str, object]:
+    return normalize_progress_detail(job.progress_detail)
 
 
 def _parse_positive_float(value, default: float, minimum: float = 0.0) -> float:
@@ -544,6 +549,7 @@ def experiment(request):
             "job_uuid": str(job.job_uuid),
             "status": job.status,
             "phase": job.current_phase,
+            "detail": _upload_job_detail(job),
         }
         if is_ajax:
             return JsonResponse(payload)
@@ -681,6 +687,7 @@ def enqueue_upload_preparation(request):
             "job_uuid": str(job.job_uuid),
             "status": job.status,
             "phase": job.current_phase,
+            "detail": _upload_job_detail(job),
         }
     )
 
@@ -708,6 +715,7 @@ def upload_preparation_status(request, job_uuid):
             "job_uuid": str(job.job_uuid),
             "status": job.status,
             "phase": job.current_phase,
+            "detail": _upload_job_detail(job),
             "errors": list(job.error_lines or []),
             "failure_summary": job.failure_summary,
             "redirect": redirect_url,
@@ -730,7 +738,13 @@ def cancel_upload_preparation(request, job_uuid):
         UploadPreparationJob.Status.FAILED,
         UploadPreparationJob.Status.CANCELLED,
     }:
-        return JsonResponse({"status": job.status, "phase": job.current_phase})
+        return JsonResponse(
+            {
+                "status": job.status,
+                "phase": job.current_phase,
+                "detail": _upload_job_detail(job),
+            }
+        )
 
     if job.status == UploadPreparationJob.Status.QUEUED:
         for run_uuid in job.new_run_uuids:
@@ -744,4 +758,10 @@ def cancel_upload_preparation(request, job_uuid):
         )
     else:
         job = request_upload_preparation_cancellation(job)
-    return JsonResponse({"status": job.status, "phase": job.current_phase})
+    return JsonResponse(
+        {
+            "status": job.status,
+            "phase": job.current_phase,
+            "detail": _upload_job_detail(job),
+        }
+    )

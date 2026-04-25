@@ -187,6 +187,7 @@ class UploadPreparationJob(models.Model):
         default=Status.QUEUED,
     )
     current_phase = models.CharField(max_length=64, default="Queued")
+    progress_detail = models.JSONField(default=dict)
     cancellation_requested = models.BooleanField(default=False)
     failure_summary = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)

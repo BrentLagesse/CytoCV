@@ -268,6 +268,12 @@
         .submit-btn.loading .spinner {
             display: inline-block;
         }
+        .form-action-row .async-progress-host {
+            width: min(190px, 45%);
+        }
+        .form-action-row .async-progress-host .submit-btn {
+            width: 100%;
+        }
         .form-action-row {
             width: 100%;
             display: flex;
@@ -1954,10 +1960,12 @@
         <div class="form-action-row">
             <button type="button" class="upload-page-back-btn" id="pageBackButton" aria-label="Go back">Back</button>
             <!-- Submit button with spinner + text -->
-            <button type="submit" class="submit-btn" id="uploadSubmit">
-                <span class="spinner" aria-hidden="true"></span>
-                <span class="btn-text">Preprocess Files</span>
-            </button>
+            <span class="async-progress-host" tabindex="0" data-progress-active="0">
+                <button type="submit" class="submit-btn" id="uploadSubmit">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span class="btn-text">Preprocess Files</span>
+                </button>
+            </span>
         </div>
     </div>
 </form>
@@ -5426,6 +5434,16 @@
 
             const submitBtn = document.getElementById('uploadSubmit');
             const btnText = submitBtn.querySelector('.btn-text');
+            const setUploadProgress = (payload) => {
+                if (window.CytoCVAsyncProgress) {
+                    window.CytoCVAsyncProgress.set(submitBtn, payload);
+                }
+            };
+            const clearUploadProgress = () => {
+                if (window.CytoCVAsyncProgress) {
+                    window.CytoCVAsyncProgress.clear(submitBtn);
+                }
+            };
 
             const controls = document.querySelectorAll(
                 '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
@@ -5438,6 +5456,10 @@
             submitBtn.classList.add('loading');
             submitBtn.style.backgroundColor = '#0056b3';
             btnText.textContent = 'Preprocess Files';
+            setUploadProgress({
+                phase: 'Preprocess Files',
+                message: 'Preparing upload request.',
+            });
 
             const settingsBackdrop = document.getElementById('settingsBackdrop');
             if (settingsBackdrop) {
@@ -5559,6 +5581,12 @@
                             ? `Uploading ${index + 1}/${batches.length}`
                             : 'Uploading Files';
                     }
+                    setUploadProgress({
+                        phase: 'Uploading Files',
+                        batchIndex: index + 1,
+                        batchTotal: batches.length,
+                        fileName: batches[index][0] ? batches[index][0].name : '',
+                    });
                     const batchData = new FormData();
                     batches[index].forEach((file) => batchData.append('files', file));
                     const uploadResponse = await fetch('{% url "experiment_upload_batch" %}', {
@@ -5578,6 +5606,10 @@
 
                 uploadedRunUuids.forEach((uuid) => prepData.append('new_run_uuids', uuid));
                 if (btnText) btnText.textContent = 'Queued';
+                setUploadProgress({
+                    phase: 'Queued',
+                    message: 'Waiting for upload-preparation worker.',
+                });
                 const prepResponse = await fetch('{% url "experiment_upload_prepare" %}', {
                     method: 'POST',
                     headers: {
@@ -5608,9 +5640,15 @@
                         } else {
                             btnText.textContent = statusPayload.phase;
                         }
+                        setUploadProgress({
+                            ...(statusPayload.detail || {}),
+                            phase: statusPayload.phase,
+                            status: statusPayload.status,
+                        });
                     }
                     if (statusPayload.status === 'succeeded' && statusPayload.redirect) {
                         clearTimeout(uploadTimeout);
+                        clearUploadProgress();
                         if (statusPayload.errors && statusPayload.errors.length > 0) {
                             sessionStorage.setItem('dvErrors', JSON.stringify(statusPayload.errors));
                         }
@@ -5643,6 +5681,7 @@
                     ]);
                 }
                 submitBtn.classList.remove('loading');
+                clearUploadProgress();
                 controls.forEach((el) => {
                     el.disabled = false;
                     el.style.pointerEvents = '';

@@ -27,6 +27,7 @@ from core.services.artifact_storage import (
     resolve_uploaded_file_path,
     run_media_path,
 )
+from core.services.analysis_progress import normalize_progress_detail
 from core.services.upload_preparation_jobs import finalize_upload_preparation_job
 
 logger = logging.getLogger(__name__)
@@ -99,9 +100,26 @@ def _raise_if_cancelled(job: UploadPreparationJob) -> None:
         raise UploadPreparationCancelled()
 
 
-def _set_phase(job: UploadPreparationJob, phase: str) -> None:
-    UploadPreparationJob.objects.filter(pk=job.pk).update(current_phase=phase)
+def _display_file_name(uploaded: UploadedImage | None, fallback: str) -> str:
+    if uploaded is None:
+        return fallback
+    file_name = Path(str(uploaded.file_location.name or "")).name
+    return file_name or f"{uploaded.name}.dv"
+
+
+def _set_phase(
+    job: UploadPreparationJob,
+    phase: str,
+    *,
+    detail: dict[str, object] | None = None,
+) -> None:
+    progress_detail = normalize_progress_detail(detail)
+    UploadPreparationJob.objects.filter(pk=job.pk).update(
+        current_phase=phase,
+        progress_detail=progress_detail,
+    )
     job.current_phase = phase
+    job.progress_detail = progress_detail
 
 
 def _missing_upload_result(required_channels: set[str]) -> DVValidationResult:
@@ -151,13 +169,24 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
     valid_run_uuids: list[str] = []
     new_run_uuids = [str(UUID(str(value))) for value in job.new_run_uuids if str(value)]
     restored_run_uuids = [str(UUID(str(value))) for value in job.restored_run_uuids if str(value)]
+    requested_run_uuids = [*restored_run_uuids, *new_run_uuids]
+    requested_total = len(requested_run_uuids)
 
     try:
         _raise_if_cancelled(job)
         _set_phase(job, "Validating Files")
-        for run_uuid in [*restored_run_uuids, *new_run_uuids]:
+        for index, run_uuid in enumerate(requested_run_uuids, start=1):
             _raise_if_cancelled(job)
             uploaded = UploadedImage.objects.filter(uuid=run_uuid, **owner_filter).first()
+            _set_phase(
+                job,
+                "Validating Files",
+                detail={
+                    "fileIndex": index,
+                    "fileTotal": requested_total,
+                    "fileName": _display_file_name(uploaded, run_uuid),
+                },
+            )
             if uploaded is None:
                 failures.append(
                     (
@@ -195,9 +224,19 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             )
 
         _set_phase(job, "Preparing Previews")
-        for run_uuid in valid_run_uuids:
+        valid_total = len(valid_run_uuids)
+        for index, run_uuid in enumerate(valid_run_uuids, start=1):
             _raise_if_cancelled(job)
             uploaded = UploadedImage.objects.get(uuid=run_uuid, **owner_filter)
+            _set_phase(
+                job,
+                "Preparing Previews",
+                detail={
+                    "fileIndex": index,
+                    "fileTotal": valid_total,
+                    "fileName": _display_file_name(uploaded, run_uuid),
+                },
+            )
             _prepare_one_upload(
                 uploaded=uploaded,
                 manual_um_per_px=manual_um_per_px,

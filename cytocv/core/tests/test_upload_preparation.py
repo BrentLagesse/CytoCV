@@ -241,6 +241,42 @@ class UploadPreparationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_upload_preparation_status_returns_safe_progress_detail(self):
+        job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        UploadPreparationJob.objects.filter(pk=job.pk).update(
+            status=UploadPreparationJob.Status.RUNNING,
+            current_phase="Preparing Previews",
+            progress_detail={
+                "fileIndex": 2,
+                "fileTotal": 4,
+                "fileName": "../preview_detail.dv",
+                "message": "Preview generation is running.",
+                "unsafe": "ignored",
+            },
+        )
+
+        response = self.client.get(
+            reverse("experiment_upload_prepare_status", args=[str(job.job_uuid)])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["phase"], "Preparing Previews")
+        self.assertEqual(
+            payload["detail"],
+            {
+                "fileName": "preview_detail.dv",
+                "message": "Preview generation is running.",
+                "fileIndex": 2,
+                "fileTotal": 4,
+            },
+        )
+
     def test_upload_preparation_enqueue_forbids_other_user_uuid_and_cleans_new(self):
         with temporary_media_root() as media_root:
             new_upload = self._create_uploaded_image(media_root, name="new_upload")

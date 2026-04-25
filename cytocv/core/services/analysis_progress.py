@@ -23,6 +23,53 @@ from core.services.analysis_progress_contract import (
 
 logger = logging.getLogger(__name__)
 
+_DETAIL_STRING_KEYS = frozenset({"fileName", "message"})
+_DETAIL_INT_KEYS = frozenset(
+    {
+        "fileIndex",
+        "fileTotal",
+        "batchIndex",
+        "batchTotal",
+        "cellIndex",
+        "cellTotal",
+    }
+)
+
+
+def _safe_detail_string(value: object, *, file_name: bool = False) -> str:
+    text = str(value or "").strip()
+    if file_name:
+        text = text.replace("\\", "/").rsplit("/", 1)[-1]
+    return text[:240]
+
+
+def _safe_detail_int(value: object) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
+def normalize_progress_detail(detail: object | None) -> dict[str, object]:
+    """Return a safe progress-detail payload for user-facing polling APIs."""
+
+    if not isinstance(detail, dict):
+        return {}
+
+    normalized: dict[str, object] = {}
+    for key in _DETAIL_STRING_KEYS:
+        value = _safe_detail_string(detail.get(key), file_name=key == "fileName")
+        if value:
+            normalized[key] = value
+
+    for key in _DETAIL_INT_KEYS:
+        value = _safe_detail_int(detail.get(key))
+        if value is not None:
+            normalized[key] = value
+
+    return normalized
+
 
 def _log_inconsistent_snapshot(
     *,
