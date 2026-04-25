@@ -12,13 +12,13 @@ VALID_NUCLEAR_CELL_PAIR_MODES = frozenset({"green_nucleus", "red_nucleus"})
 _MODE_RATIO_CONFIG = {
     "red_nucleus": {
         "pair_label": "Green/Red",
-        "formula_text": "Green in Red / Red in Red",
+        "formula_text": "Green In Red / Red In Red",
         "numerator_prefix": "green_intensity",
         "denominator_prefix": "red_intensity",
     },
     "green_nucleus": {
         "pair_label": "Red/Green",
-        "formula_text": "Red in Green / Green in Green",
+        "formula_text": "Red In Green / Green In Green",
         "numerator_prefix": "red_in_green_intensity",
         "denominator_prefix": "green_in_green_intensity",
     },

@@ -37,6 +37,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 from core.services.artifact_storage import (
     delete_uploaded_run,
     delete_uploaded_run_by_uuid,
@@ -360,16 +364,61 @@ def experiment(request):
             microns_per_pixel=posted_microns_per_pixel,
         )
 
-        cen_dot_collinearity_threshold_raw = request.POST.get(
-            "cenDotCollinearityThreshold",
-            request.POST.get("threshold", "66"),
+        biorientation_collinearity_threshold_raw = request.POST.get(
+            "biorientationCollinearityThreshold",
+            "66",
         )
         try:
-            cen_dot_collinearity_threshold = int(cen_dot_collinearity_threshold_raw)
+            biorientation_collinearity_threshold = int(biorientation_collinearity_threshold_raw)
         except (TypeError, ValueError):
-            cen_dot_collinearity_threshold = 66
-        if cen_dot_collinearity_threshold < 0:
-            cen_dot_collinearity_threshold = 66
+            biorientation_collinearity_threshold = 66
+        if biorientation_collinearity_threshold < 0:
+            biorientation_collinearity_threshold = 66
+
+        biorientation_red_min_distance_value_raw = request.POST.get(
+            "biorientationRedMinDistance", "0.0"
+        )
+        biorientation_red_min_distance_unit_raw = request.POST.get(
+            "biorientationRedMinDistanceUnit", "px"
+        )
+        biorientation_red_max_distance_value_raw = request.POST.get(
+            "biorientationRedMaxDistance", "37.0"
+        )
+        biorientation_red_max_distance_unit_raw = request.POST.get(
+            "biorientationRedMaxDistanceUnit", "px"
+        )
+        try:
+            biorientation_red_min_distance_value = float(
+                biorientation_red_min_distance_value_raw
+            )
+        except (TypeError, ValueError):
+            biorientation_red_min_distance_value = 0.0
+        if biorientation_red_min_distance_value < 0:
+            biorientation_red_min_distance_value = 0.0
+        try:
+            biorientation_red_max_distance_value = float(
+                biorientation_red_max_distance_value_raw
+            )
+        except (TypeError, ValueError):
+            biorientation_red_max_distance_value = 37.0
+        if biorientation_red_max_distance_value < 0:
+            biorientation_red_max_distance_value = 37.0
+        biorientation_red_min_distance_unit = _normalize_length_unit(
+            biorientation_red_min_distance_unit_raw
+        )
+        biorientation_red_max_distance_unit = _normalize_length_unit(
+            biorientation_red_max_distance_unit_raw
+        )
+        green_dot_split_enabled = _parse_bool(
+            request.POST.get(
+                "greenDotSplitEnabled",
+                request.POST.get("biorientationGreenSplitEnabled"),
+            ),
+            default=True,
+        )
+        green_dot_split_mode = normalize_green_dot_split_mode(
+            request.POST.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        )
 
         green_contour_filter_enabled = request.POST.get(
             "greenContourFilterEnabled",
@@ -384,7 +433,6 @@ def experiment(request):
         request.session["selected_analysis"] = requirement_summary["selected_plugins"]
         request.session["punctaLineWidth"] = puncta_line_width
         request.session["cenDotDistance"] = cen_dot_distance
-        request.session["cenDotCollinearityThreshold"] = cen_dot_collinearity_threshold
         request.session["cenDotProximityRadius"] = cen_dot_proximity_radius
         request.session["stats_puncta_line_width_unit"] = puncta_line_width_unit
         request.session["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
@@ -394,6 +442,15 @@ def experiment(request):
         request.session["stats_puncta_line_width_value"] = puncta_line_width_value
         request.session["stats_cen_dot_distance_value"] = cen_dot_distance_value
         request.session["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius_value
+        request.session["biorientationRedMinDistance"] = biorientation_red_min_distance_value
+        request.session["biorientationRedMaxDistance"] = biorientation_red_max_distance_value
+        request.session["biorientationCollinearityThreshold"] = biorientation_collinearity_threshold
+        request.session["greenDotSplitEnabled"] = green_dot_split_enabled
+        request.session["greenDotSplitMode"] = green_dot_split_mode
+        request.session["stats_biorientation_red_min_distance_value"] = biorientation_red_min_distance_value
+        request.session["stats_biorientation_red_min_distance_unit"] = biorientation_red_min_distance_unit
+        request.session["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value
+        request.session["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
         request.session["puncta_line_mode"] = _parse_puncta_line_mode(
             request.POST.get("puncta_line_mode"),
             default=DEFAULT_PUNCTA_LINE_MODE,

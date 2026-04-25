@@ -54,6 +54,7 @@ from core.services.puncta_line_mode import (
     VALID_PUNCTA_LINE_MODES,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import normalize_green_dot_split_mode
 from core.scale import (
     get_scale_context_payload,
     get_scale_sidebar_payload,
@@ -78,6 +79,15 @@ LENGTH_UNITS = {"px", "um"}
 
 def _post_bool(request: HttpRequest, key: str) -> bool:
     return str(request.POST.get(key, "")).strip().lower() in {"1", "true", "on", "yes"}
+
+
+def _payload_bool(post_data: Any, key: str, *, default: bool = False, legacy_key: str | None = None) -> bool:
+    raw_value = post_data.get(key)
+    if raw_value is None and legacy_key is not None:
+        raw_value = post_data.get(legacy_key)
+    if raw_value is None:
+        return default
+    return str(raw_value).strip().lower() in {"1", "true", "on", "yes"}
 
 
 def _parse_positive_int(raw_value: Any, default: int, minimum: int = 0) -> int:
@@ -152,6 +162,14 @@ def _extract_measurement_defaults(
         defaults.get("cen_dot_distance_unit"),
         default="px",
     )
+    current_biorientation_red_min_distance_unit = _normalize_unit(
+        defaults.get("biorientation_red_min_distance_unit"),
+        default="px",
+    )
+    current_biorientation_red_max_distance_unit = _normalize_unit(
+        defaults.get("biorientation_red_max_distance_unit"),
+        default="px",
+    )
     current_puncta_line_width = _parse_positive_float(
         defaults.get("puncta_line_width", defaults.get("red_line_width")),
         default=1,
@@ -162,8 +180,21 @@ def _extract_measurement_defaults(
         default=37,
         minimum=0,
     )
-    current_cen_dot_collinearity_threshold = _parse_positive_int(
-        defaults.get("cen_dot_collinearity_threshold"),
+    current_biorientation_red_min_distance = _parse_positive_float(
+        defaults.get("biorientation_red_min_distance"),
+        default=0,
+        minimum=0,
+    )
+    current_biorientation_red_max_distance = _parse_positive_float(
+        defaults.get("biorientation_red_max_distance"),
+        default=37,
+        minimum=0,
+    )
+    current_biorientation_collinearity_threshold = _parse_positive_int(
+        defaults.get(
+            "biorientation_collinearity_threshold",
+            defaults.get("cen_dot_collinearity_threshold"),
+        ),
         default=66,
         minimum=0,
     )
@@ -194,6 +225,14 @@ def _extract_measurement_defaults(
         post_data.get("cen_dot_distance_unit"),
         default=current_cen_dot_distance_unit,
     )
+    biorientation_red_min_distance_unit = _normalize_unit(
+        post_data.get("biorientation_red_min_distance_unit"),
+        default=current_biorientation_red_min_distance_unit,
+    )
+    biorientation_red_max_distance_unit = _normalize_unit(
+        post_data.get("biorientation_red_max_distance_unit"),
+        default=current_biorientation_red_max_distance_unit,
+    )
     puncta_line_minimum = 1 if puncta_line_width_unit == "px" else 0
     raw_use_metadata_scale = post_data.get("use_metadata_scale")
     if raw_use_metadata_scale is None:
@@ -216,9 +255,19 @@ def _extract_measurement_defaults(
             default=current_cen_dot_distance,
             minimum=0,
         ),
-        "cen_dot_collinearity_threshold": _parse_positive_int(
-            post_data.get("cen_dot_collinearity_threshold"),
-            default=current_cen_dot_collinearity_threshold,
+        "biorientation_red_min_distance": _parse_positive_float(
+            post_data.get("biorientation_red_min_distance"),
+            default=current_biorientation_red_min_distance,
+            minimum=0,
+        ),
+        "biorientation_red_max_distance": _parse_positive_float(
+            post_data.get("biorientation_red_max_distance"),
+            default=current_biorientation_red_max_distance,
+            minimum=0,
+        ),
+        "biorientation_collinearity_threshold": _parse_positive_int(
+            post_data.get("biorientation_collinearity_threshold"),
+            default=current_biorientation_collinearity_threshold,
             minimum=0,
         ),
         "puncta_line_mode": _normalize_puncta_mode(
@@ -231,6 +280,8 @@ def _extract_measurement_defaults(
         ),
         "puncta_line_width_unit": puncta_line_width_unit,
         "cen_dot_distance_unit": cen_dot_distance_unit,
+        "biorientation_red_min_distance_unit": biorientation_red_min_distance_unit,
+        "biorientation_red_max_distance_unit": biorientation_red_max_distance_unit,
         "microns_per_pixel": _parse_positive_float(
             post_data.get("microns_per_pixel"),
             default=current_microns_per_pixel,
@@ -252,7 +303,7 @@ def _channel_summary_meta(channel: str) -> str:
     if channel == CHANNEL_ROLE_RED:
         return "Red fluorescence signal channel"
     if channel == CHANNEL_ROLE_GREEN:
-        return "Green fluorescence signal channel and CEN dot measurements."
+        return "Green fluorescence signal channel and Cen Dot Measurements."
     return "Channel data used in analysis"
 
 
@@ -297,7 +348,7 @@ def _resolve_required_channel_state(
             "toggle_disabled": True,
             "row_disabled": True,
             "row_locked": False,
-            "row_help": 'Required because "Enforce required channels" is enabled.',
+            "row_help": 'Required because "Enforce Required Channels" is enabled.',
         }
 
     if module_enabled and channel in manual_required:
@@ -321,7 +372,7 @@ def _resolve_required_channel_state(
             "toggle_disabled": True,
             "row_disabled": True,
             "row_locked": False,
-            "row_help": 'Paused because "Enforce required channels" is saved while the validation module is OFF.',
+            "row_help": 'Paused because "Enforce Required Channels" is saved while the validation module is OFF.',
         }
 
     if channel in manual_required:
@@ -1088,6 +1139,18 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
             green_contour_filter_enabled = _post_bool(request, "green_contour_filter_enabled")
+            green_dot_split_enabled = _payload_bool(
+                request.POST,
+                "green_dot_split_enabled",
+                default=bool(defaults.get("green_dot_split_enabled", True)),
+                legacy_key="biorientation_green_split_enabled",
+            )
+            green_dot_split_mode = normalize_green_dot_split_mode(
+                request.POST.get(
+                    "green_dot_split_mode",
+                    defaults.get("green_dot_split_mode"),
+                )
+            )
             alternate_red_detection = _post_bool(request, "alternate_red_detection")
             manual_required_channels = [
                 channel
@@ -1123,6 +1186,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     "show_legacy_plugins": show_legacy_plugins,
                     "manual_required_channels": manual_required_channels,
                     "green_contour_filter_enabled": green_contour_filter_enabled,
+                    "green_dot_split_enabled": green_dot_split_enabled,
+                    "green_dot_split_mode": green_dot_split_mode,
                     "alternate_red_detection": alternate_red_detection,
                 }
             )

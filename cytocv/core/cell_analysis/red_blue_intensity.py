@@ -3,7 +3,7 @@ from core.services.canonical_contours import get_canonical_red_slots
 from .analysis import Analysis
 
 class RedBlueIntensity(Analysis):
-    name = 'Red in Blue Intensity'
+    name = 'Red In Blue Intensity'
 
     def calculate_statistics(
         self,
@@ -13,7 +13,6 @@ class RedBlueIntensity(Analysis):
         green_image,
         puncta_line_width_input,
         cen_dot_distance,
-        cen_dot_collinearity_threshold,
         cen_dot_proximity_radius=13,
     ):
         """

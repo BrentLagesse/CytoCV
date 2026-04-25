@@ -248,7 +248,7 @@
         margin-right: 12px;
       }
       .sidebar-content.has-scrollbar .file-item {
-        margin-right: 12px;
+        margin-right: 0;
       }
       .sidebar-content ul { list-style: none; margin: 0; padding: 0; }
       .sidebar-content li { margin: 0; padding: 0; border: none; }
@@ -348,7 +348,7 @@
 
       /* Each file-item */
       .file-item {
-        margin: 8px 12px;
+        margin: 8px 0 8px 12px;
         padding: 12px;
         background-color: var(--surface-muted);
         border-radius: 12px;
@@ -878,9 +878,7 @@
         top: 0;
         left: 0;
         width: min(420px, 94vw);
-        background:
-          var(--liquid-linear-highlight),
-          var(--card-bg);
+        background: var(--popup-surface-bg);
         border: 1px solid var(--panel-border);
         border-radius: 14px;
         padding: 18px;
@@ -1178,8 +1176,8 @@
             </button>
           </div>
           <div class="sidebar-unit-controls">
-            <span class="sidebar-unit-label">Spatial unit:</span>
-            <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial units" data-active-unit="px">
+            <span class="sidebar-unit-label">Spatial Unit:</span>
+            <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-active-unit="px">
               <div class="sidebar-unit-indicator" aria-hidden="true"></div>
               <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
               <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
@@ -1261,7 +1259,7 @@
               </div>
             </div>
             <div class="analysis">
-              <form action="" method="post" enctype="multipart/form-data" id="preprocessForm">
+              <form action="" method="post" enctype="multipart/form-data" id="preprocessForm" data-results-href="{% url 'display' uuids %}">
                 {% csrf_token %}
                 <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
                 <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />

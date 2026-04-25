@@ -69,6 +69,10 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
+from core.services.green_dot_split import (
+    DEFAULT_GREEN_DOT_SPLIT_MODE,
+    normalize_green_dot_split_mode,
+)
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import (
     AUTOSAVE_STORAGE_FULL_MESSAGE,
@@ -883,17 +887,6 @@ def run_segmentation_batch(
             )
             cen_dot_distance_px_equivalent = int(cen_dot_distance)
             cen_dot_distance_mode = "pixel"
-        try:
-            cen_dot_collinearity_threshold = int(
-                config_snapshot.get(
-                    "cenDotCollinearityThreshold",
-                    config_snapshot.get("threshold", 66),
-                )
-            )
-        except (TypeError, ValueError):
-            cen_dot_collinearity_threshold = 66
-        if cen_dot_collinearity_threshold < 0:
-            cen_dot_collinearity_threshold = 66
         raw_cen_dot_proximity_radius = config_snapshot.get(
             "stats_cen_dot_proximity_radius_value",
             config_snapshot.get("cenDotProximityRadius", 13),
@@ -935,6 +928,47 @@ def run_segmentation_batch(
             "alternateRedDetection",
             config_snapshot.get("alternateMCherryDetection", False),
         )
+        biorientation_red_min_distance_unit = normalize_length_unit(
+            str(config_snapshot.get("stats_biorientation_red_min_distance_unit", "px")),
+            default="px",
+        )
+        biorientation_red_max_distance_unit = normalize_length_unit(
+            str(config_snapshot.get("stats_biorientation_red_max_distance_unit", "px")),
+            default="px",
+        )
+        try:
+            biorientation_red_min_distance_value = float(
+                config_snapshot.get("stats_biorientation_red_min_distance_value", 0.0)
+            )
+        except (TypeError, ValueError):
+            biorientation_red_min_distance_value = 0.0
+        if not math.isfinite(biorientation_red_min_distance_value) or biorientation_red_min_distance_value < 0:
+            biorientation_red_min_distance_value = 0.0
+        try:
+            biorientation_red_max_distance_value = float(
+                config_snapshot.get("stats_biorientation_red_max_distance_value", 37.0)
+            )
+        except (TypeError, ValueError):
+            biorientation_red_max_distance_value = 37.0
+        if not math.isfinite(biorientation_red_max_distance_value) or biorientation_red_max_distance_value < 0:
+            biorientation_red_max_distance_value = 37.0
+        try:
+            biorientation_collinearity_threshold = int(
+                config_snapshot.get("biorientationCollinearityThreshold", 66)
+            )
+        except (TypeError, ValueError):
+            biorientation_collinearity_threshold = 66
+        if biorientation_collinearity_threshold < 0:
+            biorientation_collinearity_threshold = 66
+        green_dot_split_enabled = bool(
+            config_snapshot.get(
+                "greenDotSplitEnabled",
+                config_snapshot.get("biorientationGreenSplitEnabled", True),
+            )
+        )
+        green_dot_split_mode = normalize_green_dot_split_mode(
+            config_snapshot.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        )
 
         configured_puncta_line_width = _process_config_value(
             configuration,
@@ -961,6 +995,8 @@ def run_segmentation_batch(
             ),
             "green_contour_filter_enabled": green_contour_filter_enabled,
             "alternate_red_detection": alternate_red_detection,
+            "green_dot_split_enabled": green_dot_split_enabled,
+            "green_dot_split_mode": green_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -982,13 +1018,19 @@ def run_segmentation_batch(
                 ),
                 puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
-                cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
                 green_contour_filter_enabled=bool(green_contour_filter_enabled),
                 alternate_red_detection=bool(alternate_red_detection),
                 puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
                 cen_dot_proximity_radius=cen_dot_proximity_radius,
                 cen_dot_proximity_radius_unit=cen_dot_proximity_radius_unit,
+                biorientation_red_min_distance_value=biorientation_red_min_distance_value,
+                biorientation_red_min_distance_unit=biorientation_red_min_distance_unit,
+                biorientation_red_max_distance_value=biorientation_red_max_distance_value,
+                biorientation_red_max_distance_unit=biorientation_red_max_distance_unit,
+                biorientation_collinearity_threshold=biorientation_collinearity_threshold,
+                green_dot_split_enabled=green_dot_split_enabled,
+                green_dot_split_mode=green_dot_split_mode,
             ),
         )
 
@@ -1050,6 +1092,13 @@ def run_segmentation_batch(
             cp.properties["stats_cen_dot_proximity_radius_px"] = cen_dot_proximity_radius_px_equivalent
             cp.properties["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius
             cp.properties["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
+            cp.properties["stats_biorientation_red_min_distance_value"] = biorientation_red_min_distance_value
+            cp.properties["stats_biorientation_red_min_distance_unit"] = biorientation_red_min_distance_unit
+            cp.properties["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value
+            cp.properties["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
+            cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
+            cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
+            cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
 
             cp.properties["neck_split"] = _build_neck_split_properties(
                 pair_geometry_cache.get(cell_number)
@@ -1061,10 +1110,11 @@ def run_segmentation_batch(
                 execution_plan,
                 puncta_line_width,
                 cen_dot_distance,
-                cen_dot_collinearity_threshold,
                 cen_dot_proximity_radius,
                 green_contour_filter_enabled,
                 alternate_red_detection,
+                green_dot_split_enabled,
+                green_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
             )
             rendered_overlay_images = {

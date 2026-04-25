@@ -32,7 +32,7 @@ CHANNEL_INFO: dict[str, str] = {
     CHANNEL_ROLE_DIC: "Differential Interference Contrast channel used for segmentation/CNN preprocessing.",
     CHANNEL_ROLE_BLUE: "Blue fluorescence channel used for nucleus-related contours and legacy blue-channel metrics.",
     CHANNEL_ROLE_RED: "Red fluorescence channel used for dot contour detection and red intensity measurements.",
-    CHANNEL_ROLE_GREEN: "Green fluorescence channel used for green intensity, contour, and CEN dot measurements.",
+    CHANNEL_ROLE_GREEN: "Green fluorescence channel used for green intensity, contour, and Cen Dot measurements.",
 }
 
 
@@ -64,6 +64,7 @@ class StatsExecutionPlan:
 PLUGIN_ORDER: tuple[str, ...] = (
     "PunctaDistance",
     "CENDot",
+    "Biorientation",
     "GreenRedIntensity",
     "NuclearCellPairIntensity",
     "NucleusIntensity",
@@ -94,19 +95,29 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
     ),
     "CENDot": StatsPluginDefinition(
         plugin_id="CENDot",
-        label="CEN dot Location",
+        label="Cen Dot Location",
         description=(
-            "Classifies CEN-dot location as mother and/or daughter and evaluates "
-            "biorientation for close red pairs. Requires exactly two usable red puncta "
-            "on opposite sides of the DIC-derived neck split; green puncta only count "
-            "when they lie inside the DIC pair mask, on the same side as the red punctum "
-            "being tested, and within the signal proximity radius. When the red-to-red "
-            "distance meets the minimum threshold, mother/daughter location is reported; "
-            "below threshold, the biorientation calculation runs instead and the location "
-            "stays N/A. Legacy runs must be rerun to surface the new mother/daughter label."
+            "Classifies Cen Dot Location as mother and/or daughter. Requires exactly two "
+            "usable red puncta on opposite sides of the DIC-derived neck split; green puncta "
+            "only count when they lie inside the DIC pair mask, on the same side as the red "
+            "punctum being tested, and within the signal proximity radius."
         ),
         module_name="core.cell_analysis.cen_dot",
         class_name="CENDot",
+        required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
+    ),
+    "Biorientation": StatsPluginDefinition(
+        plugin_id="Biorientation",
+        label="Biorientation",
+        description=(
+            "Counts green dots inside the DIC-defined cell contour as colinear with the "
+            "red-puncta axis or off-axis, independent of Cen Dot classification. Requires "
+            "exactly two red puncta whose separation falls within the user-configured "
+            "minimum and maximum. Colinear Dots and Off Axis Dots are "
+            "clamped to 0, 1, or 2."
+        ),
+        module_name="core.cell_analysis.biorientation",
+        class_name="Biorientation",
         required_channels=frozenset({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}),
     ),
     "GreenRedIntensity": StatsPluginDefinition(

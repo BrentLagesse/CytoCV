@@ -16,14 +16,14 @@ SCALE_STATUSES = {"ok", "missing", "invalid", "anisotropic_avg"}
 SCALE_SOURCE_LABELS = {
     "metadata": "Metadata",
     "manual_global": "Manual",
-    "manual_override": "Manual override",
-    "manual_fallback": "Manual fallback",
+    "manual_override": "Manual Override",
+    "manual_fallback": "Manual Fallback",
 }
 
 SCALE_STATUS_LABELS = {
     "ok": "OK",
-    "missing": "Missing metadata",
-    "invalid": "Invalid metadata",
+    "missing": "Missing Metadata",
+    "invalid": "Invalid Metadata",
     "anisotropic_avg": "Averaged dx/dy",
 }
 

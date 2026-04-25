@@ -6,6 +6,7 @@ from io import BytesIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -27,7 +28,6 @@ from core.models import (
     UploadedImage,
     get_guest_user,
 )
-from core.mrcnn.preprocess_images import PreprocessedImageArtifact
 from core.scale import apply_manual_override_scale, build_scale_info
 from core.stats_plugins import PLUGIN_DEFINITIONS
 
@@ -41,12 +41,15 @@ class PreferenceNormalizationTests(TestCase):
             [
                 "PunctaDistance",
                 "CENDot",
+                "Biorientation",
                 "GreenRedIntensity",
                 "NuclearCellPairIntensity",
             ],
         )
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -68,6 +71,7 @@ class PreferenceNormalizationTests(TestCase):
                     "cen_dot_collinearity_threshold": "-1",
                     "puncta_line_mode": "bad_mode",
                     "nuclear_cell_pair_mode": "bad_mode",
+                    "green_dot_split_mode": "bad_mode",
                     "puncta_line_width_unit": "um",
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
@@ -87,15 +91,29 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["manual_required_channels"], ["DIC"])
         self.assertEqual(defaults["puncta_line_width"], 1)
         self.assertEqual(defaults["cen_dot_distance"], 37)
-        self.assertEqual(defaults["cen_dot_collinearity_threshold"], 66)
+        self.assertEqual(defaults["biorientation_collinearity_threshold"], 66)
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertFalse(normalized["show_saved_file_scales"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
+
+    def test_normalize_preferences_migrates_legacy_green_split_default(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "biorientation_green_split_enabled": "false",
+                },
+            }
+        )
+
+        defaults = normalized["experiment_defaults"]
+        self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertNotIn("biorientation_green_split_enabled", defaults)
 
     def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
         normalized = normalize_preferences_payload(
@@ -632,9 +650,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
-        self.assertContains(response, 'Line + Spot Metrics')
-        self.assertContains(response, 'Raw Contour Intensity Sums')
-        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
+        self.assertContains(response, 'CEN Dot Measurements')
+        self.assertContains(response, 'Red In Red Raw Sums')
+        self.assertContains(response, 'Green In Red Raw Sums')
+        self.assertContains(response, 'Red In Green Raw Sums')
+        self.assertContains(response, 'Green In Green Raw Sums')
+        self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
@@ -671,9 +692,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="blue_form"', html=False)
         self.assertContains(response, 'id="red_form"', html=False)
         self.assertContains(response, 'id="green_form"', html=False)
-        self.assertContains(response, 'Line + Spot Metrics')
-        self.assertContains(response, 'Raw Contour Intensity Sums')
-        self.assertContains(response, 'Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell')
+        self.assertContains(response, 'CEN Dot Measurements')
+        self.assertContains(response, 'Red In Red Raw Sums')
+        self.assertContains(response, 'Green In Red Raw Sums')
+        self.assertContains(response, 'Red In Green Raw Sums')
+        self.assertContains(response, 'Green In Green Raw Sums')
+        self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
@@ -717,15 +741,15 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("text/csv", response["Content-Type"])
         csv_text = response.content.decode("utf-8")
         self.assertIn("Cell ID", csv_text)
-        self.assertIn("Red in Red Intensity 1", csv_text)
-        self.assertIn("Green in Red Intensity 1", csv_text)
-        self.assertIn("Red in Green Intensity 1", csv_text)
-        self.assertIn("Green in Green Intensity 1", csv_text)
+        self.assertIn("Red In Red Intensity 1", csv_text)
+        self.assertIn("Green In Red Intensity 1", csv_text)
+        self.assertIn("Red In Green Intensity 1", csv_text)
+        self.assertIn("Green In Green Intensity 1", csv_text)
         self.assertNotIn("Green/Red ratio 1", csv_text)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", csv_text)
         self.assertIn("5.000", csv_text)
         self.assertIn("8.000", csv_text)
-        self.assertIn("CEN dot Location", csv_text)
+        self.assertIn("Cen Dot Location", csv_text)
         self.assertIn("Mother and daughter", csv_text)
 
     def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
@@ -753,10 +777,10 @@ class DisplayManualSaveTests(TestCase):
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
         headers = [cell.value for cell in sheet[1]]
-        self.assertIn("Red in Red Intensity 1", headers)
-        self.assertIn("Green in Red Intensity 1", headers)
-        self.assertIn("Red in Green Intensity 1", headers)
-        self.assertIn("Green in Green Intensity 1", headers)
+        self.assertIn("Red In Red Intensity 1", headers)
+        self.assertIn("Green In Red Intensity 1", headers)
+        self.assertIn("Red In Green Intensity 1", headers)
+        self.assertIn("Green In Green Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
 
@@ -778,9 +802,9 @@ class DisplayManualSaveTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         csv_text = response.content.decode("utf-8")
-        self.assertIn("Distance between Red Puncta (µm)", csv_text)
+        self.assertIn("Distance Between Red Puncta (µm)", csv_text)
         self.assertIn("Blue Contour Size (µm²)", csv_text)
-        self.assertIn("Distance of Green from Red 1 (µm)", csv_text)
+        self.assertIn("Distance Of Green From Red 1 (µm)", csv_text)
         self.assertIn("0.500", csv_text)
         self.assertIn("2.250", csv_text)
         self.assertIn("3.000", csv_text)
@@ -805,11 +829,11 @@ class DisplayManualSaveTests(TestCase):
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
         headers = [cell.value for cell in sheet[1]]
-        self.assertIn("Distance between Red Puncta (µm)", headers)
+        self.assertIn("Distance Between Red Puncta (µm)", headers)
         self.assertIn("Blue Contour Size (µm²)", headers)
-        self.assertIn("Distance of Green from Red 1 (µm)", headers)
-        self.assertIn("CEN dot Location", headers)
-        gfp_dot_col = headers.index("CEN dot Location") + 1
+        self.assertIn("Distance Of Green From Red 1 (µm)", headers)
+        self.assertIn("Cen Dot Location", headers)
+        gfp_dot_col = headers.index("Cen Dot Location") + 1
         self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "Mother and daughter")
 
     def test_display_csv_export_uses_uploaded_file_name(self):
@@ -1343,21 +1367,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @patch(
-        "core.views.pre_process.preprocess_images",
-        return_value=PreprocessedImageArtifact(
-            image_id="stub_image.dv",
-            preprocessed_path=Path("stub_prep.png"),
-            original_height=1,
-            original_width=1,
-        ),
+        "core.views.pre_process.run_analysis_batch",
+        return_value=SimpleNamespace(storage_warning_message=""),
     )
-    @patch("core.views.pre_process.predict_images", return_value=True)
-    @patch("core.views.pre_process.tif_to_jpg", return_value=None)
     def test_preprocess_post_persists_manual_scale_override_before_analysis(
         self,
-        _mock_tif_to_jpg,
-        _mock_predict,
-        _mock_preprocess,
+        mock_run_analysis_batch,
     ):
         preprocess_uuid = self._create_preprocess_file(filename="scale_override_preprocess")
 
@@ -1367,29 +1382,21 @@ class DisplayManualSaveTests(TestCase):
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/segment/", response["Location"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["redirect"], reverse("display", args=[preprocess_uuid]))
+        mock_run_analysis_batch.assert_called_once()
         uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
         scale_info = uploaded.scale_info or {}
         self.assertEqual(scale_info.get("source"), "manual_override")
         self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.27, places=6)
 
     @patch(
-        "core.views.pre_process.preprocess_images",
-        return_value=PreprocessedImageArtifact(
-            image_id="stub_image.dv",
-            preprocessed_path=Path("stub_prep.png"),
-            original_height=1,
-            original_width=1,
-        ),
+        "core.views.pre_process.run_analysis_batch",
+        return_value=SimpleNamespace(storage_warning_message=""),
     )
-    @patch("core.views.pre_process.predict_images", return_value=True)
-    @patch("core.views.pre_process.tif_to_jpg", return_value=None)
     def test_preprocess_post_reverts_manual_override_to_metadata_scale(
         self,
-        _mock_tif_to_jpg,
-        _mock_predict,
-        _mock_preprocess,
+        mock_run_analysis_batch,
     ):
         preprocess_uuid = self._create_preprocess_file(filename="scale_revert_preprocess")
         uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
@@ -1410,7 +1417,9 @@ class DisplayManualSaveTests(TestCase):
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["redirect"], reverse("display", args=[preprocess_uuid]))
+        mock_run_analysis_batch.assert_called_once()
         uploaded.refresh_from_db()
         scale_info = uploaded.scale_info or {}
         self.assertEqual(scale_info.get("source"), "metadata")
@@ -1488,10 +1497,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="advancedWavelengthCheckRow"', html=False)
         self.assertContains(response, 'id="sidebar_starts_open"', html=False)
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
+        self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
+        self.assertContains(response, 'id="green_dot_split_mode"', html=False)
+        self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
         self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
         self.assertContains(
             response,
-            "Start sidebars open on dashboard, display, and preprocess",
+            "Start Sidebars Open On Dashboard, Display, And Preprocess",
         )
         self.assertContains(
             response,
@@ -1507,7 +1519,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertContains(
             response,
-            "Filter out low-confidence Green signal contours in challenging images.",
+            "Filters low-confidence Green signal contours in challenging images.",
         )
         self.assertContains(
             response,
@@ -1549,6 +1561,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         for plugin_id in (
             "PunctaDistance",
             "CENDot",
+            "Biorientation",
             "GreenRedIntensity",
             "NuclearCellPairIntensity",
         ):
@@ -1764,12 +1777,15 @@ class ChannelVisibilityPreferenceTests(TestCase):
             [
                 "PunctaDistance",
                 "CENDot",
+                "Biorientation",
                 "GreenRedIntensity",
                 "NuclearCellPairIntensity",
             ],
         )
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
@@ -1781,7 +1797,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "puncta_line_width_unit": "um",
                 "cen_dot_distance": "11.2",
                 "cen_dot_distance_unit": "px",
-                "cen_dot_collinearity_threshold": "77",
+                "biorientation_red_min_distance": "2.5",
+                "biorientation_red_min_distance_unit": "px",
+                "biorientation_red_max_distance": "44.5",
+                "biorientation_red_max_distance_unit": "um",
+                "biorientation_collinearity_threshold": "77",
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": "0.25",
@@ -1799,7 +1819,12 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["puncta_line_width_unit"], "um")
         self.assertEqual(defaults["cen_dot_distance"], 11.2)
         self.assertEqual(defaults["cen_dot_distance_unit"], "px")
-        self.assertEqual(defaults["cen_dot_collinearity_threshold"], 77)
+        self.assertEqual(defaults["biorientation_red_min_distance"], 2.5)
+        self.assertEqual(defaults["biorientation_red_min_distance_unit"], "px")
+        self.assertEqual(defaults["biorientation_red_max_distance"], 44.5)
+        self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
+        self.assertEqual(defaults["biorientation_collinearity_threshold"], 77)
+        self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
@@ -1814,7 +1839,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "puncta_line_width_unit": "um",
                 "cen_dot_distance": 9.0,
                 "cen_dot_distance_unit": "um",
-                "cen_dot_collinearity_threshold": 81,
+                "biorientation_red_min_distance": 2,
+                "biorientation_red_min_distance_unit": "px",
+                "biorientation_red_max_distance": 41,
+                "biorientation_red_max_distance_unit": "um",
+                "biorientation_collinearity_threshold": 81,
+                "green_dot_split_enabled": False,
+                "green_dot_split_mode": "aggressive",
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
@@ -1842,12 +1873,50 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["puncta_line_width_unit"], "um")
         self.assertEqual(defaults["cen_dot_distance"], 9.0)
         self.assertEqual(defaults["cen_dot_distance_unit"], "um")
-        self.assertEqual(defaults["cen_dot_collinearity_threshold"], 81)
+        self.assertEqual(defaults["biorientation_red_min_distance"], 2)
+        self.assertEqual(defaults["biorientation_red_min_distance_unit"], "px")
+        self.assertEqual(defaults["biorientation_red_max_distance"], 41)
+        self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
+        self.assertEqual(defaults["biorientation_collinearity_threshold"], 81)
+        self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
+
+    def test_advanced_settings_form_persists_green_dot_split_default(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_advanced_settings",
+                "green_dot_split_enabled": "0",
+                "green_dot_split_mode": "aggressive",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_advanced_settings",
+                "green_dot_split_enabled": "on",
+                "green_dot_split_mode": "invalid",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(

@@ -153,7 +153,7 @@ class ScaleInfoNormalizationTests(SimpleTestCase):
         )
         payload = get_scale_sidebar_payload(info)
         self.assertTrue(payload["is_warning"])
-        self.assertEqual(payload["source_label"], "Manual fallback")
+        self.assertEqual(payload["source_label"], "Manual Fallback")
 
     def test_normalize_scale_info_uses_default_manual_for_invalid_payload(self):
         normalized = normalize_scale_info({"effective_um_per_px": "bad"}, manual_default=0.33)
@@ -340,4 +340,3 @@ class DVScaleMetadataParserTests(SimpleTestCase):
         payload = extract_dv_scale_metadata("dummy.dv")
         self.assertEqual(payload["status"], "invalid")
         self.assertIsNone(payload["metadata_um_per_px"])
-

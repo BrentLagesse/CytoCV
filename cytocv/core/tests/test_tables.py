@@ -47,7 +47,9 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         row = list(category_table.rows)[0]
 
         self.assertEqual(row.get_cell("category_cen_dot"), "Mother and daughter")
-        self.assertEqual(list(category_table.as_values())[1][-2], "Mother and daughter")
+        values = list(category_table.as_values())
+        header = values[0]
+        self.assertEqual(values[1][header.index("Cen Dot Location")], "Mother and daughter")
 
     def test_render_cen_dot_location_falls_back_to_na_for_invalid_values(self):
         record = SimpleNamespace(
@@ -58,7 +60,9 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         row = list(category_table.rows)[0]
 
         self.assertEqual(row.get_cell("category_cen_dot"), "N/A")
-        self.assertEqual(list(category_table.as_values())[1][-2], "N/A")
+        values = list(category_table.as_values())
+        header = values[0]
+        self.assertEqual(values[1][header.index("Cen Dot Location")], "N/A")
 
     def test_legacy_rows_render_rerun_required_label_for_non_na_cen_values(self):
         record = SimpleNamespace(category_cen_dot=1, properties={})
@@ -80,8 +84,8 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_cen_dot_location_header_replaces_legacy_category_header(self):
         header_row = list(self.table.as_values())[0]
 
-        self.assertIn("CEN dot Location", header_row)
-        self.assertNotIn("CEN dot Category", header_row)
+        self.assertIn("Cen Dot Location", header_row)
+        self.assertNotIn("Cen Dot Category", header_row)
 
     def test_ratio_columns_are_present_with_explicit_compatibility_labels(self):
         header_row = list(self.table.as_values())[0]
@@ -93,11 +97,11 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_ratio_columns_follow_raw_contour_sums_and_precede_distance_triplet(self):
         header_row = list(self.table.as_values())[0]
 
-        green_in_green_index = header_row.index("Green in Green Intensity 3")
+        green_in_green_index = header_row.index("Green In Green Intensity 3")
         ratio_1_index = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
         ratio_2_index = header_row.index("Measurement/Contour Ratio 2 (Red/Green)")
         ratio_3_index = header_row.index("Measurement/Contour Ratio 3 (Red/Green)")
-        distance_triplet_index = header_row.index("Distance of Green from Red 1 (px)")
+        distance_triplet_index = header_row.index("Distance Of Green From Red 1 (px)")
 
         self.assertLess(green_in_green_index, ratio_1_index)
         self.assertLess(ratio_1_index, ratio_2_index)
@@ -114,8 +118,8 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_line_columns_use_green_puncta_headers_when_requested(self):
         header_row = list(CellTable([], intensity_mode="green_nucleus", puncta_line_mode="green_puncta").as_values())[0]
 
-        self.assertIn("Distance between Green Puncta (px)", header_row)
-        self.assertIn("Red Intensity over Green Line", header_row)
+        self.assertIn("Distance Between Green Puncta (px)", header_row)
+        self.assertIn("Red Intensity Over Green Line", header_row)
 
     def test_ratio_values_are_derived_from_raw_sums_not_stale_stored_values(self):
         record = SimpleNamespace(
@@ -156,9 +160,9 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_spatial_headers_include_default_pixel_units(self):
         header_row = list(self.table.as_values())[0]
 
-        self.assertIn("Distance between Red Puncta (px)", header_row)
+        self.assertIn("Distance Between Red Puncta (px)", header_row)
         self.assertIn("Blue Contour Size (px²)", header_row)
-        self.assertIn("Distance of Green from Red 1 (px)", header_row)
+        self.assertIn("Distance Of Green From Red 1 (px)", header_row)
 
     def test_spatial_headers_switch_to_microns_when_requested(self):
         header_row = list(
@@ -171,9 +175,9 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
             ).as_values()
         )[0]
 
-        self.assertIn("Distance between Red Puncta (µm)", header_row)
+        self.assertIn("Distance Between Red Puncta (µm)", header_row)
         self.assertIn("Blue Contour Size (µm²)", header_row)
-        self.assertIn("Distance of Green from Red 1 (µm)", header_row)
+        self.assertIn("Distance Of Green From Red 1 (µm)", header_row)
 
     def test_spatial_values_convert_for_render_and_export(self):
         record = SimpleNamespace(

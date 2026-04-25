@@ -22,10 +22,10 @@ from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 
 
 NUCLEAR_CELL_PAIR_LABELS = {
-    "red_nucleus": ("Green cell-pair intensity", "Green nuclear intensity"),
-    "green_nucleus": ("Red cell-pair intensity", "Red nuclear intensity"),
+    "red_nucleus": ("Green Cell-Pair Intensity", "Green Nuclear Intensity"),
+    "green_nucleus": ("Red Cell-Pair Intensity", "Red Nuclear Intensity"),
 }
-FALLBACK_NUCLEAR_CELL_PAIR_LABELS = ("Measured cell-pair intensity", "Measured nuclear intensity")
+FALLBACK_NUCLEAR_CELL_PAIR_LABELS = ("Measured Cell-Pair Intensity", "Measured Nuclear Intensity")
 
 
 class NumberColumn(tables.Column):
@@ -72,8 +72,8 @@ class CellTable(tables.Table):
     }
 
     cell_id = tables.Column(verbose_name="Cell ID")
-    puncta_distance = NumberColumn(verbose_name="Distance between Red Puncta")
-    puncta_line_intensity = NumberColumn(verbose_name="Green Intensity over Red Line")
+    puncta_distance = NumberColumn(verbose_name="Distance Between Red Puncta")
+    puncta_line_intensity = NumberColumn(verbose_name="Green Intensity Over Red Line")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
 
     red_contour_1_size = NumberColumn(verbose_name="Red Contour 1 Size")
@@ -84,36 +84,37 @@ class CellTable(tables.Table):
     green_contour_2_size = NumberColumn(verbose_name="Green Contour 2 Size")
     green_contour_3_size = NumberColumn(verbose_name="Green Contour 3 Size")
 
-    red_intensity_1 = NumberColumn(verbose_name="Red in Red Intensity 1")
-    red_intensity_2 = NumberColumn(verbose_name="Red in Red Intensity 2")
-    red_intensity_3 = NumberColumn(verbose_name="Red in Red Intensity 3")
+    red_intensity_1 = NumberColumn(verbose_name="Red In Red Intensity 1")
+    red_intensity_2 = NumberColumn(verbose_name="Red In Red Intensity 2")
+    red_intensity_3 = NumberColumn(verbose_name="Red In Red Intensity 3")
 
-    green_intensity_1 = NumberColumn(verbose_name="Green in Red Intensity 1")
-    green_intensity_2 = NumberColumn(verbose_name="Green in Red Intensity 2")
-    green_intensity_3 = NumberColumn(verbose_name="Green in Red Intensity 3")
+    green_intensity_1 = NumberColumn(verbose_name="Green In Red Intensity 1")
+    green_intensity_2 = NumberColumn(verbose_name="Green In Red Intensity 2")
+    green_intensity_3 = NumberColumn(verbose_name="Green In Red Intensity 3")
 
-    red_in_green_intensity_1 = NumberColumn(verbose_name="Red in Green Intensity 1")
-    red_in_green_intensity_2 = NumberColumn(verbose_name="Red in Green Intensity 2")
-    red_in_green_intensity_3 = NumberColumn(verbose_name="Red in Green Intensity 3")
+    red_in_green_intensity_1 = NumberColumn(verbose_name="Red In Green Intensity 1")
+    red_in_green_intensity_2 = NumberColumn(verbose_name="Red In Green Intensity 2")
+    red_in_green_intensity_3 = NumberColumn(verbose_name="Red In Green Intensity 3")
 
-    green_in_green_intensity_1 = NumberColumn(verbose_name="Green in Green Intensity 1")
-    green_in_green_intensity_2 = NumberColumn(verbose_name="Green in Green Intensity 2")
-    green_in_green_intensity_3 = NumberColumn(verbose_name="Green in Green Intensity 3")
+    green_in_green_intensity_1 = NumberColumn(verbose_name="Green In Green Intensity 1")
+    green_in_green_intensity_2 = NumberColumn(verbose_name="Green In Green Intensity 2")
+    green_in_green_intensity_3 = NumberColumn(verbose_name="Green In Green Intensity 3")
 
     green_red_intensity_1 = NumberColumn(verbose_name="Measurement/Contour Ratio 1")
     green_red_intensity_2 = NumberColumn(verbose_name="Measurement/Contour Ratio 2")
     green_red_intensity_3 = NumberColumn(verbose_name="Measurement/Contour Ratio 3")
 
-    distance_of_green_from_red_1 = NumberColumn(verbose_name="Distance of Green from Red 1")
-    distance_of_green_from_red_2 = NumberColumn(verbose_name="Distance of Green from Red 2")
-    distance_of_green_from_red_3 = NumberColumn(verbose_name="Distance of Green from Red 3")
+    distance_of_green_from_red_1 = NumberColumn(verbose_name="Distance Of Green From Red 1")
+    distance_of_green_from_red_2 = NumberColumn(verbose_name="Distance Of Green From Red 2")
+    distance_of_green_from_red_3 = NumberColumn(verbose_name="Distance Of Green From Red 3")
 
     cell_pair_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[0])
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
-    category_cen_dot = ChoiceLabelColumn(verbose_name="CEN dot Location")
-    biorientation = tables.Column(verbose_name="Biorientation")
+    category_cen_dot = ChoiceLabelColumn(verbose_name="Cen Dot Location")
+    colinear_dots = tables.Column(verbose_name="Colinear Dots")
+    off_axis_dots = tables.Column(verbose_name="Off Axis Dots")
 
     class Meta:
         attrs = {"class": "celltable", "id": "celltable"}
@@ -151,7 +152,8 @@ class CellTable(tables.Table):
             "nucleus_intensity_sum",
             "cytoplasmic_intensity",
             "category_cen_dot",
-            "biorientation",
+            "colinear_dots",
+            "off_axis_dots",
         )
         template_name = "django_tables2/semantic.html"
 

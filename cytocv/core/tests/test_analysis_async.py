@@ -211,7 +211,7 @@ class AnalysisAsyncTestCase(TestCase):
             uploaded = self._create_uploaded_image(media_root, name="sync_quota_ajax")
             warning_message = "Storage quota prevented autosave."
 
-            def run_batch_side_effect(*, user, context, progress):
+            def run_batch_side_effect(*, user, context, progress, **_kwargs):
                 self._create_segmented_image(
                     media_root,
                     uploaded=uploaded,
@@ -251,7 +251,7 @@ class AnalysisAsyncTestCase(TestCase):
             uploaded = self._create_uploaded_image(media_root, name="sync_quota_html")
             warning_message = "Storage quota prevented autosave."
 
-            def run_batch_side_effect(*, user, context, progress):
+            def run_batch_side_effect(*, user, context, progress, **_kwargs):
                 self._create_segmented_image(
                     media_root,
                     uploaded=uploaded,
@@ -291,7 +291,7 @@ class AnalysisAsyncTestCase(TestCase):
             uploaded = self._create_uploaded_image(media_root, name="sync_autosave_disabled")
             update_user_preferences(self.user, {"auto_save_experiments": False})
 
-            def run_batch_side_effect(*, user, context, progress):
+            def run_batch_side_effect(*, user, context, progress, **_kwargs):
                 self.assertFalse(context.config_snapshot["auto_save_experiments"])
                 self._create_segmented_image(
                     media_root,

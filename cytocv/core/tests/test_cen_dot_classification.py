@@ -95,7 +95,6 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         neck_split,
         cen_dot_distance: float = 5.0,
         cen_dot_proximity_radius: float = 10.0,
-        cen_dot_collinearity_threshold: int = 66,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -126,7 +125,6 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
             green_image=green_image,
             puncta_line_width_input=1,
             cen_dot_distance=cen_dot_distance,
-            cen_dot_collinearity_threshold=cen_dot_collinearity_threshold,
             cen_dot_proximity_radius=cen_dot_proximity_radius,
         )
         return cp
@@ -160,8 +158,6 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertTrue(payload["daughter_red_has_green"])
         self.assertEqual(payload["green_assignment_rule"], "nearest_red_inside_pair_mask")
         self.assertEqual(cp.properties["cen_dot_schema_version"], 3)
-        self.assertEqual(cp.biorientation, 0)
-
     def test_green_only_in_mother_yields_mother_only(self):
         cell, mother, daughter = _build_side_masks()
         red_top = _disk_slot(0, (20, 15))
@@ -418,12 +414,11 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertEqual(payload["status"], "missing_neck_split")
         self.assertFalse(payload["has_neck_split"])
 
-    def test_reds_below_threshold_path_preserves_biorientation(self):
-        """Close reds skip mother/daughter classification but retain biorientation."""
+    def test_reds_below_threshold_yields_na(self):
+        """Close reds skip mother/daughter classification."""
         cell, mother, daughter = _build_side_masks()
         red_a = _disk_slot(0, (15, 20))
         red_b = _disk_slot(1, (25, 20))
-        # One green between the two reds to trip biorientation=1.
         green_between = _disk_slot(0, (20, 20))
 
         cp = self._run(
@@ -439,4 +434,3 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertEqual(cp.category_cen_dot, 4)
         payload = cp.properties["cen_dot_location"]
         self.assertEqual(payload["status"], "reds_below_threshold")
-        self.assertEqual(cp.biorientation, 1)

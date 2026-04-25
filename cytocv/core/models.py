@@ -179,7 +179,7 @@ CEN_DOT_LEGACY_RERUN_LABEL = "Rerun analysis for CEN location"
 
 
 class CategoryCENDot(models.IntegerChoices):
-    """Mother/daughter CEN dot location classification codes."""
+    """Mother/daughter Cen Dot Location classification codes."""
 
     MOTHER_AND_DAUGHTER = 1, "Mother and daughter"
     MOTHER_ONLY = 2, "Mother only"
@@ -188,7 +188,7 @@ class CategoryCENDot(models.IntegerChoices):
 
 
 def get_cen_dot_category_label(value: int | None, *, schema_version: int | None = None) -> str:
-    """Return the user-facing label for a stored CEN dot category code.
+    """Return the user-facing label for a stored Cen Dot category code.
 
     Schema-aware: rows that predate ``CEN_DOT_SCHEMA_VERSION`` and still carry
     a non-default CEN value no longer carry a valid mother/daughter meaning, so
@@ -272,14 +272,15 @@ class CellStatistics(models.Model):
     nucleus_intensity_sum_blue = models.FloatField(default=0.0)
     cytoplasmic_intensity_blue = models.FloatField(default=0.0)
 
-    # Category in CEN dot analysis
+    # Category in Cen Dot analysis
     category_cen_dot = models.IntegerField(
         choices = CategoryCENDot.choices,
         default = CategoryCENDot.NONE,
     )
 
-    # Biorientation in CEN dot analysis
-    biorientation = models.IntegerField(default=0)
+    # Biorientation analysis (separate from Cen Dot classification).
+    colinear_dots = models.IntegerField(default=0)
+    off_axis_dots = models.IntegerField(default=0)
 
     dv_file_path = models.TextField(default="")
     image_name = models.TextField(default="")

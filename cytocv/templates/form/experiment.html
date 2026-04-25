@@ -5,6 +5,9 @@
 {% block head %}
     <style>
         body {
+            --stats-popup-control-width: 196px;
+            --stats-popup-compact-control-width: 112px;
+            --stats-popup-control-inner-height: 30px;
             font-family: var(--app-font);
             background-color: var(--page-bg);
             color: var(--text);
@@ -785,15 +788,15 @@
             justify-content: space-between;
             gap: 8px;
             padding: 8px 10px;
-            border: 1px solid var(--panel-border);
+            border: 1px solid var(--settings-module-border);
             border-radius: 8px;
-            background: var(--surface-rail);
+            background: var(--settings-module-bg);
             opacity: 0.55;
             transition: opacity 0.15s ease, border-color 0.15s ease;
         }
         .required-channel-row.required {
             opacity: 1;
-            border-color: #2f8f4e;
+            border-color: var(--settings-module-locked-border);
         }
         .required-channel-name {
             font-size: 13px;
@@ -814,25 +817,47 @@
             isolation: isolate;
         }
         .measurement-scale-card {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 8px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            background: var(--surface-rail);
-            border: 1px solid var(--panel-border);
+            padding: 0;
+            border: 0;
+            background: transparent;
         }
         .measurement-scale-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
+            align-items: flex-start;
+            column-gap: 10px;
+            row-gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: var(--settings-module-bg);
+            border: 1px solid var(--settings-module-border);
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                filter 0.2s ease;
+        }
+        .measurement-scale-row.is-off {
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
+        }
+        .measurement-scale-row.is-off .measurement-scale-text {
+            opacity: var(--settings-module-off-text-opacity);
+        }
+        .measurement-scale-row.is-off .switch {
+            opacity: var(--settings-module-off-control-opacity);
+        }
+        .measurement-scale-row > .switch {
+            justify-self: end;
+            align-self: start;
         }
         .measurement-scale-text {
             display: grid;
             gap: 4px;
             min-width: 0;
-            flex: 1 1 auto;
         }
         .measurement-scale-title-row {
             display: inline-flex;
@@ -844,18 +869,6 @@
             font-size: 13px;
             font-weight: 600;
             line-height: 1.2;
-        }
-        .measurement-metadata-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding-top: 2px;
-        }
-        .measurement-metadata-row span {
-            font-size: 11px;
-            font-weight: 600;
-            color: #d7e8f6;
         }
         .measurement-scale-live {
             margin: 0;
@@ -874,33 +887,27 @@
             color: #b8c8db;
             line-height: 1.35;
         }
-        .measurement-scale-control-row {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-            min-width: 0;
-            flex: 0 1 auto;
-        }
-        .measurement-scale-inline-note {
-            margin: 0;
-            font-size: 11px;
-            line-height: 1.2;
-            color: #cfcfcf;
-            text-align: right;
-            max-width: 360px;
-        }
         .measurement-scale-fallback {
             margin: 0;
             font-size: 11px;
             color: #d7c68a;
             line-height: 1.35;
+            min-height: 2.7em;
         }
         .measurement-scale-input-group {
             margin-left: 0;
+            justify-self: end;
+            align-self: start;
+            width: var(--stats-popup-control-width);
+        }
+        .measurement-scale-input-group.compact-control {
+            width: var(--stats-popup-compact-control-width);
         }
         .measurement-scale-input {
-            width: 92px;
+            box-sizing: border-box;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
             border: none;
             border-radius: 0;
             background: transparent;
@@ -917,31 +924,39 @@
             background: var(--surface-input);
             filter: grayscale(1) brightness(0.68);
         }
-        @media (max-width: 860px) {
-            .measurement-scale-control-row {
-                flex: 1 1 100%;
-                justify-content: space-between;
-            }
-            .measurement-scale-inline-note {
-                max-width: none;
-                text-align: left;
-            }
-        }
         .stats-toggle-row {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            gap: 10px;
+            column-gap: 10px;
+            row-gap: 0;
             padding: 8px 10px;
             border-radius: 8px;
-            background: var(--surface-rail);
-            border: 1px solid var(--panel-border);
+            background: var(--settings-module-bg);
+            border: 1px solid var(--settings-module-border);
             position: relative;
             flex-wrap: wrap;
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                filter 0.2s ease;
         }
         .stats-toggle-row.unit-menu-open,
         .stats-toggle-row.mode-menu-open {
             z-index: 4300;
+        }
+        .stats-toggle-row.is-off {
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
+        }
+        .stats-toggle-row.is-off .stats-toggle-left {
+            opacity: var(--settings-module-off-text-opacity);
+        }
+        .stats-toggle-row.is-off .switch,
+        .stats-toggle-row.is-off .info-dot,
+        .stats-toggle-row.is-off .legacy-pill {
+            opacity: var(--settings-module-off-control-opacity);
         }
         .stats-toggle-left {
             display: flex;
@@ -971,11 +986,6 @@
             border: 1px solid #6a5a3c;
             border-radius: 999px;
             padding: 2px 6px;
-            white-space: nowrap;
-        }
-        .stats-toggle-meta {
-            font-size: 11px;
-            color: #bababa;
             white-space: nowrap;
         }
         .stats-toggle-right {
@@ -1020,24 +1030,34 @@
             white-space: nowrap;
         }
         .stats-distance-line {
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
+            align-items: start;
+            column-gap: 10px;
             width: 100%;
             min-width: 0;
         }
         .stats-distance-line .length-input-group,
-        .stats-distance-line .threshold-input-group {
-            margin-left: auto;
+        .stats-distance-line .threshold-input-group,
+        .stats-distance-line .boxed-number-group {
+            justify-self: end;
+            margin-left: 0;
+            width: var(--stats-popup-control-width);
+        }
+        .stats-distance-line .boxed-number-group.compact-control {
+            width: var(--stats-popup-compact-control-width);
         }
         .stats-threshold-line > label {
             white-space: normal;
             line-height: 1.2;
         }
         .length-input-group {
+            box-sizing: border-box;
             display: inline-flex;
             align-items: stretch;
             margin-left: auto;
+            height: var(--stats-popup-control-inner-height);
+            min-height: var(--stats-popup-control-inner-height);
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             overflow: visible;
@@ -1050,9 +1070,12 @@
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .boxed-number-group {
+            box-sizing: border-box;
             display: inline-flex;
             align-items: center;
             margin-left: auto;
+            height: var(--stats-popup-control-inner-height);
+            min-height: var(--stats-popup-control-inner-height);
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             overflow: hidden;
@@ -1065,7 +1088,11 @@
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .stats-distance-inline input[type="number"] {
-            width: 68px;
+            box-sizing: border-box;
+            flex: 1 1 auto;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
             border: none;
             border-radius: 0;
             background: transparent;
@@ -1085,6 +1112,9 @@
         .boxed-number-group input[type="number"] {
             width: 72px;
         }
+        .measurement-scale-input-group input[type="number"] {
+            width: 100%;
+        }
         .length-unit-dropdown {
             position: relative;
             display: inline-flex;
@@ -1094,9 +1124,12 @@
             min-width: 54px;
         }
         .length-unit-trigger {
+            box-sizing: border-box;
             border: none;
             border-left: 1px solid var(--panel-border);
             border-radius: 0 7px 7px 0;
+            height: 100%;
+            min-height: 0;
             background: transparent;
             color: #efefef;
             padding: 4px 6px;
@@ -1179,7 +1212,11 @@
             outline-offset: -1px;
         }
         .mode-dropdown {
-            min-width: 200px;
+            box-sizing: border-box;
+            width: var(--stats-popup-control-width);
+            min-width: 0;
+            height: var(--stats-popup-control-inner-height);
+            min-height: var(--stats-popup-control-inner-height);
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             background: var(--surface-input);
@@ -1193,6 +1230,9 @@
         .mode-trigger {
             border-left: none;
             border-radius: 7px;
+            box-sizing: border-box;
+            min-height: 0;
+            height: 100%;
             width: 100%;
             justify-content: space-between;
             padding: 4px 10px;
@@ -1247,10 +1287,10 @@
             z-index: 10;
         }
         .nuclear-mode-row {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
+            align-items: start;
+            column-gap: 10px;
             width: 100%;
         }
         .nuclear-mode-inline label {
@@ -1277,13 +1317,6 @@
         .nuclear-mode-inline select:focus-visible {
             border-color: rgba(86, 147, 220, 0.75);
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
-        }
-        .nuclear-mode-helper {
-            font-size: 10px;
-            color: #b8b8b8;
-            line-height: 1.2;
-            max-width: none;
-            white-space: normal;
         }
         .info-dot {
             border: 1px solid var(--panel-border);
@@ -1355,7 +1388,7 @@
             padding: 8px 10px;
             border: 1px solid var(--panel-border);
             border-radius: 8px;
-            background: rgba(14, 16, 20, 0.98);
+            background: #0e1014;
             color: #e9e9e9;
             font-size: 12px;
             line-height: 1.35;
@@ -1376,7 +1409,8 @@
         #statsAdvancedView {
             overflow: hidden;
             background:
-                var(--liquid-linear-highlight-soft);
+                var(--liquid-linear-highlight-soft),
+                #181818;
             border-radius: 10px;
         }
         #statsAdvancedView .settings-body {
@@ -1422,8 +1456,8 @@
         }
         .toggle-row.locked {
             opacity: 0.75;
-            border-color: #2f8f4e;
-            background: rgba(47, 143, 78, 0.15);
+            border-color: var(--settings-module-locked-border);
+            background: var(--settings-module-locked-bg);
         }
         .toggle-row.locked .slider {
             background-color: #2f8f4e;
@@ -1435,8 +1469,12 @@
             gap: 12px;
             padding: 8px 10px;
             border-radius: 6px;
-            background-color: var(--surface-rail);
-            border: 1px solid var(--panel-border);
+            background-color: var(--settings-module-bg);
+            border: 1px solid var(--settings-module-border);
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                filter 0.2s ease;
         }
         .toggle-subgroup {
             margin-left: 10px;
@@ -1447,10 +1485,60 @@
             gap: 10px;
         }
         .toggle-row.subtoggle {
-            background-color: var(--surface-rail-alt);
+            background-color: var(--settings-module-subtle-bg);
         }
         .toggle-row.disabled {
+            opacity: var(--settings-module-disabled-opacity);
+        }
+        .toggle-row.is-off:not(.locked) {
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
+        }
+        .toggle-row.is-off:not(.locked) .toggle-text {
+            opacity: var(--settings-module-off-text-opacity);
+        }
+        .toggle-row.is-off:not(.locked) .switch,
+        .toggle-row.is-off:not(.locked) .info-dot,
+        .toggle-row.is-off:not(.locked) .legacy-pill {
+            opacity: var(--settings-module-off-control-opacity);
+        }
+        .toggle-row.combo {
+            flex-wrap: wrap;
+            align-items: center;
+            column-gap: 10px;
+            row-gap: 0;
+            position: relative;
+        }
+        .toggle-row.combo.mode-menu-open {
+            z-index: 4300;
+        }
+        .toggle-row.combo .stats-distance-inline.disabled {
             opacity: 0.5;
+            pointer-events: none;
+        }
+        .split-mode-mount {
+            flex: 0 0 auto;
+            margin-left: auto;
+            position: relative;
+            width: var(--stats-popup-compact-control-width);
+        }
+        .split-mode-mount .length-unit-dropdown.mode-dropdown {
+            min-width: 0;
+            width: 100%;
+        }
+        .split-mode-mount .length-unit-trigger.mode-trigger {
+            width: 100%;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 4px 10px;
+            min-width: 0;
+        }
+        .split-mode-mount .length-unit-menu {
+            left: 0;
+            right: 0;
+            min-width: 100%;
+            width: auto;
         }
         .toggle-text {
             display: flex;
@@ -1472,6 +1560,8 @@
             line-height: 1.25;
             color: #b8b8b8;
             opacity: 1;
+            display: block;
+            min-height: 2.5em;
             transition: color 0.18s ease, opacity 0.18s ease;
         }
         .toggle-state-note.on {
@@ -1559,6 +1649,24 @@
             .required-channel-grid {
                 grid-template-columns: 1fr;
             }
+            .stats-distance-line,
+            .nuclear-mode-row {
+                grid-template-columns: 1fr;
+                row-gap: 6px;
+            }
+            .stats-distance-line .length-input-group,
+            .stats-distance-line .threshold-input-group,
+            .stats-distance-line .boxed-number-group,
+            .split-mode-mount,
+            .mode-dropdown,
+            .measurement-scale-row,
+            .measurement-scale-input-group {
+                justify-self: stretch;
+                width: 100%;
+            }
+            .measurement-scale-row {
+                grid-template-columns: 1fr;
+            }
         }
         @media (prefers-reduced-motion: reduce) {
             .settings-modal-backdrop.modal-enter,
@@ -1608,7 +1716,7 @@
         <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
             <div class="settings-modal-header">
                 <span class="settings-modal-title" id="settingsTitle">Statistics Plugins</span>
-                <button type="button" class="settings-close" id="settingsClose" aria-label="Close settings">x</button>
+                <button type="button" class="settings-close" id="settingsClose" aria-label="Close Settings">x</button>
             </div>
             <div class="settings-view" id="statsPrimaryView">
                 <div class="stats-view-header">
@@ -1629,6 +1737,7 @@
             </div>
             <div class="settings-view" id="statsAdvancedView" hidden>
                 <div class="settings-body">
+                    <div class="stats-view-title">Plugin Behavior</div>
                     <div class="toggle-row" id="legacyPluginRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1636,6 +1745,7 @@
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
+                                    id="legacyPluginInfoDot"
                                     data-info-text="Reveal legacy Blue-channel plugins in the statistics list."
                                     aria-label="Reveal legacy Blue-channel plugins in the statistics list."
                                 >i</button>
@@ -1655,8 +1765,8 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     id="greenFilterInfoDot"
-                                    data-info-text="Filter out low-confidence Green signal contours in challenging images."
-                                    aria-label="Filter out low-confidence Green signal contours in challenging images."
+                                    data-info-text="Filters low-confidence Green signal contours in challenging images."
+                                    aria-label="Filter Out Low-Confidence Green Signal Contours"
                                 >i</button>
                                 <button
                                     type="button"
@@ -1672,6 +1782,30 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row combo" id="greenDotSplitRow">
+                        <div class="toggle-text">
+                            <span class="toggle-label-row">
+                                <span class="toggle-label">Split Merged Green Dots</span>
+                                <button
+                                    type="button"
+                                    class="info-dot compact advanced-info-dot"
+                                    id="greenDotSplitInfoDot"
+                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: default mode with standard split sensitivity.&#10;- Aggressive: attempts harder splits for very close or unequal Green dots."
+                                    aria-label="Split merged Green dots info"
+                                >i</button>
+                            </span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="greenDotSplitEnabled">
+                            <span class="slider"></span>
+                        </label>
+                        <div class="stats-distance-inline" id="greenDotSplitModeRow">
+                            <div class="stats-distance-line">
+                                <label for="greenDotSplitMode">Green Dot Split Mode:</label>
+                                <div id="greenDotSplitModeMount" class="split-mode-mount"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="toggle-row" id="alternateRedRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1680,8 +1814,8 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     id="alternateRedInfoDot"
-                                    data-info-text="Use an alternate Red detection mode where the tool attempts to find a single contour around all speckles."
-                                    aria-label="Use an alternate Red detection mode where the tool attempts to find a single contour around all speckles."
+                                    data-info-text="Uses alternate Red detection when the tool attempts to find a single contour around all speckles."
+                                    aria-label="Use Alternate Red Detection"
                                 >i</button>
                             </span>
                         </div>
@@ -1690,6 +1824,8 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="stats-divider"></div>
+                    <div class="stats-view-title">Optional Metadata Checks</div>
                     <div class="toggle-row" id="moduleToggleRow">
                         <div class="toggle-text">
                             <span class="toggle-label-row">
@@ -1697,8 +1833,9 @@
                                 <button
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
+                                    id="optionalChecksInfoDot"
                                     data-info-text="If OFF, all optional checks below are inactive even when selected. Required checks from selected statistics are still enforced."
-                                    aria-label="If off, all optional checks below are inactive even when selected; required checks from selected statistics are still enforced."
+                                    aria-label="Enable Optional Metadata Checks Below"
                                 >i</button>
                             </span>
                             <span class="toggle-state-note" id="optionalChecksNote" aria-live="polite"></span>
@@ -1712,12 +1849,13 @@
                         <div class="toggle-row subtoggle" id="layerCheckRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Enforce 4-image DV files</span>
+                                    <span class="toggle-label">Enforce 4-Image DV Files</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
+                                        id="layerCheckInfoDot"
                                         data-info-text="Require exactly four layers before preprocessing."
-                                        aria-label="Require exactly four layers before preprocessing."
+                                        aria-label="Require Exactly Four Layers"
                                     >i</button>
                                 </span>
                             </div>
@@ -1729,12 +1867,13 @@
                         <div class="toggle-row subtoggle" id="wavelengthCheckRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Require all channels</span>
+                                    <span class="toggle-label">Require All Channels</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
+                                        id="wavelengthCheckInfoDot"
                                         data-info-text="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
-                                        aria-label="Require DIC, Blue, Red, and Green even if not needed by selected statistics."
+                                        aria-label="Require DIC, Blue, Red, And Green"
                                     >i</button>
                                 </span>
                             </div>
@@ -1747,7 +1886,7 @@
                     </div>
                 </div>
                 <div class="advanced-header">
-                    <button type="button" class="back-btn" id="advancedBackButton" aria-label="Back to stats settings">Back</button>
+                    <button type="button" class="back-btn" id="advancedBackButton" aria-label="Back To Stats Settings">Back</button>
                 </div>
             </div>
         </div>
@@ -1784,13 +1923,13 @@
         <div class="form-toolbar">
             <p class="upload-toolbar-title section-eyebrow">Experiment</p>
             <div class="form-toolbar-actions">
-                <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear selected files" title="Clear selected files">
+                <button type="button" class="settings-btn" id="clearQueueButton" aria-label="Clear Selected Files" title="Clear Selected Files">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 1 0 20 12h-1.5a6.5 6.5 0 1 1-1.9-4.6L14.5 9.5H20V4l-2.35 2.35Z"/>
                     </svg>
                     <span>Clear Queue</span>
                 </button>
-                <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics plugins" title="Statistics plugins">
+                <button type="button" class="settings-btn" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-label="Statistics Plugins" title="Statistics Plugins">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path fill="currentColor" d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Zm8.94 3.25c0-.44-.04-.88-.11-1.3l2.02-1.58a.75.75 0 0 0 .17-.98l-1.91-3.31a.75.75 0 0 0-.92-.33l-2.38.96a7.2 7.2 0 0 0-2.25-1.31l-.36-2.53A.75.75 0 0 0 14.46 0h-3.9a.75.75 0 0 0-.74.63l-.36 2.53a7.2 7.2 0 0 0-2.25 1.31l-2.38-.96a.75.75 0 0 0-.92.33L1.99 7.15a.75.75 0 0 0 .17.98l2.02 1.58c-.07.42-.11.86-.11 1.3s.04.88.11 1.3l-2.02 1.58a.75.75 0 0 0-.17.98l1.91 3.31c.2.35.6.49.98.33l2.38-.96c.68.55 1.43.99 2.25 1.31l.36 2.53c.06.36.38.63.74.63h3.9c.37 0 .68-.27.74-.63l.36-2.53c.82-.32 1.57-.76 2.25-1.31l2.38.96c.37.15.78.01.98-.33l1.91-3.31a.75.75 0 0 0-.17-.98l-2.02-1.58c.07-.42.11-.86.11-1.3Zm-8.94 4.75A4.75 4.75 0 1 1 12 7.25a4.75 4.75 0 0 1 0 9.5Z"/>
                     </svg>
@@ -1903,7 +2042,13 @@
     const widthKey = 'cytocv.puncta_line_width.v3';
     const distanceKey = 'cytocv.cen_dot_distance.v2';
     const proximityRadiusKey = 'cytocv.cen_dot_proximity_radius.v1';
-    const thresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
+    const oldThresholdKey = 'cytocv.cen_dot_collinearity_threshold.v2';
+    const biorientationRedMinDistanceKey = 'cytocv.biorientation_red_min_distance.v1';
+    const biorientationRedMaxDistanceKey = 'cytocv.biorientation_red_max_distance.v1';
+    const biorientationThresholdKey = 'cytocv.biorientation_collinearity_threshold.v1';
+    const greenDotSplitKey = 'cytocv.green_dot_split_enabled.v1';
+    const greenDotSplitModeKey = 'cytocv.green_dot_split_mode.v1';
+    const legacyBiorientationGreenSplitKey = 'cytocv.biorientation_green_split_enabled.v1';
     const advancedKey = 'cytocv.advanced_validation.v3';
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
     const nuclearModeKey = 'cytocv.nuclear_cell_pair_mode.v3';
@@ -1911,6 +2056,8 @@
     const punctaLineWidthUnitKey = 'cytocv.puncta_line_width_unit.v3';
     const cenDotDistanceUnitKey = 'cytocv.cen_dot_distance_unit.v2';
     const cenDotProximityRadiusUnitKey = 'cytocv.cen_dot_proximity_radius_unit.v1';
+    const biorientationRedMinDistanceUnitKey = 'cytocv.biorientation_red_min_distance_unit.v1';
+    const biorientationRedMaxDistanceUnitKey = 'cytocv.biorientation_red_max_distance_unit.v1';
     const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v2';
     const useMetadataScaleKey = 'cytocv.use_metadata_scale.v2';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
@@ -1944,7 +2091,11 @@
         punctaLineWidth: 1,
         cenDotDistance: 37,
         cenDotProximityRadius: 13,
-        cenDotCollinearityThreshold: 66,
+        biorientationRedMinDistance: 0,
+        biorientationRedMaxDistance: 37,
+        biorientationCollinearityThreshold: 66,
+        greenDotSplitEnabled: true,
+        greenDotSplitMode: 'balanced',
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
         greenContourFilterEnabled: false,
@@ -1952,6 +2103,8 @@
         punctaLineWidthUnit: 'px',
         cenDotDistanceUnit: 'px',
         cenDotProximityRadiusUnit: 'px',
+        biorientationRedMinDistanceUnit: 'px',
+        biorientationRedMaxDistanceUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
         useMetadataScale: true,
     };
@@ -1966,7 +2119,10 @@
     let cenDotDistanceInput = null;
     let cenDotDistanceRow = null;
     let cenDotProximityRadiusInput = null;
-    let cenDotCollinearityThresholdInput = null;
+    let biorientationRedMinDistanceInput = null;
+    let biorientationRedMaxDistanceInput = null;
+    let biorientationCollinearityThresholdInput = null;
+    let biorientationRow = null;
     let micronsPerPixelInput = null;
     let useMetadataScaleInput = null;
     let measurementScalePxPerUmValue = null;
@@ -1977,8 +2133,144 @@
     let punctaLineModeSelect = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
+    let greenDotSplitModeSelect = null;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
+
+    function normalizeGreenDotSplitMode(value) {
+        return value === 'aggressive' ? 'aggressive' : 'balanced';
+    }
+
+    function joinLabels(labels) {
+        const values = Array.isArray(labels) ? labels.filter(Boolean) : [];
+        if (values.length === 0) return 'None';
+        if (values.length === 1) return values[0];
+        if (values.length === 2) return `${values[0]} and ${values[1]}`;
+        return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
+    }
+
+    function buildInfoSections(sections) {
+        return sections
+            .filter((section) => typeof section === 'string' && section.trim())
+            .join('\n\n');
+    }
+
+    const pluginInfoExplanations = {
+        PunctaDistance: 'Measures the distance between two puncta in the chosen source channel and sums the opposite-channel intensity along the line connecting them. It uses the first two detected source puncta, draws a line mask between their centers, and records the line intensity from the measurement channel.',
+        CENDot: 'Classifies whether Green CEN dots are associated with the mother side, daughter side, both sides, or neither side. It uses the DIC cell/neck split to separate mother and daughter regions, checks for two usable Red puncta, then assigns nearby Green dots to the closest eligible Red punctum.',
+        Biorientation: 'Counts Green dots as colinear or off-axis relative to the line between the two Red puncta. Counts are reported only when exactly two Red puncta are present and their separation is inside the configured distance range.',
+        GreenRedIntensity: 'Measures raw intensity sums inside detected Red and Green contour masks. For Red contours it records Red and Green signal in the Red mask; for Green contours it records Red and Green signal in the Green mask and the distance to the nearest Red contour.',
+        NuclearCellPairIntensity: 'Measures intensity in the selected nucleus contour and the full DIC cell-pair mask. The selected Red or Green nucleus contour defines the nucleus, and the opposite channel is summed inside the nucleus, whole cell pair, and cytoplasm.',
+        NucleusIntensity: 'Legacy Blue-channel workflow that uses the Blue nucleus contour as the nuclear mask, then measures Green signal in the nucleus, whole cell, and cytoplasm.',
+        BlueNucleusIntensity: 'Legacy Blue-channel workflow that uses the Blue nucleus contour as the nuclear mask, then measures Blue signal in the nucleus, whole cell, and cytoplasm.',
+        RedBlueIntensity: 'Legacy workflow that measures Blue signal inside each detected Red-dot contour, up to the first three Red contours.',
+    };
+
+    const pluginAdjustmentInfo = {
+        PunctaDistance: [
+            'Puncta Source: chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.',
+            'Puncta Line Width: sets the thickness of the line mask used for the intensity sum. Use px or um; um values are converted from the measurement scale.',
+        ],
+        CENDot: [
+            'Minimum Signal Distance: minimum allowed distance between the two Red puncta before CEN dot location is classified.',
+            'Signal Proximity Radius: maximum distance a Green dot can be from a Red punctum and still count as associated with it.',
+        ],
+        Biorientation: [
+            'Minimum Red Puncta Distance: smallest allowed spacing between the two Red puncta for biorientation counts to run.',
+            'Maximum Red Puncta Distance: largest allowed spacing between the two Red puncta for biorientation counts to run.',
+            'Collinearity Threshold: maximum allowed perpendicular offset from the Red-puncta line for a Green dot to count as colinear.',
+        ],
+        NuclearCellPairIntensity: [
+            'Nucleus Contour Source: chooses which channel supplies the nucleus contour. Green Nucleus measures Red signal; Red Nucleus measures Green signal.',
+        ],
+    };
+
+    function buildPluginInfoText(plugin, requiredLabels) {
+        const explanation = pluginInfoExplanations[plugin.id] || plugin.description || 'Statistic plugin.';
+        const adjustmentLines = pluginAdjustmentInfo[plugin.id] || [];
+        return buildInfoSections([
+            explanation,
+            ...adjustmentLines,
+            `Required channels: ${joinLabels(requiredLabels)}`,
+        ]);
+    }
+
+    const advancedInfoTextById = {
+        legacyPluginInfoDot: buildInfoSections([
+            'Shows legacy Blue-channel statistics in the plugin list. Turn this on only when you need older Blue-nucleus or Red-in-Blue outputs; modern Red/Green modules stay available either way.',
+            'Required channels: Blue when a legacy plugin is selected.',
+        ]),
+        greenFilterInfoDot: buildInfoSections([
+            'Filters Green contours before statistics run by removing low-confidence Green objects that often come from noisy background. This changes which Green dots or contours downstream plugins see, so validate a sample of overlays before using it for conclusions.',
+            'Required channels: Green.',
+        ]),
+        greenFilterExperimentalDot: 'Experimental setting: behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions.',
+        greenDotSplitInfoDot: buildInfoSections([
+            'Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use it when two nearby Green dots are detected as one merged contour.',
+            'Green Dot Split Mode: Balanced uses standard split sensitivity; Aggressive attempts harder splits for very close or unequal Green dots.',
+            'Availability: enabled only when a selected statistic requires the Green channel.',
+            'Required channels: Green.',
+        ]),
+        alternateRedInfoDot: buildInfoSections([
+            'Uses alternate Red detection when standard detection creates one contour around all Red speckles. It tries to recover separate Red-dot contours so Red-dependent statistics can still run.',
+            'Required channels: Red.',
+        ]),
+        optionalChecksInfoDot: buildInfoSections([
+            'Controls the optional metadata and file validation checks below. When off, saved optional channel and layer requirements are paused, but channels required by selected statistics are still enforced.',
+            'Enforce 4-Image DV Files: requires exactly four DV layers before preprocessing.',
+            'Require All Channels: requires DIC, Blue, Red, and Green for every upload.',
+            'Manual channel toggles: require individual channels even when selected statistics do not need them.',
+            'Required channels: DIC is always required; optional checks can also require Blue, Red, and Green.',
+        ]),
+        layerCheckInfoDot: buildInfoSections([
+            'Requires each DV file to have exactly four image layers before preprocessing. Use this to catch incomplete acquisitions or files exported with missing layers.',
+            'Required channels: not channel-specific.',
+        ]),
+        wavelengthCheckInfoDot: buildInfoSections([
+            'Requires every upload to include DIC, Blue, Red, and Green, even if the selected statistics only need a subset.',
+            'Required channels: DIC, Blue, Red, and Green.',
+        ]),
+    };
+
+    function hydrateAdvancedInfoDots() {
+        Object.entries(advancedInfoTextById).forEach(([id, text]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const normalized = normalizeInfoText(text);
+            el.dataset.infoText = normalized;
+            el.setAttribute('aria-label', normalized || 'Information');
+        });
+    }
+
+    function buildChannelInfoText(channel) {
+        const channelLabel = displayChannelLabel(channel);
+        return buildInfoSections([
+            `Channel purpose: ${channelInfo[channel] || `${channelLabel} channel.`}`,
+            `Required channels: ${channelLabel}.`,
+        ]);
+    }
+
+    function selectedPluginLabelsRequiringChannel(channel) {
+        const labels = [];
+        statsState.selectedPlugins.forEach((pluginId) => {
+            const plugin = pluginMap.get(pluginId);
+            if (!plugin || !Array.isArray(plugin.required_channels)) return;
+            if (plugin.required_channels.includes(channel)) {
+                labels.push(plugin.label || plugin.id);
+            }
+        });
+        return labels;
+    }
+
+    function buildAdvancedChannelInfo(channel, statusText = '') {
+        const channelLabel = displayChannelLabel(channel);
+        return buildInfoSections([
+            `Channel purpose: ${channelInfo[channel] || `${channelLabel} channel.`}`,
+            `Manual requirement: when this toggle is on and optional metadata checks are enabled, uploads must include the ${channelLabel} channel even if selected statistics do not need it.`,
+            statusText ? `Current requirement status: ${statusText}` : '',
+            `Required channels: ${channelLabel}.`,
+        ]);
+    }
 
     function applyServerPreferenceDefaults() {
         if (!serverPreferenceDefaults || typeof serverPreferenceDefaults !== 'object') {
@@ -1994,6 +2286,9 @@
         const manualChannels = Array.isArray(serverPreferenceDefaults.manual_required_channels)
             ? serverPreferenceDefaults.manual_required_channels.filter((channel) => channelOrder.includes(channel))
             : [];
+        const rawGreenDotSplitDefault = Object.prototype.hasOwnProperty.call(serverPreferenceDefaults, 'green_dot_split_enabled')
+            ? serverPreferenceDefaults.green_dot_split_enabled
+            : serverPreferenceDefaults.biorientation_green_split_enabled;
         const advancedPayload = {
             moduleEnabled: !!serverPreferenceDefaults.module_enabled,
             enforceLayerCount: !!serverPreferenceDefaults.enforce_layer_count,
@@ -2001,6 +2296,8 @@
             showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
             manualRequiredChannels: manualChannels,
             greenContourFilterEnabled: !!serverPreferenceDefaults.green_contour_filter_enabled,
+            greenDotSplitEnabled: rawGreenDotSplitDefault !== false,
+            greenDotSplitMode: normalizeGreenDotSplitMode(serverPreferenceDefaults.green_dot_split_mode),
             alternateRedDetection: !!serverPreferenceDefaults.alternate_red_detection,
         };
         localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
@@ -2008,20 +2305,29 @@
         const widthUnit = (serverPreferenceDefaults.puncta_line_width_unit === 'um') ? 'um' : 'px';
         const distanceUnit = (serverPreferenceDefaults.cen_dot_distance_unit === 'um') ? 'um' : 'px';
         const proximityRadiusUnit = (serverPreferenceDefaults.cen_dot_proximity_radius_unit === 'um') ? 'um' : 'px';
+        const biorientationMinUnit = (serverPreferenceDefaults.biorientation_red_min_distance_unit === 'um') ? 'um' : 'px';
+        const biorientationMaxUnit = (serverPreferenceDefaults.biorientation_red_max_distance_unit === 'um') ? 'um' : 'px';
         localStorage.setItem(punctaLineWidthUnitKey, widthUnit);
         localStorage.setItem(cenDotDistanceUnitKey, distanceUnit);
         localStorage.setItem(cenDotProximityRadiusUnitKey, proximityRadiusUnit);
+        localStorage.setItem(biorientationRedMinDistanceUnitKey, biorientationMinUnit);
+        localStorage.setItem(biorientationRedMaxDistanceUnitKey, biorientationMaxUnit);
         localStorage.setItem(legacyLengthUnitKey, widthUnit === distanceUnit ? widthUnit : 'mixed');
 
         const width = Number(serverPreferenceDefaults.puncta_line_width);
         const distance = Number(serverPreferenceDefaults.cen_dot_distance);
         const proximityRadius = Number(serverPreferenceDefaults.cen_dot_proximity_radius);
-        const threshold = Number(serverPreferenceDefaults.cen_dot_collinearity_threshold);
+        const biorientationMinDistance = Number(serverPreferenceDefaults.biorientation_red_min_distance);
+        const biorientationMaxDistance = Number(serverPreferenceDefaults.biorientation_red_max_distance);
+        const threshold = Number(serverPreferenceDefaults.biorientation_collinearity_threshold);
         const micronsPerPixel = Number(serverPreferenceDefaults.microns_per_pixel);
         localStorage.setItem(widthKey, Number.isFinite(width) ? String(width) : '1');
         localStorage.setItem(distanceKey, Number.isFinite(distance) ? String(distance) : '37');
         localStorage.setItem(proximityRadiusKey, Number.isFinite(proximityRadius) ? String(proximityRadius) : '13');
-        localStorage.setItem(thresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
+        localStorage.setItem(biorientationRedMinDistanceKey, Number.isFinite(biorientationMinDistance) ? String(biorientationMinDistance) : '0');
+        localStorage.setItem(biorientationRedMaxDistanceKey, Number.isFinite(biorientationMaxDistance) ? String(biorientationMaxDistance) : '37');
+        localStorage.setItem(biorientationThresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '66');
+        localStorage.setItem(greenDotSplitKey, String(rawGreenDotSplitDefault !== false));
         localStorage.setItem(
             micronsPerPixelKey,
             Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
@@ -2205,6 +2511,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         applyServerPreferenceDefaults();
         infoTooltipElement = document.getElementById('statsInfoTooltip');
+        hydrateAdvancedInfoDots();
         document.querySelectorAll('.advanced-info-dot').forEach((el) => {
             attachInfoTooltipBehavior(el);
         });
@@ -2482,7 +2789,7 @@
     }
 
     function formatLengthUnitLabel(value) {
-        return normalizeLengthUnit(value) === 'um' ? 'µm' : 'px';
+        return normalizeLengthUnit(value) === 'um' ? '\u00b5m' : 'px';
     }
 
     function sanitizeMicronsPerPixel(value, fallback = DEFAULT_MICRONS_PER_PIXEL) {
@@ -2510,6 +2817,16 @@
             : 37;
     }
 
+    function defaultBiorientationMinDistanceForUnit() {
+        return 0;
+    }
+
+    function defaultBiorientationMaxDistanceForUnit(unit) {
+        return unit === 'um'
+            ? 37 * sanitizeMicronsPerPixel(statsState.micronsPerPixel)
+            : 37;
+    }
+
     function defaultProximityRadiusForUnit(unit) {
         return unit === 'um'
             ? 13 * sanitizeMicronsPerPixel(statsState.micronsPerPixel)
@@ -2520,6 +2837,8 @@
         if (field === 'punctaLineWidth') return statsState.punctaLineWidthUnit;
         if (field === 'cenDotDistance') return statsState.cenDotDistanceUnit;
         if (field === 'cenDotProximityRadius') return statsState.cenDotProximityRadiusUnit;
+        if (field === 'biorientationRedMinDistance') return statsState.biorientationRedMinDistanceUnit;
+        if (field === 'biorientationRedMaxDistance') return statsState.biorientationRedMaxDistanceUnit;
         return 'px';
     }
 
@@ -2535,6 +2854,14 @@
         }
         if (field === 'cenDotProximityRadius') {
             statsState.cenDotProximityRadiusUnit = normalized;
+            return;
+        }
+        if (field === 'biorientationRedMinDistance') {
+            statsState.biorientationRedMinDistanceUnit = normalized;
+            return;
+        }
+        if (field === 'biorientationRedMaxDistance') {
+            statsState.biorientationRedMaxDistanceUnit = normalized;
         }
     }
 
@@ -2542,6 +2869,8 @@
         if (field === 'punctaLineWidth') return statsState.punctaLineWidth;
         if (field === 'cenDotDistance') return statsState.cenDotDistance;
         if (field === 'cenDotProximityRadius') return statsState.cenDotProximityRadius;
+        if (field === 'biorientationRedMinDistance') return statsState.biorientationRedMinDistance;
+        if (field === 'biorientationRedMaxDistance') return statsState.biorientationRedMaxDistance;
         return 0;
     }
 
@@ -2556,6 +2885,14 @@
         }
         if (field === 'cenDotProximityRadius') {
             statsState.cenDotProximityRadius = value;
+            return;
+        }
+        if (field === 'biorientationRedMinDistance') {
+            statsState.biorientationRedMinDistance = value;
+            return;
+        }
+        if (field === 'biorientationRedMaxDistance') {
+            statsState.biorientationRedMaxDistance = value;
         }
     }
 
@@ -2575,6 +2912,8 @@
         localStorage.setItem(punctaLineWidthUnitKey, statsState.punctaLineWidthUnit);
         localStorage.setItem(cenDotDistanceUnitKey, statsState.cenDotDistanceUnit);
         localStorage.setItem(cenDotProximityRadiusUnitKey, statsState.cenDotProximityRadiusUnit);
+        localStorage.setItem(biorientationRedMinDistanceUnitKey, statsState.biorientationRedMinDistanceUnit);
+        localStorage.setItem(biorientationRedMaxDistanceUnitKey, statsState.biorientationRedMaxDistanceUnit);
         localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
         localStorage.setItem(useMetadataScaleKey, String(!!statsState.useMetadataScale));
     }
@@ -2625,6 +2964,8 @@
         if (!Number.isFinite(converted)) {
             if (field === 'punctaLineWidth') converted = defaultWidthForUnit(normalizedNext);
             else if (field === 'cenDotProximityRadius') converted = defaultProximityRadiusForUnit(normalizedNext);
+            else if (field === 'biorientationRedMinDistance') converted = defaultBiorientationMinDistanceForUnit();
+            else if (field === 'biorientationRedMaxDistance') converted = defaultBiorientationMaxDistanceForUnit(normalizedNext);
             else converted = defaultDistanceForUnit(normalizedNext);
         }
 
@@ -2636,10 +2977,16 @@
             if (normalizedNext === 'px') {
                 converted = Math.round(converted);
             }
-        } else if (field === 'cenDotDistance' || field === 'cenDotProximityRadius') {
-            const fallback = field === 'cenDotProximityRadius'
-                ? defaultProximityRadiusForUnit(normalizedNext)
-                : defaultDistanceForUnit(normalizedNext);
+        } else if (
+            field === 'cenDotDistance' ||
+            field === 'cenDotProximityRadius' ||
+            field === 'biorientationRedMinDistance' ||
+            field === 'biorientationRedMaxDistance'
+        ) {
+            let fallback = defaultDistanceForUnit(normalizedNext);
+            if (field === 'cenDotProximityRadius') fallback = defaultProximityRadiusForUnit(normalizedNext);
+            if (field === 'biorientationRedMinDistance') fallback = defaultBiorientationMinDistanceForUnit();
+            if (field === 'biorientationRedMaxDistance') fallback = defaultBiorientationMaxDistanceForUnit(normalizedNext);
             if (converted < 0) {
                 converted = fallback;
             }
@@ -2657,6 +3004,10 @@
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
         } else if (field === 'cenDotProximityRadius') {
             localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
+        } else if (field === 'biorientationRedMinDistance') {
+            localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+        } else if (field === 'biorientationRedMaxDistance') {
+            localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
         }
         syncStatsUI();
     }
@@ -2826,6 +3177,8 @@
                 modeDropdownControls.delete(ctrl);
                 const modeInline = root.closest('.nuclear-mode-inline');
                 if (modeInline) modeInline.classList.remove('mode-menu-open');
+                const comboRow = root.closest('.toggle-row.combo');
+                if (comboRow) comboRow.classList.remove('mode-menu-open');
             },
             open() {
                 modeDropdownControls.forEach((c) => { if (c !== ctrl) c.close(); });
@@ -2836,6 +3189,8 @@
                 modeDropdownControls.add(ctrl);
                 const modeInline = root.closest('.nuclear-mode-inline');
                 if (modeInline) modeInline.classList.add('mode-menu-open');
+                const comboRow = root.closest('.toggle-row.combo');
+                if (comboRow) comboRow.classList.add('mode-menu-open');
             },
         };
 
@@ -2887,6 +3242,12 @@
         if (statsState.cenDotProximityRadiusUnit === 'px') {
             statsState.cenDotProximityRadius = Math.max(0, Math.round(Number(statsState.cenDotProximityRadius) || 0));
         }
+        if (statsState.biorientationRedMinDistanceUnit === 'px') {
+            statsState.biorientationRedMinDistance = Math.max(0, Math.round(Number(statsState.biorientationRedMinDistance) || 0));
+        }
+        if (statsState.biorientationRedMaxDistanceUnit === 'px') {
+            statsState.biorientationRedMaxDistance = Math.max(0, Math.round(Number(statsState.biorientationRedMaxDistance) || 0));
+        }
         lengthUnitSelectElements.forEach((control) => {
             control.setUnit(getLengthUnitForField(control.field));
         });
@@ -2923,6 +3284,16 @@
             }
             cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
         }
+        if (biorientationRedMinDistanceInput) {
+            biorientationRedMinDistanceInput.step = statsState.biorientationRedMinDistanceUnit === 'um' ? '0.01' : '1';
+            biorientationRedMinDistanceInput.min = '0';
+            biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+        }
+        if (biorientationRedMaxDistanceInput) {
+            biorientationRedMaxDistanceInput.step = statsState.biorientationRedMaxDistanceUnit === 'um' ? '0.01' : '1';
+            biorientationRedMaxDistanceInput.min = '0';
+            biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+        }
     }
 
     function initializeStatsSettings() {
@@ -2935,7 +3306,7 @@
         loadStoredWidth();
         loadStoredDistance();
         loadStoredProximityRadius();
-        loadStoredThreshold();
+        loadStoredBiorientationSettings();
         loadStoredPunctaMode();
         loadStoredNuclearMode();
         if (!statsState.showLegacyPlugins) {
@@ -2965,7 +3336,7 @@
             name.textContent = channelLabel;
             row.appendChild(name);
 
-            const info = buildInfoDot(channelInfo[channel] || `${channelLabel} channel`);
+            const info = buildInfoDot(buildChannelInfoText(channel));
             row.appendChild(info);
 
             const state = document.createElement('span');
@@ -2989,7 +3360,10 @@
         cenDotDistanceInput = null;
         cenDotDistanceRow = null;
         cenDotProximityRadiusInput = null;
-        cenDotCollinearityThresholdInput = null;
+        biorientationRedMinDistanceInput = null;
+        biorientationRedMaxDistanceInput = null;
+        biorientationCollinearityThresholdInput = null;
+        biorientationRow = null;
         micronsPerPixelInput = null;
         punctaLineModeRow = null;
         punctaLineModeSelect = null;
@@ -3017,8 +3391,7 @@
             const reqLabels = Array.isArray(plugin.required_channel_labels) && plugin.required_channel_labels.length
                 ? plugin.required_channel_labels
                 : (Array.isArray(plugin.required_channels) ? plugin.required_channels.map(displayChannelLabel) : []);
-            const req = reqLabels.join(', ');
-            const info = buildInfoDot(`${plugin.description || 'Statistic plugin'}${req ? `\n\nRequired channels: ${req}` : ''}`);
+            const info = buildInfoDot(buildPluginInfoText(plugin, reqLabels));
             left.appendChild(info);
             if (plugin.is_legacy) {
                 const legacyBadge = document.createElement('span');
@@ -3030,11 +3403,6 @@
 
             const right = document.createElement('div');
             right.className = 'stats-toggle-right';
-
-            const meta = document.createElement('span');
-            meta.className = 'stats-toggle-meta';
-            meta.textContent = req ? req : 'No extra channels';
-            right.appendChild(meta);
 
             const switchLabel = document.createElement('label');
             switchLabel.className = 'switch';
@@ -3076,13 +3444,13 @@
 
                 const modeLabel = document.createElement('label');
                 modeLabel.setAttribute('for', 'punctaLineMode');
-                modeLabel.textContent = 'Puncta source:';
+                modeLabel.textContent = 'Puncta Source:';
                 modeTop.appendChild(modeLabel);
 
                 const select = buildCustomModeSelect(
                     [
-                        { value: 'red_puncta', text: 'Red puncta (measure Green)' },
-                        { value: 'green_puncta', text: 'Green puncta (measure Red)' },
+                        { value: 'red_puncta', text: 'Red Puncta (Measure Green)' },
+                        { value: 'green_puncta', text: 'Green Puncta (Measure Red)' },
                     ],
                     statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
                     (nextMode) => {
@@ -3093,10 +3461,6 @@
                 modeTop.appendChild(select.root);
                 modeRow.appendChild(modeTop);
 
-                const modeHelper = document.createElement('div');
-                modeHelper.className = 'nuclear-mode-helper';
-                modeHelper.textContent = 'Choose which puncta pair defines the line; intensity is measured from the opposite channel along that line.';
-                modeRow.appendChild(modeHelper);
                 row.appendChild(modeRow);
                 punctaLineModeRow = modeRow;
                 punctaLineModeSelect = select;
@@ -3108,7 +3472,7 @@
 
                 const widthLabel = document.createElement('label');
                 widthLabel.setAttribute('for', 'punctaLineWidthInput');
-                widthLabel.textContent = 'Puncta line width:';
+                widthLabel.textContent = 'Puncta Line Width:';
                 widthLine.appendChild(widthLabel);
 
                 const widthGroup = buildLengthInputGroup({
@@ -3140,7 +3504,7 @@
 
                 const distanceLabel = document.createElement('label');
                 distanceLabel.setAttribute('for', 'cenDotDistanceInput');
-                distanceLabel.textContent = 'Minimum signal distance:';
+                distanceLabel.textContent = 'Minimum Signal Distance:';
                 distanceLine.appendChild(distanceLabel);
 
                 const distanceGroup = buildLengthInputGroup({
@@ -3163,7 +3527,7 @@
                 proximityRadiusLine.className = 'stats-distance-line';
                 const proximityRadiusLabel = document.createElement('label');
                 proximityRadiusLabel.setAttribute('for', 'cenDotProximityRadiusInput');
-                proximityRadiusLabel.textContent = 'Signal proximity radius:';
+                proximityRadiusLabel.textContent = 'Signal Proximity Radius:';
                 proximityRadiusLine.appendChild(proximityRadiusLabel);
 
                 const proximityRadiusGroup = buildLengthInputGroup({
@@ -3183,33 +3547,96 @@
                 distanceRow.appendChild(proximityRadiusLine);
                 cenDotProximityRadiusInput = proximityRadiusGroup.input;
 
+                row.appendChild(distanceRow);
+                cenDotDistanceRow = distanceRow;
+                cenDotDistanceInput = distanceGroup.input;
+            }
+
+            if (plugin.id === 'Biorientation') {
+                const orientationRow = document.createElement('div');
+                orientationRow.className = 'stats-distance-inline';
+
+                const minLine = document.createElement('div');
+                minLine.className = 'stats-distance-line';
+                const minLabel = document.createElement('label');
+                minLabel.setAttribute('for', 'biorientationRedMinDistanceInput');
+                minLabel.textContent = 'Minimum Red Puncta Distance:';
+                minLine.appendChild(minLabel);
+                const minGroup = buildLengthInputGroup({
+                    field: 'biorientationRedMinDistance',
+                    inputId: 'biorientationRedMinDistanceInput',
+                    minValue: 0,
+                    defaultValue: 0,
+                    onChange: () => {
+                        statsState.biorientationRedMinDistance = parseLengthValue(
+                            minGroup.input.value,
+                            statsState.biorientationRedMinDistanceUnit,
+                            defaultBiorientationMinDistanceForUnit(),
+                            0
+                        );
+                        minGroup.input.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+                        localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+                        updateMeasurementScaleHints();
+                    },
+                });
+                minLine.appendChild(minGroup.controls);
+                orientationRow.appendChild(minLine);
+
+                const maxLine = document.createElement('div');
+                maxLine.className = 'stats-distance-line';
+                const maxLabel = document.createElement('label');
+                maxLabel.setAttribute('for', 'biorientationRedMaxDistanceInput');
+                maxLabel.textContent = 'Maximum Red Puncta Distance:';
+                maxLine.appendChild(maxLabel);
+                const maxGroup = buildLengthInputGroup({
+                    field: 'biorientationRedMaxDistance',
+                    inputId: 'biorientationRedMaxDistanceInput',
+                    minValue: 0,
+                    defaultValue: 37,
+                    onChange: () => {
+                        const fallback = defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit);
+                        statsState.biorientationRedMaxDistance = parseLengthValue(
+                            maxGroup.input.value,
+                            statsState.biorientationRedMaxDistanceUnit,
+                            fallback,
+                            0
+                        );
+                        maxGroup.input.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+                        localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+                        updateMeasurementScaleHints();
+                    },
+                });
+                maxLine.appendChild(maxGroup.controls);
+                orientationRow.appendChild(maxLine);
+
                 const thresholdLine = document.createElement('div');
                 thresholdLine.className = 'stats-distance-line stats-threshold-line';
                 const thresholdLabel = document.createElement('label');
-                thresholdLabel.setAttribute('for', 'cenDotCollinearityThresholdInput');
-                thresholdLabel.textContent = 'Biorientation collinearity threshold:';
+                thresholdLabel.setAttribute('for', 'biorientationCollinearityThresholdInput');
+                thresholdLabel.textContent = 'Collinearity Threshold:';
                 thresholdLine.appendChild(thresholdLabel);
-
                 const thresholdInput = document.createElement('input');
                 thresholdInput.type = 'number';
-                thresholdInput.id = 'cenDotCollinearityThresholdInput';
+                thresholdInput.id = 'biorientationCollinearityThresholdInput';
                 thresholdInput.min = '0';
                 thresholdInput.value = '66';
                 thresholdInput.addEventListener('change', () => {
                     const parsed = parseInt(thresholdInput.value, 10);
-                    statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                    thresholdInput.value = String(statsState.cenDotCollinearityThreshold);
-                    localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+                    statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                    thresholdInput.value = String(statsState.biorientationCollinearityThreshold);
+                    localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
                 });
                 const thresholdInputGroup = document.createElement('div');
-                thresholdInputGroup.className = 'boxed-number-group';
+                thresholdInputGroup.className = 'boxed-number-group compact-control';
                 thresholdInputGroup.appendChild(thresholdInput);
                 thresholdLine.appendChild(thresholdInputGroup);
-                distanceRow.appendChild(thresholdLine);
-                row.appendChild(distanceRow);
-                cenDotDistanceRow = distanceRow;
-                cenDotDistanceInput = distanceGroup.input;
-                cenDotCollinearityThresholdInput = thresholdInput;
+                orientationRow.appendChild(thresholdLine);
+
+                row.appendChild(orientationRow);
+                biorientationRow = orientationRow;
+                biorientationRedMinDistanceInput = minGroup.input;
+                biorientationRedMaxDistanceInput = maxGroup.input;
+                biorientationCollinearityThresholdInput = thresholdInput;
             }
 
             if (plugin.id === 'NuclearCellPairIntensity') {
@@ -3221,13 +3648,13 @@
 
                 const modeLabel = document.createElement('label');
                 modeLabel.setAttribute('for', 'nuclearCellPairMode');
-                modeLabel.textContent = 'Nucleus contour source (Nuclear/Cell-Pair mode):';
+                modeLabel.textContent = 'Nucleus Contour Source (Nuclear/Cell-Pair Mode):';
                 modeTop.appendChild(modeLabel);
 
                 const select = buildCustomModeSelect(
                     [
-                        { value: 'green_nucleus', text: 'Green nucleus (measure Red)' },
-                        { value: 'red_nucleus', text: 'Red nucleus (measure Green)' },
+                        { value: 'green_nucleus', text: 'Green Nucleus (Measure Red)' },
+                        { value: 'red_nucleus', text: 'Red Nucleus (Measure Green)' },
                     ],
                     statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
                     (nextMode) => {
@@ -3238,10 +3665,6 @@
                 modeTop.appendChild(select.root);
                 modeRow.appendChild(modeTop);
 
-                const modeHelper = document.createElement('div');
-                modeHelper.className = 'nuclear-mode-helper';
-                modeHelper.textContent = 'Selected channel outlines the nucleus; intensity is measured in the other channel inside the nucleus and cell pair.';
-                modeRow.appendChild(modeHelper);
                 row.appendChild(modeRow);
                 nuclearModeSelect = select;
                 nuclearModeRow = modeRow;
@@ -3259,42 +3682,42 @@
         measurementScaleExampleHint = null;
         measurementScaleFallbackHint = null;
 
-        const row = document.createElement('div');
-        row.className = 'measurement-scale-row';
-
-        const text = document.createElement('div');
-        text.className = 'measurement-scale-text';
-
-        const titleRow = document.createElement('div');
-        titleRow.className = 'measurement-scale-title-row';
-
-        const title = document.createElement('span');
-        title.className = 'measurement-scale-title';
-        title.textContent = 'Micrometers per pixel (µm/px)';
-        titleRow.appendChild(title);
-
-        const info = buildInfoDot(
-            'Enter image scale as µm/px (how many micrometers one pixel represents).\n\nEnter µm/px, not px/µm. Example: if 1 pixel = 0.1 µm, enter 0.1.\nFormula: pixels = micrometers / (µm/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance in µm = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy µm/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is µm.'
-        );
-        info.classList.add('compact');
-        titleRow.appendChild(info);
-
-        text.appendChild(titleRow);
-
         const metadataRow = document.createElement('div');
-        metadataRow.className = 'measurement-metadata-row';
-        const metadataText = document.createElement('span');
-        metadataText.textContent = 'Use metadata scale per file';
+        metadataRow.className = 'measurement-scale-row measurement-scale-toggle-row';
+
+        const metadataText = document.createElement('div');
+        metadataText.className = 'measurement-scale-text';
+        const metadataTitleRow = document.createElement('div');
+        metadataTitleRow.className = 'measurement-scale-title-row';
+        const metadataTitle = document.createElement('span');
+        metadataTitle.className = 'measurement-scale-title';
+        metadataTitle.textContent = 'Use Metadata Scale Per File';
+        metadataTitleRow.appendChild(metadataTitle);
+        const metadataInfo = buildInfoDot(
+            'When enabled, each file uses DV header dx/dy scale when valid. If metadata is missing or invalid, the manual micrometers-per-pixel fallback below is used.\n\nTurn this off to apply the manual fallback scale to every file in this run.'
+        );
+        metadataInfo.classList.add('compact');
+        metadataTitleRow.appendChild(metadataInfo);
+        metadataText.appendChild(metadataTitleRow);
+
+        const fallback = document.createElement('p');
+        fallback.className = 'measurement-scale-fallback';
         metadataRow.appendChild(metadataText);
+        metadataText.appendChild(fallback);
+
         const metadataSwitch = document.createElement('label');
         metadataSwitch.className = 'switch';
         const metadataInput = document.createElement('input');
         metadataInput.type = 'checkbox';
         metadataInput.id = 'statsUseMetadataScale';
         metadataInput.checked = !!statsState.useMetadataScale;
+        const syncMetadataVisualState = () => {
+            metadataRow.classList.toggle('is-off', !metadataInput.checked);
+        };
         metadataInput.addEventListener('change', () => {
             statsState.useMetadataScale = metadataInput.checked;
             persistLengthUnitSettings();
+            syncMetadataVisualState();
             updateMeasurementScaleHints();
         });
         const metadataSlider = document.createElement('span');
@@ -3302,15 +3725,33 @@
         metadataSwitch.appendChild(metadataInput);
         metadataSwitch.appendChild(metadataSlider);
         metadataRow.appendChild(metadataSwitch);
-        text.appendChild(metadataRow);
+        syncMetadataVisualState();
 
-        const fallback = document.createElement('p');
-        fallback.className = 'measurement-scale-fallback';
-        text.appendChild(fallback);
+        const scaleRow = document.createElement('div');
+        scaleRow.className = 'measurement-scale-row measurement-scale-manual-row';
+
+        const scaleText = document.createElement('div');
+        scaleText.className = 'measurement-scale-text';
+
+        const scaleTitleRow = document.createElement('div');
+        scaleTitleRow.className = 'measurement-scale-title-row';
+
+        const scaleTitle = document.createElement('span');
+        scaleTitle.className = 'measurement-scale-title';
+        scaleTitle.textContent = 'Micrometers Per Pixel (\u00b5m/px)';
+        scaleTitleRow.appendChild(scaleTitle);
+
+        const scaleInfo = buildInfoDot(
+            'Enter image scale as \u00b5m/px (how many micrometers one pixel represents).\n\nEnter \u00b5m/px, not px/\u00b5m. Example: if 1 pixel = 0.1 \u00b5m, enter 0.1.\nFormula: pixels = micrometers / (\u00b5m/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance in \u00b5m = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy \u00b5m/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is \u00b5m.'
+        );
+        scaleInfo.classList.add('compact');
+        scaleTitleRow.appendChild(scaleInfo);
+
+        scaleText.appendChild(scaleTitleRow);
 
         const live = document.createElement('p');
         live.className = 'measurement-scale-live';
-        live.appendChild(document.createTextNode('Current scale: 1 µm = '));
+        live.appendChild(document.createTextNode('Current Scale: 1 \u00b5m = '));
         const livePxValue = document.createElement('span');
         livePxValue.className = 'measurement-scale-value';
         live.appendChild(livePxValue);
@@ -3318,19 +3759,17 @@
         const liveUmValue = document.createElement('span');
         liveUmValue.className = 'measurement-scale-value';
         live.appendChild(liveUmValue);
-        live.appendChild(document.createTextNode(' µm/px).'));
-        text.appendChild(live);
+        live.appendChild(document.createTextNode(' \u00b5m/px).'));
+        scaleText.appendChild(live);
 
-        row.appendChild(text);
-
-        const controlRow = document.createElement('div');
-        controlRow.className = 'measurement-scale-control-row';
         const example = document.createElement('p');
-        example.className = 'measurement-scale-example measurement-scale-inline-note';
-        controlRow.appendChild(example);
+        example.className = 'measurement-scale-example';
+        scaleText.appendChild(example);
+
+        scaleRow.appendChild(scaleText);
 
         const inputGroup = document.createElement('div');
-        inputGroup.className = 'boxed-number-group measurement-scale-input-group';
+        inputGroup.className = 'boxed-number-group measurement-scale-input-group compact-control';
         const input = document.createElement('input');
         input.type = 'number';
         input.id = 'statsMicronsPerPixelInput';
@@ -3347,10 +3786,10 @@
             updateMeasurementScaleHints();
         });
         inputGroup.appendChild(input);
-        controlRow.appendChild(inputGroup);
-        row.appendChild(controlRow);
+        scaleRow.appendChild(inputGroup);
 
-        container.appendChild(row);
+        container.appendChild(metadataRow);
+        container.appendChild(scaleRow);
         micronsPerPixelInput = input;
         useMetadataScaleInput = metadataInput;
         measurementScalePxPerUmValue = livePxValue;
@@ -3399,6 +3838,11 @@
     function updateMeasurementScaleHints() {
         if (!measurementScalePxPerUmValue || !measurementScaleUmPerPxValue || !measurementScaleExampleHint) return;
 
+        if (useMetadataScaleInput) {
+            const metadataRow = useMetadataScaleInput.closest('.measurement-scale-row');
+            if (metadataRow) metadataRow.classList.toggle('is-off', !useMetadataScaleInput.checked);
+        }
+
         const umPerPx = sanitizeMicronsPerPixel(statsState.micronsPerPixel);
         const pxPerUm = umPerPx > 0 ? (1 / umPerPx) : 0;
         setSlideInText(measurementScalePxPerUmValue, formatNumericInputValue(pxPerUm, 3));
@@ -3408,26 +3852,39 @@
         if (statsState.punctaLineWidthUnit === 'um') {
             const pxValue = convertLengthToPixels(statsState.punctaLineWidth, statsState.punctaLineWidthUnit, 1, 1);
             examples.push(
-                `Puncta line width ${formatNumericInputValue(statsState.punctaLineWidth, 3)} µm -> ${pxValue} px`
+                `Puncta Line Width ${formatNumericInputValue(statsState.punctaLineWidth, 3)} µm -> ${pxValue} px`
             );
         }
         if (statsState.cenDotDistanceUnit === 'um') {
             const pxValue = convertLengthToPixels(statsState.cenDotDistance, statsState.cenDotDistanceUnit, 0, 37);
             examples.push(
-                `Minimum signal distance ${formatNumericInputValue(statsState.cenDotDistance, 3)} µm -> ${pxValue} px`
+                `Minimum Signal Distance ${formatNumericInputValue(statsState.cenDotDistance, 3)} µm -> ${pxValue} px`
             );
         }
         if (statsState.cenDotProximityRadiusUnit === 'um') {
             const pxValue = convertLengthToPixels(statsState.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, 0, 13);
             examples.push(
-                `Signal proximity radius ${formatNumericInputValue(statsState.cenDotProximityRadius, 3)} µm -> ${pxValue} px`
+                `Signal Proximity Radius ${formatNumericInputValue(statsState.cenDotProximityRadius, 3)} µm -> ${pxValue} px`
+            );
+        }
+
+        if (statsState.biorientationRedMinDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.biorientationRedMinDistance, statsState.biorientationRedMinDistanceUnit, 0, 0);
+            examples.push(
+                `Biorientation Minimum Red Distance ${formatNumericInputValue(statsState.biorientationRedMinDistance, 3)} µm -> ${pxValue} px`
+            );
+        }
+        if (statsState.biorientationRedMaxDistanceUnit === 'um') {
+            const pxValue = convertLengthToPixels(statsState.biorientationRedMaxDistance, statsState.biorientationRedMaxDistanceUnit, 0, 37);
+            examples.push(
+                `Biorientation Maximum Red Distance ${formatNumericInputValue(statsState.biorientationRedMaxDistance, 3)} µm -> ${pxValue} px`
             );
         }
 
         setSmoothText(
             measurementScaleExampleHint,
             examples.length
-                ? `Live conversion: ${examples.join(' | ')}`
+                ? `Live Conversion: ${examples.join(' | ')}`
                 : 'Set a plugin length unit to µm to preview its pixel conversion here.'
         );
 
@@ -3462,7 +3919,7 @@
             label.className = 'toggle-label';
             label.textContent = `Require ${channelLabel} channel`;
             labelRow.appendChild(label);
-            const info = buildInfoDot(channelInfo[channel] || `${channelLabel} channel`);
+            const info = buildInfoDot(buildAdvancedChannelInfo(channel));
             info.classList.add('compact');
             labelRow.appendChild(info);
             text.appendChild(labelRow);
@@ -3495,6 +3952,8 @@
         });
 
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
+        const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
+        const greenDotSplitModeMount = document.getElementById('greenDotSplitModeMount');
         const alternateRedDetection = document.getElementById('alternateRedDetection');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
@@ -3506,6 +3965,28 @@
                 persistAdvancedSettings();
                 syncStatsUI();
             });
+        }
+        if (greenDotSplitEnabled) {
+            greenDotSplitEnabled.addEventListener('change', () => {
+                statsState.greenDotSplitEnabled = greenDotSplitEnabled.checked;
+                persistAdvancedSettings();
+                syncStatsUI();
+            });
+        }
+        if (greenDotSplitModeMount && !greenDotSplitModeSelect) {
+            greenDotSplitModeSelect = buildCustomModeSelect(
+                [
+                    { value: 'balanced', text: 'Balanced' },
+                    { value: 'aggressive', text: 'Aggressive' },
+                ],
+                normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
+                (nextMode) => {
+                    statsState.greenDotSplitMode = normalizeGreenDotSplitMode(nextMode);
+                    persistAdvancedSettings();
+                    syncStatsUI();
+                },
+            );
+            greenDotSplitModeMount.appendChild(greenDotSplitModeSelect.root);
         }
         if (alternateRedDetection) {
             alternateRedDetection.addEventListener('change', () => {
@@ -3590,6 +4071,17 @@
         }
 
         statsState.greenContourFilterEnabled = typeof stored.greenContourFilterEnabled === 'boolean' ? stored.greenContourFilterEnabled : false;
+        if (typeof stored.greenDotSplitEnabled === 'boolean') {
+            statsState.greenDotSplitEnabled = stored.greenDotSplitEnabled;
+        } else {
+            const splitRaw = localStorage.getItem(greenDotSplitKey) ?? localStorage.getItem(legacyBiorientationGreenSplitKey);
+            statsState.greenDotSplitEnabled = splitRaw === null
+                ? true
+                : !['0', 'false', 'off', 'no'].includes(String(splitRaw).trim().toLowerCase());
+        }
+        statsState.greenDotSplitMode = normalizeGreenDotSplitMode(
+            stored.greenDotSplitMode || localStorage.getItem(greenDotSplitModeKey)
+        );
         statsState.alternateRedDetection = typeof stored.alternateRedDetection === 'boolean' ? stored.alternateRedDetection : false;
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
@@ -3607,9 +4099,13 @@
         const storedWidthUnit = localStorage.getItem(punctaLineWidthUnitKey);
         const storedDistanceUnit = localStorage.getItem(cenDotDistanceUnitKey);
         const storedProximityRadiusUnit = localStorage.getItem(cenDotProximityRadiusUnitKey);
+        const storedBiorientationMinUnit = localStorage.getItem(biorientationRedMinDistanceUnitKey);
+        const storedBiorientationMaxUnit = localStorage.getItem(biorientationRedMaxDistanceUnitKey);
         statsState.punctaLineWidthUnit = normalizeLengthUnit(storedWidthUnit || legacyUnit);
         statsState.cenDotDistanceUnit = normalizeLengthUnit(storedDistanceUnit || legacyUnit);
         statsState.cenDotProximityRadiusUnit = normalizeLengthUnit(storedProximityRadiusUnit || legacyUnit);
+        statsState.biorientationRedMinDistanceUnit = normalizeLengthUnit(storedBiorientationMinUnit || legacyUnit);
+        statsState.biorientationRedMaxDistanceUnit = normalizeLengthUnit(storedBiorientationMaxUnit || legacyUnit);
     }
 
     function loadStoredMicronsPerPixel() {
@@ -3645,10 +4141,24 @@
         statsState.cenDotProximityRadius = parseLengthValue(raw, statsState.cenDotProximityRadiusUnit, fallback, 0);
     }
 
-    function loadStoredThreshold() {
-        const raw = localStorage.getItem(thresholdKey);
+    function loadStoredBiorientationSettings() {
+        const minRaw = localStorage.getItem(biorientationRedMinDistanceKey);
+        const maxRaw = localStorage.getItem(biorientationRedMaxDistanceKey);
+        statsState.biorientationRedMinDistance = parseLengthValue(
+            minRaw,
+            statsState.biorientationRedMinDistanceUnit,
+            defaultBiorientationMinDistanceForUnit(),
+            0
+        );
+        statsState.biorientationRedMaxDistance = parseLengthValue(
+            maxRaw,
+            statsState.biorientationRedMaxDistanceUnit,
+            defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+            0
+        );
+        const raw = localStorage.getItem(biorientationThresholdKey) || localStorage.getItem(oldThresholdKey);
         const parsed = parseInt(raw || '66', 10);
-        statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+        statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
     }
 
     function loadStoredPunctaMode() {
@@ -3674,8 +4184,12 @@
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
+            greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
             alternateRedDetection: !!statsState.alternateRedDetection,
         }));
+        localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
+        localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
     }
 
     function enforceExclusiveGroup(pluginId) {
@@ -3746,6 +4260,21 @@
         return used;
     }
 
+    function selectedStatsRequireChannel(channel) {
+        for (const pluginId of statsState.selectedPlugins) {
+            const plugin = pluginMap.get(pluginId);
+            if (plugin && Array.isArray(plugin.required_channels) && plugin.required_channels.includes(channel)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function setOffVisualState(row, isOff) {
+        if (!row) return;
+        row.classList.toggle('is-off', !!isOff);
+    }
+
     function syncStatsUI() {
         const statsRequired = getStatsRequiredChannels();
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
@@ -3757,13 +4286,18 @@
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
         const optionalChecksNote = document.getElementById('optionalChecksNote');
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
+        const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
+        const greenDotSplitModeRow = document.getElementById('greenDotSplitModeRow');
         const alternateRedDetection = document.getElementById('alternateRedDetection');
         const greenFilterRow = document.getElementById('greenFilterRow');
+        const greenDotSplitRow = document.getElementById('greenDotSplitRow');
         const alternateRedRow = document.getElementById('alternateRedRow');
+        const moduleRow = document.getElementById('moduleToggleRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
             toggle.checked = statsState.selectedPlugins.has(pluginId);
             toggle.disabled = isPluginRequiredBySelection(pluginId);
+            setOffVisualState(toggle.closest('.stats-toggle-row'), !toggle.checked);
         });
 
         syncLengthControls();
@@ -3789,8 +4323,17 @@
         if (cenDotDistanceRow) {
             cenDotDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('CENDot'));
         }
-        if (cenDotCollinearityThresholdInput) {
-            cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
+        if (biorientationRow) {
+            biorientationRow.classList.toggle('visible', statsState.selectedPlugins.has('Biorientation'));
+        }
+        if (biorientationRedMinDistanceInput) {
+            biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+        }
+        if (biorientationRedMaxDistanceInput) {
+            biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+        }
+        if (biorientationCollinearityThresholdInput) {
+            biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
         }
         if (micronsPerPixelInput) {
             micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel, 4);
@@ -3816,6 +4359,24 @@
                 greenContourFilterEnabled.checked = false;
                 statsState.greenContourFilterEnabled = greenContourFilterEnabled.checked;
             }
+            setOffVisualState(greenFilterRow, !greenContourFilterEnabled.checked);
+        }
+        if (greenDotSplitEnabled) {
+            const greenStatSelected = selectedStatsRequireChannel('channel_green');
+            greenDotSplitEnabled.disabled = !greenStatSelected;
+            greenDotSplitEnabled.checked = greenStatSelected && !!statsState.greenDotSplitEnabled;
+            if (greenDotSplitRow) {
+                greenDotSplitRow.classList.toggle('disabled', !greenStatSelected);
+            }
+        }
+        if (greenDotSplitModeSelect) {
+            greenDotSplitModeSelect.value = normalizeGreenDotSplitMode(statsState.greenDotSplitMode);
+        }
+        if (greenDotSplitRow) {
+            setOffVisualState(greenDotSplitRow, !greenDotSplitEnabled || greenDotSplitEnabled.disabled || !greenDotSplitEnabled.checked);
+        }
+        if (greenDotSplitModeRow) {
+            greenDotSplitModeRow.classList.toggle('visible', !!greenDotSplitEnabled && !greenDotSplitEnabled.disabled && greenDotSplitEnabled.checked);
         }
         if (alternateRedDetection) {
             alternateRedDetection.checked = !!statsState.alternateRedDetection;
@@ -3828,6 +4389,7 @@
                 alternateRedDetection.checked = false;
                 statsState.alternateRedDetection = alternateRedDetection.checked;
             }
+            setOffVisualState(alternateRedRow, !alternateRedDetection.checked);
         }
 
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
@@ -3836,14 +4398,13 @@
         if (legacyToggle) legacyToggle.checked = !!statsState.showLegacyPlugins;
         if (legacyRow) legacyRow.classList.remove('disabled');
         if (legacyToggle) legacyToggle.disabled = false;
+        setOffVisualState(moduleRow, moduleToggle ? !moduleToggle.checked : false);
+        setOffVisualState(legacyRow, legacyToggle ? !legacyToggle.checked : false);
         if (optionalChecksNote) {
-            const prevState = optionalChecksNote.dataset.state || '';
-            const prevText = optionalChecksNote.textContent || '';
             const nextState = statsState.moduleEnabled ? 'on' : 'off';
             const nextText = statsState.moduleEnabled
                 ? 'Optional checks below are ON. Required checks from selected statistics are still enforced.'
                 : 'Optional checks below are OFF. Saved optional selections are paused; required checks from selected statistics are still enforced.';
-            const shouldAnimate = prevState !== nextState || prevText !== nextText;
             if (statsState.moduleEnabled) {
                 optionalChecksNote.classList.remove('off');
                 optionalChecksNote.classList.add('on');
@@ -3852,18 +4413,14 @@
                 optionalChecksNote.classList.add('off');
             }
             optionalChecksNote.dataset.state = nextState;
-            if (shouldAnimate) {
-                optionalChecksNote.classList.remove('reveal');
-                void optionalChecksNote.offsetWidth;
-                optionalChecksNote.classList.add('reveal');
-            }
-            setSmoothText(optionalChecksNote, nextText);
+            setSlideInText(optionalChecksNote, nextText);
         }
 
         if (layerToggle && layerRow) {
             layerToggle.disabled = !statsState.moduleEnabled;
             layerRow.classList.toggle('disabled', !statsState.moduleEnabled);
             layerRow.classList.remove('locked');
+            setOffVisualState(layerRow, !layerToggle.checked);
         }
 
         const allChannelsRequiredByStats = channelOrder.every((channel) => statsRequired.has(channel));
@@ -3875,6 +4432,7 @@
             wavelengthToggle.disabled = allChannelsRequiredByStats || !statsState.moduleEnabled;
             wavelengthRow.classList.toggle('disabled', !statsState.moduleEnabled && !allChannelsRequiredByStats);
             wavelengthRow.classList.toggle('locked', allChannelsRequiredByStats);
+            setOffVisualState(wavelengthRow, !wavelengthToggle.checked);
         }
 
         channelOrder.forEach((channel) => {
@@ -3885,7 +4443,9 @@
 
             const requiredByStats = statsRequired.has(channel);
             const requiredByAllToggle = statsState.moduleEnabled && statsState.enforceAllWavelengths;
-            let infoText = channelInfo[channel] || `${displayChannelLabel(channel)} channel`;
+            let statusText = statsState.moduleEnabled
+                ? 'optional; enable this toggle to require it manually.'
+                : 'optional checks are off, so manual channel requirements are paused.';
 
             if (requiredByStats) {
                 toggle.checked = true;
@@ -3893,26 +4453,29 @@
                 statsState.manualRequiredChannels.delete(channel);
                 row.classList.add('locked');
                 row.classList.remove('disabled');
-                infoText = alwaysRequiredChannels.has(channel)
-                    ? 'Always required for segmentation/CNN.'
-                    : 'Required by selected statistic(s).';
+                const requiringStats = selectedPluginLabelsRequiringChannel(channel);
+                statusText = alwaysRequiredChannels.has(channel)
+                    ? 'always required for segmentation/CNN.'
+                    : `required by selected statistic(s)${requiringStats.length ? `: ${joinLabels(requiringStats)}.` : '.'}`;
             } else if (requiredByAllToggle) {
                 toggle.checked = true;
                 toggle.disabled = true;
                 row.classList.remove('locked');
                 row.classList.add('disabled');
-                infoText = 'Required because "Require all channels" is enabled.';
+                statusText = 'required because "Require All Channels" is enabled.';
             } else {
                 toggle.checked = statsState.manualRequiredChannels.has(channel);
                 toggle.disabled = !statsState.moduleEnabled;
                 row.classList.toggle('disabled', !statsState.moduleEnabled);
                 row.classList.remove('locked');
-                infoText = toggle.checked
-                    ? 'Optional advanced enforcement is enabled.'
-                    : (channelInfo[channel] || `${displayChannelLabel(channel)} channel`);
+                if (toggle.checked) {
+                    statusText = 'manual requirement is enabled.';
+                }
             }
+            setOffVisualState(row, !toggle.checked);
 
             if (info) {
+                const infoText = buildAdvancedChannelInfo(channel, statusText);
                 const normalizedInfoText = normalizeInfoText(infoText);
                 info.dataset.infoText = normalizedInfoText;
                 info.setAttribute('aria-label', normalizedInfoText || 'Information');
@@ -3989,14 +4552,20 @@
             punctaLineWidth: Number.isFinite(Number(statsState.punctaLineWidth)) ? Number(statsState.punctaLineWidth) : 1,
             cenDotDistance: Number.isFinite(Number(statsState.cenDotDistance)) ? Number(statsState.cenDotDistance) : 37,
             cenDotProximityRadius: Number.isFinite(Number(statsState.cenDotProximityRadius)) ? Number(statsState.cenDotProximityRadius) : 13,
-            cenDotCollinearityThreshold: Number.isFinite(Number(statsState.cenDotCollinearityThreshold)) ? Number(statsState.cenDotCollinearityThreshold) : 66,
+            biorientationRedMinDistance: Number.isFinite(Number(statsState.biorientationRedMinDistance)) ? Number(statsState.biorientationRedMinDistance) : 0,
+            biorientationRedMaxDistance: Number.isFinite(Number(statsState.biorientationRedMaxDistance)) ? Number(statsState.biorientationRedMaxDistance) : 37,
+            biorientationCollinearityThreshold: Number.isFinite(Number(statsState.biorientationCollinearityThreshold)) ? Number(statsState.biorientationCollinearityThreshold) : 66,
             punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
+            greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
             alternateRedDetection: !!statsState.alternateRedDetection,
             punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
             cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
             cenDotProximityRadiusUnit: normalizeLengthUnit(statsState.cenDotProximityRadiusUnit),
+            biorientationRedMinDistanceUnit: normalizeLengthUnit(statsState.biorientationRedMinDistanceUnit),
+            biorientationRedMaxDistanceUnit: normalizeLengthUnit(statsState.biorientationRedMaxDistanceUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
             useMetadataScale: !!statsState.useMetadataScale,
         });
@@ -4026,6 +4595,8 @@
             statsState.punctaLineWidthUnit = normalizeLengthUnit(snapshot.punctaLineWidthUnit);
             statsState.cenDotDistanceUnit = normalizeLengthUnit(snapshot.cenDotDistanceUnit);
             statsState.cenDotProximityRadiusUnit = normalizeLengthUnit(snapshot.cenDotProximityRadiusUnit);
+            statsState.biorientationRedMinDistanceUnit = normalizeLengthUnit(snapshot.biorientationRedMinDistanceUnit);
+            statsState.biorientationRedMaxDistanceUnit = normalizeLengthUnit(snapshot.biorientationRedMaxDistanceUnit);
             statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
             statsState.useMetadataScale = !!snapshot.useMetadataScale;
             const widthMinimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
@@ -4035,11 +4606,25 @@
             statsState.cenDotDistance = parseLengthValue(snapshot.cenDotDistance, statsState.cenDotDistanceUnit, distanceFallback, 0);
             const proximityRadiusFallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
             statsState.cenDotProximityRadius = parseLengthValue(snapshot.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, proximityRadiusFallback, 0);
-            const parsedThreshold = parseInt(String(snapshot.cenDotCollinearityThreshold ?? 66), 10);
-            statsState.cenDotCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
+            statsState.biorientationRedMinDistance = parseLengthValue(
+                snapshot.biorientationRedMinDistance,
+                statsState.biorientationRedMinDistanceUnit,
+                defaultBiorientationMinDistanceForUnit(),
+                0
+            );
+            statsState.biorientationRedMaxDistance = parseLengthValue(
+                snapshot.biorientationRedMaxDistance,
+                statsState.biorientationRedMaxDistanceUnit,
+                defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+                0
+            );
+            const parsedThreshold = parseInt(String(snapshot.biorientationCollinearityThreshold ?? 66), 10);
+            statsState.biorientationCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 66;
             statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
+            statsState.greenDotSplitEnabled = snapshot.greenDotSplitEnabled !== false;
+            statsState.greenDotSplitMode = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
             statsState.alternateRedDetection = !!snapshot.alternateRedDetection;
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
@@ -4054,7 +4639,11 @@
             localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
             localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
             localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
-            localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+            localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+            localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+            localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
+            localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
+            localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             persistLengthUnitSettings();
@@ -4787,11 +5376,31 @@
                 cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
                 localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
             }
-            if (cenDotCollinearityThresholdInput) {
-                const parsed = parseInt(cenDotCollinearityThresholdInput.value, 10);
-                statsState.cenDotCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                cenDotCollinearityThresholdInput.value = String(statsState.cenDotCollinearityThreshold);
-                localStorage.setItem(thresholdKey, String(statsState.cenDotCollinearityThreshold));
+            if (biorientationRedMinDistanceInput) {
+                statsState.biorientationRedMinDistance = parseLengthValue(
+                    biorientationRedMinDistanceInput.value,
+                    statsState.biorientationRedMinDistanceUnit,
+                    defaultBiorientationMinDistanceForUnit(),
+                    0
+                );
+                biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+                localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+            }
+            if (biorientationRedMaxDistanceInput) {
+                statsState.biorientationRedMaxDistance = parseLengthValue(
+                    biorientationRedMaxDistanceInput.value,
+                    statsState.biorientationRedMaxDistanceUnit,
+                    defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+                    0
+                );
+                biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+                localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+            }
+            if (biorientationCollinearityThresholdInput) {
+                const parsed = parseInt(biorientationCollinearityThresholdInput.value, 10);
+                statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+                biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
+                localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
             }
             if (punctaLineModeSelect) {
                 statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
@@ -4801,7 +5410,11 @@
                 statsState.nuclearCellPairMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             }
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
-            const usingMicrometers = statsState.punctaLineWidthUnit === 'um' || statsState.cenDotDistanceUnit === 'um' || statsState.cenDotProximityRadiusUnit === 'um';
+            const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
+                || statsState.cenDotDistanceUnit === 'um'
+                || statsState.cenDotProximityRadiusUnit === 'um'
+                || statsState.biorientationRedMinDistanceUnit === 'um'
+                || statsState.biorientationRedMaxDistanceUnit === 'um';
             if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
                 showErrors([
                     'Micrometers-per-pixel must be greater than 0 when using micrometer input.',
@@ -4859,10 +5472,16 @@
             formData.append('stats_puncta_line_width_value', String(statsState.punctaLineWidth));
             formData.append('stats_cen_dot_distance_value', String(statsState.cenDotDistance));
             formData.append('stats_cen_dot_proximity_radius_value', String(statsState.cenDotProximityRadius));
+            formData.append('biorientationRedMinDistance', String(statsState.biorientationRedMinDistance));
+            formData.append('biorientationRedMaxDistance', String(statsState.biorientationRedMaxDistance));
+            formData.append('biorientationCollinearityThreshold', String(statsState.biorientationCollinearityThreshold));
+            formData.append('greenDotSplitEnabled', String(
+                selectedStatsRequireChannel('channel_green') && statsState.greenDotSplitEnabled
+            ));
+            formData.append('greenDotSplitMode', normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
             formData.append('punctaLineWidth', String(punctaLineWidthPixels));
             formData.append('cenDotDistance', String(cenDotDistancePixels));
             formData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));
-            formData.append('cenDotCollinearityThreshold', String(statsState.cenDotCollinearityThreshold));
             formData.append('puncta_line_mode', statsState.punctaLineMode);
             formData.append('nuclear_cell_pair_mode', statsState.nuclearCellPairMode);
             formData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
@@ -4876,6 +5495,12 @@
             formData.append('stats_puncta_line_width_unit', statsState.punctaLineWidthUnit);
             formData.append('stats_cen_dot_distance_unit', statsState.cenDotDistanceUnit);
             formData.append('stats_cen_dot_proximity_radius_unit', statsState.cenDotProximityRadiusUnit);
+            formData.append('biorientationRedMinDistanceUnit', statsState.biorientationRedMinDistanceUnit);
+            formData.append('biorientationRedMaxDistanceUnit', statsState.biorientationRedMaxDistanceUnit);
+            formData.append('stats_biorientation_red_min_distance_value', String(statsState.biorientationRedMinDistance));
+            formData.append('stats_biorientation_red_max_distance_value', String(statsState.biorientationRedMaxDistance));
+            formData.append('stats_biorientation_red_min_distance_unit', statsState.biorientationRedMinDistanceUnit);
+            formData.append('stats_biorientation_red_max_distance_unit', statsState.biorientationRedMaxDistanceUnit);
             formData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
             formData.append('stats_use_metadata_scale', statsState.useMetadataScale ? '1' : '0');
 

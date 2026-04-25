@@ -169,7 +169,6 @@ class RouteSurfaceRefactorTests(TestCase):
             nuclear_cell_pair_mode="green_nucleus",
             puncta_line_width_px=1,
             cen_dot_distance_value_used=37.0,
-            cen_dot_collinearity_threshold=66,
             green_contour_filter_enabled=False,
             alternate_red_detection=False,
             puncta_line_width_unit="px",
@@ -779,7 +778,12 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),",
+            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
             html=False,
         )
         self.assertContains(
@@ -850,7 +854,12 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             response,
-            "biorientation: formatStatValue(cellStats ? cellStats.biorientation : null),",
+            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
             html=False,
         )
         self.assertContains(
@@ -912,25 +921,28 @@ class RouteSurfaceRefactorTests(TestCase):
             response = self.client.get(reverse("display", args=[uuid_value]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Raw Contour Intensity Sums")
-        self.assertContains(response, "Measurement/Contour ratio 1")
+        self.assertContains(response, "Red In Red Raw Sums")
+        self.assertContains(response, "Green In Red Raw Sums")
+        self.assertContains(response, "Red In Green Raw Sums")
+        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(response, "Measurement/Contour Ratio 1")
         self.assertContains(response, "Measurement/Contour")
         self.assertContains(response, "Formula")
         self.assertContains(response, "Measurement/Contour Ratio 1 (Green/Red)")
         self.assertContains(response, "Measurement/Contour Ratio 2 (Green/Red)")
         self.assertContains(response, "Measurement/Contour Ratio 3 (Green/Red)")
-        self.assertContains(response, "Green/Red: Green in Red / Red in Red")
-        self.assertContains(response, "Line + Spot Metrics")
-        self.assertContains(response, "Distance between Green Puncta")
-        self.assertContains(response, "Red Intensity over Green Line")
-        self.assertContains(response, "Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell")
+        self.assertContains(response, "Green/Red: Green In Red / Red In Red")
+        self.assertContains(response, "CEN Dot Measurements")
+        self.assertContains(response, "Distance Between Green Puncta")
+        self.assertContains(response, "Red Intensity Over Green Line")
+        self.assertContains(response, "Raw Green-channel intensity summed inside each ranked Green contour slot")
         self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_intensity_1": 11.0', html=False)
         self.assertContains(response, '"red_in_green_intensity_1": 5.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 13.0', html=False)
         self.assertContains(response, '"measurement_contour_ratio_1": 0.6363636363636364', html=False)
-        self.assertContains(response, '"measurement_contour_ratio_formula": "Green in Red / Red in Red"', html=False)
-        self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
+        self.assertContains(response, '"measurement_contour_ratio_formula": "Green In Red / Red In Red"', html=False)
+        self.assertContains(response, '"puncta_distance_label": "Distance Between Green Puncta"', html=False)
         self.assertContains(
             response,
             '"category_cen_dot_label": "Mother and daughter"',
@@ -969,24 +981,27 @@ class RouteSurfaceRefactorTests(TestCase):
             response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Raw Contour Intensity Sums")
-        self.assertContains(response, "Measurement/Contour ratio 1")
+        self.assertContains(response, "Red In Red Raw Sums")
+        self.assertContains(response, "Green In Red Raw Sums")
+        self.assertContains(response, "Red In Green Raw Sums")
+        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(response, "Measurement/Contour Ratio 1")
         self.assertContains(response, "Measurement/Contour")
         self.assertContains(response, "Formula")
         self.assertContains(response, "Measurement/Contour Ratio 1 (Red/Green)")
         self.assertContains(response, "Measurement/Contour Ratio 2 (Red/Green)")
         self.assertContains(response, "Measurement/Contour Ratio 3 (Red/Green)")
-        self.assertContains(response, "Red/Green: Red in Green / Green in Green")
-        self.assertContains(response, "Line + Spot Metrics")
-        self.assertContains(response, "Distance between Green Puncta")
-        self.assertContains(response, "Red Intensity over Green Line")
-        self.assertContains(response, "Contour slots 1/2/3 are ranked consistently after clipping to the segmented cell")
+        self.assertContains(response, "Red/Green: Red In Green / Green In Green")
+        self.assertContains(response, "CEN Dot Measurements")
+        self.assertContains(response, "Distance Between Green Puncta")
+        self.assertContains(response, "Red Intensity Over Green Line")
+        self.assertContains(response, "Raw Green-channel intensity summed inside each ranked Green contour slot")
         self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_intensity_1": 19.0', html=False)
         self.assertContains(response, '"green_intensity_1": 23.0', html=False)
         self.assertContains(response, '"green_in_green_intensity_1": 31.0', html=False)
-        self.assertContains(response, '"measurement_contour_ratio_formula": "Red in Green / Green in Green"', html=False)
-        self.assertContains(response, '"puncta_distance_label": "Distance between Green Puncta"', html=False)
+        self.assertContains(response, '"measurement_contour_ratio_formula": "Red In Green / Green In Green"', html=False)
+        self.assertContains(response, '"puncta_distance_label": "Distance Between Green Puncta"', html=False)
         self.assertContains(
             response,
             '"category_cen_dot_label": "Mother and daughter"',
@@ -1029,17 +1044,17 @@ class RouteSurfaceRefactorTests(TestCase):
         csv_rows = list(csv.DictReader(StringIO(response.content.decode("utf-8"))))
         self.assertEqual(len(csv_rows), 1)
         header_row = csv_rows[0].keys()
-        self.assertIn("Red in Red Intensity 1", header_row)
+        self.assertIn("Red In Red Intensity 1", header_row)
         self.assertIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
         self.assertIn("Measurement/Contour Ratio 2 (Red/Green)", header_row)
         self.assertIn("Measurement/Contour Ratio 3 (Red/Green)", header_row)
         self.assertLess(
-            list(header_row).index("Green in Green Intensity 3"),
+            list(header_row).index("Green In Green Intensity 3"),
             list(header_row).index("Measurement/Contour Ratio 1 (Red/Green)"),
         )
         self.assertLess(
             list(header_row).index("Measurement/Contour Ratio 3 (Red/Green)"),
-            list(header_row).index("Distance of Green from Red 1 (px)"),
+            list(header_row).index("Distance Of Green From Red 1 (px)"),
         )
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 1 (Red/Green)"], "0.500")
         self.assertEqual(csv_rows[0]["Measurement/Contour Ratio 2 (Red/Green)"], "2.000")
