@@ -23,6 +23,53 @@ from core.services.analysis_progress_contract import (
 
 logger = logging.getLogger(__name__)
 
+_DETAIL_STRING_KEYS = frozenset({"fileName", "message"})
+_DETAIL_INT_KEYS = frozenset(
+    {
+        "fileIndex",
+        "fileTotal",
+        "batchIndex",
+        "batchTotal",
+        "cellIndex",
+        "cellTotal",
+    }
+)
+
+
+def _safe_detail_string(value: object, *, file_name: bool = False) -> str:
+    text = str(value or "").strip()
+    if file_name:
+        text = text.replace("\\", "/").rsplit("/", 1)[-1]
+    return text[:240]
+
+
+def _safe_detail_int(value: object) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
+def normalize_progress_detail(detail: object | None) -> dict[str, object]:
+    """Return a safe progress-detail payload for user-facing polling APIs."""
+
+    if not isinstance(detail, dict):
+        return {}
+
+    normalized: dict[str, object] = {}
+    for key in _DETAIL_STRING_KEYS:
+        value = _safe_detail_string(detail.get(key), file_name=key == "fileName")
+        if value:
+            normalized[key] = value
+
+    for key in _DETAIL_INT_KEYS:
+        value = _safe_detail_int(detail.get(key))
+        if value is not None:
+            normalized[key] = value
+
+    return normalized
+
 
 def _log_inconsistent_snapshot(
     *,
@@ -79,6 +126,7 @@ def write_file_progress(
     phase: str,
     status: str | None = None,
     failure_summary: str = "",
+    detail: dict[str, object] | None = None,
 ) -> None:
     """Write the mirrored filesystem progress payload."""
 
@@ -86,6 +134,7 @@ def write_file_progress(
         "phase": phase,
         "status": status,
         "failure_summary": failure_summary,
+        "detail": normalize_progress_detail(detail),
     }
     try:
         progress_path(key).write_text(json.dumps(payload))
@@ -129,6 +178,7 @@ class AnalysisProgressSnapshot:
     phase: str
     status: str
     failure_summary: str = ""
+    detail: dict[str, object] | None = None
 
 
 class AnalysisProgressHandle:
@@ -144,6 +194,7 @@ class AnalysisProgressHandle:
         phase: str,
         status: str | None = None,
         failure_summary: str | None = None,
+        detail: dict[str, object] | None = None,
     ) -> None:
         if self.job is None:
             return
@@ -152,6 +203,8 @@ class AnalysisProgressHandle:
             update_fields["status"] = status
         if failure_summary is not None:
             update_fields["failure_summary"] = failure_summary
+        if detail is not None:
+            update_fields["progress_detail"] = normalize_progress_detail(detail)
         AnalysisJob.objects.filter(pk=self.job.pk).update(**update_fields)
         self.job.refresh_from_db(fields=list(update_fields.keys()))
 
@@ -161,17 +214,21 @@ class AnalysisProgressHandle:
         *,
         status: str | None = None,
         failure_summary: str = "",
+        detail: dict[str, object] | None = None,
     ) -> None:
+        normalized_detail = normalize_progress_detail(detail)
         self._update_job(
             phase=phase,
             status=status,
             failure_summary=failure_summary if failure_summary or status else None,
+            detail=normalized_detail,
         )
         write_file_progress(
             self.batch_key,
             phase=phase,
             status=status or getattr(self.job, "status", None),
             failure_summary=failure_summary,
+            detail=normalized_detail,
         )
 
     def request_cancel(self) -> None:
@@ -204,8 +261,10 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
                 status=job.status,
             )
             failure_summary = job.failure_summary or ""
+            detail = normalize_progress_detail(job.progress_detail)
         else:
             status, phase, failure_summary = stale_state
+            detail = {}
         _log_inconsistent_snapshot(
             batch_key=batch_key,
             phase=phase,
@@ -215,6 +274,7 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
             phase=phase,
             status=status,
             failure_summary=failure_summary if status == PROGRESS_STATUS_FAILED else "",
+            detail=detail,
         )
 
     file_progress = read_file_progress(batch_key)
@@ -222,6 +282,7 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
     raw_status = str(file_progress.get("status") or "")
     status = normalize_progress_status(phase=phase, status=raw_status)
     failure_summary = str(file_progress.get("failure_summary") or "")
+    detail = normalize_progress_detail(file_progress.get("detail"))
     _log_inconsistent_snapshot(
         batch_key=batch_key,
         phase=phase,
@@ -231,4 +292,5 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
         phase=phase,
         status=status,
         failure_summary=failure_summary if status == PROGRESS_STATUS_FAILED else "",
+        detail=detail,
     )

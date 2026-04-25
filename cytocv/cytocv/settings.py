@@ -147,6 +147,10 @@ ANALYSIS_RUNNING_STALE_SECONDS = _parse_env_int(
     "CYTOCV_ANALYSIS_RUNNING_STALE_SECONDS",
     default=7200,
 )
+UPLOAD_BATCH_TARGET_BYTES = _parse_env_int(
+    "CYTOCV_UPLOAD_BATCH_TARGET_BYTES",
+    default=80 * 1024 * 1024,
+)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("CYTOCV_ALLOWED_HOSTS", "").split(",")

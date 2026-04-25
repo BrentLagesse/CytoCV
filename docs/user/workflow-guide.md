@@ -16,13 +16,15 @@ Use the `Experiment` page to submit one or more `.dv` files. During upload, Cyto
 
 - creates a UUID for each run
 - stores the source file under the run media namespace
+- sends large selections as multiple bounded upload requests
+- queues background upload preparation after the bytes are saved
 - derives the required channel set from `DIC`, the selected plugins, and any enabled validation overrides
 - validates the DV structure according to the selected validation options
 - extracts a channel configuration file
 - extracts scale metadata when available
 - generates preview assets
 
-Validation failures are reported immediately. Invalid files are removed from the active queue.
+Validation failures are reported after the background preparation job finishes. Invalid newly uploaded files are removed from the active queue, while valid files continue to preprocess review.
 
 ## Step 2: Choose Analysis Options
 
@@ -124,4 +126,3 @@ From display or dashboard, users can:
 - [`account-and-dashboard.md`](account-and-dashboard.md)
 - [`output-guide.md`](output-guide.md)
 - [`../developer/request-flows.md`](../developer/request-flows.md)
-

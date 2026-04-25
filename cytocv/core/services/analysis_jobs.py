@@ -75,6 +75,7 @@ def enqueue_analysis_job(
                 run_uuids=normalized_uuids,
                 status=AnalysisJob.Status.QUEUED,
                 current_phase="Queued",
+                progress_detail={"message": "Waiting for analysis worker."},
                 config_snapshot=normalized_snapshot,
             )
         except IntegrityError:
@@ -83,6 +84,17 @@ def enqueue_analysis_job(
                 raise
             return existing, False
     return job, True
+
+
+def get_oldest_queued_analysis_job() -> AnalysisJob | None:
+    """Return the oldest queued analysis job without claiming it."""
+
+    return (
+        AnalysisJob.objects.filter(status=AnalysisJob.Status.QUEUED)
+        .order_by("created_at")
+        .only("pk", "created_at")
+        .first()
+    )
 
 
 def claim_next_analysis_job() -> AnalysisJob | None:
@@ -102,12 +114,14 @@ def claim_next_analysis_job() -> AnalysisJob | None:
             return None
         job.status = AnalysisJob.Status.RUNNING
         job.current_phase = "Queued"
+        job.progress_detail = {"message": "Waiting for analysis worker."}
         job.started_at = timezone.now()
         job.failure_summary = ""
         job.save(
             update_fields=[
                 "status",
                 "current_phase",
+                "progress_detail",
                 "started_at",
                 "failure_summary",
             ]
@@ -129,8 +143,11 @@ def request_job_cancellation(job: AnalysisJob) -> AnalysisJob:
         cancellation_requested=True,
         status=next_status,
         current_phase="Cancelling",
+        progress_detail={"message": "Cancelling analysis and cleaning up."},
     )
-    job.refresh_from_db(fields=["cancellation_requested", "status", "current_phase"])
+    job.refresh_from_db(
+        fields=["cancellation_requested", "status", "current_phase", "progress_detail"]
+    )
     return job
 
 
@@ -140,6 +157,7 @@ def finalize_job(
     status: str,
     current_phase: str,
     failure_summary: str = "",
+    progress_detail: dict[str, object] | None = None,
 ) -> AnalysisJob:
     """Persist the terminal state for a completed job."""
 
@@ -147,6 +165,7 @@ def finalize_job(
     AnalysisJob.objects.filter(pk=job.pk).update(
         status=status,
         current_phase=current_phase,
+        progress_detail=progress_detail or {},
         failure_summary=failure_summary,
         finished_at=finished_at,
     )
@@ -154,6 +173,7 @@ def finalize_job(
         fields=[
             "status",
             "current_phase",
+            "progress_detail",
             "failure_summary",
             "finished_at",
         ]

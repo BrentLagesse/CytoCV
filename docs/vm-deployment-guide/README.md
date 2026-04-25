@@ -439,10 +439,12 @@ sudo systemctl start cytocv
 sudo systemctl status cytocv --no-pager
 ```
 
-### Background Analysis Worker `systemd` Service
+### Background Upload And Analysis Worker `systemd` Service
 
-Production worker mode also needs a second service so the queued analysis jobs
-survive logout and reboot.
+Production needs a second service so staged upload-preparation jobs and queued
+analysis jobs survive logout and reboot. This same worker validates uploaded DV
+files, writes channel config, generates previews, and runs analysis jobs when
+`CYTOCV_ANALYSIS_EXECUTION_MODE=worker`.
 
 Create the worker file:
 
@@ -517,6 +519,7 @@ Important:
 
 - do not add a `location /media/ { alias ... }` block here
 - CytoCV serves `/media/...` through Django, not directly through Nginx
+- keep `CYTOCV_UPLOAD_BATCH_TARGET_BYTES` below `client_max_body_size`; the default `83886080` is 80 MiB and fits under this 100M Nginx limit
 
 ### Static Files in Production
 

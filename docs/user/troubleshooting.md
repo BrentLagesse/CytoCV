@@ -31,6 +31,22 @@ The upload page reports invalid DV files or rejects files immediately.
 - confirm that any plugin-required channels are present
 - if all-wavelength enforcement is enabled, confirm that all four logical channel roles are present
 
+### Symptom
+
+The upload button stays on `Queued`, `Validating Files`, or `Preparing Previews`.
+
+### Likely Causes
+
+- the background worker is not running
+- the worker is busy with older upload-preparation or analysis jobs
+- the selected upload set is large and preview generation is still in progress
+
+### Corrective Action
+
+- ask an operator to confirm `run_analysis_worker` is running
+- wait for the current queued jobs to finish
+- retry with a smaller selection if the job eventually fails with a storage or validation message
+
 ## Preprocess And Inference Failures
 
 ### Symptom
@@ -43,12 +59,14 @@ The preprocess step does not advance or returns to the preprocess page.
 - incompatible TensorFlow or CPU environment, including missing `AVX` support
 - a filesystem storage-full condition
 - user cancellation
+- the background worker is unavailable when analysis execution mode is `worker`
 
 ### Corrective Action
 
 - confirm the expected model weights exist under `cytocv/core/weights`
 - confirm the analysis host exposes `AVX` if TensorFlow fails with `Illegal instruction`
 - free disk space
+- ask an operator to confirm `run_analysis_worker` is running when the button remains queued
 - rerun the pipeline from preprocess
 
 ## Display Shows No Cells

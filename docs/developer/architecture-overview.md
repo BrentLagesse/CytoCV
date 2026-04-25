@@ -45,11 +45,16 @@ The core scientific workflow spans:
 - `core.views.segment_image`
 - `core.views.display`
 
+Long-running workflow stages are coordinated through `core.management.commands.run_analysis_worker`.
+That worker processes both upload-preparation jobs and analysis jobs, selecting the oldest queued job across both queues.
+
 ### Domain And Persistence Layer
 
 Primary persistence models live in `core.models`:
 
 - `UploadedImage`
+- `UploadPreparationJob`
+- `AnalysisJob`
 - `SegmentedImage`
 - `DVLayerTifPreview`
 - `CellStatistics`
@@ -60,6 +65,9 @@ User-level preferences and storage limits live in `accounts.models.CustomUser`.
 
 Scientific and image-processing responsibilities are distributed across:
 
+- `core.services.upload_preparation`
+- `core.services.analysis_pipeline`
+- `core.services.segmentation_pipeline`
 - `core.mrcnn.*`
 - `core.image_processing.*`
 - `core.contour_processing.*`
@@ -86,4 +94,3 @@ Media artifact generation, cleanup, quota projection, and retention logic are ce
 - [`codebase-map.md`](codebase-map.md)
 - [`request-flows.md`](request-flows.md)
 - [`data-flow-and-artifacts.md`](data-flow-and-artifacts.md)
-

@@ -7,28 +7,31 @@ flowchart TD
     classDef warn fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
     classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
 
-    start[Experiment POST]
+    start[Experiment page]
+    batch[POST upload batches<br/>under request-size target]
+    create[Create UploadedImage row<br/>and save DV bytes]
+    prep[Enqueue UploadPreparationJob]
+    worker[Background worker]
     input[New files and<br/>restored queue UUIDs]
     select[Normalize plugins and<br/>required channels]
-    create[Create UploadedImage row<br/>for each new file]
     validate[Recognized DV,<br/>configured layer-count policy,<br/>effective required channels]
     ok{Valid?}
-    reject[Delete invalid run and<br/>collect error message]
+    reject[Delete invalid new run<br/>or skip restored run]
     scale[Extract scale metadata]
     channels[Extract channel map]
     config[channel_config.json]
     preview[Generate preview PNGs]
-    queue[Add UUID to active queue]
+    queue[Persist valid UUID set]
+    poll[Poll upload-prep status]
     redirect[Redirect to preprocess]
 
-    start --> input --> select --> create --> validate --> ok
+    start --> batch --> create --> prep --> worker --> input --> select --> validate --> ok
     ok -- no --> reject
-    ok -- yes --> scale --> channels --> config --> preview --> queue --> redirect
+    ok -- yes --> scale --> channels --> config --> preview --> queue --> poll --> redirect
 
     class start,input actor
-    class select,create,validate,scale,channels,preview,queue process
+    class select,create,validate,scale,channels,preview,queue,batch,prep,worker,poll process
     class ok decision
     class config data
     class reject warn
     class redirect output
-

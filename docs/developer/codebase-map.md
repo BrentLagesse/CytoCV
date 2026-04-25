@@ -73,7 +73,12 @@ Important areas:
 - `core/views/pre_process.py`
 - `core/views/segment_image.py`
 - `core/views/display.py`
+- `core/management/commands/run_analysis_worker.py`
 - `core/services/artifact_storage.py`
+- `core/services/upload_preparation.py`
+- `core/services/upload_preparation_jobs.py`
+- `core/services/analysis_jobs.py`
+- `core/services/analysis_pipeline.py`
 
 ## Analysis And Processing Subpackages
 
@@ -90,6 +95,8 @@ Current tests live in `cytocv/core/tests/` and focus on:
 - preferences
 - artifact storage
 - inference
+- upload-preparation jobs and staged upload APIs
+- async analysis jobs and worker progress
 - tables
 - stats validation
 - scale initialization
@@ -100,4 +107,3 @@ Current tests live in `cytocv/core/tests/` and focus on:
 - [`architecture-overview.md`](architecture-overview.md)
 - [`testing-guide.md`](testing-guide.md)
 - [`../reference/routes-and-endpoints.md`](../reference/routes-and-endpoints.md)
-

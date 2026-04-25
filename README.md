@@ -163,6 +163,14 @@ The default local URL is:
 http://127.0.0.1:8000/
 ```
 
+Start the background worker in a second terminal when testing the upload workflow:
+
+```bash
+python manage.py run_analysis_worker --poll-interval 1
+```
+
+The worker prepares staged uploads by validating DV files, extracting metadata, writing channel config, and generating previews. It also runs Start Analysis jobs when `CYTOCV_ANALYSIS_EXECUTION_MODE=worker`.
+
 For production or VM deployment, use the dedicated operational documentation instead of the local workflow above.
 
 ## Documentation Map
@@ -206,6 +214,7 @@ The following requirements are operationally significant:
 
 - Python must remain at `3.11.5` unless the scientific stack is revalidated.
 - Production should use PostgreSQL, not SQLite.
+- Production should run `run_analysis_worker` as a supervised process for upload preparation and worker-mode analysis.
 - The Mask R-CNN workflow requires `deepretina_final.h5` under `cytocv/core/weights/`.
 - TensorFlow-based analysis requires a CPU that exposes `AVX`. A server can host the web application without `AVX`, but the analysis pipeline will fail with `Illegal instruction` if the CPU does not support the required instruction set.
 

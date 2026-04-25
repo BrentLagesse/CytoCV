@@ -50,6 +50,17 @@ def _raise_if_cancelled(progress: AnalysisProgressHandle) -> None:
         raise AnalysisCancelled()
 
 
+def _phase_with_run_count(phase: str, *, index: int, total: int) -> str:
+    if total <= 1:
+        return phase
+    return f"{phase} ({index}/{total})"
+
+
+def _display_file_name(uploaded: UploadedImage) -> str:
+    file_name = Path(str(uploaded.file_location.name or "")).name
+    return file_name or f"{uploaded.name}.dv"
+
+
 def cleanup_cancelled_batch(run_uuids: tuple[str, ...]) -> None:
     """Delete uploaded runs for a cancelled in-flight batch."""
 
@@ -75,17 +86,26 @@ def run_preprocess_and_inference_batch(
     """Run preprocess and inference for every uploaded run in a batch."""
 
     owner_filter = _current_owner_filter_for_user(user)
-    preprocess_marked = False
-    detection_marked = False
+    total_runs = len(context.run_uuids)
 
-    for image_uuid in context.run_uuids:
+    for index, image_uuid in enumerate(context.run_uuids, start=1):
         _raise_if_cancelled(progress)
         uploaded_image = UploadedImage.objects.get(uuid=image_uuid, **owner_filter)
         output_dir = Path(settings.MEDIA_ROOT) / image_uuid
 
-        if not preprocess_marked:
-            progress.set_phase("Preprocessing Images", status="running")
-            preprocess_marked = True
+        progress.set_phase(
+            _phase_with_run_count(
+                "Preprocessing Images",
+                index=index,
+                total=total_runs,
+            ),
+            status="running",
+            detail={
+                "fileIndex": index,
+                "fileTotal": total_runs,
+                "fileName": _display_file_name(uploaded_image),
+            },
+        )
         preprocessed_image = preprocess_fn(
             image_uuid,
             uploaded_image,
@@ -97,9 +117,19 @@ def run_preprocess_and_inference_batch(
 
         _raise_if_cancelled(progress)
 
-        if not detection_marked:
-            progress.set_phase("Detecting Cells", status="running")
-            detection_marked = True
+        progress.set_phase(
+            _phase_with_run_count(
+                "Detecting Cells",
+                index=index,
+                total=total_runs,
+            ),
+            status="running",
+            detail={
+                "fileIndex": index,
+                "fileTotal": total_runs,
+                "fileName": _display_file_name(uploaded_image),
+            },
+        )
         prediction_result = predict_fn(
             preprocessed_image,
             output_dir,
@@ -134,14 +164,14 @@ def run_analysis_batch(
             progress=progress,
         )
         progress.clear_cancel()
-        progress.set_phase("Completed", status="succeeded")
+        progress.set_phase("Completed", status="succeeded", detail={})
         return AnalysisBatchResult(
             storage_warning_message=segmentation_result.storage_warning_message,
         )
     except AnalysisCancelled:
         cleanup_cancelled_batch(context.run_uuids)
         progress.clear_cancel()
-        progress.set_phase("Cancelled", status="cancelled")
+        progress.set_phase("Cancelled", status="cancelled", detail={})
         raise
     except Exception as exc:
         if is_storage_full_error(exc):
@@ -157,6 +187,7 @@ def run_analysis_batch(
             "Failed",
             status="failed",
             failure_summary=SAFE_ANALYSIS_FAILURE_SUMMARY,
+            detail={},
         )
         logger.exception(
             "Analysis pipeline failed for progress ref %s",

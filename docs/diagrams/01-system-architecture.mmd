@@ -19,6 +19,7 @@ flowchart TD
         workflow[Workflow views]
         auth[Authentication and<br/>access control]
         progress_api[Progress and<br/>cancellation control]
+        worker[Background worker<br/>upload prep and analysis]
     end
 
     subgraph layer3[Layer 3. Scientific processing]
@@ -33,7 +34,7 @@ flowchart TD
 
     subgraph layer4[Layer 4. Persistence]
         direction LR
-        db[(Database records<br/>UploadedImage, SegmentedImage,<br/>CellStatistics)]
+        db[(Database records<br/>UploadedImage, UploadPreparationJob,<br/>AnalysisJob, SegmentedImage,<br/>CellStatistics)]
         media[(Run artifacts<br/>under MEDIA_ROOT)]
         progress[(Progress and<br/>cancel files)]
         weights[(Model weights)]
@@ -49,6 +50,12 @@ flowchart TD
     workflow --> metadata
     workflow --> preview
     workflow --> ml
+    workflow --> worker
+    worker --> metadata
+    worker --> preview
+    worker --> ml
+    worker --> segmentation
+    worker --> retention
     ml --> segmentation
     segmentation --> analysis
     workflow --> retention
@@ -67,8 +74,7 @@ flowchart TD
     class user actor
     class ui presentation
     class workflow presentation
-    class auth,progress_api application
+    class auth,progress_api,worker application
     class metadata,preview,ml,segmentation,analysis process
     class retention control
     class db,media,progress,weights data
-

@@ -39,6 +39,33 @@ This document is the authoritative reference for environment variables consumed 
 - Notes:
   - `sync` preserves the local-development-friendly request flow
   - `worker` is the recommended production mode because it keeps Gunicorn from owning long-running segmentation/statistics work
+  - upload preparation is background-worker backed in both modes, so the full upload workflow needs `python manage.py run_analysis_worker` running
+
+### `CYTOCV_ANALYSIS_QUEUE_STALE_SECONDS`
+
+- Required: no
+- Type: positive integer seconds
+- Default: `300`
+- Effect: maximum age before a queued `AnalysisJob` is reported as stale
+- Notes: used by the progress API and stale-job reaping helpers
+
+### `CYTOCV_ANALYSIS_RUNNING_STALE_SECONDS`
+
+- Required: no
+- Type: positive integer seconds
+- Default: `7200`
+- Effect: maximum runtime before an active `AnalysisJob` is reported as stale
+- Notes: long production analyses should stay below this or the value should be raised intentionally
+
+### `CYTOCV_UPLOAD_BATCH_TARGET_BYTES`
+
+- Required: no
+- Type: positive integer bytes
+- Default: `83886080` (`80 MiB`)
+- Effect: browser-side target for splitting selected `.dv` files into multiple upload requests
+- Notes:
+  - keep this below the reverse proxy body-size limit, for example below `client_max_body_size 100M`
+  - this does not implement resumable chunking for a single oversized file; one file must fit inside one request
 
 ### `CYTOCV_SEGMENT_SAVE_DEBUG_ARTIFACTS`
 
