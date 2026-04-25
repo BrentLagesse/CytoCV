@@ -11,7 +11,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.metadata_processing.error_handling.dv_validation import DVValidationResult
-from core.models import UploadedImage
+from core.models import UploadedImage, UploadPreparationJob
+from core.services.upload_preparation import run_upload_preparation_job
 
 
 class UploadScaleInitializationTests(TestCase):
@@ -50,46 +51,49 @@ class UploadScaleInitializationTests(TestCase):
 
         with TemporaryDirectory() as temp_media:
             with override_settings(MEDIA_ROOT=temp_media):
-                with patch("core.views.experiment.MEDIA_ROOT", temp_media):
+                with patch(
+                    "core.services.upload_preparation.validate_dv_file",
+                    return_value=valid_result,
+                ):
                     with patch(
-                        "core.views.experiment.validate_dv_file",
-                        return_value=valid_result,
+                        "core.services.upload_preparation.extract_dv_scale_metadata",
+                        return_value=metadata_payload,
                     ):
                         with patch(
-                            "core.views.experiment.extract_dv_scale_metadata",
-                            return_value=metadata_payload,
+                            "core.services.upload_preparation.extract_channel_config",
+                            return_value={
+                                "DIC": 0,
+                                "channel_blue": 1,
+                                "channel_red": 2,
+                                "channel_green": 3,
+                            },
                         ):
                             with patch(
-                                "core.views.experiment.extract_channel_config",
-                                return_value={
-                                    "DIC": 0,
-                                    "channel_blue": 1,
-                                    "channel_red": 2,
-                                    "channel_green": 3,
-                                },
+                                "core.services.upload_preparation.generate_preview_assets",
+                                return_value=None,
                             ):
-                                with patch(
-                                    "core.views.experiment.generate_preview_assets",
-                                    return_value=None,
-                                ):
-                                    response = self.client.post(
-                                        reverse("experiment"),
-                                        data={
-                                            "files": [upload_file],
-                                            "selected_analysis": ["PunctaDistance"],
-                                            "stats_puncta_line_width_value": "1",
-                                            "stats_cen_dot_distance_value": "37",
-                                            "stats_puncta_line_width_unit": "px",
-                                            "stats_cen_dot_distance_unit": "px",
-                                            "puncta_line_mode": puncta_line_mode,
-                                            "stats_microns_per_pixel": "0.2",
-                                            "stats_use_metadata_scale": "1" if use_metadata_scale else "0",
-                                        },
-                                    )
+                                response = self.client.post(
+                                    reverse("experiment"),
+                                    data={
+                                        "files": [upload_file],
+                                        "selected_analysis": ["PunctaDistance"],
+                                        "stats_puncta_line_width_value": "1",
+                                        "stats_cen_dot_distance_value": "37",
+                                        "stats_puncta_line_width_unit": "px",
+                                        "stats_cen_dot_distance_unit": "px",
+                                        "puncta_line_mode": puncta_line_mode,
+                                        "stats_microns_per_pixel": "0.2",
+                                        "stats_use_metadata_scale": "1" if use_metadata_scale else "0",
+                                    },
+                                )
+                                self.assertEqual(response.status_code, 200)
+                                payload = response.json()
+                                self.assertIn("job_uuid", payload)
+                                job = UploadPreparationJob.objects.get(
+                                    job_uuid=payload["job_uuid"]
+                                )
+                                run_upload_preparation_job(job)
 
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertIn("redirect", payload)
         return UploadedImage.objects.order_by("-uuid").first()
 
     def test_upload_initializes_scale_info_from_metadata_when_enabled(self):
@@ -157,4 +161,3 @@ class UploadScaleInitializationTests(TestCase):
         )
 
         self.assertEqual(self.client.session.get("puncta_line_mode"), "green_puncta")
-

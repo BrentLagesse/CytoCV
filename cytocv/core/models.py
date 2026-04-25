@@ -158,6 +158,51 @@ class AnalysisJob(models.Model):
         )
 
 
+class UploadPreparationJob(models.Model):
+    """Stores background upload validation and preview-preparation work."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+        CANCELLING = "cancelling", "Cancelling"
+        CANCELLED = "cancelled", "Cancelled"
+
+    job_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        to_field="id",
+        default=get_guest_user,
+    )
+    new_run_uuids = models.JSONField(default=list)
+    restored_run_uuids = models.JSONField(default=list)
+    valid_run_uuids = models.JSONField(default=list)
+    config_snapshot = models.JSONField(default=dict)
+    error_lines = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.QUEUED,
+    )
+    current_phase = models.CharField(max_length=64, default="Queued")
+    cancellation_requested = models.BooleanField(default=False)
+    failure_summary = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return (
+            f"UploadPreparationJob(job_uuid={self.job_uuid}, "
+            f"status={self.status}, phase={self.current_phase})"
+        )
+
+
 class DVLayerTifPreview(models.Model):
     """Stores a single channel preview for a DV file."""
 

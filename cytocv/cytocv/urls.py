@@ -37,7 +37,13 @@ from core.views.display import (
     sync_display_file_selection,
     unsave_display_files,
 )
-from core.views.experiment import experiment
+from core.views.experiment import (
+    cancel_upload_preparation,
+    enqueue_upload_preparation,
+    experiment,
+    upload_file_batch,
+    upload_preparation_status,
+)
 from core.views.home import home
 from core.views.overlay import cell_overlay_image
 from core.views.pre_process import (
@@ -76,6 +82,26 @@ urlpatterns = [
     ),
     path('workflow-defaults/', login_required(preferences_view), name="workflow_defaults"),
     path('experiment/', login_required(experiment), name="experiment"),
+    path(
+        'api/experiment/uploads/',
+        login_required(upload_file_batch),
+        name="experiment_upload_batch",
+    ),
+    path(
+        'api/experiment/upload-prep/',
+        login_required(enqueue_upload_preparation),
+        name="experiment_upload_prepare",
+    ),
+    path(
+        'api/experiment/upload-prep/<str:job_uuid>/',
+        login_required(upload_preparation_status),
+        name="experiment_upload_prepare_status",
+    ),
+    path(
+        'api/experiment/upload-prep/<str:job_uuid>/cancel/',
+        login_required(cancel_upload_preparation),
+        name="experiment_upload_prepare_cancel",
+    ),
     path(
         'experiment/<str:uuids>/pre-process/',
         login_required(pre_process),

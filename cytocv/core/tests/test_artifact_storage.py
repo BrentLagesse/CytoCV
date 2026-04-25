@@ -24,7 +24,14 @@ from PIL import Image
 
 from accounts.preferences import get_user_preferences, update_user_preferences
 from core.config import DEFAULT_CHANNEL_CONFIG
-from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage, get_guest_user
+from core.models import (
+    CellStatistics,
+    DVLayerTifPreview,
+    SegmentedImage,
+    UploadedImage,
+    UploadPreparationJob,
+    get_guest_user,
+)
 from core.mrcnn.preprocess_images import PreprocessedImageArtifact, preprocess_images
 from core.services.artifact_storage import (
     PRE_PROCESS_FOLDER_NAME,
@@ -39,6 +46,10 @@ from core.services.artifact_storage import (
     is_storage_full_error,
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
+)
+from core.services.upload_preparation import (
+    UPLOAD_PREPARATION_STORAGE_FULL_MESSAGE,
+    run_upload_preparation_job,
 )
 from core.views.experiment import PROCESSING_STORAGE_FULL_MESSAGE as UPLOAD_STORAGE_FULL_MESSAGE
 from core.views.experiment import experiment
@@ -66,7 +77,6 @@ def temporary_media_root():
                 "core.mrcnn.preprocess_images.MEDIA_ROOT",
                 "core.views.convert_to_image.MEDIA_ROOT",
                 "core.views.display.MEDIA_ROOT",
-                "core.views.experiment.MEDIA_ROOT",
                 "core.views.pre_process.MEDIA_ROOT",
                 "core.views.segment_image.MEDIA_ROOT",
                 "core.views.utils.MEDIA_ROOT",
@@ -639,25 +649,27 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
 class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
     def test_experiment_invalid_upload_removes_saved_source_file(self):
         with temporary_media_root() as media_root:
-            invalid_result = patch(
-                "core.views.experiment.validate_dv_file",
-                return_value=type(
-                    "ValidationResult",
-                    (),
-                    {
-                        "is_valid": False,
-                        "layer_count": None,
-                        "missing_channels": set(),
-                        "required_channels": set(),
-                        "error_message": "invalid",
-                    },
-                )(),
-            )
-            with invalid_result:
+            invalid_result = type(
+                "ValidationResult",
+                (),
+                {
+                    "is_valid": False,
+                    "layer_count": None,
+                    "missing_channels": set(),
+                    "required_channels": set(),
+                    "error_message": "invalid",
+                },
+            )()
+            with patch(
+                "core.services.upload_preparation.validate_dv_file",
+                return_value=invalid_result,
+            ):
                 response = self.client.post(
                     reverse("experiment"),
                     {"files": SimpleUploadedFile("invalid.dv", b"invalid")},
                 )
+                job = UploadPreparationJob.objects.get()
+                run_upload_preparation_job(job)
 
             self.assertEqual(response.status_code, 302)
             self.assertFalse(UploadedImage.objects.exists())
@@ -726,14 +738,14 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 },
             )()
 
-            with patch("core.views.experiment.validate_dv_file", return_value=valid_result), patch(
-                "core.views.experiment.extract_channel_config",
+            with patch("core.services.upload_preparation.validate_dv_file", return_value=valid_result), patch(
+                "core.services.upload_preparation.extract_channel_config",
                 return_value=DEFAULT_CHANNEL_CONFIG,
             ), patch(
-                "core.views.experiment.extract_dv_scale_metadata",
+                "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},
             ), patch(
-                "core.views.experiment.generate_preview_assets",
+                "core.services.upload_preparation.generate_preview_assets",
                 side_effect=OSError(errno.ENOSPC, "No space left on device"),
             ):
                 response = self.client.post(
@@ -741,9 +753,13 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                     {"files": SimpleUploadedFile("full.dv", b"valid")},
                     HTTP_X_REQUESTED_WITH="XMLHttpRequest",
                 )
+                self.assertEqual(response.status_code, 200)
+                job = UploadPreparationJob.objects.get()
+                run_upload_preparation_job(job)
 
-            self.assertEqual(response.status_code, 507)
-            self.assertEqual(response.json()["errors"], [UPLOAD_STORAGE_FULL_MESSAGE])
+            job.refresh_from_db()
+            self.assertEqual(job.status, UploadPreparationJob.Status.FAILED)
+            self.assertEqual(job.error_lines, [UPLOAD_PREPARATION_STORAGE_FULL_MESSAGE])
             self.assertFalse(UploadedImage.objects.exists())
             self.assertFalse(any(media_root.rglob("*.dv")))
 
@@ -878,4 +894,3 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
             self.assertTrue(DVLayerTifPreview.objects.filter(pk=preview_row.pk).exists())
             self.assertFalse((run_dir / "output").exists())
             self.assertFalse((run_dir / "segmented").exists())
-

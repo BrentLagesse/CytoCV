@@ -1,23 +1,15 @@
 from django.shortcuts import render, redirect
 import logging
 from core.forms import UploadImageForm
-from core.models import UploadedImage, get_guest_user
-from .utils import write_progress
-from pathlib import Path    
-from cytocv.settings import MEDIA_ROOT
+from core.models import UploadedImage, UploadPreparationJob, get_guest_user
+from pathlib import Path
 import uuid
 import json
+from django.conf import settings
 from django.contrib import messages
 from django.http import JsonResponse
 from django.urls import reverse
-from ..metadata_processing.dv_channel_parser import extract_channel_config
-from ..metadata_processing.dv_scale_parser import extract_dv_scale_metadata
-from ..metadata_processing.error_handling import (
-    DVValidationOptions,
-    DVValidationResult,
-    build_dv_error_messages,
-    validate_dv_file,
-)
+from django.views.decorators.http import require_GET, require_POST
 from ..stats_plugins import (
     CHANNEL_ORDER,
     build_plugin_ui_payload,
@@ -28,7 +20,6 @@ import uuid as uuid_lib
 from accounts.preferences import get_user_preferences
 from core.scale import (
     DEFAULT_MICRONS_PER_PIXEL,
-    build_scale_info,
     convert_length_to_pixels,
     normalize_length_unit,
     parse_microns_per_pixel,
@@ -42,13 +33,17 @@ from core.services.green_dot_split import (
     normalize_green_dot_split_mode,
 )
 from core.services.artifact_storage import (
-    delete_uploaded_run,
     delete_uploaded_run_by_uuid,
-    generate_preview_assets,
     get_user_storage_projection,
     is_storage_full_error,
     log_storage_capacity_failure,
     sweep_user_run_artifacts,
+)
+from core.services.upload_preparation_jobs import (
+    enqueue_upload_preparation_job,
+    finalize_upload_preparation_job,
+    get_upload_preparation_job_for_user,
+    request_upload_preparation_cancellation,
 )
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
@@ -193,6 +188,7 @@ def _upload_view_context(
         "restored_queue_payload_json": json.dumps(restored_queue_items or []),
         "user_preference_defaults_json": json.dumps(user_preference_defaults or {}),
         "upload_quota_payload_json": json.dumps(upload_quota_payload or {}),
+        "upload_batch_target_bytes": int(getattr(settings, "UPLOAD_BATCH_TARGET_BYTES", 80 * 1024 * 1024)),
     }
     if error:
         context["error"] = error
@@ -220,6 +216,226 @@ def _build_upload_quota_payload(user, user_preferences: dict | None = None) -> d
     }
 
 
+def _getlist(payload, key: str) -> list[str]:
+    if hasattr(payload, "getlist"):
+        return list(payload.getlist(key))
+    value = payload.get(key) if isinstance(payload, dict) else None
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[str, object], dict[str, object]]:
+    """Parse upload settings once for session persistence and worker execution."""
+
+    experiment_defaults = user_preferences.get("experiment_defaults", {})
+    default_microns_per_pixel = parse_microns_per_pixel(
+        experiment_defaults.get("microns_per_pixel"),
+        default=DEFAULT_MICRONS_PER_PIXEL,
+    )
+    default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
+
+    selected_analysis = normalize_selected_plugins(_getlist(payload, "selected_analysis"))
+    requirement_summary = build_requirement_summary(selected_analysis)
+
+    posted_microns_per_pixel = parse_microns_per_pixel(
+        payload.get("stats_microns_per_pixel"),
+        default=default_microns_per_pixel,
+    )
+    stats_use_metadata_scale = _parse_bool(
+        payload.get("stats_use_metadata_scale"),
+        default=default_use_metadata_scale,
+    )
+    puncta_line_width_unit = _normalize_length_unit(
+        payload.get(
+            "stats_puncta_line_width_unit",
+            payload.get("stats_red_line_width_unit", payload.get("stats_mcherry_width_unit")),
+        ),
+        default="px",
+    )
+    cen_dot_distance_unit = _normalize_length_unit(
+        payload.get("stats_cen_dot_distance_unit", payload.get("stats_gfp_distance_unit")),
+        default="px",
+    )
+    cen_dot_proximity_radius_unit = _normalize_length_unit(
+        payload.get("stats_cen_dot_proximity_radius_unit"),
+        default="px",
+    )
+
+    has_raw_puncta_line_width = (
+        "stats_puncta_line_width_value" in payload
+        or "stats_red_line_width_value" in payload
+        or "stats_mcherry_width_value" in payload
+    )
+    has_raw_cen_dot_distance = (
+        "stats_cen_dot_distance_value" in payload
+        or "stats_gfp_distance_value" in payload
+    )
+    has_raw_cen_dot_proximity_radius = "stats_cen_dot_proximity_radius_value" in payload
+    puncta_line_source_unit = puncta_line_width_unit if has_raw_puncta_line_width else "px"
+    cen_dot_source_unit = cen_dot_distance_unit if has_raw_cen_dot_distance else "px"
+    cen_dot_proximity_radius_source_unit = cen_dot_proximity_radius_unit if has_raw_cen_dot_proximity_radius else "px"
+
+    puncta_line_width_value = _parse_positive_float(
+        payload.get(
+            "stats_puncta_line_width_value",
+            payload.get(
+                "stats_red_line_width_value",
+                payload.get("punctaLineWidth", payload.get("redLineWidth", payload.get("mCherryWidth", "1"))),
+            ),
+        ),
+        default=1,
+        minimum=0,
+    )
+    cen_dot_distance_value = _parse_positive_float(
+        payload.get(
+            "stats_cen_dot_distance_value",
+            payload.get("stats_gfp_distance_value", payload.get("cenDotDistance", payload.get("distance", "37"))),
+        ),
+        default=37,
+        minimum=0,
+    )
+    cen_dot_proximity_radius_value = _parse_positive_float(
+        payload.get(
+            "stats_cen_dot_proximity_radius_value",
+            payload.get("cenDotProximityRadius", "13"),
+        ),
+        default=13,
+        minimum=0,
+    )
+
+    puncta_line_width = _convert_length_to_pixels(
+        puncta_line_width_value,
+        puncta_line_source_unit,
+        minimum_px=1,
+        fallback_px=1,
+        microns_per_pixel=posted_microns_per_pixel,
+    )
+    cen_dot_distance = _convert_length_to_pixels(
+        cen_dot_distance_value,
+        cen_dot_source_unit,
+        minimum_px=0,
+        fallback_px=37,
+        microns_per_pixel=posted_microns_per_pixel,
+    )
+    cen_dot_proximity_radius = _convert_length_to_pixels(
+        cen_dot_proximity_radius_value,
+        cen_dot_proximity_radius_source_unit,
+        minimum_px=0,
+        fallback_px=13,
+        microns_per_pixel=posted_microns_per_pixel,
+    )
+
+    def _parse_float_value(key: str, default: float) -> float:
+        try:
+            parsed = float(payload.get(key, default))
+        except (TypeError, ValueError):
+            return default
+        return parsed if parsed >= 0 else default
+
+    biorientation_red_min_distance_value = _parse_float_value("biorientationRedMinDistance", 0.0)
+    biorientation_red_max_distance_value = _parse_float_value("biorientationRedMaxDistance", 37.0)
+    biorientation_red_min_distance_unit = _normalize_length_unit(
+        payload.get("biorientationRedMinDistanceUnit", "px")
+    )
+    biorientation_red_max_distance_unit = _normalize_length_unit(
+        payload.get("biorientationRedMaxDistanceUnit", "px")
+    )
+    try:
+        biorientation_collinearity_threshold = int(
+            payload.get("biorientationCollinearityThreshold", "66")
+        )
+    except (TypeError, ValueError):
+        biorientation_collinearity_threshold = 66
+    if biorientation_collinearity_threshold < 0:
+        biorientation_collinearity_threshold = 66
+
+    green_dot_split_enabled = _parse_bool(
+        payload.get("greenDotSplitEnabled", payload.get("biorientationGreenSplitEnabled")),
+        default=True,
+    )
+    green_dot_split_mode = normalize_green_dot_split_mode(
+        payload.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+    )
+    green_contour_filter_enabled = payload.get(
+        "greenContourFilterEnabled",
+        payload.get("gfpFilterEnabled", False),
+    )
+    alternate_red_detection = payload.get(
+        "alternateRedDetection",
+        payload.get("alternateMCherryDetection", False),
+    )
+    puncta_line_mode = _parse_puncta_line_mode(
+        payload.get("puncta_line_mode"),
+        default=DEFAULT_PUNCTA_LINE_MODE,
+    )
+    nuclear_cell_pair_mode = _parse_nuclear_cell_pair_mode(
+        payload.get("nuclear_cell_pair_mode", payload.get("nuclear_cellular_mode")),
+        default="green_nucleus",
+    )
+
+    module_enabled = _parse_bool(payload.get("cytocv_analysis_enabled"), default=False)
+    enforce_layer_count = module_enabled and _parse_bool(
+        payload.get("enforce_layer_count"),
+        default=False,
+    )
+    enforce_wavelengths = module_enabled and _parse_bool(
+        payload.get("enforce_wavelengths"),
+        default=False,
+    )
+    extra_required_channels = _parse_channels(_getlist(payload, "extra_required_channels"))
+    required_channels = set(requirement_summary["required_channels"])
+    if module_enabled:
+        required_channels.update(extra_required_channels)
+
+    session_values = {
+        "selected_analysis": requirement_summary["selected_plugins"],
+        "punctaLineWidth": puncta_line_width,
+        "cenDotDistance": cen_dot_distance,
+        "cenDotProximityRadius": cen_dot_proximity_radius,
+        "stats_puncta_line_width_unit": puncta_line_width_unit,
+        "stats_cen_dot_distance_unit": cen_dot_distance_unit,
+        "stats_cen_dot_proximity_radius_unit": cen_dot_proximity_radius_unit,
+        "stats_microns_per_pixel": posted_microns_per_pixel,
+        "stats_use_metadata_scale": stats_use_metadata_scale,
+        "stats_puncta_line_width_value": puncta_line_width_value,
+        "stats_cen_dot_distance_value": cen_dot_distance_value,
+        "stats_cen_dot_proximity_radius_value": cen_dot_proximity_radius_value,
+        "biorientationRedMinDistance": biorientation_red_min_distance_value,
+        "biorientationRedMaxDistance": biorientation_red_max_distance_value,
+        "biorientationCollinearityThreshold": biorientation_collinearity_threshold,
+        "greenDotSplitEnabled": green_dot_split_enabled,
+        "greenDotSplitMode": green_dot_split_mode,
+        "stats_biorientation_red_min_distance_value": biorientation_red_min_distance_value,
+        "stats_biorientation_red_min_distance_unit": biorientation_red_min_distance_unit,
+        "stats_biorientation_red_max_distance_value": biorientation_red_max_distance_value,
+        "stats_biorientation_red_max_distance_unit": biorientation_red_max_distance_unit,
+        "puncta_line_mode": puncta_line_mode,
+        "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+        "greenContourFilterEnabled": green_contour_filter_enabled,
+        "alternateRedDetection": alternate_red_detection,
+    }
+    config_snapshot = {
+        "selected_analysis": requirement_summary["selected_plugins"],
+        "manual_um_per_px": posted_microns_per_pixel,
+        "prefer_metadata_scale": stats_use_metadata_scale,
+        "validation_options": {
+            "enforce_layer_count": enforce_layer_count,
+            "enforce_wavelengths": enforce_wavelengths,
+            "required_channels": sorted(required_channels),
+        },
+    }
+    return session_values, config_snapshot
+
+
+def _persist_experiment_session(request, session_values: dict[str, object]) -> None:
+    for key, value in session_values.items():
+        request.session[key] = value
+    request.session.modified = True
+
+
 def experiment(request):
     """
     Uploads and processes each image in the selected folder individually.
@@ -232,31 +448,18 @@ def experiment(request):
     owner_filter = _current_owner_filter(request)
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
     user_preferences = get_user_preferences(request.user)
-    experiment_defaults = user_preferences.get("experiment_defaults", {})
-    upload_quota_payload = _build_upload_quota_payload(request.user, user_preferences)
-    default_microns_per_pixel = parse_microns_per_pixel(
-        experiment_defaults.get("microns_per_pixel"),
-        default=DEFAULT_MICRONS_PER_PIXEL,
-    )
-    default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
 
     if request.method == "POST":
         logger.debug("POST request received")
-        
+
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         files = request.FILES.getlist('files')
         existing_uuids = _parse_restore_uuids(request.POST.getlist("existing_uuids"))
-        protected_uuids = set(existing_uuids)
-        protected_uuids.update(
-            str(value)
-            for value in request.session.get("transient_experiment_uuids", [])
-            if str(value)
-        )
-        sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
-
         if not files and not existing_uuids:
             logger.debug("No files received")
+            if is_ajax:
+                return JsonResponse({"errors": ["No files received."]}, status=400)
             return render(
                 request,
                 'form/experiment.html',
@@ -265,380 +468,90 @@ def experiment(request):
                     progress_key=progress_key,
                     error='No files received.',
                     user_preference_defaults=user_preferences.get("experiment_defaults", {}),
-                    upload_quota_payload=upload_quota_payload,
+                    upload_quota_payload=_build_upload_quota_payload(request.user, user_preferences),
                 ),
             )
 
-        logger.debug("Files received: %s", [file.name for file in files])
+        session_values, config_snapshot = _parse_experiment_submission(
+            request.POST,
+            user_preferences,
+        )
+        _persist_experiment_session(request, session_values)
 
-        selected_analysis = normalize_selected_plugins(request.POST.getlist("selected_analysis"))
-        requirement_summary = build_requirement_summary(selected_analysis)
-
-        posted_microns_per_pixel = parse_microns_per_pixel(
-            request.POST.get("stats_microns_per_pixel"),
-            default=default_microns_per_pixel,
-        )
-        stats_use_metadata_scale = _parse_bool(
-            request.POST.get("stats_use_metadata_scale"),
-            default=default_use_metadata_scale,
-        )
-        puncta_line_width_unit = _normalize_length_unit(
-            request.POST.get(
-                "stats_puncta_line_width_unit",
-                request.POST.get("stats_red_line_width_unit", request.POST.get("stats_mcherry_width_unit")),
-            ),
-            default="px",
-        )
-        cen_dot_distance_unit = _normalize_length_unit(
-            request.POST.get("stats_cen_dot_distance_unit", request.POST.get("stats_gfp_distance_unit")),
-            default="px",
-        )
-        cen_dot_proximity_radius_unit = _normalize_length_unit(
-            request.POST.get("stats_cen_dot_proximity_radius_unit"),
-            default="px",
-        )
-
-        # Backward compatibility: if raw-value fields are absent, treat submitted
-        # legacy width/distance fields as already pixel-normalized.
-        has_raw_puncta_line_width = (
-            "stats_puncta_line_width_value" in request.POST
-            or "stats_red_line_width_value" in request.POST
-            or "stats_mcherry_width_value" in request.POST
-        )
-        has_raw_cen_dot_distance = (
-            "stats_cen_dot_distance_value" in request.POST
-            or "stats_gfp_distance_value" in request.POST
-        )
-        has_raw_cen_dot_proximity_radius = "stats_cen_dot_proximity_radius_value" in request.POST
-        puncta_line_source_unit = puncta_line_width_unit if has_raw_puncta_line_width else "px"
-        cen_dot_source_unit = cen_dot_distance_unit if has_raw_cen_dot_distance else "px"
-        cen_dot_proximity_radius_source_unit = cen_dot_proximity_radius_unit if has_raw_cen_dot_proximity_radius else "px"
-
-        puncta_line_width_value = _parse_positive_float(
-            request.POST.get(
-                "stats_puncta_line_width_value",
-                request.POST.get(
-                    "stats_red_line_width_value",
-                    request.POST.get("punctaLineWidth", request.POST.get("redLineWidth", request.POST.get("mCherryWidth", "1"))),
-                ),
-            ),
-            default=1,
-            minimum=0,
-        )
-        cen_dot_distance_value = _parse_positive_float(
-            request.POST.get(
-                "stats_cen_dot_distance_value",
-                request.POST.get("stats_gfp_distance_value", request.POST.get("cenDotDistance", request.POST.get("distance", "37"))),
-            ),
-            default=37,
-            minimum=0,
-        )
-        cen_dot_proximity_radius_value = _parse_positive_float(
-            request.POST.get(
-                "stats_cen_dot_proximity_radius_value",
-                request.POST.get("cenDotProximityRadius", "13"),
-            ),
-            default=13,
-            minimum=0,
-        )
-
-        puncta_line_width = _convert_length_to_pixels(
-            puncta_line_width_value,
-            puncta_line_source_unit,
-            minimum_px=1,
-            fallback_px=1,
-            microns_per_pixel=posted_microns_per_pixel,
-        )
-        cen_dot_distance = _convert_length_to_pixels(
-            cen_dot_distance_value,
-            cen_dot_source_unit,
-            minimum_px=0,
-            fallback_px=37,
-            microns_per_pixel=posted_microns_per_pixel,
-        )
-        cen_dot_proximity_radius = _convert_length_to_pixels(
-            cen_dot_proximity_radius_value,
-            cen_dot_proximity_radius_source_unit,
-            minimum_px=0,
-            fallback_px=13,
-            microns_per_pixel=posted_microns_per_pixel,
-        )
-
-        biorientation_collinearity_threshold_raw = request.POST.get(
-            "biorientationCollinearityThreshold",
-            "66",
-        )
-        try:
-            biorientation_collinearity_threshold = int(biorientation_collinearity_threshold_raw)
-        except (TypeError, ValueError):
-            biorientation_collinearity_threshold = 66
-        if biorientation_collinearity_threshold < 0:
-            biorientation_collinearity_threshold = 66
-
-        biorientation_red_min_distance_value_raw = request.POST.get(
-            "biorientationRedMinDistance", "0.0"
-        )
-        biorientation_red_min_distance_unit_raw = request.POST.get(
-            "biorientationRedMinDistanceUnit", "px"
-        )
-        biorientation_red_max_distance_value_raw = request.POST.get(
-            "biorientationRedMaxDistance", "37.0"
-        )
-        biorientation_red_max_distance_unit_raw = request.POST.get(
-            "biorientationRedMaxDistanceUnit", "px"
-        )
-        try:
-            biorientation_red_min_distance_value = float(
-                biorientation_red_min_distance_value_raw
+        invalid_names = [
+            file.name for file in files if Path(str(file.name)).suffix.lower() != ".dv"
+        ]
+        if invalid_names:
+            return JsonResponse(
+                {"errors": ["Only .dv files are allowed for upload."]},
+                status=400,
             )
-        except (TypeError, ValueError):
-            biorientation_red_min_distance_value = 0.0
-        if biorientation_red_min_distance_value < 0:
-            biorientation_red_min_distance_value = 0.0
-        try:
-            biorientation_red_max_distance_value = float(
-                biorientation_red_max_distance_value_raw
-            )
-        except (TypeError, ValueError):
-            biorientation_red_max_distance_value = 37.0
-        if biorientation_red_max_distance_value < 0:
-            biorientation_red_max_distance_value = 37.0
-        biorientation_red_min_distance_unit = _normalize_length_unit(
-            biorientation_red_min_distance_unit_raw
-        )
-        biorientation_red_max_distance_unit = _normalize_length_unit(
-            biorientation_red_max_distance_unit_raw
-        )
-        green_dot_split_enabled = _parse_bool(
-            request.POST.get(
-                "greenDotSplitEnabled",
-                request.POST.get("biorientationGreenSplitEnabled"),
-            ),
-            default=True,
-        )
-        green_dot_split_mode = normalize_green_dot_split_mode(
-            request.POST.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
-        )
 
-        green_contour_filter_enabled = request.POST.get(
-            "greenContourFilterEnabled",
-            request.POST.get("gfpFilterEnabled", False),
-        )
-        alternate_red_detection = request.POST.get(
-            "alternateRedDetection",
-            request.POST.get("alternateMCherryDetection", False),
-        )
-
-        # Persist user analysis choices now so preprocess step no longer owns selection.
-        request.session["selected_analysis"] = requirement_summary["selected_plugins"]
-        request.session["punctaLineWidth"] = puncta_line_width
-        request.session["cenDotDistance"] = cen_dot_distance
-        request.session["cenDotProximityRadius"] = cen_dot_proximity_radius
-        request.session["stats_puncta_line_width_unit"] = puncta_line_width_unit
-        request.session["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
-        request.session["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
-        request.session["stats_microns_per_pixel"] = posted_microns_per_pixel
-        request.session["stats_use_metadata_scale"] = stats_use_metadata_scale
-        request.session["stats_puncta_line_width_value"] = puncta_line_width_value
-        request.session["stats_cen_dot_distance_value"] = cen_dot_distance_value
-        request.session["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius_value
-        request.session["biorientationRedMinDistance"] = biorientation_red_min_distance_value
-        request.session["biorientationRedMaxDistance"] = biorientation_red_max_distance_value
-        request.session["biorientationCollinearityThreshold"] = biorientation_collinearity_threshold
-        request.session["greenDotSplitEnabled"] = green_dot_split_enabled
-        request.session["greenDotSplitMode"] = green_dot_split_mode
-        request.session["stats_biorientation_red_min_distance_value"] = biorientation_red_min_distance_value
-        request.session["stats_biorientation_red_min_distance_unit"] = biorientation_red_min_distance_unit
-        request.session["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value
-        request.session["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
-        request.session["puncta_line_mode"] = _parse_puncta_line_mode(
-            request.POST.get("puncta_line_mode"),
-            default=DEFAULT_PUNCTA_LINE_MODE,
-        )
-        request.session["nuclear_cell_pair_mode"] = _parse_nuclear_cell_pair_mode(
-            request.POST.get("nuclear_cell_pair_mode", request.POST.get("nuclear_cellular_mode")),
-            default="green_nucleus",
-        )
-        request.session["greenContourFilterEnabled"] = green_contour_filter_enabled
-        request.session["alternateRedDetection"] = alternate_red_detection
-
-        module_enabled = _parse_bool(request.POST.get("cytocv_analysis_enabled"), default=False)
-        enforce_layer_count = module_enabled and _parse_bool(
-            request.POST.get("enforce_layer_count"),
-            default=False,
-        )
-        enforce_wavelengths = module_enabled and _parse_bool(
-            request.POST.get("enforce_wavelengths"),
-            default=False,
-        )
-
-        # Optional per-channel toggles from advanced settings. Stats-required channels
-        # are always enforced server-side regardless of these optional toggles.
-        extra_required_channels = _parse_channels(request.POST.getlist("extra_required_channels"))
-        required_channels = set(requirement_summary["required_channels"])
-        if module_enabled:
-            required_channels.update(extra_required_channels)
-
-        validation_options = DVValidationOptions(
-            enforce_layer_count=enforce_layer_count,
-            enforce_wavelengths=enforce_wavelengths,
-            required_channels=required_channels,
-        )
-
-        # Store all UUIDs of the processed images
-        image_uuids = []
-        validation_failures = []
-
-        # Validate any restored queue UUIDs first to preserve order.
-        for existing_uuid in existing_uuids:
-            try:
-                existing_image = UploadedImage.objects.get(uuid=existing_uuid, **owner_filter)
-            except UploadedImage.DoesNotExist:
-                validation_failures.append(
-                    (
-                        existing_uuid,
-                        DVValidationResult(
-                            is_valid=False,
-                            layer_count=None,
-                            missing_channels=set(),
-                            required_channels=set(required_channels),
-                            error_message="no longer available in your upload queue",
-                        ),
-                    )
-                )
-                continue
-
-            existing_dv_path = Path(MEDIA_ROOT) / str(existing_image.file_location)
-            validation_result = validate_dv_file(existing_dv_path, validation_options)
-            if not validation_result.is_valid:
-                validation_failures.append((existing_image.name, validation_result))
-                continue
-
-            metadata_scale = extract_dv_scale_metadata(existing_dv_path)
-            existing_image.scale_info = build_scale_info(
-                manual_um_per_px=posted_microns_per_pixel,
-                prefer_metadata=stats_use_metadata_scale,
-                metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
-                status=metadata_scale.get("status"),
-                dx=metadata_scale.get("dx"),
-                dy=metadata_scale.get("dy"),
-                dz=metadata_scale.get("dz"),
-                note=metadata_scale.get("note"),
-            )
-            existing_image.save(update_fields=["scale_info"])
-            image_uuids.append(str(existing_uuid))
-
-        def storage_full_response():
-            if is_ajax:
-                return JsonResponse({"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507)
-            messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
-            return redirect(request.path)
-
-        # Iterate through each newly uploaded file and assign a unique UUID
-        preprocess_marked = False
         new_upload_uuids: list[str] = []
-        for image_location in files:
-            name = image_location.name
-            name = Path(name).stem
-
-            # Generate a UUID for the image
-            image_uuid = uuid.uuid4()
-            try:
-                # Save the image instance with the generated UUID
-                instance = UploadedImage(name=name, uuid=image_uuid, file_location=image_location, user_id=owner_id)
+        try:
+            for image_location in files:
+                name = Path(str(image_location.name)).stem or "upload"
+                image_uuid = uuid.uuid4()
+                instance = UploadedImage(
+                    name=name,
+                    uuid=image_uuid,
+                    file_location=image_location,
+                    user_id=owner_id,
+                )
                 instance.save()
                 new_upload_uuids.append(str(image_uuid))
-
-                # Validate metadata before any preprocessing setup.
-                dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
-                validation_result = validate_dv_file(dv_file_path, validation_options)
-                if not validation_result.is_valid:
-                    validation_failures.append((name, validation_result))
-                    delete_uploaded_run(instance)
-                    new_upload_uuids.remove(str(image_uuid))
-                    continue
-
-                metadata_scale = extract_dv_scale_metadata(dv_file_path)
-                instance.scale_info = build_scale_info(
-                    manual_um_per_px=posted_microns_per_pixel,
-                    prefer_metadata=stats_use_metadata_scale,
-                    metadata_um_per_px=metadata_scale.get("metadata_um_per_px"),
-                    status=metadata_scale.get("status"),
-                    dx=metadata_scale.get("dx"),
-                    dy=metadata_scale.get("dy"),
-                    dz=metadata_scale.get("dz"),
-                    note=metadata_scale.get("note"),
-                )
-                instance.save(update_fields=["scale_info"])
-
-                # only valid files make it into the queue
-                image_uuids.append(str(image_uuid))
-
-                # Create a directory for each image based on its UUID
-                output_dir = Path(MEDIA_ROOT, str(image_uuid))
-                output_dir.mkdir(parents=True, exist_ok=True)
-
-                # Extract and save the per-file channel configuration
-                dv_file_path = Path(MEDIA_ROOT) / str(instance.file_location)
-                channel_config = extract_channel_config(dv_file_path)
-                config_json_path = output_dir / "channel_config.json"
-                with open(config_json_path, "w", encoding="utf-8") as config_file:
-                    json.dump(channel_config, config_file)
-
-                logger.debug("Processing file: %s, UUID: %s", name, image_uuid)
-
-                # Apply the preprocessing step to each image
-                if not preprocess_marked:
-                    write_progress(progress_key, "Preprocessing Images")
-                    preprocess_marked = True
-                generate_preview_assets(instance, expected_layers=4)
-            except Exception as exc:
-                if not is_storage_full_error(exc):
-                    raise
+        except Exception as exc:
+            for cleanup_uuid in new_upload_uuids:
+                delete_uploaded_run_by_uuid(cleanup_uuid)
+            if is_storage_full_error(exc):
                 log_storage_capacity_failure(
-                    stage="experiment_upload",
+                    stage="experiment_upload_save",
                     user=request.user,
                     uuids=new_upload_uuids,
                     exc=exc,
                 )
-                for cleanup_uuid in list(new_upload_uuids):
-                    delete_uploaded_run_by_uuid(cleanup_uuid)
-                return storage_full_response()
-
-        error_lines = build_dv_error_messages(validation_failures, validation_options)
-        preprocess_url = None
-        if image_uuids:
-            request.session["last_experiment_uuids"] = image_uuids
-            preprocess_url = reverse(
-                "pre_process",
-                kwargs={"uuids": ",".join(map(str, image_uuids))},
-            )
-
-        # Case 3: no valid files
-        if not image_uuids:
-            if error_lines:
                 if is_ajax:
-                    return JsonResponse({'errors': error_lines}, status=400)
-                messages.error(request, "\n".join(error_lines))
+                    return JsonResponse({"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507)
+                messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
                 return redirect(request.path)
-            msg = 'No valid DV files were uploaded. Please upload files that pass the selected checks.'
+            logger.exception("Experiment upload save failed")
             if is_ajax:
-                return JsonResponse({'errors': [msg]}, status=400)
-            messages.error(request, msg)
+                return JsonResponse({"errors": ["Upload failed. Please try again."]}, status=500)
+            messages.error(request, "Upload failed. Please try again.")
             return redirect(request.path)
 
-        # Case 2: some invalid files
-        if error_lines:
-            if is_ajax:
-                return JsonResponse({'errors': error_lines, 'redirect': preprocess_url})
-            messages.error(request, "\n".join(error_lines))
+        requested_uuids = [*new_upload_uuids, *existing_uuids]
+        owner_filter = _current_owner_filter(request)
+        owned_uuids = set(
+            str(value)
+            for value in UploadedImage.objects.filter(
+                uuid__in=requested_uuids,
+                **owner_filter,
+            ).values_list("uuid", flat=True)
+        )
+        if set(requested_uuids) - owned_uuids:
+            for cleanup_uuid in new_upload_uuids:
+                delete_uploaded_run_by_uuid(cleanup_uuid)
+            return JsonResponse({"errors": ["One or more files are unavailable."]}, status=403)
 
-        # Case 1: all valid (or mixed after pushing messages)
+        job = enqueue_upload_preparation_job(
+            user_id=request.user.id,
+            new_run_uuids=new_upload_uuids,
+            restored_run_uuids=existing_uuids,
+            config_snapshot=config_snapshot,
+        )
+        payload = {
+            "job_uuid": str(job.job_uuid),
+            "status": job.status,
+            "phase": job.current_phase,
+        }
         if is_ajax:
-            return JsonResponse({'redirect': preprocess_url})
-        return redirect(preprocess_url)
+            return JsonResponse(payload)
+        messages.info(request, "Files uploaded and queued for preparation.")
+        return redirect("experiment")
     else:
         form = UploadImageForm()
+        upload_quota_payload = _build_upload_quota_payload(request.user, user_preferences)
         restore_param = request.GET.get("restore", "")
         restore_uuids = _parse_restore_uuids(restore_param)
         protected_uuids = set(restore_uuids)
@@ -674,3 +587,161 @@ def experiment(request):
             upload_quota_payload=upload_quota_payload,
         ),
     )
+
+
+@require_POST
+def upload_file_batch(request):
+    """Save a small batch of DV files and return queued upload UUIDs."""
+
+    files = request.FILES.getlist("files")
+    if not files:
+        return JsonResponse({"errors": ["No files received."]}, status=400)
+
+    owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
+    created_uuids: list[str] = []
+    uploaded_items: list[dict[str, str]] = []
+    invalid_names = [
+        file.name for file in files if Path(str(file.name)).suffix.lower() != ".dv"
+    ]
+    if invalid_names:
+        return JsonResponse(
+            {"errors": ["Only .dv files are allowed for upload."]},
+            status=400,
+        )
+
+    try:
+        for image_location in files:
+            name = Path(str(image_location.name)).stem or "upload"
+            image_uuid = uuid.uuid4()
+            instance = UploadedImage(
+                name=name,
+                uuid=image_uuid,
+                file_location=image_location,
+                user_id=owner_id,
+            )
+            instance.save()
+            created_uuids.append(str(image_uuid))
+            uploaded_items.append({"uuid": str(image_uuid), "name": name})
+    except Exception as exc:
+        for cleanup_uuid in created_uuids:
+            delete_uploaded_run_by_uuid(cleanup_uuid)
+        if is_storage_full_error(exc):
+            log_storage_capacity_failure(
+                stage="experiment_upload_save",
+                user=request.user,
+                uuids=created_uuids,
+                exc=exc,
+            )
+            return JsonResponse({"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507)
+        logger.exception("Upload batch save failed")
+        return JsonResponse({"errors": ["Upload failed. Please try again."]}, status=500)
+
+    return JsonResponse({"uploads": uploaded_items})
+
+
+@require_POST
+def enqueue_upload_preparation(request):
+    """Queue worker-owned upload validation and preview preparation."""
+
+    user_preferences = get_user_preferences(request.user)
+    session_values, config_snapshot = _parse_experiment_submission(
+        request.POST,
+        user_preferences,
+    )
+    _persist_experiment_session(request, session_values)
+
+    new_run_uuids = _parse_restore_uuids(request.POST.getlist("new_run_uuids"))
+    restored_run_uuids = _parse_restore_uuids(request.POST.getlist("existing_uuids"))
+    owner_filter = _current_owner_filter(request)
+    requested_uuids = [*new_run_uuids, *restored_run_uuids]
+    if not requested_uuids:
+        return JsonResponse({"errors": ["No files received."]}, status=400)
+
+    owned_uuids = set(
+        str(value)
+        for value in UploadedImage.objects.filter(
+            uuid__in=requested_uuids,
+            **owner_filter,
+        ).values_list("uuid", flat=True)
+    )
+    if set(requested_uuids) - owned_uuids:
+        for cleanup_uuid in new_run_uuids:
+            if cleanup_uuid in owned_uuids:
+                delete_uploaded_run_by_uuid(cleanup_uuid)
+        return JsonResponse({"errors": ["One or more files are unavailable."]}, status=403)
+
+    job = enqueue_upload_preparation_job(
+        user_id=request.user.id,
+        new_run_uuids=new_run_uuids,
+        restored_run_uuids=restored_run_uuids,
+        config_snapshot=config_snapshot,
+    )
+    return JsonResponse(
+        {
+            "job_uuid": str(job.job_uuid),
+            "status": job.status,
+            "phase": job.current_phase,
+        }
+    )
+
+
+@require_GET
+def upload_preparation_status(request, job_uuid):
+    """Return upload-preparation job status for the owning user."""
+
+    job = get_upload_preparation_job_for_user(
+        user_id=request.user.id,
+        job_uuid=job_uuid,
+    )
+    if job is None:
+        return JsonResponse({"errors": ["Upload preparation job not found."]}, status=404)
+
+    redirect_url = None
+    if job.status == UploadPreparationJob.Status.SUCCEEDED and job.valid_run_uuids:
+        valid_uuids = [str(value) for value in job.valid_run_uuids if str(value)]
+        request.session["last_experiment_uuids"] = valid_uuids
+        request.session.modified = True
+        redirect_url = reverse("pre_process", kwargs={"uuids": ",".join(valid_uuids)})
+
+    return JsonResponse(
+        {
+            "job_uuid": str(job.job_uuid),
+            "status": job.status,
+            "phase": job.current_phase,
+            "errors": list(job.error_lines or []),
+            "failure_summary": job.failure_summary,
+            "redirect": redirect_url,
+        }
+    )
+
+
+@require_POST
+def cancel_upload_preparation(request, job_uuid):
+    """Cancel a queued or running upload-preparation job owned by the user."""
+
+    job = get_upload_preparation_job_for_user(
+        user_id=request.user.id,
+        job_uuid=job_uuid,
+    )
+    if job is None:
+        return JsonResponse({"errors": ["Upload preparation job not found."]}, status=404)
+    if job.status in {
+        UploadPreparationJob.Status.SUCCEEDED,
+        UploadPreparationJob.Status.FAILED,
+        UploadPreparationJob.Status.CANCELLED,
+    }:
+        return JsonResponse({"status": job.status, "phase": job.current_phase})
+
+    if job.status == UploadPreparationJob.Status.QUEUED:
+        for run_uuid in job.new_run_uuids:
+            delete_uploaded_run_by_uuid(str(run_uuid))
+        job = finalize_upload_preparation_job(
+            job,
+            status=UploadPreparationJob.Status.CANCELLED,
+            current_phase="Cancelled",
+            valid_run_uuids=[],
+            error_lines=[],
+        )
+    else:
+        job = request_upload_preparation_cancellation(job)
+    return JsonResponse({"status": job.status, "phase": job.current_phase})

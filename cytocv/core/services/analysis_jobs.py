@@ -85,6 +85,17 @@ def enqueue_analysis_job(
     return job, True
 
 
+def get_oldest_queued_analysis_job() -> AnalysisJob | None:
+    """Return the oldest queued analysis job without claiming it."""
+
+    return (
+        AnalysisJob.objects.filter(status=AnalysisJob.Status.QUEUED)
+        .order_by("created_at")
+        .only("pk", "created_at")
+        .first()
+    )
+
+
 def claim_next_analysis_job() -> AnalysisJob | None:
     """Claim the next queued analysis job for a worker process."""
 
