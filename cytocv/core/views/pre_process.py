@@ -296,6 +296,7 @@ def get_progress(request, uuids):
                 "phase": snapshot.phase,
                 "status": snapshot.status,
                 "failure_summary": snapshot.failure_summary,
+                "detail": snapshot.detail or {},
                 "redirect": redirect_url,
             }
         )
@@ -623,7 +624,7 @@ def pre_process(request, uuids):
                 cleanup_failed_processing_artifacts(cleanup_uuid)
             progress = AnalysisProgressHandle(batch_key)
             progress.clear_cancel()
-            progress.set_phase("Idle", status="idle")
+            progress.set_phase("Idle", status="idle", detail={})
             _release_progress_batch(request, batch_key)
             messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
             if is_ajax:
@@ -648,11 +649,16 @@ def pre_process(request, uuids):
             progress = AnalysisProgressHandle(batch_key, job=job)
             progress.clear_cancel()
             if created:
-                progress.set_phase("Queued", status="queued")
+                progress.set_phase(
+                    "Queued",
+                    status="queued",
+                    detail={"message": "Waiting for analysis worker."},
+                )
 
             payload = {
                 "status": "queued",
                 "phase": "Queued",
+                "detail": {"message": "Waiting for analysis worker."},
                 "redirect": reverse("display", kwargs={"uuids": batch_key}),
             }
             if is_ajax:
@@ -777,13 +783,23 @@ def cancel_progress(request, uuids):
             _delete_cancelled_runs(request, uuid_list)
             progress = AnalysisProgressHandle(batch_key)
             progress.clear_cancel()
-            progress.set_phase("Cancelled", status="cancelled")
-            return JsonResponse({"status": "cancelled"})
+            progress.set_phase("Cancelled", status="cancelled", detail={})
+            return JsonResponse({"status": "cancelled", "phase": "Cancelled", "detail": {}})
         job = get_active_analysis_job(user_id=request.user.id, batch_key=batch_key)
         progress = AnalysisProgressHandle(batch_key, job=job)
         progress.request_cancel()
-        progress.set_phase("Cancelling", status="cancelling")
-        return JsonResponse({"status": "cancelling"})
+        progress.set_phase(
+            "Cancelling",
+            status="cancelling",
+            detail={"message": "Cancelling analysis and cleaning up."},
+        )
+        return JsonResponse(
+            {
+                "status": "cancelling",
+                "phase": "Cancelling",
+                "detail": {"message": "Cancelling analysis and cleaning up."},
+            }
+        )
     except ProgressRequestError as exc:
         return _progress_write_error_response(
             SAFE_PROGRESS_WRITE_ERROR_MESSAGE,

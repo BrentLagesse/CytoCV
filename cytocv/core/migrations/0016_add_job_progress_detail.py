@@ -11,6 +11,11 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
+            model_name='analysisjob',
+            name='progress_detail',
+            field=models.JSONField(default=dict),
+        ),
+        migrations.AddField(
             model_name='uploadpreparationjob',
             name='progress_detail',
             field=models.JSONField(default=dict),

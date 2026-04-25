@@ -863,6 +863,12 @@
       .analysis-actions .button {
         margin: 0;
       }
+      .analysis-actions .async-progress-host {
+        min-width: 220px;
+      }
+      .analysis-actions .async-progress-host .button.analyze {
+        width: 100%;
+      }
       .button.back {
         background: var(--surface-muted-alt);
         border: 1px solid var(--panel-border);
@@ -1277,10 +1283,12 @@
                   >
                     Back
                   </button>
-                  <button type="submit" class="button analyze" id="startAnalysisButton">
-                    <span class="spinner" aria-hidden="true"></span>
-                    <span class="btn-text">Start Analysis</span>
-                  </button>
+                  <span class="async-progress-host" tabindex="0" data-progress-active="0">
+                    <button type="submit" class="button analyze" id="startAnalysisButton">
+                      <span class="spinner" aria-hidden="true"></span>
+                      <span class="btn-text">Start Analysis</span>
+                    </button>
+                  </span>
                 </div>
               </form>
             </div>
@@ -1314,10 +1322,12 @@
         </div>
         <div class="nav-exit-actions">
           <button type="button" class="nav-exit-btn cancel" id="navExitCancel">No</button>
-          <button type="button" class="nav-exit-btn confirm" id="navExitConfirm">
-            <span class="spinner" aria-hidden="true"></span>
-            <span class="btn-label">Yes</span>
-          </button>
+          <span class="async-progress-host" tabindex="0" data-progress-active="0">
+            <button type="button" class="nav-exit-btn confirm" id="navExitConfirm">
+              <span class="spinner" aria-hidden="true"></span>
+              <span class="btn-label">Yes</span>
+            </button>
+          </span>
         </div>
       </div>
     </div>
@@ -1327,6 +1337,16 @@
       // Current index & total
       let currentFileIndex = parseInt("{{ current_file_index|default:0 }}", 10);
       const totalFiles = parseInt("{{ total_files|default:1 }}", 10);
+      const setAsyncProgress = (target, payload) => {
+        if (target && window.CytoCVAsyncProgress) {
+          window.CytoCVAsyncProgress.set(target, payload);
+        }
+      };
+      const clearAsyncProgress = (target) => {
+        if (target && window.CytoCVAsyncProgress) {
+          window.CytoCVAsyncProgress.clear(target);
+        }
+      };
 
       // Sidebar elements
       const sidebar = document.getElementById("sidebar");
@@ -2000,6 +2020,13 @@
           return cancelPromise;
         }
           cancelPromise = (async () => {
+            const startButton = document.getElementById("startAnalysisButton");
+            const cancellingDetail = {
+              phase: "Cancelling",
+              status: "cancelling",
+              message: "Cancelling analysis and cleaning up.",
+            };
+            setAsyncProgress(startButton, cancellingDetail);
             cancelClientAnalysis();
             const csrfEl = document.querySelector('#preprocessForm [name=csrfmiddlewaretoken]');
             const csrfToken = csrfEl?.value;
@@ -2029,6 +2056,11 @@
                 const resp = await fetch(pollUrl, { cache: 'no-store' });
                 if (resp.ok) {
                   const data = await resp.json();
+                  setAsyncProgress(startButton, {
+                    ...(data?.detail || {}),
+                    phase: data?.phase || cancellingDetail.phase,
+                    status: data?.status || cancellingDetail.status,
+                  });
                   const phase = data?.phase || 'idle';
                   if (phase === 'Cancelled' || phase === 'Completed' || phase === 'idle') {
                     break;
@@ -2043,6 +2075,7 @@
             }
             window.isAnalysisRunning = false;
             cancelPromise = null;
+            clearAsyncProgress(startButton);
             return true;
         })();
         return cancelPromise;
@@ -2149,14 +2182,25 @@
         cancel.addEventListener('click', closeModal);
         confirm.addEventListener('click', async () => {
           if (pendingHref) {
+            const shouldCancelAnalysis = !!window.isAnalysisRunning;
             confirm.classList.add('loading');
             confirm.style.pointerEvents = 'none';
             confirm.disabled = true;
             const label = confirm.querySelector('.btn-label');
             if (label) {
-              label.textContent = 'Cancelling';
+              label.textContent = shouldCancelAnalysis ? 'Cancelling' : 'Leaving';
+            }
+            if (shouldCancelAnalysis) {
+              setAsyncProgress(confirm, {
+                phase: 'Cancelling',
+                status: 'cancelling',
+                message: 'Cancelling analysis and cleaning up.',
+              });
             }
             await requestAnalysisCancel();
+            if (shouldCancelAnalysis) {
+              clearAsyncProgress(confirm);
+            }
             window.location.href = pendingHref;
           }
         });
@@ -2236,6 +2280,8 @@
         const form = document.getElementById("preprocessForm");
         const btn = document.getElementById("startAnalysisButton");
         const textEl = btn.querySelector(".btn-text");
+        const setAnalysisProgress = (payload) => setAsyncProgress(btn, payload);
+        const clearAnalysisProgress = () => clearAsyncProgress(btn);
         suppressAnalysisErrors = false;
         window.isAnalysisRunning = true;
 
@@ -2245,6 +2291,10 @@
         btn.style.cursor = "not-allowed";
         btn.style.backgroundColor = "#0056b3";
         if (textEl) textEl.textContent = "Processing Images";
+        setAnalysisProgress({
+          phase: "Processing Images",
+          message: "Preparing analysis request.",
+        });
         syncFileScaleMapInput();
         setAnalysisLocked(true);
 
@@ -2272,6 +2322,7 @@
           btn.disabled = false;
           btn.classList.remove("loading");
           if (textEl) textEl.textContent = "Start Analysis";
+          clearAnalysisProgress();
           setAnalysisLocked(false);
           if (window.showGlobalMessage && message) {
             window.showGlobalMessage(message);
@@ -2312,16 +2363,30 @@
                   if (hasStats) textEl.textContent = phaseText;
                 }
               }
+              if (data && (data.phase || data.detail)) {
+                setAnalysisProgress({
+                  ...(data.detail || {}),
+                  phase: data.phase,
+                  status: data.status,
+                });
+              }
               if (status === "succeeded") {
                 if (analysisPollTimer) clearInterval(analysisPollTimer);
                 analysisPollTimer = null;
                 if (isWorkerAnalysis && data.redirect) {
+                  clearAnalysisProgress();
                   window.isAnalysisRunning = false;
                   window.location.href = data.redirect;
                   return;
                 }
                 if (!isWorkerAnalysis) {
                   if (textEl) textEl.textContent = "Completed";
+                  setAnalysisProgress({
+                    ...(data.detail || {}),
+                    phase: data.phase || "Completed",
+                    status: data.status,
+                    message: "Analysis completed.",
+                  });
                   return;
                 }
                 stopPollingWithMessage("Analysis completed, but the result page could not be resolved. Please refresh.");
@@ -2381,10 +2446,16 @@
             }
             if (payload.status === 'queued') {
               if (textEl) textEl.textContent = payload.phase || "Queued";
+              setAnalysisProgress({
+                ...(payload.detail || {}),
+                phase: payload.phase || "Queued",
+                status: payload.status,
+              });
               return;
             }
             if (payload.status === 'succeeded' && payload.redirect) {
               if (analysisPollTimer) clearInterval(analysisPollTimer);
+              clearAnalysisProgress();
               window.isAnalysisRunning = false;
               window.location.href = payload.redirect;
               return;
@@ -2410,6 +2481,7 @@
           btn.disabled = false;
           btn.classList.remove("loading");
           if (textEl) textEl.textContent = "Start Analysis";
+          clearAnalysisProgress();
           setAnalysisLocked(false);
           if (window.showGlobalMessage) {
             window.showGlobalMessage('Failed to start analysis. Please try again.');

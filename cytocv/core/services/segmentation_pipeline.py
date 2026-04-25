@@ -147,6 +147,17 @@ def _raise_if_cancelled(progress: AnalysisProgressHandle) -> None:
         raise AnalysisCancelled()
 
 
+def _phase_with_run_count(phase: str, *, index: int, total: int) -> str:
+    if total <= 1:
+        return phase
+    return f"{phase} ({index}/{total})"
+
+
+def _display_file_name(uploaded: UploadedImage) -> str:
+    file_name = Path(str(uploaded.file_location.name or "")).name
+    return file_name or f"{uploaded.name}.dv"
+
+
 def _offset_neck_split(
     split: NeckSplit | None,
     *,
@@ -481,13 +492,27 @@ def run_segmentation_batch(
     use_cache = True
     choice_var = "Metaphase Arrested"
     start_time = time.time()
+    total_runs = len(uuid_list)
 
-    progress.set_phase("Segmenting Cell-Pairs", status="running")
-
-    for uuid in uuid_list:
+    for run_index, uuid in enumerate(uuid_list, start=1):
         _raise_if_cancelled(progress)
         uploaded_image = UploadedImage.objects.get(pk=uuid, **owner_filter)
         dv_name = uploaded_image.name
+        file_name = _display_file_name(uploaded_image)
+        segment_phase = _phase_with_run_count(
+            "Segmenting Cell-Pairs",
+            index=run_index,
+            total=total_runs,
+        )
+        progress.set_phase(
+            segment_phase,
+            status="running",
+            detail={
+                "fileIndex": run_index,
+                "fileTotal": total_runs,
+                "fileName": file_name,
+            },
+        )
         dv_path = _resolve_uploaded_dv_path(uploaded_image)
         channel_config = DEFAULT_CHANNEL_CONFIG
         try:
@@ -1034,11 +1059,40 @@ def run_segmentation_batch(
             ),
         )
 
-        if selected_analysis:
-            progress.set_phase("Calculating Statistics", status="running")
+        stats_phase = _phase_with_run_count(
+            "Calculating Statistics",
+            index=run_index,
+            total=total_runs,
+        )
+        if selected_analysis and num_cells == 0:
+            progress.set_phase(
+                stats_phase,
+                status="running",
+                detail={
+                    "fileIndex": run_index,
+                    "fileTotal": total_runs,
+                    "fileName": file_name,
+                    "cellIndex": 0,
+                    "cellTotal": 0,
+                },
+            )
 
         for cell_number in range(1, int(np.max(seg)) + 1):
             _raise_if_cancelled(progress)
+            if selected_analysis and (
+                cell_number == 1 or cell_number % 5 == 0 or cell_number == num_cells
+            ):
+                progress.set_phase(
+                    stats_phase,
+                    status="running",
+                    detail={
+                        "fileIndex": run_index,
+                        "fileTotal": total_runs,
+                        "fileName": file_name,
+                        "cellIndex": cell_number,
+                        "cellTotal": num_cells,
+                    },
+                )
             logger.debug(
                 "Calculating statistics for cell %s in image %s (UUID: %s)",
                 cell_number,

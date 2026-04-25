@@ -136,6 +136,10 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(progress.status_code, 200)
             self.assertEqual(progress.json()["status"], "queued")
             self.assertEqual(progress.json()["phase"], "Queued")
+            self.assertEqual(
+                progress.json()["detail"],
+                {"message": "Waiting for analysis worker."},
+            )
 
     @override_settings(ANALYSIS_EXECUTION_MODE="sync")
     def test_pre_process_sync_mode_runs_full_batch_and_redirects_to_display(self):
@@ -423,6 +427,80 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(response.json()["phase"], "Queued")
             self.assertEqual(response.json()["failure_summary"], "")
             self.assertIsNone(response.json()["redirect"])
+            self.assertEqual(
+                response.json()["detail"],
+                {"message": "Waiting for analysis worker."},
+            )
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_progress_handle_persists_safe_job_detail(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="worker_detail")
+            job, _ = enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uploaded.uuid)],
+                config_snapshot={"execution_mode": "worker"},
+            )
+            progress = AnalysisProgressHandle(str(uploaded.uuid), job=job)
+
+            progress.set_phase(
+                "Detecting Cells",
+                status=AnalysisJob.Status.RUNNING,
+                detail={
+                    "fileIndex": 1,
+                    "fileTotal": 2,
+                    "fileName": "../worker_detail.dv",
+                    "cellIndex": -1,
+                    "message": "Running detection.",
+                    "unsafe": "ignored",
+                },
+            )
+
+            response = self.client.get(reverse("analysis_progress", args=[str(uploaded.uuid)]))
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["phase"], "Detecting Cells")
+            self.assertEqual(
+                payload["detail"],
+                {
+                    "fileName": "worker_detail.dv",
+                    "message": "Running detection.",
+                    "fileIndex": 1,
+                    "fileTotal": 2,
+                },
+            )
+
+    def test_progress_snapshot_includes_safe_file_detail(self):
+        batch_key = str(uuid4())
+        write_file_progress(
+            batch_key,
+            phase="Calculating Statistics",
+            status="running",
+            detail={
+                "fileIndex": 3,
+                "fileTotal": 5,
+                "fileName": r"C:\tmp\cell_detail.dv",
+                "cellIndex": 25,
+                "cellTotal": 108,
+                "message": "Statistics are running.",
+            },
+        )
+
+        snapshot = get_progress_snapshot(batch_key=batch_key, user_id=self.user.id)
+
+        self.assertEqual(snapshot.phase, "Calculating Statistics")
+        self.assertEqual(
+            snapshot.detail,
+            {
+                "fileName": "cell_detail.dv",
+                "message": "Statistics are running.",
+                "fileIndex": 3,
+                "fileTotal": 5,
+                "cellIndex": 25,
+                "cellTotal": 108,
+            },
+        )
 
     def test_progress_snapshot_normalizes_legacy_file_progress_completed(self):
         batch_key = str(uuid4())
@@ -612,24 +690,22 @@ class AnalysisAsyncTestCase(TestCase):
                 execution_mode="sync",
             )
             progress = AnalysisProgressHandle(batch_key)
-            observed_phases: list[str] = []
+            observed_snapshots: list[tuple[str, dict[str, object]]] = []
 
             def preprocess_fn(image_uuid, uploaded_image, output_dir, cancel_check):
-                observed_phases.append(
-                    get_progress_snapshot(
-                        batch_key=batch_key,
-                        user_id=self.user.id,
-                    ).phase
+                snapshot = get_progress_snapshot(
+                    batch_key=batch_key,
+                    user_id=self.user.id,
                 )
+                observed_snapshots.append((snapshot.phase, snapshot.detail or {}))
                 return Path(output_dir) / f"{image_uuid}.png"
 
             def predict_fn(preprocessed_image, output_dir, cancel_check):
-                observed_phases.append(
-                    get_progress_snapshot(
-                        batch_key=batch_key,
-                        user_id=self.user.id,
-                    ).phase
+                snapshot = get_progress_snapshot(
+                    batch_key=batch_key,
+                    user_id=self.user.id,
                 )
+                observed_snapshots.append((snapshot.phase, snapshot.detail or {}))
                 return object()
 
             run_preprocess_and_inference_batch(
@@ -641,12 +717,37 @@ class AnalysisAsyncTestCase(TestCase):
             )
 
         self.assertEqual(
-            observed_phases,
+            [phase for phase, _detail in observed_snapshots],
             [
                 "Preprocessing Images (1/2)",
                 "Detecting Cells (1/2)",
                 "Preprocessing Images (2/2)",
                 "Detecting Cells (2/2)",
+            ],
+        )
+        self.assertEqual(
+            [detail for _phase, detail in observed_snapshots],
+            [
+                {
+                    "fileName": "counted_first.dv",
+                    "fileIndex": 1,
+                    "fileTotal": 2,
+                },
+                {
+                    "fileName": "counted_first.dv",
+                    "fileIndex": 1,
+                    "fileTotal": 2,
+                },
+                {
+                    "fileName": "counted_second.dv",
+                    "fileIndex": 2,
+                    "fileTotal": 2,
+                },
+                {
+                    "fileName": "counted_second.dv",
+                    "fileIndex": 2,
+                    "fileTotal": 2,
+                },
             ],
         )
 
