@@ -6,12 +6,18 @@ flowchart LR
 
     user["<b>CustomUser</b><br/>id (PK)<br/>email<br/>storage quotas<br/>processing_used<br/>config"]
     upload["<b>UploadedImage</b><br/>uuid (PK)<br/>user_id (FK)<br/>name<br/>file_location<br/>scale_info<br/>created_at"]
+    upload_job["<b>UploadPreparationJob</b><br/>job_uuid<br/>user_id (FK)<br/>new_run_uuids<br/>restored_run_uuids<br/>valid_run_uuids<br/>status<br/>current_phase"]
+    analysis_job["<b>AnalysisJob</b><br/>job_uuid<br/>batch_key<br/>user_id (FK)<br/>run_uuids<br/>status<br/>current_phase<br/>config_snapshot"]
     preview["<b>DVLayerTifPreview</b><br/>id (PK)<br/>uploaded_image_uuid (FK)<br/>wavelength<br/>file_location"]
     result["<b>SegmentedImage</b><br/>UUID (PK)<br/>user_id<br/>file_location<br/>ImagePath<br/>CellPairPrefix<br/>NumCells<br/>uploaded_date"]
     stats["<b>CellStatistics</b><br/>id (PK)<br/>segmented_image_id (FK)<br/>cell_id<br/>puncta_distance<br/>puncta_line_intensity<br/>nucleus_intensity_sum<br/>cell_pair_intensity_sum<br/>properties"]
     uuid_link["Uploaded and segmented runs are linked<br/>operationally by a shared UUID namespace"]
 
     user -- "1 to many uploads" --> upload
+    user -- "1 to many upload-prep jobs" --> upload_job
+    user -- "1 to many analysis jobs" --> analysis_job
+    upload_job -. "references run UUIDs" .-> upload
+    analysis_job -. "references run UUIDs" .-> upload
     upload -- "1 to many previews" --> preview
     user -- "1 to many saved runs" --> result
     result -- "1 to many cells" --> stats
@@ -19,7 +25,6 @@ flowchart LR
     uuid_link -.-> upload
     uuid_link -.-> result
 
-    class user,upload,result,stats entity
+    class user,upload,upload_job,analysis_job,result,stats entity
     class preview support
     class uuid_link note
-

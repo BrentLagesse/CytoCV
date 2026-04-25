@@ -814,7 +814,11 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 8px;
+      }
+      .button.analyze .btn-text {
+        width: auto;
+        line-height: 1.2;
       }
 
       /* Inline spinner shown only while loading */
@@ -826,6 +830,7 @@
         border-right-color: #fff;
         border-radius: 50%;
         animation: spin 0.9s linear infinite;
+        flex: 0 0 auto;
         display: none;
       }
       .button.analyze.loading .spinner { display: inline-block; }
@@ -2292,18 +2297,19 @@
                 return;
               }
               if (data && data.phase && textEl) {
-                if (data.phase === "Queued") {
+                const phaseText = String(data.phase);
+                if (phaseText === "Queued") {
                   textEl.textContent = "Queued";
-                } else if (data.phase === "Preprocessing Images") {
-                  textEl.textContent = "Processing Images";
-                } else if (data.phase === "Detecting Cells") {
-                  textEl.textContent = data.phase;
-                } else if (data.phase === "Segmenting Cell-Pairs") {
-                  textEl.textContent = data.phase;
-                } else if (data.phase === "Calculating Statistics") {
+                } else if (phaseText.startsWith("Preprocessing Images")) {
+                  textEl.textContent = phaseText.replace("Preprocessing Images", "Processing Images");
+                } else if (phaseText.startsWith("Detecting Cells")) {
+                  textEl.textContent = phaseText;
+                } else if (phaseText.startsWith("Segmenting Cell-Pairs")) {
+                  textEl.textContent = phaseText;
+                } else if (phaseText.startsWith("Calculating Statistics")) {
                   // Only show statistics phase if user selected at least one analysis at upload step.
                   const hasStats = {{ has_selected_stats|yesno:"true,false" }};
-                  if (hasStats) textEl.textContent = data.phase;
+                  if (hasStats) textEl.textContent = phaseText;
                 }
               }
               if (status === "succeeded") {

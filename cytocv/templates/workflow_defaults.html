@@ -1558,8 +1558,9 @@ main.main > section.panel > form.panel > .card {
             <div class="row-copy">
               <span class="row-label-line">
                 <label for="green_contour_filter_enabled">Filter Green Contours</label>
+                <span id="prefsGfpFilterExperimentalDot" class="legacy">Experimental</span>
               </span>
-              <p class="module-help">Filters Green contours before statistics run by removing low-confidence Green objects that often come from noisy background.</p>
+              <p class="module-help">Filters low-confidence Green signal contours in challenging images.</p>
               <p class="module-help module-warning"><strong>Experimental:</strong> behavior can vary across image quality, exposure, and channel mapping. Validate overlays before using results for conclusions.</p>
               <p class="reqtxt">Requires: Green.</p>
             </div>
@@ -1590,7 +1591,7 @@ main.main > section.panel > form.panel > .card {
               <span class="row-label-line">
                 <label for="alternate_red_detection">Enable Alternate Red Detection</label>
               </span>
-              <p class="module-help">Uses alternate Red detection when standard detection creates one contour around all Red speckles. It tries to recover separate Red-dot contours so Red-dependent statistics can still run.</p>
+              <p class="module-help">Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p>
               <p class="reqtxt">Requires: Red.</p>
             </div>
             <label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label>
@@ -1602,7 +1603,7 @@ main.main > section.panel > form.panel > .card {
               <span class="row-label-line">
                 <label for="module_enabled">Enable Optional Metadata Checks Below</label>
               </span>
-              <p class="module-help">Controls the optional metadata and file validation checks below. When off, saved optional channel and layer requirements are paused, but channels required by selected statistics are still enforced.</p>
+              <p class="module-help">Stats-required channels always stay enforced. Manual channel requirements and all-channel enforcement are saved here and pause when this module is OFF.</p>
               <p class="module-help"><strong>Controls below:</strong> 4-image DV enforcement, all-channel enforcement, and manual channel requirements.</p>
               <p class="validation-state-note" id="advancedOptionalChecksNote" aria-live="polite"></p>
             </div>
@@ -1614,7 +1615,7 @@ main.main > section.panel > form.panel > .card {
                 <span class="row-label-line">
                   <label for="enforce_layer_count">Enforce 4-Image DV Files</label>
                 </span>
-                <p class="module-help">Requires each DV file to have exactly four image layers before preprocessing. Use this to catch incomplete acquisitions or files exported with missing layers.</p>
+                <p class="module-help">Require exactly four layers before preprocessing.</p>
                 <p class="reqtxt">Requires: not channel-specific.</p>
               </div>
               <input type="hidden" id="enforce_layer_count_state" name="enforce_layer_count" value="{% if preferences.experiment_defaults.enforce_layer_count %}1{% else %}0{% endif %}">
@@ -1625,7 +1626,7 @@ main.main > section.panel > form.panel > .card {
                 <span class="row-label-line">
                   <label for="enforce_wavelengths">Require All Channels</label>
                 </span>
-                <p class="module-help">Requires every upload to include DIC, Blue, Red, and Green, even if the selected statistics only need a subset.</p>
+                <p class="module-help">Require DIC, Blue, Red, and Green even if not needed by selected statistics.</p>
                 <p class="reqtxt">Requires: DIC, Blue, Red, and Green.</p>
               </div>
               <input type="hidden" id="enforce_wavelengths_state" name="enforce_wavelengths" value="{% if preferences.experiment_defaults.enforce_wavelengths %}1{% else %}0{% endif %}">

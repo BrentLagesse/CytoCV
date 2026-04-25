@@ -18,12 +18,18 @@ from accounts.preferences import update_user_preferences
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.models import AnalysisJob, SegmentedImage, UploadedImage, get_guest_user
 from core.services.analysis_exceptions import AnalysisCancelled
+from core.services.analysis_context import AnalysisBatchContext
 from core.services.analysis_jobs import enqueue_analysis_job
+from core.services.analysis_pipeline import run_preprocess_and_inference_batch
 from core.services.analysis_progress_contract import (
     SAFE_ANALYSIS_FAILURE_SUMMARY,
     SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
 )
-from core.services.analysis_progress import get_progress_snapshot, write_file_progress
+from core.services.analysis_progress import (
+    AnalysisProgressHandle,
+    get_progress_snapshot,
+    write_file_progress,
+)
 from core.services.artifact_storage import (
     PNG_PROFILE_ANALYSIS_FAST,
     save_png_image,
@@ -591,6 +597,58 @@ class AnalysisAsyncTestCase(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, AnalysisJob.Status.FAILED)
         self.assertEqual(job.failure_summary, SAFE_ANALYSIS_FAILURE_SUMMARY)
+
+    def test_multi_file_analysis_progress_includes_run_counts(self):
+        with temporary_media_root() as media_root:
+            first = self._create_uploaded_image(media_root, name="counted_first")
+            second = self._create_uploaded_image(media_root, name="counted_second")
+            run_uuids = (str(first.uuid), str(second.uuid))
+            batch_key = ",".join(run_uuids)
+            context = AnalysisBatchContext(
+                batch_key=batch_key,
+                run_uuids=run_uuids,
+                user_id=self.user.id,
+                config_snapshot={"execution_mode": "sync"},
+                execution_mode="sync",
+            )
+            progress = AnalysisProgressHandle(batch_key)
+            observed_phases: list[str] = []
+
+            def preprocess_fn(image_uuid, uploaded_image, output_dir, cancel_check):
+                observed_phases.append(
+                    get_progress_snapshot(
+                        batch_key=batch_key,
+                        user_id=self.user.id,
+                    ).phase
+                )
+                return Path(output_dir) / f"{image_uuid}.png"
+
+            def predict_fn(preprocessed_image, output_dir, cancel_check):
+                observed_phases.append(
+                    get_progress_snapshot(
+                        batch_key=batch_key,
+                        user_id=self.user.id,
+                    ).phase
+                )
+                return object()
+
+            run_preprocess_and_inference_batch(
+                user=self.user,
+                context=context,
+                progress=progress,
+                preprocess_fn=preprocess_fn,
+                predict_fn=predict_fn,
+            )
+
+        self.assertEqual(
+            observed_phases,
+            [
+                "Preprocessing Images (1/2)",
+                "Detecting Cells (1/2)",
+                "Preprocessing Images (2/2)",
+                "Detecting Cells (2/2)",
+            ],
+        )
 
     def test_save_png_image_fast_profile_uses_low_cost_options(self):
         with TemporaryDirectory() as temp_dir:

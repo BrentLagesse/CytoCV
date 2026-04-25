@@ -6,7 +6,12 @@ This document describes the major request and workflow flows implemented by the 
 
 ## Upload Flow
 
-Primary handler: `core.views.experiment.experiment`
+Primary handlers:
+
+- `core.views.experiment.experiment`
+- `core.views.experiment.upload_file_batch`
+- `core.views.experiment.enqueue_upload_preparation`
+- `core.views.experiment.upload_preparation_status`
 
 Sequence:
 
@@ -14,18 +19,21 @@ Sequence:
 2. load normalized user preferences
 3. parse selected plugins and measurement controls
 4. derive validation requirements from selected plugins and optional advanced settings
-5. create an `UploadedImage` per valid new file
-6. validate the DV file
-7. resolve scale metadata and save `scale_info`
-8. write `channel_config.json`
-9. generate preview assets
-10. redirect to preprocess for the surviving UUID set
+5. split selected browser files into safe-size upload batches
+6. `POST /api/experiment/uploads/` saves each small `.dv` batch and creates one `UploadedImage` row per file
+7. `POST /api/experiment/upload-prep/` enqueues one `UploadPreparationJob` with new and restored run UUIDs plus the whitelisted config snapshot
+8. the background worker validates each DV file one at a time
+9. the worker resolves scale metadata, writes `scale_info`, writes `channel_config.json`, and generates preview assets
+10. the browser polls `GET /api/experiment/upload-prep/<job_uuid>/`
+11. on success, the browser redirects to preprocess for the worker-approved UUID set
 
 Failure modes:
 
 - invalid DV files are removed from the queue
+- invalid restored files are skipped but not deleted
 - storage-full errors trigger upload cleanup
 - mixed valid and invalid uploads still preserve valid files
+- if the worker is not running, upload preparation stays queued and the browser keeps polling
 
 ## Preprocess And Inference Flow
 
@@ -90,8 +98,10 @@ Measurement note:
 
 Worker-backed production flow:
 
-- `core.views.pre_process.pre_process` enqueues the full batch
-- `core.management.commands.run_analysis_worker` claims the queued `AnalysisJob`
+- `core.views.experiment.enqueue_upload_preparation` enqueues upload validation and preview generation as `UploadPreparationJob`
+- `core.views.pre_process.pre_process` enqueues the full analysis batch as `AnalysisJob`
+- `core.management.commands.run_analysis_worker` claims the oldest queued upload-preparation or analysis job across both queues
+- `core.services.upload_preparation.run_upload_preparation_job` validates files, extracts metadata, writes channel config, generates previews, and cleans invalid new uploads
 - `core.services.analysis_pipeline.run_analysis_batch` orchestrates preprocess, inference, segmentation, statistics, cleanup, and final status
 - `core.services.segmentation_pipeline.run_segmentation_batch` is the shared segmentation/statistics implementation used by the worker
 
@@ -99,7 +109,7 @@ Compatibility note:
 
 - the legacy `/segment/` route remains available for the existing sync flow and manual/local compatibility
 - preprocess AJAX no longer uses `/segment/` as its normal success path in `sync` mode
-- production deployments should prefer `worker` mode so Gunicorn does not block on segmentation/statistics
+- production deployments need the worker process running so Gunicorn does not block on upload preparation, segmentation, or statistics
 
 ## Display Flow
 

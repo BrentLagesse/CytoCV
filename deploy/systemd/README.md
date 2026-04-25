@@ -3,7 +3,7 @@
 These files are production-oriented example units for Linux hosts that run:
 
 - Gunicorn for the web process
-- a separate long-lived background analysis worker
+- a separate long-lived background worker for upload preparation and analysis
 
 They are intentionally checked into the repository so redeployments do not
 depend on hand-recreated service files.
@@ -29,6 +29,7 @@ sudo systemctl restart cytocv-worker
 
 - The Django application reads `~/CytoCV/.env` directly, so these units do not
   require an `EnvironmentFile=` entry just to load application settings.
-- Keep `CYTOCV_ANALYSIS_EXECUTION_MODE=worker` in the deployed `.env` when the
-  worker service is enabled.
+- Keep `CYTOCV_ANALYSIS_EXECUTION_MODE=worker` in the deployed `.env` for
+  production analysis. The worker service should still be enabled because
+  staged upload preparation uses it in both analysis modes.
 - Adjust Gunicorn worker count and timeout to match the deployment host.

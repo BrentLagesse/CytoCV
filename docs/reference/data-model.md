@@ -45,6 +45,52 @@ Important fields:
 - `file_location`
 - `scale_info`
 
+## `core.UploadPreparationJob`
+
+Purpose:
+
+- represent background upload validation and preview-preparation work
+- preserve safe user-facing upload-preparation errors
+
+Important fields:
+
+- `job_uuid`
+- `user`
+- `new_run_uuids`
+- `restored_run_uuids`
+- `valid_run_uuids`
+- `config_snapshot`
+- `error_lines`
+- `status`
+- `current_phase`
+- `cancellation_requested`
+- `failure_summary`
+- `created_at`
+- `started_at`
+- `finished_at`
+
+## `core.AnalysisJob`
+
+Purpose:
+
+- represent one background analysis batch after preprocess review
+- persist worker progress and terminal state for polling
+
+Important fields:
+
+- `job_uuid`
+- `batch_key`
+- `user`
+- `run_uuids`
+- `status`
+- `current_phase`
+- `config_snapshot`
+- `cancellation_requested`
+- `failure_summary`
+- `created_at`
+- `started_at`
+- `finished_at`
+
 ## `core.DVLayerTifPreview`
 
 Purpose:
@@ -115,4 +161,3 @@ These can temporarily differ, especially when a run is transient:
 - [`routes-and-endpoints.md`](routes-and-endpoints.md)
 - [`file-format-and-artifact-spec.md`](file-format-and-artifact-spec.md)
 - [`../developer/data-flow-and-artifacts.md`](../developer/data-flow-and-artifacts.md)
-

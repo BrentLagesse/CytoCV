@@ -85,7 +85,39 @@ This document lists the current public routes and route-level behavior defined i
 
 - Name: `experiment`
 - Auth: required in route configuration
-- Purpose: upload queue setup, validation, preview generation
+- Purpose: render upload setup and preserve compatibility for non-staged upload POSTs
+- Notes:
+  - the normal browser flow uploads files through the staged API routes below
+  - compatibility POSTs save uploaded bytes, create `UploadedImage` rows, and enqueue upload preparation
+
+### `POST /api/experiment/uploads/`
+
+- Name: `experiment_upload_batch`
+- Auth: required
+- Purpose: save one bounded batch of `.dv` files and return uploaded UUID/name pairs
+- Notes:
+  - rejects non-`.dv` files before persistence
+  - does not run DV validation, metadata extraction, or preview generation inline
+
+### `POST /api/experiment/upload-prep/`
+
+- Name: `experiment_upload_prepare`
+- Auth: required
+- Purpose: enqueue worker-owned upload validation, metadata extraction, channel config writing, and preview generation
+
+### `GET /api/experiment/upload-prep/<job_uuid>/`
+
+- Name: `experiment_upload_prepare_status`
+- Auth: required
+- Purpose: poll one user-owned upload-preparation job
+- Notes:
+  - returns `status`, `phase`, safe validation errors, and a preprocess redirect when preparation succeeds
+
+### `POST /api/experiment/upload-prep/<job_uuid>/cancel/`
+
+- Name: `experiment_upload_prepare_cancel`
+- Auth: required
+- Purpose: cancel a queued or running upload-preparation job and clean newly uploaded files
 
 ### `GET|POST /experiment/<uuids>/pre-process/`
 

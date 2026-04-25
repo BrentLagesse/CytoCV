@@ -8,13 +8,19 @@ This document tracks how files and persisted state move through the system from 
 
 Input enters through the `experiment` view as a browser-uploaded `.dv` file.
 
-Primary persisted outputs at intake:
+Primary persisted outputs at request-time intake:
 
 - one `UploadedImage` row
 - one source DV file under the run UUID namespace
+
+Upload preparation then runs in the background worker through `UploadPreparationJob`.
+Worker-generated upload-prep outputs are:
+
 - one `channel_config.json`
 - preview PNG assets
 - `scale_info` metadata saved on `UploadedImage`
+
+The worker deletes invalid newly uploaded files, skips invalid restored files, and preserves safe user-facing validation errors on the job.
 
 ## Run Media Namespaces
 
@@ -46,6 +52,7 @@ Execution ownership:
 
 - in `sync` mode, preprocess and inference are still request-owned
 - in `worker` mode, the full batch is owned by an `AnalysisJob` and executed by the background worker
+- upload validation, metadata extraction, channel config writes, and preview generation are always owned by `UploadPreparationJob` and executed by the same background worker command
 
 ## Segmentation Artifacts
 
@@ -89,7 +96,7 @@ Artifact cleanup helpers include:
 - full uploaded-run deletion
 - stale transient run sweeping
 
-Cleanup is designed to preserve the source upload and previews when only partial processing failed, and remove regenerable preprocessing artifacts after successful segmentation.
+Cleanup is designed to preserve the source upload and previews when only partial processing failed, and remove regenerable preprocessing artifacts after successful segmentation. The worker maintenance pass protects UUIDs that are still referenced by active upload-preparation or analysis jobs.
 
 ## Storage Accounting
 
@@ -105,4 +112,3 @@ Quota projections and enforcement use:
 - [`request-flows.md`](request-flows.md)
 - [`../ops/backup-retention-and-storage.md`](../ops/backup-retention-and-storage.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
-

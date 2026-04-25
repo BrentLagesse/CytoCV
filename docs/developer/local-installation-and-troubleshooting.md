@@ -88,7 +88,7 @@ What it does not do:
 - it does not activate the venv in your parent shell
 - it does not search the whole machine for the repo
 - it does not repair missing setup; it tells you to run the installer first
-- it does not start `manage.py run_analysis_worker`; if local `CYTOCV_ANALYSIS_EXECUTION_MODE=worker` is enabled, the preprocess page will keep polling until a separate worker process is running
+- it does not start `manage.py run_analysis_worker`; staged upload preparation always needs that worker, and worker-mode analysis also needs it
 
 Examples:
 
@@ -258,6 +258,24 @@ Open:
 ```text
 http://localhost:8000/
 ```
+
+### 7. Start the local worker for upload preparation
+
+Use a second terminal from the repo root or `cytocv/` directory. The worker is required for the staged upload flow because DV validation, scale extraction, channel config writing, and preview generation run outside the web request.
+
+From the repo root on Windows PowerShell:
+
+```powershell
+.\cytocv_venv\Scripts\python.exe .\cytocv\manage.py run_analysis_worker --poll-interval 1
+```
+
+From `cytocv/` on any activated environment:
+
+```bash
+python manage.py run_analysis_worker --poll-interval 1
+```
+
+If you also set `CYTOCV_ANALYSIS_EXECUTION_MODE=worker`, this same worker processes Start Analysis jobs after upload preparation completes.
 
 ## Optional: Local PostgreSQL Validation
 

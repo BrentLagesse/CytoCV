@@ -19,6 +19,7 @@ Current test modules:
 - `test_stats_cache.py`
 - `test_stats_validation.py`
 - `test_tables.py`
+- `test_upload_preparation.py`
 - `test_upload_length_scale.py`
 
 ## What The Tests Cover
@@ -26,6 +27,8 @@ Current test modules:
 - normalization and persistence of account preferences
 - artifact storage cleanup and quota behavior
 - inference-path behavior
+- staged upload-preparation APIs and worker jobs
+- async analysis jobs, worker claiming, and progress endpoints
 - table rendering and export support
 - scale initialization and upload-time scale handling
 - plugin and stats validation behavior
@@ -61,4 +64,3 @@ For documentation changes, verify:
 
 - [`contributing.md`](contributing.md)
 - [`../ops/environment-reference.md`](../ops/environment-reference.md)
-
