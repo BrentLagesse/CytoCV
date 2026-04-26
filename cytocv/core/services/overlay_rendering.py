@@ -232,6 +232,15 @@ def overlay_render_config_exists(run_uuid: str) -> bool:
     return overlay_render_config_path(run_uuid).exists()
 
 
+def overlay_image_available(run_uuid: str, cell_id: int, channel: str) -> bool:
+    normalized_channel = normalize_overlay_channel(channel)
+    if overlay_render_config_exists(run_uuid):
+        return True
+    if overlay_cache_image_path(run_uuid, cell_id, normalized_channel).exists():
+        return True
+    return find_legacy_debug_image_path(run_uuid, cell_id, normalized_channel) is not None
+
+
 def normalize_overlay_channel(channel: str) -> str:
     normalized_role = normalize_channel_role(channel)
     if normalized_role in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}:
@@ -607,6 +616,9 @@ def ensure_overlay_cache_image(
     render_config: dict[str, object] | None = None,
 ) -> Path:
     normalized_channel = normalize_overlay_channel(channel)
+    cache_path = overlay_cache_image_path(run_uuid, cell_id, normalized_channel)
+    if cache_path.exists():
+        return cache_path
     cache_paths = ensure_overlay_cache_images_for_cell(
         run_uuid,
         cell_id,

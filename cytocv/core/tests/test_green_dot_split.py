@@ -8,9 +8,12 @@ from django.test import SimpleTestCase
 from unittest.mock import patch
 
 from core.contour_processing.contour_operations import (
+    _best_peak_pair,
+    _choose_split_peak_pair,
+    _find_distance_peaks_in_contour,
     _filter_green_contours_with_image,
-    _split_merged_green_contours,
     _markers_from_neck,
+    _split_merged_green_contours,
     _split_params,
     _split_contour_with_neck_chord,
     compute_contour_shape_metrics,
@@ -18,6 +21,10 @@ from core.contour_processing.contour_operations import (
     find_convexity_defect_neck_candidates,
     find_intensity_peaks_in_contour,
     postprocess_gfp_contours_for_neck_splits,
+    split_contour_with_geometry_first_watershed,
+    split_contour_with_watershed,
+    validate_geometry_first_split,
+    validate_split_contours,
 )
 from core.image_processing import GrayImage
 
@@ -110,6 +117,75 @@ def _geometry_first_single_peak_image(mask: np.ndarray) -> np.ndarray:
     )
     image += 18.0 * (mask > 0)
     return np.clip(image, 0, 255).astype(np.uint8)
+
+
+def _wide_neck_guard_mask(shape=(96, 128)) -> np.ndarray:
+    mask = np.zeros(shape, dtype=np.uint8)
+    cv2.ellipse(mask, (60, 48), (24, 8), 0, 0, 360, 255, -1)
+    cv2.circle(mask, (54, 36), 4, 0, -1)
+    return mask
+
+
+def _wide_neck_guard_single_peak_image(mask: np.ndarray) -> np.ndarray:
+    y_grid, x_grid = np.mgrid[0 : mask.shape[0], 0 : mask.shape[1]]
+    image = 235.0 * np.exp(
+        -(
+            ((x_grid - 48) ** 2 + (y_grid - 48) ** 2)
+            / (2.0 * 3.4 * 3.4)
+        )
+    )
+    image += 22.0 * (mask > 0)
+    return np.clip(image, 0, 255).astype(np.uint8)
+
+
+def _moderate_aspect_two_peak_neck_mask() -> np.ndarray:
+    return np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ],
+        dtype=np.uint8,
+    )
+
+
+def _moderate_aspect_two_peak_neck_image() -> np.ndarray:
+    return np.array(
+        [
+            [9, 10, 10, 10, 10, 10, 10, 10, 11, 12, 13, 12, 12, 11, 11, 11, 11, 11, 10, 10],
+            [10, 10, 10, 10, 10, 9, 9, 10, 11, 12, 13, 13, 12, 11, 11, 11, 11, 11, 10, 10],
+            [10, 10, 9, 10, 10, 10, 10, 11, 12, 13, 13, 13, 13, 13, 12, 12, 12, 12, 11, 11],
+            [10, 10, 10, 10, 11, 12, 13, 14, 14, 14, 14, 14, 15, 14, 14, 13, 13, 12, 12, 12],
+            [10, 10, 10, 11, 15, 22, 26, 23, 19, 17, 16, 15, 15, 15, 14, 14, 13, 12, 11, 11],
+            [10, 11, 12, 14, 22, 36, 46, 42, 30, 21, 18, 16, 16, 15, 15, 14, 13, 11, 11, 11],
+            [12, 13, 14, 16, 24, 40, 55, 56, 42, 27, 20, 20, 20, 19, 17, 15, 14, 12, 11, 11],
+            [13, 14, 15, 17, 22, 32, 46, 53, 45, 31, 25, 30, 38, 39, 29, 20, 16, 13, 11, 11],
+            [13, 14, 14, 16, 18, 23, 30, 38, 37, 32, 31, 44, 66, 71, 50, 27, 17, 12, 11, 11],
+            [12, 13, 13, 14, 15, 18, 22, 27, 30, 31, 35, 50, 78, 88, 65, 33, 17, 12, 11, 10],
+            [10, 11, 12, 12, 13, 16, 20, 23, 27, 29, 32, 42, 61, 72, 58, 33, 17, 12, 12, 11],
+            [10, 11, 12, 12, 14, 16, 18, 20, 22, 25, 26, 29, 36, 41, 37, 25, 16, 13, 12, 12],
+            [11, 12, 12, 13, 15, 17, 18, 18, 19, 20, 20, 21, 22, 22, 20, 17, 13, 12, 12, 11],
+            [12, 13, 14, 15, 16, 17, 18, 17, 17, 17, 17, 16, 16, 15, 14, 13, 12, 12, 11, 10],
+            [12, 13, 15, 16, 16, 16, 16, 17, 16, 16, 15, 14, 13, 13, 13, 12, 11, 11, 10, 9],
+            [11, 13, 14, 15, 15, 15, 15, 16, 15, 14, 14, 13, 13, 13, 13, 11, 10, 10, 10, 9],
+            [11, 12, 12, 13, 13, 14, 15, 14, 14, 13, 13, 13, 13, 13, 12, 10, 9, 9, 9, 9],
+        ],
+        dtype=np.uint8,
+    )
 
 
 def _tip_connected_pair_image(shape=(72, 96)) -> np.ndarray:
@@ -320,6 +396,44 @@ class GreenDotSplitTests(SimpleTestCase):
         self.assertEqual(_contour_list_count(balanced), 1)
         self.assertEqual(_contour_list_count(aggressive), 2)
 
+    def test_wide_neck_single_peak_shape_splits_in_aggressive_but_balanced_keeps_merged(self):
+        mask = _wide_neck_guard_mask()
+        image = _wide_neck_guard_single_peak_image(mask)
+        contours = _contours_from_mask(mask)
+
+        balanced = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            image,
+            {"mode": "balanced"},
+        )
+        aggressive = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            image,
+            {"mode": "aggressive"},
+        )
+
+        self.assertEqual(_contour_list_count(balanced), 1)
+        self.assertEqual(_contour_list_count(aggressive), 2)
+
+    def test_moderate_aspect_two_peak_necked_contour_splits_in_aggressive_but_balanced_keeps_merged(self):
+        mask = _moderate_aspect_two_peak_neck_mask()
+        image = _moderate_aspect_two_peak_neck_image()
+        contours = _contours_from_mask(mask)
+
+        balanced = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            image,
+            {"mode": "balanced"},
+        )
+        aggressive = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            image,
+            {"mode": "aggressive"},
+        )
+
+        self.assertEqual(_contour_list_count(balanced), 1)
+        self.assertEqual(_contour_list_count(aggressive), 2)
+
     def test_balanced_and_aggressive_fallback_split_asymmetric_two_gaussian_pair(self):
         image = _gaussian_pair_image(
             center_a=(48, 48),
@@ -407,6 +521,150 @@ class GreenDotSplitTests(SimpleTestCase):
         )
 
         self.assertEqual(_contour_list_count(split), 2)
+
+    def test_wide_neck_single_peak_fixture_would_have_hit_old_aggressive_guards_but_now_splits(self):
+        mask = _wide_neck_guard_mask()
+        image = _wide_neck_guard_single_peak_image(mask)
+        contours = _contours_from_mask(mask)
+        contour = max(contours, key=cv2.contourArea)
+        params = _split_params("aggressive")
+        metrics = compute_contour_shape_metrics(
+            contour,
+            mask.shape,
+            min_defect_depth_px=params["min_defect_depth_px"],
+        )
+
+        self.assertIsNotNone(metrics)
+        neck_candidates = find_convexity_defect_neck_candidates(
+            metrics.contour,
+            metrics.mask,
+            params,
+        )
+        self.assertTrue(neck_candidates)
+        best_neck = neck_candidates[0]
+
+        intensity_peaks = find_intensity_peaks_in_contour(metrics.mask, image, params)
+        distance_peaks, distance_image = _find_distance_peaks_in_contour(
+            metrics.mask,
+            params,
+        )
+        intensity_pair = _best_peak_pair(
+            intensity_peaks,
+            image.astype(np.float32),
+            params,
+            max_valley_ratio_key="max_intensity_valley_ratio",
+        )
+        distance_pair = _best_peak_pair(
+            distance_peaks,
+            distance_image,
+            params,
+            max_valley_ratio_key="max_distance_valley_ratio",
+        )
+
+        self.assertGreaterEqual(metrics.aspect_ratio, 2.0)
+        self.assertGreaterEqual(metrics.solidity, 0.94)
+        self.assertGreaterEqual(metrics.max_defect_depth_px, 1.0)
+        self.assertGreater(best_neck.neck_ratio, 0.60)
+        self.assertLessEqual(best_neck.neck_ratio, 0.80)
+        self.assertIsNone(
+            _choose_split_peak_pair(intensity_pair, distance_pair, params)
+        )
+
+        aggressive = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            image,
+            {"mode": "aggressive"},
+        )
+        self.assertEqual(_contour_list_count(aggressive), 2)
+
+    def test_moderate_aspect_two_peak_neck_fixture_reaches_geometry_split_after_peak_split_fails(self):
+        mask = _moderate_aspect_two_peak_neck_mask()
+        image = _moderate_aspect_two_peak_neck_image()
+        contour = max(_contours_from_mask(mask), key=cv2.contourArea)
+        params = _split_params("aggressive")
+        metrics = compute_contour_shape_metrics(
+            contour,
+            mask.shape,
+            min_defect_depth_px=params["min_defect_depth_px"],
+        )
+
+        self.assertIsNotNone(metrics)
+        self.assertGreater(metrics.aspect_ratio, float(params["max_single_dot_aspect_ratio"]))
+        self.assertLess(metrics.aspect_ratio, 1.35)
+        self.assertGreaterEqual(metrics.deep_defect_count, 2)
+        self.assertGreaterEqual(metrics.max_defect_depth_px, 1.0)
+
+        neck_candidates = find_convexity_defect_neck_candidates(
+            metrics.contour,
+            metrics.mask,
+            params,
+        )
+        self.assertTrue(neck_candidates)
+        best_neck = neck_candidates[0]
+        self.assertLessEqual(best_neck.neck_ratio, 0.80)
+
+        intensity_peaks = find_intensity_peaks_in_contour(metrics.mask, image, params)
+        distance_peaks, distance_image = _find_distance_peaks_in_contour(
+            metrics.mask,
+            params,
+        )
+        intensity_pair = _best_peak_pair(
+            intensity_peaks,
+            cv2.GaussianBlur(image.astype(np.float32), (3, 3), 0),
+            params,
+            max_valley_ratio_key="max_intensity_valley_ratio",
+        )
+        distance_pair = _best_peak_pair(
+            distance_peaks,
+            distance_image,
+            params,
+            max_valley_ratio_key="max_distance_valley_ratio",
+        )
+        split_peak_pair = _choose_split_peak_pair(intensity_pair, distance_pair, params)
+
+        self.assertIsNotNone(split_peak_pair)
+
+        split_labels = split_contour_with_watershed(
+            metrics.mask,
+            image,
+            split_peak_pair,
+            params,
+            neck_candidate=best_neck,
+        )
+        self.assertEqual(
+            len(
+                validate_split_contours(
+                    metrics.mask,
+                    split_labels,
+                    image,
+                    params,
+                    peak_pair=split_peak_pair,
+                    neck_candidate=best_neck,
+                )
+            ),
+            0,
+        )
+
+        geometry_labels = split_contour_with_geometry_first_watershed(
+            metrics.mask,
+            image,
+            best_neck,
+            params,
+        )
+        geometry_children = validate_geometry_first_split(
+            metrics.mask,
+            geometry_labels,
+            params,
+            best_neck,
+        )
+        self.assertEqual(len(geometry_children), 2)
+
+        aggressive = postprocess_gfp_contours_for_neck_splits(
+            [contour],
+            image,
+            {"mode": "aggressive"},
+        )
+        self.assertEqual(_contour_list_count(aggressive), 2)
 
     def test_aggressive_find_contours_splits_tiny_tip_connected_merge_that_balanced_keeps_merged(self):
         image = _tip_connected_pair_image()

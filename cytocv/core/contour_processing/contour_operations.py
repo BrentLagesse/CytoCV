@@ -1519,11 +1519,14 @@ def split_necked_gfp_contour_if_needed(
         and split_peak_pair is None
         and metrics.aspect_ratio >= 2.0
         and metrics.solidity >= 0.94
-        and neck.neck_ratio >= 0.68
+        and (
+            metrics.max_defect_depth_px < 1.0
+            or neck.neck_ratio > 0.80
+        )
     ):
         if debug:
             logger.debug(
-                "Green neck split rejected: smooth convex contour lacks peak-supported split evidence"
+                "Green neck split rejected: smooth convex contour lacks peak-supported or usable neck-supported split evidence"
             )
         return [contour]
     has_peak_evidence = split_peak_pair is not None
@@ -1572,9 +1575,15 @@ def split_necked_gfp_contour_if_needed(
 
     if (
         split_mode == "aggressive"
-        and shape_suspicious
-        and metrics.aspect_ratio >= 1.35
-        and neck.neck_ratio <= 0.60
+        and metrics.max_defect_depth_px >= 1.0
+        and neck.neck_ratio <= 0.80
+        and (
+            split_peak_pair is not None
+            or (
+                shape_suspicious
+                and metrics.aspect_ratio >= 1.35
+            )
+        )
     ):
         geometry_labels = split_contour_with_geometry_first_watershed(
             metrics.mask,

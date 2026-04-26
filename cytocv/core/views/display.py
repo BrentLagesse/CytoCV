@@ -35,7 +35,7 @@ from core.services.artifact_storage import (
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.main_image_urls import build_main_image_paths
-from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
+from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
 from core.scale import (
     get_scale_context_payload,
@@ -270,8 +270,6 @@ def display(request, uuids):
                 channel_config=channel_config,
                 available_frames=available_frames,
             )
-            has_overlay_render_config = overlay_render_config_exists(uuid)
-
             # Build the images for each cell based on the dynamic channel configuration
             images = {}
             statistics = {}
@@ -311,12 +309,10 @@ def display(request, uuids):
                 for channel_name in channel_order:
                     channel_index = channel_config.get(channel_name)
                     no_outline = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}-no_outline.png"
-                    debug_file_name = f"{image_name_stem}-{i}-{channel_name}_debug.png"
-                    debug_file_path = Path(MEDIA_ROOT) / str(uuid) / "segmented" / debug_file_name
                     if (
                         channel_name in [CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE]
                         and cell_stat is not None
-                        and (has_overlay_render_config or debug_file_path.exists())
+                        and overlay_image_available(uuid, i, channel_name)
                     ):
                         image_url = build_overlay_image_url(uuid, i, channel_name)
                     else:

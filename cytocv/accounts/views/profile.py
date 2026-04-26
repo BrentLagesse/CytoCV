@@ -48,7 +48,7 @@ from core.services.artifact_storage import (
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.main_image_urls import build_main_image_paths
-from core.services.overlay_rendering import build_overlay_image_url, overlay_render_config_exists
+from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     VALID_PUNCTA_LINE_MODES,
@@ -646,7 +646,6 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         debug_images, outlined_images, no_outline_images = _scan_segmented_assets(
             segmented_dir
         )
-        has_overlay_render_config = overlay_render_config_exists(uuid)
         output_frames = _scan_output_frames(output_dir)
         detected_channels = [
             channel_display_label(channel)
@@ -717,7 +716,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                 if (
                     channel_name in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}
                     and cell_stat is not None
-                    and (has_overlay_render_config or debug_images.get((cell_id, channel_name), ""))
+                    and overlay_image_available(uuid, cell_id, channel_name)
                 ):
                     outlined_url = build_overlay_image_url(uuid, cell_id, channel_name)
                 else:
