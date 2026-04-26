@@ -12,7 +12,6 @@ from core.services.puncta_line_mode import (
     normalize_puncta_line_mode,
 )
 from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
     normalize_green_dot_split_mode,
 )
 from core.stats_plugins import (
@@ -52,7 +51,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_red_max_distance": 37,
         "biorientation_collinearity_threshold": 66,
         "green_dot_split_enabled": True,
-        "green_dot_split_mode": DEFAULT_GREEN_DOT_SPLIT_MODE,
+        "green_dot_split_mode": "aggressive",
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
@@ -328,12 +327,18 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         ),
         default=True,
     )
-    normalized["experiment_defaults"]["green_dot_split_mode"] = normalize_green_dot_split_mode(
-        defaults_payload.get(
-            "green_dot_split_mode",
-            defaults_payload.get("greenDotSplitMode"),
-        )
+    raw_green_dot_split_mode = _first_present(
+        defaults_payload.get("green_dot_split_mode"),
+        defaults_payload.get("greenDotSplitMode"),
     )
+    if raw_green_dot_split_mode is None:
+        normalized["experiment_defaults"]["green_dot_split_mode"] = normalized[
+            "experiment_defaults"
+        ]["green_dot_split_mode"]
+    else:
+        normalized["experiment_defaults"]["green_dot_split_mode"] = (
+            normalize_green_dot_split_mode(raw_green_dot_split_mode)
+        )
     normalized["experiment_defaults"]["puncta_line_mode"] = normalize_puncta_line_mode(
         defaults_payload.get("puncta_line_mode"),
         default=DEFAULT_PUNCTA_LINE_MODE,

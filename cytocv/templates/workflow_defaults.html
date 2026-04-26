@@ -1581,7 +1581,7 @@ main.main > section.panel > form.panel > .card {
             <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled %} is-active{% endif %}" id="greenDotSplitModeRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled %}false{% else %}true{% endif %}">
               <div class="row-copy">
                 <span class="row-label-line"><label for="green_dot_split_mode">Green Dot Split Mode</label></span>
-                <p class="module-help">Balanced uses standard split sensitivity. Aggressive attempts harder splits for very close or unequal Green dots.</p>
+                <p class="module-help">Balanced uses standard split sensitivity, now stronger than the old balanced mode. Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots.</p>
               </div>
               <div class="mode-select-group plugin-measure-right compact-control"><select id="green_dot_split_mode" name="green_dot_split_mode"><option value="balanced" {% if preferences.experiment_defaults.green_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.green_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
             </div>
