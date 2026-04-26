@@ -1800,7 +1800,7 @@
                                     type="button"
                                     class="info-dot compact advanced-info-dot"
                                     id="greenDotSplitInfoDot"
-                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: default mode with standard split sensitivity.&#10;- Aggressive: attempts harder splits for very close or unequal Green dots."
+                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: standard split sensitivity, now stronger than the old balanced mode.&#10;- Aggressive: highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots."
                                     aria-label="Split merged Green dots info"
                                 >i</button>
                             </span>
@@ -2239,7 +2239,7 @@
         greenFilterExperimentalDot: 'Experimental setting: behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions.',
         greenDotSplitInfoDot: buildInfoSections([
             'Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use it when two nearby Green dots are detected as one merged contour.',
-            'Green Dot Split Mode: Balanced uses standard split sensitivity; Aggressive attempts harder splits for very close or unequal Green dots.',
+            'Green Dot Split Mode: Balanced uses standard split sensitivity, now stronger than the old balanced mode; Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots.',
             'Availability: enabled only when a selected statistic requires the Green channel.',
             'Required channels: Green.',
         ]),

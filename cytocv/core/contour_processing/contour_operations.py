@@ -18,36 +18,6 @@ logger = logging.getLogger(__name__)
 
 GREEN_DOT_SPLIT_PARAMS = {
     "balanced": {
-        "min_original_area_px": 14,
-        "min_peak_distance": 3,
-        "min_peak_ratio": 0.42,
-        "min_intensity_peak_ratio": 0.42,
-        "min_second_peak_ratio": 0.50,
-        "max_intensity_valley_ratio": 0.82,
-        "max_distance_valley_ratio": 0.86,
-        "min_defect_depth_px": 1.0,
-        "min_relative_defect_depth": 0.10,
-        "max_neck_width_ratio": 0.84,
-        "min_chord_mask_fraction": 0.72,
-        "max_single_dot_circularity": 0.84,
-        "min_single_dot_solidity": 0.96,
-        "max_single_dot_aspect_ratio": 1.28,
-        "min_suspicious_aspect_ratio": 1.18,
-        "max_suspicious_circularity": 0.74,
-        "max_suspicious_solidity": 0.96,
-        "min_split_circularity": 0.22,
-        "min_split_solidity": 0.72,
-        "min_split_area_px": 8,
-        "min_child_area_fraction": 0.16,
-        "min_combined_area_ratio": 0.72,
-        "min_child_center_distance_px": 3.0,
-        "max_child_aspect_ratio": 3.2,
-        "min_child_peak_ratio": 0.38,
-        "max_neck_alignment_cos": 0.78,
-        "neck_cut_line_thickness": 1,
-        "asymmetric_fallback_enabled": False,
-    },
-    "aggressive": {
         "min_original_area_px": 10,
         "min_peak_distance": 2,
         "min_peak_ratio": 0.25,
@@ -88,6 +58,48 @@ GREEN_DOT_SPLIT_PARAMS = {
         "asymmetric_min_child_mean_ratio": 0.16,
         "asymmetric_min_boundary_low_signal_fraction": 0.55,
         "asymmetric_max_boundary_saddle_distance_px": 6.0,
+    },
+    "aggressive": {
+        "min_original_area_px": 8,
+        "min_peak_distance": 1,
+        "min_peak_ratio": 0.18,
+        "min_intensity_peak_ratio": 0.20,
+        "min_second_peak_ratio": 0.20,
+        "max_intensity_valley_ratio": 0.96,
+        "max_distance_valley_ratio": 0.97,
+        "min_defect_depth_px": 0.25,
+        "min_relative_defect_depth": 0.04,
+        "max_neck_width_ratio": 1.00,
+        "min_chord_mask_fraction": 0.45,
+        "max_single_dot_circularity": 0.92,
+        "min_single_dot_solidity": 0.99,
+        "max_single_dot_aspect_ratio": 1.12,
+        "min_suspicious_aspect_ratio": 1.04,
+        "max_suspicious_circularity": 0.88,
+        "max_suspicious_solidity": 0.99,
+        "min_split_circularity": 0.10,
+        "min_split_solidity": 0.45,
+        "min_split_area_px": 4,
+        "min_child_area_fraction": 0.06,
+        "min_combined_area_ratio": 0.58,
+        "min_child_center_distance_px": 1.0,
+        "max_child_aspect_ratio": 5.5,
+        "min_child_peak_ratio": 0.15,
+        "max_neck_alignment_cos": 0.94,
+        "neck_cut_line_thickness": 1,
+        "asymmetric_fallback_enabled": True,
+        "asymmetric_min_peak_distance_px": 2.0,
+        "asymmetric_min_second_peak_ratio": 0.20,
+        "asymmetric_max_intensity_valley_ratio": 0.94,
+        "asymmetric_min_intensity_drop_ratio": 0.04,
+        "asymmetric_max_distance_saddle_ratio": 0.94,
+        "asymmetric_min_peak_line_mask_fraction": 0.60,
+        "asymmetric_min_single_defect_depth_px": 0.35,
+        "asymmetric_max_saddle_to_defect_distance_px": 10.0,
+        "asymmetric_min_child_area_fraction": 0.08,
+        "asymmetric_min_child_mean_ratio": 0.08,
+        "asymmetric_min_boundary_low_signal_fraction": 0.40,
+        "asymmetric_max_boundary_saddle_distance_px": 8.0,
     },
 }
 
@@ -168,6 +180,13 @@ class _AsymmetricSplitCandidate:
     saddle: _SaddleMetrics
     single_defect: _SingleDefectCandidate | None
     score: float
+
+
+@dataclass(slots=True)
+class _AggressiveSplitDecision:
+    original_contour: np.ndarray
+    output_contours: list[np.ndarray]
+    accepted_split: bool
 
 
 def _split_params(split_mode: str) -> dict:
@@ -638,6 +657,93 @@ def _split_contour_with_neck_chord(
     return split_labels
 
 
+def _neck_chord_side_labels(
+    mask: np.ndarray,
+    neck: _NeckCandidate,
+) -> np.ndarray:
+    """Partition a contour mask by the two sides of the candidate neck chord."""
+
+    labels = np.zeros(mask.shape, dtype=np.int32)
+    ys, xs = np.nonzero(mask > 0)
+    if xs.size == 0:
+        return labels
+
+    point_a = np.array(neck.point_a, dtype=np.float32)
+    point_b = np.array(neck.point_b, dtype=np.float32)
+    chord = point_b - point_a
+    chord_norm = float(np.linalg.norm(chord))
+    if chord_norm <= 0:
+        return labels
+
+    points = np.column_stack((xs, ys)).astype(np.float32, copy=False)
+    relative = points - point_a
+    signed = (chord[0] * relative[:, 1]) - (chord[1] * relative[:, 0])
+
+    positive = signed > 1e-3
+    negative = signed < -1e-3
+    labels[ys[positive], xs[positive]] = 1
+    labels[ys[negative], xs[negative]] = 2
+
+    on_line = ~(positive | negative)
+    if np.any(on_line):
+        dist_a = np.sum((points[on_line] - point_a) ** 2, axis=1)
+        dist_b = np.sum((points[on_line] - point_b) ** 2, axis=1)
+        side_labels = np.where(dist_a <= dist_b, 1, 2)
+        labels[ys[on_line], xs[on_line]] = side_labels
+
+    return labels
+
+
+def _markers_from_neck_geometry(
+    mask: np.ndarray,
+    neck: _NeckCandidate,
+    params: dict,
+) -> np.ndarray | None:
+    """Seed each side of a neck chord without requiring the chord to disconnect the mask."""
+
+    side_labels = _neck_chord_side_labels(mask, neck)
+    dist = ndi.distance_transform_edt(mask > 0).astype(np.float32)
+    markers = np.zeros(mask.shape, dtype=np.int32)
+    min_area = int(params["min_split_area_px"])
+
+    for label in (1, 2):
+        region = side_labels == label
+        if int(np.count_nonzero(region)) < min_area:
+            return None
+        region_dist = np.where(region, dist, -1.0)
+        max_index = int(np.argmax(region_dist))
+        if float(region_dist.flat[max_index]) <= 0:
+            return None
+        y_coord, x_coord = np.unravel_index(max_index, region_dist.shape)
+        markers[int(y_coord), int(x_coord)] = label
+
+    return markers if int(markers.max()) == 2 else None
+
+
+def split_contour_with_geometry_first_watershed(
+    mask: np.ndarray,
+    gfp_image: np.ndarray | None,
+    neck: _NeckCandidate,
+    params: dict,
+) -> np.ndarray | None:
+    """Split a contour from neck geometry even when peak-based markers are unavailable."""
+
+    markers = _markers_from_neck_geometry(mask, neck, params)
+    if markers is None:
+        return None
+
+    score_image = _split_score_image(mask, gfp_image)
+    labels = watershed(-score_image, markers, mask=mask > 0)
+    if int(labels.max()) == 2:
+        boundary = _internal_watershed_boundaries(labels)
+        labels = labels.copy()
+        labels[boundary] = 0
+        return labels
+
+    side_labels = _neck_chord_side_labels(mask, neck)
+    return side_labels if int(side_labels.max()) == 2 else None
+
+
 def _region_circularity(region: np.ndarray) -> float:
     contours, _ = cv2.findContours(
         (region.astype(np.uint8) * 255),
@@ -709,6 +815,7 @@ def validate_split_contours(
     *,
     peak_pair: _PeakPair | None = None,
     neck_candidate: _NeckCandidate | None = None,
+    require_child_peak_ratio: bool = True,
 ) -> list[np.ndarray]:
     """Validate watershed/chord regions before replacing the original contour."""
 
@@ -745,7 +852,12 @@ def validate_split_contours(
         short_side = max(1, min(width, height))
         if (max(width, height) / short_side) > float(params["max_child_aspect_ratio"]):
             return []
-        if original_max > 0 and gray is not None and gray.shape[:2] == original_mask.shape:
+        if (
+            require_child_peak_ratio
+            and original_max > 0
+            and gray is not None
+            and gray.shape[:2] == original_mask.shape
+        ):
             child_values = gray[region]
             if child_values.size == 0:
                 return []
@@ -794,6 +906,52 @@ def validate_split_contours(
             if alignment > float(params["max_neck_alignment_cos"]):
                 return []
 
+    return child_contours
+
+
+def _boundary_intersects_neck_chord(
+    original_mask: np.ndarray,
+    split_labels: np.ndarray,
+    neck_candidate: _NeckCandidate,
+) -> bool:
+    boundary = _boundary_between_split_labels(original_mask, split_labels)
+    if not np.any(boundary):
+        return False
+
+    chord_mask = np.zeros(original_mask.shape, dtype=np.uint8)
+    cv2.line(
+        chord_mask,
+        neck_candidate.point_a,
+        neck_candidate.point_b,
+        1,
+        thickness=1,
+        lineType=cv2.LINE_8,
+    )
+    chord_region = ndi.binary_dilation(chord_mask.astype(bool), iterations=1)
+    return bool(np.any(boundary & chord_region))
+
+
+def validate_geometry_first_split(
+    original_mask: np.ndarray,
+    split_labels: np.ndarray | None,
+    params: dict,
+    neck_candidate: _NeckCandidate,
+) -> list[np.ndarray]:
+    """Validate an aggressive geometry-first split that does not rely on peak evidence."""
+
+    child_contours = validate_split_contours(
+        original_mask,
+        split_labels,
+        None,
+        params,
+        peak_pair=None,
+        neck_candidate=neck_candidate,
+        require_child_peak_ratio=False,
+    )
+    if len(child_contours) != 2 or split_labels is None:
+        return []
+    if not _boundary_intersects_neck_chord(original_mask, split_labels, neck_candidate):
+        return []
     return child_contours
 
 
@@ -1032,12 +1190,14 @@ def find_asymmetric_peak_saddle_candidate(
                 second_peak_ratio=second_peak_ratio,
                 score=0.0,
             )
+            single_defect_bonus = 0.5 if single_defect is not None else 0.0
+
             score = (
                 second_peak_ratio
                 + min(peak_distance / 12.0, 1.5)
                 + max(0.0, 1.0 - intensity_valley_ratio) * 3.0
                 + max(0.0, 1.0 - distance_saddle_ratio) * 3.0
-                + (0.5 if single_defect is not None else 0.0)
+                + single_defect_bonus
             )
             peak_pair.score = score
             candidate = _AsymmetricSplitCandidate(
@@ -1212,6 +1372,8 @@ def split_asymmetric_gfp_contour_if_needed(
     gfp_image: np.ndarray,
     params: dict,
     *,
+    has_paired_neck: bool = False,
+    split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
     debug: bool = False,
 ) -> list[np.ndarray]:
     if not bool(params.get("asymmetric_fallback_enabled", False)):
@@ -1270,6 +1432,7 @@ def split_necked_gfp_contour_if_needed(
         config_payload = dict(config or {})
         split_mode = config_payload.get("mode", DEFAULT_GREEN_DOT_SPLIT_MODE)
         debug = bool(config_payload.get("debug", False))
+    split_mode = normalize_green_dot_split_mode(split_mode)
 
     params = _split_params(split_mode)
     metrics = compute_contour_shape_metrics(
@@ -1313,6 +1476,8 @@ def split_necked_gfp_contour_if_needed(
             metrics,
             gfp_image,
             params,
+            has_paired_neck=neck is not None,
+            split_mode=split_mode,
             debug=debug,
         )
 
@@ -1330,6 +1495,18 @@ def split_necked_gfp_contour_if_needed(
 
     shape_suspicious = _shape_is_suspicious(metrics, params)
     split_peak_pair = _choose_split_peak_pair(intensity_pair, distance_pair, params)
+    if (
+        split_mode == "aggressive"
+        and split_peak_pair is None
+        and metrics.aspect_ratio >= 2.0
+        and metrics.solidity >= 0.94
+        and neck.neck_ratio >= 0.68
+    ):
+        if debug:
+            logger.debug(
+                "Green neck split rejected: smooth convex contour lacks peak-supported split evidence"
+            )
+        return [contour]
     has_peak_evidence = split_peak_pair is not None
     has_geometry_evidence = shape_suspicious and metrics.deep_defect_count >= 2
     if not (has_peak_evidence or has_geometry_evidence):
@@ -1374,6 +1551,27 @@ def split_necked_gfp_contour_if_needed(
     if len(child_contours) == 2:
         return child_contours
 
+    if (
+        split_mode == "aggressive"
+        and shape_suspicious
+        and metrics.aspect_ratio >= 1.35
+        and neck.neck_ratio <= 0.60
+    ):
+        geometry_labels = split_contour_with_geometry_first_watershed(
+            metrics.mask,
+            gfp_image,
+            neck,
+            params,
+        )
+        child_contours = validate_geometry_first_split(
+            metrics.mask,
+            geometry_labels,
+            params,
+            neck,
+        )
+        if len(child_contours) == 2:
+            return child_contours
+
     child_contours = try_asymmetric_fallback()
     if len(child_contours) == 2:
         return child_contours
@@ -1394,6 +1592,50 @@ def postprocess_gfp_contours_for_neck_splits(
     for contour in contours or []:
         split_contours = split_necked_gfp_contour_if_needed(contour, gfp_image, config)
         processed.extend(split_contours if split_contours else [contour])
+    return processed
+
+
+def _aggressive_split_decision_for_contour(
+    contour: np.ndarray,
+    gfp_image: np.ndarray,
+    config: dict | str | None = None,
+) -> _AggressiveSplitDecision:
+    """Return the aggressive split result for one contour without filtering."""
+
+    split_contours = split_necked_gfp_contour_if_needed(contour, gfp_image, config)
+    if len(split_contours) == 2:
+        return _AggressiveSplitDecision(
+            original_contour=contour,
+            output_contours=split_contours,
+            accepted_split=True,
+        )
+    return _AggressiveSplitDecision(
+        original_contour=contour,
+        output_contours=split_contours if split_contours else [contour],
+        accepted_split=False,
+    )
+
+
+def _postprocess_and_filter_aggressive_green_contours(
+    contours: list[np.ndarray] | tuple[np.ndarray, ...],
+    gfp_image: np.ndarray,
+    config: dict | str | None = None,
+) -> list[np.ndarray]:
+    """Preserve aggressive splits atomically through the legacy contour filter."""
+
+    processed: list[np.ndarray] = []
+    for contour in contours or []:
+        decision = _aggressive_split_decision_for_contour(contour, gfp_image, config)
+        if decision.accepted_split:
+            filtered_children = filterContours(decision.output_contours)
+            if len(filtered_children) == 2:
+                processed.extend(filtered_children)
+            else:
+                # If the legacy filter collapses an accepted split, keep the
+                # original merged contour instead of returning one child.
+                processed.append(decision.original_contour)
+            continue
+        processed.extend(filterContours(decision.output_contours))
     return processed
 
 
@@ -1437,6 +1679,7 @@ def find_contours(
     gray_blue_3 = images.get_image("gray_blue_3")
     gray_blue = images.get_image("gray_blue")
     gray_green = images.get_image("green")
+    green_dot_split_mode = normalize_green_dot_split_mode(green_dot_split_mode)
 
     dot_contours = []
     contours = []
@@ -1646,13 +1889,21 @@ def find_contours(
             cv2.RETR_LIST,
             cv2.CHAIN_APPROX_SIMPLE,
         )
-        if green_dot_split_enabled:
+        if green_dot_split_enabled and green_contour_filter_enabled and green_dot_split_mode == "aggressive":
+            contours_green = _postprocess_and_filter_aggressive_green_contours(
+                contours_green,
+                gray_green,
+                {"mode": green_dot_split_mode},
+            )
+        elif green_dot_split_enabled:
             contours_green = postprocess_gfp_contours_for_neck_splits(
                 contours_green,
                 gray_green,
                 {"mode": green_dot_split_mode},
             )
-        if green_contour_filter_enabled:
+            if green_contour_filter_enabled:
+                contours_green = filterContours(contours_green)
+        elif green_contour_filter_enabled:
             contours_green = filterContours(contours_green)
 
     return {
