@@ -17,7 +17,12 @@ from ..stats_plugins import (
     normalize_selected_plugins,
 )
 import uuid as uuid_lib
-from accounts.preferences import get_user_preferences
+from accounts.preferences import (
+    PreferenceValidationError,
+    build_experiment_defaults_from_popup_payload,
+    get_user_preferences,
+    update_user_preferences,
+)
 from core.scale import (
     DEFAULT_MICRONS_PER_PIXEL,
     convert_length_to_pixels,
@@ -592,6 +597,40 @@ def experiment(request):
             user_preference_defaults=user_preferences.get("experiment_defaults", {}),
             upload_quota_payload=upload_quota_payload,
         ),
+    )
+
+
+@require_POST
+def save_experiment_workflow_defaults(request):
+    """Persist experiment-popup settings as the user's workflow defaults."""
+
+    try:
+        raw_payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (TypeError, ValueError, UnicodeDecodeError):
+        return JsonResponse(
+            {"errors": ["Request body must be valid JSON."]},
+            status=400,
+        )
+
+    preferences = get_user_preferences(request.user)
+    try:
+        next_defaults = build_experiment_defaults_from_popup_payload(
+            raw_payload,
+            current_defaults=preferences.get("experiment_defaults", {}),
+        )
+    except PreferenceValidationError as exc:
+        return JsonResponse({"errors": [str(exc)]}, status=400)
+
+    next_payload = dict(preferences)
+    next_payload["experiment_defaults"] = next_defaults
+    updated_preferences = update_user_preferences(request.user, next_payload)
+    return JsonResponse(
+        {
+            "message": (
+                "Workflow default updated. Future experiments will start with this configuration."
+            ),
+            "defaults": updated_preferences.get("experiment_defaults", {}),
+        }
     )
 
 

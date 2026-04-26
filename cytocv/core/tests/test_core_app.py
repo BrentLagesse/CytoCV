@@ -260,6 +260,10 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(reverse("workflow_defaults"), "/workflow-defaults/")
         self.assertEqual(reverse("experiment"), "/experiment/")
         self.assertEqual(
+            reverse("experiment_workflow_defaults"),
+            "/api/experiment/workflow-defaults/",
+        )
+        self.assertEqual(
             reverse("pre_process", args=[uuid_value]),
             f"/experiment/{uuid_value}/pre-process/",
         )

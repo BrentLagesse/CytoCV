@@ -754,7 +754,10 @@
         }
         .stats-view-footer {
             display: flex;
-            justify-content: flex-end;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
             margin-top: auto;
             padding-top: 8px;
         }
@@ -763,7 +766,9 @@
             font-weight: 600;
             letter-spacing: 0.2px;
         }
-        .advanced-btn {
+        .advanced-btn,
+        .workflow-default-btn,
+        .back-btn {
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             background: var(--surface-muted);
@@ -772,8 +777,14 @@
             padding: 7px 10px;
             cursor: pointer;
         }
-        .advanced-btn:hover {
+        .advanced-btn:hover,
+        .workflow-default-btn:hover,
+        .back-btn:hover {
             background: var(--surface-hover-strong);
+        }
+        .workflow-default-btn:disabled {
+            opacity: 0.68;
+            cursor: not-allowed;
         }
         .stats-divider {
             height: 1px;
@@ -1405,7 +1416,9 @@
         .advanced-header {
             display: flex;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
             margin-top: auto;
             padding-top: 8px;
         }
@@ -1439,18 +1452,6 @@
         #statsAdvancedView .advanced-header {
             flex: 0 0 auto;
             margin-top: 0;
-        }
-        .back-btn {
-            border: 1px solid var(--panel-border);
-            background: var(--surface-muted);
-            color: #fff;
-            border-radius: 8px;
-            padding: 7px 10px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .back-btn:hover {
-            background: var(--surface-hover-strong);
         }
         .advanced-channel-group {
             display: flex;
@@ -1735,6 +1736,12 @@
                     <div class="measurement-scale-card" id="measurementScaleGroup"></div>
                 </div>
                 <div class="stats-view-footer">
+                    <button
+                        type="button"
+                        class="workflow-default-btn"
+                        id="saveWorkflowDefaultsPrimary"
+                        data-save-workflow-default="1"
+                    >Save as Workflow Default</button>
                     <button type="button" class="advanced-btn" id="openAdvancedSettings">Advanced Settings</button>
                 </div>
             </div>
@@ -1889,6 +1896,12 @@
                     </div>
                 </div>
                 <div class="advanced-header">
+                    <button
+                        type="button"
+                        class="workflow-default-btn"
+                        id="saveWorkflowDefaultsAdvanced"
+                        data-save-workflow-default="1"
+                    >Save as Workflow Default</button>
                     <button type="button" class="back-btn" id="advancedBackButton" aria-label="Back To Stats Settings">Back</button>
                 </div>
             </div>
@@ -1997,6 +2010,19 @@
         <div class="nav-exit-actions">
             <button type="button" class="nav-exit-btn confirm" id="statsUnsavedKeepOld">Keep Old Settings</button>
             <button type="button" class="nav-exit-btn cancel" id="statsUnsavedKeepNew">Keep New Changes</button>
+        </div>
+    </div>
+</div>
+
+<div class="nav-exit-backdrop popup-backdrop" id="saveWorkflowDefaultsBackdrop" aria-hidden="true">
+    <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="saveWorkflowDefaultsTitle">
+        <div class="nav-exit-title" id="saveWorkflowDefaultsTitle">Save as workflow default?</div>
+        <div class="nav-exit-body" id="saveWorkflowDefaultsBody">
+            Use the current plugin, advanced-setting, and measurement-scale configuration as the default for future experiments? This does not start analysis or change saved results.
+        </div>
+        <div class="nav-exit-actions">
+            <button type="button" class="nav-exit-btn confirm" id="saveWorkflowDefaultsCancel">Cancel</button>
+            <button type="button" class="nav-exit-btn cancel" id="saveWorkflowDefaultsConfirm">Save as Workflow Default</button>
         </div>
     </div>
 </div>
@@ -4512,12 +4538,118 @@
         });
     }
 
+    function commitStatsStateFromInputs() {
+        persistSelectedPlugins();
+        persistAdvancedSettings();
+        persistLengthUnitSettings();
+
+        if (micronsPerPixelInput) {
+            statsState.micronsPerPixel = sanitizeMicronsPerPixel(micronsPerPixelInput.value);
+            micronsPerPixelInput.value = formatNumericInputValue(statsState.micronsPerPixel);
+            localStorage.setItem(micronsPerPixelKey, String(statsState.micronsPerPixel));
+        }
+        if (useMetadataScaleInput) {
+            statsState.useMetadataScale = !!useMetadataScaleInput.checked;
+            localStorage.setItem(useMetadataScaleKey, String(statsState.useMetadataScale));
+        }
+        if (punctaLineWidthInput) {
+            const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
+            const minimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
+            statsState.punctaLineWidth = parseLengthValue(
+                punctaLineWidthInput.value,
+                statsState.punctaLineWidthUnit,
+                fallback,
+                minimum
+            );
+            punctaLineWidthInput.value = formatNumericInputValue(statsState.punctaLineWidth);
+            localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
+        }
+        if (cenDotDistanceInput) {
+            const fallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
+            statsState.cenDotDistance = parseLengthValue(
+                cenDotDistanceInput.value,
+                statsState.cenDotDistanceUnit,
+                fallback,
+                0
+            );
+            cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
+            localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
+        }
+        if (cenDotProximityRadiusInput) {
+            const fallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
+            statsState.cenDotProximityRadius = parseLengthValue(
+                cenDotProximityRadiusInput.value,
+                statsState.cenDotProximityRadiusUnit,
+                fallback,
+                0
+            );
+            cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
+            localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
+        }
+        if (biorientationRedMinDistanceInput) {
+            statsState.biorientationRedMinDistance = parseLengthValue(
+                biorientationRedMinDistanceInput.value,
+                statsState.biorientationRedMinDistanceUnit,
+                defaultBiorientationMinDistanceForUnit(),
+                0
+            );
+            biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
+            localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
+        }
+        if (biorientationRedMaxDistanceInput) {
+            statsState.biorientationRedMaxDistance = parseLengthValue(
+                biorientationRedMaxDistanceInput.value,
+                statsState.biorientationRedMaxDistanceUnit,
+                defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
+                0
+            );
+            biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
+            localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
+        }
+        if (biorientationCollinearityThresholdInput) {
+            const parsed = parseInt(biorientationCollinearityThresholdInput.value, 10);
+            statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
+            biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
+            localStorage.setItem(
+                biorientationThresholdKey,
+                String(statsState.biorientationCollinearityThreshold)
+            );
+        }
+        if (punctaLineModeSelect) {
+            statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta'
+                ? 'green_puncta'
+                : 'red_puncta';
+            localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
+        }
+        if (nuclearModeSelect) {
+            statsState.nuclearCellPairMode = nuclearModeSelect.value === 'red_nucleus'
+                ? 'red_nucleus'
+                : 'green_nucleus';
+            localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
+        }
+
+        const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
+            || statsState.cenDotDistanceUnit === 'um'
+            || statsState.cenDotProximityRadiusUnit === 'um'
+            || statsState.biorientationRedMinDistanceUnit === 'um'
+            || statsState.biorientationRedMaxDistanceUnit === 'um';
+        if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
+            return {
+                ok: false,
+                errors: ['Micrometers-per-pixel must be greater than 0 when using micrometer input.'],
+            };
+        }
+
+        return { ok: true };
+    }
+
     function setupSettingsModal() {
         const settingsButton = document.getElementById('settingsButton');
         const backdrop = document.getElementById('settingsBackdrop');
         const closeButton = document.getElementById('settingsClose');
         const openAdvanced = document.getElementById('openAdvancedSettings');
         const backButton = document.getElementById('advancedBackButton');
+        const saveDefaultButtons = Array.from(document.querySelectorAll('[data-save-workflow-default]'));
         const primaryView = document.getElementById('statsPrimaryView');
         const advancedView = document.getElementById('statsAdvancedView');
         const modalPanel = backdrop ? backdrop.querySelector('.settings-modal') : null;
@@ -4525,6 +4657,10 @@
         const keepOldButton = document.getElementById('statsUnsavedKeepOld');
         const keepNewButton = document.getElementById('statsUnsavedKeepNew');
         const unsavedPanel = unsavedBackdrop ? unsavedBackdrop.querySelector('.nav-exit-modal') : null;
+        const saveDefaultsBackdrop = document.getElementById('saveWorkflowDefaultsBackdrop');
+        const saveDefaultsCancelButton = document.getElementById('saveWorkflowDefaultsCancel');
+        const saveDefaultsConfirmButton = document.getElementById('saveWorkflowDefaultsConfirm');
+        const saveDefaultsPanel = saveDefaultsBackdrop ? saveDefaultsBackdrop.querySelector('.nav-exit-modal') : null;
 
         if (!settingsButton || !backdrop || !closeButton || !primaryView || !advancedView) {
             return;
@@ -4725,6 +4861,166 @@
                 document.addEventListener('keydown', onKeydown);
             });
         };
+        saveDefaultButtons.forEach((button) => {
+            if (!button.dataset.defaultLabel) {
+                button.dataset.defaultLabel = button.textContent.trim() || 'Save as Workflow Default';
+            }
+        });
+
+        const setWorkflowDefaultButtonsPending = (pending) => {
+            saveDefaultButtons.forEach((button) => {
+                button.disabled = pending;
+                button.textContent = pending
+                    ? 'Saving...'
+                    : (button.dataset.defaultLabel || 'Save as Workflow Default');
+            });
+        };
+
+        const showWorkflowDefaultError = (message) => {
+            if (window.showGlobalMessage) {
+                window.showGlobalMessage(
+                    message || 'Could not save workflow default. Please try again.',
+                    'error'
+                );
+                return;
+            }
+            showErrors([message || 'Could not save workflow default. Please try again.']);
+        };
+
+        const promptWorkflowDefaultConfirmation = () => {
+            if (
+                !saveDefaultsBackdrop
+                || !saveDefaultsCancelButton
+                || !saveDefaultsConfirmButton
+            ) {
+                return Promise.resolve(true);
+            }
+            openPopupModal(saveDefaultsBackdrop, saveDefaultsPanel);
+
+            return new Promise((resolve) => {
+                let settled = false;
+                const closePrompt = (decision) => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+                    closePopupModal(saveDefaultsBackdrop, saveDefaultsPanel, () => resolve(decision));
+                };
+                const onCancel = () => closePrompt(false);
+                const onConfirm = () => closePrompt(true);
+                const onBackdrop = (event) => {
+                    if (event.target === saveDefaultsBackdrop) {
+                        closePrompt(false);
+                    }
+                };
+                const onKeydown = (event) => {
+                    if (event.key === 'Escape') {
+                        closePrompt(false);
+                    }
+                };
+                const cleanup = () => {
+                    saveDefaultsCancelButton.removeEventListener('click', onCancel);
+                    saveDefaultsConfirmButton.removeEventListener('click', onConfirm);
+                    saveDefaultsBackdrop.removeEventListener('click', onBackdrop);
+                    document.removeEventListener('keydown', onKeydown);
+                };
+
+                saveDefaultsCancelButton.addEventListener('click', onCancel);
+                saveDefaultsConfirmButton.addEventListener('click', onConfirm);
+                saveDefaultsBackdrop.addEventListener('click', onBackdrop);
+                document.addEventListener('keydown', onKeydown);
+            });
+        };
+
+        const buildWorkflowDefaultPayload = () => {
+            const snapshot = captureStatsSnapshot();
+            return {
+                selected_plugins: snapshot.selectedPlugins,
+                module_enabled: snapshot.moduleEnabled,
+                enforce_layer_count: snapshot.enforceLayerCount,
+                enforce_wavelengths: snapshot.enforceAllWavelengths,
+                show_legacy_plugins: snapshot.showLegacyPlugins,
+                manual_required_channels: snapshot.manualRequiredChannels,
+                green_contour_filter_enabled: snapshot.greenContourFilterEnabled,
+                green_dot_split_enabled: snapshot.greenDotSplitEnabled,
+                green_dot_split_mode: snapshot.greenDotSplitMode,
+                alternate_red_detection: snapshot.alternateRedDetection,
+                puncta_line_width: snapshot.punctaLineWidth,
+                puncta_line_width_unit: snapshot.punctaLineWidthUnit,
+                cen_dot_distance: snapshot.cenDotDistance,
+                cen_dot_distance_unit: snapshot.cenDotDistanceUnit,
+                cen_dot_proximity_radius: snapshot.cenDotProximityRadius,
+                cen_dot_proximity_radius_unit: snapshot.cenDotProximityRadiusUnit,
+                biorientation_red_min_distance: snapshot.biorientationRedMinDistance,
+                biorientation_red_min_distance_unit: snapshot.biorientationRedMinDistanceUnit,
+                biorientation_red_max_distance: snapshot.biorientationRedMaxDistance,
+                biorientation_red_max_distance_unit: snapshot.biorientationRedMaxDistanceUnit,
+                biorientation_collinearity_threshold: snapshot.biorientationCollinearityThreshold,
+                puncta_line_mode: snapshot.punctaLineMode,
+                nuclear_cell_pair_mode: snapshot.nuclearCellPairMode,
+                microns_per_pixel: snapshot.micronsPerPixel,
+                use_metadata_scale: snapshot.useMetadataScale,
+            };
+        };
+
+        const saveCurrentWorkflowDefaults = async () => {
+            const syncResult = commitStatsStateFromInputs();
+            if (!syncResult.ok) {
+                showErrors(syncResult.errors || ['Could not save workflow default. Please try again.']);
+                return;
+            }
+
+            const confirmed = await promptWorkflowDefaultConfirmation();
+            if (!confirmed) {
+                return;
+            }
+
+            setWorkflowDefaultButtonsPending(true);
+            try {
+                const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+                const response = await fetch('{% url "experiment_workflow_defaults" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfTokenInput ? csrfTokenInput.value : '',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(buildWorkflowDefaultPayload()),
+                });
+                const contentType = response.headers.get('content-type') || '';
+                const responsePayload = contentType.includes('application/json')
+                    ? await response.json()
+                    : {};
+                if (!response.ok) {
+                    const errorMessage = Array.isArray(responsePayload.errors) && responsePayload.errors.length
+                        ? responsePayload.errors.join('\n')
+                        : (responsePayload.error || 'Could not save workflow default. Please try again.');
+                    throw new Error(errorMessage);
+                }
+
+                if (responsePayload.defaults && typeof responsePayload.defaults === 'object') {
+                    serverPreferenceDefaults = responsePayload.defaults;
+                    if (serverPreferenceDefaultsElement) {
+                        serverPreferenceDefaultsElement.textContent = JSON.stringify(responsePayload.defaults);
+                    }
+                }
+                if (window.showGlobalMessage) {
+                    window.showGlobalMessage(
+                        responsePayload.message
+                            || 'Workflow default updated. Future experiments will start with this configuration.',
+                        'success'
+                    );
+                }
+            } catch (error) {
+                showWorkflowDefaultError(
+                    error && error.message
+                        ? error.message
+                        : 'Could not save workflow default. Please try again.'
+                );
+            } finally {
+                setWorkflowDefaultButtonsPending(false);
+            }
+        };
 
         const switchToView = (target, animate = false) => {
             hideInfoTooltip();
@@ -4847,13 +5143,21 @@
                 showPrimary(true);
             });
         }
+        saveDefaultButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                saveCurrentWorkflowDefaults();
+            });
+        });
         backdrop.addEventListener('click', (event) => {
             if (event.target === backdrop) {
                 attemptCloseModal();
             }
         });
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && backdrop.style.display === 'flex') {
+            const saveConfirmOpen = saveDefaultsBackdrop && saveDefaultsBackdrop.style.display === 'flex';
+            const unsavedPromptOpen = unsavedBackdrop && unsavedBackdrop.style.display === 'flex';
+            if (event.key === 'Escape' && backdrop.style.display === 'flex' && !saveConfirmOpen && !unsavedPromptOpen) {
                 attemptCloseModal();
             }
         });
@@ -5360,69 +5664,9 @@
                 return;
             }
 
-            persistSelectedPlugins();
-            persistAdvancedSettings();
-            persistLengthUnitSettings();
-            if (punctaLineWidthInput) {
-                const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
-                const minimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
-                statsState.punctaLineWidth = parseLengthValue(punctaLineWidthInput.value, statsState.punctaLineWidthUnit, fallback, minimum);
-                punctaLineWidthInput.value = formatNumericInputValue(statsState.punctaLineWidth);
-                localStorage.setItem(widthKey, String(statsState.punctaLineWidth));
-            }
-            if (cenDotDistanceInput) {
-                const fallback = defaultDistanceForUnit(statsState.cenDotDistanceUnit);
-                statsState.cenDotDistance = parseLengthValue(cenDotDistanceInput.value, statsState.cenDotDistanceUnit, fallback, 0);
-                cenDotDistanceInput.value = formatNumericInputValue(statsState.cenDotDistance);
-                localStorage.setItem(distanceKey, String(statsState.cenDotDistance));
-            }
-            if (cenDotProximityRadiusInput) {
-                const fallback = defaultProximityRadiusForUnit(statsState.cenDotProximityRadiusUnit);
-                statsState.cenDotProximityRadius = parseLengthValue(cenDotProximityRadiusInput.value, statsState.cenDotProximityRadiusUnit, fallback, 0);
-                cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
-                localStorage.setItem(proximityRadiusKey, String(statsState.cenDotProximityRadius));
-            }
-            if (biorientationRedMinDistanceInput) {
-                statsState.biorientationRedMinDistance = parseLengthValue(
-                    biorientationRedMinDistanceInput.value,
-                    statsState.biorientationRedMinDistanceUnit,
-                    defaultBiorientationMinDistanceForUnit(),
-                    0
-                );
-                biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
-                localStorage.setItem(biorientationRedMinDistanceKey, String(statsState.biorientationRedMinDistance));
-            }
-            if (biorientationRedMaxDistanceInput) {
-                statsState.biorientationRedMaxDistance = parseLengthValue(
-                    biorientationRedMaxDistanceInput.value,
-                    statsState.biorientationRedMaxDistanceUnit,
-                    defaultBiorientationMaxDistanceForUnit(statsState.biorientationRedMaxDistanceUnit),
-                    0
-                );
-                biorientationRedMaxDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMaxDistance);
-                localStorage.setItem(biorientationRedMaxDistanceKey, String(statsState.biorientationRedMaxDistance));
-            }
-            if (biorientationCollinearityThresholdInput) {
-                const parsed = parseInt(biorientationCollinearityThresholdInput.value, 10);
-                statsState.biorientationCollinearityThreshold = Number.isFinite(parsed) && parsed >= 0 ? parsed : 66;
-                biorientationCollinearityThresholdInput.value = String(statsState.biorientationCollinearityThreshold);
-                localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
-            }
-            if (punctaLineModeSelect) {
-                statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta' ? 'green_puncta' : 'red_puncta';
-            }
-            localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
-            if (nuclearModeSelect) {
-                statsState.nuclearCellPairMode = nuclearModeSelect.value === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
-            }
-            localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
-            const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
-                || statsState.cenDotDistanceUnit === 'um'
-                || statsState.cenDotProximityRadiusUnit === 'um'
-                || statsState.biorientationRedMinDistanceUnit === 'um'
-                || statsState.biorientationRedMaxDistanceUnit === 'um';
-            if (usingMicrometers && !(Number.isFinite(statsState.micronsPerPixel) && statsState.micronsPerPixel > 0)) {
-                showErrors([
+            const syncResult = commitStatsStateFromInputs();
+            if (!syncResult.ok) {
+                showErrors(syncResult.errors || [
                     'Micrometers-per-pixel must be greater than 0 when using micrometer input.',
                 ]);
                 return;
@@ -5446,7 +5690,7 @@
             };
 
             const controls = document.querySelectorAll(
-                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
+                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .workflow-default-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
             );
             controls.forEach((el) => {
                 el.disabled = true;
