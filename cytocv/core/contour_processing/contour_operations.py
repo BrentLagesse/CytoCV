@@ -974,6 +974,106 @@ def validate_geometry_first_split(
     return child_contours
 
 
+def _tighten_aggressive_split_children(
+    child_contours: list[np.ndarray],
+    tightening_image: np.ndarray | None,
+    params: dict,
+    *,
+    peak_pair: _PeakPair | None = None,
+) -> list[np.ndarray]:
+    """Tighten accepted aggressive split children around their brighter cores."""
+
+    if len(child_contours) != 2:
+        return child_contours
+
+    gray = _as_gray_float(tightening_image)
+    if gray is None or gray.size == 0:
+        return child_contours
+
+    tightened_regions: list[np.ndarray] = []
+    tightened_contours: list[np.ndarray] = []
+    for child_contour in child_contours:
+        child_mask = contour_to_mask(child_contour, gray.shape) > 0
+        if not np.any(child_mask):
+            return child_contours
+
+        original_child_area = int(np.count_nonzero(child_mask))
+        ys, xs = np.nonzero(child_mask)
+        child_values = gray[ys, xs]
+        if child_values.size == 0:
+            return child_contours
+
+        peak_index = int(np.argmax(child_values))
+        peak_y = int(ys[peak_index])
+        peak_x = int(xs[peak_index])
+        child_peak = float(child_values[peak_index])
+        percentile_70 = float(np.percentile(child_values, 70))
+        tightening_threshold = max(child_peak * 0.55, percentile_70)
+
+        core_mask = child_mask & (gray >= tightening_threshold)
+        if not np.any(core_mask):
+            return child_contours
+
+        core_labels, _component_count = ndi.label(core_mask)
+        peak_label = int(core_labels[peak_y, peak_x])
+        if peak_label == 0:
+            return child_contours
+
+        peak_component = core_labels == peak_label
+        tightened_region = ndi.binary_dilation(
+            peak_component,
+            structure=np.ones((3, 3), dtype=bool),
+            iterations=1,
+        )
+        tightened_region &= child_mask
+
+        tightened_area = int(np.count_nonzero(tightened_region))
+        min_tightened_area = max(4, int(math.ceil(original_child_area * 0.25)))
+        if tightened_area < min_tightened_area:
+            return child_contours
+        if not tightened_region[peak_y, peak_x]:
+            return child_contours
+
+        tightened_contour = _contour_from_region(tightened_region.astype(np.uint8))
+        if tightened_contour is None or len(tightened_contour) < 3:
+            return child_contours
+
+        tightened_regions.append(tightened_region)
+        tightened_contours.append(tightened_contour)
+
+    if np.any(tightened_regions[0] & tightened_regions[1]):
+        return child_contours
+
+    if peak_pair is not None:
+        tightened_labels = np.zeros(gray.shape, dtype=np.uint8)
+        tightened_labels[tightened_regions[0]] = 1
+        tightened_labels[tightened_regions[1]] = 2
+        label_a = _label_at_point(tightened_labels, peak_pair.peak_a.point)
+        label_b = _label_at_point(tightened_labels, peak_pair.peak_b.point)
+        if label_a == 0 or label_b == 0 or label_a == label_b:
+            return child_contours
+
+    return tightened_contours
+
+
+def _finalize_accepted_split_children(
+    child_contours: list[np.ndarray],
+    tightening_image: np.ndarray | None,
+    params: dict,
+    split_mode: str,
+    *,
+    peak_pair: _PeakPair | None = None,
+) -> list[np.ndarray]:
+    if split_mode != "aggressive" or len(child_contours) != 2:
+        return child_contours
+    return _tighten_aggressive_split_children(
+        child_contours,
+        tightening_image,
+        params,
+        peak_pair=peak_pair,
+    )
+
+
 def _internal_watershed_boundaries(labels: np.ndarray) -> np.ndarray:
     """Return boundary pixels between positive watershed regions only."""
 
@@ -1391,6 +1491,7 @@ def split_asymmetric_gfp_contour_if_needed(
     gfp_image: np.ndarray,
     params: dict,
     *,
+    tightening_image: np.ndarray | None = None,
     has_paired_neck: bool = False,
     split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
     debug: bool = False,
@@ -1422,7 +1523,13 @@ def split_asymmetric_gfp_contour_if_needed(
         params,
     )
     if len(child_contours) == 2:
-        return child_contours
+        return _finalize_accepted_split_children(
+            child_contours,
+            tightening_image,
+            params,
+            split_mode,
+            peak_pair=candidate.peak_pair,
+        )
 
     if debug:
         logger.debug("Green asymmetric split rejected: watershed failed validation")
@@ -1447,13 +1554,18 @@ def split_necked_gfp_contour_if_needed(
     if isinstance(config, str):
         split_mode = config
         debug = False
+        tightening_image = None
     else:
         config_payload = dict(config or {})
         split_mode = config_payload.get("mode", DEFAULT_GREEN_DOT_SPLIT_MODE)
         debug = bool(config_payload.get("debug", False))
+        tightening_image = config_payload.get("tightening_image")
     split_mode = normalize_green_dot_split_mode(split_mode)
 
     params = _split_params(split_mode)
+    tightening_gray = _as_gray_float(tightening_image)
+    if tightening_gray is None or tightening_gray.shape[:2] != gfp_image.shape[:2]:
+        tightening_gray = _as_gray_float(gfp_image)
     metrics = compute_contour_shape_metrics(
         contour,
         gfp_image.shape,
@@ -1495,6 +1607,7 @@ def split_necked_gfp_contour_if_needed(
             metrics,
             gfp_image,
             params,
+            tightening_image=tightening_gray,
             has_paired_neck=neck is not None,
             split_mode=split_mode,
             debug=debug,
@@ -1557,7 +1670,13 @@ def split_necked_gfp_contour_if_needed(
         neck_candidate=neck,
     )
     if len(child_contours) == 2:
-        return child_contours
+        return _finalize_accepted_split_children(
+            child_contours,
+            tightening_gray,
+            params,
+            split_mode,
+            peak_pair=split_peak_pair,
+        )
 
     # If the watershed markers do not pass validation, a strong paired-defect
     # neck can still be separated by the direct chord between the concave points.
@@ -1571,7 +1690,13 @@ def split_necked_gfp_contour_if_needed(
         neck_candidate=neck,
     )
     if len(child_contours) == 2:
-        return child_contours
+        return _finalize_accepted_split_children(
+            child_contours,
+            tightening_gray,
+            params,
+            split_mode,
+            peak_pair=split_peak_pair,
+        )
 
     if (
         split_mode == "aggressive"
@@ -1598,7 +1723,13 @@ def split_necked_gfp_contour_if_needed(
             neck,
         )
         if len(child_contours) == 2:
-            return child_contours
+            return _finalize_accepted_split_children(
+                child_contours,
+                tightening_gray,
+                params,
+                split_mode,
+                peak_pair=split_peak_pair,
+            )
 
     child_contours = try_asymmetric_fallback()
     if len(child_contours) == 2:
@@ -1714,6 +1845,7 @@ def find_contours(
     gray_blue_3 = images.get_image("gray_blue_3")
     gray_blue = images.get_image("gray_blue")
     gray_green = images.get_image("green")
+    gray_green_no_bg = images.get_image("green_no_bg")
     green_dot_split_mode = normalize_green_dot_split_mode(green_dot_split_mode)
 
     dot_contours = []
@@ -1924,17 +2056,23 @@ def find_contours(
             cv2.RETR_LIST,
             cv2.CHAIN_APPROX_SIMPLE,
         )
+        split_config = {
+            "mode": green_dot_split_mode,
+            "tightening_image": (
+                gray_green_no_bg if gray_green_no_bg is not None else gray_green
+            ),
+        }
         if green_dot_split_enabled and green_contour_filter_enabled and green_dot_split_mode == "aggressive":
             contours_green = _postprocess_and_filter_aggressive_green_contours(
                 contours_green,
                 gray_green,
-                {"mode": green_dot_split_mode},
+                split_config,
             )
         elif green_dot_split_enabled:
             contours_green = postprocess_gfp_contours_for_neck_splits(
                 contours_green,
                 gray_green,
-                {"mode": green_dot_split_mode},
+                split_config,
             )
             if green_contour_filter_enabled:
                 contours_green, _ = _filter_green_contours_with_image(

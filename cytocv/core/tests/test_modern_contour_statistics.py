@@ -6,10 +6,16 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import cv2
 import numpy as np
 from django.test import SimpleTestCase
 
+from core.contour_processing.contour_operations import find_contours
 from core.image_processing import GrayImage
+from core.services.canonical_contours import (
+    build_canonical_contour_payload,
+    flatten_slot_contours,
+)
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import get_stats
 
@@ -76,6 +82,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
         contours_data: dict,
         y_range,
         x_range,
+        green_no_bg_gray: np.ndarray | None = None,
         puncta_line_mode: str = "red_puncta",
         cen_dot_distance: float = 37.0,
     ):
@@ -93,7 +100,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
             img={
                 "red_no_bg": red_gray,
                 "gray_red": red_gray,
-                "green_no_bg": green_gray,
+                "green_no_bg": green_gray if green_no_bg_gray is None else green_no_bg_gray,
                 "green": green_gray,
                 "gray_blue": np.zeros_like(red_gray),
                 "gray_blue_3": np.zeros_like(red_gray),
@@ -129,6 +136,43 @@ class ModernContourStatisticsTests(SimpleTestCase):
                 )
 
         return cp, np.array(debug_red), np.array(debug_green), np.array(debug_blue)
+
+    @staticmethod
+    def _tightening_support_and_core_images(
+        shape: tuple[int, int] = (96, 128),
+    ) -> tuple[np.ndarray, np.ndarray]:
+        y_grid, x_grid = np.mgrid[0 : shape[0], 0 : shape[1]]
+
+        def pair(*, sigma: float, bridge_intensity: float, amplitude_a: float, amplitude_b: float):
+            dot_a = amplitude_a * np.exp(
+                -(
+                    ((x_grid - 46) ** 2 + (y_grid - 48) ** 2)
+                    / (2.0 * sigma * sigma)
+                )
+            )
+            dot_b = amplitude_b * np.exp(
+                -(
+                    ((x_grid - 66) ** 2 + (y_grid - 48) ** 2)
+                    / (2.0 * sigma * sigma)
+                )
+            )
+            image = np.maximum(dot_a, dot_b)
+            cv2.line(image, (46, 48), (66, 48), bridge_intensity, 3)
+            return np.clip(image, 0, 255).astype(np.uint8)
+
+        support = pair(
+            sigma=5.0,
+            bridge_intensity=88.0,
+            amplitude_a=238.0,
+            amplitude_b=224.0,
+        )
+        tightening = pair(
+            sigma=2.7,
+            bridge_intensity=8.0,
+            amplitude_a=248.0,
+            amplitude_b=236.0,
+        )
+        return support, tightening
 
     def test_red_nucleus_uses_same_clipped_slot_for_green_in_red_and_green_nuclear(self):
         shape = (16, 16)
@@ -255,3 +299,62 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(cp.properties["puncta_line_measurement_channel"], "channel_red")
         self.assertAlmostEqual(cp.puncta_distance, 6.0, places=4)
         self.assertEqual(cp.puncta_line_intensity, 14.0)
+
+    def test_aggressive_tightened_green_slots_drive_stats_and_debug_contours(self):
+        shape = (96, 128)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        support_green, tightening_green = self._tightening_support_and_core_images(shape)
+        preprocessed = GrayImage(
+            img={
+                "red_no_bg": red_gray,
+                "gray_red": red_gray,
+                "gray_red_3": red_gray,
+                "green": support_green,
+                "green_no_bg": tightening_green,
+                "gray_blue": np.zeros_like(red_gray),
+                "gray_blue_3": np.zeros_like(red_gray),
+            }
+        )
+        contours_data = find_contours(
+            preprocessed,
+            green_contour_filter_enabled=False,
+            alternate_red_detection=False,
+            green_dot_split_enabled=True,
+            green_dot_split_mode="aggressive",
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            self._write_outline(
+                output_dir,
+                y_range=range(0, shape[0]),
+                x_range=range(0, shape[1]),
+            )
+            expected_payload = build_canonical_contour_payload(
+                contours_data,
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=temp_dir,
+                shape=shape,
+            )
+            expected_slots = expected_payload["canonical_green_slots"]
+            expected_contours = flatten_slot_contours(expected_slots)
+
+            cp, _, debug_green, _ = self._run_get_stats(
+                mode="green_nucleus",
+                selected_analysis=["GreenRedIntensity"],
+                red_gray=red_gray,
+                green_gray=support_green,
+                green_no_bg_gray=tightening_green,
+                contours_data=contours_data,
+                y_range=range(0, shape[0]),
+                x_range=range(0, shape[1]),
+            )
+
+        self.assertEqual(len(expected_slots), 2)
+        self.assertAlmostEqual(cp.green_contour_1_size, float(expected_slots[0].area), places=4)
+        self.assertAlmostEqual(cp.green_contour_2_size, float(expected_slots[1].area), places=4)
+
+        expected_debug_green = self._rgb(support_green)
+        cv2.drawContours(expected_debug_green, expected_contours, -1, (0, 255, 0), 1)
+        self.assertTrue(np.array_equal(debug_green, expected_debug_green))

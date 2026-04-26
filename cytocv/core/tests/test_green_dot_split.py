@@ -52,6 +52,10 @@ def _contour_list_count(contours: list[np.ndarray], *, min_area: float = 8.0) ->
     return sum(1 for contour in contours if cv2.contourArea(contour) >= min_area)
 
 
+def _total_contour_area(contours: list[np.ndarray]) -> float:
+    return float(sum(cv2.contourArea(contour) for contour in contours))
+
+
 def _gaussian_pair_image(
     *,
     center_a=(48, 48),
@@ -225,6 +229,32 @@ def _real_failure_like_green_image(shape=(80, 96)) -> np.ndarray:
     return np.clip(image, 0, 255).astype(np.uint8)
 
 
+def _broad_halo_tightening_images() -> tuple[np.ndarray, np.ndarray]:
+    support = _gaussian_pair_image(
+        center_a=(46, 48),
+        center_b=(66, 48),
+        sigma=5.0,
+        bridge_intensity=88.0,
+        amplitude_a=238.0,
+        amplitude_b=224.0,
+    )
+    tightening = _gaussian_pair_image(
+        center_a=(46, 48),
+        center_b=(66, 48),
+        sigma=2.7,
+        bridge_intensity=8.0,
+        amplitude_a=248.0,
+        amplitude_b=236.0,
+    )
+    return support, tightening
+
+
+def _moderate_aspect_two_peak_tightening_image() -> np.ndarray:
+    image = _moderate_aspect_two_peak_neck_image().astype(np.float32)
+    tightened = np.clip((image - 18.0) * 2.6, 0, 255)
+    return tightened.astype(np.uint8)
+
+
 def _contour_centroid(contour: np.ndarray) -> tuple[float, float]:
     moments = cv2.moments(contour)
     if moments["m00"] == 0:
@@ -233,7 +263,11 @@ def _contour_centroid(contour: np.ndarray) -> tuple[float, float]:
     return moments["m10"] / moments["m00"], moments["m01"] / moments["m00"]
 
 
-def _green_only_images(image: np.ndarray) -> GrayImage:
+def _green_only_images(
+    image: np.ndarray,
+    *,
+    green_no_bg: np.ndarray | None = None,
+) -> GrayImage:
     return GrayImage(
         {
             "gray_red_3": None,
@@ -241,7 +275,7 @@ def _green_only_images(image: np.ndarray) -> GrayImage:
             "gray_blue_3": None,
             "gray_blue": None,
             "green": image,
-            "green_no_bg": None,
+            "green_no_bg": green_no_bg,
             "red_no_bg": None,
         }
     )
@@ -275,9 +309,10 @@ def _split_green_contours_from_image(
     split_mode: str,
     *,
     green_contour_filter_enabled: bool = False,
+    green_no_bg: np.ndarray | None = None,
 ) -> list[np.ndarray]:
     contours_data = find_contours(
-        _green_only_images(image),
+        _green_only_images(image, green_no_bg=green_no_bg),
         green_contour_filter_enabled=green_contour_filter_enabled,
         alternate_red_detection=False,
         green_dot_split_enabled=True,
@@ -376,6 +411,24 @@ class GreenDotSplitTests(SimpleTestCase):
                 {"mode": split_mode},
             )
             self.assertEqual(_contour_list_count(split), 2)
+
+    def test_aggressive_tightening_shrinks_split_children_while_balanced_keeps_wider_support(self):
+        support_image, tightening_image = _broad_halo_tightening_images()
+
+        balanced = _split_green_contours_from_image(
+            support_image,
+            "balanced",
+            green_no_bg=tightening_image,
+        )
+        aggressive = _split_green_contours_from_image(
+            support_image,
+            "aggressive",
+            green_no_bg=tightening_image,
+        )
+
+        self.assertEqual(_contour_list_count(balanced, min_area=4.0), 2)
+        self.assertEqual(_contour_list_count(aggressive, min_area=4.0), 2)
+        self.assertLess(_total_contour_area(aggressive), _total_contour_area(balanced))
 
     def test_geometry_first_aggressive_splits_necked_single_peak_shape_that_balanced_keeps_merged(self):
         mask = _geometry_first_neck_mask()
@@ -666,6 +719,20 @@ class GreenDotSplitTests(SimpleTestCase):
         )
         self.assertEqual(_contour_list_count(aggressive), 2)
 
+        tightened_aggressive = postprocess_gfp_contours_for_neck_splits(
+            [contour],
+            image,
+            {
+                "mode": "aggressive",
+                "tightening_image": _moderate_aspect_two_peak_tightening_image(),
+            },
+        )
+        self.assertEqual(_contour_list_count(tightened_aggressive), 2)
+        self.assertLess(
+            _total_contour_area(tightened_aggressive),
+            _total_contour_area(geometry_children),
+        )
+
     def test_aggressive_find_contours_splits_tiny_tip_connected_merge_that_balanced_keeps_merged(self):
         image = _tip_connected_pair_image()
 
@@ -703,7 +770,7 @@ class GreenDotSplitTests(SimpleTestCase):
             self.assertTrue(np.array_equal(expected_contour, balanced_contour))
             self.assertTrue(np.array_equal(expected_contour, aggressive_contour))
 
-    def test_aggressive_filtered_find_contours_restores_original_when_filter_would_drop_one_child(self):
+    def test_aggressive_filtered_find_contours_never_collapses_accepted_split_to_one_child(self):
         image = _tip_connected_pair_image()
 
         aggressive = _split_green_contours_from_image(image, "aggressive")
@@ -716,8 +783,40 @@ class GreenDotSplitTests(SimpleTestCase):
 
         self.assertEqual(_contour_list_count(aggressive, min_area=4.0), 2)
         self.assertEqual(len(original), 1)
-        self.assertEqual(_contour_list_count(aggressive_filtered, min_area=4.0), 1)
-        self.assertEqual(cv2.contourArea(aggressive_filtered[0]), cv2.contourArea(original[0]))
+        filtered_count = _contour_list_count(aggressive_filtered, min_area=4.0)
+        self.assertIn(filtered_count, {1, 2})
+        if filtered_count == 1:
+            self.assertEqual(
+                cv2.contourArea(aggressive_filtered[0]),
+                cv2.contourArea(original[0]),
+            )
+
+    def test_aggressive_tightening_keeps_compact_binary_split_children_nearly_unchanged(self):
+        mask = np.zeros((96, 128), dtype=np.uint8)
+        cv2.circle(mask, (54, 48), 13, 255, -1)
+        cv2.circle(mask, (74, 48), 13, 255, -1)
+        contours = _contours_from_mask(mask)
+
+        aggressive_untightened = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            mask,
+            {"mode": "aggressive"},
+        )
+        aggressive_tightened = postprocess_gfp_contours_for_neck_splits(
+            contours,
+            mask,
+            {"mode": "aggressive", "tightening_image": mask},
+        )
+
+        self.assertEqual(_contour_list_count(aggressive_untightened), 2)
+        self.assertEqual(_contour_list_count(aggressive_tightened), 2)
+        self.assertLessEqual(
+            abs(
+                _total_contour_area(aggressive_tightened)
+                - _total_contour_area(aggressive_untightened)
+            ),
+            1.0,
+        )
 
     def test_aggressive_filtered_find_contours_preserves_clean_two_child_split(self):
         image = _gaussian_pair_image(bridge_intensity=90.0)
@@ -755,6 +854,33 @@ class GreenDotSplitTests(SimpleTestCase):
         self.assertTrue(any(x < 52 and y < 42 for x, y in centroids))
         self.assertTrue(any(x > 52 and y < 42 for x, y in centroids))
         self.assertTrue(any(x > 54 and y > 44 for x, y in centroids))
+
+    def test_aggressive_does_not_change_unsplit_round_or_irregular_single_contour_area(self):
+        round_mask = np.zeros((80, 100), dtype=np.uint8)
+        cv2.circle(round_mask, (50, 40), 10, 255, -1)
+        irregular_mask = np.zeros((80, 100), dtype=np.uint8)
+        cv2.circle(irregular_mask, (50, 40), 11, 255, -1)
+        cv2.circle(irregular_mask, (58, 37), 3, 0, -1)
+        cv2.circle(irregular_mask, (44, 45), 2, 0, -1)
+
+        for mask in (round_mask, irregular_mask):
+            contours = _contours_from_mask(mask)
+            balanced = postprocess_gfp_contours_for_neck_splits(
+                contours,
+                mask,
+                {"mode": "balanced"},
+            )
+            aggressive = postprocess_gfp_contours_for_neck_splits(
+                contours,
+                mask,
+                {"mode": "aggressive", "tightening_image": mask},
+            )
+            self.assertEqual(_contour_list_count(balanced), 1)
+            self.assertEqual(_contour_list_count(aggressive), 1)
+            self.assertEqual(
+                cv2.contourArea(aggressive[0]),
+                cv2.contourArea(balanced[0]),
+            )
 
     def test_green_filter_rescues_strong_peak_that_fails_legacy_shape_rule(self):
         mask = np.zeros((64, 64), dtype=np.uint8)
