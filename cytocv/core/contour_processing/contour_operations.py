@@ -1627,15 +1627,24 @@ def split_necked_gfp_contour_if_needed(
 
     shape_suspicious = _shape_is_suspicious(metrics, params)
     split_peak_pair = _choose_split_peak_pair(intensity_pair, distance_pair, params)
+    aggressive_peak_backed_geometry_evidence = (
+        split_peak_pair is not None
+        and shape_suspicious
+        and neck.neck_ratio <= 0.80
+    )
+    aggressive_peakless_geometry_evidence = (
+        shape_suspicious
+        and metrics.deep_defect_count >= 1
+        and metrics.aspect_ratio > float(params["max_single_dot_aspect_ratio"])
+        and metrics.max_defect_depth_px >= 1.0
+        and neck.neck_ratio <= 0.80
+    )
     if (
         split_mode == "aggressive"
         and split_peak_pair is None
         and metrics.aspect_ratio >= 2.0
         and metrics.solidity >= 0.94
-        and (
-            metrics.max_defect_depth_px < 1.0
-            or neck.neck_ratio > 0.80
-        )
+        and not aggressive_peakless_geometry_evidence
     ):
         if debug:
             logger.debug(
@@ -1643,7 +1652,11 @@ def split_necked_gfp_contour_if_needed(
             )
         return [contour]
     has_peak_evidence = split_peak_pair is not None
-    has_geometry_evidence = shape_suspicious and metrics.deep_defect_count >= 2
+    has_geometry_evidence = (
+        aggressive_peakless_geometry_evidence
+        if split_mode == "aggressive"
+        else shape_suspicious and metrics.deep_defect_count >= 2
+    )
     if not (has_peak_evidence or has_geometry_evidence):
         child_contours = try_asymmetric_fallback()
         if len(child_contours) == 2:
@@ -1700,14 +1713,9 @@ def split_necked_gfp_contour_if_needed(
 
     if (
         split_mode == "aggressive"
-        and metrics.max_defect_depth_px >= 1.0
-        and neck.neck_ratio <= 0.80
         and (
-            split_peak_pair is not None
-            or (
-                shape_suspicious
-                and metrics.aspect_ratio >= 1.35
-            )
+            aggressive_peak_backed_geometry_evidence
+            or aggressive_peakless_geometry_evidence
         )
     ):
         geometry_labels = split_contour_with_geometry_first_watershed(
