@@ -49,7 +49,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -2002,7 +2002,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
