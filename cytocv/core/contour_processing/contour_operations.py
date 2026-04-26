@@ -106,6 +106,11 @@ GREEN_DOT_SPLIT_PARAMS = {
 MAX_DEFECT_CANDIDATES = 8
 MAX_PEAK_CANDIDATES = 8
 PROFILE_SAMPLE_COUNT = 48
+MIN_GREEN_CONTOUR_AREA = 8
+GREEN_RING_KERNEL_SIZE = (11, 11)
+GREEN_RING_P90_FLOOR = 1.0
+GREEN_STRONG_PEAK_MAX_RATIO = 3.0
+GREEN_STRONG_PEAK_P90_RATIO = 2.5
 
 
 @dataclass(slots=True)
@@ -187,6 +192,20 @@ class _AggressiveSplitDecision:
     original_contour: np.ndarray
     output_contours: list[np.ndarray]
     accepted_split: bool
+
+
+@dataclass(slots=True, frozen=True)
+class _GreenContourFilterDecision:
+    bbox: tuple[int, int, int, int]
+    area: float
+    closed_open_ratio: float | None
+    inside_max: float | None
+    inside_p90: float | None
+    ring_p90: float | None
+    max_over_ring_p90: float | None
+    p90_over_ring_p90: float | None
+    ring_pixel_count: int
+    decision_reason: str
 
 
 def _split_params(split_mode: str) -> dict:
@@ -1627,7 +1646,10 @@ def _postprocess_and_filter_aggressive_green_contours(
     for contour in contours or []:
         decision = _aggressive_split_decision_for_contour(contour, gfp_image, config)
         if decision.accepted_split:
-            filtered_children = filterContours(decision.output_contours)
+            filtered_children, _ = _filter_green_contours_with_image(
+                decision.output_contours,
+                gfp_image,
+            )
             if len(filtered_children) == 2:
                 processed.extend(filtered_children)
             else:
@@ -1635,7 +1657,11 @@ def _postprocess_and_filter_aggressive_green_contours(
                 # original merged contour instead of returning one child.
                 processed.append(decision.original_contour)
             continue
-        processed.extend(filterContours(decision.output_contours))
+        filtered_contours, _ = _filter_green_contours_with_image(
+            decision.output_contours,
+            gfp_image,
+        )
+        processed.extend(filtered_contours)
     return processed
 
 
@@ -1902,9 +1928,15 @@ def find_contours(
                 {"mode": green_dot_split_mode},
             )
             if green_contour_filter_enabled:
-                contours_green = filterContours(contours_green)
+                contours_green, _ = _filter_green_contours_with_image(
+                    contours_green,
+                    gray_green,
+                )
         elif green_contour_filter_enabled:
-            contours_green = filterContours(contours_green)
+            contours_green, _ = _filter_green_contours_with_image(
+                contours_green,
+                gray_green,
+            )
 
     return {
         "best_contours": best_contours,
@@ -1974,6 +2006,145 @@ def merge_contour(bestContours, contours):
     if len(bestContours) == 1:
         logger.debug("Only one contour found while merging contour candidates")
     return best_contour
+
+
+def _closed_open_ratio(contour: np.ndarray) -> float | None:
+    closed = cv2.arcLength(contour, True)
+    opened = cv2.arcLength(contour, False)
+    if opened <= 0:
+        return None
+    return float(closed / opened)
+
+
+def _log_green_contour_filter_decisions(
+    decisions: list[_GreenContourFilterDecision],
+) -> None:
+    for decision in decisions:
+        logger.debug(
+            "Green contour filter decision: bbox=%s area=%.3f "
+            "closed_open_ratio=%s inside_max=%s inside_p90=%s ring_p90=%s "
+            "max_over_ring_p90=%s p90_over_ring_p90=%s ring_pixel_count=%d "
+            "decision_reason=%s",
+            decision.bbox,
+            decision.area,
+            decision.closed_open_ratio,
+            decision.inside_max,
+            decision.inside_p90,
+            decision.ring_p90,
+            decision.max_over_ring_p90,
+            decision.p90_over_ring_p90,
+            decision.ring_pixel_count,
+            decision.decision_reason,
+        )
+
+
+def _filter_green_contours_with_image(
+    contours: list[np.ndarray] | tuple[np.ndarray, ...],
+    gray_green: np.ndarray,
+) -> tuple[list[np.ndarray], list[_GreenContourFilterDecision]]:
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, GREEN_RING_KERNEL_SIZE)
+    accepted: list[np.ndarray] = []
+    decisions: list[_GreenContourFilterDecision] = []
+
+    for contour in contours or []:
+        area = float(cv2.contourArea(contour))
+        bbox = tuple(int(value) for value in cv2.boundingRect(contour))
+
+        if area < MIN_GREEN_CONTOUR_AREA:
+            decisions.append(
+                _GreenContourFilterDecision(
+                    bbox=bbox,
+                    area=area,
+                    closed_open_ratio=None,
+                    inside_max=None,
+                    inside_p90=None,
+                    ring_p90=None,
+                    max_over_ring_p90=None,
+                    p90_over_ring_p90=None,
+                    ring_pixel_count=0,
+                    decision_reason="rejected_area",
+                )
+            )
+            continue
+
+        closed_open_ratio = _closed_open_ratio(contour)
+        legacy_shape_pass = closed_open_ratio is not None and (
+            closed_open_ratio <= 0.9 or closed_open_ratio >= 1.06
+        )
+        if legacy_shape_pass:
+            accepted.append(contour)
+            decisions.append(
+                _GreenContourFilterDecision(
+                    bbox=bbox,
+                    area=area,
+                    closed_open_ratio=closed_open_ratio,
+                    inside_max=None,
+                    inside_p90=None,
+                    ring_p90=None,
+                    max_over_ring_p90=None,
+                    p90_over_ring_p90=None,
+                    ring_pixel_count=0,
+                    decision_reason="accepted_shape",
+                )
+            )
+            continue
+
+        filled_mask = contour_to_mask(contour, gray_green.shape)
+        ring_mask = cv2.dilate(filled_mask, kernel, iterations=1)
+        ring_mask = cv2.subtract(ring_mask, filled_mask)
+        ring_pixel_count = int(np.count_nonzero(ring_mask))
+        if ring_pixel_count == 0:
+            decisions.append(
+                _GreenContourFilterDecision(
+                    bbox=bbox,
+                    area=area,
+                    closed_open_ratio=closed_open_ratio,
+                    inside_max=None,
+                    inside_p90=None,
+                    ring_p90=None,
+                    max_over_ring_p90=None,
+                    p90_over_ring_p90=None,
+                    ring_pixel_count=0,
+                    decision_reason="rejected_shape",
+                )
+            )
+            continue
+
+        inside_values = gray_green[filled_mask > 0]
+        ring_values = gray_green[ring_mask > 0]
+        inside_max = float(np.max(inside_values))
+        inside_p90 = float(np.percentile(inside_values, 90))
+        ring_p90 = float(np.percentile(ring_values, 90))
+        ring_reference = max(ring_p90, GREEN_RING_P90_FLOOR)
+        max_over_ring_p90 = inside_max / ring_reference
+        p90_over_ring_p90 = inside_p90 / ring_reference
+
+        if (
+            max_over_ring_p90 >= GREEN_STRONG_PEAK_MAX_RATIO
+            and p90_over_ring_p90 >= GREEN_STRONG_PEAK_P90_RATIO
+        ):
+            accepted.append(contour)
+            decision_reason = "accepted_strong_peak"
+        else:
+            decision_reason = "rejected_shape"
+
+        decisions.append(
+            _GreenContourFilterDecision(
+                bbox=bbox,
+                area=area,
+                closed_open_ratio=closed_open_ratio,
+                inside_max=inside_max,
+                inside_p90=inside_p90,
+                ring_p90=ring_p90,
+                max_over_ring_p90=max_over_ring_p90,
+                p90_over_ring_p90=p90_over_ring_p90,
+                ring_pixel_count=ring_pixel_count,
+                decision_reason=decision_reason,
+            )
+        )
+
+    _log_green_contour_filter_decisions(decisions)
+    return accepted, decisions
 
 
 def filterContours(contours):

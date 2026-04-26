@@ -8,6 +8,7 @@ from django.test import SimpleTestCase
 from unittest.mock import patch
 
 from core.contour_processing.contour_operations import (
+    _filter_green_contours_with_image,
     _split_merged_green_contours,
     _markers_from_neck,
     _split_params,
@@ -118,6 +119,42 @@ def _tip_connected_pair_image(shape=(72, 96)) -> np.ndarray:
     cv2.line(image, (50, 38), (53, 36), 70.0, 1)
     image = cv2.GaussianBlur(image, (0, 0), 1.0)
     return np.clip(image, 0, 255).astype(np.uint8)
+
+
+def _add_gaussian(
+    image: np.ndarray,
+    *,
+    center: tuple[int, int],
+    amplitude: float,
+    sigma: float,
+) -> np.ndarray:
+    y_grid, x_grid = np.mgrid[0 : image.shape[0], 0 : image.shape[1]]
+    blob = amplitude * np.exp(
+        -(
+            ((x_grid - center[0]) ** 2 + (y_grid - center[1]) ** 2)
+            / (2.0 * sigma * sigma)
+        )
+    )
+    return image + blob
+
+
+def _real_failure_like_green_image(shape=(80, 96)) -> np.ndarray:
+    image = np.zeros(shape, dtype=np.float32)
+    image = _add_gaussian(image, center=(46, 38), amplitude=248.0, sigma=2.6)
+    image = _add_gaussian(image, center=(57, 37), amplitude=255.0, sigma=2.4)
+    image = _add_gaussian(image, center=(61, 49), amplitude=80.0, sigma=4.0)
+    image = _add_gaussian(image, center=(30, 41), amplitude=35.0, sigma=7.5)
+    cv2.line(image, (47, 38), (56, 37), 52.0, 3)
+    image = cv2.GaussianBlur(image, (0, 0), 0.9)
+    return np.clip(image, 0, 255).astype(np.uint8)
+
+
+def _contour_centroid(contour: np.ndarray) -> tuple[float, float]:
+    moments = cv2.moments(contour)
+    if moments["m00"] == 0:
+        x, y, width, height = cv2.boundingRect(contour)
+        return x + width / 2.0, y + height / 2.0
+    return moments["m10"] / moments["m00"], moments["m01"] / moments["m00"]
 
 
 def _green_only_images(image: np.ndarray) -> GrayImage:
@@ -440,3 +477,108 @@ class GreenDotSplitTests(SimpleTestCase):
             sorted(cv2.contourArea(contour) for contour in aggressive),
             sorted(cv2.contourArea(contour) for contour in aggressive_filtered),
         )
+
+    def test_real_failure_like_geometry_keeps_two_bright_children_and_lower_blob(self):
+        image = _real_failure_like_green_image()
+
+        preprocessed = _green_pre_postprocess_contours_from_image(image)
+        aggressive = _split_green_contours_from_image(image, "aggressive")
+        aggressive_filtered = _split_green_contours_from_image(
+            image,
+            "aggressive",
+            green_contour_filter_enabled=True,
+        )
+
+        self.assertEqual(len(preprocessed), 2)
+        self.assertEqual(len(aggressive), 3)
+        self.assertEqual(len(aggressive_filtered), 3)
+
+        centroids = [_contour_centroid(contour) for contour in aggressive_filtered]
+        self.assertTrue(any(x < 52 and y < 42 for x, y in centroids))
+        self.assertTrue(any(x > 52 and y < 42 for x, y in centroids))
+        self.assertTrue(any(x > 54 and y > 44 for x, y in centroids))
+
+    def test_green_filter_rescues_strong_peak_that_fails_legacy_shape_rule(self):
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        cv2.circle(mask, (32, 32), 8, 255, -1)
+        contour = _contours_from_mask(mask)[0]
+        image = np.zeros(mask.shape, dtype=np.float32)
+        image = _add_gaussian(image, center=(32, 32), amplitude=210.0, sigma=3.0)
+        image = np.clip(image, 0, 255).astype(np.uint8)
+
+        accepted, decisions = _filter_green_contours_with_image([contour], image)
+
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(len(decisions), 1)
+        decision = decisions[0]
+        self.assertEqual(decision.decision_reason, "accepted_strong_peak")
+        self.assertIsNotNone(decision.closed_open_ratio)
+        self.assertGreater(decision.closed_open_ratio, 0.9)
+        self.assertLess(decision.closed_open_ratio, 1.06)
+        self.assertGreaterEqual(decision.max_over_ring_p90, 3.0)
+        self.assertGreaterEqual(decision.p90_over_ring_p90, 2.5)
+
+    def test_green_filter_rejects_weak_shape_failed_contour_without_strong_peak(self):
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        cv2.circle(mask, (32, 32), 8, 255, -1)
+        contour = _contours_from_mask(mask)[0]
+        image = np.full(mask.shape, 35, dtype=np.float32)
+        image = _add_gaussian(image, center=(32, 32), amplitude=25.0, sigma=4.0)
+        image = np.clip(image, 0, 255).astype(np.uint8)
+
+        accepted, decisions = _filter_green_contours_with_image([contour], image)
+
+        self.assertEqual(len(accepted), 0)
+        self.assertEqual(decisions[0].decision_reason, "rejected_shape")
+        self.assertLess(decisions[0].max_over_ring_p90, 3.0)
+        self.assertLess(decisions[0].p90_over_ring_p90, 2.5)
+
+    def test_green_filter_uses_ring_floor_when_ring_percentile_is_zero(self):
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        cv2.circle(mask, (32, 32), 8, 255, -1)
+        contour = _contours_from_mask(mask)[0]
+        image = np.zeros(mask.shape, dtype=np.uint8)
+        image[mask > 0] = 160
+
+        accepted, decisions = _filter_green_contours_with_image([contour], image)
+
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(decisions[0].decision_reason, "accepted_strong_peak")
+        self.assertEqual(decisions[0].ring_p90, 0.0)
+        self.assertTrue(np.isfinite(decisions[0].max_over_ring_p90))
+        self.assertTrue(np.isfinite(decisions[0].p90_over_ring_p90))
+
+    def test_green_filter_handles_contour_touching_image_edge(self):
+        mask = np.zeros((48, 48), dtype=np.uint8)
+        cv2.circle(mask, (4, 4), 6, 255, -1)
+        contour = _contours_from_mask(mask)[0]
+        image = np.zeros(mask.shape, dtype=np.float32)
+        image = _add_gaussian(image, center=(4, 4), amplitude=190.0, sigma=2.5)
+        image = np.clip(image, 0, 255).astype(np.uint8)
+
+        accepted, decisions = _filter_green_contours_with_image([contour], image)
+
+        self.assertEqual(len(accepted), 1)
+        self.assertIn(
+            decisions[0].decision_reason,
+            {"accepted_shape", "accepted_strong_peak"},
+        )
+        self.assertLessEqual(decisions[0].bbox[0], 1)
+        self.assertLessEqual(decisions[0].bbox[1], 1)
+        if decisions[0].decision_reason == "accepted_strong_peak":
+            self.assertGreater(decisions[0].ring_pixel_count, 0)
+
+    def test_green_filter_stays_conservative_when_neighbor_contaminates_ring(self):
+        mask = np.zeros((72, 72), dtype=np.uint8)
+        cv2.circle(mask, (28, 36), 8, 255, -1)
+        contour = _contours_from_mask(mask)[0]
+        image = np.full(mask.shape, 8, dtype=np.float32)
+        image = _add_gaussian(image, center=(28, 36), amplitude=70.0, sigma=3.0)
+        image = _add_gaussian(image, center=(39, 36), amplitude=120.0, sigma=3.0)
+        image = np.clip(image, 0, 255).astype(np.uint8)
+
+        accepted, decisions = _filter_green_contours_with_image([contour], image)
+
+        self.assertEqual(len(accepted), 0)
+        self.assertEqual(decisions[0].decision_reason, "rejected_shape")
+        self.assertLess(decisions[0].max_over_ring_p90, 3.0)
