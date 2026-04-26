@@ -49,13 +49,14 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
         self.assertTrue(normalized["sidebar_starts_open"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
+        self.assertEqual(normalized["main_image_channel"], "")
 
     def test_normalize_preferences_filters_invalid_values(self):
         normalized = normalize_preferences_payload(
@@ -80,6 +81,7 @@ class PreferenceNormalizationTests(TestCase):
                 },
                 "auto_save_experiments": "off",
                 "show_saved_file_scales": "off",
+                "main_image_channel": "invalid",
             }
         )
 
@@ -101,6 +103,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertFalse(normalized["show_saved_file_scales"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
+        self.assertEqual(normalized["main_image_channel"], "")
 
     def test_normalize_preferences_migrates_legacy_green_split_default(self):
         normalized = normalize_preferences_payload(
@@ -124,6 +127,14 @@ class PreferenceNormalizationTests(TestCase):
 
         self.assertEqual(normalized["experiment_defaults"]["spatial_stats_unit"], "um")
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "um")
+
+    def test_main_image_channel_accepts_supported_slug(self):
+        normalized = normalize_preferences_payload({"main_image_channel": "green"})
+        self.assertEqual(normalized["main_image_channel"], "green")
+
+    def test_main_image_channel_drops_invalid_value(self):
+        normalized = normalize_preferences_payload({"main_image_channel": "purple"})
+        self.assertEqual(normalized["main_image_channel"], "")
 
 
 class AccountAreaAccessTests(TestCase):
@@ -699,6 +710,42 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'Green In Green Raw Sums')
         self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
+
+    def test_dashboard_template_exposes_preferred_main_image_channel(self):
+        self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_preferred_main_channel",
+        )
+        preferences = get_user_preferences(self.user)
+        preferences["main_image_channel"] = "green"
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'const initialPreferredMainImageChannel = "green";',
+            html=False,
+        )
+
+    def test_display_template_exposes_preferred_main_image_channel(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_preferred_main_channel",
+        )
+        preferences = get_user_preferences(self.user)
+        preferences["main_image_channel"] = "green"
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.get(reverse("display", args=[saved_uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'const initialPreferredMainImageChannel = "green";',
+            html=False,
+        )
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
         preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
@@ -1632,6 +1679,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         preferences["show_saved_file_scales"] = False
         preferences["sidebar_starts_open"] = False
         preferences["sidebar_spatial_stats_unit"] = "um"
+        preferences["main_image_channel"] = "green"
         preferences["experiment_defaults"]["spatial_stats_unit"] = "um"
         update_user_preferences(self.user, preferences)
 
@@ -1649,6 +1697,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(updated["show_saved_file_scales"])
         self.assertFalse(updated["sidebar_starts_open"])
         self.assertEqual(updated["sidebar_spatial_stats_unit"], "um")
+        self.assertEqual(updated["main_image_channel"], "green")
         self.assertEqual(updated["experiment_defaults"]["spatial_stats_unit"], "um")
 
     def test_experiment_workflow_defaults_endpoint_rejects_invalid_payload(self):
@@ -1744,6 +1793,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_dashboard_main_image_channel_requires_valid_channel(self):
+        response = self.client.post(
+            reverse("dashboard_channel_visibility"),
+            data=json.dumps({"main_image_channel": "purple"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_dashboard_channel_visibility_persists_user_preference(self):
         response = self.client.post(
             reverse("dashboard_channel_visibility"),
@@ -1781,6 +1838,17 @@ class ChannelVisibilityPreferenceTests(TestCase):
         updated = get_user_preferences(self.user)
         self.assertEqual(updated["sidebar_spatial_stats_unit"], "um")
         self.assertEqual(updated["experiment_defaults"]["spatial_stats_unit"], "px")
+
+    def test_dashboard_main_image_channel_persists_user_preference(self):
+        response = self.client.post(
+            reverse("dashboard_channel_visibility"),
+            data=json.dumps({"main_image_channel": "green"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["main_image_channel"], "green")
+        self.user.refresh_from_db()
+        self.assertEqual(get_user_preferences(self.user)["main_image_channel"], "green")
 
     def test_behavior_form_persists_channel_visibility_toggle(self):
         response = self.client.post(
@@ -1934,7 +2002,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(

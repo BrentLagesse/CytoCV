@@ -6,7 +6,7 @@ from copy import deepcopy
 import math
 from typing import Any
 
-from core.channel_roles import CHANNEL_ROLE_ORDER
+from core.channel_roles import CHANNEL_ROLE_ORDER, channel_role_from_slug, channel_slug
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
@@ -25,6 +25,9 @@ from core.stats_plugins import (
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
 DEFAULT_MICRONS_PER_PIXEL = 0.1
+MAIN_IMAGE_CHANNEL_SLUGS = frozenset(
+    channel_slug(channel_role) for channel_role in CHANNEL_ROLE_ORDER
+)
 
 
 class PreferenceValidationError(ValueError):
@@ -51,7 +54,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_red_max_distance": 37,
         "biorientation_collinearity_threshold": 66,
         "green_dot_split_enabled": True,
-        "green_dot_split_mode": "aggressive",
+        "green_dot_split_mode": "balanced",
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
@@ -70,6 +73,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "show_saved_file_scales": True,
     "sidebar_starts_open": True,
     "sidebar_spatial_stats_unit": "px",
+    "main_image_channel": "",
 }
 
 
@@ -110,6 +114,15 @@ def _normalize_unit(value: Any, default: str) -> str:
     if unit not in LENGTH_UNITS:
         return default
     return unit
+
+
+def normalize_main_image_channel(value: Any, default: str = "") -> str:
+    slug = str(value or "").strip().lower()
+    if not slug:
+        return default
+    if not channel_role_from_slug(slug):
+        return default
+    return slug
 
 
 def _strict_bool(value: Any, *, field: str) -> bool:
@@ -374,6 +387,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     normalized["sidebar_spatial_stats_unit"] = _normalize_unit(
         raw_payload.get("sidebar_spatial_stats_unit"),
         default=normalized["experiment_defaults"]["spatial_stats_unit"],
+    )
+    normalized["main_image_channel"] = normalize_main_image_channel(
+        raw_payload.get("main_image_channel"),
+        default="",
     )
     return normalized
 

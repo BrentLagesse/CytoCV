@@ -2235,6 +2235,7 @@
         ];
         const defaultSpatialStatsUnit = "{{ default_spatial_stats_unit|default:'px'|escapejs }}";
         const initialSidebarSpatialStatsUnit = "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}";
+        const initialPreferredMainImageChannel = "{{ main_image_channel|default:''|escapejs }}";
         const spatialFieldKinds = {
             puncta_distance: 'distance',
             blue_contour_size: 'area',
@@ -2297,6 +2298,7 @@
             distance_of_green_from_red_3: 'Distance Of Green From Red 3',
         };
         let currentSpatialStatsUnit = initialSidebarSpatialStatsUnit;
+        let preferredMainImageChannel = normalizeMainImageChannel(initialPreferredMainImageChannel);
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
         let hasInitializedDisplayFile = false;
@@ -2666,6 +2668,7 @@
             }
 
             const requestToken = ++activeFileLoadToken;
+            ++activeChannelRequest;
             currentFileIndex = normalizedIndex;
             maxCells = Number(fileData.NumberOfCells || 0);
             if (!Number.isFinite(maxCells) || maxCells < 0) {
@@ -2673,7 +2676,19 @@
             }
             currentCellNumber = 1;
 
-            const mainImagePath = fileData.MainImagePath || noCellPlaceholder;
+            const defaultMainImagePath = fileData.MainImagePath || noCellPlaceholder;
+            const inferredDefaultChannel = primeMainImageWarmState(fileUUID, fileData, defaultMainImagePath);
+            const preferredChannel = getPreferredMainImageChannel();
+            const preferredMainImagePath = preferredChannel
+                ? (getMainImagePaths(fileData)[preferredChannel] || '')
+                : '';
+            const mainImagePath = preferredMainImagePath || defaultMainImagePath;
+            const activeMainChannel = preferredMainImagePath
+                ? preferredChannel
+                : inferredDefaultChannel;
+            if (activeMainChannel && activeMainChannel !== inferredDefaultChannel) {
+                markMainImageChannelWarm(fileUUID, fileData, activeMainChannel, mainImagePath);
+            }
             const showContours = getContourToggleState();
             syncContourStateLabel(showContours);
             const initialCellState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
@@ -2721,6 +2736,7 @@
                 return false;
             }
 
+            fileData.MainImagePath = mainImagePath;
             if (fileData.NoCellsWarning) {
                 showChannelError(fileData.NoCellsWarning);
             }
@@ -2728,11 +2744,12 @@
             updateSidebarActive();
             syncFileNavigationState();
 
-            const inferred = primeMainImageWarmState(fileUUID, fileData, mainImagePath);
-            if (inferred) {
-                setActiveChannel(inferred);
+            if (activeMainChannel) {
+                setActiveChannel(activeMainChannel);
+            } else if (inferredDefaultChannel) {
+                setActiveChannel(inferredDefaultChannel);
             }
-            scheduleMainImageWarmup(fileUUID, fileData, inferred);
+            scheduleMainImageWarmup(fileUUID, fileData, activeMainChannel || inferredDefaultChannel);
             if (showContours) {
                 markCurrentCellWarm(fileUUID, true);
                 scheduleCircularOverlayWarmup('initial');
@@ -2798,6 +2815,10 @@
             msg.appendChild(close);
             container.appendChild(msg);
             setTimeout(() => msg.remove(), 8000);
+        }
+
+        function showChannelPreferenceWarning() {
+            showChannelError('Main channel changed, but the preference could not be saved right now.');
         }
 
         function preloadImage(url) {
@@ -2941,26 +2962,48 @@
                 });
         }
 
-        async function switchMainChannel(channel) {
+        async function switchMainChannel(channel, { persistPreference = true } = {}) {
             const mainImage = document.getElementById('mainImage');
             if (!mainImage) return;
+            const normalizedChannel = normalizeMainImageChannel(channel);
+            if (!normalizedChannel) return;
             const fileUUID = fileUUIDs[currentFileIndex];
             const fileData = fileUUID ? filesData[fileUUID] : null;
             if (!fileUUID || !fileData) return;
             const requestId = ++activeChannelRequest;
+            const fileLoadTokenAtRequest = activeFileLoadToken;
             try {
-                const imageUrl = await warmMainImageChannel(fileUUID, fileData, channel);
+                const imageUrl = await warmMainImageChannel(fileUUID, fileData, normalizedChannel);
                 if (!imageUrl) {
                     throw new Error('Missing image URL');
                 }
-                if (requestId !== activeChannelRequest) {
+                if (
+                    requestId !== activeChannelRequest
+                    || fileLoadTokenAtRequest !== activeFileLoadToken
+                    || fileUUID !== fileUUIDs[currentFileIndex]
+                ) {
                     return;
                 }
                 await setImageWithBlend(mainImage, imageUrl, {
                     duration: FILE_BLEND_IMAGE_MS,
                     blend: hasInitializedDisplayFile,
                 });
-                setActiveChannel(channel);
+                if (
+                    requestId !== activeChannelRequest
+                    || fileLoadTokenAtRequest !== activeFileLoadToken
+                    || fileUUID !== fileUUIDs[currentFileIndex]
+                ) {
+                    return;
+                }
+                fileData.MainImagePath = imageUrl;
+                markMainImageChannelWarm(fileUUID, fileData, normalizedChannel, imageUrl);
+                setActiveChannel(normalizedChannel);
+                setPreferredMainImageChannel(normalizedChannel);
+                if (persistPreference) {
+                    void persistPreferredMainImageChannel(normalizedChannel).catch(() => {
+                        showChannelPreferenceWarning();
+                    });
+                }
             } catch (error) {
                 if (error && error.name === 'AbortError') return;
                 showChannelError('Unable to load that channel image. Please try again.');
@@ -2995,6 +3038,36 @@
                 btn.classList.toggle('active', isActive);
                 btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
+        }
+
+        function normalizeMainImageChannel(channel) {
+            return channels.includes(channel) ? channel : '';
+        }
+
+        function getPreferredMainImageChannel() {
+            return normalizeMainImageChannel(preferredMainImageChannel);
+        }
+
+        function setPreferredMainImageChannel(channel) {
+            preferredMainImageChannel = normalizeMainImageChannel(channel);
+            return preferredMainImageChannel;
+        }
+
+        async function persistPreferredMainImageChannel(channel) {
+            const response = await fetch('/dashboard/preferences/channels/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken || '',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ main_image_channel: normalizeMainImageChannel(channel) }),
+            });
+            if (!response.ok) {
+                throw new Error('Unable to save main image channel preference.');
+            }
+            const payload = await response.json();
+            return setPreferredMainImageChannel(payload.main_image_channel || channel);
         }
 
         function syncContourStateLabel(showContours) {

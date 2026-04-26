@@ -156,6 +156,19 @@ class RouteSurfaceRefactorTests(TestCase):
             ).save(output_dir / f"{image_stem}_frame_{frame_index}.png")
 
     @staticmethod
+    def _write_overlay_cache_image(
+        uuid_value: str,
+        cell_id: int,
+        channel: str,
+        *,
+        color: tuple[int, int, int],
+    ) -> Path:
+        path = overlay_cache_image_path(uuid_value, cell_id, channel)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(np.full((6, 6, 3), color, dtype=np.uint8)).save(path)
+        return path
+
+    @staticmethod
     def _write_overlay_config(uuid_value: str, image_stem: str) -> dict[str, object]:
         render_config = build_overlay_render_config(
             image_stem=image_stem,
@@ -572,6 +585,133 @@ class RouteSurfaceRefactorTests(TestCase):
             reverse("cell_overlay_image", args=[uuid_value, 1, "green"]),
             html=False,
         )
+
+    def test_display_uses_cached_overlay_endpoint_without_render_config(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-cached-overlay")
+            segmented = self._create_segmented_image(
+                uuid_value,
+                name="display-cached-overlay",
+            )
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(
+                media_root,
+                uuid_value,
+                "display-cached-overlay",
+            )
+            self._create_cell_stats(segmented, "display-cached-overlay")
+            self._write_overlay_cache_image(
+                uuid_value,
+                1,
+                "green",
+                color=(30, 220, 30),
+            )
+
+            response = self.client.get(reverse("display", args=[uuid_value]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "green"]),
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f"/media/{uuid_value}/segmented/display-cached-overlay-{DEFAULT_CHANNEL_CONFIG['channel_red']}-1.png",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f"/media/{uuid_value}/segmented/display-cached-overlay-{DEFAULT_CHANNEL_CONFIG['channel_blue']}-1.png",
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "red"]),
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "blue"]),
+            html=False,
+        )
+
+    def test_dashboard_uses_cached_overlay_endpoint_without_render_config(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-cached-overlay")
+            segmented = self._create_segmented_image(
+                uuid_value,
+                name="dashboard-cached-overlay",
+            )
+            segmented.user = self.user
+            segmented.NumCells = 1
+            segmented.save(update_fields=["user", "NumCells"])
+            self._write_segmented_cell_assets(
+                media_root,
+                uuid_value,
+                "dashboard-cached-overlay",
+            )
+            self._create_cell_stats(segmented, "dashboard-cached-overlay")
+            self._write_overlay_cache_image(
+                uuid_value,
+                1,
+                "green",
+                color=(30, 220, 30),
+            )
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "green"]),
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "red"]),
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "blue"]),
+            html=False,
+        )
+
+    def test_overlay_endpoint_serves_cached_channel_without_render_config(self):
+        uuid_value = str(uuid4())
+        expected_path: Path | None = None
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="overlay-cache-only")
+            segmented = self._create_segmented_image(uuid_value, name="overlay-cache-only")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "overlay-cache-only")
+            self._create_cell_stats(segmented, "overlay-cache-only")
+            expected_path = self._write_overlay_cache_image(
+                uuid_value,
+                1,
+                "green",
+                color=(10, 180, 10),
+            )
+
+            response = self.client.get(
+                reverse("cell_overlay_image", args=[uuid_value, 1, "green"])
+            )
+            self.assertEqual(response.status_code, 200)
+            payload = b"".join(response.streaming_content)
+
+            with Image.open(expected_path) as expected_image:
+                expected = np.array(expected_image)
+
+        rendered = np.array(Image.open(BytesIO(payload)))
+        self.assertTrue(np.array_equal(rendered, expected))
 
     def test_overlay_endpoint_renders_pixel_exact_png_from_cached_crops(self):
         uuid_value = str(uuid4())
