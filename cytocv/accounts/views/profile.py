@@ -24,6 +24,8 @@ from django_tables2.export.export import TableExport
 
 from accounts.preferences import (
     get_user_preferences,
+    normalize_main_image_channel,
+    MAIN_IMAGE_CHANNEL_SLUGS,
     should_auto_save_experiments,
     update_user_preferences,
 )
@@ -621,6 +623,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         preferences.get("sidebar_spatial_stats_unit"),
         default=default_spatial_stats_unit,
     )
+    main_image_channel = normalize_main_image_channel(
+        preferences.get("main_image_channel"),
+        default="",
+    )
 
     files_data: dict[str, Any] = {}
     file_list: list[dict[str, Any]] = []
@@ -845,6 +851,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "sidebar_starts_open": sidebar_starts_open,
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
+        "main_image_channel": main_image_channel,
     }
 
 
@@ -1020,9 +1027,10 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
     has_channels = "show_saved_file_channels" in payload
     has_scales = "show_saved_file_scales" in payload
     has_sidebar_unit = "sidebar_spatial_stats_unit" in payload
-    if not has_channels and not has_scales and not has_sidebar_unit:
+    has_main_image_channel = "main_image_channel" in payload
+    if not has_channels and not has_scales and not has_sidebar_unit and not has_main_image_channel:
         return JsonResponse(
-            {"error": "At least one sidebar preference is required."},
+            {"error": "At least one preference is required."},
             status=400,
         )
 
@@ -1050,6 +1058,16 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
+    raw_main_image_channel = payload.get("main_image_channel")
+    main_image_channel = normalize_main_image_channel(raw_main_image_channel, default="")
+    if has_main_image_channel and main_image_channel not in MAIN_IMAGE_CHANNEL_SLUGS:
+        return JsonResponse(
+            {
+                "error": "main_image_channel must be one of: dic, blue, red, green.",
+            },
+            status=400,
+        )
+
     current = get_user_preferences(request.user)
     next_payload = dict(current)
     if has_channels:
@@ -1058,6 +1076,8 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
         next_payload["show_saved_file_scales"] = show_saved_file_scales
     if has_sidebar_unit:
         next_payload["sidebar_spatial_stats_unit"] = sidebar_spatial_stats_unit
+    if has_main_image_channel:
+        next_payload["main_image_channel"] = main_image_channel
     updated = update_user_preferences(request.user, next_payload)
     return JsonResponse(
         {
@@ -1073,6 +1093,10 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
                     updated.get("experiment_defaults", {}).get("spatial_stats_unit"),
                     default="px",
                 ),
+            ),
+            "main_image_channel": normalize_main_image_channel(
+                updated.get("main_image_channel"),
+                default="",
             ),
         }
     )

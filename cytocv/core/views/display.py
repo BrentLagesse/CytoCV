@@ -9,7 +9,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from accounts.preferences import get_user_preferences
+from accounts.preferences import get_user_preferences, normalize_main_image_channel
 from core.channel_roles import (
     CHANNEL_ROLE_BLUE,
     CHANNEL_ROLE_DIC,
@@ -208,6 +208,10 @@ def display(request, uuids):
         preferences.get("sidebar_spatial_stats_unit"),
         default=default_spatial_stats_unit,
     )
+    main_image_channel = normalize_main_image_channel(
+        preferences.get("main_image_channel"),
+        default="",
+    )
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -385,6 +389,7 @@ def display(request, uuids):
         'sidebar_starts_open': sidebar_starts_open,
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
+        'main_image_channel': main_image_channel,
     })
 
 
