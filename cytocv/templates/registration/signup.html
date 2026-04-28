@@ -7,7 +7,8 @@
             color: var(--text);
         }
         .signup-page {
-            min-height: calc(100dvh - var(--nav-height));
+            flex: 1 0 auto;
+            min-height: 100%;
             padding: calc(var(--nav-height) + 32px) 16px 40px;
             display: grid;
             place-items: center;
@@ -355,7 +356,7 @@
             <div class="signup-header">
                 <div class="step-indicator">Step 0 of 4</div>
                 <h1>Verify you are human</h1>
-                <p class="subtitle">Complete reCAPTCHA to start signup.</p>
+                <p class="subtitle">Complete reCAPTCHA to continue.</p>
             </div>
             <form method="post" class="signup-form" novalidate>
                 {% csrf_token %}
@@ -380,10 +381,10 @@
                 <div class="step-indicator">Step {{ step }} of {{ step_total }}</div>
                 {% if step == 1 %}
                     <h1>Tell us your name</h1>
-                    <p class="subtitle">This helps personalize your account.</p>
+                    <p class="subtitle">Used for your CytoCV profile.</p>
                 {% elif step == 2 %}
                     <h1>Enter your email</h1>
-                    <p class="subtitle">We will send a verification code.</p>
+                    <p class="subtitle">We will send a verification code to confirm your email address.</p>
                 {% elif step == 3 %}
                     <h1>Verify your email</h1>
                     <p class="subtitle">
@@ -392,7 +393,7 @@
                     </p>
                 {% else %}
                     <h1>Create a password</h1>
-                    <p class="subtitle">Finish creating your account.</p>
+                    <p class="subtitle">Create your CytoCV account.</p>
                 {% endif %}
             </div>
 

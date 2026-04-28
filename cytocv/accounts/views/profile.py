@@ -768,7 +768,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             )
         elif not output_frames:
             no_cells_warning = (
-                "Preview assets were not found for this saved file. "
+                "Preview images are unavailable for this saved file. "
                 "The statistics table is still available when data exists."
             )
 
@@ -984,11 +984,17 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid request payload."}, status=400)
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
 
     requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
-        return JsonResponse({"error": "No valid files were selected."}, status=400)
+        return JsonResponse(
+            {"error": "Select at least one saved file to continue."},
+            status=400,
+        )
 
     owned_uuids = {
         str(value)
@@ -999,7 +1005,7 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
     }
     if len(owned_uuids) != len(set(requested_uuids)):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -1022,7 +1028,10 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid request payload."}, status=400)
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
 
     has_channels = "show_saved_file_channels" in payload
     has_scales = "show_saved_file_scales" in payload

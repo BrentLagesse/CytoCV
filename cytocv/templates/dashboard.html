@@ -2190,7 +2190,7 @@
                 {% else %}
                     <div class="empty-dashboard">
                         <h2>No files saved</h2>
-                        <p>Start an experiment to upload and analyze your first files.</p>
+                        <p>Start an experiment to upload and analyze your first DeltaVision files.</p>
                         <a class="start-link" href="{% url 'experiment' %}">Start Experiment</a>
                     </div>
                 {% endif %}
@@ -4198,5 +4198,7 @@
             syncSelectionUI();
         })();
     </script>
-
+    </div>
 {% endblock content %}
+
+{% block site_footer %}{% endblock site_footer %}

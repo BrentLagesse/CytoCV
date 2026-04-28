@@ -4,7 +4,8 @@
 {% block head %}
 <style>
     .login-page {
-        min-height: calc(100dvh - var(--nav-height));
+        flex: 1 0 auto;
+        min-height: 100%;
         padding: calc(var(--nav-height) + 32px) 16px 40px;
         display: grid;
         place-items: center;
@@ -480,7 +481,7 @@
                 <div>
                     <div class="step-indicator">Verification</div>
                     <h1>Verify you are human</h1>
-                    <p class="subtitle">Complete reCAPTCHA to continue to sign in or password recovery.</p>
+                    <p class="subtitle">Complete reCAPTCHA to continue.</p>
                 </div>
                 <form method="post" class="form" novalidate>
                     {% csrf_token %}
@@ -506,11 +507,11 @@
                     <div class="step-indicator">Step {{ recovery_step }} of {{ recovery_step_total }}</div>
                     {% if recovery_step == 1 %}
                         <h1>Reset your password</h1>
-                        <p class="subtitle">Enter your account email to receive a verification code.</p>
+                        <p class="subtitle">Enter your account email to receive a recovery code.</p>
                     {% elif recovery_step == 2 %}
                         <h1>Verify your email</h1>
                         <p class="subtitle">
-                            Enter the verification code to continue. This code expires in {{ auth_verification_expiry_label }}.
+                            Enter the verification code to continue. The code expires in {{ auth_verification_expiry_label }}.
                         </p>
                     {% else %}
                         <h1>Create a new password</h1>
@@ -660,7 +661,7 @@
         {% else %}
             {% if rate_limit_active %}
                 <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
-                    Too many sign-in attempts. Try again in <span id="rateLimitCountdown"></span>.
+                    Too many sign-in attempts. Please wait <span id="rateLimitCountdown"></span> before trying again.
                     <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
                 </div>
             {% endif %}
@@ -669,7 +670,7 @@
                 <div class="card-intro">
                     <div class="step-indicator">CytoCV</div>
                     <h1>Sign In</h1>
-                    <p class="subtitle">Access your analysis workspace and continue where you left off.</p>
+                    <p class="subtitle">Sign in to access your dashboard and saved experiments.</p>
                 </div>
                 <div class="title">Credentials</div>
                 <form method="post" class="form login-form" novalidate>
@@ -697,7 +698,7 @@
             <div class="card soft-fade-in">
                 <div class="card-intro">
                     <div class="title">Single sign-on</div>
-                    <p class="subtitle">Use a connected provider instead of entering credentials directly.</p>
+                    <p class="subtitle">Use Google or Microsoft instead of entering your email and password.</p>
                 </div>
                 <div class="oauth-grid">
                     <form method="post" action="{% provider_login_url 'google' %}">

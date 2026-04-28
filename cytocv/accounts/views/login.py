@@ -428,8 +428,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                     _add_error(errors, "email", "Enter a valid email address")
                 else:
                     if not user_model.objects.filter(email__iexact=values["email"]).exists():
-                        _add_error(errors, "email", "No account was found for that email.")
-                        page_error = "No account was found for that email."
+                        _add_error(errors, "email", "We couldn't find an account for that email address.")
+                        page_error = "We couldn't find an account for that email address."
                         values["email"] = ""
                         session.pop("recovery_email", None)
 
@@ -445,7 +445,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
 
             verify_code = _generate_recovery_code()
             if not send_code_email(values["email"], verify_code):
-                page_error = "Something went wrong. Try again."
+                page_error = "We couldn't send a recovery code right now. Try again."
                 step = 1
                 return render_current()
 
@@ -477,7 +477,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
 
             verify_code = _generate_recovery_code()
             if not send_code_email(values["email"], verify_code):
-                page_error = "Something went wrong. Try again."
+                page_error = "We couldn't resend the recovery code right now. Try again."
                 step = 2
                 return render_current()
 
@@ -582,8 +582,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             try:
                 user = user_model.objects.get(email__iexact=email)
             except user_model.DoesNotExist:
-                _add_error(errors, "email", "No account was found for that email.")
-                page_error = "No account was found for that email."
+                _add_error(errors, "email", "We couldn't find an account for that email address.")
+                page_error = "We couldn't find an account for that email address."
                 values["email"] = ""
                 session.pop("recovery_email", None)
                 session["recovery_step"] = 1
@@ -625,7 +625,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 user.save(update_fields=["password"])
             except Exception:
                 logger.exception("Failed to save password during recovery reset.")
-                page_error = "Something went wrong. Try again."
+                page_error = "We couldn't reset the password right now. Try again."
                 step = 3
                 return render_current()
 
@@ -756,7 +756,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
             if limited:
                 return redirect_login()
 
-        messages.error(request, "Invalid credentials.", extra_tags="login-error")
+        messages.error(request, "Email or password is incorrect.", extra_tags="login-error")
         request.session["login_failed"] = True
         return redirect_login()
 

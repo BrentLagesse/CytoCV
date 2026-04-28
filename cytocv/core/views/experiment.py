@@ -469,14 +469,14 @@ def experiment(request):
         if not files and not existing_uuids:
             logger.debug("No files received")
             if is_ajax:
-                return JsonResponse({"errors": ["No files received."]}, status=400)
+                return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
             return render(
                 request,
                 'form/experiment.html',
                 _upload_view_context(
                     form=UploadImageForm(),
                     progress_key=progress_key,
-                    error='No files received.',
+                    error='No files were uploaded.',
                     user_preference_defaults=user_preferences.get("experiment_defaults", {}),
                     upload_quota_payload=_build_upload_quota_payload(request.user, user_preferences),
                 ),
@@ -493,7 +493,7 @@ def experiment(request):
         ]
         if invalid_names:
             return JsonResponse(
-                {"errors": ["Only .dv files are allowed for upload."]},
+                {"errors": ["Only DeltaVision .dv files can be uploaded."]},
                 status=400,
             )
 
@@ -542,7 +542,10 @@ def experiment(request):
         if set(requested_uuids) - owned_uuids:
             for cleanup_uuid in new_upload_uuids:
                 delete_uploaded_run_by_uuid(cleanup_uuid)
-            return JsonResponse({"errors": ["One or more files are unavailable."]}, status=403)
+            return JsonResponse(
+                {"errors": ["One or more files are no longer available. Refresh and try again."]},
+                status=403,
+            )
 
         job = enqueue_upload_preparation_job(
             user_id=request.user.id,
@@ -608,7 +611,7 @@ def save_experiment_workflow_defaults(request):
         raw_payload = json.loads(request.body.decode("utf-8") or "{}")
     except (TypeError, ValueError, UnicodeDecodeError):
         return JsonResponse(
-            {"errors": ["Request body must be valid JSON."]},
+            {"errors": ["Your request could not be processed. Please try again."]},
             status=400,
         )
 
@@ -627,7 +630,7 @@ def save_experiment_workflow_defaults(request):
     return JsonResponse(
         {
             "message": (
-                "Workflow default updated. Future experiments will start with this configuration."
+                "Workflow default saved. Future experiments will start with these settings."
             ),
             "defaults": updated_preferences.get("experiment_defaults", {}),
         }
@@ -640,7 +643,7 @@ def upload_file_batch(request):
 
     files = request.FILES.getlist("files")
     if not files:
-        return JsonResponse({"errors": ["No files received."]}, status=400)
+        return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
 
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
     created_uuids: list[str] = []
@@ -650,7 +653,7 @@ def upload_file_batch(request):
     ]
     if invalid_names:
         return JsonResponse(
-            {"errors": ["Only .dv files are allowed for upload."]},
+            {"errors": ["Only DeltaVision .dv files can be uploaded."]},
             status=400,
         )
 
@@ -700,7 +703,7 @@ def enqueue_upload_preparation(request):
     owner_filter = _current_owner_filter(request)
     requested_uuids = [*new_run_uuids, *restored_run_uuids]
     if not requested_uuids:
-        return JsonResponse({"errors": ["No files received."]}, status=400)
+        return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
 
     owned_uuids = set(
         str(value)
@@ -713,7 +716,10 @@ def enqueue_upload_preparation(request):
         for cleanup_uuid in new_run_uuids:
             if cleanup_uuid in owned_uuids:
                 delete_uploaded_run_by_uuid(cleanup_uuid)
-        return JsonResponse({"errors": ["One or more files are unavailable."]}, status=403)
+        return JsonResponse(
+            {"errors": ["One or more files are no longer available. Refresh and try again."]},
+            status=403,
+        )
 
     job = enqueue_upload_preparation_job(
         user_id=request.user.id,
@@ -740,7 +746,7 @@ def upload_preparation_status(request, job_uuid):
         job_uuid=job_uuid,
     )
     if job is None:
-        return JsonResponse({"errors": ["Upload preparation job not found."]}, status=404)
+        return JsonResponse({"errors": ["That upload session is no longer available."]}, status=404)
 
     redirect_url = None
     if job.status == UploadPreparationJob.Status.SUCCEEDED and job.valid_run_uuids:
@@ -771,7 +777,7 @@ def cancel_upload_preparation(request, job_uuid):
         job_uuid=job_uuid,
     )
     if job is None:
-        return JsonResponse({"errors": ["Upload preparation job not found."]}, status=404)
+        return JsonResponse({"errors": ["That upload session is no longer available."]}, status=404)
     if job.status in {
         UploadPreparationJob.Status.SUCCEEDED,
         UploadPreparationJob.Status.FAILED,

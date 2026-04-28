@@ -1723,6 +1723,7 @@
 {% block content %}
     {% load render_table from django_tables2 %}
 
+    <div class="display-page">
     <div class="page-container soft-fade-in">
         <!-- SIDEBAR -->
         <div class="sidebar{% if not sidebar_starts_open %} collapsed{% endif %}{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
@@ -4275,5 +4276,7 @@
         }
         })();
     </script>
-
+    </div>
 {% endblock content %}
+
+{% block site_footer %}{% endblock site_footer %}
