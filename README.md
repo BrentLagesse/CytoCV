@@ -28,14 +28,16 @@ CytoCV combines:
 - plugin-based per-cell quantification
 - database-backed review, retention, and export workflows
 
-The code-defined default modern workflow enables these plugins:
+The current workflow defaults enable these plugins:
 
 - `PunctaDistance`
 - `CENDot`
+- `Biorientation`
 - `GreenRedIntensity`
 - `NuclearCellPairIntensity`
 
 That default set requires `DIC`, `Red`, and `Green`. `Blue` remains supported for legacy measurements and for optional full-wavelength validation.
+These outputs are software-generated measurements intended to support review and downstream research analysis. They should not be treated as final biological conclusions on their own.
 
 ## System Scope
 
@@ -202,11 +204,11 @@ For operational deployment material, use these documents:
 - General deployment guide: [docs/ops/deployment-guide.md](docs/ops/deployment-guide.md)
 - PostgreSQL setup: [docs/ops/postgres-setup.md](docs/ops/postgres-setup.md)
 - Example `systemd` units: [deploy/systemd/README.md](deploy/systemd/README.md)
-- March 2026 VM step-by-step guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
-- March 2026 VM rollout record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
-- Replacement `cytocv2.uwb.edu` VM rollout record: [docs/vm-deployment-record-cytocv2/README.md](docs/vm-deployment-record-cytocv2/README.md)
+- Sanitized VM deployment guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
+- Historical first VM deployment record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
+- Historical replacement VM deployment record: [docs/vm-deployment-record-cytocv2/README.md](docs/vm-deployment-record-cytocv2/README.md)
 
-The VM-specific documents are especially important for infrastructure similar to the UWB VM used during the March 2026 rollout.
+The VM-specific documents are retained as sanitized historical maintainer notes. Use the core operations docs above as the current source of truth for active deployments.
 
 ## Runtime Requirements
 

@@ -12,7 +12,7 @@ Official license page:
 
 - <https://creativecommons.org/licenses/by-nc-sa/4.0/>
 
-## Summary
+## Plain-Language Summary
 
 Under this license, users may:
 
@@ -25,9 +25,10 @@ Under the following conditions:
 - **NonCommercial**: the material may not be used for commercial purposes
 - **ShareAlike**: adaptations must be distributed under the same license
 
-## Project Use
+## Current Project Statement
 
-Unless a specific file or directory states otherwise, CytoCV repository materials should be treated as distributed under **CC BY-NC-SA 4.0**.
+CytoCV's current published project statement is:
 
-If licensing scope, attribution language, or downstream redistribution terms need to be clarified later, this document should be updated alongside the root project README.
+> CytoCV is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
 
+If maintainers later intend different licenses for source code, documentation, or other assets, that distinction needs a separate human review and an explicit documentation update.

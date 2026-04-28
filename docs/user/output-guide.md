@@ -19,7 +19,7 @@ CytoCV produces outputs in four broad categories:
 
 ## Preview Assets
 
-For each valid upload, CytoCV generates preview images under the run preview directory. The exact count depends on the detected layer structure and validation settings. These previews are browser-friendly PNG representations of the raw DV layers and are used in the preprocess page.
+For each valid upload, CytoCV generates browser-friendly preview PNG files under the run preview directory. The current implementation writes one preview per detected layer up to the first four layers. These previews are used in the preprocess page.
 
 ## Full-Frame Result Images
 
@@ -32,31 +32,27 @@ The segmentation stage also writes:
 - `cell_<n>.png` binary cell masks
 - outlined per-cell channel crops
 - no-outline per-cell channel crops
-- an exact fluorescence overlay replay snapshot and cache
+- an overlay render snapshot and cached fluorescence overlay images
 - optional raster debug overlays when debug export is enabled
 
 The `DIC` channel generally provides the structural crop view. Fluorescence contour-rich views for `Red`, `Green`, and `Blue` are now replayed from the exact server render path used during analysis, so those contour views remain available even when optional debug PNG export is disabled.
 
 ## Database Outputs
 
-Each successful run can create:
+Each successful run can create one stored run record and multiple per-cell measurement records.
 
-- one `SegmentedImage` row
-- multiple `CellStatistics` rows, one per segmented cell
+Important stored measurement families include:
 
-Important `CellStatistics` fields include:
-
-- `puncta_distance`
-- `puncta_line_intensity`
-- raw red/green contour intensity sums such as `red_intensity_1`, `green_intensity_1`, `red_in_green_intensity_1`, and `green_in_green_intensity_1`
-- the internal legacy storage fields `green_red_intensity_1` through `green_red_intensity_3`, which now store the public measurement/contour ratio values
-- `nucleus_intensity_sum`
-- `cell_pair_intensity_sum`
-- `cytoplasmic_intensity`
-- legacy Blue-derived and red-in-blue fields
-- CEN dot classification fields
+- puncta distance and puncta-line intensity
+- raw red/green contour intensity sums, including cross-channel contour measurements
+- nuclear, cell-pair, and cytoplasmic intensity summaries
+- legacy Blue-derived outputs when legacy plugins are enabled
+- CEN dot location and classification outputs
+- Biorientation count fields such as `colinear_dots` and `off_axis_dots`
 
 For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
+
+These values are software-generated measurements. They support review and downstream analysis, but they should still be interpreted alongside the source images, overlays, and experimental context.
 
 For the puncta-line measurement, the persisted fields are `puncta_distance` and `puncta_line_intensity`, and the public labels are mode-driven:
 
@@ -70,7 +66,7 @@ For the modern red/green statistics, contour slots `1/2/3` are canonical ranked 
 - in `red_nucleus` mode, `nucleus_intensity_sum` uses Red slot `1`
 - in `green_nucleus` mode, `nucleus_intensity_sum` uses Green slot `1`
 
-As a result, when one contour defines the selected nucleus family, the matching nuclear measurement and cross-channel contour measurement are the same by definition:
+As a result, when one contour defines the selected nucleus family, the matching nuclear measurement and cross-channel contour measurement can match exactly because they come from the same canonical contour slot:
 
 - `red_nucleus`: `Green nuclear intensity` matches `Green in Red intensity 1`
 - `green_nucleus`: `Red nuclear intensity` matches `Red in Green intensity 1`
@@ -80,9 +76,9 @@ The viewer, statistics table, and CSV/XLSX exports show three derived `Measureme
 - `red_nucleus`: `Green in Red / Red in Red`
 - `green_nucleus`: `Red in Green / Green in Green`
 
-These ratios are derived values and should be interpreted as secondary output, not as replacements for the raw integrated sums. Internally, CytoCV still persists them in the legacy `green_red_intensity_*` database columns until the schema is cleaned up.
+These ratios are derived values and should be interpreted as secondary output, not as replacements for the raw integrated sums. Older internal field names may not match the current public table labels exactly.
 
-`CellStatistics.properties` also stores contextual information such as:
+Run metadata also stores contextual information such as:
 
 - nuclear or cell-pair mode
 - scale source and effective scale
@@ -90,7 +86,7 @@ These ratios are derived values and should be interpreted as secondary output, n
 
 ## Exports
 
-CytoCV supports table exports through `django-tables2`. Export behavior is available in:
+CytoCV supports CSV and XLSX table exports. Export behavior is available in:
 
 - the display view for the first UUID with statistics
 - the dashboard for a selected saved file
@@ -132,4 +128,3 @@ After a fully successful run you should expect:
 - [`workflow-guide.md`](workflow-guide.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
-

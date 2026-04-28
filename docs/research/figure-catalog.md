@@ -1,80 +1,34 @@
-﻿# Figure Catalog
+# Figure Catalog
 
 ## Purpose
 
-This catalog maps the current diagram set to manuscript, report, or appendix usage.
+This catalog summarizes the current CytoCV diagram set for reports, appendices, collaborator packets, and research-facing documentation. It uses the same public terminology as the current interface: DIC, Blue, Red, and Green.
 
 ## Primary Figures
 
-### Figure 1: System Architecture
-
-- Source: `docs/diagrams/01-system-architecture.mmd`
-- Rendered: `docs/diagrams/01-system-architecture.png`
-- Recommended use: overall software architecture
-- Suggested caption: Layered architecture of CytoCV showing the web tier, scientific processing services, and persistence boundaries.
-
-### Figure 2: End-To-End Workflow
-
-- Source: `docs/diagrams/02-end-to-end-workflow.mmd`
-- Rendered: `docs/diagrams/02-end-to-end-workflow.png`
-- Recommended use: methods overview
-- Suggested caption: End-to-end workflow from DeltaVision ingestion through validation, segmentation, quantification, and review.
-
-### Figure 3: Cell Analysis Flow
-
-- Source: `docs/diagrams/03-cell-analysis-flow.mmd`
-- Rendered: `docs/diagrams/03-cell-analysis-flow.png`
-- Recommended use: per-cell measurement subsection
-- Suggested caption: Per-cell analysis pipeline used to derive contour, distance, and intensity measurements from segmented cell crops, including optional legacy Blue contour handling.
-
-### Figure 4: Data Model
-
-- Source: `docs/diagrams/11-data-model.mmd`
-- Rendered: `docs/diagrams/11-data-model.png`
-- Recommended use: implementation or reproducibility section
-- Suggested caption: Core persistent entities for uploads, previews, segmented runs, and cell-level statistics.
+| Figure | Recommended use | Caption focus |
+| --- | --- | --- |
+| Figure 1. System architecture | Overall software architecture | Layered view of the web interface, scientific processing components, and persistent storage boundaries. |
+| Figure 2. End-to-end workflow | Methods overview | DeltaVision ingestion through validation, segmentation, quantification, review, and export. |
+| Figure 3. Cell analysis flow | Per-cell measurement section | How DIC-based segmentation and channel-specific measurements combine at the single-cell level. |
+| Figure 4. Data model | Reproducibility or implementation appendix | Relationships among uploaded runs, previews, segmented outputs, and per-cell statistics. |
 
 ## Supplementary Figures
 
-### Validation, Requirements, And Scale
-
-- `docs/diagrams/05-plugin-channel-map.mmd`
-
-  Suggested caption: Channel requirement model showing `DIC` as the universal segmentation dependency, plugin-driven fluorescence requirements, legacy Blue analyses, and optional validation expansion to all four logical roles.
-
-- `docs/diagrams/06-upload-validation-flow.mmd`
-
-  Suggested caption: Upload-time validation flow showing configurable layer-count and effective channel-requirement checks before a run enters preprocessing.
-
-- `docs/diagrams/07-scale-channel-resolution.mmd`
-
-  Suggested caption: Scale resolution and channel-mapping path from DeltaVision metadata through per-run threshold conversion.
-
-### Processing And Output
-
-- `docs/diagrams/08-preprocess-inference-flow.mmd`
-- `docs/diagrams/09-segmentation-output-flow.mmd`
-- `docs/diagrams/10-display-export-flow.mmd`
-
-### Retention And Control Flow
-
-- `docs/diagrams/04-artifact-lifecycle.mmd`
-- `docs/diagrams/12-progress-cancellation-state.mmd`
-- `docs/diagrams/13-run-ownership-retention-state.mmd`
-
-### Authentication And Legacy Behavior
-
-- `docs/diagrams/14-authentication-account-flow.mmd`
-- `docs/diagrams/15-legacy-blue-measurements.mmd`
+| Topic group | Figures | Typical use |
+| --- | --- | --- |
+| Validation and channel rules | Plugin-channel map; upload validation flow; scale and channel resolution | Appendix material for required-channel logic, metadata interpretation, and scale handling. |
+| Processing and output | Preprocess and inference flow; segmentation output flow; display and export flow | Detailed workflow explanation beyond the main narrative figure set. |
+| Retention and control | Artifact lifecycle; progress and cancellation state; run ownership and retention state | Operational context for run persistence, cancellation, and saved-result handling. |
+| Access and legacy context | Authentication and account flow; legacy Blue measurements | Account-based access overview and legacy analysis behavior when Blue-channel workflows are still needed. |
 
 ## Figure Usage Notes
 
-- Use the first four figures for the main narrative.
-- Use the supplementary figures for validation logic, appendix material, or implementation detail.
-- Keep Markdown captions as the editable source of truth.
-- Regenerate PNGs when the underlying flow or model changes.
+- Use the first four figures for the primary narrative in a manuscript, thesis chapter, or software appendix.
+- Use the supplementary figures when reviewers or collaborators need more detail on validation rules, workflow control, or legacy analysis paths.
+- Keep figure captions aligned with the current public channel terms Blue, Red, Green, and DIC rather than older instrument-specific names.
+- Revise the figure set whenever the workflow, validation policy, or measurement terminology changes.
 
-## Regeneration
+## Maintenance Note
 
-Diagram PNG regeneration is documented in [`../diagrams/README.md`](../diagrams/README.md).
-
+Editable diagram sources and rendered PNG assets are maintained alongside the rest of the repository documentation so that captions and diagrams can be updated together.

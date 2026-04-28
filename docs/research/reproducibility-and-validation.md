@@ -1,117 +1,69 @@
-﻿# Reproducibility And Validation
+# Reproducibility and Validation
 
 ## Abstract
 
-This document summarizes the practical requirements and implementation-specific limits on reproducing CytoCV results and deployments. It is grounded in the active code paths for plugin registration, upload validation, workflow defaults, and validation-related tests.
+This document summarizes the practical conditions required to reproduce CytoCV analyses. Reproducibility in CytoCV depends on matching the source DeltaVision input, the resolved channel mapping, the selected analysis modules, the stored scale context, the software revision, and the model weights used during segmentation.
 
-## Environment Constraints
+## Verified Workflow Defaults
 
-CytoCV is sensitive to environment consistency. The codebase expects:
+The current implementation and automated tests support the following statements:
 
-- Python `3.11.5`
-- the dependency set in `requirements.txt`
-- project-specific ML weights present in the expected weights directory
-- a valid `.env` configuration
+- DIC is the only universally required channel.
+- If no analysis modules are selected, the required channel set is DIC only.
+- The standard new-account workflow enables Puncta Distance, Cen Dot Location, Biorientation, Red/Green Contour Intensities, and Nuclear and Cell-Pair Intensity.
+- The standard new-account workflow therefore requires DIC, Red, and Green.
+- Blue becomes required only when a legacy analysis is enabled or when all-channel enforcement is turned on.
+- Exact four-layer validation is optional and separate from the baseline channel-role check.
 
-SQLite is acceptable for local development and testing. PostgreSQL is required for production operation.
+## Default Research Settings
 
-## Validation Semantics Verified Against Code
+The normalized default preference state defines the baseline workflow for a new account.
 
-The implemented requirement model is defined across `core.stats_plugins`, `core.views.experiment`, `core.metadata_processing.error_handling.dv_validation`, and `core.tests.test_stats_validation`.
-
-The verified behaviors are:
-
-- `DIC` is the only universally required channel
-- if no plugins are selected, the required channel set is `["DIC"]`
-- the default modern selected plugins require `DIC`, `Red`, and `Green`
-- Blue requirements are introduced by legacy plugins or by optional all-wavelength enforcement
-- `enforce_wavelengths=True` expands the required set to all four logical roles
-- `enforce_layer_count=True` enables exact four-layer validation; it is not a universal baseline rule
-
-These behaviors are test-backed and should be treated as the documentation source of truth until the implementation changes.
-
-## Default Preference State
-
-The normalized default preference payload in `accounts.preferences` establishes the baseline workflow policy.
-
-| Setting | Default value | Reproducibility implication |
+| Setting | Default state | Practical effect |
 | --- | --- | --- |
-| `selected_plugins` | `PunctaDistance`, `CENDot`, `GreenRedIntensity`, `NuclearCellPairIntensity` | Baseline modern run requires `DIC`, `Red`, and `Green` |
-| `module_enabled` | `False` | Validation overrides are disabled by default |
-| `enforce_layer_count` | `False` | Exact four-layer enforcement is off by default |
-| `enforce_wavelengths` | `False` | All-four-role enforcement is off by default |
-| `show_legacy_plugins` | `False` | Legacy Blue analyses are hidden by default |
-| `manual_required_channels` | empty list | No extra manual channel requirements are applied |
-| `nuclear_cell_pair_mode` | `green_nucleus` | Modern nuclear or cell-pair measurements use the green-nucleus mode unless overridden |
-| `use_metadata_scale` | `True` | Metadata-derived scale is preferred when available |
+| Default analyses | Puncta Distance; Cen Dot Location; Biorientation; Red/Green Contour Intensities; Nuclear and Cell-Pair Intensity | A standard new-account run requires DIC, Red, and Green. |
+| Validation override module | Off | Manual channel additions and stricter validation toggles remain inactive until explicitly enabled. |
+| Exact four-layer validation | Off | A run is not rejected solely for having fewer than four layers unless the stricter layer-count rule is turned on. |
+| All-channel enforcement | Off | Blue is not required unless a legacy analysis or stricter all-channel validation is selected. |
+| Show legacy analyses | Off | Blue-channel analyses stay hidden unless intentionally enabled. |
+| Manual channel additions | None | No extra channel roles are added beyond the selected analysis requirements. |
+| Nuclear measurement mode | Green nucleus measures Red | The modern nuclear or cell-pair workflow uses the green-defined nucleus contour unless the user changes the mode. |
+| Use metadata-derived scale | On | Stored microscope scale metadata is preferred when available. |
 
-## Configuration Validation
+## Context Recorded With Each Run
 
-The settings layer performs fail-fast validation for:
+Interpretation of a CytoCV result depends on the information saved with the run:
 
-- database backend selection
-- required PostgreSQL credentials
-- production secret-key safety
-- email transport toggle consistency
-- allowed account email verification modes
+- the original DeltaVision input
+- the resolved DIC, Blue, Red, and Green channel mapping
+- the selected analysis modules and their relevant settings
+- the effective scale used for spatial measurements
+- the exported per-cell measurement table
 
-This reduces configuration ambiguity and improves reproducibility across deployments.
+This stored context is important because CytoCV reports computed measurements, not final biological conclusions.
 
-## Data And Scale Reproducibility
+## Environment and Runtime Constraints
 
-Reproducibility of measurements depends on:
+The reference software environment currently targets Python 3.11.5 together with the project dependency set and the expected model weights. Reproducible execution also depends on analysis hardware that satisfies the machine-learning runtime requirements used by the segmentation path. Shared deployments should preserve authenticated access, server-side validation, and protected result access so that users review the same files and outputs that were actually processed.
 
-- the original DV input
-- the resolved channel mapping
-- the effective scale selected for the run
-- the selected plugin set
-- threshold and length parameters saved in session and copied into per-cell properties
+## Recommended Result Package
 
-CytoCV stores scale context and measurement context directly alongside run data, which preserves interpretability after processing completes.
+For a formal result package, preserve:
 
-## Test Coverage Relevant To Validation
+- the exact software revision
+- the environment description and dependency set
+- the model weight identifier or checksum used for segmentation
+- the selected analysis modules and any non-default overrides
+- the resolved channel-role mapping
+- the stored scale context
+- the exported measurement table and any reviewed overlays kept with the run
 
-The active automated suite includes coverage for:
+## Limits and Interpretation
 
-- upload-time scale initialization
-- preferences normalization
-- artifact storage behavior
-- inference and statistics-related logic
-- table behavior
-- validation-related unit tests, including channel requirement behavior
-
-This coverage is useful but not exhaustive. End-to-end reproducibility still depends on the exact runtime environment, the presence of the same model weights, and the same input data.
-
-## Runtime Constraints
-
-Two runtime constraints are especially important for reproducible scientific execution:
-
-- the model weights file must be present and unchanged
-- the TensorFlow-based analysis host must expose `AVX`
-
-A server can host the web interface without `AVX`, but the analysis pipeline will fail with `Illegal instruction` if the CPU does not support the required instruction set.
-
-## Known Limits
-
-- external model weights are required and are not embedded into the repository
-- transient artifacts may be cleaned automatically and are not a stable archival record
-- some outputs are graphical derivatives rather than raw numerical primitives
-- local and production environments differ in database backend and security posture
-
-## Recommended Reproducibility Practice
-
-For any formal result package, preserve:
-
-- exact commit hash
-- `.env` policy with secrets removed but settings retained
-- Python version
-- dependency set
-- model weight identifier
-- selected plugin set
-- run scale context
-- exported table output
+- Transient previews or intermediate artifacts may be cleaned automatically and should not be treated as the archival record.
+- A reproduced run can still differ if the underlying model weights, hardware compatibility, or saved settings differ.
+- Public summaries should describe outputs as computed measurements and segmentation-derived artifacts rather than validated biological truth.
 
 ## Conclusion
 
-CytoCV is reproducible when environment, model, input, and run configuration are treated as part of the result definition. The current codebase already stores part of that context internally, but disciplined deployment, archival practice, and CPU compatibility remain necessary for formal reproducibility.
-
+CytoCV is reproducible when the input data, software revision, model weights, channel mapping, analysis selections, and scale context are treated as part of the result definition. The current implementation already records much of that context, but disciplined archival practice is still required for formal comparison or review.

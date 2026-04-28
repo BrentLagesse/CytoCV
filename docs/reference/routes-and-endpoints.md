@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This document lists the current public routes and route-level behavior defined in `cytocv/cytocv/urls.py`.
+This document lists the current routes and route-level behavior defined in `cytocv/cytocv/urls.py`.
+
+This is a maintainer reference, not an end-user guide.
 
 ## Public Or Auth Entry Routes
 
@@ -71,7 +73,7 @@ This document lists the current public routes and route-level behavior defined i
 
 - Name: `dashboard_channel_visibility`
 - Auth: required
-- Purpose: persist dashboard visibility preferences
+- Purpose: persist dashboard and display visibility preferences such as channel badges, scale details, spatial-unit preference, and main-image channel choice
 
 ### `GET|POST /workflow-defaults/`
 
@@ -98,6 +100,12 @@ This document lists the current public routes and route-level behavior defined i
 - Notes:
   - rejects non-`.dv` files before persistence
   - does not run DV validation, metadata extraction, or preview generation inline
+
+### `POST /api/experiment/workflow-defaults/`
+
+- Name: `experiment_workflow_defaults`
+- Auth: required
+- Purpose: persist the upload-page workflow-defaults popup settings back to the signed-in account
 
 ### `POST /api/experiment/upload-prep/`
 

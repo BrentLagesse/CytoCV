@@ -4,6 +4,8 @@
 
 This guide explains how to reach the first successful CytoCV run from a fresh local checkout.
 
+This page is for people running CytoCV locally for development, evaluation, or maintenance. If you are using an already deployed CytoCV site, start with [`workflow-guide.md`](workflow-guide.md) instead.
+
 ## Prerequisites
 
 - Windows PowerShell or a Linux shell
@@ -60,7 +62,7 @@ python manage.py runserver
 
 1. Open the `Experiment` page.
 2. Upload one or more `.dv` files.
-3. Leave the default modern plugins enabled unless you are intentionally testing a legacy Blue workflow.
+3. Leave the default modern workflow enabled unless you are intentionally testing a reduced plugin set or a legacy Blue workflow. The default set includes `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`.
 4. Confirm that the file provides `DIC` plus any channels required by the selected plugin set.
 5. Review scale settings and, if needed, advanced validation toggles.
 6. Continue to preprocessing.
@@ -79,8 +81,10 @@ After a successful run, CytoCV should produce:
 - `mask.tif`
 - outlined output frames
 - segmented cell crops
-- plugin-dependent debug overlays
-- `SegmentedImage` and `CellStatistics` database rows
+- overlay cache files and, when enabled, debug overlays
+- stored run and per-cell result records
+
+These outputs are software-generated analysis products intended for review and downstream research interpretation.
 
 ## Common Errors
 
@@ -107,4 +111,3 @@ After a successful run, CytoCV should produce:
 - [`analysis-options.md`](analysis-options.md)
 - [`troubleshooting.md`](troubleshooting.md)
 - [`../ops/deployment-guide.md`](../ops/deployment-guide.md)
-

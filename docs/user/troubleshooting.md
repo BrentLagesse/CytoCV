@@ -114,19 +114,18 @@ Login, signup, or password recovery fails.
 
 ### Likely Causes
 
-- reCAPTCHA is enabled and failing hostname validation
-- email configuration is incomplete
-- provider OAuth credentials are missing or invalid
+- the deployment's email, provider sign-in, or anti-abuse settings are incomplete
+- the selected sign-in method is not enabled on that site
+- a verification step was not completed successfully
 
 ### Corrective Action
 
-- verify the auth environment configuration
-- check that email settings are populated
-- confirm the correct hostnames are configured for reCAPTCHA
+- confirm that the site supports the sign-in method you are trying to use
+- complete any requested verification step in the same browser session when possible
+- ask a maintainer to review email, provider, or anti-abuse configuration if the site relies on those features
 
 ## Related Documents
 
-- [`../developer/local-installation-and-troubleshooting.md`](../developer/local-installation-and-troubleshooting.md)
 - [`getting-started.md`](getting-started.md)
-- [`../ops/environment-reference.md`](../ops/environment-reference.md)
-- [`../ops/security-and-privacy.md`](../ops/security-and-privacy.md)
+- [`workflow-guide.md`](workflow-guide.md)
+- [`account-and-dashboard.md`](account-and-dashboard.md)

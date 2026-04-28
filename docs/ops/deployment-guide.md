@@ -4,6 +4,8 @@
 
 This guide summarizes supported local and production deployment shapes for the current codebase.
 
+Use this as the active deployment summary. Keep host-specific rollout notes, credentials, and infrastructure-specific values out of this file.
+
 ## Supported Deployment Shapes
 
 - local development with SQLite
