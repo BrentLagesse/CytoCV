@@ -11,10 +11,11 @@ This guide explains the user-visible analysis controls that affect validation, s
 
 ## Default Plugin Configuration
 
-The current default modern plugin set is:
+The current workflow defaults select:
 
 - `PunctaDistance`
 - `CENDot`
+- `Biorientation`
 - `GreenRedIntensity`
 - `NuclearCellPairIntensity`
 
@@ -44,6 +45,7 @@ If no plugins are selected and no validation overrides are enabled, the enforced
 | --- | --- | --- | --- |
 | `PunctaDistance` | `Red`, `Green` | No | Yes |
 | `CENDot` | `Red`, `Green` | No | Yes |
+| `Biorientation` | `Red`, `Green` | No | Yes |
 | `GreenRedIntensity` | `Red`, `Green` | No | Yes |
 | `NuclearCellPairIntensity` | `Red`, `Green` | No | Yes |
 | `NucleusIntensity` | `Blue`, `Green` | Yes | No |
@@ -87,9 +89,14 @@ The active measurement-related controls include:
 - puncta source selection for `Puncta Distance`
 - Puncta line width
 - CEN dot distance threshold
-- CEN dot collinearity threshold
+- CEN dot proximity radius
+- Biorientation minimum Red distance
+- Biorientation maximum Red distance
+- Biorientation collinearity threshold
 - nuclear or cell-pair mode selection
+- optional Green dot splitting and split mode
 - optional Green contour filtering
+- optional alternate Red detection
 
 The puncta-line mode currently supports:
 
@@ -116,8 +123,8 @@ The selected options influence:
 
 - upload validation outcomes
 - effective required channel enforcement
-- scale information saved to `UploadedImage.scale_info`
-- `CellStatistics.properties`
+- saved scale context for each run
+- saved measurement context used during review and export
 - per-cell plugin execution and debug imagery
 
 ## Common Errors
@@ -139,4 +146,3 @@ The selected options influence:
 - [`workflow-guide.md`](workflow-guide.md)
 - [`output-guide.md`](output-guide.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
-

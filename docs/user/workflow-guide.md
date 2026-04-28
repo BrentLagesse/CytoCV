@@ -6,7 +6,7 @@ This guide documents the end-to-end user workflow from upload through review and
 
 ## Prerequisites
 
-- an account or a valid authenticated session
+- a signed-in account
 - one or more supported `.dv` files
 - a working CytoCV deployment
 
@@ -14,15 +14,14 @@ This guide documents the end-to-end user workflow from upload through review and
 
 Use the `Experiment` page to submit one or more `.dv` files. During upload, CytoCV:
 
-- creates a UUID for each run
-- stores the source file under the run media namespace
+- assigns a run UUID to each uploaded file
+- stores the source `.dv` file in protected run storage
 - sends large selections as multiple bounded upload requests
 - queues background upload preparation after the bytes are saved
 - derives the required channel set from `DIC`, the selected plugins, and any enabled validation overrides
 - validates the DV structure according to the selected validation options
-- extracts a channel configuration file
-- extracts scale metadata when available
-- generates preview assets
+- extracts channel-order information and scale metadata when available
+- generates preview images for preprocess review
 
 Validation failures are reported after the background preparation job finishes. Invalid newly uploaded files are removed from the active queue, while valid files continue to preprocess review.
 
@@ -31,16 +30,19 @@ Validation failures are reported after the background preparation job finishes. 
 The upload step also captures the active analysis configuration. This includes:
 
 - selected statistics plugins
-- Puncta line width
-- CEN dot distance threshold
-- CEN dot collinearity threshold
+- puncta source mode and Puncta line width
+- CEN dot distance threshold and proximity radius
+- Biorientation minimum and maximum Red-distance settings
+- Biorientation collinearity threshold
 - nuclear or cell-pair mode selection
+- optional Green dot splitting and split mode
 - optional Green contour filtering
+- optional alternate Red detection
 - scale behavior, including metadata preference and manual microns-per-pixel fallback
 
-These selections are stored in session state and reused in later steps.
+These selections are stored with the current workflow state and reused in later steps. Signed-in users can also save them as workflow defaults for future runs.
 
-At the default modern settings, the run requires `DIC`, `Red`, and `Green`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
+The current workflow defaults select `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`. That default set requires `DIC`, `Red`, and `Green`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
 
 ## Step 3: Review Preprocess Sidebar
 
@@ -48,7 +50,7 @@ The preprocess view shows:
 
 - the active file list
 - detected channel order per file
-- preview images for the current file
+- preview images for the current file, typically covering the first available layers up to four previews
 - per-file scale state and optional manual override controls
 
 Use this stage to confirm that each file has the expected `DIC` mapping and any additional channels needed by the selected workflow.
@@ -75,7 +77,7 @@ During segmentation, CytoCV:
 - caches per-cell channel imagery when possible
 - computes the selected statistics plugins
 - writes per-cell debug images when the active plugins need them
-- persists `SegmentedImage` and `CellStatistics` rows
+- stores run-level and per-cell results for later review
 
 If autosave is enabled and the account has remaining storage, finished runs are retained under the user account. Otherwise, finished runs remain transient and can still be viewed in the current session.
 
@@ -85,8 +87,8 @@ The display view provides:
 
 - one main outlined image per file
 - per-cell image panels in channel order
-- statistics for each cell
-- export support through `django-tables2`
+- software-generated measurements for each cell
+- CSV and XLSX table export for the current statistics table
 - save, unsave, and selection synchronization actions
 
 Main display frames can be switched by channel, and channel order is based on the stored `channel_config.json`.
@@ -95,7 +97,7 @@ Main display frames can be switched by channel, and channel order is based on th
 
 From display or dashboard, users can:
 
-- export table data
+- export table data as CSV or XLSX
 - save transient runs to their account if quota allows
 - unsave retained runs back to transient status
 - bulk-delete saved runs from the dashboard
@@ -103,7 +105,7 @@ From display or dashboard, users can:
 ## Expected Outputs
 
 - saved or transient segmentation results
-- per-cell statistics in the database
+- per-cell software-generated measurements saved with the run
 - exportable tabular summaries
 - dashboard-visible history for retained runs
 
@@ -124,5 +126,5 @@ From display or dashboard, users can:
 ## Related Documents
 
 - [`account-and-dashboard.md`](account-and-dashboard.md)
+- [`analysis-options.md`](analysis-options.md)
 - [`output-guide.md`](output-guide.md)
-- [`../developer/request-flows.md`](../developer/request-flows.md)

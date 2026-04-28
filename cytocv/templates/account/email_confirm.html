@@ -5,7 +5,8 @@
 {% block head %}
 <style>
     .auth-page {
-        min-height: calc(100dvh - var(--nav-height));
+        flex: 1 0 auto;
+        min-height: 100%;
         padding: calc(var(--nav-height) + 32px) 16px 40px;
         display: grid;
         place-items: center;
@@ -136,7 +137,7 @@
                     <p class="auth-panel-title">Email address ready to verify</p>
                     <p class="auth-note">
                         Confirm that <strong>{{ email }}</strong> belongs to you.
-                        Most verification links are confirmed automatically when opened.
+                        If you opened the newest verification email from this browser, this step is usually completed automatically.
                     </p>
                 </div>
                 {% url 'account_confirm_email' confirmation.key as action_url %}
@@ -165,11 +166,11 @@
                 <div class="card-intro">
                     <div class="step-indicator">Account verification</div>
                     <h1>Verification link expired</h1>
-                    <p class="subtitle">This secure email verification link is invalid or no longer active.</p>
+                    <p class="subtitle">This verification link is invalid or has expired.</p>
                 </div>
                 <div class="auth-panel">
                     <p class="auth-panel-title">Request a fresh verification email.</p>
-                    <p class="auth-note">Return to sign in with Google or Microsoft, then open the newest verification email from CytoCV.</p>
+                    <p class="auth-note">Return to sign in, then open the newest verification email from CytoCV.</p>
                 </div>
                 <div class="form-footer">
                     <a class="btn primary" href="{% url 'signin' %}">Back to sign in</a>

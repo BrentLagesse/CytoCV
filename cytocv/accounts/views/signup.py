@@ -504,7 +504,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 )
             except Exception:
                 logger.exception("Failed to send signup verification email.")
-                page_error = "Something went wrong. Try again."
+                page_error = "We couldn't send a verification code right now. Try again."
                 step = 2
                 return render_current()
 
@@ -557,7 +557,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 )
             except Exception:
                 logger.exception("Failed to resend signup verification email.")
-                page_error = "Something went wrong. Try again."
+                page_error = "We couldn't resend the verification code right now. Try again."
                 step = 3
                 return render_current()
 
@@ -628,7 +628,7 @@ def signup(request: HttpRequest) -> HttpResponse:
         if "create_account" in request.POST:
             # Step 4: validate passwords and create the user account.
             if not code_verified:
-                page_error = "Verify your email before creating an account."
+                page_error = "Enter the verification code before creating your account."
                 session["signup_step"] = 3
                 step = 3
                 return render_current()
@@ -701,7 +701,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
             except Exception:
                 logger.exception("Failed to create user during signup.")
-                page_error = "Something went wrong. Try again."
+                page_error = "We couldn't create your account right now. Try again."
                 step = 4
                 return render_current()
 

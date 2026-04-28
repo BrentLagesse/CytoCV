@@ -626,9 +626,11 @@ class DisplayManualSaveTests(TestCase):
 
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="celltable"', html=False)
         self.assertContains(response, 'id="exportButtons"', html=False)
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
 
     def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
@@ -693,8 +695,10 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
+        self.assertContains(response, 'id="celltable"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertContains(response, "const defaultSpatialStatsUnit =", html=False)
         self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)

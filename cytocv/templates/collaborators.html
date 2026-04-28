@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block title %}CytoCV Collaborators{% endblock title %}
+{% block meta_description %}Development contributors, faculty advisors, and research collaborators who helped build CytoCV.{% endblock meta_description %}
+{% block og_title %}CytoCV Collaborators{% endblock og_title %}
+{% block og_description %}Development contributors, faculty advisors, and research collaborators who helped build CytoCV.{% endblock og_description %}
+{% block twitter_title %}CytoCV Collaborators{% endblock twitter_title %}
+{% block twitter_description %}Development contributors, faculty advisors, and research collaborators who helped build CytoCV.{% endblock twitter_description %}
+
+{% block head %}
+    <style>
+        .collaborators-page {
+            flex: 1 0 auto;
+            width: 100%;
+            padding: calc(var(--nav-height) + 10px) 10px 10px;
+            display: flex;
+        }
+        .collaborators-shell {
+            flex: 1 1 auto;
+            display: grid;
+            gap: 16px;
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            min-height: 100%;
+        }
+        .collaborators-hero,
+        .collaborator-group {
+            display: grid;
+            gap: 14px;
+        }
+        .collaborators-hero h1,
+        .collaborator-group h2,
+        .collaborator-entry h3 {
+            margin: 0;
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .collaborators-hero h1 {
+            font-size: clamp(28px, 4vw, 38px);
+            line-height: 1.02;
+        }
+        .collaborators-hero p:not(.section-eyebrow),
+        .collaborator-entry p,
+        .collaborator-entry li {
+            margin: 0;
+            color: rgba(229, 237, 250, 0.92);
+            font-size: 14px;
+            line-height: 1.65;
+        }
+        .collaborators-hero .section-eyebrow,
+        .collaborator-group .section-eyebrow {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+            line-height: 1.4;
+            color: rgba(211, 220, 242, 0.84);
+        }
+        .collaborators-hero-copy {
+            display: grid;
+            gap: 10px;
+            max-width: 72ch;
+        }
+        .collaborator-group-copy {
+            display: grid;
+            gap: 8px;
+        }
+        .collaborator-group {
+            align-content: start;
+            gap: 22px;
+        }
+        .collaborator-entry-list {
+            display: grid;
+            gap: 18px;
+            align-items: stretch;
+        }
+        .collaborator-entry-list--contributors {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .collaborator-entry-list--supervising-professors {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .collaborator-entry {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+            position: relative;
+            padding: 0 4px;
+            align-self: stretch;
+            height: 100%;
+        }
+        .collaborator-entry-list--contributors .collaborator-entry:nth-child(n + 2)::before,
+        .collaborator-entry-list--supervising-professors .collaborator-entry:nth-child(n + 2)::before {
+            content: "";
+            position: absolute;
+            left: -9px;
+            top: 18px;
+            bottom: 18px;
+            width: 1px;
+            border-radius: 999px;
+            background: var(--panel-border);
+        }
+        @media (max-width: 1100px) {
+            .collaborator-entry-list--contributors {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .collaborator-entry-list--contributors .collaborator-entry::before {
+                display: none;
+            }
+            .collaborator-entry-list--contributors .collaborator-entry:nth-child(2n)::before {
+                display: block;
+            }
+        }
+        @media (max-width: 820px) {
+            .collaborator-entry-list--contributors,
+            .collaborator-entry-list--supervising-professors {
+                grid-template-columns: 1fr;
+            }
+            .collaborator-entry::before {
+                display: none;
+            }
+            .collaborator-entry + .collaborator-entry {
+                padding-top: 18px;
+            }
+            .collaborator-entry + .collaborator-entry::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 14px;
+                right: 14px;
+                height: 1px;
+                border-radius: 999px;
+                background: var(--panel-border);
+            }
+        }
+        .collaborator-card-head {
+            display: grid;
+            gap: 4px;
+        }
+        .collaborator-contact {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .collaborator-contact a {
+            color: rgba(214, 229, 255, 0.9);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .collaborator-contact a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+        .collaborator-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .collaborator-role {
+            color: #a9c9ff;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .collaborator-institution {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 24px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(169, 201, 255, 0.26);
+            background: rgba(169, 201, 255, 0.1);
+            color: rgba(236, 243, 255, 0.94);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+        .collaborator-bio {
+            color: rgba(206, 218, 238, 0.9);
+        }
+        .collaborator-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: auto;
+            padding-top: 4px;
+        }
+        .collaborator-link {
+            display: inline-flex;
+            width: fit-content;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            min-width: 0;
+            padding: 9px 14px;
+            border-radius: 10px;
+            background-color: var(--accent);
+            border: 1px solid rgba(107, 183, 255, 0.36);
+            color: #fff;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        .collaborator-link:hover {
+            background-color: var(--accent-dark);
+            border-color: rgba(107, 183, 255, 0.48);
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+<div class="collaborators-page">
+<div class="collaborators-shell soft-fade-in">
+    <section class="collaborators-hero glass-card glass-section">
+        <div class="collaborators-hero-copy">
+            <p class="section-eyebrow">Project collaborators</p>
+            <h1>Collaborators</h1>
+            <p>CytoCV was developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine.</p>
+        </div>
+    </section>
+
+    {% for group in collaborator_groups %}
+        <section class="collaborator-group glass-card glass-section" id="{{ group.id }}" aria-labelledby="{{ group.id }}-title">
+            <div class="collaborator-group-copy">
+                <p class="section-eyebrow">Acknowledgement</p>
+                <h2 id="{{ group.id }}-title">{{ group.title }}</h2>
+            </div>
+            <div class="collaborator-entry-list collaborator-entry-list--{{ group.id }}">
+                {% for collaborator in group.entries %}
+                    <article class="collaborator-entry">
+                        <div class="collaborator-card-head">
+                            <h3>{{ collaborator.name }}</h3>
+                            {% if collaborator.email %}
+                                <p class="collaborator-contact">
+                                    <a href="mailto:{{ collaborator.email }}">{{ collaborator.email }}</a>
+                                </p>
+                            {% endif %}
+                            <div class="collaborator-meta">
+                                <p class="collaborator-role">{{ collaborator.role }}</p>
+                                <span class="collaborator-institution">{{ collaborator.institution_label }}</span>
+                            </div>
+                        </div>
+                        <p>{{ collaborator.summary }}</p>
+                        <p class="collaborator-bio">{{ collaborator.bio }}</p>
+                        {% if collaborator.links %}
+                            <div class="collaborator-links">
+                                {% for link in collaborator.links %}
+                                    <a href="{{ link.href }}" class="collaborator-link" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% endfor %}
+</div>
+</div>
+{% endblock content %}

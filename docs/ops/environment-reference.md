@@ -4,6 +4,8 @@
 
 This document is the authoritative reference for environment variables consumed by the current application code.
 
+This is a maintainer reference. Document variable names and behavior here, but do not record live production values, private hostnames, copied secret material, or organization-specific credentials in versioned documentation.
+
 ## Core Settings
 
 ### `CYTOCV_SECRET_KEY`
@@ -27,7 +29,9 @@ This document is the authoritative reference for environment variables consumed 
 - Type: comma-separated host list
 - Default: empty string
 - Effect: populates Django `ALLOWED_HOSTS`
-- Notes: `SECURITY_STRICT` requires explicit non-wildcard hosts
+- Notes:
+  - `SECURITY_STRICT` requires explicit non-wildcard hosts
+  - keep the actual production host list in deployment-managed configuration, not in shared docs
 
 ### `CYTOCV_ANALYSIS_EXECUTION_MODE`
 
@@ -190,7 +194,9 @@ This document is the authoritative reference for environment variables consumed 
 - Allowed values: `none`, `optional`, `mandatory`
 - Default: `none` when debug is on, `optional` otherwise
 - Effect: allauth email verification mode for Google/Microsoft provider accounts
-- Notes: provider verification uses a signed confirmation link generated from the active request host and scheme. Native CytoCV signup and password recovery are separate flows and use numeric verification codes. All account verification codes and provider confirmation links use `CYTOCV_AUTH_VERIFICATION_EXPIRY_MINUTES`.
+- Notes:
+  - native CytoCV signup and password recovery use the application's own verification-code flow
+  - keep this setting aligned with working email delivery and the intended sign-in policy for the deployment
 
 ### `CYTOCV_EMAIL_BACKEND`
 
@@ -279,7 +285,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: string
 - Default: empty, then falls back to `CYTOCV_EMAIL_REPLY_TO`
 - Effect: public CytoCV support contact available for future support pages and fallback sender behavior
-- Example: `cytocv@uw.edu`
+- Example: `support@institution.example`
 
 ### `CYTOCV_AUTH_EMAIL_FROM`
 
@@ -287,7 +293,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: string
 - Default: empty, then falls back to `CYTOCV_DEFAULT_FROM_EMAIL`
 - Effect: sender used for account verification and password recovery emails
-- Notes: may include a display name, for example `"CytoCV<cytocv-noreply@uw.edu>"`, if the SMTP relay is authorized to send as that address. The signup, password-recovery, and OAuth verification UI surfaces display only the parsed email address when shown to users.
+- Notes: may include a display name, for example `"CytoCV <noreply@institution.example>"`, if the SMTP relay is authorized to send as that address.
 
 ### `CYTOCV_PUBLIC_BASE_URL`
 
@@ -295,7 +301,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: URL
 - Default: empty
 - Effect: public absolute base URL used when account emails need absolute static asset links, such as the UWB STEM logo
-- Notes: OAuth confirmation links are not built from this value; allauth generates those links from the request host and scheme so local and deployed links follow the active site configuration.
+- Notes: keep this aligned with the public site origin when branded email content or other absolute public links need it.
 
 ## Storage Quota Settings
 
@@ -356,7 +362,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: string
 - Default: Google siteverify endpoint
 - Effect: reCAPTCHA backend verify URL
-- Notes: only honored outside production strict behavior when override is allowed or debug is enabled
+- Notes: advanced override for controlled testing only; avoid custom values in normal production deployments
 
 ### `CYTOCV_RECAPTCHA_ALLOW_VERIFY_URL_OVERRIDE`
 
@@ -371,6 +377,7 @@ This document is the authoritative reference for environment variables consumed 
 - Type: comma-separated host list
 - Default: `localhost,127.0.0.1` in debug, otherwise derived from allowed hosts
 - Effect: expected hostnames for reCAPTCHA token validation
+- Notes: set explicit approved public hostnames for deployed environments
 
 ## Security And Rate Limit Settings
 
@@ -399,15 +406,17 @@ This document is the authoritative reference for environment variables consumed 
 
 - Required: no
 - Type: integer
-- Default: `15`
+- Default: maintainer-defined in settings
 - Effect: max attempts in the configured rate-limit window
+- Notes: keep the deployment's actual threshold in private operational records rather than shared repository documentation
 
 ### `CYTOCV_RATE_LIMIT_WINDOW`
 
 - Required: no
 - Type: integer
-- Default: `60`
+- Default: maintainer-defined in settings
 - Effect: rate-limit window in seconds
+- Notes: keep the deployment's actual threshold in private operational records rather than shared repository documentation
 
 ## Artifact Retention Setting
 

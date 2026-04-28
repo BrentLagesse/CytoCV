@@ -94,11 +94,10 @@ Observed output naming patterns include:
 
 ## Export Output
 
-Table exports are generated through `django-tables2` and use the uploaded image stem as the basis of the download name where possible.
+CytoCV exports result tables as CSV and XLSX files. In the current implementation, the download name is usually based on the uploaded image stem.
 
 ## Related Documents
 
 - [`data-model.md`](data-model.md)
 - [`glossary.md`](glossary.md)
 - [`../developer/data-flow-and-artifacts.md`](../developer/data-flow-and-artifacts.md)
-

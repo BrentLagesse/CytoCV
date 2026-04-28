@@ -220,7 +220,7 @@ def display(request, uuids):
             uploaded_image = UploadedImage.objects.get(uuid=uuid)
             cell_image = SegmentedImage.objects.get(UUID=uuid)
             if not _can_access_display_uuid(request, uploaded_image, cell_image):
-                return HttpResponse('Unauthorized', status=401)
+                return HttpResponse("You do not have access to this result.", status=401)
             image_name = uploaded_image.name
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
@@ -363,9 +363,9 @@ def display(request, uuids):
             }
 
         except UploadedImage.DoesNotExist:
-            return HttpResponse(f"Uploaded image not found for UUID {uuid}", status=404)
+            return HttpResponse("The uploaded image could not be found.", status=404)
         except SegmentedImage.DoesNotExist:
-            return HttpResponse(f"Segmented image not found for UUID {uuid}", status=404)
+            return HttpResponse("The segmented results could not be found.", status=404)
 
     if cell_table is None:
         cell_table = CellTable(
@@ -399,11 +399,14 @@ def save_display_files(request):
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid request payload."}, status=400)
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
 
     requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
-        return JsonResponse({"error": "No valid files were selected."}, status=400)
+        return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
     uploaded_map = {
         str(item.uuid): item
@@ -414,7 +417,7 @@ def save_display_files(request):
     }
     if len(uploaded_map) != len(set(requested_uuids)):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -424,7 +427,7 @@ def save_display_files(request):
     }
     if len(segmented_map) != len(set(requested_uuids)):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -436,7 +439,7 @@ def save_display_files(request):
         segmented = segmented_map.get(uuid)
         if segmented is None:
             return JsonResponse(
-                {"error": "One or more selected files are unavailable."},
+                {"error": "One or more selected files are no longer available. Refresh and try again."},
                 status=403,
             )
         if segmented.user_id == request.user.id:
@@ -446,7 +449,7 @@ def save_display_files(request):
             to_save.append(uuid)
             continue
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -497,11 +500,14 @@ def unsave_display_files(request):
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid request payload."}, status=400)
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
 
     requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
-        return JsonResponse({"error": "No valid files were selected."}, status=400)
+        return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
     uploaded_map = {
         str(item.uuid): item
@@ -512,7 +518,7 @@ def unsave_display_files(request):
     }
     if len(uploaded_map) != len(set(requested_uuids)):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -522,7 +528,7 @@ def unsave_display_files(request):
     }
     if len(segmented_map) != len(set(requested_uuids)):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -534,7 +540,7 @@ def unsave_display_files(request):
         segmented = segmented_map.get(uuid)
         if segmented is None:
             return JsonResponse(
-                {"error": "One or more selected files are unavailable."},
+                {"error": "One or more selected files are no longer available. Refresh and try again."},
                 status=403,
             )
         if segmented.user_id == request.user.id:
@@ -544,7 +550,7 @@ def unsave_display_files(request):
             already_unsaved.append(uuid)
             continue
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -583,12 +589,15 @@ def sync_display_file_selection(request):
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid request payload."}, status=400)
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
 
     visible_uuids = _normalize_uuid_list(payload.get("visible_uuids", []))
     selected_uuids = _normalize_uuid_list(payload.get("selected_uuids", []))
     if not visible_uuids:
-        return JsonResponse({"error": "No valid files were provided."}, status=400)
+        return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
     visible_set = set(visible_uuids)
     selected_set = set(selected_uuids)
@@ -607,7 +616,7 @@ def sync_display_file_selection(request):
     }
     if len(uploaded_map) != len(visible_set):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -617,7 +626,7 @@ def sync_display_file_selection(request):
     }
     if len(segmented_map) != len(visible_set):
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -628,7 +637,7 @@ def sync_display_file_selection(request):
         segmented = segmented_map.get(uuid)
         if segmented is None:
             return JsonResponse(
-                {"error": "One or more selected files are unavailable."},
+                {"error": "One or more selected files are no longer available. Refresh and try again."},
                 status=403,
             )
         if segmented.user_id == request.user.id:
@@ -637,7 +646,7 @@ def sync_display_file_selection(request):
         if segmented.user_id == guest_id and uuid in transient_uuids:
             continue
         return JsonResponse(
-            {"error": "One or more selected files are unavailable."},
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
         )
 
@@ -693,25 +702,25 @@ def sync_display_file_selection(request):
 def main_image_channel(request, uuid):
     """Return the main image URL for a given channel without a full page reload."""
     if request.method != 'GET':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        return JsonResponse({'error': 'This action is not available.'}, status=405)
 
     channel = (request.GET.get('channel') or '').strip().lower()
     channel_role = channel_role_from_slug(channel)
     if not channel_role:
-        return JsonResponse({'error': 'Unknown channel'}, status=400)
+        return JsonResponse({'error': 'That image channel is not available for this file.'}, status=400)
 
     try:
         uploaded_image = UploadedImage.objects.get(uuid=uuid)
     except UploadedImage.DoesNotExist:
-        return JsonResponse({'error': 'Uploaded image not found'}, status=404)
+        return JsonResponse({'error': 'The uploaded image could not be found.'}, status=404)
 
     try:
         cell_image = SegmentedImage.objects.get(UUID=uuid)
     except SegmentedImage.DoesNotExist:
-        return JsonResponse({'error': 'Segmented image not found'}, status=404)
+        return JsonResponse({'error': 'The segmented results could not be found.'}, status=404)
 
     if not _can_access_display_uuid(request, uploaded_image, cell_image):
-        return JsonResponse({'error': 'Unauthorized'}, status=401)
+        return JsonResponse({'error': 'You do not have access to this result.'}, status=401)
 
     channel_config = get_channel_config_for_uuid(str(uuid))
     available_frames = _scan_output_frames(str(uuid))

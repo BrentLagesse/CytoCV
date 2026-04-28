@@ -1,0 +1,90 @@
+{% load static %}
+<footer class="site-footer" aria-label="Site footer">
+    <div class="site-footer-inner">
+        <div class="site-footer-top">
+            <a
+                class="site-footer-link"
+                href="https://www.uwb.edu/stem/about"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                UW Bothell School of STEM
+            </a>
+            <a
+                class="site-footer-link"
+                href="https://www.uwb.edu/stem/about/departments/css"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Department of Computing &amp; Software Systems
+            </a>
+        </div>
+        <a
+            class="site-footer-logo-link"
+            href="https://www.uwb.edu/stem/about"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Visit the UW Bothell School of STEM website"
+        >
+            <img
+                class="site-footer-logo"
+                src="{% static 'assets/uwb/web-white-left-school-signature-uw-bothell.png' %}"
+                alt="UW Bothell School of STEM logo"
+            >
+        </a>
+        <div class="site-footer-contact" aria-label="School contact information">
+            <p>18115 Campus Way NE, Bothell, WA 98011-8246</p>
+            <p>
+                <a
+                    class="site-footer-link"
+                    href="tel:4253525000"
+                >
+                    425.352.5000
+                </a>
+            </p>
+        </div>
+        <div class="site-footer-bottom">
+            <a
+                class="site-footer-link"
+                href="{% url 'license' %}"
+            >
+                License
+            </a>
+            <a
+                class="site-footer-link"
+                href="https://www.washington.edu/online/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Privacy
+            </a>
+            <a
+                class="site-footer-link"
+                href="https://www.washington.edu/online/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Terms
+            </a>
+            <a
+                class="site-footer-link"
+                href="https://www.uwb.edu/accessibility/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Accessibility
+            </a>
+        </div>
+        <p class="site-footer-license">
+            &copy; {% now "Y" %} CytoCV. Licensed under
+            <a
+                class="site-footer-link"
+                href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                CC BY-NC-SA 4.0
+            </a>.
+        </p>
+    </div>
+</footer>

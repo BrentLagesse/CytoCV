@@ -46,7 +46,7 @@ What it does not do:
 
 - it does not support WSL
 - it does not configure local PostgreSQL in v1
-- it does not auto-repair tracked migration files if Django migrations fail
+- it does not auto-repair a broken local database state or manually edited migration state
 
 Installer state:
 
@@ -54,7 +54,7 @@ Installer state:
 - reruns use real checks instead of trusting checkpoints blindly
 - steps are skipped only when the current environment still validates
 
-If the script stops on a migration failure, fix the issue manually using the documented recovery path in this guide and then rerun the same installer command.
+If the script stops on a migration failure, fix the local environment issue manually using the checks in this guide and then rerun the same installer command.
 
 ## Smart Windows Run Script
 
@@ -247,6 +247,8 @@ python manage.py migrate
 python manage.py check
 ```
 
+The current repository includes tracked migrations for `accounts` and `core`, so a clean checkout should succeed with the normal migration path.
+
 ### 6. Start the local server
 
 ```bash
@@ -364,43 +366,36 @@ Fix:
 
 - put the file at `cytocv/core/weights/deepretina_final.h5`
 
-### 5. Migration Chain Problems
+### 5. Migration Command Fails
 
 Symptoms:
 
 ```text
-App 'accounts' does not have migrations.
-App 'core' does not have migrations.
+django.db.utils.OperationalError: no such table: ...
 ```
 
 or:
 
 ```text
-NodeNotFoundError: Migration core.0007_uploadedimage_scale_info dependencies reference nonexistent parent node
+django.db.utils.ProgrammingError: relation ... does not exist
 ```
 
 Cause:
 
-- the repository migration tracking is currently incomplete
+- migrations have not been applied cleanly
+- the local database points at an older schema state
+- the active `.env` is not using the database backend you expected
 
-Local recovery path:
+Recommended checks:
 
 ```bash
-cd ..
-rm -f cytocv/accounts/migrations/0001_initial.py
-rm -f cytocv/core/migrations/0001_initial.py
-rm -f cytocv/core/migrations/0007_uploadedimage_scale_info.py
 cd cytocv
-python manage.py makemigrations accounts core
+python manage.py showmigrations --plan
 python manage.py migrate
 python manage.py check
 ```
 
-Important:
-
-- this is a local recovery workaround
-- it does not fix the underlying repository migration-tracking problem
-- the smart Windows installer intentionally stops here and asks you to resolve this manually before rerunning it
+If you are using a disposable local SQLite database and it is in a bad local state, recreate that local database and rerun migrations rather than editing tracked migration files.
 
 ### 6. `no such table: accounts_customuser`
 
@@ -419,7 +414,7 @@ Cause:
 Fix:
 
 - rerun `python manage.py migrate`
-- if the migration graph is broken, use the migration recovery path above
+- if you are using disposable local SQLite state, recreate that database and rerun migrations
 
 ### 7. `ImportError: libGL.so.1`
 
@@ -441,24 +436,19 @@ Fix on Ubuntu/Debian:
 sudo apt install -y libgl1 libglib2.0-0
 ```
 
-### 8. `ModuleNotFoundError: No module named 'core.cell_analysis.analysis'`
-
-This is a Linux case-sensitivity issue.
+### 8. `ModuleNotFoundError` or import failures during startup
 
 Cause:
 
-- imports expect `analysis.py`
-- the file is named `Analysis.py`
+- the virtual environment is incomplete
+- a dependency install failed
+- the command is running from the wrong interpreter or shell state
 
 Fix:
 
-- ensure the file is named:
-
-```text
-cytocv/core/cell_analysis/analysis.py
-```
-
-Windows can mask this problem. Linux will not.
+- confirm the expected virtual environment Python is active
+- rerun `python -m pip install -r requirements.txt --no-cache-dir`
+- rerun `python manage.py check` from `cytocv/`
 
 ### 9. `Requested setting AUTH_USER_MODEL, but settings are not configured`
 

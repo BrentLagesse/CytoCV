@@ -439,15 +439,15 @@ def pre_process(request, uuids):
             }
             if len(uploaded_map) != len(active_uuid_set):
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return JsonResponse({"error": "Unauthorized"}, status=401)
-                return HttpResponse("Unauthorized", status=401)
+                    return JsonResponse({"error": "You do not have access to this experiment."}, status=401)
+                return HttpResponse("You do not have access to this experiment.", status=401)
             updates = []
             for image_uuid in revert_uuid_set:
                 uploaded = uploaded_map.get(image_uuid)
                 if uploaded is None:
                     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                        return JsonResponse({"error": "Unauthorized"}, status=401)
-                    return HttpResponse("Unauthorized", status=401)
+                        return JsonResponse({"error": "You do not have access to this experiment."}, status=401)
+                    return HttpResponse("You do not have access to this experiment.", status=401)
                 uploaded.scale_info = clear_manual_override_scale(
                     uploaded.scale_info,
                     manual_default=default_manual_scale,
@@ -457,8 +457,8 @@ def pre_process(request, uuids):
                 uploaded = uploaded_map.get(image_uuid)
                 if uploaded is None:
                     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                        return JsonResponse({"error": "Unauthorized"}, status=401)
-                    return HttpResponse("Unauthorized", status=401)
+                        return JsonResponse({"error": "You do not have access to this experiment."}, status=401)
+                    return HttpResponse("You do not have access to this experiment.", status=401)
                 uploaded.scale_info = apply_manual_override_scale(
                     uploaded.scale_info,
                     effective_um_per_px=effective_scale,
@@ -825,7 +825,7 @@ def update_channel_order(request, uuid):
         new_order = data.get('order', [])
         expected = set(CHANNEL_ROLE_ORDER)
         if set(new_order) != expected:
-            return JsonResponse({'error': 'invalid channel list'}, status=400)
+            return JsonResponse({'error': 'Invalid channel order.'}, status=400)
 
         # new: 0–3 mapping to match your layer filenames
         mapping = {ch: i for i, ch in enumerate(new_order)}
@@ -833,11 +833,17 @@ def update_channel_order(request, uuid):
 
         cfg_path = Path(MEDIA_ROOT) / uuid / 'channel_config.json'
         if not cfg_path.exists():
-            return JsonResponse({'error': 'config not found'}, status=404)
+            return JsonResponse(
+                {'error': 'Channel information for this file could not be loaded.'},
+                status=404,
+            )
 
         # SAVE: overwrite the JSON file with new mapping
         cfg_path.write_text(json.dumps(mapping))
         return JsonResponse({'status': 'ok'})
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    except Exception:
+        return JsonResponse(
+            {'error': 'The channel order could not be updated. Try again.'},
+            status=500,
+        )

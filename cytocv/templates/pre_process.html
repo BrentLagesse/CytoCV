@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Pre-process{% endblock title %}
+{% block title %}Preprocessing Review{% endblock title %}
 
 {% block head %}
 <script>
@@ -59,7 +59,7 @@
       .join("");
     const hasSections = lines.some((line) => !line);
     const headerLine = hasSections
-      ? '<div style="font-weight:600; margin-bottom:4px;">Validation issues:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
+      ? '<div style="font-weight:600; margin-bottom:4px;">Input checks to review:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
       : "";
 
     const message = document.createElement("div");
@@ -111,19 +111,20 @@
       .channel-chip.green:hover { background-color: #3bbf3b; }
 
       /* Overall page styling */
-      body {
-        margin: 0;
-        font-family: var(--app-font);
-        background-color: var(--page-bg);
-        color: var(--text);
+      .preprocess-page {
+        flex: 1 0 auto;
+        width: 100%;
         padding: calc(var(--nav-height) + var(--page-shell-gap)) var(--page-shell-gap) var(--page-shell-gap);
+        display: flex;
+        flex-direction: column;
       }
 
       .page-container {
         display: flex;
         flex-direction: row;
         width: 100%;
-        min-height: calc(100dvh - var(--nav-height) - 26px);
+        min-height: 100%;
+        flex: 1 1 auto;
         min-width: 0;
         align-items: flex-start;
         gap: var(--page-shell-gap);
@@ -1162,6 +1163,7 @@
 {% endblock head %}
 
 {% block content %}
+    <div class="preprocess-page">
     {% if messages %} {% for msg in messages %}
     <div
       style="background: #f8d7da; color: #721c24; padding: 8px; border-radius: 4px; margin: 10px 0;"
@@ -2613,4 +2615,7 @@
         }
       })();
     </script>
+    </div>
 {% endblock content %}
+
+{% block site_footer %}{% endblock site_footer %}

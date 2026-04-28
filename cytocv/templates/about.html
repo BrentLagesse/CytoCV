@@ -1,0 +1,411 @@
+{% extends 'base.html' %}
+{% block title %}About CytoCV{% endblock title %}
+{% block meta_description %}High-level overview of CytoCV, its workflow, outputs, and biological relevance.{% endblock meta_description %}
+{% block og_title %}About CytoCV{% endblock og_title %}
+{% block og_description %}High-level overview of CytoCV, its workflow, outputs, and biological relevance.{% endblock og_description %}
+{% block twitter_title %}About CytoCV{% endblock twitter_title %}
+{% block twitter_description %}High-level overview of CytoCV, its workflow, outputs, and biological relevance.{% endblock twitter_description %}
+
+{% block head %}
+    <style>
+        .about-page {
+            flex: 1 0 auto;
+            width: 100%;
+            padding: calc(var(--nav-height) + 10px) 10px 10px;
+            display: flex;
+        }
+        .about-shell {
+            flex: 1 1 auto;
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            display: grid;
+            gap: 12px;
+            min-height: 100%;
+        }
+        .about-intro-card,
+        .about-toc,
+        .about-card {
+            display: grid;
+            gap: 14px;
+            min-width: 0;
+        }
+        .about-intro-card.glass-section,
+        .about-toc.glass-section,
+        .about-card.glass-section {
+            padding: 18px;
+        }
+        .about-intro-copy {
+            display: grid;
+            gap: 12px;
+        }
+        .about-page-title {
+            margin: 0;
+            font-size: clamp(30px, 4.2vw, 40px);
+            line-height: 1.04;
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .about-intro-copy p:not(.section-eyebrow) {
+            margin: 0;
+            color: rgba(229, 237, 250, 0.92);
+            font-size: 14px;
+            line-height: 1.65;
+        }
+        .about-toc {
+            align-self: start;
+        }
+        .about-toc-title {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.12;
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .about-toc-list {
+            margin: 0;
+            padding-left: 20px;
+            display: grid;
+            gap: 0;
+        }
+        .about-toc-list li {
+            color: rgba(221, 228, 242, 0.74);
+        }
+        .about-toc-list li + li {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+        .about-toc-link {
+            color: rgba(231, 239, 255, 0.96);
+            text-decoration: none;
+            font-size: 14px;
+            line-height: 1.55;
+        }
+        .about-toc-link:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+        .about-grid {
+            display: grid;
+            gap: 12px;
+        }
+        .about-card {
+            scroll-margin-top: calc(var(--nav-height) + 18px);
+        }
+        .about-card-head {
+            display: grid;
+            gap: 10px;
+        }
+        .about-card-title {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.12;
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .about-copy {
+            display: grid;
+            gap: 10px;
+        }
+        .about-copy p {
+            margin: 0;
+            color: rgba(229, 237, 250, 0.92);
+            font-size: 14px;
+            line-height: 1.62;
+        }
+        .about-channel-list,
+        .about-detail-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 10px;
+        }
+        .about-channel-list {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .about-channel-list li,
+        .about-detail-list li {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.08), rgba(255, 255, 255, 0.04));
+            border: 1px solid rgba(98, 160, 255, 0.22);
+            display: grid;
+            gap: 6px;
+        }
+        .about-channel-list li.dic {
+            background: linear-gradient(135deg, rgba(66, 66, 66, 0.28), rgba(16, 24, 35, 0.58));
+            border-color: rgba(128, 128, 128, 0.34);
+        }
+        .about-channel-list li.red {
+            background: linear-gradient(135deg, rgba(173, 46, 46, 0.28), rgba(16, 24, 35, 0.58));
+            border-color: rgba(224, 102, 102, 0.34);
+        }
+        .about-channel-list li.green {
+            background: linear-gradient(135deg, rgba(20, 124, 67, 0.28), rgba(16, 24, 35, 0.58));
+            border-color: rgba(74, 196, 124, 0.34);
+        }
+        .about-channel-list li.blue {
+            background: linear-gradient(135deg, rgba(33, 74, 212, 0.26), rgba(16, 24, 35, 0.58));
+            border-color: rgba(83, 118, 255, 0.34);
+        }
+        .about-channel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .about-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 74px;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .about-chip.dic { background-color: #3d4756; }
+        .about-chip.red { background-color: #d85a64; }
+        .about-chip.green { background-color: #309f63; }
+        .about-chip.blue { background-color: #456af0; }
+        .about-channel-hint,
+        .about-output-label {
+            color: rgba(221, 228, 242, 0.82);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .about-channel-copy,
+        .about-detail-list span {
+            color: rgba(233, 240, 255, 0.96);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .about-detail-list strong {
+            color: #ffffff;
+            font-size: 13px;
+        }
+        .about-tag-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .about-tag-list li {
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: rgba(0, 123, 255, 0.12);
+            border: 1px solid rgba(80, 153, 255, 0.34);
+            color: rgba(226, 238, 255, 0.96);
+            font-size: 12px;
+            letter-spacing: 0.03em;
+        }
+        .about-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            align-self: flex-start;
+            padding: 8px 11px;
+            border-radius: 999px;
+            border: 1px solid rgba(237, 178, 93, 0.24);
+            background: rgba(237, 178, 93, 0.08);
+            color: #ffdba4;
+            font-size: 12px;
+        }
+        @media (max-width: 640px) {
+            .about-shell {
+                width: 100%;
+            }
+            .about-intro-card.glass-section,
+            .about-toc.glass-section,
+            .about-card.glass-section {
+                padding: 16px;
+            }
+            .about-channel-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+<div class="about-page">
+<div class="about-shell soft-fade-in">
+    <section class="about-intro-card glass-card glass-section" aria-labelledby="aboutPageTitle">
+        <div class="about-intro-copy">
+            <p class="section-eyebrow">About</p>
+            <h1 class="about-page-title" id="aboutPageTitle">About CytoCV</h1>
+            <p>CytoCV is a browser-based research workflow for DeltaVision microscopy of mitotic yeast cells, with connected image inputs, software-generated measurements, results, and links to deeper technical and biological context.</p>
+        </div>
+    </section>
+
+    {% if page_section_nav %}
+        <section class="about-toc glass-card glass-section" id="pageSectionJump" aria-labelledby="pageSectionJumpTitle">
+            <p class="section-eyebrow">Navigation</p>
+            <h2 class="about-toc-title" id="pageSectionJumpTitle">{{ page_section_nav.label }}</h2>
+            <ol class="about-toc-list">
+                {% for item in page_section_nav.items %}
+                    <li><a href="{{ item.href }}" class="about-toc-link">{{ item.label }}</a></li>
+                {% endfor %}
+            </ol>
+        </section>
+    {% endif %}
+
+    <section class="about-grid" aria-label="About CytoCV sections">
+        <article class="about-card glass-card glass-section" id="overview">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Overview</p>
+                <h2 class="about-card-title">What CytoCV Is</h2>
+            </div>
+            <div class="about-copy">
+                <p>CytoCV is a browser-based analysis workflow for DeltaVision <code>.dv</code> microscopy of mitotic yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one place.</p>
+                <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older Blue-based workflows available as legacy paths when they are needed.</p>
+            </div>
+            <ul class="about-channel-list" aria-label="Channel roles">
+                <li class="dic">
+                    <div class="about-channel-head">
+                        <span class="about-chip dic">DIC</span>
+                        <span class="about-channel-hint">Structure</span>
+                    </div>
+                    <span class="about-channel-copy">Structural channel used for segmentation.</span>
+                </li>
+                <li class="red">
+                    <div class="about-channel-head">
+                        <span class="about-chip red">Red</span>
+                        <span class="about-channel-hint">Red</span>
+                    </div>
+                    <span class="about-channel-copy">Red-signal contour and distance context.</span>
+                </li>
+                <li class="green">
+                    <div class="about-channel-head">
+                        <span class="about-chip green">Green</span>
+                        <span class="about-channel-hint">Green</span>
+                    </div>
+                    <span class="about-channel-copy">Green intensity and dot measurements.</span>
+                </li>
+                <li class="blue">
+                    <div class="about-channel-head">
+                        <span class="about-chip blue">Blue</span>
+                        <span class="about-channel-hint">Legacy</span>
+                    </div>
+                    <span class="about-channel-copy">Legacy nucleus-related analysis path.</span>
+                </li>
+            </ul>
+        </article>
+
+        <article class="about-card glass-card glass-section" id="research-need">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Research Need</p>
+                <h2 class="about-card-title">Why Researchers Need It</h2>
+            </div>
+            <div class="about-copy">
+                <p>Microscopy studies often require researchers to inspect many cells, compare fluorescent signals, and record measurements across repeated experiments. Doing that cell by cell by eye can take time, scale poorly as datasets grow, and introduce inconsistency in how cells are selected or measured.</p>
+                <p>CytoCV is designed to reduce manual analysis time and help researchers quantify more cells more consistently, while preserving the connection between the original image stack and the numbers produced from it.</p>
+            </div>
+        </article>
+
+        <article class="about-card glass-card glass-section" id="workflow">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Workflow</p>
+                <h2 class="about-card-title">How the Workflow Works</h2>
+            </div>
+            <div class="about-copy">
+                <p>Researchers upload DeltaVision <code>.dv</code> files, and CytoCV validates the channels required for the selected workflow before analysis proceeds. Preview images are generated first so the file can be checked before segmentation and measurement begin.</p>
+                <p>The platform then uses <code>DIC</code>, a structural brightfield-like channel, as the input for Mask R-CNN-based cell segmentation. After cells are segmented, CytoCV computes software-generated per-cell measurements and presents the results for review and export.</p>
+            </div>
+            <p class="about-output-label">Workflow outputs</p>
+            <ul class="about-tag-list" aria-label="Workflow outputs">
+                <li>Validation</li>
+                <li>Preview images</li>
+                <li>Segmentation</li>
+                <li>Per-cell measurements</li>
+                <li>Review</li>
+                <li>Export</li>
+            </ul>
+        </article>
+
+        <article class="about-card glass-card glass-section" id="measurements">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Measurements</p>
+                <h2 class="about-card-title">What CytoCV Measures</h2>
+            </div>
+            <ul class="about-detail-list">
+                <li>
+                    <strong>Puncta Distance</strong>
+                    <span>Reports the distance between paired puncta and the opposite-channel integrated intensity sampled along the line between them.</span>
+                </li>
+                <li>
+                    <strong>Cen Dot Location and Biorientation</strong>
+                    <span>Reports CEN dot location relative to segmented cell geometry and separately counts Green dots as colinear or off-axis relative to the Red puncta axis.</span>
+                </li>
+                <li>
+                    <strong>Green and Red contour intensity summaries</strong>
+                    <span>Calculates contour-based integrated intensity summaries across the Red and Green channels.</span>
+                </li>
+                <li>
+                    <strong>Nuclear and Cell-Pair Intensity</strong>
+                    <span>Uses either a Red-defined or Green-defined contour as the active nucleus source and measures the opposite channel inside the nucleus and across the cell pair.</span>
+                </li>
+            </ul>
+            <div class="about-note">Blue-based measurements remain available as legacy workflows, not the main default path.</div>
+        </article>
+
+        <article class="about-card glass-card glass-section" id="image-inputs">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Image Inputs</p>
+                <h2 class="about-card-title">What Image Inputs CytoCV Expects</h2>
+            </div>
+            <div class="about-copy">
+                <p>CytoCV is built for DeltaVision <code>.dv</code> microscopy files from mitotic yeast imaging workflows. The platform expects image stacks that preserve the channel context needed for validation, preview generation, segmentation, and downstream measurement.</p>
+                <p>In the current workflow, <code>DIC</code> provides the structural input for cell segmentation, while <code>Red</code> and <code>Green</code> channels provide the main fluorescence measurements. <code>Blue</code> remains relevant for older legacy analyses when that path is needed. Biology-facing names such as DAPI, mCherry, and GFP commonly map to the logical Blue, Red, and Green roles.</p>
+            </div>
+            <ul class="about-detail-list" aria-label="Image input expectations">
+                <li>
+                    <strong>File format</strong>
+                    <span>DeltaVision <code>.dv</code> image stacks are the expected upload format.</span>
+                </li>
+                <li>
+                    <strong>Structural input</strong>
+                    <span>DIC is used as the segmentation input that defines cell boundaries and mother/daughter geometry.</span>
+                </li>
+                <li>
+                    <strong>Fluorescence channels</strong>
+                    <span>Red and Green support the main current measurement workflows, while Blue remains available for legacy analysis paths.</span>
+                </li>
+                <li>
+                    <strong>Validation context</strong>
+                    <span>Uploads are checked before processing so the workflow can confirm the expected input structure and generate preview imagery for review.</span>
+                </li>
+            </ul>
+        </article>
+
+        <article class="about-card glass-card glass-section" id="results">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Results</p>
+                <h2 class="about-card-title">Review and Export Results</h2>
+            </div>
+            <div class="about-copy">
+                <p>CytoCV keeps segmented-cell review tied to the image context so users can inspect overlays, compare calculated per-cell outputs, and confirm that detected cells match the structures they expect before finalizing a run.</p>
+                <p>After review, the platform supports exportable result tables for downstream analysis, comparison across experiments, and figure-building workflows outside the browser.</p>
+            </div>
+        </article>
+
+        <article class="about-card glass-card glass-section" id="biological-value">
+            <div class="about-card-head">
+                <p class="section-eyebrow">Biological Value</p>
+                <h2 class="about-card-title">Why This Matters Biologically</h2>
+            </div>
+            <div class="about-copy">
+                <p>These measurements can help researchers compare signal localization between the nucleus and the cell pair, examine how paired Red and Green signals relate to one another, and evaluate patterns across yeast populations or mutant conditions.</p>
+                <p>CytoCV supports that interpretation by producing repeatable software measurements tied to the source images, but the results should still be reviewed alongside image context, experimental controls, and biological judgment.</p>
+            </div>
+        </article>
+    </section>
+</div>
+</div>
+{% endblock content %}

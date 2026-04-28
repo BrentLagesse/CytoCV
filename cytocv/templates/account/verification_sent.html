@@ -5,7 +5,8 @@
 {% block head %}
 <style>
     .auth-page {
-        min-height: calc(100dvh - var(--nav-height));
+        flex: 1 0 auto;
+        min-height: 100%;
         padding: calc(var(--nav-height) + 32px) 16px 40px;
         display: grid;
         place-items: center;
@@ -137,10 +138,10 @@
             <div class="card-intro">
                 <div class="step-indicator">Account verification</div>
                 <h1>Check your email</h1>
-                <p class="subtitle">We sent a secure verification link to your email address.</p>
+                <p class="subtitle">We sent a verification link to your email address.</p>
             </div>
             <div class="auth-panel">
-                <p class="auth-panel-title">Open the verification link to finish signing in.</p>
+                <p class="auth-panel-title">Open the newest email link to finish signing in.</p>
                 <p class="auth-note">
                     If you do not see the email in your inbox, check your spam or junk folder.
                     This verification link expires in {{ auth_verification_expiry_label }}.

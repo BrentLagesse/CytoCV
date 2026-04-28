@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}CytoCV License{% endblock title %}
+{% block meta_description %}Public license information for CytoCV project materials.{% endblock meta_description %}
+{% block og_title %}CytoCV License{% endblock og_title %}
+{% block og_description %}Public license information for CytoCV project materials.{% endblock og_description %}
+{% block twitter_title %}CytoCV License{% endblock twitter_title %}
+{% block twitter_description %}Public license information for CytoCV project materials.{% endblock twitter_description %}
+
+{% block head %}
+    <style>
+        .license-page {
+            flex: 1 0 auto;
+            width: 100%;
+            padding: calc(var(--nav-height) + 10px) 10px 10px;
+            display: flex;
+        }
+        .license-shell {
+            flex: 1 1 auto;
+            width: 100%;
+            max-width: 980px;
+            margin: 0 auto;
+            display: grid;
+            gap: 14px;
+        }
+        .license-card {
+            display: grid;
+            gap: 16px;
+            padding: 28px 30px;
+        }
+        .license-card .glass-title {
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .license-card p {
+            margin: 0;
+            color: rgba(229, 237, 250, 0.92);
+            font-size: 15px;
+            line-height: 1.65;
+        }
+        .license-card strong {
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .license-meta {
+            display: grid;
+            gap: 6px;
+            padding: 16px 18px;
+            border-radius: 16px;
+            background: rgba(16, 24, 35, 0.5);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.24);
+        }
+        .license-meta-label {
+            margin: 0;
+            color: rgba(211, 220, 242, 0.78);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .license-meta-value {
+            margin: 0;
+            color: rgba(247, 250, 255, 0.98);
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .license-list {
+            margin: 0;
+            padding-left: 20px;
+            display: grid;
+            gap: 8px;
+        }
+        .license-list li {
+            color: rgba(241, 245, 252, 0.96);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .license-note,
+        .license-disclaimer {
+            color: rgba(229, 237, 250, 0.9);
+        }
+        .license-inline-link {
+            color: #a9c9ff;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .license-inline-link:hover {
+            color: #c6ddff;
+        }
+        .license-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .license-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 14px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .license-link.primary {
+            background: var(--accent);
+            border: 1px solid transparent;
+            color: #fff;
+        }
+        .license-link.primary:hover {
+            background: var(--accent-dark);
+        }
+        .license-link.secondary {
+            background: var(--popup-secondary-button-bg);
+            border: 1px solid var(--popup-secondary-button-border);
+            color: #fff;
+        }
+        .license-link.secondary:hover {
+            background: var(--popup-secondary-button-hover-bg);
+        }
+        @media (max-width: 720px) {
+            .license-card {
+                padding: 24px 22px;
+            }
+            .license-actions {
+                width: 100%;
+                justify-content: stretch;
+            }
+            .license-link {
+                width: 100%;
+            }
+        }
+    </style>
+{% endblock head %}
+
+{% block content %}
+<div class="license-page">
+    <div class="license-shell soft-fade-in">
+        <section class="license-card glass-card glass-section" aria-labelledby="licensePageTitle">
+            <p class="section-eyebrow">License</p>
+            <h1 id="licensePageTitle" class="glass-title">CytoCV License</h1>
+            <p><strong>CytoCV is licensed under the {{ cc_license_name }} ({{ cc_license_identifier }}).</strong> The summary below is a brief plain-language overview based on the official Creative Commons materials.</p>
+            <div class="license-meta" aria-label="Canonical license identifier">
+                <p class="license-meta-label">Canonical identifier</p>
+                <p class="license-meta-value">{{ cc_license_identifier }}</p>
+            </div>
+            <ul class="license-list">
+                {% for point in license_summary_points %}
+                    <li>{{ point }}</li>
+                {% endfor %}
+            </ul>
+            <p class="license-note">{{ license_scope_note }}</p>
+            <p class="license-disclaimer">
+                {{ license_disclaimer }}
+                Review the
+                <a href="{{ cc_license_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">official license summary</a>
+                and
+                <a href="{{ cc_license_legal_code_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">legal code</a>.
+            </p>
+            <div class="license-actions">
+                <a
+                    href="{% url 'home' %}"
+                    class="license-link secondary"
+                    id="licenseBackLink"
+                    data-home-url="{% url 'home' %}"
+                    data-license-path="{% url 'license' %}"
+                >
+                    Back
+                </a>
+                <a href="{{ cc_license_url }}" class="license-link primary" target="_blank" rel="noopener noreferrer">View official license</a>
+            </div>
+        </section>
+    </div>
+</div>
+<script>
+    (function () {
+        const backLink = document.getElementById('licenseBackLink');
+        if (!backLink) return;
+
+        const homeUrl = backLink.dataset.homeUrl || '/';
+        const licensePath = backLink.dataset.licensePath || '/license/';
+        const referrer = document.referrer;
+
+        if (!referrer) {
+            backLink.href = homeUrl;
+            return;
+        }
+
+        try {
+            const referrerUrl = new URL(referrer);
+            if (referrerUrl.origin !== window.location.origin) {
+                backLink.href = homeUrl;
+                return;
+            }
+
+            if (referrerUrl.pathname === licensePath) {
+                backLink.href = homeUrl;
+                return;
+            }
+
+            backLink.href = `${referrerUrl.pathname}${referrerUrl.search}${referrerUrl.hash}`;
+        } catch (error) {
+            backLink.href = homeUrl;
+        }
+    }());
+</script>
+{% endblock content %}

@@ -2,6 +2,12 @@
 
 This directory is the canonical documentation home for CytoCV. The root `README.md` is intentionally brief. Detailed operational, scientific, and developer material lives here.
 
+## Audience
+
+- `docs/user/` is the main researcher-facing guide set. `getting-started.md` is for local checkout, evaluation, or maintainer-led setup. `workflow-guide.md` and the related user pages are the main references for researchers using a deployed CytoCV site.
+- `docs/developer/`, `docs/reference/`, and `docs/ops/` are maintainer-oriented. They may describe internals, routes, configuration, and deployment behavior, but they should not contain live secrets or environment-specific private values.
+- `docs/vm-deployment-*` files are sanitized historical notes. They are not the canonical deployment source of truth.
+
 ## Conventions
 
 - Markdown is the canonical source format.
@@ -63,6 +69,5 @@ Formal PDF deliverables:
 - Diagram catalog: [`diagrams/README.md`](diagrams/README.md)
 - Documentation standards: [`templates/document-style-guide.md`](templates/document-style-guide.md)
 - License: [`license/README.md`](license/README.md)
-- Historical deployment record (first UWB VM): [`vm-deployment-record/README.md`](vm-deployment-record/README.md)
-- Historical deployment record (replacement `cytocv2` VM): [`vm-deployment-record-cytocv2/README.md`](vm-deployment-record-cytocv2/README.md)
-
+- Historical deployment record (first VM): [`vm-deployment-record/README.md`](vm-deployment-record/README.md)
+- Historical deployment record (replacement VM): [`vm-deployment-record-cytocv2/README.md`](vm-deployment-record-cytocv2/README.md)

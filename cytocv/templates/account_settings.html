@@ -4,12 +4,12 @@
 
 {% block head %}
 <style>
-    body {
-        margin: 0;
-        font-family: var(--app-font);
-        background-color: var(--page-bg);
-        color: var(--text);
+    .account-settings-page {
+        flex: 1 0 auto;
+        width: 100%;
         padding: calc(var(--nav-height) + 18px) 14px 20px;
+        display: flex;
+        flex-direction: column;
     }
     .settings-shell {
         width: min(760px, 100%);
@@ -213,6 +213,7 @@
 {% endblock head %}
 
 {% block content %}
+<div class="account-settings-page">
 <div class="settings-shell soft-fade-in">
     <section class="settings-card" aria-labelledby="accountInformationTitle">
         <div class="settings-card-header">
@@ -318,4 +319,7 @@
         {% endif %}
     })();
 </script>
+</div>
 {% endblock content %}
+
+{% block site_footer %}{% endblock site_footer %}

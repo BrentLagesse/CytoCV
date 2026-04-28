@@ -119,6 +119,7 @@ class CellTable(tables.Table):
     class Meta:
         attrs = {"class": "celltable", "id": "celltable"}
         model = CellStatistics
+        orderable = False
         fields = (
             "cell_id",
             "puncta_distance",

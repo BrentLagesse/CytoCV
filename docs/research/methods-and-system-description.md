@@ -1,109 +1,69 @@
-﻿# Methods And System Description
+# Methods and System Description
 
 ## Abstract
 
-CytoCV is a web-based analysis system for DeltaVision microscopy of mitotic yeast cells. The platform integrates authenticated web workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, plugin-scoped per-cell quantification, and retention-aware result management in a single Django application. The current codebase supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional fluorescence requirements are derived from the selected analysis plugins and optional upload-time validation policy.
+CytoCV is a web-based research workflow for DeltaVision microscopy of mitotic yeast cells. It combines authenticated access, upload validation, DIC-guided segmentation, configurable red/green analysis modules, legacy blue-channel analyses, and exportable per-cell measurements in one application. Throughout this document, channel terminology follows the current user-facing interface: DIC, Blue, Red, and Green. When instrument metadata uses names such as DAPI, mCherry, or GFP, CytoCV attempts to normalize those labels into the Blue, Red, and Green roles before validation and analysis continue.
 
 ## System Objective
 
-The system is designed to reduce manual analysis effort while preserving the relationship between source microscopy stacks, derived segmentation artifacts, and exported measurements. CytoCV therefore treats run configuration, channel mapping, scale context, and plugin selection as first-class workflow state rather than transient UI detail.
+The platform is designed to reduce manual image-review effort while preserving the relationship between the source microscopy stack, the segmentation output, and the exported measurements. CytoCV therefore treats channel mapping, scale context, selected analyses, and saved results as part of the workflow record rather than disposable interface state.
 
-## Input Model
+## Channel Model
 
-CytoCV ingests DeltaVision (`.dv`) files that can be interpreted as channel stacks. The implementation recognizes four logical channel roles:
+CytoCV presents four logical channel roles to users:
 
-- `DIC`, used for structural segmentation and CNN preprocessing
-- `Blue`, used for legacy nucleus-related measurements
-- `Red`, used for red-signal contour and intensity measurements
-- `Green`, used for green-signal contour, intensity, and dot-classification measurements
+- DIC is the structural or reference channel used for segmentation and preprocessing.
+- Blue is an optional fluorescence role reserved for legacy nucleus-oriented analyses.
+- Red is a fluorescence role used by the current default puncta, contour, and intensity measurements.
+- Green is a fluorescence role used by the current default puncta, contour, intensity, and dot-classification measurements.
 
-The software does not require all four roles in every run. The minimum baseline requirement is `DIC`. The default modern configuration requires `DIC`, `Red`, and `Green`. `Blue` becomes required only when a legacy Blue-channel legacy plugin is selected or when full-wavelength validation is enabled.
+Not every run requires all four roles. DIC is the only universally required channel. The current default workflow for new accounts requires DIC, Red, and Green. Blue becomes required only when a legacy analysis is intentionally enabled or when stricter all-channel validation is turned on.
 
-## Validation Logic
+## Validation Model
 
-Upload-time validation is controlled by the effective requirement set assembled in `core.views.experiment` and `core.metadata_processing.error_handling.dv_validation`.
+CytoCV builds the required channel set from four layers of logic:
 
-The effective required channels are formed as:
+1. DIC is always required because segmentation depends on it.
+2. Each selected analysis module adds the channel roles it needs.
+3. Optional manual channel requirements can add extra roles when the validation override module is enabled.
+4. Optional all-channel enforcement can require DIC, Blue, Red, and Green together.
 
-1. the baseline segmentation requirement `DIC`
-2. the union of required channels declared by the selected plugins
-3. any manual required channels, if the validation module is enabled
-4. all four logical roles, if `enforce_wavelengths=True`
+Exact four-layer validation is separate from channel-role validation. It is available as a stricter policy, but it is not the baseline rule for every run.
 
-Exact four-layer validation is separate. It is applied only when `enforce_layer_count=True`.
+## Analysis Modules
 
-This distinction matters scientifically and operationally. The codebase supports four logical roles, but the baseline workflow does not equate "supported" with "universally required."
+The current analysis modules fall into a default modern set and a legacy blue-channel set.
 
-## Measurement Model
-
-Per-cell quantification is plugin driven. The current implementation exposes the following plugin definitions.
-
-| Plugin | Additional channels beyond `DIC` | Legacy | Default modern configuration |
+| Analysis module | Channel roles beyond DIC | Default in new accounts | Notes |
 | --- | --- | --- | --- |
-| `PunctaDistance` | `Red`, `Green` | No | Yes |
-| `CENDot` | `Red`, `Green` | No | Yes |
-| `GreenRedIntensity` | `Red`, `Green` | No | Yes |
-| `NuclearCellPairIntensity` | `Red`, `Green` | No | Yes |
-| `NucleusIntensity` | `Blue`, `Green` | Yes | No |
-| `BlueNucleusIntensity` | `Blue` | Yes | No |
-| `RedBlueIntensity` | `Red`, `Blue` | Yes | No |
+| Puncta Distance | Red, Green | Yes | Measures the distance between puncta in one channel and samples signal from the opposite channel along that line. |
+| Cen Dot Location | Red, Green | Yes | Classifies green-dot localization relative to the red puncta pair and the segmented cell geometry. |
+| Biorientation | Red, Green | Yes | Counts green dots relative to the red puncta axis after distance and collinearity checks. |
+| Red/Green Contour Intensities | Red, Green | Yes | Computes contour-based raw intensity summaries across the red and green channels. |
+| Nuclear and Cell-Pair Intensity | Red, Green | Yes | Uses either the red or green channel as the nuclear contour source and measures the opposite channel in nucleus and cell-pair regions. |
+| Nucleus Green Intensity | Blue, Green | No | Legacy analysis that uses the Blue channel as the contour reference for Green measurements. |
+| Nucleus Blue Intensity | Blue | No | Legacy analysis that measures Blue intensity using Blue-derived nucleus and cytoplasm regions. |
+| Red-in-Blue Intensity | Red, Blue | No | Legacy analysis that measures Blue signal around red-dot contour locations. |
 
-The default modern workflow is therefore centered on `DIC`, `Red`, and `Green`. Blue-channel legacy analyses remain available for backward compatibility, but they are legacy paths rather than the primary current workflow.
+## Workflow Overview
 
-## Computational Workflow
+1. Upload and validation: the run is created, the DeltaVision file is checked, channel roles are resolved, and scale metadata is stored when available.
+2. Preview and review: browser-friendly previews help the user confirm channel ordering and file state before analysis starts.
+3. DIC-based preprocessing and segmentation: the structural channel is prepared for the Mask R-CNN pipeline, which produces the segmentation mask used downstream.
+4. Per-cell measurement: selected modules compute puncta, contour, nuclear, cell-pair, or localization measurements for each segmented cell.
+5. Review, export, and retention: users inspect overlays and tabular outputs, then either keep the run with their account or allow it to remain transient according to the configured workflow.
 
-### 1. Upload And Validation
+## Architecture and Record Keeping
 
-The upload stage creates a run UUID, persists the source file, resolves the effective required channel set, validates the DV structure, extracts channel-mapping information, and stores scale metadata when available.
+CytoCV is implemented as a Django application with an account-oriented web layer and an analysis layer that handles upload parsing, segmentation, measurement, and artifact storage. Each run retains the resolved channel mapping, selected analyses, relevant scale context, and per-cell measurement records so exported results can be traced back to the analysis configuration that produced them.
 
-### 2. Preview Generation
+## Scope and Limits
 
-Browser-friendly PNG previews are generated per detected layer so that the operator can review channel ordering and file state before inference.
-
-### 3. Preprocessing And Inference
-
-The preprocess stage converts the structural channel input into the inference-ready representation and invokes the Mask R-CNN pipeline, producing a segmentation mask for downstream analysis.
-
-### 4. Segmentation Product Assembly
-
-The segmentation stage combines the generated mask with the original DV stack to produce outlined full-frame views, per-cell cropped outputs, and plugin-dependent debug overlays.
-
-### 5. Per-Cell Quantification
-
-The plugin layer computes cell-level values such as puncta distance, puncta-line intensity, green and red contour summaries, nuclear or cell-pair intensity measurements, and CEN dot classification outputs.
-
-### 6. Review, Export, And Retention
-
-The display and dashboard views expose run outputs, table exports, and the save-versus-transient retention model.
-
-## Software Architecture
-
-The application is implemented as a Django project with two main application domains:
-
-- `accounts`, responsible for identity, preferences, dashboard behavior, and account lifecycle
-- `core`, responsible for upload handling, processing, storage, segmentation, display, and scientific measurement
-
-Persistent state is divided between database rows and filesystem-backed media artifacts.
-
-## Reproducibility-Relevant Characteristics
-
-The current codebase captures several features that support reproducible interpretation:
-
-- a fixed Python target of `3.11.5`
-- explicit database backend selection
-- fail-fast environment validation
-- deterministic plugin metadata registration in `core.stats_plugins`
-- per-run saved scale context in `UploadedImage.scale_info`
-- per-cell contextual metadata in `CellStatistics.properties`
-
-## Limitations
-
-- inference depends on external project-specific weights
-- the TensorFlow-based analysis path requires a host with `AVX` CPU support
-- artifact retention depends on filesystem capacity and account storage quotas
-- Blue-channel legacy measurements coexist with a newer modern workflow and must be interpreted as legacy analyses
+- CytoCV depends on project-specific model weights that are not bundled with the public repository.
+- Analysis hosts must satisfy the machine-learning runtime requirements used by the segmentation pipeline.
+- Legacy Blue analyses remain available for backward compatibility, but they are not the default research path.
+- The exported values are computed measurements and derived visualization artifacts. They support interpretation, but they are not a substitute for final biological judgment.
 
 ## Conclusion
 
-CytoCV is best understood as a domain-specific analysis platform rather than a generic microscopy framework. Its architecture is optimized around the current yeast mitosis workflow, with `DIC`-driven segmentation, modern `Red` and `Green` measurements as the default path, and legacy Blue analyses preserved for backward compatibility.
-
+CytoCV is best understood as a domain-specific analysis platform for a defined microscopy workflow. Its current default path centers on DIC for segmentation and on Red and Green for most contemporary measurements, while Blue-channel analyses remain available only for legacy or explicitly selected use cases.

@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% block title %}Workflow Defaults{% endblock title %}
 {% load static %}
 
 {% block head %}
 <style>
-body {
+.workflow-defaults-page {
   --workflow-module-control-width: 196px;
   --workflow-module-compact-control-width: 112px;
   --workflow-module-control-inner-height: 30px;
@@ -17,16 +18,11 @@ body {
   --workflow-module-disabled-opacity: var(--settings-module-disabled-opacity);
   --workflow-module-locked-bg: var(--settings-module-locked-bg);
   --workflow-module-locked-border: var(--settings-module-locked-border);
-  margin: 0;
-  font-family: var(--app-font);
-  background-color: var(--page-bg);
-  background-image: var(--page-bg-gradient);
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-attachment: fixed;
-  background-position: center top;
-  color: var(--text);
+  flex: 1 0 auto;
+  width: 100%;
   padding: calc(var(--nav-height) + 18px) 12px 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .layout {
@@ -1323,6 +1319,7 @@ main.main > section.panel > form.panel > .card {
 {% endblock head %}
 
 {% block content %}
+<div class="workflow-defaults-page">
 <div class="layout soft-fade-in">
   <aside class="nav" id="workflowDefaultsNav" data-workflow-nav>
     <p class="section-eyebrow workflow-nav-title">Workflow Defaults</p>
@@ -1716,4 +1713,7 @@ main.main > section.panel > form.panel > .card {
 
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
 <script src="{% static 'js/workflow_defaults.js' %}" defer></script>
+</div>
 {% endblock content %}
+
+{% block site_footer %}{% endblock site_footer %}

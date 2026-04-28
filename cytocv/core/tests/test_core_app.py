@@ -53,6 +53,15 @@ def temporary_media_root():
 
 
 class RouteSurfaceRefactorTests(TestCase):
+    FOOTER_LINKS = (
+        "https://www.uwb.edu/stem/about",
+        "https://www.uwb.edu/stem/about/departments/css",
+        "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "https://www.washington.edu/online/privacy",
+        "https://www.washington.edu/online/terms",
+        "https://www.uwb.edu/accessibility/",
+    )
+
     def setUp(self):
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
@@ -76,6 +85,41 @@ class RouteSurfaceRefactorTests(TestCase):
             "'/image/display/files/sync-selection/'",
         ):
             self.assertNotIn(removed, content)
+
+    def _assert_footer_present(self, response):
+        self.assertContains(response, "UW Bothell School of STEM")
+        self.assertContains(response, "Department of Computing &amp; Software Systems", html=False)
+        self.assertContains(response, "18115 Campus Way NE, Bothell, WA 98011-8246")
+        self.assertContains(response, "425.352.5000")
+        self.assertContains(response, "License")
+        self.assertContains(response, "Privacy")
+        self.assertContains(response, "Terms")
+        self.assertContains(response, "Accessibility")
+        self.assertContains(
+            response,
+            "Licensed under",
+        )
+        self.assertContains(
+            response,
+            "CC BY-NC-SA 4.0",
+        )
+        self.assertContains(response, reverse("license"))
+        self.assertContains(
+            response,
+            "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
+            html=False,
+        )
+        for url in self.FOOTER_LINKS:
+            self.assertContains(response, url, html=False)
+
+    def _assert_footer_absent(self, response):
+        self.assertNotContains(response, '<footer class="site-footer"', html=False)
+        self.assertNotContains(response, "Licensed under")
+        self.assertNotContains(
+            response,
+            "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
+            html=False,
+        )
 
     @staticmethod
     def _write_channel_config(media_root: Path, uuid_value: str):
@@ -268,6 +312,11 @@ class RouteSurfaceRefactorTests(TestCase):
     def test_reverse_uses_new_public_routes(self):
         uuid_value = str(uuid4())
         self.assertEqual(reverse("home"), "/")
+        self.assertEqual(reverse("about"), "/about/")
+        self.assertEqual(reverse("about_technical"), "/about/technical/")
+        self.assertEqual(reverse("about_biology"), "/about/biology/")
+        self.assertEqual(reverse("collaborators"), "/collaborators/")
+        self.assertEqual(reverse("license"), "/license/")
         self.assertEqual(reverse("signin"), "/signin/")
         self.assertEqual(reverse("account_settings"), "/account-settings/")
         self.assertEqual(reverse("workflow_defaults"), "/workflow-defaults/")
@@ -325,6 +374,59 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "registration/signin.html")
 
+    @override_settings(RECAPTCHA_ENABLED=False)
+    def test_shared_footer_renders_on_public_pages_and_is_hidden_on_tool_pages(self):
+        self.client.logout()
+
+        public_responses = (
+            self.client.get(reverse("home")),
+            self.client.get(reverse("about")),
+            self.client.get(reverse("about_technical")),
+            self.client.get(reverse("about_biology")),
+            self.client.get(reverse("collaborators")),
+            self.client.get(reverse("license")),
+            self.client.get(reverse("signin")),
+            self.client.get(reverse("signup")),
+        )
+        for response in public_responses:
+            self.assertEqual(response.status_code, 200)
+            self._assert_footer_present(response)
+
+        self.assertTrue(self.client.login(email=self.user.email, password="TestPass123!"))
+
+        authenticated_responses = (
+            self.client.get(reverse("experiment")),
+            self.client.get(reverse("dashboard")),
+            self.client.get(reverse("account_settings")),
+            self.client.get(reverse("workflow_defaults")),
+        )
+        for response in authenticated_responses:
+            self.assertEqual(response.status_code, 200)
+            self._assert_footer_absent(response)
+
+        preprocess_uuid = str(uuid4())
+        display_uuid = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, preprocess_uuid)
+            preprocess_upload = self._create_uploaded_image(preprocess_uuid, name="footer-preprocess")
+            DVLayerTifPreview.objects.create(
+                wavelength="DIC",
+                uploaded_image_uuid=preprocess_upload,
+                file_location=f"{preprocess_uuid}/preprocessed_images/footer-preprocess-image0.jpg",
+            )
+
+            self._write_channel_config(media_root, display_uuid)
+            self._create_uploaded_image(display_uuid, name="footer-display")
+            self._create_segmented_image(display_uuid, name="footer-display")
+
+            preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
+            display_response = self.client.get(reverse("display", args=[display_uuid]))
+
+        self.assertEqual(preprocess_response.status_code, 200)
+        self.assertEqual(display_response.status_code, 200)
+        self._assert_footer_absent(preprocess_response)
+        self._assert_footer_absent(display_response)
+
     def test_authenticated_pages_render_renamed_templates(self):
         response = self.client.get(reverse("account_settings"))
         self.assertEqual(response.status_code, 200)
@@ -346,7 +448,409 @@ class RouteSurfaceRefactorTests(TestCase):
         home_response = self.client.get(reverse("home"))
         self.assertEqual(home_response.status_code, 200)
         self.assertContains(home_response, reverse("experiment"))
+        self.assertContains(home_response, reverse("about"))
+        self.assertContains(home_response, reverse("collaborators"))
+        self.assertContains(
+            home_response,
+            "Developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine",
+        )
+        self.assertContains(
+            home_response,
+            "CytoCV: Automated Yeast Cell Image Analysis for Research Workflows",
+        )
+        self.assertContains(home_response, "University of Washington Bothell")
+        self.assertContains(
+            home_response,
+            "Department of Computing &amp; Software Systems",
+            html=True,
+        )
+        self.assertContains(
+            home_response,
+            "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
+            html=False,
+        )
+        self.assertContains(home_response, "Collaborators")
+        self.assertContains(home_response, "People Behind CytoCV")
+        self.assertContains(home_response, "About CytoCV")
+        self.assertContains(home_response, "View Collaborators")
+        self.assertContains(home_response, "See About page")
+        self.assertContains(home_response, "From Upload to Export")
+        self.assertContains(home_response, "Cell-Level Research Outputs")
+        self.assertContains(home_response, "Built for DeltaVision Yeast Images")
+        self.assertContains(home_response, "Review Segmentation and Export Data")
+        self.assertContains(home_response, "Using CytoCV")
+        self.assertContains(home_response, "View Workflow")
+        self.assertContains(home_response, "View Measurements")
+        self.assertContains(home_response, "View Image Inputs")
+        self.assertContains(home_response, "View Results")
+        self.assertContains(home_response, "View Documentation")
+        self.assertContains(home_response, "Need the full product overview?")
+        self.assertContains(home_response, "Want to see who built CytoCV?")
+        self.assertContains(home_response, "Meet the collaborators")
+        self.assertContains(home_response, 'class="cta-support-links"', html=False)
+        self.assertNotContains(home_response, 'class="cta-signin"', html=False)
+        self.assertNotContains(home_response, "Already have an account?")
+        self.assertContains(home_response, f"{reverse('about')}#workflow", html=False)
+        self.assertContains(home_response, f"{reverse('about')}#measurements", html=False)
+        self.assertContains(home_response, f"{reverse('about')}#image-inputs", html=False)
+        self.assertContains(home_response, f"{reverse('about')}#results", html=False)
+        self.assertContains(
+            home_response,
+            "https://github.com/BrentLagesse/CytoCV/tree/main/docs",
+            html=False,
+        )
+        self.assertNotContains(home_response, "What CytoCV Is")
+        self.assertNotContains(home_response, "Why Researchers Need It")
+        self.assertNotContains(home_response, "How the Workflow Works")
+        self.assertNotContains(home_response, "What CytoCV Measures")
+        self.assertNotContains(home_response, "Why This Matters Biologically")
+        self.assertNotContains(home_response, "Why trust this workflow")
+        self.assertNotContains(home_response, "Methods, validation, and reproducibility are public.")
         self.assertNotContains(home_response, "/image/upload/")
+
+    def test_home_about_collaborators_and_license_pages_are_public_surfaces(self):
+        self.client.logout()
+
+        home_response = self.client.get(reverse("home"))
+        self.assertEqual(home_response.status_code, 200)
+        self.assertContains(
+            home_response,
+            "CytoCV: Automated Yeast Cell Image Analysis for Research Workflows",
+        )
+        self.assertContains(
+            home_response,
+            "CytoCV helps researchers upload DeltaVision",
+        )
+        self.assertContains(
+            home_response,
+            "School of Science, Technology, Engineering &amp; Mathematics",
+            html=True,
+        )
+        self.assertContains(home_response, reverse("about"))
+        self.assertContains(home_response, reverse("about_technical"))
+        self.assertContains(home_response, reverse("about_biology"))
+        self.assertContains(home_response, reverse("collaborators"))
+        self.assertContains(home_response, 'id="aboutNavMenu"', html=False)
+        self.assertNotContains(home_response, '<a href="/about/">About</a>', html=False)
+        self.assertNotContains(home_response, "Jump to section")
+        self.assertNotContains(home_response, "Table of contents")
+        self.assertContains(home_response, "From Upload to Export")
+        self.assertContains(home_response, "Cell-Level Research Outputs")
+        self.assertContains(home_response, "Built for DeltaVision Yeast Images")
+        self.assertContains(home_response, "Review Segmentation and Export Data")
+        self.assertContains(home_response, "Using CytoCV")
+        self.assertContains(home_response, 'class="cta-signin"', html=False)
+        self.assertContains(home_response, "Already have an account?")
+        self.assertContains(home_response, "Need the full product overview?")
+        self.assertContains(home_response, "Want to see who built CytoCV?")
+        self.assertContains(home_response, "Meet the collaborators")
+        self.assertContains(home_response, 'class="cta-support-links"', html=False)
+        self.assertNotContains(home_response, "DAPI, mCherry, and GFP image channels.")
+        self.assertNotContains(home_response, "What CytoCV Is")
+        self.assertNotContains(home_response, "Why Researchers Need It")
+        self.assertNotContains(home_response, "How the Workflow Works")
+        self.assertNotContains(home_response, "What CytoCV Measures")
+        self.assertNotContains(home_response, "Why This Matters Biologically")
+        self.assertNotContains(home_response, "Why trust this workflow")
+
+        about_response = self.client.get(reverse("about"))
+        self.assertEqual(about_response.status_code, 200)
+        self.assertTemplateUsed(about_response, "about.html")
+        self.assertContains(about_response, "About CytoCV")
+        self.assertContains(about_response, "What CytoCV Is")
+        self.assertContains(about_response, "Why Researchers Need It")
+        self.assertContains(about_response, "How the Workflow Works")
+        self.assertContains(about_response, "What CytoCV Measures")
+        self.assertContains(about_response, "What Image Inputs CytoCV Expects")
+        self.assertContains(about_response, "Review and Export Results")
+        self.assertContains(about_response, "Why This Matters Biologically")
+        self.assertContains(about_response, 'id="aboutNavMenu"', html=False)
+        self.assertContains(about_response, 'data-about-current="about"', html=False)
+        self.assertNotContains(about_response, "Current page")
+        self.assertContains(about_response, "Table of contents")
+        self.assertContains(about_response, 'id="pageSectionJump"', html=False)
+        self.assertContains(about_response, reverse("about_technical"))
+        self.assertContains(about_response, reverse("about_biology"))
+        self.assertContains(about_response, 'href="#overview"', html=False)
+        self.assertContains(about_response, 'href="#biological-value"', html=False)
+        self.assertNotContains(about_response, 'role="tablist"', html=False)
+        self.assertNotContains(about_response, 'data-about-tab="technical"', html=False)
+        self.assertNotContains(about_response, 'data-about-tab="biological"', html=False)
+        self.assertNotContains(about_response, "Upload, validation, and processing stages")
+        self.assertNotContains(about_response, "Experimental context for the imaging workflow")
+        self.assertNotContains(about_response, "Technical Details")
+        self.assertNotContains(about_response, "Open the larger technical or biological pages")
+        self.assertNotContains(about_response, "Technical Overview")
+        self.assertNotContains(about_response, "Open Technical page")
+        self.assertNotContains(about_response, "Open Biological page")
+        self.assertContains(about_response, 'id="workflow"', html=False)
+        self.assertContains(about_response, 'id="measurements"', html=False)
+        self.assertContains(about_response, 'id="image-inputs"', html=False)
+        self.assertContains(about_response, 'id="results"', html=False)
+        self.assertNotContains(about_response, "Go deeper into the software and biology")
+
+        technical_response = self.client.get(reverse("about_technical"))
+        self.assertEqual(technical_response.status_code, 200)
+        self.assertTemplateUsed(technical_response, "about_detail.html")
+        self.assertContains(technical_response, 'id="aboutNavMenu"', html=False)
+        self.assertContains(technical_response, 'data-about-current="technical"', html=False)
+        self.assertContains(technical_response, "Table of contents")
+        self.assertContains(technical_response, 'id="pageSectionJump"', html=False)
+        self.assertContains(technical_response, "Technical Overview")
+        self.assertNotContains(technical_response, "This technical overview describes")
+        self.assertNotContains(technical_response, 'class="detail-actions"', html=False)
+        self.assertNotContains(technical_response, "Documentation Links")
+        self.assertNotContains(technical_response, "Related documentation")
+        self.assertContains(technical_response, "Purpose, scope, and application boundaries")
+        self.assertContains(technical_response, "High-level architecture and workflow ownership")
+        self.assertContains(technical_response, "End-to-end workflow from upload to export")
+        self.assertContains(technical_response, "Segmentation, measurement, and result assembly")
+        self.assertContains(technical_response, "Runtime stack, dependencies, and practical limits")
+        self.assertNotContains(technical_response, "Back to About")
+        self.assertContains(technical_response, 'id="purpose-scope"', html=False)
+        self.assertContains(technical_response, 'id="developer-docs"', html=False)
+        self.assertContains(technical_response, 'id="research-pdfs"', html=False)
+        self.assertContains(technical_response, 'href="#developer-docs"', html=False)
+        self.assertContains(
+            technical_response,
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/developer/architecture-overview.md",
+            html=False,
+        )
+        self.assertContains(
+            technical_response,
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/reference/data-model.md",
+            html=False,
+        )
+        self.assertContains(
+            technical_response,
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/methods-and-system-description.pdf",
+            html=False,
+        )
+        self.assertNotContains(technical_response, "docs/ops/deployment-guide.md", html=False)
+        self.assertNotContains(technical_response, "docs/ops/environment-reference.md", html=False)
+        self.assertNotContains(technical_response, "docs/vm-deployment-record/README.md", html=False)
+
+        biology_response = self.client.get(reverse("about_biology"))
+        self.assertEqual(biology_response.status_code, 200)
+        self.assertTemplateUsed(biology_response, "about_detail.html")
+        self.assertContains(biology_response, 'id="aboutNavMenu"', html=False)
+        self.assertContains(biology_response, 'data-about-current="biological"', html=False)
+        self.assertContains(biology_response, "Table of contents")
+        self.assertContains(biology_response, 'id="pageSectionJump"', html=False)
+        self.assertContains(biology_response, "Biological Context")
+        self.assertNotContains(biology_response, "Back to About")
+        self.assertNotContains(biology_response, 'class="detail-actions"', html=False)
+        self.assertNotContains(biology_response, "This biology overview explains")
+        self.assertContains(biology_response, "Documentation Links")
+        self.assertContains(biology_response, "Related documentation")
+        self.assertContains(biology_response, "Mitotic yeast imaging as the core use case")
+        self.assertContains(biology_response, "How DIC, Blue, Red, and Green contribute to interpretation")
+        self.assertContains(biology_response, "Why the measurements matter biologically")
+        self.assertContains(biology_response, "Practical value and biological caution points")
+        self.assertContains(biology_response, 'id="experimental-context"', html=False)
+        self.assertContains(biology_response, 'id="biology-research-docs"', html=False)
+        self.assertContains(biology_response, 'href="#biology-workflow-docs"', html=False)
+        self.assertContains(
+            biology_response,
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/figure-catalog.pdf",
+            html=False,
+        )
+        self.assertContains(
+            biology_response,
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/user/output-guide.md",
+            html=False,
+        )
+        self.assertNotContains(
+            biology_response,
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/developer/architecture-overview.md",
+            html=False,
+        )
+
+        collaborators_response = self.client.get(reverse("collaborators"))
+        self.assertEqual(collaborators_response.status_code, 200)
+        self.assertTemplateUsed(collaborators_response, "collaborators.html")
+        self.assertContains(collaborators_response, "Project collaborators")
+        self.assertContains(collaborators_response, "Collaborators")
+        self.assertContains(
+            collaborators_response,
+            "CytoCV was developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine.",
+        )
+        self.assertContains(collaborators_response, "Contributors")
+        self.assertContains(collaborators_response, "Supervising Professors")
+        self.assertContains(collaborators_response, "Nicolas Gioanni")
+        self.assertContains(collaborators_response, "Anoop Prasad")
+        self.assertContains(collaborators_response, "Emily Parnell")
+        self.assertContains(collaborators_response, "Brent Lagesse")
+        self.assertContains(collaborators_response, "Matthew P. Miller")
+        self.assertContains(
+            collaborators_response,
+            "Led the development of CytoCV",
+        )
+        self.assertContains(
+            collaborators_response,
+            "architecture, implementation, deployment",
+        )
+        self.assertContains(
+            collaborators_response,
+            "requirements translation, and ongoing maintenance",
+        )
+        self.assertContains(collaborators_response, "ngioanni@uw.edu")
+        self.assertContains(collaborators_response, "anoopp@uw.edu")
+        self.assertContains(collaborators_response, "emily.parnell@biochem.utah.edu")
+        self.assertContains(collaborators_response, "lagesse@uw.edu")
+        self.assertContains(collaborators_response, "matt.miller@biochem.utah.edu")
+        self.assertContains(collaborators_response, "mailto:ngioanni@uw.edu", html=False)
+        self.assertContains(collaborators_response, "mailto:anoopp@uw.edu", html=False)
+        self.assertContains(collaborators_response, "mailto:emily.parnell@biochem.utah.edu", html=False)
+        self.assertContains(collaborators_response, "mailto:lagesse@uw.edu", html=False)
+        self.assertContains(collaborators_response, "mailto:matt.miller@biochem.utah.edu", html=False)
+        self.assertContains(
+            collaborators_response,
+            "https://faculty.washington.edu/lagesse/",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://medicine.utah.edu/faculty/matthew-p-miller",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://www.linkedin.com/in/brent-lagesse-1a117960/",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://github.com/BrentLagesse",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://www.linkedin.com/in/nicolas-gioanni",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://github.com/nicolasgioanni",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://nicolasmgioanni.dev",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://www.linkedin.com/in/anoop-prasad-uwb",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://github.com/AnoopP7",
+            html=False,
+        )
+        self.assertContains(
+            collaborators_response,
+            "https://miller.biochem.utah.edu/members",
+            html=False,
+        )
+        self.assertNotContains(collaborators_response, "Methods, validation, reproducibility, and affiliation")
+        self.assertNotContains(collaborators_response, "Methods and system description")
+        self.assertNotContains(collaborators_response, "Validation-aware workflow rules")
+        self.assertNotContains(collaborators_response, "/static/research/methods-and-system-description.pdf")
+        self.assertNotContains(collaborators_response, "/static/research/reproducibility-and-validation.pdf")
+        self.assertNotContains(collaborators_response, "Jump to section")
+        self.assertNotContains(collaborators_response, "Table of contents")
+
+        research_response = self.client.get("/research/")
+        self.assertEqual(research_response.status_code, 404)
+
+        license_response = self.client.get(reverse("license"))
+        self.assertEqual(license_response.status_code, 200)
+        self.assertTemplateUsed(license_response, "license.html")
+        self.assertContains(license_response, "CytoCV License")
+        self.assertContains(
+            license_response,
+            "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License",
+        )
+        self.assertContains(
+            license_response,
+            "CytoCV is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).",
+        )
+        self.assertContains(license_response, "CC BY-NC-SA 4.0")
+        self.assertContains(
+            license_response,
+            "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+            html=False,
+        )
+        self.assertContains(
+            license_response,
+            "https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en",
+            html=False,
+        )
+        self.assertContains(license_response, "View official license")
+        self.assertContains(license_response, 'id="licenseBackLink"', html=False)
+        self.assertNotContains(license_response, "This page summarizes the")
+
+    @override_settings(RECAPTCHA_ENABLED=False)
+    def test_auth_public_pages_use_user_facing_copy(self):
+        self.client.logout()
+
+        signin_response = self.client.get(reverse("signin"))
+        self.assertEqual(signin_response.status_code, 200)
+        self.assertContains(signin_response, "Sign in to access your dashboard and saved experiments.")
+        self.assertContains(
+            signin_response,
+            "Use Google or Microsoft instead of entering your email and password.",
+        )
+        self.assertNotContains(
+            signin_response,
+            "Use a connected provider instead of entering credentials directly.",
+        )
+
+        signup_response = self.client.get(reverse("signup"))
+        self.assertEqual(signup_response.status_code, 200)
+        self.assertContains(signup_response, "Used for your CytoCV profile.")
+        self.assertContains(
+            signup_response,
+            "Already have an account? <a href=\"/signin/\">Sign In</a>",
+            html=True,
+        )
+        self.assertNotContains(signup_response, "This helps personalize your account.")
+
+    def test_surfaced_json_errors_use_safe_user_facing_copy(self):
+        invalid_json_response = self.client.post(
+            reverse("dashboard_bulk_delete"),
+            data="{",
+            content_type="application/json",
+        )
+        self.assertEqual(invalid_json_response.status_code, 400)
+        self.assertJSONEqual(
+            invalid_json_response.content.decode("utf-8"),
+            {"error": "Your request could not be processed. Please try again."},
+        )
+
+        display_sync_response = self.client.post(
+            reverse("display_sync_file_selection"),
+            data="{",
+            content_type="application/json",
+        )
+        self.assertEqual(display_sync_response.status_code, 400)
+        self.assertJSONEqual(
+            display_sync_response.content.decode("utf-8"),
+            {"error": "Your request could not be processed. Please try again."},
+        )
+
+        update_channel_response = self.client.post(
+            reverse("update_channel_order", args=[str(uuid4())]),
+            data=json.dumps({"order": ["DIC", "channel_blue", "channel_red", "channel_green"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(update_channel_response.status_code, 404)
+        self.assertJSONEqual(
+            update_channel_response.content.decode("utf-8"),
+            {"error": "Channel information for this file could not be loaded."},
+        )
 
     def test_pre_process_uses_renamed_template_and_routes(self):
         uuid_value = str(uuid4())
@@ -460,11 +964,27 @@ class RouteSurfaceRefactorTests(TestCase):
             display_response = self.client.get(reverse("display", args=[uuid_value]))
             dashboard_response = self.client.get(reverse("dashboard"))
 
-        self.assertContains(display_response, "scheduleMainImageWarmup(fileUUID, fileData, inferred);", html=False)
-        self.assertContains(display_response, "const imageUrl = await warmMainImageChannel(fileUUID, fileData, channel);", html=False)
+        self.assertContains(
+            display_response,
+            "scheduleMainImageWarmup(fileUUID, fileData, activeMainChannel || inferredDefaultChannel);",
+            html=False,
+        )
+        self.assertContains(
+            display_response,
+            "const imageUrl = await warmMainImageChannel(fileUUID, fileData, normalizedChannel);",
+            html=False,
+        )
         self.assertContains(display_response, "fileData.MainImagePaths = {};", html=False)
-        self.assertContains(dashboard_response, "scheduleMainImageWarmup(fileUUID, fileData, inferred);", html=False)
-        self.assertContains(dashboard_response, "const imageUrl = await warmMainImageChannel(fileUUID, fileData, channel);", html=False)
+        self.assertContains(
+            dashboard_response,
+            "scheduleMainImageWarmup(fileUUID, fileData, activeMainChannel || inferredDefaultChannel);",
+            html=False,
+        )
+        self.assertContains(
+            dashboard_response,
+            "const imageUrl = await warmMainImageChannel(fileUUID, fileData, normalizedChannel);",
+            html=False,
+        )
 
     def test_main_image_channel_matches_display_and_dashboard_payload_paths(self):
         uuid_value = str(uuid4())

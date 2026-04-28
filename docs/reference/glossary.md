@@ -22,6 +22,18 @@ Red fluorescence channel used for spindle pole body or other red-signal measurem
 
 Green fluorescence channel used for Green-related measurements and dot classification in the modern workflow.
 
+### DAPI
+
+A common biology-facing channel name that typically maps to CytoCV's `Blue` logical role when Blue-channel workflows are used.
+
+### mCherry
+
+A common biology-facing channel name that typically maps to CytoCV's `Red` logical role.
+
+### GFP
+
+A common biology-facing channel name that typically maps to CytoCV's `Green` logical role.
+
 ### Microns Per Pixel
 
 Physical size calibration used to convert between pixel distances and real-space measurements.
@@ -60,4 +72,3 @@ The current mode used by the modern nuclear/cell-pair intensity workflow to dete
 
 - [`data-model.md`](data-model.md)
 - [`file-format-and-artifact-spec.md`](file-format-and-artifact-spec.md)
-
