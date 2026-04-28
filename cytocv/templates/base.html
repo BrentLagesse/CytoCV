@@ -439,6 +439,15 @@
             color: #ffd6d6;
         }
         @media (hover: none), (pointer: coarse) {
+            .about-toggle {
+                display: inline-flex;
+            }
+            .about-nav-menu:hover .about-nav-dropdown {
+                display: none;
+            }
+            .about-nav-menu.is-open .about-nav-dropdown {
+                display: block;
+            }
             .account-toggle {
                 display: inline-flex;
             }
@@ -795,7 +804,51 @@
     {% block navbar %}
         <nav class="navbar">
             <div class="nav-left">
-                <a href="/">Home</a>
+                <a href="{% url 'home' %}">Home</a>
+                <div
+                    class="about-nav-menu{% if about_nav_current_key %} is-current{% endif %}"
+                    id="aboutNavMenu"
+                    data-about-current="{{ about_nav_current_key|default:'none' }}"
+                >
+                    <a href="{% url 'about' %}" class="about-link">About</a>
+                    <button
+                        type="button"
+                        class="about-toggle"
+                        id="aboutNavToggle"
+                        aria-label="Toggle About pages menu"
+                        aria-controls="aboutNavPanel"
+                        aria-expanded="false"
+                    >
+                        <span class="about-toggle-chevron" aria-hidden="true"></span>
+                    </button>
+                    <div class="about-nav-dropdown" id="aboutNavPanel" role="menu" aria-label="About Pages">
+                        <a
+                            href="{% url 'about' %}"
+                            class="about-nav-link{% if about_nav_current_key == 'about' %} is-active{% endif %}"
+                            role="menuitem"
+                            {% if about_nav_current_key == 'about' %}aria-current="page"{% endif %}
+                        >
+                            <span>About</span>
+                        </a>
+                        <a
+                            href="{% url 'about_technical' %}"
+                            class="about-nav-link{% if about_nav_current_key == 'technical' %} is-active{% endif %}"
+                            role="menuitem"
+                            {% if about_nav_current_key == 'technical' %}aria-current="page"{% endif %}
+                        >
+                            <span>Technical</span>
+                        </a>
+                        <a
+                            href="{% url 'about_biology' %}"
+                            class="about-nav-link{% if about_nav_current_key == 'biological' %} is-active{% endif %}"
+                            role="menuitem"
+                            {% if about_nav_current_key == 'biological' %}aria-current="page"{% endif %}
+                        >
+                            <span>Biological</span>
+                        </a>
+                    </div>
+                </div>
+                <a href="{% url 'collaborators' %}">Collaborators</a>
             </div>
             <div class="nav-right">
                 {% if user.is_authenticated %}

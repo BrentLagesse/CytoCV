@@ -45,7 +45,10 @@ from core.views.experiment import (
     upload_file_batch,
     upload_preparation_status,
 )
-from core.views.home import home
+from core.views.home import (
+    home,
+    license_page,
+)
 from core.views.overlay import cell_overlay_image
 from core.views.pre_process import (
     cancel_progress,
@@ -60,6 +63,7 @@ from core.views.media import serve_media
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name="home"),
+    path('license/', license_page, name="license"),
     path('signin/', auth_login, name="signin"),
     path(
         'signin/oauth/verification-status/',

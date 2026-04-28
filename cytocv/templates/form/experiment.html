@@ -1,23 +1,20 @@
 {% extends 'base.html' %}
 
-{% block title %}Upload Files and Folders{% endblock title %}
+{% block title %}Start Experiment{% endblock title %}
 
 {% block head %}
     <style>
-        body {
+        .experiment-page {
             --stats-popup-control-width: 196px;
             --stats-popup-compact-control-width: 112px;
             --stats-popup-control-inner-height: 30px;
-            font-family: var(--app-font);
-            background-color: var(--page-bg);
-            color: var(--text);
-            margin: 0;
+            flex: 1 0 auto;
+            width: 100%;
             padding: calc(var(--nav-height) + 24px) 20px 32px;
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            min-height: 100dvh;
-            box-sizing: border-box;
+            min-height: 100%;
         }
         nav.navbar {
             align-items: center;
@@ -1714,6 +1711,7 @@
 {% endblock head %}
 
 {% block content %}
+<div class="experiment-page">
 <form action="" method="post" enctype="multipart/form-data" id="uploadForm">
     {% csrf_token %}
     <div class="settings-modal-backdrop" id="settingsBackdrop" aria-hidden="true">
@@ -2644,7 +2642,7 @@
         }).join('');
         const hasSections = lines.some((line) => !line);
         const headerLine = hasSections
-            ? '<div style="font-weight:600; margin-bottom:4px;">Validation issues:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
+            ? '<div style="font-weight:600; margin-bottom:4px;">Input checks to review:</div><div style="height:1px; background: rgba(255, 255, 255, 0.08); margin:6px 0;"></div>'
             : '';
 
         const message = document.createElement('div');
@@ -4879,12 +4877,12 @@
         const showWorkflowDefaultError = (message) => {
             if (window.showGlobalMessage) {
                 window.showGlobalMessage(
-                    message || 'Could not save workflow default. Please try again.',
+                    message || "We couldn't save that workflow setting. Try again.",
                     'error'
                 );
                 return;
             }
-            showErrors([message || 'Could not save workflow default. Please try again.']);
+            showErrors([message || "We couldn't save that workflow setting. Try again."]);
         };
 
         const promptWorkflowDefaultConfirmation = () => {
@@ -4965,7 +4963,7 @@
         const saveCurrentWorkflowDefaults = async () => {
             const syncResult = commitStatsStateFromInputs();
             if (!syncResult.ok) {
-                showErrors(syncResult.errors || ['Could not save workflow default. Please try again.']);
+                showErrors(syncResult.errors || ["We couldn't save that workflow setting. Try again."]);
                 return;
             }
 
@@ -4994,7 +4992,7 @@
                 if (!response.ok) {
                     const errorMessage = Array.isArray(responsePayload.errors) && responsePayload.errors.length
                         ? responsePayload.errors.join('\n')
-                        : (responsePayload.error || 'Could not save workflow default. Please try again.');
+                        : (responsePayload.error || "We couldn't save that workflow setting. Try again.");
                     throw new Error(errorMessage);
                 }
 
@@ -5015,7 +5013,7 @@
                 showWorkflowDefaultError(
                     error && error.message
                         ? error.message
-                        : 'Could not save workflow default. Please try again.'
+                        : "We couldn't save that workflow setting. Try again."
                 );
             } finally {
                 setWorkflowDefaultButtonsPending(false);
@@ -5503,7 +5501,7 @@
             const plural = validCount === 1 ? '' : 's';
             body.textContent = `Some files in this folder cannot be added. Add ${validCount} valid .dv file${plural} to the queue?`;
         } else {
-            body.textContent = 'No valid new .dv files are available to add from this folder.';
+            body.textContent = 'No new DeltaVision .dv files are available to add from this folder.';
         }
 
         list.innerHTML = '';
@@ -5610,7 +5608,7 @@
             const queueIssues = [];
             if (invalidFiles.length > 0) {
                 queueIssues.push(
-                    `Invalid files detected (only .dv files are allowed): ${formatFileListForError(invalidFiles)}`
+                    `Unsupported files detected (only DeltaVision .dv files are allowed): ${formatFileListForError(invalidFiles)}`
                 );
             }
             if (duplicateFiles.length > 0) {
@@ -5659,7 +5657,7 @@
 
             if (getQueuedCount() === 0) {
                 showErrors([
-                    'No files selected. Please upload at least one .dv file before preprocessing.',
+                    'No files selected. Upload at least one DeltaVision .dv file before preprocessing.',
                 ]);
                 return;
             }
@@ -5938,4 +5936,7 @@
 
 </script>
 
+</div>
 {% endblock content %}
+
+{% block site_footer %}{% endblock site_footer %}
