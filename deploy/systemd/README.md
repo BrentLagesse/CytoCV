@@ -3,7 +3,9 @@
 These files are production-oriented example units for Linux hosts that run:
 
 - Gunicorn for the web process
-- a separate long-lived background worker for upload preparation and analysis
+- a dedicated upload-preparation worker
+- a dedicated analysis worker
+- a timer-driven artifact-maintenance sweep
 
 They are intentionally checked into the repository so redeployments do not
 depend on hand-recreated service files.
@@ -20,9 +22,14 @@ depend on hand-recreated service files.
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable cytocv
-sudo systemctl enable cytocv-worker
+sudo systemctl disable --now cytocv-worker || true
+sudo systemctl enable cytocv-upload-prep-worker
+sudo systemctl enable cytocv-analysis-worker
+sudo systemctl enable cytocv-artifact-maintenance.timer
 sudo systemctl restart cytocv
-sudo systemctl restart cytocv-worker
+sudo systemctl restart cytocv-upload-prep-worker
+sudo systemctl restart cytocv-analysis-worker
+sudo systemctl restart cytocv-artifact-maintenance.timer
 ```
 
 ## Notes
@@ -30,6 +37,11 @@ sudo systemctl restart cytocv-worker
 - The Django application reads `~/CytoCV/.env` directly, so these units do not
   require an `EnvironmentFile=` entry just to load application settings.
 - Keep `CYTOCV_ANALYSIS_EXECUTION_MODE=worker` in the deployed `.env` for
-  production analysis. The worker service should still be enabled because
-  staged upload preparation uses it in both analysis modes.
-- Adjust Gunicorn worker count and timeout to match the deployment host.
+  production analysis.
+- The upload-preparation worker uses:
+  `manage.py run_analysis_worker --job-type upload-preparation --skip-maintenance`
+- The analysis worker uses:
+  `manage.py run_analysis_worker --job-type analysis --skip-maintenance`
+- The maintenance timer uses `manage.py run_artifact_maintenance` every 5 minutes.
+- The example Gunicorn unit is intentionally set to `--workers 3` for the
+  current production VM sizing. Re-evaluate that number if the host changes.

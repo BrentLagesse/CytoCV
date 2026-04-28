@@ -1,0 +1,11 @@
+[Unit]
+Description=Run CytoCV artifact maintenance every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=cytocv-artifact-maintenance.service
+
+[Install]
+WantedBy=timers.target

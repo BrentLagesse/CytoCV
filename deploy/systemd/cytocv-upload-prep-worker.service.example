@@ -1,5 +1,5 @@
 [Unit]
-Description=CytoCV Analysis Worker
+Description=CytoCV Upload-Preparation Worker
 After=network.target postgresql.service cytocv.service
 
 [Service]
@@ -7,7 +7,7 @@ User=REPLACE_WITH_DEPLOY_USER
 Group=REPLACE_WITH_DEPLOY_USER
 WorkingDirectory=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv
 Environment="PATH=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin"
-ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/python /home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv/manage.py run_analysis_worker
+ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/python /home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv/manage.py run_analysis_worker --job-type upload-preparation --skip-maintenance
 Restart=always
 RestartSec=5
 

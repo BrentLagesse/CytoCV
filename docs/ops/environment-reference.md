@@ -61,6 +61,22 @@ This is a maintainer reference. Document variable names and behavior here, but d
 - Effect: maximum runtime before an active `AnalysisJob` is reported as stale
 - Notes: long production analyses should stay below this or the value should be raised intentionally
 
+### `CYTOCV_UPLOAD_PREPARATION_QUEUE_STALE_SECONDS`
+
+- Required: no
+- Type: positive integer seconds
+- Default: `300`
+- Effect: maximum age before a queued `UploadPreparationJob` is reported as stale
+- Notes: used by upload-preparation status reads and stale-job reaping helpers
+
+### `CYTOCV_UPLOAD_PREPARATION_RUNNING_STALE_SECONDS`
+
+- Required: no
+- Type: positive integer seconds
+- Default: `1800`
+- Effect: maximum runtime before an active `UploadPreparationJob` is reported as stale
+- Notes: set this high enough for preview generation on the deployed host
+
 ### `CYTOCV_UPLOAD_BATCH_TARGET_BYTES`
 
 - Required: no

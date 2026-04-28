@@ -9,11 +9,10 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import AnalysisJob, UploadPreparationJob, UploadedImage
+from core.models import AnalysisJob
 from core.services.analysis_context import AnalysisBatchContext, normalize_analysis_config_snapshot
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import (
-    ACTIVE_ANALYSIS_JOB_STATUSES,
     claim_next_analysis_job,
     finalize_job,
     get_oldest_queued_analysis_job,
@@ -21,64 +20,14 @@ from core.services.analysis_jobs import (
 from core.services.analysis_pipeline import run_analysis_batch
 from core.services.analysis_progress import AnalysisProgressHandle
 from core.services.analysis_progress_contract import SAFE_ANALYSIS_FAILURE_SUMMARY
-from core.services.artifact_storage import sweep_user_run_artifacts
+from core.services.artifact_maintenance import run_artifact_maintenance
 from core.services.upload_preparation import run_upload_preparation_job
 from core.services.upload_preparation_jobs import (
-    ACTIVE_UPLOAD_PREPARATION_STATUSES,
     claim_next_upload_preparation_job,
     get_oldest_queued_upload_preparation_job,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _protected_run_uuids_by_user() -> dict[int, set[str]]:
-    protected: dict[int, set[str]] = {}
-
-    for row in AnalysisJob.objects.filter(
-        status__in=ACTIVE_ANALYSIS_JOB_STATUSES
-    ).values("user_id", "run_uuids"):
-        user_id = int(row["user_id"])
-        protected.setdefault(user_id, set()).update(
-            str(value) for value in row.get("run_uuids", []) if str(value)
-        )
-
-    for row in UploadPreparationJob.objects.filter(
-        status__in=ACTIVE_UPLOAD_PREPARATION_STATUSES
-    ).values("user_id", "new_run_uuids", "restored_run_uuids"):
-        user_id = int(row["user_id"])
-        protected.setdefault(user_id, set()).update(
-            str(value)
-            for value in [
-                *(row.get("new_run_uuids") or []),
-                *(row.get("restored_run_uuids") or []),
-            ]
-            if str(value)
-        )
-
-    return protected
-
-
-def _run_periodic_maintenance(user_model) -> None:
-    protected_by_user = _protected_run_uuids_by_user()
-    user_ids = set(
-        int(value)
-        for value in UploadedImage.objects.values_list("user_id", flat=True).distinct()
-        if value is not None
-    )
-    user_ids.update(protected_by_user.keys())
-
-    for user in user_model.objects.filter(id__in=user_ids).only("id"):
-        summary = sweep_user_run_artifacts(
-            user,
-            protected_uuids=protected_by_user.get(int(user.id), set()),
-        )
-        if any(summary.get(key) for key in summary):
-            logger.info(
-                "Worker maintenance swept artifacts for user %s: %s",
-                user.id,
-                summary,
-            )
 
 
 class Command(BaseCommand):
@@ -97,46 +46,79 @@ class Command(BaseCommand):
             help="Process at most one available job, then exit.",
         )
         parser.add_argument(
+            "--job-type",
+            choices=("all", "upload-preparation", "analysis"),
+            default="all",
+            help="Restrict the worker to upload-preparation jobs, analysis jobs, or both.",
+        )
+        parser.add_argument(
             "--maintenance-interval",
             type=float,
             default=300.0,
             help="Seconds between stale artifact maintenance sweeps.",
         )
+        parser.add_argument(
+            "--skip-maintenance",
+            action="store_true",
+            help="Skip periodic artifact maintenance while running the worker loop.",
+        )
 
     def handle(self, *args, **options):
         poll_interval = max(float(options["poll_interval"]), 0.1)
         run_once = bool(options["once"])
+        job_type = str(options["job_type"])
         maintenance_interval = max(float(options["maintenance_interval"]), 1.0)
+        skip_maintenance = bool(options["skip_maintenance"])
         last_maintenance_at = 0.0
         user_model = get_user_model()
 
         self.stdout.write(self.style.SUCCESS("Analysis worker started"))
 
         while True:
-            if not run_once and time.monotonic() - last_maintenance_at >= maintenance_interval:
+            if (
+                not skip_maintenance
+                and not run_once
+                and time.monotonic() - last_maintenance_at >= maintenance_interval
+            ):
                 last_maintenance_at = time.monotonic()
                 try:
-                    _run_periodic_maintenance(user_model)
+                    run_artifact_maintenance()
                 except Exception:
                     logger.exception("Worker maintenance sweep failed")
 
-            upload_candidate = get_oldest_queued_upload_preparation_job()
-            analysis_candidate = get_oldest_queued_analysis_job()
-            should_claim_upload = (
-                upload_candidate is not None
-                and (
-                    analysis_candidate is None
-                    or upload_candidate.created_at <= analysis_candidate.created_at
-                )
-            )
+            upload_candidate = None
+            analysis_candidate = None
+            should_claim_upload = False
 
-            if should_claim_upload:
+            if job_type in {"all", "upload-preparation"}:
+                upload_candidate = get_oldest_queued_upload_preparation_job()
+            if job_type in {"all", "analysis"}:
+                analysis_candidate = get_oldest_queued_analysis_job()
+
+            if job_type == "upload-preparation":
+                should_claim_upload = upload_candidate is not None
+            elif job_type == "all":
+                should_claim_upload = (
+                    upload_candidate is not None
+                    and (
+                        analysis_candidate is None
+                        or upload_candidate.created_at <= analysis_candidate.created_at
+                    )
+                )
+
+            if should_claim_upload and upload_candidate is not None:
                 upload_job = claim_next_upload_preparation_job()
                 if upload_job is not None:
                     run_upload_preparation_job(upload_job)
                     if run_once:
                         return
                     continue
+
+            if job_type == "upload-preparation":
+                if run_once:
+                    return
+                time.sleep(poll_interval)
+                continue
 
             job = claim_next_analysis_job()
             if job is None:

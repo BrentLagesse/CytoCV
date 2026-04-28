@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Iterable
 from uuid import UUID
 
+from django.conf import settings
 from django.db import connection, transaction
 from django.utils import timezone
 
@@ -19,6 +20,12 @@ TERMINAL_UPLOAD_PREPARATION_STATUSES = (
     UploadPreparationJob.Status.SUCCEEDED,
     UploadPreparationJob.Status.FAILED,
     UploadPreparationJob.Status.CANCELLED,
+)
+STALE_UPLOAD_PREPARATION_QUEUE_FAILURE_SUMMARY = (
+    "Upload preparation expired while waiting for a worker. Please upload again."
+)
+STALE_UPLOAD_PREPARATION_RUNNING_FAILURE_SUMMARY = (
+    "Upload preparation exceeded the maximum runtime and was marked failed."
 )
 
 
@@ -48,6 +55,7 @@ def enqueue_upload_preparation_job(
 ) -> UploadPreparationJob:
     """Create a queued upload-preparation job."""
 
+    reap_stale_upload_preparation_jobs(user_id=user_id)
     return UploadPreparationJob.objects.create(
         user_id=user_id,
         new_run_uuids=normalize_uuid_values(new_run_uuids),
@@ -79,6 +87,34 @@ def get_upload_preparation_job_for_user(
     ).first()
 
 
+def get_upload_preparation_jobs_for_user(
+    *,
+    user_id: int,
+    job_uuids: Iterable[object],
+) -> list[UploadPreparationJob]:
+    """Return user-owned upload-preparation jobs matching the provided UUIDs."""
+
+    normalized_job_uuids: list[UUID] = []
+    seen: set[UUID] = set()
+    for value in job_uuids:
+        try:
+            parsed = UUID(str(value))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if parsed in seen:
+            continue
+        seen.add(parsed)
+        normalized_job_uuids.append(parsed)
+    if not normalized_job_uuids:
+        return []
+    return list(
+        UploadPreparationJob.objects.filter(
+            user_id=user_id,
+            job_uuid__in=normalized_job_uuids,
+        )
+    )
+
+
 def get_oldest_queued_upload_preparation_job() -> UploadPreparationJob | None:
     """Return the oldest queued upload-preparation job without claiming it."""
 
@@ -93,6 +129,7 @@ def get_oldest_queued_upload_preparation_job() -> UploadPreparationJob | None:
 def claim_next_upload_preparation_job() -> UploadPreparationJob | None:
     """Claim the next queued upload-preparation job for a worker process."""
 
+    reap_stale_upload_preparation_jobs()
     with transaction.atomic():
         queryset = UploadPreparationJob.objects.filter(
             status=UploadPreparationJob.Status.QUEUED
@@ -172,3 +209,93 @@ def finalize_upload_preparation_job(
     UploadPreparationJob.objects.filter(pk=job.pk).update(**update_fields)
     job.refresh_from_db(fields=list(update_fields.keys()))
     return job
+
+
+def get_stale_upload_preparation_terminal_state(
+    job: UploadPreparationJob,
+) -> tuple[str, str, str] | None:
+    """Return a synthetic terminal state for stale jobs without mutating persistence."""
+
+    if job.status in TERMINAL_UPLOAD_PREPARATION_STATUSES:
+        return None
+
+    now = timezone.now()
+    queue_stale_seconds = max(
+        int(getattr(settings, "UPLOAD_PREPARATION_QUEUE_STALE_SECONDS", 300)),
+        1,
+    )
+    running_stale_seconds = max(
+        int(getattr(settings, "UPLOAD_PREPARATION_RUNNING_STALE_SECONDS", 1800)),
+        1,
+    )
+
+    if job.status == UploadPreparationJob.Status.QUEUED:
+        age_seconds = (now - job.created_at).total_seconds()
+        if age_seconds < queue_stale_seconds:
+            return None
+        return (
+            UploadPreparationJob.Status.FAILED,
+            "Failed",
+            STALE_UPLOAD_PREPARATION_QUEUE_FAILURE_SUMMARY,
+        )
+
+    if job.status in {
+        UploadPreparationJob.Status.RUNNING,
+        UploadPreparationJob.Status.CANCELLING,
+    }:
+        started_at = job.started_at or job.created_at
+        age_seconds = (now - started_at).total_seconds()
+        if age_seconds < running_stale_seconds:
+            return None
+        terminal_status = (
+            UploadPreparationJob.Status.CANCELLED
+            if job.status == UploadPreparationJob.Status.CANCELLING
+            else UploadPreparationJob.Status.FAILED
+        )
+        terminal_phase = (
+            "Cancelled"
+            if terminal_status == UploadPreparationJob.Status.CANCELLED
+            else "Failed"
+        )
+        failure_summary = (
+            ""
+            if terminal_status == UploadPreparationJob.Status.CANCELLED
+            else STALE_UPLOAD_PREPARATION_RUNNING_FAILURE_SUMMARY
+        )
+        return (
+            terminal_status,
+            terminal_phase,
+            failure_summary,
+        )
+
+    return None
+
+
+def reap_stale_upload_preparation_jobs(
+    *,
+    user_id: int | None = None,
+) -> int:
+    """Persist terminal state for stale active upload-preparation jobs."""
+
+    queryset = UploadPreparationJob.objects.filter(
+        status__in=ACTIVE_UPLOAD_PREPARATION_STATUSES
+    )
+    if user_id is not None:
+        queryset = queryset.filter(user_id=user_id)
+
+    finalized = 0
+    for job in queryset.order_by("created_at"):
+        stale_state = get_stale_upload_preparation_terminal_state(job)
+        if stale_state is None:
+            continue
+        status, current_phase, failure_summary = stale_state
+        finalize_upload_preparation_job(
+            job,
+            status=status,
+            current_phase=current_phase,
+            valid_run_uuids=job.valid_run_uuids,
+            error_lines=[failure_summary] if failure_summary else [],
+            failure_summary=failure_summary,
+        )
+        finalized += 1
+    return finalized
