@@ -33,11 +33,17 @@ class UploadPreparationTestCase(TestCase):
             email="upload-prep@example.com",
             password="TestPass123!",
         )
+        self.edu_user = user_model.objects.create_user(
+            email="upload-prep@campus.edu",
+            password="TestPass123!",
+        )
         self.other_user = user_model.objects.create_user(
             email="upload-prep-other@example.com",
             password="TestPass123!",
         )
         self.client.login(email=self.user.email, password="TestPass123!")
+        self.edu_client = self.client_class()
+        self.edu_client.login(email=self.edu_user.email, password="TestPass123!")
         self.other_client = self.client_class()
         self.other_client.login(email=self.other_user.email, password="TestPass123!")
 
@@ -344,6 +350,105 @@ class UploadPreparationTestCase(TestCase):
             self.client.session["recent_upload_preparation_job_uuids"],
             [payload["job_uuid"]],
         )
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_upload_preparation_enqueue_blocks_default_tier_over_file_cap_and_cleans_new(self):
+        with temporary_media_root() as media_root:
+            first = self._create_uploaded_image(media_root, name="limit_first")
+            second = self._create_uploaded_image(media_root, name="limit_second")
+
+            response = self.client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(first.uuid), str(second.uuid)],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+            self.assertEqual(response.status_code, 400)
+            payload = response.json()
+            self.assertIn("Standard accounts can preprocess 1 file at a time.", payload["errors"])
+            self.assertFalse(UploadedImage.objects.filter(uuid=first.uuid).exists())
+            self.assertFalse(UploadedImage.objects.filter(uuid=second.uuid).exists())
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_upload_preparation_enqueue_counts_restored_files_toward_cap(self):
+        with temporary_media_root() as media_root:
+            new_upload = self._create_uploaded_image(media_root, name="new_limit")
+            restored = self._create_uploaded_image(media_root, name="restored_limit")
+
+            response = self.client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(new_upload.uuid)],
+                    "existing_uuids": [str(restored.uuid)],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+            self.assertEqual(response.status_code, 400)
+            payload = response.json()
+            self.assertIn("This submission includes 2 files total.", payload["errors"])
+            self.assertFalse(UploadedImage.objects.filter(uuid=new_upload.uuid).exists())
+            self.assertTrue(UploadedImage.objects.filter(uuid=restored.uuid).exists())
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_upload_preparation_enqueue_allows_education_tier_up_to_twenty_files(self):
+        with temporary_media_root() as media_root:
+            uploads = [
+                self._create_uploaded_image(
+                    media_root,
+                    user=self.edu_user,
+                    name=f"edu_{index}",
+                )
+                for index in range(20)
+            ]
+
+            response = self.edu_client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(item.uuid) for item in uploads],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.QUEUED)
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_legacy_experiment_post_blocks_default_tier_over_file_cap_before_saving(self):
+        response = self.client.post(
+            reverse("experiment"),
+            {
+                "files": [
+                    SimpleUploadedFile("first.dv", b"dv"),
+                    SimpleUploadedFile("second.dv", b"dv"),
+                ],
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertIn("Standard accounts can preprocess 1 file at a time.", payload["errors"])
+        self.assertFalse(UploadedImage.objects.exists())
 
     def test_experiment_get_injects_active_upload_resume_payload(self):
         job = enqueue_upload_preparation_job(

@@ -2499,7 +2499,9 @@
           clearAnalysisProgress();
           setAnalysisLocked(false);
           if (window.showGlobalMessage) {
-            window.showGlobalMessage('Failed to start analysis. Please try again.');
+            window.showGlobalMessage(
+              err && err.message ? err.message : 'Failed to start analysis. Please try again.'
+            );
           }
         }
       });

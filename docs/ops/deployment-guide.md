@@ -73,11 +73,55 @@ Production deployment should account for:
 
 - media storage capacity
 - retained storage quotas
+- email-tier upload and analysis caps if the deployment wants differentiated limits for unrestricted exact-email allowlists, `.edu` domains, and everyone else
 - backup of media and database data
 - presence of required ML weights
 - email connectivity if recovery and verification flows are active
 - separate supervision for the upload-preparation worker, analysis worker, and artifact-maintenance timer
 - an upload batch target below the reverse proxy body-size limit, for example default `CYTOCV_UPLOAD_BATCH_TARGET_BYTES=83886080` with Nginx `client_max_body_size 100M`
+
+## Reverse Proxy Upload Limits
+
+Large uploads can be rejected by Nginx before Django or the background worker
+ever sees the request. That limit must be configured on the deployed VM or
+whatever reverse proxy host sits in front of Gunicorn.
+
+Current upload-size relationship:
+
+- browser upload batch target: `CYTOCV_UPLOAD_BATCH_TARGET_BYTES=83886080` (`80 MiB`)
+- documented minimum Nginx headroom for that default: `client_max_body_size 100M`
+- if you raise `CYTOCV_UPLOAD_BATCH_TARGET_BYTES`, raise `client_max_body_size` too
+
+Repository support:
+
+- repo-owned Nginx example: `deploy/nginx/cytocv.nginx.conf.example`
+- repo-owned Gunicorn / worker examples: `deploy/systemd/`
+
+Django notes:
+
+- this repo does not currently override `DATA_UPLOAD_MAX_MEMORY_SIZE` or `FILE_UPLOAD_MAX_MEMORY_SIZE`
+- the current app behavior relies on Django's normal upload handling plus the browser-side batch target
+- in practice, Nginx `client_max_body_size` is the first hard limit that must be aligned in production
+
+## Access Tier Limits
+
+The current codebase can enforce differentiated upload and analysis limits by
+email tier:
+
+- unrestricted exact-email allowlist: `CYTOCV_ACCESS_UNRESTRICTED_EMAILS`
+- education domains: `CYTOCV_QUOTA_EDU_SUFFIXES`
+- default tier: everyone else
+
+Default limits in the repo template:
+
+- default tier: `CYTOCV_UPLOAD_LIMIT_DEFAULT_MAX_FILES=1`
+- education tier: `CYTOCV_UPLOAD_LIMIT_EDU_MAX_FILES=20`
+- default tier: `CYTOCV_ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1`
+- education tier: `CYTOCV_ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS=2`
+
+Exact-email allowlist matches bypass both caps entirely. Domain matching is
+case-insensitive and reuses the same `.edu` suffix list already used for stored
+quota policy.
 
 ## Worker Deployment
 
@@ -106,6 +150,7 @@ Repository examples:
 - `deploy/systemd/cytocv-analysis-worker.service.example`
 - `deploy/systemd/cytocv-artifact-maintenance.service.example`
 - `deploy/systemd/cytocv-artifact-maintenance.timer.example`
+- `deploy/nginx/cytocv.nginx.conf.example`
 
 These example units should be copied to `/etc/systemd/system/` and adjusted for
 the actual deploy user and checkout path.

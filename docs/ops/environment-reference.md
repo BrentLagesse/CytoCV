@@ -85,6 +85,9 @@ This is a maintainer reference. Document variable names and behavior here, but d
 - Effect: browser-side target for splitting selected `.dv` files into multiple upload requests
 - Notes:
   - keep this below the reverse proxy body-size limit, for example below `client_max_body_size 100M`
+  - `client_max_body_size` is set in Nginx on the deployed VM or reverse proxy host, not in Django settings
+  - the repo includes an example reverse-proxy fragment at `deploy/nginx/cytocv.nginx.conf.example`
+  - this repo does not currently override Django `DATA_UPLOAD_MAX_MEMORY_SIZE` or `FILE_UPLOAD_MAX_MEMORY_SIZE`
   - this does not implement resumable chunking for a single oversized file; one file must fit inside one request
 
 ### `CYTOCV_SEGMENT_SAVE_DEBUG_ARTIFACTS`
@@ -351,6 +354,44 @@ This is a maintainer reference. Document variable names and behavior here, but d
 - Effect: assigns fixed total quotas in MB to specific email addresses before any admin override applies
 - Notes: matching is case-insensitive and invalid or duplicate entries fail startup
 
+## Access Tier Settings
+
+### `CYTOCV_ACCESS_UNRESTRICTED_EMAILS`
+
+- Required: no
+- Type: comma-separated email list
+- Default: empty
+- Effect: exact-email allowlist that bypasses the upload file cap and the active analysis job cap
+- Notes: matching is case-insensitive and invalid entries fail startup
+
+### `CYTOCV_UPLOAD_LIMIT_DEFAULT_MAX_FILES`
+
+- Required: no
+- Type: positive integer
+- Default: `1`
+- Effect: maximum total files per upload-preparation submission for accounts outside the unrestricted allowlist and outside `CYTOCV_QUOTA_EDU_SUFFIXES`
+
+### `CYTOCV_UPLOAD_LIMIT_EDU_MAX_FILES`
+
+- Required: no
+- Type: positive integer
+- Default: `20`
+- Effect: maximum total files per upload-preparation submission for accounts whose domain matches `CYTOCV_QUOTA_EDU_SUFFIXES`
+
+### `CYTOCV_ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS`
+
+- Required: no
+- Type: positive integer
+- Default: `1`
+- Effect: maximum active analysis jobs (`queued`, `running`, or `cancelling`) for accounts outside the unrestricted allowlist and outside `CYTOCV_QUOTA_EDU_SUFFIXES`
+
+### `CYTOCV_ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS`
+
+- Required: no
+- Type: positive integer
+- Default: `2`
+- Effect: maximum active analysis jobs (`queued`, `running`, or `cancelling`) for accounts whose domain matches `CYTOCV_QUOTA_EDU_SUFFIXES`
+
 ## reCAPTCHA Settings
 
 ### `CYTOCV_RECAPTCHA_ENABLED`
@@ -457,6 +498,8 @@ Startup fails when:
 - any storage quota MB value is negative or not an integer
 - `CYTOCV_QUOTA_EDU_SUFFIXES` is empty
 - `CYTOCV_QUOTA_USER_FIXED_MB` contains an invalid, malformed, or duplicate `email:mb` entry
+- `CYTOCV_ACCESS_UNRESTRICTED_EMAILS` contains an invalid email address
+- any upload or analysis tier cap is less than `1`
 
 ## Related Documents
 

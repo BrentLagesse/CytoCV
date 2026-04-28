@@ -17,6 +17,7 @@ from core.services.analysis_context import (
 )
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import (
+    AnalysisJobLimitExceeded,
     enqueue_analysis_job,
     get_active_analysis_job,
     get_latest_analysis_job,
@@ -641,11 +642,18 @@ def pre_process(request, uuids):
             request.session["transient_experiment_uuids"] = sorted(transient_uuids)
             request.session.modified = True
 
-            job, created = enqueue_analysis_job(
-                user_id=request.user.id,
-                raw_uuids=context.run_uuids,
-                config_snapshot=context.config_snapshot,
-            )
+            try:
+                job, created = enqueue_analysis_job(
+                    user_id=request.user.id,
+                    raw_uuids=context.run_uuids,
+                    config_snapshot=context.config_snapshot,
+                )
+            except AnalysisJobLimitExceeded as exc:
+                _release_progress_batch(request, batch_key)
+                if is_ajax:
+                    return JsonResponse({"error": str(exc)}, status=429)
+                messages.error(request, str(exc))
+                return redirect("pre_process", uuids=batch_key)
             progress = AnalysisProgressHandle(batch_key, job=job)
             progress.clear_cancel()
             if created:

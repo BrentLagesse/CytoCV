@@ -1985,6 +1985,7 @@
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 <script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>
 <script id="uploadQuotaProjection" type="application/json">{{ upload_quota_payload_json|safe }}</script>
+<script id="uploadAccessPolicy" type="application/json">{{ upload_access_policy_payload_json|safe }}</script>
 <script id="uploadResumePayload" type="application/json">{{ upload_resume_payload_json|safe }}</script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
@@ -2034,6 +2035,7 @@
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
     const serverPreferenceDefaultsElement = document.getElementById('serverPreferenceDefaults');
     const uploadQuotaProjectionElement = document.getElementById('uploadQuotaProjection');
+    const uploadAccessPolicyElement = document.getElementById('uploadAccessPolicy');
     const uploadResumePayloadElement = document.getElementById('uploadResumePayload');
     let restoredQueueItems = [];
     try {
@@ -2111,6 +2113,15 @@
         uploadQuotaProjection = JSON.parse(uploadQuotaRaw || '{}');
     } catch (err) {
         uploadQuotaProjection = {};
+    }
+    let uploadAccessPolicy = {};
+    try {
+        const uploadAccessRaw = uploadAccessPolicyElement
+            ? uploadAccessPolicyElement.textContent
+            : '{}';
+        uploadAccessPolicy = JSON.parse(uploadAccessRaw || '{}');
+    } catch (err) {
+        uploadAccessPolicy = {};
     }
     let uploadResumePayload = {};
     try {
@@ -2422,6 +2433,26 @@
         }
         const decimals = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
         return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+    }
+
+    function getUploadMaxFiles() {
+        const raw = uploadAccessPolicy ? uploadAccessPolicy.upload_max_files : null;
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed) || parsed < 1) {
+            return null;
+        }
+        return parsed;
+    }
+
+    function buildUploadFileLimitErrors(requestedFiles) {
+        const lines = [];
+        if (uploadAccessPolicy && typeof uploadAccessPolicy.upload_limit_message === 'string' && uploadAccessPolicy.upload_limit_message) {
+            lines.push(uploadAccessPolicy.upload_limit_message);
+        }
+        const count = Number(requestedFiles) || 0;
+        lines.push(`This submission includes ${count} ${count === 1 ? 'file' : 'files'} total.`);
+        lines.push('Reduce the selection and try again.');
+        return lines;
     }
 
     function updateUploadQuotaStatus() {
@@ -5883,10 +5914,16 @@
         uploadForm.addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            if (getQueuedCount() === 0) {
+            const queuedCount = getQueuedCount();
+            if (queuedCount === 0) {
                 showErrors([
                     'No files selected. Upload at least one DeltaVision .dv file before preprocessing.',
                 ]);
+                return;
+            }
+            const uploadMaxFiles = getUploadMaxFiles();
+            if (uploadMaxFiles !== null && queuedCount > uploadMaxFiles) {
+                showErrors(buildUploadFileLimitErrors(queuedCount));
                 return;
             }
 

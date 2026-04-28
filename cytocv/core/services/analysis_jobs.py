@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
+from accounts.access_policy import (
+    build_analysis_limit_error_message,
+    get_access_policy_for_email,
+)
 from core.models import AnalysisJob
 from core.services.analysis_context import build_batch_key, normalize_analysis_config_snapshot
 from core.services.analysis_progress_contract import (
@@ -25,6 +30,21 @@ TERMINAL_ANALYSIS_JOB_STATUSES = (
     AnalysisJob.Status.FAILED,
     AnalysisJob.Status.CANCELLED,
 )
+
+
+class AnalysisJobLimitExceeded(Exception):
+    """Raised when a user exceeds the configured active analysis job cap."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        max_active_jobs: int,
+        current_active_jobs: int,
+    ) -> None:
+        self.max_active_jobs = int(max_active_jobs)
+        self.current_active_jobs = int(current_active_jobs)
+        super().__init__(message)
 
 
 def get_active_analysis_job(*, user_id: int, batch_key: str) -> AnalysisJob | None:
@@ -51,6 +71,15 @@ def get_latest_analysis_job(*, user_id: int, batch_key: str) -> AnalysisJob | No
     )
 
 
+def count_active_analysis_jobs(*, user_id: int) -> int:
+    """Return the count of active analysis jobs for a user."""
+
+    return AnalysisJob.objects.filter(
+        user_id=user_id,
+        status__in=ACTIVE_ANALYSIS_JOB_STATUSES,
+    ).count()
+
+
 def enqueue_analysis_job(
     *,
     user_id: int,
@@ -65,9 +94,23 @@ def enqueue_analysis_job(
     reap_stale_analysis_jobs(user_id=user_id, batch_key=batch_key)
 
     with transaction.atomic():
+        user_queryset = get_user_model().objects.filter(pk=user_id)
+        if connection.vendor == "postgresql":
+            user_queryset = user_queryset.select_for_update()
+        user_email = user_queryset.values_list("email", flat=True).first()
         existing = get_active_analysis_job(user_id=user_id, batch_key=batch_key)
         if existing is not None:
             return existing, False
+        access_policy = get_access_policy_for_email(user_email)
+        max_active_jobs = access_policy.analysis_max_active_jobs
+        if max_active_jobs is not None:
+            active_count = count_active_analysis_jobs(user_id=user_id)
+            if active_count >= max_active_jobs:
+                raise AnalysisJobLimitExceeded(
+                    build_analysis_limit_error_message(access_policy),
+                    max_active_jobs=max_active_jobs,
+                    current_active_jobs=active_count,
+                )
         try:
             job = AnalysisJob.objects.create(
                 batch_key=batch_key,

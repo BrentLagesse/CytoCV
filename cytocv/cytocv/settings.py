@@ -5,6 +5,7 @@ import os
 
 from accounts.quota_config import (
     BYTES_PER_MB,
+    parse_email_allowlist,
     parse_quota_mb_value,
     parse_quota_suffixes,
     parse_user_fixed_quota_map,
@@ -528,6 +529,37 @@ STORAGE_QUOTA_EDU_SUFFIXES = parse_quota_suffixes(
 STORAGE_QUOTA_USER_FIXED_BYTES = parse_user_fixed_quota_map(
     _get_env("CYTOCV_QUOTA_USER_FIXED_MB", "", prefer_env_file=True),
 )
+ACCESS_UNRESTRICTED_EMAILS = parse_email_allowlist(
+    _get_env("CYTOCV_ACCESS_UNRESTRICTED_EMAILS", "", prefer_env_file=True),
+)
+UPLOAD_LIMIT_DEFAULT_MAX_FILES = _parse_env_int(
+    "CYTOCV_UPLOAD_LIMIT_DEFAULT_MAX_FILES",
+    default=1,
+    prefer_env_file=True,
+)
+UPLOAD_LIMIT_EDU_MAX_FILES = _parse_env_int(
+    "CYTOCV_UPLOAD_LIMIT_EDU_MAX_FILES",
+    default=20,
+    prefer_env_file=True,
+)
+ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS = _parse_env_int(
+    "CYTOCV_ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS",
+    default=1,
+    prefer_env_file=True,
+)
+ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS = _parse_env_int(
+    "CYTOCV_ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS",
+    default=2,
+    prefer_env_file=True,
+)
+for setting_name in (
+    "UPLOAD_LIMIT_DEFAULT_MAX_FILES",
+    "UPLOAD_LIMIT_EDU_MAX_FILES",
+    "ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS",
+    "ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS",
+):
+    if int(globals()[setting_name]) < 1:
+        raise ImproperlyConfigured(f"{setting_name} must be at least 1.")
 
 # Google reCAPTCHA
 RECAPTCHA_ENABLED = os.getenv("CYTOCV_RECAPTCHA_ENABLED", "0") == "1"
