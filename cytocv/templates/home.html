@@ -1,31 +1,29 @@
 ﻿{% extends 'base.html' %}
-
 {% block title %}CytoCV{% endblock title %}
+{% load static %}
 {% block meta_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock meta_description %}
 {% block og_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock og_description %}
 {% block twitter_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock twitter_description %}
 
 {% block head %}
     <style>
-        body {
-            font-family: var(--app-font);
-            background-color: var(--page-bg);
-            color: var(--text);
-            margin: 0;
+        .home-page {
+            flex: 1 0 auto;
+            width: 100%;
             padding: calc(var(--nav-height) + 10px) 10px 10px;
-            min-height: 100dvh;
+            display: flex;
         }
         .home-layout {
-            --left-width: 70%;
-            --divider-width: 8px;
+            flex: 1 1 auto;
             width: 100%;
+            max-width: 1280px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: minmax(280px, var(--left-width)) var(--divider-width) minmax(240px, 1fr);
-            align-items: stretch;
+            grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+            align-items: start;
             justify-items: stretch;
-            gap: 10px;
-            min-height: calc(100dvh - var(--nav-height) - 20px);
+            gap: 12px;
+            min-height: 100%;
             isolation: isolate;
         }
         .module-card {
@@ -37,6 +35,8 @@
             padding: 18px;
         }
         .overview-panel {
+            --uw-purple: #4b2e83;
+            --uw-gold: #b7a57a;
             gap: 14px;
             padding: 0;
             overflow: visible;
@@ -49,30 +49,144 @@
         .overview-header {
             display: grid;
             gap: 14px;
+            width: 100%;
+            justify-items: start;
+            text-align: left;
+        }
+        .overview-header > div {
+            display: grid;
+            gap: 14px;
+            width: 100%;
+            justify-items: start;
         }
         .overview-header h1 {
             margin: 2px 0 6px;
             font-size: clamp(30px, 4.4vw, 44px);
             font-weight: 600;
             letter-spacing: 0.015em;
-            line-height: 0.98;
+            line-height: 1.06;
             color: rgba(247, 250, 255, 0.98);
         }
-        .overview-header p {
+        .overview-header p:not(.section-eyebrow) {
             margin: 0;
             color: var(--muted);
             font-size: 14px;
             line-height: 1.55;
-            max-width: 60ch;
+            max-width: 78ch;
         }
-        .overview-summary {
+        .hero-card {
             display: block;
-            align-self: flex-start;
-            color: rgba(189, 206, 228, 0.82);
-            font-size: 11px;
+            padding: 34px 38px;
+        }
+        .hero-copy {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            text-align: left;
+            gap: 14px;
+            min-width: 0;
+        }
+        .hero-copy p:not(.section-eyebrow) {
+            margin: 0;
+            color: rgba(229, 237, 250, 0.92);
+            font-size: 15px;
+            line-height: 1.68;
+            max-width: 82ch;
+            text-align: left;
+        }
+        .hero-affiliation {
+            display: grid;
+            grid-template-columns: minmax(220px, 320px) max-content;
+            gap: 20px 26px;
+            align-items: center;
+            width: 100%;
+            justify-content: center;
+            margin-top: 6px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, 0.16);
+        }
+        .hero-affiliation-copy {
+            display: grid;
+            min-width: 0;
+            justify-self: start;
+        }
+        .hero-affiliation-lines {
+            display: grid;
+            gap: 8px;
+        }
+        .hero-affiliation-lines p {
+            margin: 0;
+            color: rgba(241, 245, 252, 0.96);
+            font-size: 17px;
+            line-height: 1.55;
+            max-width: 82ch;
+        }
+        .hero-affiliation-brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+        .hero-affiliation-logo {
+            display: block;
+            width: min(100%, 360px);
+            height: auto;
+        }
+        .proof-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .proof-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .home-section-stack {
+            display: grid;
+            gap: 12px;
+        }
+        .proof-card,
+        .home-section-card {
+            display: grid;
+            gap: 14px;
+            min-width: 0;
+        }
+        .proof-card h2,
+        .home-section-card h2 {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.12;
+            color: rgba(247, 250, 255, 0.98);
+        }
+        .proof-card p,
+        .home-section-card p {
+            margin: 0;
+            color: rgba(229, 237, 250, 0.92);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .proof-link {
+            justify-content: flex-start;
+            width: fit-content;
+            padding: 0;
+            min-height: 0;
+            border: 0;
+            color: #a9c9ff;
+            background: transparent;
+        }
+        .proof-link:hover {
+            color: #c6ddff;
+            text-decoration: underline;
         }
         .story-viewport {
             min-width: 0;
@@ -314,6 +428,7 @@
         }
         .cta-card {
             justify-content: center;
+            align-items: center;
             text-align: center;
             gap: 16px;
         }
@@ -332,6 +447,16 @@
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
+        }
+        .cta-buttons.is-authenticated {
+            width: 100%;
+            flex-wrap: nowrap;
+        }
+        .cta-buttons.is-authenticated .cta-button {
+            flex: 1 1 0;
+            min-width: 0;
+            padding-left: 18px;
+            padding-right: 18px;
         }
         .cta-button {
             background-color: var(--accent);
@@ -377,6 +502,25 @@
             font-weight: 600;
         }
         .text-link:hover { text-decoration: underline; }
+        .cta-signin {
+            margin-top: 10px;
+        }
+        .cta-support-links {
+            width: min(100%, 320px);
+            margin: 18px auto 0;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, 0.16);
+        }
+        .cta-support-links p {
+            margin: 0;
+        }
+        .cta-support-links p + p {
+            margin-top: 18px;
+        }
+        .cta-support-links .text-link {
+            display: inline-block;
+            margin-top: 4px;
+        }
         .splitter {
             position: sticky;
             top: calc(var(--nav-height) + 10px);
@@ -431,6 +575,13 @@
                 grid-template-columns: 1fr;
                 min-height: 0;
             }
+            .hero-card {
+                padding: 24px 22px;
+            }
+            .hero-affiliation {
+                grid-template-columns: 1fr;
+                gap: 18px;
+            }
             .module-card {
                 padding: 16px;
             }
@@ -472,6 +623,13 @@
                 position: static;
                 min-height: 0;
             }
+            .cta-buttons.is-authenticated {
+                flex-wrap: wrap;
+            }
+            .cta-buttons.is-authenticated .cta-button {
+                flex: 0 1 auto;
+                min-width: 176px;
+            }
         }
         @media (max-width: 640px) {
             .story-channel-list {
@@ -509,149 +667,74 @@
 {% endblock head %}
 
 {% block content %}
+<div class="home-page">
 <div class="home-layout">
     <section class="module-card overview-panel soft-fade-in">
-        <div class="overview-intro glass-card glass-section">
-            <div class="overview-header">
-                <div class="overview-summary">Mitotic yeast image analysis</div>
-                <div>
-                    <h1>CytoCV</h1>
-                    <p>Structured analysis for DeltaVision microscopy workflows, built through a University of Washington Bothell and University of Utah research collaboration.</p>
+        <div class="overview-intro">
+            <div class="hero-card glass-card glass-section">
+                <div class="hero-copy">
+                    <div class="overview-header">
+                        <div>
+                            <p class="section-eyebrow">Developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine</p>
+                            <h1>CytoCV: Automated Yeast Cell Image Analysis for Research Workflows</h1>
+                            <p>CytoCV helps researchers upload DeltaVision <code>.dv</code> microscopy stacks, segment individual yeast cells, and review software-generated cell-level measurements through a browser-based workflow. It brings validation, preprocessing, segmentation, review, and export together so experiments are easier to analyze and compare.</p>
+                            <div class="hero-affiliation" aria-label="Institutional affiliation details">
+                                <div class="hero-affiliation-brand" aria-hidden="true">
+                                    <img src="{% static uwb_white_logo_static_path %}" alt="{{ uwb_logo_alt }}" class="hero-affiliation-logo">
+                                </div>
+                                <div class="hero-affiliation-copy">
+                                    <div class="hero-affiliation-lines">
+                                        {% for line in home_affiliation_lines %}
+                                            <p>{{ line }}</p>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="story-viewport" id="storyViewport">
-            <div class="story-track" id="storyTrack">
-                <article class="story-card glass-card glass-section" data-story-index="0">
-                    <div class="story-card-head">
-                        <p class="section-eyebrow">Overview</p>
-                        <h2 class="story-card-title">What CytoCV Is</h2>
-                    </div>
-                    <div class="story-card-copy">
-                        <p>CytoCV is a web-based analysis platform for DeltaVision <code>.dv</code> microscopy of mitotic yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one browser-based workflow.</p>
-                        <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older Blue-based workflows available as legacy paths when they are needed.</p>
-                    </div>
-                    <ul class="story-channel-list" aria-label="Channel roles">
-                        <li class="dic">
-                            <div class="story-channel-head">
-                                <span class="channel-chip dic">DIC</span>
-                                <span class="story-channel-hint">Structure</span>
-                            </div>
-                            <span class="story-channel-copy">Structural channel used for segmentation.</span>
-                        </li>
-                        <li class="red">
-                            <div class="story-channel-head">
-                                <span class="channel-chip red">Red</span>
-                                <span class="story-channel-hint">Red</span>
-                            </div>
-                            <span class="story-channel-copy">Red-signal contour and distance context.</span>
-                        </li>
-                        <li class="green">
-                            <div class="story-channel-head">
-                                <span class="channel-chip green">Green</span>
-                                <span class="story-channel-hint">Green</span>
-                            </div>
-                            <span class="story-channel-copy">Green Intensity and Dot Measurements.</span>
-                        </li>
-                        <li class="blue">
-                            <div class="story-channel-head">
-                                <span class="channel-chip blue">Blue</span>
-                                <span class="story-channel-hint">Legacy</span>
-                            </div>
-                            <span class="story-channel-copy">Legacy nucleus-related analysis path.</span>
-                        </li>
-                    </ul>
-                </article>
-
-                <article class="story-card glass-card glass-section" data-story-index="1">
-                    <div class="story-card-head">
-                        <p class="section-eyebrow">Research Need</p>
-                        <h2 class="story-card-title">Why Researchers Need It</h2>
-                    </div>
-                    <div class="story-card-copy">
-                        <p>Microscopy studies often require researchers to inspect many cells, compare fluorescent signals, and record measurements across repeated experiments. Doing that cell by cell by eye can take time, scale poorly as datasets grow, and introduce inconsistency in how cells are selected or measured.</p>
-                        <p>CytoCV is designed to reduce manual analysis time and help researchers quantify more cells more consistently, while preserving the connection between the original image stack and the numbers produced from it.</p>
-                    </div>
-                </article>
-
-                <article class="story-card glass-card glass-section" data-story-index="2">
-                    <div class="story-card-head">
-                        <p class="section-eyebrow">Workflow</p>
-                        <h2 class="story-card-title">How the Workflow Works</h2>
-                    </div>
-                    <div class="story-card-copy">
-                        <p>Researchers upload DeltaVision <code>.dv</code> files, and CytoCV validates the channels required for the selected workflow before analysis proceeds. Preview images are generated first so the file can be checked before segmentation and measurement begin.</p>
-                        <p>The platform then uses <code>DIC</code>, a structural brightfield-like channel, as the input for Mask R-CNN-based cell segmentation. After cells are segmented, CytoCV computes per-cell measurements and presents the results for review and export.</p>
-                    </div>
-                    <p class="story-output-label">Workflow outputs</p>
-                    <ul class="story-tag-list" aria-label="Workflow outputs">
-                        <li>Validation</li>
-                        <li>Preview images</li>
-                        <li>Segmentation</li>
-                        <li>Per-cell measurements</li>
-                        <li>Review</li>
-                        <li>Export</li>
-                    </ul>
-                </article>
-
-                <article class="story-card glass-card glass-section" data-story-index="3">
-                    <div class="story-card-head">
-                        <p class="section-eyebrow">Measurements</p>
-                        <h2 class="story-card-title">What CytoCV Measures</h2>
-                    </div>
-                    <ul class="story-detail-list">
-                        <li>
-                            <strong>Puncta Distance</strong>
-                            <span>Measures opposite-channel intensity along the line drawn between paired puncta.</span>
-                        </li>
-                        <li>
-                            <strong>Cen Dot Location and Biorientation</strong>
-                            <span>Classifies Cen Dot Location as mother and/or daughter using the DIC-derived neck split, and separately reports Colinear Dots and Off Axis Dots.</span>
-                        </li>
-                        <li>
-                            <strong>Green and red contour intensity summaries</strong>
-                            <span>Calculates contour-based intensity combinations across red and green channels.</span>
-                        </li>
-                        <li>
-                            <strong>Nuclear And Cell-Pair Intensity</strong>
-                            <span>Uses either a red-defined or green-defined nucleus contour and measures the opposite channel inside the nucleus and across the cell pair.</span>
-                        </li>
-                    </ul>
-                    <div class="story-note">Blue-based measurements remain available as legacy workflows, not the main default path.</div>
-                </article>
-
-                <article class="story-card glass-card glass-section" data-story-index="4">
-                    <div class="story-card-head">
-                        <p class="section-eyebrow">Biological Value</p>
-                        <h2 class="story-card-title">Why This Matters Biologically</h2>
-                    </div>
-                    <div class="story-card-copy">
-                        <p>These measurements help researchers compare signal localization between the nucleus and the cell pair, examine how paired red and green signals relate to one another, and evaluate patterns across yeast populations or mutant conditions.</p>
-                        <p>That makes CytoCV useful for studies where the question depends on where a fluorescent signal is located, how paired markers behave together, or how to compare more cells through a more repeatable analysis process than manual review alone.</p>
-                    </div>
-                </article>
+            <div class="proof-grid">
+                {% for card in proof_cards %}
+                    <article class="proof-card glass-card glass-section">
+                        <p class="section-eyebrow">{{ card.eyebrow }}</p>
+                        <h2>{{ card.title }}</h2>
+                        <p>{{ card.body }}</p>
+                        <a
+                            href="{{ card.href }}"
+                            class="proof-link"
+                            {% if card.external %}target="_blank" rel="noopener noreferrer"{% endif %}
+                        >
+                            {{ card.link_label }}
+                        </a>
+                    </article>
+                {% endfor %}
             </div>
-        </div>
 
-        <div class="story-mobile-meta" id="storyMobileMeta">
-            <p class="story-swipe-hint">Swipe to explore</p>
-            <div class="story-dots" aria-label="Story card navigation">
-                <button type="button" class="story-dot is-active" data-story-dot="0" aria-label="Go to What CytoCV Is" aria-pressed="true"></button>
-                <button type="button" class="story-dot" data-story-dot="1" aria-label="Go to Why Researchers Need It" aria-pressed="false"></button>
-                <button type="button" class="story-dot" data-story-dot="2" aria-label="Go to How the Workflow Works" aria-pressed="false"></button>
-                <button type="button" class="story-dot" data-story-dot="3" aria-label="Go to What CytoCV Measures" aria-pressed="false"></button>
-                <button type="button" class="story-dot" data-story-dot="4" aria-label="Go to Why This Matters Biologically" aria-pressed="false"></button>
+            <div class="home-section-stack" aria-label="Workflow, measurement, and documentation links">
+                {% for card in section_cards %}
+                    <article class="home-section-card glass-card glass-section">
+                        <p class="section-eyebrow">{{ card.eyebrow }}</p>
+                        <h2>{{ card.title }}</h2>
+                        <p>{{ card.body }}</p>
+                        <a
+                            href="{{ card.href }}"
+                            class="proof-link"
+                            {% if card.external %}target="_blank" rel="noopener noreferrer"{% endif %}
+                        >
+                            {{ card.link_label }}
+                        </a>
+                    </article>
+                {% endfor %}
             </div>
         </div>
     </section>
 
-    <div class="splitter" id="homeDivider" role="separator" aria-orientation="vertical" aria-label="Resize panels"></div>
-
     <section class="module-card cta-panel cta-card soft-fade-in">
         <h2>Get started</h2>
-        <p>Choose how you want to access the analysis workflow.</p>
-        <div class="cta-buttons">
+        <p>Choose how you want to learn about the workflow or move directly into the app.</p>
+        <div class="cta-buttons{% if user.is_authenticated %} is-authenticated{% endif %}">
             {% if user.is_authenticated %}
                 <a href="{% url 'dashboard' %}" class="cta-button">Dashboard</a>
             {% else %}
@@ -663,8 +746,12 @@
             </a>
         </div>
         {% if not user.is_authenticated %}
-            <p>Already have an account? <a href="{% url 'signin' %}" class="text-link">Sign In</a></p>
+            <p class="cta-signin">Already have an account? <a href="{% url 'signin' %}" class="text-link">Sign In</a></p>
         {% endif %}
+        <div class="cta-support-links">
+            <p>Need the full product overview?<br><a href="{% url 'about' %}" class="text-link">Read About CytoCV</a></p>
+            <p>Want to see who built CytoCV?<br><a href="{% url 'collaborators' %}" class="text-link">Meet the collaborators</a></p>
+        </div>
     </section>
 </div>
 
@@ -1052,4 +1139,5 @@
         handleResponsiveCarousel();
     }
 </script>
+</div>
 {% endblock content %}

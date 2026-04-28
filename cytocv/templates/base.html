@@ -141,6 +141,9 @@
             color: var(--text);
             display: block;
         }
+        body {
+            min-height: 100dvh;
+        }
         button,
         input,
         select,
@@ -325,6 +328,91 @@
         }
         .navbar a:hover {
             background-color: var(--surface-hover);
+            color: #fff;
+        }
+        .about-nav-menu {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .about-nav-menu::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 240px;
+            height: 10px;
+        }
+        .about-link {
+            white-space: nowrap;
+        }
+        .about-toggle {
+            display: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            box-shadow: none !important;
+            filter: none !important;
+        }
+        .about-toggle:hover {
+            background: var(--surface-hover);
+        }
+        .about-toggle-chevron {
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(45deg) translateY(-1px);
+            transform-origin: center;
+            transition: transform 0.2s ease;
+            display: inline-block;
+        }
+        .about-nav-menu.is-open .about-toggle-chevron {
+            transform: rotate(-135deg) translateY(1px);
+        }
+        .about-nav-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            min-width: 240px;
+            background:
+                var(--liquid-linear-highlight),
+                var(--glass-card-bg-strong);
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            border-radius: var(--glass-radius-md);
+            padding: 8px;
+            box-shadow: var(--glass-glow);
+            backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+            display: none;
+            z-index: 1200;
+        }
+        .about-nav-menu:hover .about-nav-dropdown,
+        .about-nav-menu:focus-within .about-nav-dropdown,
+        .about-nav-menu.is-open .about-nav-dropdown {
+            display: block;
+        }
+        .navbar .about-nav-dropdown .about-nav-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+        .navbar .about-nav-dropdown .about-nav-link.is-active {
+            background: var(--surface-hover);
             color: #fff;
         }
         .account-menu {
@@ -515,6 +603,132 @@
         .message.success .message-close:hover,
         .message.info .message-close:hover {
             background: rgba(34, 197, 94, 0.28);
+        }
+
+        .site-shell {
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-width: 0;
+        }
+        .site-main {
+            flex: 1 0 auto;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-width: 0;
+        }
+        .site-footer {
+            flex-shrink: 0;
+            width: 100%;
+            background: transparent;
+        }
+        .site-footer-inner {
+            width: min(100%, 1180px);
+            margin: 0 auto;
+            padding: 40px 18px 42px;
+            display: grid;
+            justify-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+        .site-footer-top,
+        .site-footer-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 12px 18px;
+        }
+        .site-footer-top .site-footer-link {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f1f5fb;
+        }
+        .site-footer-bottom .site-footer-link {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .site-footer-link {
+            display: inline;
+            background: transparent !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            min-height: 0 !important;
+            min-width: 0 !important;
+            text-decoration: none;
+            transition: color 0.2s ease, opacity 0.2s ease;
+        }
+        .site-footer-link:hover {
+            background: transparent !important;
+            color: #fff;
+            opacity: 1;
+            filter: none !important;
+            box-shadow: none !important;
+        }
+        .site-footer-logo-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            min-height: 0 !important;
+            min-width: 0 !important;
+        }
+        .site-footer-logo {
+            display: block;
+            width: min(420px, 92vw);
+            max-width: 100%;
+            height: auto;
+        }
+        .site-footer-contact {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .site-footer-contact p {
+            margin: 0;
+        }
+        .site-footer-contact .site-footer-link {
+            font-size: inherit;
+            color: inherit;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .site-footer-license {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .site-footer-license .site-footer-link {
+            font-size: inherit;
+            color: inherit;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        @media (max-width: 640px) {
+            .site-footer-inner {
+                padding: 32px 14px 34px;
+                gap: 14px;
+            }
+            .site-footer-top,
+            .site-footer-bottom {
+                gap: 10px 14px;
+            }
         }
 
         .soft-fade-in {
@@ -907,9 +1121,15 @@
       </div>
     {% endif %}
 
-
-    {% block content %}
-    {% endblock content %}
+    <div class="site-shell">
+        <main class="site-main">
+            {% block content %}
+            {% endblock content %}
+        </main>
+        {% block site_footer %}
+            {% include 'partials/site_footer.html' %}
+        {% endblock site_footer %}
+    </div>
 
     <div class="logout-modal-backdrop" id="logoutBackdrop" aria-hidden="true">
         <div class="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
@@ -1308,9 +1528,39 @@
             const logoutCancel = document.getElementById('logoutCancel');
             const logoutConfirm = document.getElementById('logoutConfirm');
             const logoutPanel = logoutBackdrop ? logoutBackdrop.querySelector('.logout-modal') : null;
+            const aboutNavMenu = document.getElementById('aboutNavMenu');
+            const aboutNavToggle = document.getElementById('aboutNavToggle');
+            const aboutNavPanel = document.getElementById('aboutNavPanel');
             const accountMenu = document.getElementById('accountMenu');
             const accountMenuToggle = document.getElementById('accountMenuToggle');
             const accountMenuPanel = document.getElementById('accountMenuPanel');
+
+            const closeAboutNavMenu = () => {
+                if (!aboutNavMenu || !aboutNavToggle) {
+                    return;
+                }
+                aboutNavMenu.classList.remove('is-open');
+                aboutNavToggle.setAttribute('aria-expanded', 'false');
+            };
+
+            if (aboutNavMenu && aboutNavToggle && aboutNavPanel) {
+                aboutNavToggle.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const isOpen = aboutNavMenu.classList.toggle('is-open');
+                    aboutNavToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                });
+
+                document.addEventListener('click', (event) => {
+                    if (!aboutNavMenu.contains(event.target)) {
+                        closeAboutNavMenu();
+                    }
+                });
+
+                aboutNavPanel.addEventListener('click', () => {
+                    closeAboutNavMenu();
+                });
+            }
 
             const closeAccountMenu = () => {
                 if (!accountMenu || !accountMenuToggle) {
@@ -1441,6 +1691,7 @@
 
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
+                    closeAboutNavMenu();
                     closeAccountMenu();
                     if (closeLogoutModal) {
                         closeLogoutModal();

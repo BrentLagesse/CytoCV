@@ -46,6 +46,10 @@ from core.views.experiment import (
     upload_preparation_status,
 )
 from core.views.home import (
+    about,
+    about_biology,
+    about_technical,
+    collaborators,
     home,
     license_page,
 )
@@ -63,7 +67,11 @@ from core.views.media import serve_media
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name="home"),
+    path('about/', about, name="about"),
+    path('about/technical/', about_technical, name="about_technical"),
+    path('about/biology/', about_biology, name="about_biology"),
     path('license/', license_page, name="license"),
+    path('collaborators/', collaborators, name="collaborators"),
     path('signin/', auth_login, name="signin"),
     path(
         'signin/oauth/verification-status/',
