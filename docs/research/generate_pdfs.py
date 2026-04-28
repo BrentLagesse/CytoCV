@@ -1,51 +1,50 @@
 from __future__ import annotations
 
+import html
 import re
-import textwrap
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-PAGE_WIDTH = 612
-PAGE_HEIGHT = 792
-LEFT = 54
-RIGHT = 54
-TOP = 742
-BOTTOM = 54
-CONTENT_WIDTH = PAGE_WIDTH - LEFT - RIGHT
-TITLE_SIZE = 22
-SUBTITLE_SIZE = 10
-HEADER_SIZE = 9
-PARAGRAPH_SIZE = 10.5
-PARAGRAPH_LEADING = 14
-TABLE_SIZE = 9.5
-TABLE_LEADING = 12
-TABLE_PADDING = 6
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import (
+    HRFlowable,
+    LongTable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+)
+
+PAGE_WIDTH, PAGE_HEIGHT = LETTER
+LEFT_MARGIN = 0.9 * inch
+RIGHT_MARGIN = 0.9 * inch
+TOP_MARGIN = 0.9 * inch
+BOTTOM_MARGIN = 0.75 * inch
 RESEARCH_SERIES_LABEL = "CytoCV Research Documentation"
+LICENSE_FOOTER = "CC BY-NC-SA 4.0"
+OUTPUT_STEMS = (
+    "methods-and-system-description",
+    "reproducibility-and-validation",
+    "figure-catalog",
+)
+STATIC_OUTPUT_DIR = Path(__file__).resolve().parents[2] / "cytocv" / "core" / "static" / "research"
 
+TEXT = colors.HexColor("#1f2933")
+MUTED_TEXT = colors.HexColor("#52606d")
+ACCENT = colors.HexColor("#5273a5")
+ACCENT_FILL = colors.HexColor("#eef3fb")
+TABLE_GRID = colors.HexColor("#b4c2d9")
+LINK_HEX = "#5273A5"
 
-def escape_pdf_text(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-
-def normalize_inline(value: str) -> str:
-    text = value.strip()
-    text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
-    text = text.replace("**", "").replace("*", "").replace("`", "")
-    text = text.replace("–", "-").replace("—", "-")
-    return text
-
-
-def is_table_separator(value: str) -> bool:
-    return bool(re.match(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$", value))
-
-
-def split_table_row(value: str) -> list[str]:
-    text = value.strip()
-    if text.startswith("|"):
-        text = text[1:]
-    if text.endswith("|"):
-        text = text[:-1]
-    return [normalize_inline(part) for part in text.split("|")]
+FONT_REGULAR = "CytoCVSans"
+FONT_BOLD = "CytoCVSans-Bold"
+FONT_ITALIC = "CytoCVSans-Italic"
+FONT_MONO = "Courier"
 
 
 @dataclass(frozen=True)
@@ -74,15 +73,55 @@ class TableBlock:
 Block = HeadingBlock | ParagraphBlock | ListBlock | TableBlock
 
 
-def parse_markdown(markdown_text: str) -> tuple[str, list[Block]]:
-    lines = markdown_text.splitlines()
-    index = 0
-    title = "CytoCV Research Document"
-    blocks: list[Block] = []
+def register_fonts() -> None:
+    font_dir = Path("C:/Windows/Fonts")
+    font_map = {
+        FONT_REGULAR: font_dir / "arial.ttf",
+        FONT_BOLD: font_dir / "arialbd.ttf",
+        FONT_ITALIC: font_dir / "ariali.ttf",
+    }
+    registered = set(pdfmetrics.getRegisteredFontNames())
+    for font_name, font_path in font_map.items():
+        if font_name in registered:
+            continue
+        if not font_path.exists():
+            raise FileNotFoundError(f"Required font file not found: {font_path}")
+        pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
 
-    if lines and lines[0].startswith("# "):
-        title = normalize_inline(lines[0][2:])
-        index = 1
+
+def normalize_markdown(markdown_text: str) -> str:
+    return markdown_text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff")
+
+
+def collapse_spaces(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip())
+
+
+def is_table_separator(value: str) -> bool:
+    return bool(re.match(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$", value))
+
+
+def split_table_row(value: str) -> list[str]:
+    text = value.strip()
+    if text.startswith("|"):
+        text = text[1:]
+    if text.endswith("|"):
+        text = text[:-1]
+    return [part.strip() for part in text.split("|")]
+
+
+def parse_markdown(markdown_text: str) -> tuple[str, list[Block]]:
+    lines = normalize_markdown(markdown_text).splitlines()
+    blocks: list[Block] = []
+    title = "CytoCV Research Document"
+    index = 0
+
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+
+    if index < len(lines) and lines[index].startswith("# "):
+        title = collapse_spaces(lines[index][2:])
+        index += 1
 
     while index < len(lines):
         raw = lines[index].rstrip()
@@ -94,28 +133,27 @@ def parse_markdown(markdown_text: str) -> tuple[str, list[Block]]:
 
         heading = re.match(r"^(#{2,6})\s+(.*)$", raw)
         if heading:
-            blocks.append(HeadingBlock(level=len(heading.group(1)), text=normalize_inline(heading.group(2))))
+            blocks.append(
+                HeadingBlock(
+                    level=len(heading.group(1)),
+                    text=collapse_spaces(heading.group(2)),
+                )
+            )
             index += 1
             continue
 
-        if (
-            "|" in raw
-            and index + 1 < len(lines)
-            and is_table_separator(lines[index + 1])
-        ):
+        if "|" in raw and index + 1 < len(lines) and is_table_separator(lines[index + 1]):
             headers = split_table_row(raw)
             index += 2
             rows: list[list[str]] = []
             while index < len(lines):
                 row_raw = lines[index].rstrip()
-                if "|" not in row_raw or not row_raw.strip():
+                if not row_raw.strip() or "|" not in row_raw:
                     break
                 row = split_table_row(row_raw)
                 if len(row) < len(headers):
                     row.extend([""] * (len(headers) - len(row)))
-                elif len(row) > len(headers):
-                    row = row[: len(headers)]
-                rows.append(row)
+                rows.append(row[: len(headers)])
                 index += 1
             blocks.append(TableBlock(headers=headers, rows=rows))
             continue
@@ -123,7 +161,7 @@ def parse_markdown(markdown_text: str) -> tuple[str, list[Block]]:
         if stripped.startswith("- "):
             items: list[str] = []
             while index < len(lines) and lines[index].strip().startswith("- "):
-                items.append(normalize_inline(lines[index].strip()[2:]))
+                items.append(collapse_spaces(lines[index].strip()[2:]))
                 index += 1
             blocks.append(ListBlock(ordered=False, items=items))
             continue
@@ -132,16 +170,15 @@ def parse_markdown(markdown_text: str) -> tuple[str, list[Block]]:
         if numbered:
             items: list[str] = []
             while index < len(lines):
-                candidate = lines[index].strip()
-                match = re.match(r"^\d+\.\s+(.*)$", candidate)
+                match = re.match(r"^\d+\.\s+(.*)$", lines[index].strip())
                 if not match:
                     break
-                items.append(normalize_inline(match.group(1)))
+                items.append(collapse_spaces(match.group(1)))
                 index += 1
             blocks.append(ListBlock(ordered=True, items=items))
             continue
 
-        paragraph_lines = [normalize_inline(stripped)]
+        paragraph_lines = [stripped]
         index += 1
         while index < len(lines):
             candidate = lines[index].rstrip()
@@ -156,269 +193,292 @@ def parse_markdown(markdown_text: str) -> tuple[str, list[Block]]:
                 break
             if "|" in candidate and index + 1 < len(lines) and is_table_separator(lines[index + 1]):
                 break
-            paragraph_lines.append(normalize_inline(candidate_stripped))
+            paragraph_lines.append(candidate_stripped)
             index += 1
-        blocks.append(ParagraphBlock(text=" ".join(part for part in paragraph_lines if part)))
+        blocks.append(ParagraphBlock(text=collapse_spaces(" ".join(paragraph_lines))))
 
     return title, blocks
 
 
-def wrap_text(text: str, width: float, font_size: float) -> list[str]:
-    average_char_width = max(font_size * 0.52, 1.0)
-    max_chars = max(int(width / average_char_width), 12)
-    wrapped = textwrap.wrap(
-        text,
-        width=max_chars,
-        break_long_words=False,
-        break_on_hyphens=False,
+INLINE_PATTERN = re.compile(
+    r"\[([^\]]+)\]\(([^)]+)\)"
+    r"|`([^`]+)`"
+    r"|\*\*([^*]+)\*\*"
+    r"|\*([^*]+)\*"
+)
+
+
+def render_inline(text: str) -> str:
+    value = collapse_spaces(text)
+    parts: list[str] = []
+    last_index = 0
+    for match in INLINE_PATTERN.finditer(value):
+        parts.append(html.escape(value[last_index: match.start()]))
+        if match.group(1) is not None:
+            label = html.escape(match.group(1).strip())
+            url = match.group(2).strip()
+            if re.match(r"^https?://", url):
+                parts.append(
+                    f'<link href="{html.escape(url, quote=True)}" color="{LINK_HEX}">{label}</link>'
+                )
+            else:
+                parts.append(label)
+        elif match.group(3) is not None:
+            parts.append(f'<font name="{FONT_MONO}">{html.escape(match.group(3).strip())}</font>')
+        elif match.group(4) is not None:
+            parts.append(f"<b>{html.escape(match.group(4).strip())}</b>")
+        elif match.group(5) is not None:
+            parts.append(f"<i>{html.escape(match.group(5).strip())}</i>")
+        last_index = match.end()
+    parts.append(html.escape(value[last_index:]))
+    return "".join(parts)
+
+
+def plain_text(value: str) -> str:
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1", value)
+    text = text.replace("**", "").replace("*", "").replace("`", "")
+    return collapse_spaces(text)
+
+
+def build_styles() -> dict[str, ParagraphStyle]:
+    return {
+        "title": ParagraphStyle(
+            "title",
+            fontName=FONT_BOLD,
+            fontSize=24,
+            leading=28,
+            textColor=TEXT,
+            spaceAfter=6,
+        ),
+        "series": ParagraphStyle(
+            "series",
+            fontName=FONT_ITALIC,
+            fontSize=10.5,
+            leading=12,
+            textColor=MUTED_TEXT,
+            spaceAfter=4,
+        ),
+        "body": ParagraphStyle(
+            "body",
+            fontName=FONT_REGULAR,
+            fontSize=10.5,
+            leading=15,
+            textColor=TEXT,
+            spaceAfter=10,
+        ),
+        "h2": ParagraphStyle(
+            "h2",
+            fontName=FONT_BOLD,
+            fontSize=17,
+            leading=21,
+            textColor=TEXT,
+            spaceBefore=16,
+            spaceAfter=8,
+            keepWithNext=1,
+        ),
+        "h3": ParagraphStyle(
+            "h3",
+            fontName=FONT_BOLD,
+            fontSize=12.5,
+            leading=16,
+            textColor=TEXT,
+            spaceBefore=12,
+            spaceAfter=6,
+            keepWithNext=1,
+        ),
+        "list_item": ParagraphStyle(
+            "list_item",
+            fontName=FONT_REGULAR,
+            fontSize=10.5,
+            leading=15,
+            textColor=TEXT,
+            leftIndent=18,
+            firstLineIndent=-14,
+            spaceAfter=4,
+        ),
+        "table_header": ParagraphStyle(
+            "table_header",
+            fontName=FONT_BOLD,
+            fontSize=9.25,
+            leading=11.5,
+            textColor=TEXT,
+            spaceAfter=0,
+        ),
+        "table_body": ParagraphStyle(
+            "table_body",
+            fontName=FONT_REGULAR,
+            fontSize=9.1,
+            leading=11.3,
+            textColor=TEXT,
+            spaceAfter=0,
+        ),
+    }
+
+
+def estimate_col_widths(headers: list[str], rows: list[list[str]], total_width: float) -> list[float]:
+    def visual_weight(value: str) -> float:
+        text = plain_text(value)
+        if not text:
+            return 8.0
+        compact = min(len(text), 38)
+        tokens = [token for token in re.split(r"[\s/(),.-]+", text) if token]
+        longest = max((len(token) for token in tokens), default=0)
+        return max(10.0, min(44.0, compact + max(longest - 12, 0)))
+
+    weights: list[float] = []
+    column_count = len(headers)
+    for column_index in range(column_count):
+        column_values = [headers[column_index]]
+        column_values.extend(
+            row[column_index]
+            for row in rows
+            if column_index < len(row)
+        )
+        weight = max((visual_weight(value) for value in column_values), default=12.0)
+        weights.append(weight)
+
+    if column_count == 3:
+        weights[-1] *= 1.15
+    if column_count >= 4:
+        weights[-1] *= 1.25
+        weights[-2] *= 0.8
+
+    total = sum(weights) or float(column_count)
+    return [total_width * (weight / total) for weight in weights]
+
+
+def build_table(block: TableBlock, styles: dict[str, ParagraphStyle], total_width: float) -> LongTable:
+    data: list[list[Paragraph]] = [
+        [Paragraph(render_inline(cell), styles["table_header"]) for cell in block.headers]
+    ]
+    for row in block.rows:
+        data.append([Paragraph(render_inline(cell), styles["table_body"]) for cell in row])
+
+    table = LongTable(
+        data,
+        colWidths=estimate_col_widths(block.headers, block.rows, total_width),
+        repeatRows=1,
+        hAlign="LEFT",
+        splitByRow=1,
     )
-    return wrapped or [""]
+    table.setStyle(
+        [
+            ("BACKGROUND", (0, 0), (-1, 0), ACCENT_FILL),
+            ("TEXTCOLOR", (0, 0), (-1, -1), TEXT),
+            ("LINEABOVE", (0, 0), (-1, 0), 0.8, TABLE_GRID),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.8, TABLE_GRID),
+            ("LINEBELOW", (0, -1), (-1, -1), 0.8, TABLE_GRID),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, TABLE_GRID),
+            ("BOX", (0, 0), (-1, -1), 0.8, TABLE_GRID),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]
+    )
+    return table
 
 
-@dataclass(frozen=True)
-class FontSpec:
-    font_key: str
-    size: float
-    leading: float
+def build_list(block: ListBlock, styles: dict[str, ParagraphStyle]) -> list:
+    flowables: list = []
+    for index, item in enumerate(block.items, start=1):
+        prefix = f"{index}. " if block.ordered else "&bull; "
+        flowables.append(Paragraph(prefix + render_inline(item), styles["list_item"]))
+    flowables.append(Spacer(1, 0.04 * inch))
+    return flowables
 
 
-class PDFRenderer:
-    def __init__(self, title: str) -> None:
-        self.title = title
-        self.pages: list[list[str]] = []
-        self.page_number = 0
-        self.current_commands: list[str] = []
-        self.y = TOP
-        self._new_page()
+def build_story(title: str, blocks: list[Block], styles: dict[str, ParagraphStyle], doc_width: float) -> list:
+    story: list = [
+        Paragraph(html.escape(title), styles["title"]),
+        Paragraph(RESEARCH_SERIES_LABEL, styles["series"]),
+        HRFlowable(width="100%", thickness=0.8, color=ACCENT),
+        Spacer(1, 0.18 * inch),
+    ]
 
-    def _text(self, x: float, y: float, text: str, font_key: str, size: float) -> None:
-        safe = escape_pdf_text(text)
-        self.current_commands.append(
-            f"BT /{font_key} {size:.2f} Tf 1 0 0 1 {x:.2f} {y:.2f} Tm ({safe}) Tj ET"
-        )
+    for block in blocks:
+        if isinstance(block, HeadingBlock):
+            style_name = "h2" if block.level <= 2 else "h3"
+            story.append(Paragraph(render_inline(block.text), styles[style_name]))
+        elif isinstance(block, ParagraphBlock):
+            story.append(Paragraph(render_inline(block.text), styles["body"]))
+        elif isinstance(block, ListBlock):
+            story.extend(build_list(block, styles))
+        elif isinstance(block, TableBlock):
+            story.append(build_table(block, styles, doc_width))
+            story.append(Spacer(1, 0.12 * inch))
 
-    def _line(self, x1: float, y1: float, x2: float, y2: float, width: float = 0.8) -> None:
-        self.current_commands.append(
-            f"q {width:.2f} w 0.68 0.72 0.80 RG {x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S Q"
-        )
+    return story
 
-    def _rect(
-        self,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        *,
-        fill_rgb: tuple[float, float, float] | None = None,
-        stroke_rgb: tuple[float, float, float] = (0.72, 0.76, 0.84),
-    ) -> None:
-        if fill_rgb is not None:
-            self.current_commands.append(
-                "q "
-                f"{fill_rgb[0]:.2f} {fill_rgb[1]:.2f} {fill_rgb[2]:.2f} rg "
-                f"{stroke_rgb[0]:.2f} {stroke_rgb[1]:.2f} {stroke_rgb[2]:.2f} RG "
-                f"{x:.2f} {y:.2f} {width:.2f} {height:.2f} re B Q"
-            )
-        else:
-            self.current_commands.append(
-                f"q {stroke_rgb[0]:.2f} {stroke_rgb[1]:.2f} {stroke_rgb[2]:.2f} RG "
-                f"{x:.2f} {y:.2f} {width:.2f} {height:.2f} re S Q"
-            )
 
-    def _new_page(self) -> None:
-        self.page_number += 1
-        self.current_commands = []
-        self.pages.append(self.current_commands)
-        if self.page_number == 1:
-            self._text(LEFT, PAGE_HEIGHT - 72, self.title, "F2", TITLE_SIZE)
-            self._text(LEFT, PAGE_HEIGHT - 92, RESEARCH_SERIES_LABEL, "F3", SUBTITLE_SIZE)
-            self._line(LEFT, PAGE_HEIGHT - 104, PAGE_WIDTH - RIGHT, PAGE_HEIGHT - 104, width=1.0)
-            self._text(PAGE_WIDTH - RIGHT - 34, 32, f"{self.page_number}", "F1", HEADER_SIZE)
-            self.y = PAGE_HEIGHT - 126
-        else:
-            self._text(LEFT, PAGE_HEIGHT - 42, self.title, "F2", HEADER_SIZE)
-            self._line(LEFT, PAGE_HEIGHT - 50, PAGE_WIDTH - RIGHT, PAGE_HEIGHT - 50, width=0.6)
-            self._text(PAGE_WIDTH - RIGHT - 34, 32, f"{self.page_number}", "F1", HEADER_SIZE)
-            self.y = PAGE_HEIGHT - 72
+def _draw_footer(canvas, doc) -> None:
+    footer_rule_y = 0.68 * inch
+    footer_text_y = 0.44 * inch
+    canvas.setStrokeColor(TABLE_GRID)
+    canvas.setLineWidth(0.6)
+    canvas.line(doc.leftMargin, footer_rule_y, PAGE_WIDTH - doc.rightMargin, footer_rule_y)
+    canvas.setFillColor(MUTED_TEXT)
+    canvas.setFont(FONT_REGULAR, 8.2)
+    canvas.drawString(doc.leftMargin, footer_text_y, f"{RESEARCH_SERIES_LABEL} | {LICENSE_FOOTER}")
+    canvas.drawRightString(PAGE_WIDTH - doc.rightMargin, footer_text_y, str(canvas.getPageNumber()))
 
-    def _ensure_space(self, required_height: float) -> None:
-        if self.y - required_height < BOTTOM:
-            self._new_page()
 
-    def add_heading(self, text: str, level: int) -> None:
-        if level <= 2:
-            font = FontSpec("F2", 15, 18)
-            before = 16
-            after = 8
-        else:
-            font = FontSpec("F2", 12.5, 15)
-            before = 10
-            after = 6
-        self._ensure_space(before + font.leading + after)
-        self.y -= before
-        self._text(LEFT, self.y, text, font.font_key, font.size)
-        self.y -= font.leading + after
+def on_first_page(title: str):
+    def _on_first_page(canvas, doc) -> None:
+        canvas.setTitle(title)
+        canvas.setAuthor("CytoCV project")
+        canvas.setSubject(RESEARCH_SERIES_LABEL)
+        canvas.setCreator("docs/research/generate_pdfs.py")
+        _draw_footer(canvas, doc)
 
-    def add_paragraph(self, text: str) -> None:
-        lines = wrap_text(text, CONTENT_WIDTH, PARAGRAPH_SIZE)
-        needed = 4 + len(lines) * PARAGRAPH_LEADING + 6
-        self._ensure_space(needed)
-        self.y -= 4
-        for line in lines:
-            self._text(LEFT, self.y, line, "F1", PARAGRAPH_SIZE)
-            self.y -= PARAGRAPH_LEADING
-        self.y -= 6
+    return _on_first_page
 
-    def add_list(self, items: list[str], ordered: bool) -> None:
-        for position, item in enumerate(items, start=1):
-            prefix = f"{position}. " if ordered else "- "
-            indent = 16
-            first_width = CONTENT_WIDTH - indent
-            wrapped = wrap_text(item, first_width, PARAGRAPH_SIZE)
-            needed = 2 + len(wrapped) * PARAGRAPH_LEADING + 2
-            self._ensure_space(needed)
-            self.y -= 2
-            self._text(LEFT, self.y, prefix, "F1", PARAGRAPH_SIZE)
-            self._text(LEFT + indent, self.y, wrapped[0], "F1", PARAGRAPH_SIZE)
-            self.y -= PARAGRAPH_LEADING
-            for line in wrapped[1:]:
-                self._text(LEFT + indent, self.y, line, "F1", PARAGRAPH_SIZE)
-                self.y -= PARAGRAPH_LEADING
-            self.y -= 2
 
-    def _table_column_widths(self, headers: list[str], rows: list[list[str]]) -> list[float]:
-        weights: list[int] = []
-        column_count = len(headers)
-        for index in range(column_count):
-            values = [headers[index]] + [row[index] for row in rows if index < len(row)]
-            longest = max((len(value) for value in values), default=8)
-            weights.append(max(longest, 8))
-        total = sum(weights) or column_count
-        return [CONTENT_WIDTH * (weight / total) for weight in weights]
+def on_later_pages(title: str):
+    def _on_later_pages(canvas, doc) -> None:
+        canvas.setStrokeColor(TABLE_GRID)
+        canvas.setLineWidth(0.6)
+        header_rule_y = PAGE_HEIGHT - 0.72 * inch
+        canvas.line(doc.leftMargin, header_rule_y, PAGE_WIDTH - doc.rightMargin, header_rule_y)
+        canvas.setFillColor(MUTED_TEXT)
+        canvas.setFont(FONT_BOLD, 8.2)
+        canvas.drawString(doc.leftMargin, PAGE_HEIGHT - 0.56 * inch, title)
+        _draw_footer(canvas, doc)
 
-    def _table_row_height(self, row: list[str], widths: list[float], bold: bool) -> tuple[float, list[list[str]]]:
-        wrapped_cells: list[list[str]] = []
-        max_lines = 1
-        font_size = TABLE_SIZE
-        for cell, width in zip(row, widths):
-            wrapped = wrap_text(cell, max(width - (TABLE_PADDING * 2), 24), font_size)
-            wrapped_cells.append(wrapped)
-            max_lines = max(max_lines, len(wrapped))
-        row_height = (max_lines * TABLE_LEADING) + (TABLE_PADDING * 2)
-        return row_height, wrapped_cells
-
-    def add_table(self, headers: list[str], rows: list[list[str]]) -> None:
-        widths = self._table_column_widths(headers, rows)
-
-        def draw_row(row: list[str], *, is_header: bool) -> None:
-            nonlocal widths
-            row_height, wrapped_cells = self._table_row_height(row, widths, bold=is_header)
-            self._ensure_space(row_height + 2)
-            top = self.y
-            bottom = top - row_height
-            x = LEFT
-            for index, width in enumerate(widths):
-                fill = (0.93, 0.95, 0.98) if is_header else None
-                self._rect(x, bottom, width, row_height, fill_rgb=fill)
-                lines = wrapped_cells[index]
-                text_y = top - TABLE_PADDING - TABLE_SIZE
-                font = "F2" if is_header else "F1"
-                for line in lines:
-                    self._text(x + TABLE_PADDING, text_y, line, font, TABLE_SIZE)
-                    text_y -= TABLE_LEADING
-                x += width
-            self.y = bottom - 2
-
-        self.y -= 4
-        draw_row(headers, is_header=True)
-        for row in rows:
-            if len(row) < len(headers):
-                row = row + [""] * (len(headers) - len(row))
-            draw_row(row[: len(headers)], is_header=False)
-        self.y -= 6
-
-    def render_blocks(self, blocks: list[Block]) -> None:
-        for block in blocks:
-            if isinstance(block, HeadingBlock):
-                self.add_heading(block.text, block.level)
-            elif isinstance(block, ParagraphBlock):
-                self.add_paragraph(block.text)
-            elif isinstance(block, ListBlock):
-                self.add_list(block.items, block.ordered)
-            elif isinstance(block, TableBlock):
-                self.add_table(block.headers, block.rows)
+    return _on_later_pages
 
 
 def build_pdf(title: str, blocks: list[Block], destination: Path) -> None:
-    renderer = PDFRenderer(title)
-    renderer.render_blocks(blocks)
-
-    objects: list[bytes] = []
-
-    def add_object(payload: bytes) -> int:
-        objects.append(payload)
-        return len(objects)
-
-    font_regular = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-    font_bold = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
-    font_italic = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>")
-
-    page_ids: list[int] = []
-    content_ids: list[int] = []
-    pages_id_placeholder = len(objects) + 1 + (len(renderer.pages) * 2)
-
-    for commands in renderer.pages:
-        stream_text = "\n".join(commands).encode("latin-1", errors="replace")
-        content_id = add_object(
-            b"<< /Length " + str(len(stream_text)).encode("ascii") + b" >>\nstream\n" + stream_text + b"\nendstream"
-        )
-        content_ids.append(content_id)
-        page_id = add_object(
-            (
-                f"<< /Type /Page /Parent {pages_id_placeholder} 0 R /MediaBox [0 0 {PAGE_WIDTH} {PAGE_HEIGHT}] "
-                f"/Resources << /Font << /F1 {font_regular} 0 R /F2 {font_bold} 0 R /F3 {font_italic} 0 R >> >> "
-                f"/Contents {content_id} 0 R >>"
-            ).encode("ascii")
-        )
-        page_ids.append(page_id)
-
-    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
-    pages_id = add_object(f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>".encode("ascii"))
-    catalog_id = add_object(f"<< /Type /Catalog /Pages {pages_id} 0 R >>".encode("ascii"))
-
-    output = bytearray(b"%PDF-1.4\n")
-    offsets = [0]
-    for index, obj in enumerate(objects, start=1):
-        offsets.append(len(output))
-        output.extend(f"{index} 0 obj\n".encode("ascii"))
-        output.extend(obj)
-        output.extend(b"\nendobj\n")
-
-    xref_offset = len(output)
-    output.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
-    output.extend(b"0000000000 65535 f \n")
-    for offset in offsets[1:]:
-        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
-    output.extend(
-        (
-            f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\n"
-            f"startxref\n{xref_offset}\n%%EOF\n"
-        ).encode("ascii")
+    register_fonts()
+    styles = build_styles()
+    doc = SimpleDocTemplate(
+        str(destination),
+        pagesize=LETTER,
+        leftMargin=LEFT_MARGIN,
+        rightMargin=RIGHT_MARGIN,
+        topMargin=TOP_MARGIN,
+        bottomMargin=BOTTOM_MARGIN,
     )
-    destination.write_bytes(output)
+    story = build_story(title, blocks, styles, doc.width)
+    doc.build(
+        story,
+        onFirstPage=on_first_page(title),
+        onLaterPages=on_later_pages(title),
+    )
 
 
 def main() -> None:
     base = Path(__file__).resolve().parent
-    for stem in (
-        "methods-and-system-description",
-        "reproducibility-and-validation",
-        "figure-catalog",
-    ):
+    STATIC_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    for stem in OUTPUT_STEMS:
         source = base / f"{stem}.md"
         destination = base / f"{stem}.pdf"
-        title, blocks = parse_markdown(source.read_text(encoding="utf-8"))
+        static_destination = STATIC_OUTPUT_DIR / f"{stem}.pdf"
+        title, blocks = parse_markdown(source.read_text(encoding="utf-8-sig"))
         build_pdf(title, blocks, destination)
+        shutil.copy2(destination, static_destination)
 
 
 if __name__ == "__main__":
