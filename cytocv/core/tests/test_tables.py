@@ -1,6 +1,6 @@
 ﻿from types import SimpleNamespace
 
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
 
 from core.tables import CellTable
 
@@ -178,6 +178,14 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertIn("Distance Between Red Puncta (µm)", header_row)
         self.assertIn("Blue Contour Size (µm²)", header_row)
         self.assertIn("Distance Of Green From Red 1 (µm)", header_row)
+
+    def test_rendered_header_html_does_not_include_sort_links(self):
+        request = RequestFactory().get("/dashboard/")
+        rendered = self.table.as_html(request)
+
+        self.assertIn("Cell ID", rendered)
+        self.assertNotIn("sort=cell_id", rendered)
+        self.assertNotIn("<th ><a ", rendered)
 
     def test_spatial_values_convert_for_render_and_export(self):
         record = SimpleNamespace(
