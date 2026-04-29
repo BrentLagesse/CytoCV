@@ -207,6 +207,7 @@ For operational deployment material, use these documents:
 - Sanitized VM deployment guide: [docs/vm-deployment-guide/README.md](docs/vm-deployment-guide/README.md)
 - Historical first VM deployment record: [docs/vm-deployment-record/README.md](docs/vm-deployment-record/README.md)
 - Historical replacement VM deployment record: [docs/vm-deployment-record-cytocv2/README.md](docs/vm-deployment-record-cytocv2/README.md)
+- Historical cytocv2 maintenance refresh record: [docs/vm-deployment-record-cytocv2-2026-04-maintenance/README.md](docs/vm-deployment-record-cytocv2-2026-04-maintenance/README.md)
 
 The VM-specific documents are retained as sanitized historical maintainer notes. Use the core operations docs above as the current source of truth for active deployments.
 

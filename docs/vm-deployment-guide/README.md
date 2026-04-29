@@ -152,6 +152,24 @@ After deployment, verify:
 7. display, dashboard, and CSV/XLSX export work for a signed-in account
 8. protected result assets load only through authenticated access
 
+## 11. Existing VM Maintenance
+
+For an already deployed VM, use the active operations guide rather than
+re-running the new-host provisioning sequence:
+
+- existing checkout update path: [`../ops/deployment-guide.md#existing-vm-code-update`](../ops/deployment-guide.md#existing-vm-code-update)
+- intentional data reset path: [`../ops/deployment-guide.md#intentional-database-data-reset`](../ops/deployment-guide.md#intentional-database-data-reset)
+
+When the checkout path is uncertain, locate the repository before editing
+deployment files:
+
+```bash
+find ~ -maxdepth 3 -type d -name "CytoCV"
+```
+
+Keep exact hostnames, account names, absolute paths, and SSH key material in
+private operational records rather than shared repository documentation.
+
 ## Historical Lessons Preserved Here
 
 - A VM can host the website but still fail analysis if the CPU environment is not compatible with the ML runtime.
