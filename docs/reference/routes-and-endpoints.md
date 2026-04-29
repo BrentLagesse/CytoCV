@@ -34,6 +34,7 @@ This is a maintainer reference, not an end-user guide.
 - Notes:
   - does not accept an email, token, key, or user id
   - does not verify email addresses itself
+  - only reflects the browser session that started the staged provider login
   - used by the branded `Check your email` page for polling and the `I verified` button
 
 ### `POST|GET /logout/`
