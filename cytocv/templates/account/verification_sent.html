@@ -138,14 +138,15 @@
             <div class="card-intro">
                 <div class="step-indicator">Account verification</div>
                 <h1>Check your email</h1>
-                <p class="subtitle">We sent a verification link to your email address.</p>
+                <p class="subtitle">We sent a secure verification link to your email address.</p>
             </div>
             <div class="auth-panel">
-                <p class="auth-panel-title">Open the newest email link to finish signing in.</p>
+                <p class="auth-panel-title">Open the newest email link in this browser to finish signing in.</p>
                 <p class="auth-note">
                     If you do not see the email in your inbox, check your spam or junk folder.
                     This verification link expires in {{ auth_verification_expiry_label }}.
-                    Open the newest email link to finish signing in.
+                    Automatic sign-in only works if you open the newest verification link in this same browser session.
+                    If you open it elsewhere, your email can still be verified, but you may need to return here and sign in again.
                 </p>
             </div>
             <p class="verification-status" id="verificationStatus" role="status" aria-live="polite"></p>
@@ -201,7 +202,7 @@
                     return;
                 }
                 if (manual) {
-                    setStatus('We are still waiting for verification to complete. Open the newest email link, then try again.');
+                    setStatus('We are still waiting for verification to complete. Open the newest email link in this same browser session, then try again. If you opened it elsewhere, return to sign in again.');
                 }
             } catch (error) {
                 if (manual) {

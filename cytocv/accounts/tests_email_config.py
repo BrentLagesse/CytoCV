@@ -7,7 +7,9 @@ from django.core import mail
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from allauth.account.models import EmailAddress, EmailConfirmationHMAC
+from allauth.account.internal.stagekit import LOGIN_SESSION_KEY
+from allauth.account.models import EmailAddress, EmailConfirmationHMAC, Login
+from allauth.account.stages import EmailVerificationStage
 
 from accounts.email_content import (
     AUTH_EMAIL_LOGO_CID,
@@ -564,13 +566,24 @@ class AllauthEmailConfirmationTests(TestCase):
         self.assertIn("Check your email", content)
         self.assertIn("secure verification link", content)
         self.assertIn("This verification link expires in 5 minutes.", content)
-        self.assertIn("Open the newest email link to finish signing in.", content)
+        self.assertIn(
+            "Open the newest email link in this browser to finish signing in.",
+            content,
+        )
+        self.assertIn(
+            "Automatic sign-in only works if you open the newest verification link in this same browser session.",
+            content,
+        )
         self.assertIn("auth-card", content)
         self.assertIn(">Back<", content)
         self.assertIn("I verified", content)
         self.assertIn(reverse("oauth_verification_status"), content)
         self.assertIn("verifiedCheckButton", content)
         self.assertIn("setInterval", content)
+        self.assertIn(
+            "If you opened it elsewhere, return to sign in again.",
+            content,
+        )
         self.assertNotIn("Follow the link provided to finalize the signup process", content)
 
     def test_verification_status_endpoint_reports_anonymous_session_only(self):
@@ -615,7 +628,47 @@ class AllauthEmailConfirmationTests(TestCase):
         self.assertIn("auth-card", content)
         self.assertNotIn("issue a new email confirmation request", content)
 
-    def test_confirmation_get_auto_confirms_valid_email(self):
+    def test_confirmation_get_resumes_same_session_login_after_verification(self):
+        user = get_user_model().objects.create_user(
+            email="resume-oauth@example.com",
+            password="TestPass123!",
+        )
+        email_address = EmailAddress.objects.create(
+            user=user,
+            email="resume-oauth@example.com",
+            primary=True,
+            verified=False,
+        )
+        confirmation = EmailConfirmationHMAC(email_address)
+        login = Login(
+            user=user,
+            email=user.email,
+            redirect_url=reverse("dashboard"),
+            signup=True,
+            state={"stages": {"current": EmailVerificationStage.key}},
+        )
+        session = self.client.session
+        session[LOGIN_SESSION_KEY] = login.serialize()
+        session.save()
+
+        response = self.client.get(reverse("account_confirm_email", args=[confirmation.key]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard"))
+        email_address.refresh_from_db()
+        self.assertTrue(email_address.verified)
+
+        status_response = self.client.get(reverse("oauth_verification_status"))
+
+        self.assertEqual(
+            status_response.json(),
+            {
+                "authenticated": True,
+                "redirect_url": reverse("dashboard"),
+            },
+        )
+
+    def test_confirmation_get_verifies_email_without_pending_login_session(self):
         user = get_user_model().objects.create_user(
             email="confirm-oauth@example.com",
             password="TestPass123!",
@@ -631,8 +684,19 @@ class AllauthEmailConfirmationTests(TestCase):
         response = self.client.get(reverse("account_confirm_email", args=[confirmation.key]))
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("signin"))
         email_address.refresh_from_db()
         self.assertTrue(email_address.verified)
+
+        status_response = self.client.get(reverse("oauth_verification_status"))
+
+        self.assertEqual(
+            status_response.json(),
+            {
+                "authenticated": False,
+                "redirect_url": "",
+            },
+        )
 
     def test_confirmation_get_rejects_expired_email_link(self):
         user = get_user_model().objects.create_user(

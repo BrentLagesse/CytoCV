@@ -166,7 +166,7 @@ Key behaviors:
 - verification and recovery state is held in session data
 - native signup and password recovery send numeric verification-code emails
 - provider email verification sends signed allauth confirmation links through the CytoCV branded multipart email builder
-- `/signin/oauth/verification-status/` reports only the current session authentication state so the check-email page can redirect after the same browser session becomes authenticated
+- `/signin/oauth/verification-status/` reports only the current session authentication state so the check-email page can redirect after the same browser session resumes the staged login and becomes authenticated
 
 All account verification codes and provider confirmation links use the shared expiry policy from `CYTOCV_AUTH_VERIFICATION_EXPIRY_MINUTES`, which defaults to 5 minutes.
 

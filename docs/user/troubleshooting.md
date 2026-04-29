@@ -121,7 +121,7 @@ Login, signup, or password recovery fails.
 ### Corrective Action
 
 - confirm that the site supports the sign-in method you are trying to use
-- complete any requested verification step in the same browser session when possible
+- complete any requested verification step in the same browser session when possible; if you opened the email link elsewhere, return and sign in again
 - ask a maintainer to review email, provider, or anti-abuse configuration if the site relies on those features
 
 ## Related Documents

@@ -30,7 +30,7 @@ Account settings include:
 
 CytoCV can use verification codes for native email flows and confirmation links for provider-backed email verification, depending on deployment settings. Available verification methods, timing, and provider behavior depend on how the site is configured.
 
-When a deployment asks you to complete email verification, finish that step in the same browser session when possible so the app can continue the sign-in flow cleanly.
+When a deployment asks you to complete email verification, open the newest verification link in the same browser session so the app can resume sign-in automatically. If you open the link in a different browser or session, your email may still verify, but you may need to return and sign in again.
 
 ## Workflow Defaults
 
