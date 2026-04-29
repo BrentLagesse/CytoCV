@@ -19,7 +19,7 @@ from core.config import DEFAULT_CHANNEL_CONFIG
 from core.models import AnalysisJob, SegmentedImage, UploadedImage, get_guest_user
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_context import AnalysisBatchContext
-from core.services.analysis_jobs import enqueue_analysis_job
+from core.services.analysis_jobs import AnalysisJobLimitExceeded, enqueue_analysis_job
 from core.services.analysis_pipeline import run_preprocess_and_inference_batch
 from core.services.analysis_progress_contract import (
     SAFE_ANALYSIS_FAILURE_SUMMARY,
@@ -44,11 +44,17 @@ class AnalysisAsyncTestCase(TestCase):
             email="analysis-async@example.com",
             password="TestPass123!",
         )
+        self.edu_user = user_model.objects.create_user(
+            email="analysis-async@campus.edu",
+            password="TestPass123!",
+        )
         self.other_user = user_model.objects.create_user(
             email="analysis-async-other@example.com",
             password="TestPass123!",
         )
         self.client.login(email=self.user.email, password="TestPass123!")
+        self.edu_client = self.client_class()
+        self.edu_client.login(email=self.edu_user.email, password="TestPass123!")
         self.other_client = self.client_class()
         self.other_client.login(
             email=self.other_user.email,
@@ -139,6 +145,39 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(
                 progress.json()["detail"],
                 {"message": "Waiting for analysis worker."},
+            )
+
+    @override_settings(
+        ANALYSIS_EXECUTION_MODE="worker",
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    )
+    def test_pre_process_worker_mode_returns_queue_cap_error_for_second_distinct_job(self):
+        with temporary_media_root() as media_root:
+            first = self._create_uploaded_image(media_root, name="cap_first")
+            second = self._create_uploaded_image(media_root, name="cap_second")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ):
+                first_response = self.client.post(
+                    reverse("pre_process", args=[str(first.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+                second_response = self.client.post(
+                    reverse("pre_process", args=[str(second.uuid)]),
+                    {},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(first_response.status_code, 200)
+            self.assertEqual(second_response.status_code, 429)
+            payload = second_response.json()
+            self.assertIn(
+                "Standard accounts can have 1 active analysis job at a time.",
+                payload["error"],
             )
 
     @override_settings(ANALYSIS_EXECUTION_MODE="sync")
@@ -431,6 +470,136 @@ class AnalysisAsyncTestCase(TestCase):
                 response.json()["detail"],
                 {"message": "Waiting for analysis worker."},
             )
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    )
+    def test_enqueue_analysis_job_blocks_default_tier_second_distinct_active_job(self):
+        enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        with self.assertRaises(AnalysisJobLimitExceeded):
+            enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uuid4())],
+                config_snapshot={"execution_mode": "worker"},
+            )
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    )
+    def test_enqueue_analysis_job_counts_cancelling_jobs_toward_cap(self):
+        first_job, _ = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+        AnalysisJob.objects.filter(pk=first_job.pk).update(
+            status=AnalysisJob.Status.CANCELLING,
+            cancellation_requested=True,
+        )
+
+        with self.assertRaises(AnalysisJobLimitExceeded):
+            enqueue_analysis_job(
+                user_id=self.user.id,
+                raw_uuids=[str(uuid4())],
+                config_snapshot={"execution_mode": "worker"},
+            )
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    )
+    def test_enqueue_analysis_job_reuses_same_batch_even_when_at_cap(self):
+        batch_uuid = str(uuid4())
+        first_job, first_created = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[batch_uuid],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        second_job, second_created = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[batch_uuid],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        self.assertTrue(first_created)
+        self.assertFalse(second_created)
+        self.assertEqual(first_job.pk, second_job.pk)
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+        ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS=2,
+    )
+    def test_enqueue_analysis_job_allows_education_tier_two_active_jobs(self):
+        first_job, _ = enqueue_analysis_job(
+            user_id=self.edu_user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+        second_job, _ = enqueue_analysis_job(
+            user_id=self.edu_user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        self.assertNotEqual(first_job.pk, second_job.pk)
+        with self.assertRaises(AnalysisJobLimitExceeded):
+            enqueue_analysis_job(
+                user_id=self.edu_user.id,
+                raw_uuids=[str(uuid4())],
+                config_snapshot={"execution_mode": "worker"},
+            )
+
+    @override_settings(
+        ACCESS_UNRESTRICTED_EMAILS=("analysis-async@example.com",),
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    )
+    def test_enqueue_analysis_job_unrestricted_email_bypasses_cap(self):
+        first_job, _ = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+        second_job, _ = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        self.assertNotEqual(first_job.pk, second_job.pk)
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    )
+    def test_enqueue_analysis_job_terminal_jobs_do_not_count_toward_cap(self):
+        first_job, _ = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+        AnalysisJob.objects.filter(pk=first_job.pk).update(
+            status=AnalysisJob.Status.SUCCEEDED,
+            finished_at=timezone.now(),
+        )
+
+        second_job, created = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        self.assertTrue(created)
+        self.assertNotEqual(first_job.pk, second_job.pk)
 
     @override_settings(ANALYSIS_EXECUTION_MODE="worker")
     def test_progress_handle_persists_safe_job_detail(self):

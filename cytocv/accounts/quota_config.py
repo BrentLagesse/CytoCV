@@ -1,4 +1,4 @@
-"""Helpers for parsing and normalizing storage quota configuration."""
+"""Helpers for parsing and normalizing email-based policy configuration."""
 
 from __future__ import annotations
 
@@ -81,3 +81,28 @@ def parse_user_fixed_quota_map(
         quota_mb = parse_quota_mb_value(raw_value=mb_part, var_name=var_name)
         mapping[email] = quota_mb * BYTES_PER_MB
     return mapping
+
+
+def parse_email_allowlist(
+    raw_value: str | None,
+    *,
+    var_name: str = "CYTOCV_ACCESS_UNRESTRICTED_EMAILS",
+) -> tuple[str, ...]:
+    """Parse a comma-separated email allowlist into normalized unique values."""
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    entries = [entry.strip() for entry in str(raw_value or "").split(",") if entry.strip()]
+    for entry in entries:
+        email = normalize_quota_email(entry)
+        try:
+            validate_email(email)
+        except ValidationError as exc:
+            raise ImproperlyConfigured(
+                f"{var_name} entry '{entry}' has an invalid email address."
+            ) from exc
+        if email in seen:
+            continue
+        seen.add(email)
+        normalized.append(email)
+    return tuple(normalized)

@@ -1985,6 +1985,8 @@
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 <script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>
 <script id="uploadQuotaProjection" type="application/json">{{ upload_quota_payload_json|safe }}</script>
+<script id="uploadAccessPolicy" type="application/json">{{ upload_access_policy_payload_json|safe }}</script>
+<script id="uploadResumePayload" type="application/json">{{ upload_resume_payload_json|safe }}</script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -2033,6 +2035,8 @@
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
     const serverPreferenceDefaultsElement = document.getElementById('serverPreferenceDefaults');
     const uploadQuotaProjectionElement = document.getElementById('uploadQuotaProjection');
+    const uploadAccessPolicyElement = document.getElementById('uploadAccessPolicy');
+    const uploadResumePayloadElement = document.getElementById('uploadResumePayload');
     let restoredQueueItems = [];
     try {
         const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
@@ -2109,6 +2113,24 @@
         uploadQuotaProjection = JSON.parse(uploadQuotaRaw || '{}');
     } catch (err) {
         uploadQuotaProjection = {};
+    }
+    let uploadAccessPolicy = {};
+    try {
+        const uploadAccessRaw = uploadAccessPolicyElement
+            ? uploadAccessPolicyElement.textContent
+            : '{}';
+        uploadAccessPolicy = JSON.parse(uploadAccessRaw || '{}');
+    } catch (err) {
+        uploadAccessPolicy = {};
+    }
+    let uploadResumePayload = {};
+    try {
+        const uploadResumeRaw = uploadResumePayloadElement
+            ? uploadResumePayloadElement.textContent
+            : '{}';
+        uploadResumePayload = JSON.parse(uploadResumeRaw || '{}');
+    } catch (err) {
+        uploadResumePayload = {};
     }
 
     const statsState = {
@@ -2413,6 +2435,26 @@
         return `${value.toFixed(decimals)} ${units[unitIndex]}`;
     }
 
+    function getUploadMaxFiles() {
+        const raw = uploadAccessPolicy ? uploadAccessPolicy.upload_max_files : null;
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed) || parsed < 1) {
+            return null;
+        }
+        return parsed;
+    }
+
+    function buildUploadFileLimitErrors(requestedFiles) {
+        const lines = [];
+        if (uploadAccessPolicy && typeof uploadAccessPolicy.upload_limit_message === 'string' && uploadAccessPolicy.upload_limit_message) {
+            lines.push(uploadAccessPolicy.upload_limit_message);
+        }
+        const count = Number(requestedFiles) || 0;
+        lines.push(`This submission includes ${count} ${count === 1 ? 'file' : 'files'} total.`);
+        lines.push('Reduce the selection and try again.');
+        return lines;
+    }
+
     function updateUploadQuotaStatus() {
         const statusElement = document.getElementById('uploadQuotaStatus');
         if (!statusElement) {
@@ -2583,6 +2625,7 @@
                 hideInfoTooltip();
             }
         });
+        resumeUploadPreparationFromServer();
         const raw = sessionStorage.getItem('dvErrors');
         if (!raw) return;
         let lines = [];
@@ -5648,6 +5691,222 @@
         if (folderInput) folderInput.addEventListener('change', handleFileSelection);
     }
 
+    const UPLOAD_PREPARATION_TIMEOUT_MS = 1800000;
+    const UPLOAD_CONTROL_SELECTOR = '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .workflow-default-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn';
+
+    function getUploadSubmitParts() {
+        const submitBtn = document.getElementById('uploadSubmit');
+        const btnText = submitBtn ? submitBtn.querySelector('.btn-text') : null;
+        return { submitBtn, btnText };
+    }
+
+    function setUploadControlsDisabled(disabled) {
+        const controls = document.querySelectorAll(UPLOAD_CONTROL_SELECTOR);
+        controls.forEach((el) => {
+            el.disabled = disabled;
+            el.style.pointerEvents = disabled ? 'none' : '';
+            el.style.cursor = disabled ? 'not-allowed' : '';
+        });
+    }
+
+    function setUploadProgressForButton(submitBtn, payload) {
+        if (submitBtn && window.CytoCVAsyncProgress) {
+            window.CytoCVAsyncProgress.set(submitBtn, payload);
+        }
+    }
+
+    function clearUploadProgressForButton(submitBtn) {
+        if (submitBtn && window.CytoCVAsyncProgress) {
+            window.CytoCVAsyncProgress.clear(submitBtn);
+        }
+    }
+
+    function applyUploadPhaseText(btnText, phase) {
+        if (!btnText || !phase) return;
+        if (phase === 'Validating Files') {
+            btnText.textContent = 'Validating Files';
+        } else if (phase === 'Preparing Previews') {
+            btnText.textContent = 'Preparing Previews';
+        } else {
+            btnText.textContent = phase;
+        }
+    }
+
+    function lockUploadUi(payload) {
+        const { submitBtn, btnText } = getUploadSubmitParts();
+        if (!submitBtn) return { submitBtn, btnText };
+        setUploadControlsDisabled(true);
+        submitBtn.classList.add('loading');
+        submitBtn.style.backgroundColor = '#0056b3';
+        if (payload && payload.phase) {
+            applyUploadPhaseText(btnText, payload.phase);
+            setUploadProgressForButton(submitBtn, payload);
+        } else {
+            if (btnText) btnText.textContent = 'Preprocess Files';
+            setUploadProgressForButton(submitBtn, {
+                phase: 'Preprocess Files',
+                message: 'Preparing upload request.',
+            });
+        }
+        return { submitBtn, btnText };
+    }
+
+    function unlockUploadUi() {
+        const { submitBtn, btnText } = getUploadSubmitParts();
+        if (submitBtn) {
+            submitBtn.classList.remove('loading');
+            submitBtn.style.backgroundColor = '';
+            clearUploadProgressForButton(submitBtn);
+        }
+        if (btnText) btnText.textContent = 'Preprocess Files';
+        setUploadControlsDisabled(false);
+    }
+
+    function createUploadUserError(errors) {
+        const err = new Error('user-facing-upload-error');
+        err.userErrors = Array.isArray(errors) ? errors : [String(errors || 'Upload failed.')];
+        return err;
+    }
+
+    function failWithUploadErrors(errors) {
+        throw createUploadUserError(errors);
+    }
+
+    async function parseUploadJsonResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json') ? await response.json() : {};
+        if (!response.ok) {
+            const lines = Array.isArray(payload.errors) && payload.errors.length > 0
+                ? payload.errors
+                : [payload.error || 'Upload failed. Please try again.'];
+            failWithUploadErrors(lines);
+        }
+        return payload;
+    }
+
+    function persistUploadPreparationErrors(payload) {
+        if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+            sessionStorage.setItem('dvErrors', JSON.stringify(payload.errors));
+        }
+    }
+
+    function redirectToUploadPreparationResult(payload, message) {
+        persistUploadPreparationErrors(payload);
+        if (message && window.showGlobalMessage) {
+            window.showGlobalMessage(message, 'info', {
+                scope: 'upload-preparation',
+                top: 'calc(var(--nav-height) + 8px)',
+                timeoutMs: 2500,
+            });
+        }
+        window.setTimeout(() => {
+            window.location.href = payload.redirect;
+        }, message ? 250 : 0);
+    }
+
+    async function pollUploadPreparationJob(jobUuid, { signal, deadline, submitBtn, btnText }) {
+        const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+        let delay = 800;
+        while (Date.now() < deadline) {
+            const statusResponse = await fetch(`/api/experiment/upload-prep/${encodeURIComponent(jobUuid)}/`, {
+                cache: 'no-store',
+                signal,
+            });
+            const statusPayload = await parseUploadJsonResponse(statusResponse);
+            if (statusPayload.phase) {
+                applyUploadPhaseText(btnText, statusPayload.phase);
+                setUploadProgressForButton(submitBtn, {
+                    ...(statusPayload.detail || {}),
+                    phase: statusPayload.phase,
+                    status: statusPayload.status,
+                });
+            }
+            if (statusPayload.status === 'succeeded') {
+                clearUploadProgressForButton(submitBtn);
+                if (statusPayload.redirect) {
+                    redirectToUploadPreparationResult(statusPayload);
+                    return;
+                }
+                failWithUploadErrors([
+                    'Upload preparation completed, but the preprocess page could not be resolved. Please refresh.',
+                ]);
+            }
+            if (statusPayload.status === 'failed') {
+                const failureLines = Array.isArray(statusPayload.errors) && statusPayload.errors.length > 0
+                    ? statusPayload.errors
+                    : [statusPayload.failure_summary || 'Upload preparation failed. Please try again.'];
+                failWithUploadErrors(failureLines);
+            }
+            if (statusPayload.status === 'cancelled') {
+                failWithUploadErrors(['Upload preparation was cancelled.']);
+            }
+            await wait(delay);
+            delay = Math.min(2000, Math.round(delay * 1.25));
+        }
+        throw new DOMException('Upload timed out.', 'AbortError');
+    }
+
+    function resumeUploadPreparationFromServer() {
+        if (!uploadResumePayload || typeof uploadResumePayload !== 'object') return;
+        if (!uploadResumePayload.job_uuid || typeof uploadResumePayload.status !== 'string') return;
+
+        const status = uploadResumePayload.status;
+        if (status === 'succeeded' && uploadResumePayload.redirect) {
+            redirectToUploadPreparationResult(
+                uploadResumePayload,
+                'Upload preparation finished. Continuing to preprocess.',
+            );
+            return;
+        }
+        if (status === 'failed') {
+            const failureLines = Array.isArray(uploadResumePayload.errors) && uploadResumePayload.errors.length > 0
+                ? uploadResumePayload.errors
+                : [uploadResumePayload.failure_summary || 'Upload preparation failed. Please try again.'];
+            showErrors(failureLines);
+            return;
+        }
+        if (status === 'cancelled') {
+            showErrors(['Upload preparation was cancelled.']);
+            return;
+        }
+        if (!['queued', 'running', 'cancelling'].includes(status)) {
+            return;
+        }
+
+        const { submitBtn, btnText } = lockUploadUi({
+            ...(uploadResumePayload.detail || {}),
+            phase: uploadResumePayload.phase || 'Queued',
+            status: uploadResumePayload.status,
+            message: uploadResumePayload.detail?.message || 'Reconnecting to upload-preparation worker.',
+        });
+        if (!submitBtn) return;
+
+        const uploadController = new AbortController();
+        const uploadTimeout = setTimeout(() => uploadController.abort(), UPLOAD_PREPARATION_TIMEOUT_MS);
+        pollUploadPreparationJob(uploadResumePayload.job_uuid, {
+            signal: uploadController.signal,
+            deadline: Date.now() + UPLOAD_PREPARATION_TIMEOUT_MS,
+            submitBtn,
+            btnText,
+        }).catch((err) => {
+            console.error(err);
+            if (err && Array.isArray(err.userErrors)) {
+                showErrors(err.userErrors);
+            } else if (err && err.name === 'AbortError') {
+                showErrors([
+                    'Lost connection to upload preparation. Refresh to reconnect to the active job.',
+                ]);
+            } else {
+                showErrors([
+                    'Upload status could not be refreshed. Refresh to reconnect to the active job.',
+                ]);
+            }
+            unlockUploadUi();
+        }).finally(() => {
+            clearTimeout(uploadTimeout);
+        });
+    }
+
     function setupUploadSubmit() {
         const uploadForm = document.getElementById('uploadForm');
         if (!uploadForm) return;
@@ -5655,10 +5914,16 @@
         uploadForm.addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            if (getQueuedCount() === 0) {
+            const queuedCount = getQueuedCount();
+            if (queuedCount === 0) {
                 showErrors([
                     'No files selected. Upload at least one DeltaVision .dv file before preprocessing.',
                 ]);
+                return;
+            }
+            const uploadMaxFiles = getUploadMaxFiles();
+            if (uploadMaxFiles !== null && queuedCount > uploadMaxFiles) {
+                showErrors(buildUploadFileLimitErrors(queuedCount));
                 return;
             }
 
@@ -5674,34 +5939,8 @@
             const cenDotDistancePixels = convertLengthToPixels(statsState.cenDotDistance, statsState.cenDotDistanceUnit, 0, 37);
             const cenDotProximityRadiusPixels = convertLengthToPixels(statsState.cenDotProximityRadius, statsState.cenDotProximityRadiusUnit, 0, 13);
 
-            const submitBtn = document.getElementById('uploadSubmit');
-            const btnText = submitBtn.querySelector('.btn-text');
-            const setUploadProgress = (payload) => {
-                if (window.CytoCVAsyncProgress) {
-                    window.CytoCVAsyncProgress.set(submitBtn, payload);
-                }
-            };
-            const clearUploadProgress = () => {
-                if (window.CytoCVAsyncProgress) {
-                    window.CytoCVAsyncProgress.clear(submitBtn);
-                }
-            };
-
-            const controls = document.querySelectorAll(
-                '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .workflow-default-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn'
-            );
-            controls.forEach((el) => {
-                el.disabled = true;
-                el.style.pointerEvents = 'none';
-                el.style.cursor = 'not-allowed';
-            });
-            submitBtn.classList.add('loading');
-            submitBtn.style.backgroundColor = '#0056b3';
-            btnText.textContent = 'Preprocess Files';
-            setUploadProgress({
-                phase: 'Preprocess Files',
-                message: 'Preparing upload request.',
-            });
+            const { submitBtn, btnText } = lockUploadUi();
+            if (!submitBtn) return;
 
             const settingsBackdrop = document.getElementById('settingsBackdrop');
             if (settingsBackdrop) {
@@ -5767,25 +6006,10 @@
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const uploadController = new AbortController();
-            const uploadTimeoutMs = 1800000;
-            const uploadTimeout = setTimeout(() => uploadController.abort(), uploadTimeoutMs);
+            const uploadTimeout = setTimeout(() => uploadController.abort(), UPLOAD_PREPARATION_TIMEOUT_MS);
 
             const selectedFileList = [...selectedFiles.values()];
             const oversizedFiles = selectedFileList.filter((file) => file.size > UPLOAD_BATCH_TARGET_BYTES);
-            const failWithErrors = (errors) => {
-                const err = new Error('user-facing-upload-error');
-                err.userErrors = Array.isArray(errors) ? errors : [String(errors || 'Upload failed.')];
-                throw err;
-            };
-            const parseJsonResponse = async (response) => {
-                const contentType = response.headers.get('content-type') || '';
-                const payload = contentType.includes('application/json') ? await response.json() : {};
-                if (!response.ok) {
-                    failWithErrors(payload.errors || [payload.error || 'Upload failed. Please try again.']);
-                }
-                return payload;
-            };
-            const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
             const buildFileBatches = (files, targetBytes) => {
                 const batches = [];
                 let current = [];
@@ -5809,7 +6033,7 @@
                     const fileList = oversizedFiles.slice(0, 5).map((file) => `${file.name} (${formatStorageBytes(file.size)})`);
                     const remaining = oversizedFiles.length - fileList.length;
                     if (remaining > 0) fileList.push(`(+${remaining} more)`);
-                    failWithErrors([
+                    failWithUploadErrors([
                         `Each individual file must be ${formatStorageBytes(UPLOAD_BATCH_TARGET_BYTES)} or smaller.`,
                         ...fileList,
                     ]);
@@ -5823,7 +6047,7 @@
                             ? `Uploading ${index + 1}/${batches.length}`
                             : 'Uploading Files';
                     }
-                    setUploadProgress({
+                    setUploadProgressForButton(submitBtn, {
                         phase: 'Uploading Files',
                         batchIndex: index + 1,
                         batchTotal: batches.length,
@@ -5840,15 +6064,15 @@
                         body: batchData,
                         signal: uploadController.signal,
                     });
-                    const uploadPayload = await parseJsonResponse(uploadResponse);
+                    const uploadPayload = await parseUploadJsonResponse(uploadResponse);
                     (uploadPayload.uploads || []).forEach((item) => {
                         if (item && item.uuid) uploadedRunUuids.push(item.uuid);
                     });
                 }
 
                 uploadedRunUuids.forEach((uuid) => prepData.append('new_run_uuids', uuid));
-                if (btnText) btnText.textContent = 'Queued';
-                setUploadProgress({
+                applyUploadPhaseText(btnText, 'Queued');
+                setUploadProgressForButton(submitBtn, {
                     phase: 'Queued',
                     message: 'Waiting for upload-preparation worker.',
                 });
@@ -5861,55 +6085,18 @@
                     body: prepData,
                     signal: uploadController.signal,
                 });
-                const prepPayload = await parseJsonResponse(prepResponse);
+                const prepPayload = await parseUploadJsonResponse(prepResponse);
                 if (!prepPayload.job_uuid) {
-                    failWithErrors(['Upload preparation could not be started. Please try again.']);
+                    failWithUploadErrors(['Upload preparation could not be started. Please try again.']);
                 }
 
-                let delay = 800;
-                const deadline = Date.now() + uploadTimeoutMs;
-                while (Date.now() < deadline) {
-                    const statusResponse = await fetch(`/api/experiment/upload-prep/${encodeURIComponent(prepPayload.job_uuid)}/`, {
-                        cache: 'no-store',
-                        signal: uploadController.signal,
-                    });
-                    const statusPayload = await parseJsonResponse(statusResponse);
-                    if (statusPayload.phase && btnText) {
-                        if (statusPayload.phase === 'Validating Files') {
-                            btnText.textContent = 'Validating Files';
-                        } else if (statusPayload.phase === 'Preparing Previews') {
-                            btnText.textContent = 'Preparing Previews';
-                        } else {
-                            btnText.textContent = statusPayload.phase;
-                        }
-                        setUploadProgress({
-                            ...(statusPayload.detail || {}),
-                            phase: statusPayload.phase,
-                            status: statusPayload.status,
-                        });
-                    }
-                    if (statusPayload.status === 'succeeded' && statusPayload.redirect) {
-                        clearTimeout(uploadTimeout);
-                        clearUploadProgress();
-                        if (statusPayload.errors && statusPayload.errors.length > 0) {
-                            sessionStorage.setItem('dvErrors', JSON.stringify(statusPayload.errors));
-                        }
-                        window.location.href = statusPayload.redirect;
-                        return;
-                    }
-                    if (statusPayload.status === 'failed') {
-                        failWithErrors(statusPayload.errors || [statusPayload.failure_summary || 'Upload preparation failed. Please try again.']);
-                    }
-                    if (statusPayload.status === 'cancelled') {
-                        failWithErrors(['Upload preparation was cancelled.']);
-                    }
-                    await wait(delay);
-                    delay = Math.min(2000, Math.round(delay * 1.25));
-                }
-
-                throw new DOMException('Upload timed out.', 'AbortError');
+                await pollUploadPreparationJob(prepPayload.job_uuid, {
+                    signal: uploadController.signal,
+                    deadline: Date.now() + UPLOAD_PREPARATION_TIMEOUT_MS,
+                    submitBtn,
+                    btnText,
+                });
             } catch (err) {
-                clearTimeout(uploadTimeout);
                 console.error(err);
                 if (err && Array.isArray(err.userErrors)) {
                     showErrors(err.userErrors);
@@ -5922,14 +6109,9 @@
                         'Upload failed. Please try again.',
                     ]);
                 }
-                submitBtn.classList.remove('loading');
-                clearUploadProgress();
-                controls.forEach((el) => {
-                    el.disabled = false;
-                    el.style.pointerEvents = '';
-                    el.style.cursor = '';
-                });
-                btnText.textContent = 'Preprocess Files';
+                unlockUploadUi();
+            } finally {
+                clearTimeout(uploadTimeout);
             }
         });
     }

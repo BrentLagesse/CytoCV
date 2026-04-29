@@ -17,6 +17,10 @@ from ..stats_plugins import (
     normalize_selected_plugins,
 )
 import uuid as uuid_lib
+from accounts.access_policy import (
+    build_upload_limit_error_lines,
+    get_access_policy_for_user,
+)
 from accounts.preferences import (
     PreferenceValidationError,
     build_experiment_defaults_from_popup_payload,
@@ -48,7 +52,10 @@ from core.services.analysis_progress import normalize_progress_detail
 from core.services.upload_preparation_jobs import (
     enqueue_upload_preparation_job,
     finalize_upload_preparation_job,
+    get_stale_upload_preparation_terminal_state,
     get_upload_preparation_job_for_user,
+    get_upload_preparation_jobs_for_user,
+    reap_stale_upload_preparation_jobs,
     request_upload_preparation_cancellation,
 )
 
@@ -56,6 +63,8 @@ NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
+RECENT_UPLOAD_PREPARATION_SESSION_KEY = "recent_upload_preparation_job_uuids"
+RECENT_UPLOAD_PREPARATION_SESSION_LIMIT = 10
 logger = logging.getLogger(__name__)
 
 
@@ -71,6 +80,121 @@ def _parse_bool(value, default=False):
 
 def _upload_job_detail(job: UploadPreparationJob) -> dict[str, object]:
     return normalize_progress_detail(job.progress_detail)
+
+
+def _recent_upload_preparation_job_uuids(request) -> list[str]:
+    """Return the normalized recent upload-preparation job UUID list for this session."""
+
+    return _parse_restore_uuids(request.session.get(RECENT_UPLOAD_PREPARATION_SESSION_KEY, []))
+
+
+def _set_recent_upload_preparation_job_uuids(request, job_uuids: list[str]) -> None:
+    """Persist recent upload-preparation job UUIDs back into the session."""
+
+    normalized = _parse_restore_uuids(job_uuids)
+    if normalized:
+        request.session[RECENT_UPLOAD_PREPARATION_SESSION_KEY] = normalized[
+            -RECENT_UPLOAD_PREPARATION_SESSION_LIMIT:
+        ]
+    else:
+        request.session.pop(RECENT_UPLOAD_PREPARATION_SESSION_KEY, None)
+    request.session.modified = True
+
+
+def _remember_upload_preparation_job(request, job_uuid: str) -> None:
+    """Append one upload-preparation job UUID to the recent session list."""
+
+    existing = [value for value in _recent_upload_preparation_job_uuids(request) if value != job_uuid]
+    existing.append(job_uuid)
+    _set_recent_upload_preparation_job_uuids(request, existing)
+
+
+def _forget_upload_preparation_job(request, job_uuid: str) -> None:
+    """Remove one upload-preparation job UUID from the recent session list."""
+
+    existing = _recent_upload_preparation_job_uuids(request)
+    next_values = [value for value in existing if value != job_uuid]
+    if next_values == existing:
+        return
+    _set_recent_upload_preparation_job_uuids(request, next_values)
+
+
+def _build_upload_preparation_payload(
+    request,
+    job: UploadPreparationJob,
+    *,
+    stale_state: tuple[str, str, str] | None = None,
+) -> dict[str, object]:
+    """Serialize one upload-preparation job for APIs and resume bootstrapping."""
+
+    status = stale_state[0] if stale_state is not None else job.status
+    phase = stale_state[1] if stale_state is not None else job.current_phase
+    failure_summary = stale_state[2] if stale_state is not None else job.failure_summary
+    errors = [str(line) for line in job.error_lines or [] if str(line)]
+    if failure_summary and not errors and status == UploadPreparationJob.Status.FAILED:
+        errors = [failure_summary]
+
+    redirect_url = None
+    if status == UploadPreparationJob.Status.SUCCEEDED and job.valid_run_uuids:
+        valid_uuids = [str(value) for value in job.valid_run_uuids if str(value)]
+        request.session["last_experiment_uuids"] = valid_uuids
+        request.session.modified = True
+        redirect_url = reverse("pre_process", kwargs={"uuids": ",".join(valid_uuids)})
+
+    return {
+        "job_uuid": str(job.job_uuid),
+        "status": status,
+        "phase": phase,
+        "detail": _upload_job_detail(job),
+        "errors": errors,
+        "failure_summary": failure_summary,
+        "redirect": redirect_url,
+    }
+
+
+def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | None:
+    """Return the newest resumable upload-preparation payload for this session."""
+
+    recent_job_uuids = _recent_upload_preparation_job_uuids(request)
+    if not recent_job_uuids:
+        return None
+
+    jobs_by_uuid = {
+        str(job.job_uuid): job
+        for job in get_upload_preparation_jobs_for_user(
+            user_id=request.user.id,
+            job_uuids=recent_job_uuids,
+        )
+    }
+    existing_job_uuids = [value for value in recent_job_uuids if value in jobs_by_uuid]
+
+    selected_payload = None
+    consume_job_uuid = None
+    for job_uuid in reversed(existing_job_uuids):
+        job = jobs_by_uuid[job_uuid]
+        stale_state = get_stale_upload_preparation_terminal_state(job)
+        selected_payload = _build_upload_preparation_payload(
+            request,
+            job,
+            stale_state=stale_state,
+        )
+        effective_status = selected_payload["status"]
+        if effective_status in {
+            UploadPreparationJob.Status.QUEUED,
+            UploadPreparationJob.Status.RUNNING,
+            UploadPreparationJob.Status.CANCELLING,
+        }:
+            break
+        consume_job_uuid = job_uuid
+        break
+
+    if existing_job_uuids != recent_job_uuids or consume_job_uuid is not None:
+        next_job_uuids = [
+            value for value in existing_job_uuids if value != consume_job_uuid
+        ]
+        _set_recent_upload_preparation_job_uuids(request, next_job_uuids)
+
+    return selected_payload
 
 
 def _parse_positive_float(value, default: float, minimum: float = 0.0) -> float:
@@ -188,6 +312,8 @@ def _upload_view_context(
     restored_queue_items=None,
     user_preference_defaults=None,
     upload_quota_payload=None,
+    upload_access_policy_payload=None,
+    upload_resume_payload=None,
 ):
     """Build template context for the upload page."""
 
@@ -198,6 +324,8 @@ def _upload_view_context(
         "restored_queue_payload_json": json.dumps(restored_queue_items or []),
         "user_preference_defaults_json": json.dumps(user_preference_defaults or {}),
         "upload_quota_payload_json": json.dumps(upload_quota_payload or {}),
+        "upload_access_policy_payload_json": json.dumps(upload_access_policy_payload or {}),
+        "upload_resume_payload_json": json.dumps(upload_resume_payload or {}),
         "upload_batch_target_bytes": int(getattr(settings, "UPLOAD_BATCH_TARGET_BYTES", 80 * 1024 * 1024)),
     }
     if error:
@@ -224,6 +352,41 @@ def _build_upload_quota_payload(user, user_preferences: dict | None = None) -> d
         ),
         "projection_ready": bool(storage_projection.get("projection_ready", False)),
     }
+
+
+def _build_upload_access_policy_payload(user) -> dict[str, object]:
+    """Build upload/access tier data for browser-side preflight validation."""
+
+    access_policy = get_access_policy_for_user(user)
+    return {
+        "tier": access_policy.tier,
+        "is_unrestricted": access_policy.is_unrestricted,
+        "upload_max_files": access_policy.upload_max_files,
+        "analysis_max_active_jobs": access_policy.analysis_max_active_jobs,
+        "upload_limit_message": access_policy.upload_limit_message,
+        "analysis_limit_message": access_policy.analysis_limit_message,
+    }
+
+
+def _upload_limit_error_response(
+    request,
+    *,
+    access_policy,
+    requested_files: int,
+    is_ajax: bool,
+    redirect_path: str,
+):
+    """Return a user-facing response for a blocked upload-preparation submission."""
+
+    errors = build_upload_limit_error_lines(
+        access_policy,
+        requested_files=requested_files,
+    )
+    if is_ajax:
+        return JsonResponse({"errors": errors}, status=400)
+    for line in errors:
+        messages.error(request, line)
+    return redirect(redirect_path)
 
 
 def _getlist(payload, key: str) -> list[str]:
@@ -458,6 +621,7 @@ def experiment(request):
     owner_filter = _current_owner_filter(request)
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
     user_preferences = get_user_preferences(request.user)
+    access_policy = get_access_policy_for_user(request.user)
 
     if request.method == "POST":
         logger.debug("POST request received")
@@ -479,6 +643,7 @@ def experiment(request):
                     error='No files were uploaded.',
                     user_preference_defaults=user_preferences.get("experiment_defaults", {}),
                     upload_quota_payload=_build_upload_quota_payload(request.user, user_preferences),
+                    upload_access_policy_payload=_build_upload_access_policy_payload(request.user),
                 ),
             )
 
@@ -495,6 +660,19 @@ def experiment(request):
             return JsonResponse(
                 {"errors": ["Only DeltaVision .dv files can be uploaded."]},
                 status=400,
+            )
+
+        requested_file_count = len(files) + len(existing_uuids)
+        if (
+            access_policy.upload_max_files is not None
+            and requested_file_count > access_policy.upload_max_files
+        ):
+            return _upload_limit_error_response(
+                request,
+                access_policy=access_policy,
+                requested_files=requested_file_count,
+                is_ajax=is_ajax,
+                redirect_path=request.path,
             )
 
         new_upload_uuids: list[str] = []
@@ -553,6 +731,7 @@ def experiment(request):
             restored_run_uuids=existing_uuids,
             config_snapshot=config_snapshot,
         )
+        _remember_upload_preparation_job(request, str(job.job_uuid))
         payload = {
             "job_uuid": str(job.job_uuid),
             "status": job.status,
@@ -566,6 +745,7 @@ def experiment(request):
     else:
         form = UploadImageForm()
         upload_quota_payload = _build_upload_quota_payload(request.user, user_preferences)
+        upload_access_policy_payload = _build_upload_access_policy_payload(request.user)
         restore_param = request.GET.get("restore", "")
         restore_uuids = _parse_restore_uuids(restore_param)
         protected_uuids = set(restore_uuids)
@@ -590,6 +770,7 @@ def experiment(request):
                     "name": item.name,
                 }
             )
+        upload_resume_payload = _resolve_upload_preparation_resume_payload(request)
     return render(
         request,
         'form/experiment.html',
@@ -599,6 +780,8 @@ def experiment(request):
             restored_queue_items=restored_queue_items if request.method != "POST" else None,
             user_preference_defaults=user_preferences.get("experiment_defaults", {}),
             upload_quota_payload=upload_quota_payload,
+            upload_access_policy_payload=upload_access_policy_payload,
+            upload_resume_payload=upload_resume_payload if request.method != "POST" else None,
         ),
     )
 
@@ -644,6 +827,17 @@ def upload_file_batch(request):
     files = request.FILES.getlist("files")
     if not files:
         return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
+    access_policy = get_access_policy_for_user(request.user)
+    if access_policy.upload_max_files is not None and len(files) > access_policy.upload_max_files:
+        return JsonResponse(
+            {
+                "errors": build_upload_limit_error_lines(
+                    access_policy,
+                    requested_files=len(files),
+                )
+            },
+            status=400,
+        )
 
     owner_id = request.user.id if request.user.is_authenticated else get_guest_user()
     created_uuids: list[str] = []
@@ -691,6 +885,7 @@ def upload_file_batch(request):
 def enqueue_upload_preparation(request):
     """Queue worker-owned upload validation and preview preparation."""
 
+    reap_stale_upload_preparation_jobs(user_id=request.user.id)
     user_preferences = get_user_preferences(request.user)
     session_values, config_snapshot = _parse_experiment_submission(
         request.POST,
@@ -720,6 +915,23 @@ def enqueue_upload_preparation(request):
             {"errors": ["One or more files are no longer available. Refresh and try again."]},
             status=403,
         )
+    access_policy = get_access_policy_for_user(request.user)
+    if (
+        access_policy.upload_max_files is not None
+        and len(requested_uuids) > access_policy.upload_max_files
+    ):
+        for cleanup_uuid in new_run_uuids:
+            if cleanup_uuid in owned_uuids:
+                delete_uploaded_run_by_uuid(cleanup_uuid)
+        return JsonResponse(
+            {
+                "errors": build_upload_limit_error_lines(
+                    access_policy,
+                    requested_files=len(requested_uuids),
+                )
+            },
+            status=400,
+        )
 
     job = enqueue_upload_preparation_job(
         user_id=request.user.id,
@@ -727,14 +939,8 @@ def enqueue_upload_preparation(request):
         restored_run_uuids=restored_run_uuids,
         config_snapshot=config_snapshot,
     )
-    return JsonResponse(
-        {
-            "job_uuid": str(job.job_uuid),
-            "status": job.status,
-            "phase": job.current_phase,
-            "detail": _upload_job_detail(job),
-        }
-    )
+    _remember_upload_preparation_job(request, str(job.job_uuid))
+    return JsonResponse(_build_upload_preparation_payload(request, job))
 
 
 @require_GET
@@ -746,32 +952,28 @@ def upload_preparation_status(request, job_uuid):
         job_uuid=job_uuid,
     )
     if job is None:
+        _forget_upload_preparation_job(request, str(job_uuid))
         return JsonResponse({"errors": ["That upload session is no longer available."]}, status=404)
-
-    redirect_url = None
-    if job.status == UploadPreparationJob.Status.SUCCEEDED and job.valid_run_uuids:
-        valid_uuids = [str(value) for value in job.valid_run_uuids if str(value)]
-        request.session["last_experiment_uuids"] = valid_uuids
-        request.session.modified = True
-        redirect_url = reverse("pre_process", kwargs={"uuids": ",".join(valid_uuids)})
-
-    return JsonResponse(
-        {
-            "job_uuid": str(job.job_uuid),
-            "status": job.status,
-            "phase": job.current_phase,
-            "detail": _upload_job_detail(job),
-            "errors": list(job.error_lines or []),
-            "failure_summary": job.failure_summary,
-            "redirect": redirect_url,
-        }
+    stale_state = get_stale_upload_preparation_terminal_state(job)
+    payload = _build_upload_preparation_payload(
+        request,
+        job,
+        stale_state=stale_state,
     )
+    if payload["status"] in {
+        UploadPreparationJob.Status.SUCCEEDED,
+        UploadPreparationJob.Status.FAILED,
+        UploadPreparationJob.Status.CANCELLED,
+    }:
+        _forget_upload_preparation_job(request, str(job.job_uuid))
+    return JsonResponse(payload)
 
 
 @require_POST
 def cancel_upload_preparation(request, job_uuid):
     """Cancel a queued or running upload-preparation job owned by the user."""
 
+    reap_stale_upload_preparation_jobs(user_id=request.user.id)
     job = get_upload_preparation_job_for_user(
         user_id=request.user.id,
         job_uuid=job_uuid,
@@ -801,6 +1003,7 @@ def cancel_upload_preparation(request, job_uuid):
             valid_run_uuids=[],
             error_lines=[],
         )
+        _forget_upload_preparation_job(request, str(job.job_uuid))
     else:
         job = request_upload_preparation_cancellation(job)
     return JsonResponse(

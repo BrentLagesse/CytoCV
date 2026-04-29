@@ -1,15 +1,11 @@
 [Unit]
-Description=CytoCV Gunicorn
+Description=CytoCV Artifact Maintenance
 After=network.target postgresql.service
 
 [Service]
+Type=oneshot
 User=REPLACE_WITH_DEPLOY_USER
 Group=REPLACE_WITH_DEPLOY_USER
 WorkingDirectory=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv
 Environment="PATH=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin"
-ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/gunicorn --workers 3 --timeout 120 --bind 127.0.0.1:8000 cytocv.wsgi:application
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/python /home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv/manage.py run_artifact_maintenance

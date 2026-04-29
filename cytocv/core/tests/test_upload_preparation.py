@@ -33,11 +33,17 @@ class UploadPreparationTestCase(TestCase):
             email="upload-prep@example.com",
             password="TestPass123!",
         )
+        self.edu_user = user_model.objects.create_user(
+            email="upload-prep@campus.edu",
+            password="TestPass123!",
+        )
         self.other_user = user_model.objects.create_user(
             email="upload-prep-other@example.com",
             password="TestPass123!",
         )
         self.client.login(email=self.user.email, password="TestPass123!")
+        self.edu_client = self.client_class()
+        self.edu_client.login(email=self.edu_user.email, password="TestPass123!")
         self.other_client = self.client_class()
         self.other_client.login(email=self.other_user.email, password="TestPass123!")
 
@@ -326,6 +332,200 @@ class UploadPreparationTestCase(TestCase):
         self.assertIn("/pre-process/", payload["redirect"])
         self.assertEqual(self.client.session["last_experiment_uuids"], [str(uploaded.uuid)])
 
+    def test_upload_preparation_enqueue_endpoint_remembers_recent_job_uuid(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="remembered")
+
+            response = self.client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(uploaded.uuid)],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(
+            self.client.session["recent_upload_preparation_job_uuids"],
+            [payload["job_uuid"]],
+        )
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_upload_preparation_enqueue_blocks_default_tier_over_file_cap_and_cleans_new(self):
+        with temporary_media_root() as media_root:
+            first = self._create_uploaded_image(media_root, name="limit_first")
+            second = self._create_uploaded_image(media_root, name="limit_second")
+
+            response = self.client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(first.uuid), str(second.uuid)],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+            self.assertEqual(response.status_code, 400)
+            payload = response.json()
+            self.assertIn("Standard accounts can preprocess 1 file at a time.", payload["errors"])
+            self.assertFalse(UploadedImage.objects.filter(uuid=first.uuid).exists())
+            self.assertFalse(UploadedImage.objects.filter(uuid=second.uuid).exists())
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_upload_preparation_enqueue_counts_restored_files_toward_cap(self):
+        with temporary_media_root() as media_root:
+            new_upload = self._create_uploaded_image(media_root, name="new_limit")
+            restored = self._create_uploaded_image(media_root, name="restored_limit")
+
+            response = self.client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(new_upload.uuid)],
+                    "existing_uuids": [str(restored.uuid)],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+            self.assertEqual(response.status_code, 400)
+            payload = response.json()
+            self.assertIn("This submission includes 2 files total.", payload["errors"])
+            self.assertFalse(UploadedImage.objects.filter(uuid=new_upload.uuid).exists())
+            self.assertTrue(UploadedImage.objects.filter(uuid=restored.uuid).exists())
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_upload_preparation_enqueue_allows_education_tier_up_to_twenty_files(self):
+        with temporary_media_root() as media_root:
+            uploads = [
+                self._create_uploaded_image(
+                    media_root,
+                    user=self.edu_user,
+                    name=f"edu_{index}",
+                )
+                for index in range(20)
+            ]
+
+            response = self.edu_client.post(
+                reverse("experiment_upload_prepare"),
+                {
+                    "new_run_uuids": [str(item.uuid) for item in uploads],
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.QUEUED)
+
+    @override_settings(
+        STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+        UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+        UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    )
+    def test_legacy_experiment_post_blocks_default_tier_over_file_cap_before_saving(self):
+        response = self.client.post(
+            reverse("experiment"),
+            {
+                "files": [
+                    SimpleUploadedFile("first.dv", b"dv"),
+                    SimpleUploadedFile("second.dv", b"dv"),
+                ],
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertIn("Standard accounts can preprocess 1 file at a time.", payload["errors"])
+        self.assertFalse(UploadedImage.objects.exists())
+
+    def test_experiment_get_injects_active_upload_resume_payload(self):
+        job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        session = self.client.session
+        session["recent_upload_preparation_job_uuids"] = [str(job.job_uuid)]
+        session.save()
+
+        response = self.client.get(reverse("experiment"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.context["upload_resume_payload_json"])
+        self.assertEqual(payload["job_uuid"], str(job.job_uuid))
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.QUEUED)
+        self.assertEqual(
+            self.client.session["recent_upload_preparation_job_uuids"],
+            [str(job.job_uuid)],
+        )
+
+    def test_experiment_get_injects_completed_upload_resume_payload_and_clears_it(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="resume_ready")
+            job = enqueue_upload_preparation_job(
+                user_id=self.user.id,
+                new_run_uuids=[str(uploaded.uuid)],
+                restored_run_uuids=[],
+                config_snapshot=self._config_snapshot(),
+            )
+            UploadPreparationJob.objects.filter(pk=job.pk).update(
+                status=UploadPreparationJob.Status.SUCCEEDED,
+                current_phase="Completed",
+                valid_run_uuids=[str(uploaded.uuid)],
+                finished_at=timezone.now(),
+            )
+            session = self.client.session
+            session["recent_upload_preparation_job_uuids"] = [str(job.job_uuid)]
+            session.save()
+
+            response = self.client.get(reverse("experiment"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.context["upload_resume_payload_json"])
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.SUCCEEDED)
+        self.assertIn("/pre-process/", payload["redirect"])
+        self.assertNotIn("recent_upload_preparation_job_uuids", self.client.session)
+        self.assertEqual(self.client.session["last_experiment_uuids"], [str(uploaded.uuid)])
+
+    def test_experiment_get_injects_failed_upload_resume_payload_and_clears_it(self):
+        job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        UploadPreparationJob.objects.filter(pk=job.pk).update(
+            status=UploadPreparationJob.Status.FAILED,
+            current_phase="Failed",
+            error_lines=["Validation failed."],
+            failure_summary="Validation failed.",
+            finished_at=timezone.now(),
+        )
+        session = self.client.session
+        session["recent_upload_preparation_job_uuids"] = [str(job.job_uuid)]
+        session.save()
+
+        response = self.client.get(reverse("experiment"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.context["upload_resume_payload_json"])
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.FAILED)
+        self.assertEqual(payload["errors"], ["Validation failed."])
+        self.assertNotIn("recent_upload_preparation_job_uuids", self.client.session)
+
     def test_worker_processes_upload_preparation_job_once(self):
         job = enqueue_upload_preparation_job(
             user_id=self.user.id,
@@ -341,6 +541,78 @@ class UploadPreparationTestCase(TestCase):
             call_command("run_analysis_worker", once=True)
 
         upload_mock.assert_called_once()
+
+    def test_worker_once_upload_only_processes_upload_preparation_jobs(self):
+        analysis_job, _ = enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+        upload_job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        AnalysisJob.objects.filter(pk=analysis_job.pk).update(
+            created_at=timezone.now() - timezone.timedelta(seconds=5)
+        )
+        UploadPreparationJob.objects.filter(pk=upload_job.pk).update(created_at=timezone.now())
+
+        with patch(
+            "core.management.commands.run_analysis_worker.run_upload_preparation_job",
+            return_value=upload_job,
+        ) as upload_mock, patch(
+            "core.management.commands.run_analysis_worker.run_analysis_batch",
+        ) as analysis_mock:
+            call_command("run_analysis_worker", once=True, job_type="upload-preparation")
+
+        upload_mock.assert_called_once()
+        analysis_mock.assert_not_called()
+
+    def test_worker_once_analysis_only_processes_analysis_jobs(self):
+        enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        enqueue_analysis_job(
+            user_id=self.user.id,
+            raw_uuids=[str(uuid4())],
+            config_snapshot={"execution_mode": "worker"},
+        )
+
+        with patch(
+            "core.management.commands.run_analysis_worker.run_upload_preparation_job",
+        ) as upload_mock, patch(
+            "core.management.commands.run_analysis_worker.run_analysis_batch",
+            return_value=SimpleNamespace(storage_warning_message=""),
+        ) as analysis_mock:
+            call_command("run_analysis_worker", once=True, job_type="analysis")
+
+        upload_mock.assert_not_called()
+        analysis_mock.assert_called_once()
+
+    def test_worker_skip_maintenance_suppresses_maintenance_call(self):
+        with patch(
+            "core.management.commands.run_analysis_worker.run_artifact_maintenance",
+        ) as maintenance_mock, patch(
+            "core.management.commands.run_analysis_worker.get_oldest_queued_upload_preparation_job",
+            side_effect=KeyboardInterrupt,
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                call_command("run_analysis_worker", skip_maintenance=True)
+
+        maintenance_mock.assert_not_called()
+
+    def test_run_artifact_maintenance_command_runs_once(self):
+        with patch(
+            "core.management.commands.run_artifact_maintenance.run_artifact_maintenance",
+        ) as maintenance_mock:
+            call_command("run_artifact_maintenance")
+
+        maintenance_mock.assert_called_once()
 
     def test_worker_still_processes_older_analysis_job_first(self):
         analysis_job, _ = enqueue_analysis_job(
@@ -369,3 +641,76 @@ class UploadPreparationTestCase(TestCase):
 
         upload_mock.assert_not_called()
         analysis_mock.assert_called_once()
+
+    @override_settings(UPLOAD_PREPARATION_QUEUE_STALE_SECONDS=1)
+    def test_upload_preparation_status_surfaces_stale_queued_job_without_mutating_get(self):
+        job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        UploadPreparationJob.objects.filter(pk=job.pk).update(
+            created_at=timezone.now() - timezone.timedelta(seconds=5),
+        )
+
+        response = self.client.get(
+            reverse("experiment_upload_prepare_status", args=[str(job.job_uuid)])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.FAILED)
+        self.assertIn("expired", payload["failure_summary"].lower())
+        job.refresh_from_db()
+        self.assertEqual(job.status, UploadPreparationJob.Status.QUEUED)
+        self.assertIsNone(job.finished_at)
+
+    @override_settings(UPLOAD_PREPARATION_RUNNING_STALE_SECONDS=1)
+    def test_upload_preparation_status_surfaces_stale_running_job_without_mutating_get(self):
+        job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        UploadPreparationJob.objects.filter(pk=job.pk).update(
+            status=UploadPreparationJob.Status.RUNNING,
+            current_phase="Preparing Previews",
+            started_at=timezone.now() - timezone.timedelta(seconds=5),
+        )
+
+        response = self.client.get(
+            reverse("experiment_upload_prepare_status", args=[str(job.job_uuid)])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.FAILED)
+        self.assertIn("maximum runtime", payload["failure_summary"].lower())
+        job.refresh_from_db()
+        self.assertEqual(job.status, UploadPreparationJob.Status.RUNNING)
+        self.assertIsNone(job.finished_at)
+
+    @override_settings(UPLOAD_PREPARATION_QUEUE_STALE_SECONDS=1)
+    def test_enqueue_upload_preparation_job_reaps_stale_job_outside_get(self):
+        stale_job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        UploadPreparationJob.objects.filter(pk=stale_job.pk).update(
+            created_at=timezone.now() - timezone.timedelta(seconds=5),
+        )
+
+        replacement_job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+
+        stale_job.refresh_from_db()
+        self.assertEqual(stale_job.status, UploadPreparationJob.Status.FAILED)
+        self.assertNotEqual(replacement_job.pk, stale_job.pk)

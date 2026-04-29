@@ -2330,6 +2330,13 @@
             window.showGlobalMessage(message);
           }
         };
+        const persistDisplayInfoMessage = (message) => {
+          if (!message) return;
+          sessionStorage.setItem('cytocvDisplayInfoMessage', JSON.stringify({
+            message,
+            tone: 'warning',
+          }));
+        };
         const startPolling = () => {
           const poll = async () => {
             try {
@@ -2376,6 +2383,9 @@
                 if (analysisPollTimer) clearInterval(analysisPollTimer);
                 analysisPollTimer = null;
                 if (isWorkerAnalysis && data.redirect) {
+                  if (data.failure_summary) {
+                    persistDisplayInfoMessage(data.failure_summary);
+                  }
                   clearAnalysisProgress();
                   window.isAnalysisRunning = false;
                   window.location.href = data.redirect;
@@ -2457,6 +2467,9 @@
             }
             if (payload.status === 'succeeded' && payload.redirect) {
               if (analysisPollTimer) clearInterval(analysisPollTimer);
+              if (payload.storage_warning_message) {
+                persistDisplayInfoMessage(payload.storage_warning_message);
+              }
               clearAnalysisProgress();
               window.isAnalysisRunning = false;
               window.location.href = payload.redirect;
@@ -2486,7 +2499,9 @@
           clearAnalysisProgress();
           setAnalysisLocked(false);
           if (window.showGlobalMessage) {
-            window.showGlobalMessage('Failed to start analysis. Please try again.');
+            window.showGlobalMessage(
+              err && err.message ? err.message : 'Failed to start analysis. Please try again.'
+            );
           }
         }
       });

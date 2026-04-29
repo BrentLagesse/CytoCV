@@ -5,12 +5,22 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
 
 from accounts.admin import CustomUserAdminForm
+from accounts.access_policy import (
+    ACCESS_TIER_EDUCATION,
+    ACCESS_TIER_STANDARD,
+    ACCESS_TIER_UNRESTRICTED,
+    get_access_policy_for_email,
+)
 from accounts.quota import (
     get_base_quota_bytes_for_email,
     get_base_quota_source_for_email,
     get_effective_quota_bytes,
 )
-from accounts.quota_config import BYTES_PER_MB, parse_user_fixed_quota_map
+from accounts.quota_config import (
+    BYTES_PER_MB,
+    parse_email_allowlist,
+    parse_user_fixed_quota_map,
+)
 
 
 @override_settings(
@@ -157,3 +167,48 @@ class QuotaConfigParsingTests(TestCase):
 
         with self.assertRaises(ImproperlyConfigured):
             parse_user_fixed_quota_map("user@example.com:100,user@example.com:200")
+
+    def test_parse_email_allowlist_normalizes_and_deduplicates(self):
+        parsed = parse_email_allowlist(
+            "Researcher@Example.com, researcher@example.com , student@campus.edu"
+        )
+
+        self.assertEqual(
+            parsed,
+            ("researcher@example.com", "student@campus.edu"),
+        )
+
+    def test_parse_email_allowlist_rejects_invalid_entries(self):
+        with self.assertRaises(ImproperlyConfigured):
+            parse_email_allowlist("not-an-email")
+
+
+@override_settings(
+    ACCESS_UNRESTRICTED_EMAILS=("special@gmail.com",),
+    STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),
+    UPLOAD_LIMIT_DEFAULT_MAX_FILES=1,
+    UPLOAD_LIMIT_EDU_MAX_FILES=20,
+    ANALYSIS_LIMIT_DEFAULT_MAX_ACTIVE_JOBS=1,
+    ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS=2,
+)
+class AccessPolicyTests(TestCase):
+    def test_exact_email_allowlist_is_unrestricted(self):
+        policy = get_access_policy_for_email("Special@gmail.com")
+
+        self.assertEqual(policy.tier, ACCESS_TIER_UNRESTRICTED)
+        self.assertIsNone(policy.upload_max_files)
+        self.assertIsNone(policy.analysis_max_active_jobs)
+
+    def test_edu_email_gets_education_tier(self):
+        policy = get_access_policy_for_email("student@school.edu")
+
+        self.assertEqual(policy.tier, ACCESS_TIER_EDUCATION)
+        self.assertEqual(policy.upload_max_files, 20)
+        self.assertEqual(policy.analysis_max_active_jobs, 2)
+
+    def test_non_edu_email_gets_standard_tier(self):
+        policy = get_access_policy_for_email("researcher@example.com")
+
+        self.assertEqual(policy.tier, ACCESS_TIER_STANDARD)
+        self.assertEqual(policy.upload_max_files, 1)
+        self.assertEqual(policy.analysis_max_active_jobs, 1)

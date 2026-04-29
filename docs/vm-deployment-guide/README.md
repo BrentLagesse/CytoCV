@@ -111,10 +111,12 @@ Use the repository-owned `systemd` examples under [`../../deploy/systemd/`](../.
 Operational expectations:
 
 - run Gunicorn or an equivalent supervised web process
-- run a separate long-lived `run_analysis_worker` process
-- restart both web and worker services after code or migration updates
+- run a dedicated upload-preparation worker
+- run a dedicated analysis worker
+- run a timer-driven artifact-maintenance sweep
+- restart web, both workers, and the timer after code or migration updates
 
-The worker is required for staged upload preparation. In worker analysis mode, it also owns the queued analysis jobs after preprocess review.
+The upload-preparation worker is required for staged uploads. In worker analysis mode, the analysis worker owns queued analysis jobs after preprocess review.
 
 ## 8. Configure The Reverse Proxy And HTTPS
 
