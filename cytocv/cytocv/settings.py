@@ -449,6 +449,13 @@ PUBLIC_BASE_URL = (_get_env(
     prefer_env_file=True,
 ) or "").strip().rstrip("/")
 
+# Reverse proxy HTTPS awareness
+#
+# Production deployments commonly terminate TLS at Nginx and forward requests
+# to Gunicorn over HTTP. Trust the forwarded scheme so strict-mode HTTPS
+# redirects and secure-cookie handling behave correctly behind the proxy.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
