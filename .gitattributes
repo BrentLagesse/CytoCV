@@ -8,3 +8,6 @@
 *.js   text eol=lf
 *.md   text eol=lf
 *.dv   binary
+*.png  binary
+*.ico  binary
+*.pdf  binary
