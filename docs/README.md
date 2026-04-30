@@ -14,7 +14,7 @@ This directory is the canonical documentation home for CytoCV. The root `README.
 - PDFs in `docs/research/` are derived formal deliverables.
 - Diagrams live in `docs/diagrams/`.
 - Obsolete or superseded material should move to `docs/archive/`.
-- Historical project records that should remain readable but are not part of the active doc system may remain in dedicated subfolders such as `docs/vm-deployment-record/` and `docs/vm-deployment-record-cytocv2/`.
+- Historical project records that should remain readable but are not part of the active doc system may remain in dedicated subfolders such as `docs/vm-deployment-record/`, `docs/vm-deployment-record-cytocv2/`, and dated follow-up record folders.
 
 ## User Documentation
 
@@ -71,3 +71,4 @@ Formal PDF deliverables:
 - License: [`license/README.md`](license/README.md)
 - Historical deployment record (first VM): [`vm-deployment-record/README.md`](vm-deployment-record/README.md)
 - Historical deployment record (replacement VM): [`vm-deployment-record-cytocv2/README.md`](vm-deployment-record-cytocv2/README.md)
+- Historical deployment record (cytocv2 April 2026 maintenance refresh): [`vm-deployment-record-cytocv2-2026-04-maintenance/README.md`](vm-deployment-record-cytocv2-2026-04-maintenance/README.md)

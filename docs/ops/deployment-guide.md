@@ -67,6 +67,69 @@ At startup, the Django settings module:
 - validates production secret-key safety
 - configures provider auth, email, reCAPTCHA, CSP, and security headers
 
+## Existing VM Code Update
+
+For an already provisioned `systemd` / Nginx VM, update the existing checkout
+rather than recloning the application.
+
+If the checkout path is uncertain, locate the repository first:
+
+```bash
+find ~ -maxdepth 3 -type d -name ".git" 2>/dev/null
+```
+
+Then move to the parent directory of the `.git` path and verify the branch:
+
+```bash
+cd /path/to/CytoCV
+git status
+git branch --show-current
+git fetch origin
+git pull --ff-only origin main
+```
+
+`git pull --ff-only origin main` is appropriate when the deployed checkout can
+advance directly to `origin/main`, even if the local branch is named for the
+deployment or maintainer. If this command fails, stop and reconcile the branch
+state instead of forcing a reset. Untracked `cytocv/staticfiles/` content is
+normal on deployments that run `collectstatic` locally.
+
+After pulling code, run the Django deployment checks from the virtual
+environment:
+
+```bash
+source cyto_cv/bin/activate
+cd cytocv
+python manage.py migrate
+python manage.py check
+python manage.py collectstatic --noinput
+```
+
+Restart the supervised processes:
+
+```bash
+sudo systemctl restart cytocv
+sudo systemctl restart cytocv-upload-prep-worker
+sudo systemctl restart cytocv-analysis-worker
+sudo systemctl restart cytocv-artifact-maintenance.timer
+```
+
+Validate and reload Nginx when proxy configuration or static-file handling may
+have changed:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+If the deployment `.env` needs editing, open the actual repository path, not a
+placeholder path:
+
+```bash
+cd /actual/CytoCV/checkout
+nano .env
+```
+
 ## Operational Concerns
 
 Production deployment should account for:
@@ -161,6 +224,58 @@ Rollback guidance:
 - if the analysis worker is unavailable, upload preparation still completes but analysis batches remain queued until that worker returns
 - `CYTOCV_ANALYSIS_EXECUTION_MODE=sync` only falls analysis back to the request-owned path after upload preparation has already completed
 - keep `CYTOCV_SEGMENT_SAVE_DEBUG_ARTIFACTS=0` unless you explicitly need debug overlays
+
+## Intentional Database Data Reset
+
+Use this path only when the intended result is an empty production database
+while keeping the PostgreSQL database, schema, and service configuration. This
+deletes application data such as users, uploads, jobs, sessions, and auth
+records. It does not remove uploaded media or collected static files from disk.
+
+Create a backup before flushing. `pg_dump` must connect with the configured
+PostgreSQL role from `.env`; otherwise it may default to the Linux account and
+fail with a missing-role error.
+
+```bash
+cd /path/to/CytoCV
+set -a
+source .env
+set +a
+
+PGPASSWORD="$CYTOCV_DB_PASSWORD" pg_dump \
+  -h "${CYTOCV_DB_HOST:-127.0.0.1}" \
+  -p "${CYTOCV_DB_PORT:-5432}" \
+  -U "$CYTOCV_DB_USER" \
+  "$CYTOCV_DB_NAME" > cytocv-before-flush.sql
+```
+
+Stop the web process and workers before deleting data:
+
+```bash
+sudo systemctl stop cytocv
+sudo systemctl stop cytocv-upload-prep-worker
+sudo systemctl stop cytocv-analysis-worker
+sudo systemctl stop cytocv-artifact-maintenance.timer
+```
+
+Flush through Django so the schema remains intact:
+
+```bash
+source cyto_cv/bin/activate
+cd cytocv
+python manage.py flush
+python manage.py migrate
+python manage.py check
+```
+
+Restart the deployment:
+
+```bash
+sudo systemctl start cytocv
+sudo systemctl start cytocv-upload-prep-worker
+sudo systemctl start cytocv-analysis-worker
+sudo systemctl start cytocv-artifact-maintenance.timer
+```
 
 ## Root Cause Note
 
