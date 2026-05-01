@@ -452,7 +452,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, reverse("collaborators"))
         self.assertContains(
             home_response,
-            "Developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine",
+            "Built by the UW Bothell School of STEM SEE Lab engineering team in collaboration with the University of Utah Miller Lab biology team.",
         )
         self.assertContains(
             home_response,
@@ -469,10 +469,9 @@ class RouteSurfaceRefactorTests(TestCase):
             "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
             html=False,
         )
-        self.assertContains(home_response, "Collaborators")
-        self.assertContains(home_response, "People Behind CytoCV")
+        self.assertContains(home_response, "CytoCV Team")
         self.assertContains(home_response, "About CytoCV")
-        self.assertContains(home_response, "View Collaborators")
+        self.assertContains(home_response, "View CytoCV Team")
         self.assertContains(home_response, "See About page")
         self.assertContains(home_response, "From Upload to Export")
         self.assertContains(home_response, "Cell-Level Research Outputs")
@@ -486,7 +485,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, "View Documentation")
         self.assertContains(home_response, "Need the full product overview?")
         self.assertContains(home_response, "Want to see who built CytoCV?")
-        self.assertContains(home_response, "Meet the collaborators")
+        self.assertContains(home_response, "Meet the CytoCV Team")
         self.assertContains(home_response, 'class="cta-support-links"', html=False)
         self.assertNotContains(home_response, 'class="cta-signin"', html=False)
         self.assertNotContains(home_response, "Already have an account?")
@@ -543,7 +542,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, "Already have an account?")
         self.assertContains(home_response, "Need the full product overview?")
         self.assertContains(home_response, "Want to see who built CytoCV?")
-        self.assertContains(home_response, "Meet the collaborators")
+        self.assertContains(home_response, "Meet the CytoCV Team")
         self.assertContains(home_response, 'class="cta-support-links"', html=False)
         self.assertNotContains(home_response, "DAPI, mCherry, and GFP image channels.")
         self.assertNotContains(home_response, "What CytoCV Is")
@@ -671,14 +670,22 @@ class RouteSurfaceRefactorTests(TestCase):
         collaborators_response = self.client.get(reverse("collaborators"))
         self.assertEqual(collaborators_response.status_code, 200)
         self.assertTemplateUsed(collaborators_response, "collaborators.html")
-        self.assertContains(collaborators_response, "Project collaborators")
-        self.assertContains(collaborators_response, "Collaborators")
+        self.assertContains(collaborators_response, "Project Team Members")
+        self.assertContains(collaborators_response, "CytoCV Team")
         self.assertContains(
             collaborators_response,
-            "CytoCV was developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine.",
+            "CytoCV was built by the UW Bothell School of STEM SEE Lab engineering team in collaboration with the University of Utah Miller Lab biology team.",
         )
-        self.assertContains(collaborators_response, "Contributors")
-        self.assertContains(collaborators_response, "Supervising Professors")
+        self.assertContains(
+            collaborators_response,
+            "UW Bothell School of STEM, SEE Lab Engineering Team",
+        )
+        self.assertContains(
+            collaborators_response,
+            "University of Utah Spencer Fox Eccles School of Medicine, Miller Lab Biology Team",
+        )
+        self.assertContains(collaborators_response, "Engineering Team")
+        self.assertContains(collaborators_response, "Biology collaborators")
         self.assertContains(collaborators_response, "Nicolas Gioanni")
         self.assertContains(collaborators_response, "Anoop Prasad")
         self.assertContains(collaborators_response, "Emily Parnell")
@@ -756,6 +763,9 @@ class RouteSurfaceRefactorTests(TestCase):
             "https://miller.biochem.utah.edu/members",
             html=False,
         )
+        self.assertNotContains(collaborators_response, "Contributors")
+        self.assertNotContains(collaborators_response, "Supervising Professors")
+        self.assertNotContains(collaborators_response, "Acknowledgement")
         self.assertNotContains(collaborators_response, "Methods, validation, reproducibility, and affiliation")
         self.assertNotContains(collaborators_response, "Methods and system description")
         self.assertNotContains(collaborators_response, "Validation-aware workflow rules")

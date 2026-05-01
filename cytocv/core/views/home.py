@@ -69,15 +69,14 @@ RESEARCH_DOCUMENTS = (
 
 HOME_PROOF_CARDS = (
     {
-        "eyebrow": "Collaborators",
-        "title": "People Behind CytoCV",
+        "eyebrow": "Team",
+        "title": "CytoCV Team",
         "body": (
-            "Developed at the University of Washington Bothell in collaboration "
-            "with researchers from the Miller Lab at the University of Utah School "
-            "of Medicine."
+            "Built by the UW Bothell School of STEM SEE Lab engineering team in "
+            "collaboration with the University of Utah Miller Lab biology team."
         ),
         "href": "/collaborators/",
-        "link_label": "View Collaborators",
+        "link_label": "View CytoCV Team",
     },
     {
         "eyebrow": "About",
@@ -160,8 +159,9 @@ ABOUT_PAGE_SECTION_ITEMS = (
 
 COLLABORATOR_GROUPS = (
     {
-        "id": "contributors",
-        "title": "Contributors",
+        "id": "engineering-team",
+        "eyebrow": "Engineering Team",
+        "title": "UW Bothell School of STEM, SEE Lab Engineering Team",
         "entries": (
             {
                 "name": "Nicolas Gioanni",
@@ -223,36 +223,6 @@ COLLABORATOR_GROUPS = (
                 ),
             },
             {
-                "name": "Emily Parnell",
-                "role": "Research Associate",
-                "institution_label": "Utah",
-                "email": "emily.parnell@biochem.utah.edu",
-                "summary": (
-                    "Provided the biology-facing requirements, expected experimental "
-                    "context, validation testing input, and feedback on what the system "
-                    "should surface and support biologically, including preparing cells, "
-                    "capturing microscopy images, confirming interpretations, and helping "
-                    "define the biological expectations for the workflow."
-                ),
-                "bio": (
-                    "Research associate in the University of Utah Department of "
-                    "Biochemistry, Spencer Fox Eccles School of Medicine, working with "
-                    "the Miller Lab."
-                ),
-                "links": (
-                    {
-                        "href": "https://miller.biochem.utah.edu/members",
-                        "label": "Lab",
-                    },
-                ),
-            },
-        ),
-    },
-    {
-        "id": "supervising-professors",
-        "title": "Supervising Professors",
-        "entries": (
-            {
                 "name": "Brent Lagesse",
                 "role": "Associate Professor",
                 "institution_label": "UW",
@@ -278,6 +248,40 @@ COLLABORATOR_GROUPS = (
                     {
                         "href": "https://faculty.washington.edu/lagesse/",
                         "label": "Faculty",
+                    },
+                ),
+            },
+        ),
+    },
+    {
+        "id": "biology-team",
+        "eyebrow": "Biology collaborators",
+        "title": (
+            "University of Utah Spencer Fox Eccles School of Medicine, Miller Lab "
+            "Biology Team"
+        ),
+        "entries": (
+            {
+                "name": "Emily Parnell",
+                "role": "Research Associate",
+                "institution_label": "Utah",
+                "email": "emily.parnell@biochem.utah.edu",
+                "summary": (
+                    "Provided the biology-facing requirements, expected experimental "
+                    "context, validation testing input, and feedback on what the system "
+                    "should surface and support biologically, including preparing cells, "
+                    "capturing microscopy images, confirming interpretations, and helping "
+                    "define the biological expectations for the workflow."
+                ),
+                "bio": (
+                    "Research associate in the University of Utah Department of "
+                    "Biochemistry, Spencer Fox Eccles School of Medicine, working with "
+                    "the Miller Lab."
+                ),
+                "links": (
+                    {
+                        "href": "https://miller.biochem.utah.edu/members",
+                        "label": "Lab",
                     },
                 ),
             },
