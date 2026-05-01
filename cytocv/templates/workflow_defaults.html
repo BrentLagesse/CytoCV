@@ -365,7 +365,8 @@ main.main > section.panel > form.panel > .card {
 }
 
 .plugin-inline .plugin-measure-right,
-#advancedForm #greenDotSplitModeRow .plugin-measure-right {
+#advancedForm #greenDotSplitModeRow .plugin-measure-right,
+#pluginForm #greenDotSplitModeRow .plugin-measure-right {
   justify-self: end;
   align-self: start;
   width: 100%;
@@ -375,7 +376,8 @@ main.main > section.panel > form.panel > .card {
 .plugin-inline .length-input-group.plugin-measure-right,
 .plugin-inline .boxed-number-group.plugin-measure-right,
 .plugin-inline .mode-select-group.plugin-measure-right,
-#advancedForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right {
+#advancedForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right,
+#pluginForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right {
   width: 100%;
 }
 
@@ -386,7 +388,8 @@ main.main > section.panel > form.panel > .card {
 }
 
 .plugin-inline .mode-select-group.plugin-measure-right select,
-#advancedForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right select {
+#advancedForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right select,
+#pluginForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right select {
   width: 100%;
 }
 
@@ -640,6 +643,7 @@ main.main > section.panel > form.panel > .card {
 
 #advancedForm [data-workflow-card="advanced-plugin-behavior"] > .row:not(.combo),
 #advancedForm [data-workflow-card="validation-enforcement"] .row,
+#pluginForm [data-workflow-card="dot-detection"] > .row:not(.combo),
 #pluginForm [data-workflow-card="measurement-scale"] > .row {
   position: relative;
   display: grid;
@@ -647,12 +651,14 @@ main.main > section.panel > form.panel > .card {
   align-items: flex-start;
 }
 
-#advancedForm [data-workflow-card="advanced-plugin-behavior"] > .row.combo {
+#advancedForm [data-workflow-card="advanced-plugin-behavior"] > .row.combo,
+#pluginForm [data-workflow-card="dot-detection"] > .row.combo {
   position: relative;
 }
 
 #advancedForm [data-workflow-card="advanced-plugin-behavior"] > .row:not(.combo),
-#advancedForm [data-workflow-card="validation-enforcement"] .row {
+#advancedForm [data-workflow-card="validation-enforcement"] .row,
+#pluginForm [data-workflow-card="dot-detection"] > .row:not(.combo) {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
@@ -666,6 +672,9 @@ main.main > section.panel > form.panel > .card {
 #advancedForm [data-workflow-card="validation-enforcement"] > .row + .row::before,
 #advancedForm .validation-subgroup > .row + .row::before,
 #advancedForm .validation-channel-list > .row + .row::before,
+#pluginForm [data-workflow-card="dot-detection"] > .row:not(.combo) + .row:not(.combo)::before,
+#pluginForm [data-workflow-card="dot-detection"] > .row.combo::before,
+#pluginForm [data-workflow-card="dot-detection"] > .row.combo + .row:not(.combo)::before,
 #pluginForm [data-workflow-card="measurement-scale"] > .row + .row::before {
   content: "";
   position: absolute;
@@ -677,16 +686,19 @@ main.main > section.panel > form.panel > .card {
 }
 
 #advancedForm .row > .row-copy,
+#pluginForm [data-workflow-card="dot-detection"] .row > .row-copy,
 #pluginForm [data-workflow-card="measurement-scale"] .row > .row-copy,
 #pluginForm [data-workflow-card="measurement-scale"] .row > .measurement-scale-copy {
   flex: 1 1 auto;
 }
 
-#advancedForm #greenDotSplitRow .row-line {
+#advancedForm #greenDotSplitRow .row-line,
+#pluginForm #greenDotSplitRow .row-line {
   align-items: flex-start;
 }
 
-#advancedForm #greenDotSplitModeRow {
+#advancedForm #greenDotSplitModeRow,
+#pluginForm #greenDotSplitModeRow {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--workflow-module-control-width);
@@ -706,7 +718,8 @@ main.main > section.panel > form.panel > .card {
     transform 0.2s ease;
 }
 
-#advancedForm #greenDotSplitModeRow.is-active {
+#advancedForm #greenDotSplitModeRow.is-active,
+#pluginForm #greenDotSplitModeRow.is-active {
   max-height: 96px;
   opacity: 1;
   padding-top: 10px;
@@ -715,7 +728,8 @@ main.main > section.panel > form.panel > .card {
   transform: translateY(0);
 }
 
-#advancedForm #greenDotSplitModeRow::before {
+#advancedForm #greenDotSplitModeRow::before,
+#pluginForm #greenDotSplitModeRow::before {
   content: "";
   position: absolute;
   top: 0;
@@ -727,6 +741,8 @@ main.main > section.panel > form.panel > .card {
 
 #advancedForm .row > .sw,
 #advancedForm .row-line > .sw,
+#pluginForm [data-workflow-card="dot-detection"] .row > .sw,
+#pluginForm [data-workflow-card="dot-detection"] .row-line > .sw,
 #pluginForm [data-workflow-card="measurement-scale"] .row > .sw {
   align-self: flex-start;
   justify-self: end;
@@ -742,7 +758,8 @@ main.main > section.panel > form.panel > .card {
 
 #pluginForm [data-workflow-card="measurement-scale"] .compact-control,
 .plugin-inline .compact-control.plugin-measure-right,
-#advancedForm #greenDotSplitModeRow .compact-control.plugin-measure-right {
+#advancedForm #greenDotSplitModeRow .compact-control.plugin-measure-right,
+#pluginForm #greenDotSplitModeRow .compact-control.plugin-measure-right {
   width: 100%;
   max-width: var(--workflow-module-compact-control-width);
 }
@@ -1297,6 +1314,8 @@ main.main > section.panel > form.panel > .card {
 
   .plugin-measure-line,
   #advancedForm #greenDotSplitModeRow,
+  #pluginForm #greenDotSplitModeRow,
+  #pluginForm [data-workflow-card="dot-detection"] > .row:not(.combo),
   #pluginForm [data-workflow-card="measurement-scale"] > .row {
     grid-template-columns: 1fr;
     row-gap: 8px;
@@ -1304,6 +1323,7 @@ main.main > section.panel > form.panel > .card {
 
   .plugin-inline .plugin-measure-right,
   #advancedForm #greenDotSplitModeRow .plugin-measure-right,
+  #pluginForm #greenDotSplitModeRow .plugin-measure-right,
   #pluginForm [data-workflow-card="measurement-scale"] .plugin-measure-right,
   #pluginForm [data-workflow-card="measurement-scale"] .measurement-scale-input-group {
     justify-self: stretch;
@@ -1443,6 +1463,53 @@ main.main > section.panel > form.panel > .card {
           </div>
           {% endfor %}
         </div></div>
+        <div class="card" data-workflow-card="dot-detection">
+          <p class="section-eyebrow card-title">Dot Detection</p>
+          <div class="row">
+            <div class="row-copy">
+              <span class="row-label-line">
+                <label for="alternate_red_detection">Enable Alternate Red Detection</label>
+              </span>
+              <p class="module-help">Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p>
+              <p class="reqtxt">Requires: Red.</p>
+            </div>
+            <input type="hidden" name="alternate_red_detection" value="0">
+            <label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" value="1" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label>
+          </div>
+          <div class="row combo" id="greenDotSplitRow">
+            <div class="row-line">
+              <div class="row-copy">
+                <span class="row-label-line">
+                  <label for="green_dot_split_enabled">Split Merged Green Dots</label>
+                </span>
+                <p class="module-help">Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use this when two nearby Green dots are detected as one merged contour.</p>
+                <p class="reqtxt">Requires: Green.</p>
+              </div>
+              <input type="hidden" name="green_dot_split_enabled" value="0">
+              <label class="sw"><input type="checkbox" id="green_dot_split_enabled" name="green_dot_split_enabled" value="1" {% if preferences.experiment_defaults.green_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label>
+            </div>
+            <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled %} is-active{% endif %}" id="greenDotSplitModeRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled %}false{% else %}true{% endif %}">
+              <div class="row-copy">
+                <span class="row-label-line"><label for="green_dot_split_mode">Green Dot Split Mode</label></span>
+                <p class="module-help">Balanced uses standard split sensitivity, now stronger than the old balanced mode. Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots.</p>
+              </div>
+              <div class="mode-select-group plugin-measure-right compact-control"><select id="green_dot_split_mode" name="green_dot_split_mode"><option value="balanced" {% if preferences.experiment_defaults.green_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.green_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-copy">
+              <span class="row-label-line">
+                <label for="green_contour_filter_enabled">Filter Green Contours</label>
+                <span id="prefsGfpFilterExperimentalDot" class="legacy">Experimental</span>
+              </span>
+              <p class="module-help">Filters low-confidence Green signal contours in challenging images.</p>
+              <p class="module-help module-warning"><strong>Experimental:</strong> behavior can vary across image quality, exposure, and channel mapping. Validate overlays before using results for conclusions.</p>
+              <p class="reqtxt">Requires: Green.</p>
+            </div>
+            <input type="hidden" name="green_contour_filter_enabled" value="0">
+            <label class="sw"><input type="checkbox" id="green_contour_filter_enabled" name="green_contour_filter_enabled" value="1" {% if preferences.experiment_defaults.green_contour_filter_enabled %}checked{% endif %}><span class="sl"></span></label>
+          </div>
+        </div>
         <div class="card" data-workflow-card="measurement-scale">
           <p class="section-eyebrow card-title">Measurement Scale</p>
           <div class="row">
@@ -1550,48 +1617,6 @@ main.main > section.panel > form.panel > .card {
               <p class="reqtxt">Requires: Blue when a legacy plugin is selected.</p>
             </div>
             <label class="sw"><input type="checkbox" id="show_legacy_plugins" name="show_legacy_plugins" {% if preferences.experiment_defaults.show_legacy_plugins %}checked{% endif %}><span class="sl"></span></label>
-          </div>
-          <div class="row">
-            <div class="row-copy">
-              <span class="row-label-line">
-                <label for="green_contour_filter_enabled">Filter Green Contours</label>
-                <span id="prefsGfpFilterExperimentalDot" class="legacy">Experimental</span>
-              </span>
-              <p class="module-help">Filters low-confidence Green signal contours in challenging images.</p>
-              <p class="module-help module-warning"><strong>Experimental:</strong> behavior can vary across image quality, exposure, and channel mapping. Validate overlays before using results for conclusions.</p>
-              <p class="reqtxt">Requires: Green.</p>
-            </div>
-            <label class="sw"><input type="checkbox" id="green_contour_filter_enabled" name="green_contour_filter_enabled" {% if preferences.experiment_defaults.green_contour_filter_enabled %}checked{% endif %}><span class="sl"></span></label>
-          </div>
-          <div class="row combo" id="greenDotSplitRow">
-            <div class="row-line">
-              <div class="row-copy">
-                <span class="row-label-line">
-                  <label for="green_dot_split_enabled">Split Merged Green Dots</label>
-                </span>
-                <p class="module-help">Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use this when two nearby Green dots are detected as one merged contour.</p>
-                <p class="reqtxt">Requires: Green.</p>
-              </div>
-              <input type="hidden" name="green_dot_split_enabled" value="0">
-              <label class="sw"><input type="checkbox" id="green_dot_split_enabled" name="green_dot_split_enabled" value="1" {% if preferences.experiment_defaults.green_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label>
-            </div>
-            <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled %} is-active{% endif %}" id="greenDotSplitModeRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled %}false{% else %}true{% endif %}">
-              <div class="row-copy">
-                <span class="row-label-line"><label for="green_dot_split_mode">Green Dot Split Mode</label></span>
-                <p class="module-help">Balanced uses standard split sensitivity, now stronger than the old balanced mode. Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots.</p>
-              </div>
-              <div class="mode-select-group plugin-measure-right compact-control"><select id="green_dot_split_mode" name="green_dot_split_mode"><option value="balanced" {% if preferences.experiment_defaults.green_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.green_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="row-copy">
-              <span class="row-label-line">
-                <label for="alternate_red_detection">Enable Alternate Red Detection</label>
-              </span>
-              <p class="module-help">Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p>
-              <p class="reqtxt">Requires: Red.</p>
-            </div>
-            <label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label>
           </div>
         </div>
         <div class="card" data-workflow-card="validation-enforcement"><p class="section-eyebrow card-title">Optional Metadata Checks</p>

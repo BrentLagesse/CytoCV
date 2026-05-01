@@ -1730,6 +1730,77 @@
                     <div class="stats-view-title">Statistics</div>
                     <div class="stats-list" id="statsList"></div>
                     <div class="stats-divider"></div>
+                    <div class="stats-view-title">Dot Detection</div>
+                    <div class="stats-list dot-detection-list">
+                        <div class="toggle-row" id="alternateRedRow">
+                            <div class="toggle-text">
+                                <span class="toggle-label-row">
+                                    <span class="toggle-label">Enable Alternate Red Detection</span>
+                                    <button
+                                        type="button"
+                                        class="info-dot compact advanced-info-dot"
+                                        id="alternateRedInfoDot"
+                                        data-info-text="Uses alternate Red detection when the tool attempts to find a single contour around all speckles."
+                                        aria-label="Use Alternate Red Detection"
+                                    >i</button>
+                                </span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="alternateRedDetection">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row combo" id="greenDotSplitRow">
+                            <div class="toggle-text">
+                                <span class="toggle-label-row">
+                                    <span class="toggle-label">Split Merged Green Dots</span>
+                                    <button
+                                        type="button"
+                                        class="info-dot compact advanced-info-dot"
+                                        id="greenDotSplitInfoDot"
+                                        data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: standard split sensitivity, now stronger than the old balanced mode.&#10;- Aggressive: highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots."
+                                        aria-label="Split merged Green dots info"
+                                    >i</button>
+                                </span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="greenDotSplitEnabled">
+                                <span class="slider"></span>
+                            </label>
+                            <div class="stats-distance-inline" id="greenDotSplitModeRow">
+                                <div class="stats-distance-line">
+                                    <label for="greenDotSplitMode">Green Dot Split Mode:</label>
+                                    <div id="greenDotSplitModeMount" class="split-mode-mount"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="toggle-row" id="greenFilterRow">
+                            <div class="toggle-text">
+                                <span class="toggle-label-row">
+                                    <span class="toggle-label">Filter Green Contours</span>
+                                    <button
+                                        type="button"
+                                        class="info-dot compact advanced-info-dot"
+                                        id="greenFilterInfoDot"
+                                        data-info-text="Filters low-confidence Green signal contours in challenging images."
+                                        aria-label="Filter Out Low-Confidence Green Signal Contours"
+                                    >i</button>
+                                    <button
+                                        type="button"
+                                        class="info-dot warning-dot advanced-info-dot"
+                                        id="greenFilterExperimentalDot"
+                                        data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions."
+                                        aria-label="Experimental setting warning"
+                                    >&#9888;</button>
+                                </span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="greenContourFilterEnabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="stats-divider"></div>
                     <div class="stats-view-title">Measurement Scale</div>
                     <div class="measurement-scale-card" id="measurementScaleGroup"></div>
                 </div>
@@ -1762,73 +1833,6 @@
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="showLegacyPlugins">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-row" id="greenFilterRow">
-                        <div class="toggle-text">
-                            <span class="toggle-label-row">
-                                <span class="toggle-label">Filter Green Contours</span>
-                                <button
-                                    type="button"
-                                    class="info-dot compact advanced-info-dot"
-                                    id="greenFilterInfoDot"
-                                    data-info-text="Filters low-confidence Green signal contours in challenging images."
-                                    aria-label="Filter Out Low-Confidence Green Signal Contours"
-                                >i</button>
-                                <button
-                                    type="button"
-                                    class="info-dot warning-dot advanced-info-dot"
-                                    id="greenFilterExperimentalDot"
-                                    data-info-text="Experimental setting: This filter may improve performance on noisy datasets, but behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions."
-                                    aria-label="Experimental setting warning"
-                                >&#9888;</button>
-                            </span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="greenContourFilterEnabled">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-row combo" id="greenDotSplitRow">
-                        <div class="toggle-text">
-                            <span class="toggle-label-row">
-                                <span class="toggle-label">Split Merged Green Dots</span>
-                                <button
-                                    type="button"
-                                    class="info-dot compact advanced-info-dot"
-                                    id="greenDotSplitInfoDot"
-                                    data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: standard split sensitivity, now stronger than the old balanced mode.&#10;- Aggressive: highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots."
-                                    aria-label="Split merged Green dots info"
-                                >i</button>
-                            </span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="greenDotSplitEnabled">
-                            <span class="slider"></span>
-                        </label>
-                        <div class="stats-distance-inline" id="greenDotSplitModeRow">
-                            <div class="stats-distance-line">
-                                <label for="greenDotSplitMode">Green Dot Split Mode:</label>
-                                <div id="greenDotSplitModeMount" class="split-mode-mount"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="toggle-row" id="alternateRedRow">
-                        <div class="toggle-text">
-                            <span class="toggle-label-row">
-                                <span class="toggle-label">Enable Alternate Red Detection</span>
-                                <button
-                                    type="button"
-                                    class="info-dot compact advanced-info-dot"
-                                    id="alternateRedInfoDot"
-                                    data-info-text="Uses alternate Red detection when the tool attempts to find a single contour around all speckles."
-                                    aria-label="Use Alternate Red Detection"
-                                >i</button>
-                            </span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="alternateRedDetection">
                             <span class="slider"></span>
                         </label>
                     </div>

@@ -1084,6 +1084,10 @@
     biorientationCollinearityThreshold: captureNumericField(biorientationCollinearityThresholdInput),
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
+    greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
+    greenDotSplitEnabled: !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked),
+    greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
+    alternateRedDetection: !!(alternateRedDetectionInput && alternateRedDetectionInput.checked),
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
   });
@@ -1093,10 +1097,6 @@
     enforceLayerCount: !!(enforceLayerCountInput && enforceLayerCountInput.checked),
     enforceWavelengths: !!(enforceWavelengthsInput && enforceWavelengthsInput.checked),
     showLegacyPlugins: !!(showLegacyPluginsInput && showLegacyPluginsInput.checked),
-    greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
-    greenDotSplitEnabled: !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked),
-    greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
-    alternateRedDetection: !!(alternateRedDetectionInput && alternateRedDetectionInput.checked),
     requiredChannels: sortByOrder([...manualRequiredChannels], channelOrder),
     overrideChannels: sortByOrder([...overrides], channelOrder),
   });
@@ -1181,6 +1181,27 @@
         `Nucleus Contour Source: ${nucleusModeLabel(fromSnapshot.nuclearCellPairMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellPairMode)}`
       );
     }
+    pushToggleChange(
+      changes,
+      'Enable Alternate Red Detection',
+      fromSnapshot.alternateRedDetection,
+      toSnapshot.alternateRedDetection
+    );
+    pushToggleChange(
+      changes,
+      'Split Merged Green Dots',
+      fromSnapshot.greenDotSplitEnabled,
+      toSnapshot.greenDotSplitEnabled
+    );
+    if (normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode) !== normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)) {
+      changes.push(`Green Dot Split Mode: ${normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode)} -> ${normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)}`);
+    }
+    pushToggleChange(
+      changes,
+      'Filter Green Contours',
+      fromSnapshot.greenContourFilterEnabled,
+      toSnapshot.greenContourFilterEnabled
+    );
     if (fromSnapshot.micronsPerPixel.normalized !== toSnapshot.micronsPerPixel.normalized) {
       changes.push(
         `Micrometers Per Pixel (\u00b5m/px): ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
@@ -1215,27 +1236,6 @@
       'Show Legacy Blue-Channel Plugins',
       fromSnapshot.showLegacyPlugins,
       toSnapshot.showLegacyPlugins
-    );
-    pushToggleChange(
-      changes,
-      'Filter Green Contours',
-      fromSnapshot.greenContourFilterEnabled,
-      toSnapshot.greenContourFilterEnabled
-    );
-    pushToggleChange(
-      changes,
-      'Split Merged Green Dots',
-      fromSnapshot.greenDotSplitEnabled,
-      toSnapshot.greenDotSplitEnabled
-    );
-    if (normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode) !== normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)) {
-      changes.push(`Green Dot Split Mode: ${normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode)} -> ${normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)}`);
-    }
-    pushToggleChange(
-      changes,
-      'Enable Alternate Red Detection',
-      fromSnapshot.alternateRedDetection,
-      toSnapshot.alternateRedDetection
     );
     pushToggleChange(
       changes,
@@ -1387,6 +1387,10 @@
     if (biorientationCollinearityThresholdInput) biorientationCollinearityThresholdInput.value = snapshot.biorientationCollinearityThreshold.raw;
     if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
+    if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
+    if (greenDotSplitEnabledInput) greenDotSplitEnabledInput.checked = snapshot.greenDotSplitEnabled;
+    if (greenDotSplitModeInput) greenDotSplitModeInput.value = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
+    if (alternateRedDetectionInput) alternateRedDetectionInput.checked = snapshot.alternateRedDetection;
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
     syncRows();
@@ -1399,10 +1403,6 @@
     if (enforceLayerCountInput) enforceLayerCountInput.checked = snapshot.enforceLayerCount;
     if (enforceWavelengthsInput) enforceWavelengthsInput.checked = snapshot.enforceWavelengths;
     if (showLegacyPluginsInput) showLegacyPluginsInput.checked = snapshot.showLegacyPlugins;
-    if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
-    if (greenDotSplitEnabledInput) greenDotSplitEnabledInput.checked = snapshot.greenDotSplitEnabled;
-    if (greenDotSplitModeInput) greenDotSplitModeInput.value = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
-    if (alternateRedDetectionInput) alternateRedDetectionInput.checked = snapshot.alternateRedDetection;
     manualRequiredChannels.clear();
     (snapshot.requiredChannels || []).forEach((channel) => {
       if (channel && !alwaysRequired.has(channel)) {
@@ -1724,4 +1724,3 @@
   updateMeasurementScaleHelp();
   captureBaselineSnapshots();
 })();
-

@@ -67,7 +67,7 @@ from core.stats_plugins import (
     CHANNEL_INFO,
     CHANNEL_ORDER,
     PLUGIN_DEFINITIONS,
-    PLUGIN_ORDER,
+    PLUGIN_UI_ORDER,
     build_plugin_ui_payload,
     build_requirement_summary,
     expand_selected_plugins,
@@ -1156,8 +1156,40 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 request.POST.getlist("selected_plugins")
             )
             measurement_defaults = _extract_measurement_defaults(request.POST, defaults)
+            green_dot_split_enabled = _payload_bool(
+                request.POST,
+                "green_dot_split_enabled",
+                default=bool(defaults.get("green_dot_split_enabled", True)),
+                legacy_key="biorientation_green_split_enabled",
+            )
+            green_dot_split_mode = normalize_green_dot_split_mode(
+                request.POST.get(
+                    "green_dot_split_mode",
+                    defaults.get("green_dot_split_mode"),
+                )
+            )
             next_defaults = dict(defaults)
             next_defaults["selected_plugins"] = selected_plugins
+            next_defaults.update(
+                {
+                    "green_contour_filter_enabled": _payload_bool(
+                        request.POST,
+                        "green_contour_filter_enabled",
+                        default=bool(
+                            defaults.get("green_contour_filter_enabled", False)
+                        ),
+                    ),
+                    "green_dot_split_enabled": green_dot_split_enabled,
+                    "green_dot_split_mode": green_dot_split_mode,
+                    "alternate_red_detection": _payload_bool(
+                        request.POST,
+                        "alternate_red_detection",
+                        default=bool(
+                            defaults.get("alternate_red_detection", False)
+                        ),
+                    ),
+                }
+            )
             next_defaults.update(measurement_defaults)
             next_payload = dict(preferences)
             next_payload["experiment_defaults"] = next_defaults
@@ -1171,20 +1203,6 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             enforce_layer_count = _post_bool(request, "enforce_layer_count")
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
             show_legacy_plugins = _post_bool(request, "show_legacy_plugins")
-            green_contour_filter_enabled = _post_bool(request, "green_contour_filter_enabled")
-            green_dot_split_enabled = _payload_bool(
-                request.POST,
-                "green_dot_split_enabled",
-                default=bool(defaults.get("green_dot_split_enabled", True)),
-                legacy_key="biorientation_green_split_enabled",
-            )
-            green_dot_split_mode = normalize_green_dot_split_mode(
-                request.POST.get(
-                    "green_dot_split_mode",
-                    defaults.get("green_dot_split_mode"),
-                )
-            )
-            alternate_red_detection = _post_bool(request, "alternate_red_detection")
             manual_required_channels = [
                 channel
                 for channel in request.POST.getlist("manual_required_channels")
@@ -1218,10 +1236,6 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     "enforce_wavelengths": enforce_wavelengths,
                     "show_legacy_plugins": show_legacy_plugins,
                     "manual_required_channels": manual_required_channels,
-                    "green_contour_filter_enabled": green_contour_filter_enabled,
-                    "green_dot_split_enabled": green_dot_split_enabled,
-                    "green_dot_split_mode": green_dot_split_mode,
-                    "alternate_red_detection": alternate_red_detection,
                 }
             )
             next_defaults.update(measurement_defaults)
@@ -1274,7 +1288,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
 
     plugin_rows = []
     selected_plugins = set(defaults.get("selected_plugins", []))
-    for plugin_id in PLUGIN_ORDER:
+    for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugin_rows.append(
             {

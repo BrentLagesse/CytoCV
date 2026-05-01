@@ -45,6 +45,16 @@ class StatsRequirementTests(SimpleTestCase):
 
     def test_plugin_payload_includes_legacy_metadata(self):
         payload = build_plugin_ui_payload()
+        self.assertEqual(
+            [item["id"] for item in payload["plugins"][:5]],
+            [
+                "NuclearCellPairIntensity",
+                "PunctaDistance",
+                "GreenRedIntensity",
+                "CENDot",
+                "Biorientation",
+            ],
+        )
         plugins = {item["id"]: item for item in payload["plugins"]}
         self.assertEqual(plugins["NuclearCellPairIntensity"]["exclusive_group"], "nuclear_cell_pair")
         self.assertFalse(plugins["NuclearCellPairIntensity"]["is_legacy"])

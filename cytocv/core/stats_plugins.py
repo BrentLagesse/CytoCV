@@ -72,6 +72,19 @@ PLUGIN_ORDER: tuple[str, ...] = (
     "RedBlueIntensity",
 )
 
+# UI-only ordering for settings surfaces. Runtime normalization and analysis
+# execution continue to use PLUGIN_ORDER above.
+PLUGIN_UI_ORDER: tuple[str, ...] = (
+    "NuclearCellPairIntensity",
+    "PunctaDistance",
+    "GreenRedIntensity",
+    "CENDot",
+    "Biorientation",
+    "NucleusIntensity",
+    "BlueNucleusIntensity",
+    "RedBlueIntensity",
+)
+
 PLUGIN_ID_ALIASES: dict[str, str] = {
     "MCherryLine": "PunctaDistance",
     "RedLineIntensity": "PunctaDistance",
@@ -285,7 +298,7 @@ def build_plugin_ui_payload() -> dict:
     """Return serializable metadata for upload-page statistics settings."""
 
     plugins = []
-    for plugin_id in PLUGIN_ORDER:
+    for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugins.append(
             {
