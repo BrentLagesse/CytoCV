@@ -19,7 +19,7 @@ from core.stats_plugins import (
     CHANNEL_ORDER,
     PLUGIN_DEFINITIONS,
     PLUGIN_ID_ALIASES,
-    normalize_selected_plugins,
+    expand_selected_plugins,
 )
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
@@ -204,7 +204,7 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     )
     if not isinstance(selected_plugins, list):
         selected_plugins = list(normalized["experiment_defaults"]["selected_plugins"])
-    normalized["experiment_defaults"]["selected_plugins"] = normalize_selected_plugins(
+    normalized["experiment_defaults"]["selected_plugins"] = expand_selected_plugins(
         selected_plugins
     )
 
@@ -462,7 +462,7 @@ def build_experiment_defaults_from_popup_payload(
                 )
             exclusive_groups[definition.exclusive_group] = plugin_id
         resolved_plugins.append(plugin_id)
-    selected_plugins = normalize_selected_plugins(resolved_plugins)
+    selected_plugins = expand_selected_plugins(resolved_plugins)
 
     raw_manual_channels = raw_payload.get("manual_required_channels")
     if not isinstance(raw_manual_channels, list):

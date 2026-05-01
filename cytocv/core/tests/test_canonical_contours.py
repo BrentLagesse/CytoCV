@@ -10,6 +10,7 @@ from core.services.canonical_contours import (
     CANONICAL_GREEN_SLOTS_KEY,
     CANONICAL_RED_SLOTS_KEY,
     CELL_MASK_KEY,
+    CELL_PARENTAGE_KEY,
     DAUGHTER_MASK_KEY,
     MOTHER_MASK_KEY,
     NECK_SPLIT_KEY,
@@ -246,8 +247,11 @@ class CanonicalContourHelpersTests(SimpleTestCase):
         self.assertEqual(int(np.count_nonzero(daughter[5, 10:20])), 0)
         # Payload also exposes the NeckSplit for downstream consumers.
         self.assertIsNotNone(payload[NECK_SPLIT_KEY])
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["status"], "identified")
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["method"], "neck_split")
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["label"], "Mother/Daughter identified")
 
-    def test_build_canonical_contour_payload_yields_none_side_masks_without_neck_split(self):
+    def test_build_canonical_contour_payload_assigns_side_masks_without_neck_split(self):
         shape = (20, 20)
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "output"
@@ -265,6 +269,44 @@ class CanonicalContourHelpersTests(SimpleTestCase):
                 shape=shape,
             )
 
-        self.assertIsNone(payload[MOTHER_MASK_KEY])
-        self.assertIsNone(payload[DAUGHTER_MASK_KEY])
+        self.assertIsNotNone(payload[MOTHER_MASK_KEY])
+        self.assertIsNotNone(payload[DAUGHTER_MASK_KEY])
         self.assertIsNone(payload[NECK_SPLIT_KEY])
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["status"], "identified")
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["method"], "principal_axis_median")
+
+    def test_build_canonical_contour_payload_best_effort_assigns_without_neck_split(self):
+        shape = (80, 120)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            outline_path = output_dir / "test-1.outline"
+            with outline_path.open("w", encoding="utf-8") as handle:
+                for vy, vx in (
+                    (15, 10),
+                    (10, 35),
+                    (15, 60),
+                    (28, 72),
+                    (26, 97),
+                    (40, 110),
+                    (54, 97),
+                    (52, 72),
+                    (65, 60),
+                    (70, 35),
+                    (65, 10),
+                ):
+                    handle.write(f"{vy},{vx}\n")
+
+            payload = build_canonical_contour_payload(
+                {"dot_contours": [], "contours_green": []},
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=temp_dir,
+                shape=shape,
+            )
+
+        self.assertIsNotNone(payload[MOTHER_MASK_KEY])
+        self.assertIsNotNone(payload[DAUGHTER_MASK_KEY])
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["status"], "identified")
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["mode"], "best_effort")
+        self.assertEqual(payload[CELL_PARENTAGE_KEY]["method"], "principal_axis_median")

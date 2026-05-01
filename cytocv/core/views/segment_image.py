@@ -97,6 +97,7 @@ from core.services.artifact_storage import (
 )
 from core.services.canonical_contours import (
     CANONICAL_BLUE_SLOTS_KEY,
+    CELL_PARENTAGE_KEY,
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
@@ -194,6 +195,7 @@ def get_stats(
     green_dot_split_enabled=True,
     green_dot_split_mode=DEFAULT_GREEN_DOT_SPLIT_MODE,
     cached_images=None,
+    cached_measurement_images=None,
 ):
     # loading configuration
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
@@ -247,7 +249,19 @@ def get_stats(
     edit_green_img = _canvas_for("green")
     edit_blue_img = _canvas_for("blue")
 
+    def _attach_canonical_parentage(contour_payload):
+        canonical_payload = build_canonical_contour_payload(
+            contour_payload,
+            image_name=cp.image_name,
+            cell_id=cp.cell_id,
+            output_dir=output_dir,
+            shape=reference.shape[:2],
+        )
+        cp.properties["cell_parentage"] = canonical_payload.get(CELL_PARENTAGE_KEY)
+        return canonical_payload
+
     if not execution_plan.selected_plugins:
+        _attach_canonical_parentage({})
         # No selected statistics: keep defaults and return plain debug frames.
         edit_red_img_rgb = cv2.cvtColor(edit_red_img, cv2.COLOR_BGR2RGB)
         edit_green_img_rgb = cv2.cvtColor(edit_green_img, cv2.COLOR_BGR2RGB)
@@ -258,7 +272,17 @@ def get_stats(
             Image.fromarray(edit_blue_img_rgb),
         )
 
-    preprocessed_images = preprocess_image_to_gray(images, kernel_deviation_input, kernel_size_input)
+    preprocessed_images = preprocess_image_to_gray(
+        images,
+        kernel_deviation_input,
+        kernel_size_input,
+        measurement_images=cached_measurement_images,
+    )
+    if cached_measurement_images:
+        cp.properties = dict(cp.properties or {})
+        cp.properties["intensity_pixel_source"] = "raw_dv_v1"
+        cp.properties["intensity_display_scaled"] = False
+        cp.properties["intensity_background_subtracted"] = False
     contours_data = find_contours(
         preprocessed_images,
         green_contour_filter_enabled,
@@ -273,6 +297,7 @@ def get_stats(
         output_dir=output_dir,
         shape=reference.shape[:2],
     )
+    cp.properties["cell_parentage"] = contours_data.get(CELL_PARENTAGE_KEY)
     canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
     canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
@@ -842,6 +867,7 @@ def segment_image(request, uuids):
         finally:
             f.close()
         cell_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
+        cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
 
         if image_stack.ndim == 2:
             image_stack = np.expand_dims(image_stack, axis=0)
@@ -862,7 +888,8 @@ def segment_image(request, uuids):
             #
             # if os.path.isdir(full_path):
             #     continue
-            image = np.array(image_stack[image_num])
+            raw_image = np.array(image_stack[image_num], copy=True)
+            image = np.array(raw_image, copy=True)
             image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
             image = np.round(image * 255).astype(np.uint8)
 
@@ -926,6 +953,10 @@ def segment_image(request, uuids):
                 not_outlined_image = image[min_x: max_x, min_y:max_y]
                 if cached_channel_name:
                     cell_image_cache[i][cached_channel_name] = np.array(not_outlined_image, copy=True)
+                    cell_measurement_image_cache[i][cached_channel_name] = np.array(
+                        raw_image[min_x:max_x, min_y:max_y],
+                        copy=True,
+                    )
                 if not os.path.exists(segmented_directory / cell_tif_image) or not use_cache:  # don't redo things we already have
                     try:
                         save_png_array(
@@ -1136,7 +1167,6 @@ def segment_image(request, uuids):
         green_dot_split_mode = normalize_green_dot_split_mode(
             request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
         )
-
         configured_puncta_line_width = _process_config_value(
             configuration,
             "puncta_line_width",
@@ -1300,6 +1330,7 @@ def segment_image(request, uuids):
                 green_dot_split_enabled,
                 green_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
+                cached_measurement_images=cell_measurement_image_cache.get(cell_number),
             )
 
             try:

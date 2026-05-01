@@ -341,7 +341,7 @@
             position: absolute;
             top: 100%;
             left: 0;
-            width: 240px;
+            width: 180px;
             height: 10px;
         }
         .about-link {
@@ -382,7 +382,7 @@
             position: absolute;
             top: calc(100% + 8px);
             left: 0;
-            min-width: 240px;
+            min-width: 180px;
             background:
                 var(--liquid-linear-highlight),
                 var(--glass-card-bg-strong);
@@ -1062,7 +1062,7 @@
                         </a>
                     </div>
                 </div>
-                <a href="{% url 'collaborators' %}">Collaborators</a>
+                <a href="{% url 'collaborators' %}">Team</a>
             </div>
             <div class="nav-right">
                 {% if user.is_authenticated %}

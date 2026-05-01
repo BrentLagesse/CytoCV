@@ -1,9 +1,9 @@
 ﻿{% extends 'base.html' %}
 {% block title %}CytoCV{% endblock title %}
 {% load static %}
-{% block meta_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock meta_description %}
-{% block og_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock og_description %}
-{% block twitter_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of mitotic yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock twitter_description %}
+{% block meta_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock meta_description %}
+{% block og_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock og_description %}
+{% block twitter_description %}CytoCV is a web-based analysis platform for DeltaVision .dv microscopy of yeast cells, supporting validation, segmentation, per-cell measurement, and review.{% endblock twitter_description %}
 
 {% block head %}
     <style>
@@ -676,7 +676,7 @@
                     <div class="overview-header">
                         <div>
                             <p class="section-eyebrow">Developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine</p>
-                            <h1>CytoCV: Automated Yeast Cell Image Analysis for Research Workflows</h1>
+                            <h1>CytoCV: Automated Cell Image Analysis for Research Workflows</h1>
                             <p>CytoCV helps researchers upload DeltaVision <code>.dv</code> microscopy stacks, segment individual yeast cells, and review software-generated cell-level measurements through a browser-based workflow. It brings validation, preprocessing, segmentation, review, and export together so experiments are easier to analyze and compare.</p>
                             <div class="hero-affiliation" aria-label="Institutional affiliation details">
                                 <div class="hero-affiliation-brand" aria-hidden="true">
@@ -750,7 +750,7 @@
         {% endif %}
         <div class="cta-support-links">
             <p>Need the full product overview?<br><a href="{% url 'about' %}" class="text-link">Read About CytoCV</a></p>
-            <p>Want to see who built CytoCV?<br><a href="{% url 'collaborators' %}" class="text-link">Meet the collaborators</a></p>
+            <p>Want to see who built CytoCV?<br><a href="{% url 'collaborators' %}" class="text-link">Meet the CytoCV Team</a></p>
         </div>
     </section>
 </div>

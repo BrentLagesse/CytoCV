@@ -70,6 +70,31 @@ def enqueue_upload_preparation_job(
     )
 
 
+def start_inline_upload_preparation_job(
+    *,
+    user_id: int,
+    new_run_uuids: Iterable[object],
+    restored_run_uuids: Iterable[object],
+    config_snapshot: dict[str, object],
+) -> UploadPreparationJob:
+    """Create an upload-preparation job already owned by the request thread."""
+
+    reap_stale_upload_preparation_jobs(user_id=user_id)
+    return UploadPreparationJob.objects.create(
+        user_id=user_id,
+        new_run_uuids=normalize_uuid_values(new_run_uuids),
+        restored_run_uuids=normalize_uuid_values(restored_run_uuids),
+        valid_run_uuids=[],
+        config_snapshot=dict(config_snapshot),
+        error_lines=[],
+        status=UploadPreparationJob.Status.RUNNING,
+        current_phase="Validating Files",
+        progress_detail={"message": "Preparing upload in this request."},
+        failure_summary="",
+        started_at=timezone.now(),
+    )
+
+
 def get_upload_preparation_job_for_user(
     *,
     user_id: int,

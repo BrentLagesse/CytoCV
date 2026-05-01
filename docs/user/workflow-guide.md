@@ -42,7 +42,7 @@ The upload step also captures the active analysis configuration. This includes:
 
 These selections are stored with the current workflow state and reused in later steps. Signed-in users can also save them as workflow defaults for future runs.
 
-The current workflow defaults select `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`. That default set requires `DIC`, `Red`, and `Green`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
+The current workflow defaults select `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`. That default set requires `DIC`, `Red`, and `Green`. Mother/daughter parentage is computed automatically from DIC geometry and consumed by `CENDot`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
 
 ## Step 3: Review Preprocess Sidebar
 

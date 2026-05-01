@@ -87,6 +87,32 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertIn("Cen Dot Location", header_row)
         self.assertNotIn("Cen Dot Category", header_row)
 
+    def test_cell_parentage_header_and_export_value_are_separate_from_cen_dot(self):
+        record = SimpleNamespace(
+            category_cen_dot=4,
+            properties={
+                "cen_dot_schema_version": 3,
+                "cell_parentage": {
+                    "status": "identified",
+                    "mode": "best_effort",
+                    "method": "principal_axis_median",
+                    "label": "Mother/Daughter identified",
+                    "reason": "ok",
+                },
+            },
+        )
+        category_table = CellTable([record], intensity_mode="green_nucleus")
+        row = list(category_table.rows)[0]
+        values = list(category_table.as_values())
+        header = values[0]
+
+        self.assertEqual(row.get_cell("cell_parentage"), "Mother/Daughter identified")
+        self.assertEqual(row.get_cell("category_cen_dot"), "N/A")
+        self.assertIn("Cell Parentage", header)
+        self.assertLess(header.index("Cell Parentage"), header.index("Cen Dot Location"))
+        self.assertEqual(values[1][header.index("Cell Parentage")], "Mother/Daughter identified")
+        self.assertEqual(values[1][header.index("Cen Dot Location")], "N/A")
+
     def test_ratio_columns_are_present_with_explicit_compatibility_labels(self):
         header_row = list(self.table.as_values())[0]
 

@@ -69,22 +69,21 @@ RESEARCH_DOCUMENTS = (
 
 HOME_PROOF_CARDS = (
     {
-        "eyebrow": "Collaborators",
-        "title": "People Behind CytoCV",
+        "eyebrow": "Team",
+        "title": "CytoCV Team",
         "body": (
-            "Developed at the University of Washington Bothell in collaboration "
-            "with researchers from the Miller Lab at the University of Utah School "
-            "of Medicine."
+            "Built by the UW Bothell School of STEM SEE Lab engineering team in "
+            "collaboration with the University of Utah Miller Lab biology team."
         ),
         "href": "/collaborators/",
-        "link_label": "View Collaborators",
+        "link_label": "View CytoCV Team",
     },
     {
         "eyebrow": "About",
         "title": "About CytoCV",
         "body": (
             "CytoCV is a web-based research workflow for DeltaVision microscopy of "
-            "mitotic yeast cells. It keeps validation, segmentation, measurement, and "
+            "yeast cells. It keeps validation, segmentation, measurement, and "
             "review connected in one place so imaging results are easier to analyze, "
             "compare, and interpret."
         ),
@@ -160,8 +159,9 @@ ABOUT_PAGE_SECTION_ITEMS = (
 
 COLLABORATOR_GROUPS = (
     {
-        "id": "contributors",
-        "title": "Contributors",
+        "id": "engineering-team",
+        "eyebrow": "Engineering Team",
+        "title": "UW Bothell School of STEM, SEE Lab Engineering Team",
         "entries": (
             {
                 "name": "Nicolas Gioanni",
@@ -192,7 +192,7 @@ COLLABORATOR_GROUPS = (
                     },
                     {
                         "href": "https://nicolasmgioanni.dev",
-                        "label": "Website",
+                        "label": "Personal",
                     },
                 ),
             },
@@ -223,36 +223,6 @@ COLLABORATOR_GROUPS = (
                 ),
             },
             {
-                "name": "Emily Parnell",
-                "role": "Research Associate",
-                "institution_label": "Utah",
-                "email": "emily.parnell@biochem.utah.edu",
-                "summary": (
-                    "Provided the biology-facing requirements, expected experimental "
-                    "context, validation testing input, and feedback on what the system "
-                    "should surface and support biologically, including preparing cells, "
-                    "capturing microscopy images, confirming interpretations, and helping "
-                    "define the biological expectations for the workflow."
-                ),
-                "bio": (
-                    "Research associate in the University of Utah Department of "
-                    "Biochemistry, Spencer Fox Eccles School of Medicine, working with "
-                    "the Miller Lab."
-                ),
-                "links": (
-                    {
-                        "href": "https://miller.biochem.utah.edu/members",
-                        "label": "Lab",
-                    },
-                ),
-            },
-        ),
-    },
-    {
-        "id": "supervising-professors",
-        "title": "Supervising Professors",
-        "entries": (
-            {
                 "name": "Brent Lagesse",
                 "role": "Associate Professor",
                 "institution_label": "UW",
@@ -278,6 +248,40 @@ COLLABORATOR_GROUPS = (
                     {
                         "href": "https://faculty.washington.edu/lagesse/",
                         "label": "Faculty",
+                    },
+                ),
+            },
+        ),
+    },
+    {
+        "id": "biology-team",
+        "eyebrow": "Biology collaborators",
+        "title": (
+            "University of Utah Spencer Fox Eccles School of Medicine, Miller Lab "
+            "Biology Team"
+        ),
+        "entries": (
+            {
+                "name": "Emily Parnell",
+                "role": "Research Associate",
+                "institution_label": "Utah",
+                "email": "emily.parnell@biochem.utah.edu",
+                "summary": (
+                    "Provided the biology-facing requirements, expected experimental "
+                    "context, validation testing input, and feedback on what the system "
+                    "should surface and support biologically, including preparing cells, "
+                    "capturing microscopy images, confirming interpretations, and helping "
+                    "define the biological expectations for the workflow."
+                ),
+                "bio": (
+                    "Research associate in the University of Utah Department of "
+                    "Biochemistry, Spencer Fox Eccles School of Medicine, working with "
+                    "the Miller Lab."
+                ),
+                "links": (
+                    {
+                        "href": "https://miller.biochem.utah.edu/members",
+                        "label": "Lab",
                     },
                 ),
             },
@@ -358,7 +362,7 @@ ABOUT_TECHNICAL_PAGE = {
             ),
             "highlights": (
                 "The main emphasis is application structure and workflow behavior rather than deployment setup.",
-                "The platform is shaped around DeltaVision mitotic yeast analysis instead of general-purpose microscopy hosting.",
+                "The platform is shaped around DeltaVision yeast analysis instead of general-purpose microscopy hosting.",
             ),
         },
         {
@@ -534,74 +538,102 @@ ABOUT_TECHNICAL_PAGE = {
 ABOUT_BIOLOGY_PAGE = {
     "template_title": "CytoCV Biological Context",
     "meta_description": (
-        "Biology overview for CytoCV covering mitotic yeast context, "
-        "channel roles, biological interpretation, and supporting documentation links."
+        "Biology overview for CytoCV covering yeast microscopy context, "
+        "chromosome segregation assays, channel roles, biological interpretation, "
+        "and supporting documentation links."
     ),
     "page_eyebrow": "About Biology",
     "page_title": "Biological Context",
-    "show_doc_overview": True,
+    "show_doc_overview": False,
     "page_intro": (
-        "CytoCV is built around mitotic yeast microscopy, with channel roles and "
-        "exported measurements designed to support interpretation across cells and "
-        "conditions."
+        "CytoCV is built around yeast microscopy assays that use segmented "
+        "cell structure, red and green fluorescent markers, and per-cell measurements "
+        "to support chromosome segregation, localization, and intensity comparisons."
     ),
     "page_actions": (),
     "detail_sections": (
         {
             "id": "experimental-context",
-            "jump_label": "Experimental Context",
+            "jump_label": "Core Use Case",
             "eyebrow": "Experimental Context",
-            "title": "Mitotic yeast imaging as the core use case",
+            "title": "Chromosome segregation in yeast",
             "paragraphs": (
-                "CytoCV is designed around DeltaVision imaging workflows for mitotic yeast cells, where researchers need to inspect cellular structure, fluorescent signal localization, and paired measurements across many cells and repeated experiments.",
-                "That focus shapes the upload expectations, the structural segmentation choice, the channel assumptions, and the kinds of per-cell measurements available later in review and export.",
+                "CytoCV contains analysis workflows developed primarily for microscopy assays that study chromosome segregation in yeast. These experiments often depend on comparing cellular structure, spindle-pole position, chromosome-associated fluorescent dots, and protein localization across many individual cells.",
+                "That biological focus shapes the software: DIC defines the cell and mother/daughter geometry, while red and green fluorescence channels provide the main markers for distance, localization, contour, and intensity measurements.",
             ),
             "highlights": (
                 "The software is tuned for a domain-specific microscopy workflow, not generic image browsing.",
-                "Single-cell interpretation matters because biologically relevant differences can disappear in coarse averages.",
+                "Per-cell interpretation matters because segregation and localization phenotypes can appear only in specific cell-cycle stages or subsets of cells.",
             ),
         },
         {
-            "id": "channel-meaning",
-            "jump_label": "Channel Meaning",
-            "eyebrow": "Channel Meaning",
-            "title": "How DIC, Blue, Red, and Green contribute to interpretation",
+            "id": "red-green-intensity",
+            "jump_label": "Red/Green Intensity",
+            "eyebrow": "Intensity Assays",
+            "title": "Reference and experimental fluorophore comparisons",
             "paragraphs": (
-                "DIC provides the structural context used to define cells and split mother/daughter geometry. Red and Green channels provide the main current fluorescence signals used for contour, distance, and localization-based measurements. Blue remains relevant for legacy nucleus-oriented analyses.",
-                "Keeping the structural and fluorescence roles distinct helps CytoCV measure biological signal inside a meaningful cellular frame rather than treating all channels as interchangeable images.",
+                "Red/green intensity assays are designed to compare the abundance of a fluorescently tagged protein across strains, mutants, or other experimental conditions. In the experimental design, one tagged protein can serve as a reference control expected to stay relatively stable, while the other marks the experimental protein or signal being tested.",
+                "CytoCV draws contours around red and green puncta, measures red and green signal inside those contour masks, and reports raw integrated intensity summaries. The current public outputs also include Measurement/Contour Ratio columns derived from those raw sums, with Red/Green or Green/Red labeling determined by the selected measurement mode.",
             ),
             "highlights": (
-                "DIC acts as the structural reference layer for segmentation and neck-split context.",
-                "Red and Green channels drive the default modern signal interpretation path.",
-                "Blue remains available when older nucleus-related workflows are still needed.",
+                "The user-facing Red and Green roles stay generic so the experiment can decide which marker is the reference control and which is the test signal.",
+                "Raw integrated intensity values remain primary outputs; ratio columns are derived interpretation aids and should be reviewed with the source images.",
             ),
         },
         {
-            "id": "interpretation",
-            "jump_label": "Interpretation",
-            "eyebrow": "Interpretation",
-            "title": "Why the measurements matter biologically",
+            "id": "puncta-distance",
+            "jump_label": "Puncta Distance",
+            "eyebrow": "Distance Assays",
+            "title": "Measuring a biological axis between paired puncta",
             "paragraphs": (
-                "The exported measurements help researchers ask where signals are located, how paired markers relate to one another, how intensity behaves across cellular regions, and whether a pattern is consistent across cells or conditions.",
-                "Metrics such as puncta distance, contour-linked intensity summaries, nuclear or cell-pair intensity, and CEN dot classifications become useful because they connect quantitative output back to concrete cellular structures and localization questions.",
+                "The puncta-distance workflow measures the spacing between two structures marked by the same fluorophore, such as a pair of red or green puncta that define an axis inside the cell. The reported distance can be reviewed in pixels or converted to microns through the saved scale context.",
+                "After the source puncta are selected, CytoCV measures signal from the opposite fluorophore along the line between them. This supports assays where the distance between structures, such as spindle poles, and the intensity of another protein along that axis are both biologically meaningful.",
             ),
             "highlights": (
-                "CytoCV supports localization- and relationship-oriented interpretation, not just intensity counting.",
-                "Measurements are most useful when read alongside the associated cell images and overlays.",
+                "Red puncta mode measures Green signal along the Red-dot line; Green puncta mode measures Red signal along the Green-dot line.",
+                "The line width can be configured in pixels or microns, with micron values converted through the run's scale context.",
             ),
         },
         {
-            "id": "single-cell-view",
-            "jump_label": "Single-Cell View",
-            "eyebrow": "Single-Cell View",
-            "title": "Why cell-level outputs support better research review",
+            "id": "cen-dot-location",
+            "jump_label": "CEN Dot Location",
+            "eyebrow": "Chromosome Segregation",
+            "title": "Classifying CEN dots after anaphase",
             "paragraphs": (
-                "A cell-level workflow lets researchers compare many individual cells without flattening everything into one run-level average. That is valuable when biologically meaningful differences appear only in subsets of cells or depend on spatial positioning inside the cell pair.",
-                "CytoCV therefore keeps review surfaces and exports aligned around segmented cells, making it easier to compare visual evidence with quantitative output before drawing broader conclusions.",
+                "The CEN dot location assay is intended for cells that have progressed through anaphase, when nuclei have separated and chromosomes have segregated into mother and daughter regions. A red marker defines spindle-pole puncta, and a green marker identifies a CEN-marked chromosome.",
+                "CytoCV first checks whether a segmented cell pair has two usable red puncta separated by at least the configured minimum distance. It then determines whether green CEN dots fall within the configured proximity radius around the red spindle-pole markers and reports whether the signal is associated with the mother side, daughter side, both sides, or neither side.",
             ),
             "highlights": (
-                "Per-cell outputs preserve heterogeneity that would be blurred by one coarse summary.",
-                "Review-first interpretation helps users verify that measured outputs still match visible cellular structure.",
+                "The document's 3.5-4 micron spacing is best treated as an experiment-dependent example for selecting anaphase-like cells, not a universal software default.",
+                "Mother and daughter assignment depends on DIC-derived cell geometry and size context, so the overlay should be reviewed before biological conclusions are drawn.",
+            ),
+        },
+        {
+            "id": "biorientation",
+            "jump_label": "Biorientation",
+            "eyebrow": "Attachment State",
+            "title": "Evaluating chromosome biorientation in metaphase",
+            "paragraphs": (
+                "The biorientation assay also uses a green CEN-marked chromosome and a red spindle-pole marker, but it targets metaphase-like cells. Correct biorientation places sister chromatids under tension from opposite spindle poles, which can appear as two distinct green puncta along the spindle-pole axis. Chromosomes that are not yet bioriented or are incorrectly attached may appear as a single green punctum.",
+                "CytoCV checks whether two red puncta fall inside the configured distance range, draws the red-puncta axis, and counts green puncta as colinear or off-axis according to the configured colinearity threshold. Those counts let researchers calculate the proportion of cells with one versus two colinear green puncta and compare normally positioned chromosomes with off-axis chromosomes.",
+            ),
+            "highlights": (
+                "The document's 1-2.5 micron red-puncta range is an experiment-dependent example for metaphase selection and may need adjustment for mutants or abnormal spindle length.",
+                "The colinearity threshold is empirical and should be tuned for the experiment rather than treated as a physical distance by itself.",
+            ),
+        },
+        {
+            "id": "nuclear-cytoplasmic-intensity",
+            "jump_label": "Nuclear Intensity",
+            "eyebrow": "Localization Assays",
+            "title": "Nuclear versus cytoplasmic protein localization",
+            "paragraphs": (
+                "Nuclear and cytoplasmic intensity assays ask how much of a fluorescently tagged protein is present in the nucleus compared with the rest of the cell. This is useful for localization questions such as characterizing nuclear import or export behavior.",
+                "The workflow uses one fluorophore as the nucleus-defining reference and measures the opposite fluorophore, representing the protein of interest, inside the nuclear contour and across the full cell-pair mask. Cytoplasmic signal is derived from the difference between cellular and nuclear signal. The biological assay is often interpreted through nuclear-to-cytoplasmic comparison; the current CytoCV outputs expose the nuclear, cell-pair, and cytoplasmic intensity values used for that downstream comparison.",
+            ),
+            "highlights": (
+                "In the modern workflow, users choose whether Red or Green supplies the nucleus contour source.",
+                "Legacy Blue-based nucleus workflows remain available when an older DAPI-like channel setup is intentionally used.",
             ),
         },
         {
@@ -610,12 +642,12 @@ ABOUT_BIOLOGY_PAGE = {
             "eyebrow": "Use And Caveats",
             "title": "Practical value and biological caution points",
             "paragraphs": (
-                "CytoCV can reduce manual workload and increase consistency across larger image sets, but biological interpretation still depends on good experimental design, sensible channel configuration, and careful review of the resulting cells and overlays.",
-                "CytoCV supports interpretation and comparison, but it does not replace experimental controls, domain knowledge, or downstream statistical judgment.",
+                "CytoCV can reduce manual workload and increase consistency across larger image sets, but biological interpretation still depends on experimental design, channel configuration, marker behavior, and review of the resulting cells and overlays.",
+                "The exported values are software-generated measurements tied to source images. They support comparison and downstream analysis, but they should not be treated as final biological conclusions without image review, controls, and statistical judgment.",
             ),
             "highlights": (
-                "Workflow automation helps scale review, but it should not be treated as a substitute for scientific judgment.",
-                "Legacy and modern channel paths should be understood in the context of the specific experiment being analyzed.",
+                "Per-cell outputs preserve heterogeneity that can be hidden by one run-level average.",
+                "Thresholds and marker choices should be documented with the experiment so exported results remain interpretable later.",
             ),
         },
     ),
@@ -676,7 +708,7 @@ RESEARCH_SECTIONS = (
         "title": "Methods and system description",
         "summary": (
             "CytoCV is documented as a web-based analysis system for DeltaVision microscopy "
-            "of mitotic yeast cells. The active implementation combines authenticated web "
+            "of yeast cells. The active implementation combines authenticated web "
             "workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, "
             "plugin-scoped per-cell quantification, and retention-aware result management."
         ),

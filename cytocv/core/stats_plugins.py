@@ -72,6 +72,19 @@ PLUGIN_ORDER: tuple[str, ...] = (
     "RedBlueIntensity",
 )
 
+# UI-only ordering for settings surfaces. Runtime normalization and analysis
+# execution continue to use PLUGIN_ORDER above.
+PLUGIN_UI_ORDER: tuple[str, ...] = (
+    "NuclearCellPairIntensity",
+    "PunctaDistance",
+    "GreenRedIntensity",
+    "CENDot",
+    "Biorientation",
+    "NucleusIntensity",
+    "BlueNucleusIntensity",
+    "RedBlueIntensity",
+)
+
 PLUGIN_ID_ALIASES: dict[str, str] = {
     "MCherryLine": "PunctaDistance",
     "RedLineIntensity": "PunctaDistance",
@@ -97,10 +110,10 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
         plugin_id="CENDot",
         label="Cen Dot Location",
         description=(
-            "Classifies Cen Dot Location as mother and/or daughter. Requires exactly two "
-            "usable red puncta on opposite sides of the DIC-derived neck split; green puncta "
-            "only count when they lie inside the DIC pair mask, on the same side as the red "
-            "punctum being tested, and within the signal proximity radius."
+            "Classifies Cen Dot Location as mother and/or daughter using automatic "
+            "DIC mother/daughter parentage, then requires exactly two usable red puncta "
+            "on opposite inferred sides. Green puncta only count when they lie inside "
+            "the DIC pair mask and within the signal proximity radius."
         ),
         module_name="core.cell_analysis.cen_dot",
         class_name="CENDot",
@@ -285,7 +298,7 @@ def build_plugin_ui_payload() -> dict:
     """Return serializable metadata for upload-page statistics settings."""
 
     plugins = []
-    for plugin_id in PLUGIN_ORDER:
+    for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugins.append(
             {

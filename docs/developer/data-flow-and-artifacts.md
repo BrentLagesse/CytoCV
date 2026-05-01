@@ -13,8 +13,11 @@ Primary persisted outputs at request-time intake:
 - one `UploadedImage` row
 - one source DV file under the run UUID namespace
 
-Upload preparation then runs in the background worker through `UploadPreparationJob`.
-Worker-generated upload-prep outputs are:
+Upload preparation then runs through `UploadPreparationJob`. In `sync` mode the
+request thread executes that job inline; in `worker` mode the background worker
+claims the queued job.
+
+Upload-prep outputs are:
 
 - one `channel_config.json`
 - preview PNG assets
@@ -50,9 +53,8 @@ These can be deleted after successful segmentation or when a failed run is clean
 
 Execution ownership:
 
-- in `sync` mode, preprocess and inference are still request-owned
-- in `worker` mode, the full batch is owned by an `AnalysisJob` and executed by the background worker
-- upload validation, metadata extraction, channel config writes, and preview generation are always owned by `UploadPreparationJob` and executed by the same background worker command
+- in `sync` mode, upload preparation, preprocess, and inference are request-owned
+- in `worker` mode, upload preparation is owned by `UploadPreparationJob`, and the full analysis batch is owned by an `AnalysisJob`; both are executed by the background worker command
 
 ## Segmentation Artifacts
 

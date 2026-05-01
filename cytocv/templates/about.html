@@ -111,6 +111,15 @@
             font-size: 14px;
             line-height: 1.62;
         }
+        .about-inline-link {
+            color: #c6ddff;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .about-inline-link:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
         .about-channel-list,
         .about-detail-list {
             list-style: none;
@@ -240,7 +249,7 @@
         <div class="about-intro-copy">
             <p class="section-eyebrow">About</p>
             <h1 class="about-page-title" id="aboutPageTitle">About CytoCV</h1>
-            <p>CytoCV is a browser-based research workflow for DeltaVision microscopy of mitotic yeast cells, with connected image inputs, software-generated measurements, results, and links to deeper technical and biological context.</p>
+            <p>CytoCV is a browser-based research workflow for DeltaVision microscopy of yeast cells, with connected image inputs, software-generated measurements, results, and links to deeper technical and biological context.</p>
         </div>
     </section>
 
@@ -263,7 +272,7 @@
                 <h2 class="about-card-title">What CytoCV Is</h2>
             </div>
             <div class="about-copy">
-                <p>CytoCV is a browser-based analysis workflow for DeltaVision <code>.dv</code> microscopy of mitotic yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one place.</p>
+                <p>CytoCV is a browser-based analysis workflow for DeltaVision <code>.dv</code> microscopy of yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one place.</p>
                 <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older Blue-based workflows available as legacy paths when they are needed.</p>
             </div>
             <ul class="about-channel-list" aria-label="Channel roles">
@@ -361,7 +370,7 @@
                 <h2 class="about-card-title">What Image Inputs CytoCV Expects</h2>
             </div>
             <div class="about-copy">
-                <p>CytoCV is built for DeltaVision <code>.dv</code> microscopy files from mitotic yeast imaging workflows. The platform expects image stacks that preserve the channel context needed for validation, preview generation, segmentation, and downstream measurement.</p>
+                <p>CytoCV is built for DeltaVision <code>.dv</code> microscopy files from yeast imaging workflows. The platform expects image stacks that preserve the channel context needed for validation, preview generation, segmentation, and downstream measurement.</p>
                 <p>In the current workflow, <code>DIC</code> provides the structural input for cell segmentation, while <code>Red</code> and <code>Green</code> channels provide the main fluorescence measurements. <code>Blue</code> remains relevant for older legacy analyses when that path is needed. Biology-facing names such as DAPI, mCherry, and GFP commonly map to the logical Blue, Red, and Green roles.</p>
             </div>
             <ul class="about-detail-list" aria-label="Image input expectations">
@@ -403,6 +412,7 @@
             <div class="about-copy">
                 <p>These measurements can help researchers compare signal localization between the nucleus and the cell pair, examine how paired Red and Green signals relate to one another, and evaluate patterns across yeast populations or mutant conditions.</p>
                 <p>CytoCV supports that interpretation by producing repeatable software measurements tied to the source images, but the results should still be reviewed alongside image context, experimental controls, and biological judgment.</p>
+                <p><a class="about-inline-link" href="{% url 'about_biology' %}">Read the deeper biological context</a> for assay-level explanations of chromosome segregation, puncta distance, CEN dot location, biorientation, and nuclear intensity workflows.</p>
             </div>
         </article>
     </section>

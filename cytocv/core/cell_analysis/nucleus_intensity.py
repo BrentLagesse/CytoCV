@@ -25,16 +25,17 @@ class NucleusIntensity(Analysis):
     ):
         """Calculate green-channel intensity within the nucleus and cell regions."""
 
-        gray_green = self.preprocessed_images.get_image('green')
-        gray_green_no_bg = self.preprocessed_images.get_image('green_no_bg')
-        if gray_green_no_bg is None:
-            gray_green_no_bg = gray_green
+        green_intensity_image = self.preprocessed_images.get_image('raw_green')
+        if green_intensity_image is None:
+            green_intensity_image = self.preprocessed_images.get_image('green_no_bg')
+        if green_intensity_image is None:
+            green_intensity_image = self.preprocessed_images.get_image('green')
 
-        if gray_green_no_bg is None:
+        if green_intensity_image is None:
             self._set_defaults()
             return
 
-        shape = gray_green_no_bg.shape[:2]
+        shape = green_intensity_image.shape[:2]
 
         blue_slots = get_canonical_blue_slots(contours_data, shape, limit=1)
         if not blue_slots:
@@ -49,8 +50,8 @@ class NucleusIntensity(Analysis):
                 self.cp.image_name, self.cp.cell_id, self.output_dir, shape,
             )
 
-        nucleus_intensity = float(calculate_intensity_mask(gray_green_no_bg, nucleus_mask))
-        cell_intensity = float(calculate_intensity_mask(gray_green_no_bg, cell_mask))
+        nucleus_intensity = float(calculate_intensity_mask(green_intensity_image, nucleus_mask))
+        cell_intensity = float(calculate_intensity_mask(green_intensity_image, cell_mask))
 
         self.cp.nucleus_intensity[Contour.CONTOUR.name] = int(nucleus_intensity)
         self.cp.nucleus_total_points = int(np.count_nonzero(nucleus_mask))

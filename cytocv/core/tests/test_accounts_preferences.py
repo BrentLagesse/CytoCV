@@ -118,6 +118,16 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertNotIn("biorientation_green_split_enabled", defaults)
 
+    def test_normalize_preferences_keeps_cen_dot_selection(self):
+        normalized = normalize_preferences_payload(
+            {"experiment_defaults": {"selected_plugins": ["CENDot"]}}
+        )
+
+        self.assertEqual(
+            normalized["experiment_defaults"]["selected_plugins"],
+            ["CENDot"],
+        )
+
     def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
         normalized = normalize_preferences_payload(
             {
@@ -1579,8 +1589,24 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
         self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
         self.assertContains(response, 'id="green_dot_split_mode"', html=False)
+        self.assertNotContains(response, 'id="cell_parentage_mode"', html=False)
+        self.assertNotContains(response, "Mother/Daughter Mode")
         self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
         self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
+        html = response.content.decode()
+        plugin_defaults_index = html.index('<div class="card" data-workflow-card="plugin-defaults"')
+        dot_detection_index = html.index('<div class="card" data-workflow-card="dot-detection"')
+        measurement_scale_index = html.index('<div class="card" data-workflow-card="measurement-scale"')
+        self.assertLess(plugin_defaults_index, dot_detection_index)
+        self.assertLess(dot_detection_index, measurement_scale_index)
+        advanced_plugin_behavior = html[
+            html.index('<div class="card" data-workflow-card="advanced-plugin-behavior"'):
+            html.index('<div class="card" data-workflow-card="validation-enforcement"')
+        ]
+        self.assertIn("Show Legacy Blue-Channel Plugins", advanced_plugin_behavior)
+        self.assertNotIn("Filter Green Contours", advanced_plugin_behavior)
+        self.assertNotIn("Split Merged Green Dots", advanced_plugin_behavior)
+        self.assertNotIn("Enable Alternate Red Detection", advanced_plugin_behavior)
         self.assertContains(
             response,
             "Start Sidebars Open On Dashboard, Display, And Preprocess",
@@ -1631,6 +1657,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Save as workflow default?")
         self.assertContains(response, "Keep Old Settings")
         self.assertContains(response, "Keep New Changes")
+        self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
+        self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
 
     def test_experiment_workflow_defaults_endpoint_persists_popup_settings(self):
         payload = self._build_experiment_workflow_defaults_payload()
@@ -1644,7 +1672,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json()["message"],
-            "Workflow default updated. Future experiments will start with this configuration.",
+            "Workflow default saved. Future experiments will start with these settings.",
         )
 
         self.user.refresh_from_db()
@@ -2025,6 +2053,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "biorientation_collinearity_threshold": "77",
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
+                "green_contour_filter_enabled": "on",
+                "green_dot_split_enabled": "0",
+                "green_dot_split_mode": "aggressive",
+                "alternate_red_detection": "on",
                 "microns_per_pixel": "0.25",
                 "use_metadata_scale": "on",
                 "spatial_stats_unit": "um",
@@ -2045,7 +2077,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["biorientation_red_max_distance"], 44.5)
         self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 77)
-        self.assertTrue(defaults["green_dot_split_enabled"])
+        self.assertTrue(defaults["green_contour_filter_enabled"])
+        self.assertFalse(defaults["green_dot_split_enabled"])
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
@@ -2065,8 +2100,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "biorientation_red_max_distance": 41,
                 "biorientation_red_max_distance_unit": "um",
                 "biorientation_collinearity_threshold": 81,
+                "green_contour_filter_enabled": True,
                 "green_dot_split_enabled": False,
                 "green_dot_split_mode": "aggressive",
+                "alternate_red_detection": True,
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
                 "microns_per_pixel": 0.33,
@@ -2099,25 +2136,28 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["biorientation_red_max_distance"], 41)
         self.assertEqual(defaults["biorientation_red_max_distance_unit"], "um")
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 81)
+        self.assertTrue(defaults["green_contour_filter_enabled"])
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
 
-    def test_advanced_settings_form_persists_green_dot_split_default(self):
+    def test_plugin_settings_form_persists_green_dot_split_default(self):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
-                "action": "save_advanced_settings",
+                "action": "save_plugin_defaults",
+                "selected_plugins": ["PunctaDistance"],
                 "green_dot_split_enabled": "0",
                 "green_dot_split_mode": "aggressive",
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=plugins")
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -2127,7 +2167,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
-                "action": "save_advanced_settings",
+                "action": "save_plugin_defaults",
+                "selected_plugins": ["PunctaDistance"],
                 "green_dot_split_enabled": "on",
                 "green_dot_split_mode": "invalid",
             },

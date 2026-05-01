@@ -91,7 +91,7 @@ This is a maintainer reference, not an end-user guide.
 - Purpose: render upload setup and preserve compatibility for non-staged upload POSTs
 - Notes:
   - the normal browser flow uploads files through the staged API routes below
-  - compatibility POSTs save uploaded bytes, create `UploadedImage` rows, and enqueue upload preparation
+  - compatibility POSTs save uploaded bytes, create `UploadedImage` rows, and run or enqueue upload preparation according to `CYTOCV_ANALYSIS_EXECUTION_MODE`
 
 ### `POST /api/experiment/uploads/`
 
@@ -112,7 +112,7 @@ This is a maintainer reference, not an end-user guide.
 
 - Name: `experiment_upload_prepare`
 - Auth: required
-- Purpose: enqueue worker-owned upload validation, metadata extraction, channel config writing, and preview generation
+- Purpose: run or enqueue upload validation, metadata extraction, channel config writing, and preview generation according to `CYTOCV_ANALYSIS_EXECUTION_MODE`
 
 ### `GET /api/experiment/upload-prep/<job_uuid>/`
 

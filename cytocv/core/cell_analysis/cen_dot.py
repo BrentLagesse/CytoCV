@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from core.services.canonical_contours import (
+    CELL_PARENTAGE_KEY,
     CanonicalContourSlot,
     get_canonical_green_slots,
     get_canonical_red_slots,
@@ -241,19 +242,30 @@ class CENDot(Analysis):
         cell_mask = contours_data.get("cell_mask")
         mother_mask, daughter_mask = get_side_masks(contours_data)
         neck_split = get_neck_split(contours_data)
+        parentage_payload = contours_data.get(CELL_PARENTAGE_KEY)
+        if not isinstance(parentage_payload, dict):
+            parentage_payload = (getattr(self.cp, "properties", {}) or {}).get("cell_parentage")
+        if not isinstance(parentage_payload, dict):
+            parentage_payload = {}
         threshold_unit = self._get_distance_threshold_unit()
         proximity_unit = self._get_proximity_radius_unit()
 
         def _finalize(category: int, status: str, extra: dict | None = None) -> None:
+            has_parentage_neck_split = parentage_payload.get("has_neck_split")
+            if has_parentage_neck_split is None:
+                has_parentage_neck_split = neck_split is not None and mother_mask is not None
             payload: dict = {
                 "status": status,
                 "category": int(category),
+                "cell_parentage_status": parentage_payload.get("status"),
+                "cell_parentage_mode": parentage_payload.get("mode"),
+                "cell_parentage_method": parentage_payload.get("method"),
                 "threshold_unit": threshold_unit,
                 "proximity_unit": proximity_unit,
                 "proximity_radius_value": float(cen_dot_proximity_radius),
                 "proximity_radius_px": float(prox_radius),
                 "red_distance_threshold": float(cen_dot_distance),
-                "has_neck_split": neck_split is not None and mother_mask is not None,
+                "has_neck_split": bool(has_parentage_neck_split),
             }
             if extra:
                 payload.update(extra)
@@ -304,11 +316,14 @@ class CENDot(Analysis):
                 )
                 return
 
-            if mother_mask is None or daughter_mask is None or neck_split is None:
+            if mother_mask is None or daughter_mask is None:
                 _finalize(
                     _CATEGORY_NA,
-                    "missing_neck_split",
-                    {"red_distance": float(distance)},
+                    "missing_cell_parentage",
+                    {
+                        "cell_parentage_reason": parentage_payload.get("reason"),
+                        "red_distance": float(distance),
+                    },
                 )
                 return
 

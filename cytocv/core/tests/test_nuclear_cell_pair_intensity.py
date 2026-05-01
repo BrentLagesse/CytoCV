@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import tempfile
 
 from django.test import SimpleTestCase
+import cv2
 import numpy as np
 
 from core.cell_analysis import NuclearCellPairIntensity
@@ -94,3 +95,46 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertFalse(np.any(red_debug > 0))
         self.assertFalse(np.any(green_debug > 0))
 
+    def test_measurement_channel_uses_raw_values_while_contour_uses_processed_channel(self):
+        plugin = NuclearCellPairIntensity()
+        shape = (24, 24)
+        processed_green = np.zeros(shape, dtype=np.uint8)
+        processed_red = np.zeros(shape, dtype=np.uint8)
+        processed_green[8:17, 8:17] = 255
+        raw_red = np.zeros(shape, dtype=np.uint16)
+        raw_red[4:20, 4:20] = 4000
+        preprocessed = GrayImage(
+            img={
+                "green_no_bg": processed_green,
+                "green": processed_green,
+                "red_no_bg": processed_red,
+                "gray_red": processed_red,
+                "raw_red": raw_red,
+            }
+        )
+        contour = self._rect_contour(8, 8, 16, 16)
+        nucleus_mask = np.zeros(shape, dtype=np.uint8)
+        cv2.drawContours(nucleus_mask, [contour], 0, 255, -1)
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={"nuclear_cell_pair_mode": "green_nucleus"},
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            self._write_outline(output_dir)
+            cell_mask = np.zeros(shape, dtype=np.uint8)
+            cell_mask[4:20, 4:20] = 255
+            plugin.setting_up(cp, preprocessed, str(output_dir))
+            plugin.calculate_statistics(
+                {},
+                {"contours_green": [contour], "cell_mask": cell_mask},
+                np.zeros((*shape, 3), dtype=np.uint8),
+                np.zeros((*shape, 3), dtype=np.uint8),
+                1,
+                37,
+            )
+
+        self.assertEqual(cp.nucleus_intensity_sum, float(np.sum(raw_red[nucleus_mask > 0])))
+        self.assertEqual(cp.cell_pair_intensity_sum, float(np.sum(raw_red[cell_mask > 0])))

@@ -452,11 +452,11 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, reverse("collaborators"))
         self.assertContains(
             home_response,
-            "Developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine",
+            "Built by the UW Bothell School of STEM SEE Lab engineering team in collaboration with the University of Utah Miller Lab biology team.",
         )
         self.assertContains(
             home_response,
-            "CytoCV: Automated Yeast Cell Image Analysis for Research Workflows",
+            "CytoCV: Automated Cell Image Analysis for Research Workflows",
         )
         self.assertContains(home_response, "University of Washington Bothell")
         self.assertContains(
@@ -469,10 +469,9 @@ class RouteSurfaceRefactorTests(TestCase):
             "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
             html=False,
         )
-        self.assertContains(home_response, "Collaborators")
-        self.assertContains(home_response, "People Behind CytoCV")
+        self.assertContains(home_response, "CytoCV Team")
         self.assertContains(home_response, "About CytoCV")
-        self.assertContains(home_response, "View Collaborators")
+        self.assertContains(home_response, "View CytoCV Team")
         self.assertContains(home_response, "See About page")
         self.assertContains(home_response, "From Upload to Export")
         self.assertContains(home_response, "Cell-Level Research Outputs")
@@ -486,7 +485,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, "View Documentation")
         self.assertContains(home_response, "Need the full product overview?")
         self.assertContains(home_response, "Want to see who built CytoCV?")
-        self.assertContains(home_response, "Meet the collaborators")
+        self.assertContains(home_response, "Meet the CytoCV Team")
         self.assertContains(home_response, 'class="cta-support-links"', html=False)
         self.assertNotContains(home_response, 'class="cta-signin"', html=False)
         self.assertNotContains(home_response, "Already have an account?")
@@ -515,7 +514,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(home_response.status_code, 200)
         self.assertContains(
             home_response,
-            "CytoCV: Automated Yeast Cell Image Analysis for Research Workflows",
+            "CytoCV: Automated Cell Image Analysis for Research Workflows",
         )
         self.assertContains(
             home_response,
@@ -543,7 +542,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, "Already have an account?")
         self.assertContains(home_response, "Need the full product overview?")
         self.assertContains(home_response, "Want to see who built CytoCV?")
-        self.assertContains(home_response, "Meet the collaborators")
+        self.assertContains(home_response, "Meet the CytoCV Team")
         self.assertContains(home_response, 'class="cta-support-links"', html=False)
         self.assertNotContains(home_response, "DAPI, mCherry, and GFP image channels.")
         self.assertNotContains(home_response, "What CytoCV Is")
@@ -641,11 +640,13 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertNotContains(biology_response, "Back to About")
         self.assertNotContains(biology_response, 'class="detail-actions"', html=False)
         self.assertNotContains(biology_response, "This biology overview explains")
-        self.assertContains(biology_response, "Documentation Links")
-        self.assertContains(biology_response, "Related documentation")
-        self.assertContains(biology_response, "Mitotic yeast imaging as the core use case")
-        self.assertContains(biology_response, "How DIC, Blue, Red, and Green contribute to interpretation")
-        self.assertContains(biology_response, "Why the measurements matter biologically")
+        self.assertNotContains(biology_response, "Documentation Links")
+        self.assertNotContains(biology_response, "Related documentation")
+        self.assertContains(biology_response, "Chromosome segregation in yeast")
+        self.assertContains(biology_response, "Reference and experimental fluorophore comparisons")
+        self.assertContains(biology_response, "Classifying CEN dots after anaphase")
+        self.assertContains(biology_response, "Evaluating chromosome biorientation in metaphase")
+        self.assertContains(biology_response, "Nuclear versus cytoplasmic protein localization")
         self.assertContains(biology_response, "Practical value and biological caution points")
         self.assertContains(biology_response, 'id="experimental-context"', html=False)
         self.assertContains(biology_response, 'id="biology-research-docs"', html=False)
@@ -669,14 +670,22 @@ class RouteSurfaceRefactorTests(TestCase):
         collaborators_response = self.client.get(reverse("collaborators"))
         self.assertEqual(collaborators_response.status_code, 200)
         self.assertTemplateUsed(collaborators_response, "collaborators.html")
-        self.assertContains(collaborators_response, "Project collaborators")
-        self.assertContains(collaborators_response, "Collaborators")
+        self.assertContains(collaborators_response, "Project Team Members")
+        self.assertContains(collaborators_response, "CytoCV Team")
         self.assertContains(
             collaborators_response,
-            "CytoCV was developed at the University of Washington Bothell in collaboration with researchers from the Miller Lab at the University of Utah School of Medicine.",
+            "CytoCV was built by the UW Bothell School of STEM SEE Lab engineering team in collaboration with the University of Utah Miller Lab biology team.",
         )
-        self.assertContains(collaborators_response, "Contributors")
-        self.assertContains(collaborators_response, "Supervising Professors")
+        self.assertContains(
+            collaborators_response,
+            "UW Bothell School of STEM, SEE Lab Engineering Team",
+        )
+        self.assertContains(
+            collaborators_response,
+            "University of Utah Spencer Fox Eccles School of Medicine, Miller Lab Biology Team",
+        )
+        self.assertContains(collaborators_response, "Engineering Team")
+        self.assertContains(collaborators_response, "Biology collaborators")
         self.assertContains(collaborators_response, "Nicolas Gioanni")
         self.assertContains(collaborators_response, "Anoop Prasad")
         self.assertContains(collaborators_response, "Emily Parnell")
@@ -754,6 +763,9 @@ class RouteSurfaceRefactorTests(TestCase):
             "https://miller.biochem.utah.edu/members",
             html=False,
         )
+        self.assertNotContains(collaborators_response, "Contributors")
+        self.assertNotContains(collaborators_response, "Supervising Professors")
+        self.assertNotContains(collaborators_response, "Acknowledgement")
         self.assertNotContains(collaborators_response, "Methods, validation, reproducibility, and affiliation")
         self.assertNotContains(collaborators_response, "Methods and system description")
         self.assertNotContains(collaborators_response, "Validation-aware workflow rules")
@@ -1578,6 +1590,13 @@ class RouteSurfaceRefactorTests(TestCase):
                     "nuclear_cell_pair_mode": "red_nucleus",
                     "puncta_line_mode": "green_puncta",
                     "cen_dot_schema_version": 3,
+                    "cell_parentage": {
+                        "status": "identified",
+                        "mode": "conservative",
+                        "method": "neck_split",
+                        "label": "Mother/Daughter identified",
+                        "reason": "ok",
+                    },
                 },
                 category_cen_dot=1,
             )
@@ -1612,6 +1631,13 @@ class RouteSurfaceRefactorTests(TestCase):
             '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
+        self.assertContains(
+            response,
+            '"cell_parentage_label": "Mother/Daughter identified"',
+            html=False,
+        )
+        self.assertContains(response, "cellStats.cell_parentage_label || 'Not identified'", html=False)
+        self.assertContains(response, "Cell Parentage")
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
@@ -1638,6 +1664,13 @@ class RouteSurfaceRefactorTests(TestCase):
                     "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "green_puncta",
                     "cen_dot_schema_version": 3,
+                    "cell_parentage": {
+                        "status": "identified",
+                        "mode": "conservative",
+                        "method": "neck_split",
+                        "label": "Mother/Daughter identified",
+                        "reason": "ok",
+                    },
                 },
                 category_cen_dot=1,
             )
@@ -1671,6 +1704,13 @@ class RouteSurfaceRefactorTests(TestCase):
             '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
+        self.assertContains(
+            response,
+            '"cell_parentage_label": "Mother/Daughter identified"',
+            html=False,
+        )
+        self.assertContains(response, "cellStats.cell_parentage_label || 'Not identified'", html=False)
+        self.assertContains(response, "Cell Parentage")
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
@@ -1728,6 +1768,7 @@ class RouteSurfaceRefactorTests(TestCase):
 class PluginMappingRegressionTests(TestCase):
     def test_plugin_loader_maps_stable_ids_to_renamed_modules(self):
         plugin_ids = load_available_plugin_ids()
+        self.assertEqual(plugin_ids[0], "PunctaDistance")
         self.assertIn("PunctaDistance", plugin_ids)
         self.assertIn("CENDot", plugin_ids)
 
@@ -1753,4 +1794,15 @@ class PluginMappingRegressionTests(TestCase):
         self.assertEqual(
             [instance.__class__.__name__ for instance in plan.analyses],
             ["NuclearCellPairIntensity"],
+        )
+
+    def test_build_stats_execution_plan_keeps_cen_dot_standalone(self):
+        plan = build_stats_execution_plan(["CENDot"])
+
+        self.assertEqual(plan.normalized_plugins, ("CENDot",))
+        self.assertEqual(plan.selected_plugins, ("CENDot",))
+        self.assertEqual(plan.required_channels, ("DIC", "channel_red", "channel_green"))
+        self.assertEqual(
+            [instance.__class__.__name__ for instance in plan.analyses],
+            ["CENDot"],
         )

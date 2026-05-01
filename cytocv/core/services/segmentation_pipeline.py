@@ -754,12 +754,14 @@ def run_segmentation_batch(
         finally:
             dv_file.close()
         cell_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
+        cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
         if cell_stack.ndim == 2:
             cell_stack = np.expand_dims(cell_stack, axis=0)
 
         for image_num in range(cell_stack.shape[0]):
             _raise_if_cancelled(progress)
-            image = np.array(cell_stack[image_num])
+            raw_image = np.array(cell_stack[image_num], copy=True)
+            image = np.array(raw_image, copy=True)
             image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
             image = np.round(image * 255).astype(np.uint8)
             if len(image.shape) != 3 or image.shape[2] != 3:
@@ -801,6 +803,10 @@ def run_segmentation_batch(
                 if cached_channel_name:
                     cell_image_cache[i][cached_channel_name] = np.array(
                         not_outlined_image,
+                        copy=True,
+                    )
+                    cell_measurement_image_cache[i][cached_channel_name] = np.array(
+                        raw_image[min_x:max_x, min_y:max_y],
                         copy=True,
                     )
                 if not (segmented_directory / cell_tif_image).exists() or not use_cache:
@@ -1170,6 +1176,7 @@ def run_segmentation_batch(
                 green_dot_split_enabled,
                 green_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
+                cached_measurement_images=cell_measurement_image_cache.get(cell_number),
             )
             rendered_overlay_images = {
                 "red": debug_red,

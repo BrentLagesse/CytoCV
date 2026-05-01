@@ -48,8 +48,11 @@ from core.services.artifact_storage import (
     log_storage_capacity_failure,
     sweep_user_run_artifacts,
 )
+from core.services.analysis_context import normalize_execution_mode
 from core.services.analysis_progress import normalize_progress_detail
+from core.services.upload_preparation import run_upload_preparation_job
 from core.services.upload_preparation_jobs import (
+    ACTIVE_UPLOAD_PREPARATION_STATUSES,
     enqueue_upload_preparation_job,
     finalize_upload_preparation_job,
     get_stale_upload_preparation_terminal_state,
@@ -57,6 +60,7 @@ from core.services.upload_preparation_jobs import (
     get_upload_preparation_jobs_for_user,
     reap_stale_upload_preparation_jobs,
     request_upload_preparation_cancellation,
+    start_inline_upload_preparation_job,
 )
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
@@ -327,10 +331,49 @@ def _upload_view_context(
         "upload_access_policy_payload_json": json.dumps(upload_access_policy_payload or {}),
         "upload_resume_payload_json": json.dumps(upload_resume_payload or {}),
         "upload_batch_target_bytes": int(getattr(settings, "UPLOAD_BATCH_TARGET_BYTES", 80 * 1024 * 1024)),
+        "upload_preparation_execution_mode": normalize_execution_mode(),
     }
     if error:
         context["error"] = error
     return context
+
+
+def _create_upload_preparation_job_for_mode(
+    *,
+    user_id: int,
+    new_run_uuids: list[str],
+    restored_run_uuids: list[str],
+    config_snapshot: dict[str, object],
+) -> UploadPreparationJob:
+    """Create or run upload preparation according to CYTOCV_ANALYSIS_EXECUTION_MODE."""
+
+    execution_mode = normalize_execution_mode()
+    snapshot = {
+        **config_snapshot,
+        "upload_preparation_execution_mode": execution_mode,
+    }
+    if execution_mode == "sync":
+        job = start_inline_upload_preparation_job(
+            user_id=user_id,
+            new_run_uuids=new_run_uuids,
+            restored_run_uuids=restored_run_uuids,
+            config_snapshot=snapshot,
+        )
+        return run_upload_preparation_job(job)
+
+    return enqueue_upload_preparation_job(
+        user_id=user_id,
+        new_run_uuids=new_run_uuids,
+        restored_run_uuids=restored_run_uuids,
+        config_snapshot=snapshot,
+    )
+
+
+def _track_active_upload_preparation_job(request, job: UploadPreparationJob) -> None:
+    if job.status in ACTIVE_UPLOAD_PREPARATION_STATUSES:
+        _remember_upload_preparation_job(request, str(job.job_uuid))
+    else:
+        _forget_upload_preparation_job(request, str(job.job_uuid))
 
 
 def _build_upload_quota_payload(user, user_preferences: dict | None = None) -> dict[str, object]:
@@ -725,21 +768,23 @@ def experiment(request):
                 status=403,
             )
 
-        job = enqueue_upload_preparation_job(
+        job = _create_upload_preparation_job_for_mode(
             user_id=request.user.id,
             new_run_uuids=new_upload_uuids,
             restored_run_uuids=existing_uuids,
             config_snapshot=config_snapshot,
         )
-        _remember_upload_preparation_job(request, str(job.job_uuid))
-        payload = {
-            "job_uuid": str(job.job_uuid),
-            "status": job.status,
-            "phase": job.current_phase,
-            "detail": _upload_job_detail(job),
-        }
+        _track_active_upload_preparation_job(request, job)
+        payload = _build_upload_preparation_payload(request, job)
         if is_ajax:
             return JsonResponse(payload)
+        if job.status == UploadPreparationJob.Status.SUCCEEDED and payload.get("redirect"):
+            messages.info(request, "Files uploaded and prepared.")
+            return redirect(payload["redirect"])
+        if job.status == UploadPreparationJob.Status.FAILED:
+            for line in payload.get("errors") or ["Upload preparation failed. Please try again."]:
+                messages.error(request, line)
+            return redirect(request.path)
         messages.info(request, "Files uploaded and queued for preparation.")
         return redirect("experiment")
     else:
@@ -933,13 +978,13 @@ def enqueue_upload_preparation(request):
             status=400,
         )
 
-    job = enqueue_upload_preparation_job(
+    job = _create_upload_preparation_job_for_mode(
         user_id=request.user.id,
         new_run_uuids=new_run_uuids,
         restored_run_uuids=restored_run_uuids,
         config_snapshot=config_snapshot,
     )
-    _remember_upload_preparation_job(request, str(job.job_uuid))
+    _track_active_upload_preparation_job(request, job)
     return JsonResponse(_build_upload_preparation_payload(request, job))
 
 

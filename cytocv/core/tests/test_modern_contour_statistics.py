@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 from django.test import SimpleTestCase
 
+from core.channel_roles import CHANNEL_ROLE_BLUE, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
 from core.contour_processing.contour_operations import find_contours
 from core.image_processing import GrayImage
 from core.services.canonical_contours import (
@@ -271,6 +272,37 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(cp.category_cen_dot, 4)
         self.assertEqual(cp.properties["cen_dot_location"]["status"], "too_many_reds")
 
+    def test_best_effort_parentage_can_be_identified_when_cen_dot_is_na(self):
+        shape = (60, 60)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        red_left = self._rect_contour(18, 27, 21, 30)
+        red_right = self._rect_contour(28, 27, 31, 30)
+        green = self._rect_contour(19, 28, 21, 30)
+        red_gray[27:31, 18:22] = 10
+        red_gray[27:31, 28:32] = 10
+        green_gray[28:31, 19:22] = 10
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["CENDot"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data={
+                "dot_contours": [red_left, red_right],
+                "contours_green": [green],
+            },
+            y_range=range(5, 55),
+            x_range=range(5, 55),
+            cen_dot_distance=50.0,
+        )
+
+        self.assertEqual(cp.properties["cell_parentage"]["status"], "identified")
+        self.assertEqual(cp.properties["cell_parentage"]["mode"], "best_effort")
+        self.assertEqual(cp.category_cen_dot, 4)
+        self.assertEqual(cp.properties["cen_dot_location"]["status"], "reds_below_threshold")
+        self.assertEqual(cp.properties["cen_dot_location"]["cell_parentage_status"], "identified")
+
     def test_green_puncta_mode_measures_red_intensity_over_green_line(self):
         shape = (16, 16)
         red_gray = np.zeros(shape, dtype=np.uint8)
@@ -358,3 +390,66 @@ class ModernContourStatisticsTests(SimpleTestCase):
         expected_debug_green = self._rgb(support_green)
         cv2.drawContours(expected_debug_green, expected_contours, -1, (0, 255, 0), 1)
         self.assertTrue(np.array_equal(debug_green, expected_debug_green))
+
+    def test_get_stats_sums_raw_measurement_images_not_normalized_display_crops(self):
+        shape = (12, 12)
+        display_red = np.zeros(shape, dtype=np.uint8)
+        display_green = np.zeros(shape, dtype=np.uint8)
+        display_red[3:8, 3:8] = 255
+        display_green[3:8, 3:8] = 255
+        raw_red = np.zeros(shape, dtype=np.uint16)
+        raw_green = np.zeros(shape, dtype=np.uint16)
+        raw_red[3:8, 3:8] = 4000
+        raw_green[3:8, 3:8] = 1000
+
+        contour = self._rect_contour(3, 3, 7, 7)
+        contours_data = {"dot_contours": [contour], "contours_green": [contour]}
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={"nuclear_cell_pair_mode": "red_nucleus"},
+        )
+        images = {
+            "red": self._rgb(display_red),
+            "green": self._rgb(display_green),
+            "blue": self._rgb(np.zeros(shape, dtype=np.uint8)),
+        }
+        measurement_images = {
+            CHANNEL_ROLE_RED: raw_red,
+            CHANNEL_ROLE_GREEN: raw_green,
+            CHANNEL_ROLE_BLUE: np.zeros(shape, dtype=np.uint16),
+        }
+        execution_plan = build_stats_execution_plan(["GreenRedIntensity"])
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            self._write_outline(
+                output_dir,
+                y_range=range(0, shape[0]),
+                x_range=range(0, shape[1]),
+            )
+            with patch("core.views.segment_image.load_image", return_value=images), patch(
+                "core.views.segment_image.find_contours",
+                return_value=contours_data,
+            ):
+                get_stats(
+                    cp,
+                    self._conf(
+                        temp_dir,
+                        mode="red_nucleus",
+                        analysis=["GreenRedIntensity"],
+                    ),
+                    execution_plan,
+                    puncta_line_width=1,
+                    cen_dot_distance=37,
+                    cached_measurement_images=measurement_images,
+                )
+
+        mask = np.zeros(shape, np.uint8)
+        cv2.drawContours(mask, [contour], 0, 255, -1)
+        self.assertEqual(cp.red_intensity_1, float(np.sum(raw_red[mask > 0])))
+        self.assertEqual(cp.green_intensity_1, float(np.sum(raw_green[mask > 0])))
+        self.assertEqual(cp.green_red_intensity_1, 0.25)
+        self.assertEqual(cp.properties["intensity_pixel_source"], "raw_dv_v1")
+        self.assertFalse(cp.properties["intensity_display_scaled"])
+        self.assertFalse(cp.properties["intensity_background_subtracted"])

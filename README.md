@@ -1,6 +1,6 @@
 ﻿# CytoCV
 
-CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of mitotic yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
+CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
 > **Version:** 1.0  
 > **Python:** 3.11.5  
@@ -41,7 +41,7 @@ These outputs are software-generated measurements intended to support review and
 
 ## System Scope
 
-CytoCV is intended for research workflows built around DeltaVision microscopy of mitotic yeast cells. The application can process anything from a DIC-only structural run to a full four-role stack, depending on the selected plugin set and validation policy. In the current implementation, the platform coordinates:
+CytoCV is intended for research workflows built around DeltaVision microscopy of yeast cells. The application can process anything from a DIC-only structural run to a full four-role stack, depending on the selected plugin set and validation policy. In the current implementation, the platform coordinates:
 
 - DeltaVision ingestion and configurable validation
 - channel interpretation and preview generation
@@ -165,13 +165,13 @@ The default local URL is:
 http://127.0.0.1:8000/
 ```
 
-Start the background worker in a second terminal when testing the upload workflow:
+Start the background worker in a second terminal when `CYTOCV_ANALYSIS_EXECUTION_MODE=worker`:
 
 ```bash
 python manage.py run_analysis_worker --poll-interval 1
 ```
 
-The worker prepares staged uploads by validating DV files, extracting metadata, writing channel config, and generating previews. It also runs Start Analysis jobs when `CYTOCV_ANALYSIS_EXECUTION_MODE=worker`.
+In worker mode, the worker prepares staged uploads by validating DV files, extracting metadata, writing channel config, and generating previews. It also runs Start Analysis jobs.
 
 For production or VM deployment, use the dedicated operational documentation instead of the local workflow above.
 
@@ -217,7 +217,7 @@ The following requirements are operationally significant:
 
 - Python must remain at `3.11.5` unless the scientific stack is revalidated.
 - Production should use PostgreSQL, not SQLite.
-- Production should run `run_analysis_worker` as a supervised process for upload preparation and worker-mode analysis.
+- Production should run `run_analysis_worker` as a supervised process when `CYTOCV_ANALYSIS_EXECUTION_MODE=worker`.
 - The Mask R-CNN workflow requires `deepretina_final.h5` under `cytocv/core/weights/`.
 - TensorFlow-based analysis requires a CPU that exposes `AVX`. A server can host the web application without `AVX`, but the analysis pipeline will fail with `Illegal instruction` if the CPU does not support the required instruction set.
 
