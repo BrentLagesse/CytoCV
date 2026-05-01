@@ -192,7 +192,7 @@ COLLABORATOR_GROUPS = (
                     },
                     {
                         "href": "https://nicolasmgioanni.dev",
-                        "label": "Website",
+                        "label": "Personal",
                     },
                 ),
             },

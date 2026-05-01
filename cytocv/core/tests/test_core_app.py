@@ -456,7 +456,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             home_response,
-            "CytoCV: Automated Yeast Cell Image Analysis for Research Workflows",
+            "CytoCV: Automated Cell Image Analysis for Research Workflows",
         )
         self.assertContains(home_response, "University of Washington Bothell")
         self.assertContains(
@@ -515,7 +515,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(home_response.status_code, 200)
         self.assertContains(
             home_response,
-            "CytoCV: Automated Yeast Cell Image Analysis for Research Workflows",
+            "CytoCV: Automated Cell Image Analysis for Research Workflows",
         )
         self.assertContains(
             home_response,
@@ -641,11 +641,13 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertNotContains(biology_response, "Back to About")
         self.assertNotContains(biology_response, 'class="detail-actions"', html=False)
         self.assertNotContains(biology_response, "This biology overview explains")
-        self.assertContains(biology_response, "Documentation Links")
-        self.assertContains(biology_response, "Related documentation")
-        self.assertContains(biology_response, "Mitotic yeast imaging as the core use case")
-        self.assertContains(biology_response, "How DIC, Blue, Red, and Green contribute to interpretation")
-        self.assertContains(biology_response, "Why the measurements matter biologically")
+        self.assertNotContains(biology_response, "Documentation Links")
+        self.assertNotContains(biology_response, "Related documentation")
+        self.assertContains(biology_response, "Chromosome segregation in mitotic yeast")
+        self.assertContains(biology_response, "Reference and experimental fluorophore comparisons")
+        self.assertContains(biology_response, "Classifying CEN dots after anaphase")
+        self.assertContains(biology_response, "Evaluating chromosome biorientation in metaphase")
+        self.assertContains(biology_response, "Nuclear versus cytoplasmic protein localization")
         self.assertContains(biology_response, "Practical value and biological caution points")
         self.assertContains(biology_response, 'id="experimental-context"', html=False)
         self.assertContains(biology_response, 'id="biology-research-docs"', html=False)
