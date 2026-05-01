@@ -72,3 +72,4 @@ Formal PDF deliverables:
 - Historical deployment record (first VM): [`vm-deployment-record/README.md`](vm-deployment-record/README.md)
 - Historical deployment record (replacement VM): [`vm-deployment-record-cytocv2/README.md`](vm-deployment-record-cytocv2/README.md)
 - Historical deployment record (cytocv2 April 2026 maintenance refresh): [`vm-deployment-record-cytocv2-2026-04-maintenance/README.md`](vm-deployment-record-cytocv2-2026-04-maintenance/README.md)
+- Historical deployment record (cytocv2 May 2026 code refresh): [`vm-deployment-record-cytocv2-2026-05-code-refresh/README.md`](vm-deployment-record-cytocv2-2026-05-code-refresh/README.md)
