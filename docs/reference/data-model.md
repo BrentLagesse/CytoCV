@@ -135,12 +135,14 @@ Important direct fields include:
 - contour sizes
 - red, green, and mixed intensity fields
 - legacy Blue-derived fields when corresponding legacy plugins are selected
+- DIC-derived mother/daughter parentage in `properties.cell_parentage`
 - CEN dot classification fields when `CENDot` is selected
 - `properties`
 
 `properties` carries dynamic run context such as:
 
 - nuclear or cell-pair mode
+- cell parentage status, mode, method, lobe areas, and label positions
 - scale source and effective scale
 - line width and distance threshold context
 

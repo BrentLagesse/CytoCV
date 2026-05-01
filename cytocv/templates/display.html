@@ -2026,6 +2026,10 @@
                                                 <span class="metric-value" id="punctaLineIntensity"></span>
                                             </div>
                                             <div class="metric-row">
+                                                <span class="metric-label">Cell Parentage</span>
+                                                <span class="metric-value" id="cellParentage"></span>
+                                            </div>
+                                            <div class="metric-row">
                                                 <span class="metric-label">Cen Dot Location</span>
                                                 <span class="metric-value" id="cenDot"></span>
                                             </div>
@@ -2234,6 +2238,7 @@
             'nucleusIntensitySum',
             'cellPairIntensitySum',
             'cytoplasmicIntensity',
+            'cellParentage',
             'cenDot',
             'colinearDots',
             'offAxisDots',
@@ -2289,6 +2294,7 @@
             'cell_pair_intensity_sum',
             'nucleus_intensity_sum',
             'cytoplasmic_intensity',
+            'cell_parentage',
             'category_cen_dot',
             'colinear_dots',
             'off_axis_dots',
@@ -2582,6 +2588,7 @@
             const scaleContext = getScaleContext(filesData[fileUUID]);
             const spatialUnit = getCurrentSpatialUnit();
             const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
+            const cellParentage = cellStats ? (cellStats.cell_parentage_label || 'Not identified') : 'N/A';
             const nuclearUnavailable = hasNoNucleusContour(cellStats);
             const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
             const labels = getNuclearLabelPair(mode);
@@ -2613,6 +2620,7 @@
                     nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
                     cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
                     cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
+                    cellParentage,
                     cenDot: category,
                     colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),
                     offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),
@@ -3264,6 +3272,8 @@
                         td.textContent = String(id);
                     } else if (fieldName === 'category_cen_dot') {
                         td.textContent = rowStats ? (rowStats.category_cen_dot_label || 'N/A') : 'N/A';
+                    } else if (fieldName === 'cell_parentage') {
+                        td.textContent = rowStats ? (rowStats.cell_parentage_label || 'Not identified') : 'N/A';
                     } else if (nuclearCellularFields.has(fieldName) && hasNoNucleusContour(rowStats)) {
                         td.textContent = 'N/A';
                     } else {

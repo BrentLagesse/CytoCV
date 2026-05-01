@@ -19,6 +19,7 @@ from core.services.measurement_contour_ratio import (
     normalize_nuclear_cell_pair_mode,
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
+from core.services.cell_parentage import cell_parentage_payload_from_properties
 
 
 NUCLEAR_CELL_PAIR_LABELS = {
@@ -112,6 +113,7 @@ class CellTable(tables.Table):
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
+    cell_parentage = tables.Column(verbose_name="Cell Parentage", empty_values=())
     category_cen_dot = ChoiceLabelColumn(verbose_name="Cen Dot Location")
     colinear_dots = tables.Column(verbose_name="Colinear Dots")
     off_axis_dots = tables.Column(verbose_name="Off Axis Dots")
@@ -152,6 +154,7 @@ class CellTable(tables.Table):
             "cell_pair_intensity_sum",
             "nucleus_intensity_sum",
             "cytoplasmic_intensity",
+            "cell_parentage",
             "category_cen_dot",
             "colinear_dots",
             "off_axis_dots",
@@ -215,6 +218,14 @@ class CellTable(tables.Table):
             return "{:0.3f}".format(float(value))
         except (TypeError, ValueError):
             return "N/A"
+
+    def render_cell_parentage(self, record: CellStatistics) -> str:
+        return cell_parentage_payload_from_properties(
+            getattr(record, "properties", {}) or {}
+        ).get("label", "Not identified")
+
+    def value_cell_parentage(self, record: CellStatistics) -> str:
+        return self.render_cell_parentage(record)
 
     def _converted_spatial_value(
         self,

@@ -2210,7 +2210,7 @@
 
     const pluginInfoExplanations = {
         PunctaDistance: 'Measures the distance between two puncta in the chosen source channel and sums the opposite-channel intensity along the line connecting them. It uses the first two detected source puncta, draws a line mask between their centers, and records the line intensity from the measurement channel.',
-        CENDot: 'Classifies whether Green CEN dots are associated with the mother side, daughter side, both sides, or neither side. It uses the DIC cell/neck split to separate mother and daughter regions, checks for two usable Red puncta, then assigns nearby Green dots to the closest eligible Red punctum.',
+        CENDot: 'Classifies whether Green CEN dots are associated with the mother side, daughter side, both sides, or neither side. It uses automatic DIC mother/daughter parentage, checks for two usable Red puncta, then assigns nearby Green dots to the closest eligible Red punctum.',
         Biorientation: 'Counts Green dots as colinear or off-axis relative to the line between the two Red puncta. Counts are reported only when exactly two Red puncta are present and their separation is inside the configured distance range.',
         GreenRedIntensity: 'Measures raw intensity sums inside detected Red and Green contour masks. For Red contours it records Red and Green signal in the Red mask; for Green contours it records Red and Green signal in the Green mask and the distance to the nearest Red contour.',
         NuclearCellPairIntensity: 'Measures intensity in the selected nucleus contour and the full DIC cell-pair mask. The selected Red or Green nucleus contour defines the nucleus, and the opposite channel is summed inside the nucleus, whole cell pair, and cytoplasm.',
@@ -4329,7 +4329,9 @@
         statsState.selectedPlugins.forEach((pluginId) => {
             const plugin = pluginMap.get(pluginId);
             if (!plugin || !Array.isArray(plugin.required_channels)) return false;
-            plugin.required_channels.forEach((required_channel) => {console.log(required_channel); if (required_channel === channel) used = true;});
+            plugin.required_channels.forEach((required_channel) => {
+                if (required_channel === channel) used = true;
+            });
         });
         return used;
     }

@@ -118,6 +118,16 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertNotIn("biorientation_green_split_enabled", defaults)
 
+    def test_normalize_preferences_keeps_cen_dot_selection(self):
+        normalized = normalize_preferences_payload(
+            {"experiment_defaults": {"selected_plugins": ["CENDot"]}}
+        )
+
+        self.assertEqual(
+            normalized["experiment_defaults"]["selected_plugins"],
+            ["CENDot"],
+        )
+
     def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
         normalized = normalize_preferences_payload(
             {
@@ -1579,6 +1589,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
         self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
         self.assertContains(response, 'id="green_dot_split_mode"', html=False)
+        self.assertNotContains(response, 'id="cell_parentage_mode"', html=False)
+        self.assertNotContains(response, "Mother/Daughter Mode")
         self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
         self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
         self.assertContains(
@@ -1631,6 +1643,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Save as workflow default?")
         self.assertContains(response, "Keep Old Settings")
         self.assertContains(response, "Keep New Changes")
+        self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
+        self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
 
     def test_experiment_workflow_defaults_endpoint_persists_popup_settings(self):
         payload = self._build_experiment_workflow_defaults_payload()
@@ -1644,7 +1658,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json()["message"],
-            "Workflow default updated. Future experiments will start with this configuration.",
+            "Workflow default saved. Future experiments will start with these settings.",
         )
 
         self.user.refresh_from_db()

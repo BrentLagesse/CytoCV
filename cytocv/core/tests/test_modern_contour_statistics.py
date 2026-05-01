@@ -272,6 +272,37 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(cp.category_cen_dot, 4)
         self.assertEqual(cp.properties["cen_dot_location"]["status"], "too_many_reds")
 
+    def test_best_effort_parentage_can_be_identified_when_cen_dot_is_na(self):
+        shape = (60, 60)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        red_left = self._rect_contour(18, 27, 21, 30)
+        red_right = self._rect_contour(28, 27, 31, 30)
+        green = self._rect_contour(19, 28, 21, 30)
+        red_gray[27:31, 18:22] = 10
+        red_gray[27:31, 28:32] = 10
+        green_gray[28:31, 19:22] = 10
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["CENDot"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data={
+                "dot_contours": [red_left, red_right],
+                "contours_green": [green],
+            },
+            y_range=range(5, 55),
+            x_range=range(5, 55),
+            cen_dot_distance=50.0,
+        )
+
+        self.assertEqual(cp.properties["cell_parentage"]["status"], "identified")
+        self.assertEqual(cp.properties["cell_parentage"]["mode"], "best_effort")
+        self.assertEqual(cp.category_cen_dot, 4)
+        self.assertEqual(cp.properties["cen_dot_location"]["status"], "reds_below_threshold")
+        self.assertEqual(cp.properties["cen_dot_location"]["cell_parentage_status"], "identified")
+
     def test_green_puncta_mode_measures_red_intensity_over_green_line(self):
         shape = (16, 16)
         red_gray = np.zeros(shape, dtype=np.uint8)

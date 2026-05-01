@@ -97,6 +97,7 @@ from core.services.artifact_storage import (
 )
 from core.services.canonical_contours import (
     CANONICAL_BLUE_SLOTS_KEY,
+    CELL_PARENTAGE_KEY,
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
@@ -248,7 +249,19 @@ def get_stats(
     edit_green_img = _canvas_for("green")
     edit_blue_img = _canvas_for("blue")
 
+    def _attach_canonical_parentage(contour_payload):
+        canonical_payload = build_canonical_contour_payload(
+            contour_payload,
+            image_name=cp.image_name,
+            cell_id=cp.cell_id,
+            output_dir=output_dir,
+            shape=reference.shape[:2],
+        )
+        cp.properties["cell_parentage"] = canonical_payload.get(CELL_PARENTAGE_KEY)
+        return canonical_payload
+
     if not execution_plan.selected_plugins:
+        _attach_canonical_parentage({})
         # No selected statistics: keep defaults and return plain debug frames.
         edit_red_img_rgb = cv2.cvtColor(edit_red_img, cv2.COLOR_BGR2RGB)
         edit_green_img_rgb = cv2.cvtColor(edit_green_img, cv2.COLOR_BGR2RGB)
@@ -284,6 +297,7 @@ def get_stats(
         output_dir=output_dir,
         shape=reference.shape[:2],
     )
+    cp.properties["cell_parentage"] = contours_data.get(CELL_PARENTAGE_KEY)
     canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
     canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
@@ -1153,7 +1167,6 @@ def segment_image(request, uuids):
         green_dot_split_mode = normalize_green_dot_split_mode(
             request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
         )
-
         configured_puncta_line_width = _process_config_value(
             configuration,
             "puncta_line_width",

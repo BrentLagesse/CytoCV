@@ -11,6 +11,7 @@ from core.services.measurement_contour_ratio import (
     normalize_nuclear_cell_pair_mode,
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
+from core.services.cell_parentage import cell_parentage_payload_from_properties
 
 
 def normalize_channel_display_name(value: Any, default: str = "") -> str:
@@ -34,6 +35,7 @@ def serialize_cell_statistics_payload(
         return None
 
     properties = cell_stat.properties or {}
+    cell_parentage = cell_parentage_payload_from_properties(properties)
     nuclear_cell_pair_mode = normalize_nuclear_cell_pair_mode(
         properties.get("nuclear_cell_pair_mode", properties.get("nuclear_cellular_mode"))
     )
@@ -123,6 +125,11 @@ def serialize_cell_statistics_payload(
             properties.get("nuclear_cellular_status", "unknown"),
         ),
         "category_cen_dot": cell_stat.category_cen_dot,
+        "cell_parentage": cell_parentage,
+        "cell_parentage_label": cell_parentage.get("label", "Not identified"),
+        "cell_parentage_status": cell_parentage.get("status", "not_identified"),
+        "cell_parentage_mode": cell_parentage.get("mode"),
+        "cell_parentage_method": cell_parentage.get("method"),
         "category_cen_dot_label": get_cen_dot_category_label(
             cell_stat.category_cen_dot,
             schema_version=properties.get("cen_dot_schema_version"),

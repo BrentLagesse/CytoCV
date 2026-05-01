@@ -54,6 +54,8 @@ If no plugins are selected and no validation overrides are enabled, the enforced
 
 The nuclear or cell-pair plugin family is exclusive in the current implementation. If multiple plugins from that family are selected, the first one in the stable plugin order remains active.
 
+CytoCV computes mother/daughter assignment automatically from DIC cell-pair geometry. The larger inferred lobe is reported as mother and the smaller inferred lobe as daughter. `CENDot` consumes that automatic parentage result, but its own output can still be `N/A` when Red or Green evidence fails validation.
+
 ## Validation Module Controls
 
 Advanced settings can turn on:

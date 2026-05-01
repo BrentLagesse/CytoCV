@@ -13,6 +13,7 @@ from core.services.canonical_contours import (
     CANONICAL_GREEN_SLOTS_KEY,
     CANONICAL_RED_SLOTS_KEY,
     CELL_MASK_KEY,
+    CELL_PARENTAGE_KEY,
     CanonicalContourSlot,
     DAUGHTER_MASK_KEY,
     MOTHER_MASK_KEY,
@@ -95,6 +96,7 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         neck_split,
         cen_dot_distance: float = 5.0,
         cen_dot_proximity_radius: float = 10.0,
+        parentage_payload: dict | None = None,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -103,11 +105,21 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         )
         images = _build_preprocessed_images()
         analysis = CENDot(cp=cp, image=images, output_dir="/tmp")
+        if parentage_payload is None and mother_mask is not None and daughter_mask is not None:
+            parentage_payload = {
+                "status": "identified",
+                "mode": "conservative",
+                "method": "neck_split",
+                "reason": "ok",
+                "label": "Mother/Daughter identified",
+                "has_neck_split": neck_split is not None,
+            }
         contours_data = {
             CELL_MASK_KEY: cell_mask,
             MOTHER_MASK_KEY: mother_mask,
             DAUGHTER_MASK_KEY: daughter_mask,
             NECK_SPLIT_KEY: neck_split,
+            CELL_PARENTAGE_KEY: parentage_payload,
             CANONICAL_RED_SLOTS_KEY: red_slots,
             CANONICAL_GREEN_SLOTS_KEY: green_slots,
             CANONICAL_BLUE_SLOTS_KEY: [],
@@ -157,6 +169,8 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertTrue(payload["mother_red_has_green"])
         self.assertTrue(payload["daughter_red_has_green"])
         self.assertEqual(payload["green_assignment_rule"], "nearest_red_inside_pair_mask")
+        self.assertEqual(payload["cell_parentage_status"], "identified")
+        self.assertEqual(payload["cell_parentage_method"], "neck_split")
         self.assertEqual(cp.properties["cen_dot_schema_version"], 3)
     def test_green_only_in_mother_yields_mother_only(self):
         cell, mother, daughter = _build_side_masks()
@@ -394,7 +408,7 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertFalse(payload["green_in_mother"])
         self.assertFalse(payload["green_in_daughter"])
 
-    def test_missing_neck_split_yields_na(self):
+    def test_missing_cell_parentage_yields_na(self):
         cell, _, _ = _build_side_masks()
         red_top = _disk_slot(0, (20, 15))
         red_bot = _disk_slot(1, (20, 45))
@@ -411,8 +425,39 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
 
         self.assertEqual(cp.category_cen_dot, 4)
         payload = cp.properties["cen_dot_location"]
-        self.assertEqual(payload["status"], "missing_neck_split")
+        self.assertEqual(payload["status"], "missing_cell_parentage")
         self.assertFalse(payload["has_neck_split"])
+
+    def test_best_effort_parentage_masks_classify_without_neck_split(self):
+        cell, mother, daughter = _build_side_masks()
+        red_top = _disk_slot(0, (20, 15))
+        red_bot = _disk_slot(1, (20, 45))
+        green_top = _disk_slot(0, (22, 17))
+        green_bot = _disk_slot(1, (22, 43))
+
+        cp = self._run(
+            red_slots=[red_top, red_bot],
+            green_slots=[green_top, green_bot],
+            cell_mask=cell,
+            mother_mask=mother,
+            daughter_mask=daughter,
+            neck_split=None,
+            parentage_payload={
+                "status": "identified",
+                "mode": "best_effort",
+                "method": "principal_axis_median",
+                "reason": "ok",
+                "label": "Mother/Daughter identified",
+                "has_neck_split": False,
+            },
+        )
+
+        self.assertEqual(cp.category_cen_dot, 1)
+        payload = cp.properties["cen_dot_location"]
+        self.assertEqual(payload["status"], "mother_and_daughter")
+        self.assertFalse(payload["has_neck_split"])
+        self.assertEqual(payload["cell_parentage_mode"], "best_effort")
+        self.assertEqual(payload["cell_parentage_method"], "principal_axis_median")
 
     def test_reds_below_threshold_yields_na(self):
         """Close reds skip mother/daughter classification."""
@@ -434,3 +479,5 @@ class CENDotMotherDaughterClassificationTests(SimpleTestCase):
         self.assertEqual(cp.category_cen_dot, 4)
         payload = cp.properties["cen_dot_location"]
         self.assertEqual(payload["status"], "reds_below_threshold")
+        self.assertEqual(payload["cell_parentage_status"], "identified")
+        self.assertEqual(payload["cell_parentage_method"], "neck_split")

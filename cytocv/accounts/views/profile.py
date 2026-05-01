@@ -70,6 +70,7 @@ from core.stats_plugins import (
     PLUGIN_ORDER,
     build_plugin_ui_payload,
     build_requirement_summary,
+    expand_selected_plugins,
     normalize_selected_plugins,
 )
 from core.tables import CellTable
@@ -1151,7 +1152,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "save_plugin_defaults":
-            selected_plugins = normalize_selected_plugins(
+            selected_plugins = expand_selected_plugins(
                 request.POST.getlist("selected_plugins")
             )
             measurement_defaults = _extract_measurement_defaults(request.POST, defaults)

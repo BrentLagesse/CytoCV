@@ -1580,6 +1580,13 @@ class RouteSurfaceRefactorTests(TestCase):
                     "nuclear_cell_pair_mode": "red_nucleus",
                     "puncta_line_mode": "green_puncta",
                     "cen_dot_schema_version": 3,
+                    "cell_parentage": {
+                        "status": "identified",
+                        "mode": "conservative",
+                        "method": "neck_split",
+                        "label": "Mother/Daughter identified",
+                        "reason": "ok",
+                    },
                 },
                 category_cen_dot=1,
             )
@@ -1614,6 +1621,13 @@ class RouteSurfaceRefactorTests(TestCase):
             '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
+        self.assertContains(
+            response,
+            '"cell_parentage_label": "Mother/Daughter identified"',
+            html=False,
+        )
+        self.assertContains(response, "cellStats.cell_parentage_label || 'Not identified'", html=False)
+        self.assertContains(response, "Cell Parentage")
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
@@ -1640,6 +1654,13 @@ class RouteSurfaceRefactorTests(TestCase):
                     "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "green_puncta",
                     "cen_dot_schema_version": 3,
+                    "cell_parentage": {
+                        "status": "identified",
+                        "mode": "conservative",
+                        "method": "neck_split",
+                        "label": "Mother/Daughter identified",
+                        "reason": "ok",
+                    },
                 },
                 category_cen_dot=1,
             )
@@ -1673,6 +1694,13 @@ class RouteSurfaceRefactorTests(TestCase):
             '"category_cen_dot_label": "Mother and daughter"',
             html=False,
         )
+        self.assertContains(
+            response,
+            '"cell_parentage_label": "Mother/Daughter identified"',
+            html=False,
+        )
+        self.assertContains(response, "cellStats.cell_parentage_label || 'Not identified'", html=False)
+        self.assertContains(response, "Cell Parentage")
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
@@ -1730,6 +1758,7 @@ class RouteSurfaceRefactorTests(TestCase):
 class PluginMappingRegressionTests(TestCase):
     def test_plugin_loader_maps_stable_ids_to_renamed_modules(self):
         plugin_ids = load_available_plugin_ids()
+        self.assertEqual(plugin_ids[0], "PunctaDistance")
         self.assertIn("PunctaDistance", plugin_ids)
         self.assertIn("CENDot", plugin_ids)
 
@@ -1755,4 +1784,15 @@ class PluginMappingRegressionTests(TestCase):
         self.assertEqual(
             [instance.__class__.__name__ for instance in plan.analyses],
             ["NuclearCellPairIntensity"],
+        )
+
+    def test_build_stats_execution_plan_keeps_cen_dot_standalone(self):
+        plan = build_stats_execution_plan(["CENDot"])
+
+        self.assertEqual(plan.normalized_plugins, ("CENDot",))
+        self.assertEqual(plan.selected_plugins, ("CENDot",))
+        self.assertEqual(plan.required_channels, ("DIC", "channel_red", "channel_green"))
+        self.assertEqual(
+            [instance.__class__.__name__ for instance in plan.analyses],
+            ["CENDot"],
         )
