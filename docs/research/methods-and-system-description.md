@@ -2,7 +2,7 @@
 
 ## Abstract
 
-CytoCV is a web-based research workflow for DeltaVision microscopy of mitotic yeast cells. It combines authenticated access, upload validation, DIC-guided segmentation, configurable red/green analysis modules, legacy blue-channel analyses, and exportable per-cell measurements in one application. Throughout this document, channel terminology follows the current user-facing interface: DIC, Blue, Red, and Green. When instrument metadata uses names such as DAPI, mCherry, or GFP, CytoCV attempts to normalize those labels into the Blue, Red, and Green roles before validation and analysis continue.
+CytoCV is a web-based research workflow for DeltaVision microscopy of yeast cells. It combines authenticated access, upload validation, DIC-guided segmentation, configurable red/green analysis modules, legacy blue-channel analyses, and exportable per-cell measurements in one application. Throughout this document, channel terminology follows the current user-facing interface: DIC, Blue, Red, and Green. When instrument metadata uses names such as DAPI, mCherry, or GFP, CytoCV attempts to normalize those labels into the Blue, Red, and Green roles before validation and analysis continue.
 
 ## System Objective
 

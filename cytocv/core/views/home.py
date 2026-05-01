@@ -84,7 +84,7 @@ HOME_PROOF_CARDS = (
         "title": "About CytoCV",
         "body": (
             "CytoCV is a web-based research workflow for DeltaVision microscopy of "
-            "mitotic yeast cells. It keeps validation, segmentation, measurement, and "
+            "yeast cells. It keeps validation, segmentation, measurement, and "
             "review connected in one place so imaging results are easier to analyze, "
             "compare, and interpret."
         ),
@@ -358,7 +358,7 @@ ABOUT_TECHNICAL_PAGE = {
             ),
             "highlights": (
                 "The main emphasis is application structure and workflow behavior rather than deployment setup.",
-                "The platform is shaped around DeltaVision mitotic yeast analysis instead of general-purpose microscopy hosting.",
+                "The platform is shaped around DeltaVision yeast analysis instead of general-purpose microscopy hosting.",
             ),
         },
         {
@@ -534,7 +534,7 @@ ABOUT_TECHNICAL_PAGE = {
 ABOUT_BIOLOGY_PAGE = {
     "template_title": "CytoCV Biological Context",
     "meta_description": (
-        "Biology overview for CytoCV covering mitotic yeast context, "
+        "Biology overview for CytoCV covering yeast microscopy context, "
         "chromosome segregation assays, channel roles, biological interpretation, "
         "and supporting documentation links."
     ),
@@ -542,7 +542,7 @@ ABOUT_BIOLOGY_PAGE = {
     "page_title": "Biological Context",
     "show_doc_overview": False,
     "page_intro": (
-        "CytoCV is built around mitotic yeast microscopy assays that use segmented "
+        "CytoCV is built around yeast microscopy assays that use segmented "
         "cell structure, red and green fluorescent markers, and per-cell measurements "
         "to support chromosome segregation, localization, and intensity comparisons."
     ),
@@ -552,9 +552,9 @@ ABOUT_BIOLOGY_PAGE = {
             "id": "experimental-context",
             "jump_label": "Core Use Case",
             "eyebrow": "Experimental Context",
-            "title": "Chromosome segregation in mitotic yeast",
+            "title": "Chromosome segregation in yeast",
             "paragraphs": (
-                "CytoCV contains analysis workflows developed primarily for microscopy assays that study chromosome segregation in mitotic yeast. These experiments often depend on comparing cellular structure, spindle-pole position, chromosome-associated fluorescent dots, and protein localization across many individual cells.",
+                "CytoCV contains analysis workflows developed primarily for microscopy assays that study chromosome segregation in yeast. These experiments often depend on comparing cellular structure, spindle-pole position, chromosome-associated fluorescent dots, and protein localization across many individual cells.",
                 "That biological focus shapes the software: DIC defines the cell and mother/daughter geometry, while red and green fluorescence channels provide the main markers for distance, localization, contour, and intensity measurements.",
             ),
             "highlights": (
@@ -704,7 +704,7 @@ RESEARCH_SECTIONS = (
         "title": "Methods and system description",
         "summary": (
             "CytoCV is documented as a web-based analysis system for DeltaVision microscopy "
-            "of mitotic yeast cells. The active implementation combines authenticated web "
+            "of yeast cells. The active implementation combines authenticated web "
             "workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, "
             "plugin-scoped per-cell quantification, and retention-aware result management."
         ),

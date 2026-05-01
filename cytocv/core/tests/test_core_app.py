@@ -643,7 +643,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertNotContains(biology_response, "This biology overview explains")
         self.assertNotContains(biology_response, "Documentation Links")
         self.assertNotContains(biology_response, "Related documentation")
-        self.assertContains(biology_response, "Chromosome segregation in mitotic yeast")
+        self.assertContains(biology_response, "Chromosome segregation in yeast")
         self.assertContains(biology_response, "Reference and experimental fluorophore comparisons")
         self.assertContains(biology_response, "Classifying CEN dots after anaphase")
         self.assertContains(biology_response, "Evaluating chromosome biorientation in metaphase")
