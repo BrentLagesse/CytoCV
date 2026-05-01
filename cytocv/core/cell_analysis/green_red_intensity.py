@@ -33,11 +33,15 @@ class GreenRedIntensity(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
-        red_gray = self.preprocessed_images.get_image("red_no_bg")
+        red_gray = self.preprocessed_images.get_image("raw_red")
+        if red_gray is None:
+            red_gray = self.preprocessed_images.get_image("red_no_bg")
         if red_gray is None:
             red_gray = self.preprocessed_images.get_image("gray_red")
 
-        green_gray = self.preprocessed_images.get_image("green_no_bg")
+        green_gray = self.preprocessed_images.get_image("raw_green")
+        if green_gray is None:
+            green_gray = self.preprocessed_images.get_image("green_no_bg")
         if green_gray is None:
             green_gray = self.preprocessed_images.get_image("green")
         props = dict(getattr(self.cp, "properties", {}) or {})

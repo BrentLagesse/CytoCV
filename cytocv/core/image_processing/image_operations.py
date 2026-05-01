@@ -21,6 +21,26 @@ def _copy_cached_image(image_array):
     return Image.fromarray(cached_array.copy()), cached_array
 
 
+def _get_mapping_value(mapping, *keys):
+    for key in keys:
+        if key in mapping and mapping[key] is not None:
+            return mapping[key]
+    return None
+
+
+def _as_single_channel(image_array):
+    array = np.asarray(image_array)
+    if array.ndim == 2:
+        return np.array(array, copy=True)
+    if array.ndim == 3 and array.shape[2] == 1:
+        return np.array(array[:, :, 0], copy=True)
+    if array.ndim == 3 and array.shape[2] == 4:
+        return cv2.cvtColor(array, cv2.COLOR_RGBA2GRAY)
+    if array.ndim == 3:
+        return cv2.cvtColor(array, cv2.COLOR_RGB2GRAY)
+    return np.array(array, copy=True)
+
+
 def load_image(cp, output_dir, required_channels=None, cached_images=None):
     """
     This function loads an image from a file path and returns it as a numpy array.
@@ -62,7 +82,7 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
     return loaded
 
 
-def preprocess_image_to_gray(images, kdev, ksize):
+def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
     """
     This function preprocesses an image and returns a gray scale of images and blurred version of it.
     :param images: A dictionary containing red, green, and blue image arrays
@@ -112,6 +132,19 @@ def preprocess_image_to_gray(images, kdev, ksize):
         original_gray_blue = cv2.cvtColor(blue_image, cv2.COLOR_RGB2GRAY)
         gray_payload["gray_blue_3"] = cv2.GaussianBlur(original_gray_blue, (3, 3), 1)
         gray_payload["gray_blue"] = cv2.GaussianBlur(original_gray_blue, (ksize, ksize), kdev)
+
+    measurement_images = measurement_images or {}
+    raw_green = _get_mapping_value(measurement_images, CHANNEL_ROLE_GREEN, "green")
+    if raw_green is not None:
+        gray_payload["raw_green"] = _as_single_channel(raw_green)
+
+    raw_red = _get_mapping_value(measurement_images, CHANNEL_ROLE_RED, "red")
+    if raw_red is not None:
+        gray_payload["raw_red"] = _as_single_channel(raw_red)
+
+    raw_blue = _get_mapping_value(measurement_images, CHANNEL_ROLE_BLUE, "blue")
+    if raw_blue is not None:
+        gray_payload["raw_blue"] = _as_single_channel(raw_blue)
 
     gray_image = GrayImage(img=gray_payload)
 

@@ -19,13 +19,13 @@ class NuclearCellPairIntensity(Analysis):
     _MODE_CONFIG = {
         "green_nucleus": (
             ("green_no_bg", "green"),
-            ("red_no_bg", "gray_red"),
+            ("raw_red", "red_no_bg", "gray_red"),
             "Green",
             "Red",
         ),
         "red_nucleus": (
             ("red_no_bg", "gray_red"),
-            ("green_no_bg", "green"),
+            ("raw_green", "green_no_bg", "green"),
             "Red",
             "Green",
         ),
@@ -126,9 +126,9 @@ class NuclearCellPairIntensity(Analysis):
             default=None,
         )
 
-        measure_u8 = measure_img.astype(np.float32, copy=False)
-        cell_pixels = measure_u8[cell_mask > 0]
-        nucleus_pixels = measure_u8[nucleus_mask > 0]
+        measure_values = measure_img.astype(np.float64, copy=False)
+        cell_pixels = measure_values[cell_mask > 0]
+        nucleus_pixels = measure_values[nucleus_mask > 0]
 
         cell_intensity = float(np.sum(cell_pixels)) if cell_pixels.size else 0.0
         nucleus_intensity = float(np.sum(nucleus_pixels)) if nucleus_pixels.size else 0.0

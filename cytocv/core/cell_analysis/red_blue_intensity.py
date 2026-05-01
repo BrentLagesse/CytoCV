@@ -17,11 +17,16 @@ class RedBlueIntensity(Analysis):
     ):
         """
         """
-        blue_gray = self.preprocessed_images.get_image('gray_blue')
-        red_slots = get_canonical_red_slots(contours_data, blue_gray.shape, limit=3)
-
         for idx in range(1, 4):
             setattr(self.cp, f'red_blue_intensity_{idx}', 0.0)
+
+        blue_gray = self.preprocessed_images.get_image('raw_blue')
+        if blue_gray is None:
+            blue_gray = self.preprocessed_images.get_image('gray_blue')
+        if blue_gray is None:
+            return
+
+        red_slots = get_canonical_red_slots(contours_data, blue_gray.shape, limit=3)
 
         for i, slot in enumerate(red_slots):
             red_intensity = calculate_intensity_mask(blue_gray, slot.mask)

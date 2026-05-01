@@ -5,7 +5,13 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from core.cell_analysis import GreenRedIntensity
+from core.cell_analysis import (
+    BlueNucleusIntensity,
+    GreenRedIntensity,
+    NucleusIntensity,
+    PunctaDistance,
+    RedBlueIntensity,
+)
 from core.image_processing import GrayImage
 from core.metadata_processing.error_handling.dv_validation import (
     DVValidationOptions,
@@ -189,6 +195,13 @@ class DVChannelParserTests(SimpleTestCase):
 
 
 class AnalysisRegressionTests(SimpleTestCase):
+    @staticmethod
+    def _rect_contour(x1: int, y1: int, x2: int, y2: int):
+        return np.array(
+            [[[x1, y1]], [[x2, y1]], [[x2, y2]], [[x1, y2]]],
+            dtype=np.int32,
+        )
+
     def test_green_red_intensity_does_not_bool_evaluate_numpy_arrays(self):
         plugin = GreenRedIntensity()
         cp = SimpleNamespace(properties={"nuclear_cell_pair_mode": "red_nucleus"})
@@ -343,3 +356,123 @@ class AnalysisRegressionTests(SimpleTestCase):
             expected_red_in_green / expected_green_in_green,
         )
         self.assertEqual(cp.green_red_intensity_2, 0.0)
+
+    def test_puncta_distance_prefers_raw_measurement_channel_for_line_sum(self):
+        plugin = PunctaDistance()
+        cp = SimpleNamespace(properties={"puncta_line_mode": "red_puncta"})
+        shape = (10, 10)
+        raw_green = np.zeros(shape, dtype=np.uint16)
+        processed_green = np.zeros(shape, dtype=np.uint8)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        left_red = self._rect_contour(1, 1, 3, 3)
+        right_red = self._rect_contour(6, 1, 8, 3)
+        line_mask = np.zeros(shape, dtype=np.uint8)
+        cv2.line(line_mask, (2, 2), (7, 2), 255, thickness=1)
+        raw_green[line_mask > 0] = 1234
+        preprocessed = GrayImage(
+            img={
+                "gray_red": red_gray,
+                "red_no_bg": red_gray,
+                "green": processed_green,
+                "green_no_bg": processed_green,
+                "raw_green": raw_green,
+            }
+        )
+        plugin.setting_up(cp, preprocessed, output_dir="")
+
+        plugin.calculate_statistics(
+            best_contours={},
+            contours_data={"dot_contours": [left_red, right_red], "contours_green": []},
+            red_image=np.zeros((*shape, 3), dtype=np.uint8),
+            green_image=np.zeros((*shape, 3), dtype=np.uint8),
+            puncta_line_width_input=1,
+            cen_dot_distance=37,
+        )
+
+        self.assertEqual(cp.puncta_line_intensity, float(np.sum(raw_green[line_mask > 0])))
+
+    def test_legacy_green_nucleus_intensity_prefers_raw_green_values(self):
+        plugin = NucleusIntensity()
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={},
+            nucleus_intensity={},
+        )
+        shape = (12, 12)
+        raw_green = np.zeros(shape, dtype=np.uint16)
+        processed_green = np.ones(shape, dtype=np.uint8)
+        blue = np.zeros(shape, dtype=np.uint8)
+        contour = self._rect_contour(3, 3, 7, 7)
+        mask = np.zeros(shape, dtype=np.uint8)
+        cv2.drawContours(mask, [contour], 0, 255, -1)
+        raw_green[mask > 0] = 2000
+        cell_mask = np.full(shape, 255, dtype=np.uint8)
+        preprocessed = GrayImage(
+            img={
+                "green": processed_green,
+                "green_no_bg": processed_green,
+                "raw_green": raw_green,
+                "gray_blue": blue,
+                "gray_blue_3": blue,
+            }
+        )
+        plugin.setting_up(cp, preprocessed, output_dir="")
+
+        plugin.calculate_statistics(
+            best_contours={},
+            contours_data={"contours_blue": [contour], "cell_mask": cell_mask},
+            red_image=None,
+            green_image=None,
+            puncta_line_width_input=1,
+            cen_dot_distance=37,
+        )
+
+        self.assertEqual(cp.nucleus_intensity_sum, float(np.sum(raw_green[mask > 0])))
+        self.assertEqual(cp.cell_pair_intensity_sum, float(np.sum(raw_green[cell_mask > 0])))
+
+    def test_blue_intensity_plugins_prefer_raw_blue_values(self):
+        shape = (12, 12)
+        raw_blue = np.zeros(shape, dtype=np.uint16)
+        processed_blue = np.ones(shape, dtype=np.uint8)
+        contour = self._rect_contour(3, 3, 7, 7)
+        mask = np.zeros(shape, dtype=np.uint8)
+        cv2.drawContours(mask, [contour], 0, 255, -1)
+        raw_blue[mask > 0] = 3000
+        cell_mask = np.full(shape, 255, dtype=np.uint8)
+
+        blue_nucleus = BlueNucleusIntensity()
+        cp_blue = SimpleNamespace(image_name="test.dv", cell_id=1, properties={})
+        preprocessed = GrayImage(
+            img={
+                "gray_blue": processed_blue,
+                "gray_blue_3": processed_blue,
+                "raw_blue": raw_blue,
+            }
+        )
+        blue_nucleus.setting_up(cp_blue, preprocessed, output_dir="")
+        blue_nucleus.calculate_statistics(
+            best_contours={},
+            contours_data={"contours_blue": [contour], "cell_mask": cell_mask},
+            red_image=None,
+            green_image=None,
+            puncta_line_width_input=1,
+            cen_dot_distance=37,
+        )
+
+        red_blue = RedBlueIntensity()
+        cp_red_blue = SimpleNamespace(properties={})
+        red_blue.setting_up(cp_red_blue, preprocessed, output_dir="")
+        red_blue.calculate_statistics(
+            best_contours={},
+            contours_data={"dot_contours": [contour]},
+            red_image=None,
+            green_image=None,
+            puncta_line_width_input=1,
+            cen_dot_distance=37,
+        )
+
+        expected_nucleus = float(np.sum(raw_blue[mask > 0]))
+        self.assertEqual(cp_blue.nucleus_intensity_sum_blue, expected_nucleus)
+        self.assertEqual(cp_blue.cell_pair_intensity_sum_blue, float(np.sum(raw_blue[cell_mask > 0])))
+        self.assertEqual(cp_red_blue.red_blue_intensity_1, expected_nucleus)

@@ -14,6 +14,9 @@ class GrayImage:
                 'green': None,
                 'green_no_bg': None,
                 'red_no_bg': None,
+                'raw_red': None,
+                'raw_green': None,
+                'raw_blue': None,
             }
     def set_image(self, key:str, image:np.ndarray):
         self._image_storage[key] = image

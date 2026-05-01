@@ -29,20 +29,25 @@ class BlueNucleusIntensity(Analysis):
     ):
         """Calculate blue-channel intensity within the nucleus and cell regions."""
 
-        gray_blue = self.preprocessed_images.get_image("gray_blue")
-        if gray_blue is None:
+        blue_intensity_image = self.preprocessed_images.get_image("raw_blue")
+        if blue_intensity_image is None:
+            gray_blue = self.preprocessed_images.get_image("gray_blue")
+        else:
+            gray_blue = None
+        if blue_intensity_image is None and gray_blue is None:
             self._set_defaults()
             return
 
-        gray_blue_no_bg, _background = subtract_background_rolling_ball(
-            gray_blue,
-            50,
-            light_background=False,
-            use_paraboloid=False,
-            do_presmooth=True,
-        )
+        if blue_intensity_image is None:
+            blue_intensity_image, _background = subtract_background_rolling_ball(
+                gray_blue,
+                50,
+                light_background=False,
+                use_paraboloid=False,
+                do_presmooth=True,
+            )
 
-        shape = gray_blue_no_bg.shape[:2]
+        shape = blue_intensity_image.shape[:2]
 
         blue_slots = get_canonical_blue_slots(contours_data, shape, limit=1)
         if not blue_slots:
@@ -57,8 +62,8 @@ class BlueNucleusIntensity(Analysis):
                 self.cp.image_name, self.cp.cell_id, self.output_dir, shape,
             )
 
-        nucleus_intensity = float(calculate_intensity_mask(gray_blue_no_bg, nucleus_mask))
-        cell_intensity = float(calculate_intensity_mask(gray_blue_no_bg, cell_mask))
+        nucleus_intensity = float(calculate_intensity_mask(blue_intensity_image, nucleus_mask))
+        cell_intensity = float(calculate_intensity_mask(blue_intensity_image, cell_mask))
 
         logger.debug("Blue nucleus intensity sum for cell %s: %s", self.cp.cell_id, nucleus_intensity)
         logger.debug(

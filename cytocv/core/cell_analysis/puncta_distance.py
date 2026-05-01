@@ -20,11 +20,15 @@ class PunctaDistance(Analysis):
 
     def _measurement_image(self, measurement_channel: str):
         if measurement_channel == CHANNEL_ROLE_GREEN:
-            image = self.preprocessed_images.get_image("green_no_bg")
+            image = self.preprocessed_images.get_image("raw_green")
+            if image is None:
+                image = self.preprocessed_images.get_image("green_no_bg")
             if image is None:
                 image = self.preprocessed_images.get_image("green")
             return image
-        image = self.preprocessed_images.get_image("red_no_bg")
+        image = self.preprocessed_images.get_image("raw_red")
+        if image is None:
+            image = self.preprocessed_images.get_image("red_no_bg")
         if image is None:
             image = self.preprocessed_images.get_image("gray_red")
         return image
