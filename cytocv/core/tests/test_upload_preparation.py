@@ -26,6 +26,7 @@ from core.services.upload_preparation_jobs import enqueue_upload_preparation_job
 from core.tests.test_artifact_storage import temporary_media_root
 
 
+@override_settings(ANALYSIS_EXECUTION_MODE="worker")
 class UploadPreparationTestCase(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -350,6 +351,67 @@ class UploadPreparationTestCase(TestCase):
             self.client.session["recent_upload_preparation_job_uuids"],
             [payload["job_uuid"]],
         )
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_upload_preparation_enqueue_sync_mode_runs_inline_and_returns_redirect(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_ready")
+
+            with patch(
+                "core.services.upload_preparation.validate_dv_file",
+                return_value=self._valid_result(),
+            ), patch(
+                "core.services.upload_preparation.extract_dv_scale_metadata",
+                return_value={},
+            ), patch(
+                "core.services.upload_preparation.extract_channel_config",
+                return_value=DEFAULT_CHANNEL_CONFIG,
+            ), patch(
+                "core.services.upload_preparation.generate_preview_assets",
+                return_value=[],
+            ):
+                response = self.client.post(
+                    reverse("experiment_upload_prepare"),
+                    {
+                        "new_run_uuids": [str(uploaded.uuid)],
+                    },
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.SUCCEEDED)
+        self.assertIn("/pre-process/", payload["redirect"])
+        self.assertEqual(self.client.session["last_experiment_uuids"], [str(uploaded.uuid)])
+        self.assertNotIn("recent_upload_preparation_job_uuids", self.client.session)
+        job = UploadPreparationJob.objects.get()
+        self.assertEqual(job.status, UploadPreparationJob.Status.SUCCEEDED)
+        self.assertIsNotNone(job.started_at)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_upload_preparation_enqueue_sync_mode_returns_validation_failure(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_invalid")
+
+            with patch(
+                "core.services.upload_preparation.validate_dv_file",
+                return_value=self._invalid_result(),
+            ):
+                response = self.client.post(
+                    reverse("experiment_upload_prepare"),
+                    {
+                        "new_run_uuids": [str(uploaded.uuid)],
+                    },
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertFalse(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.FAILED)
+        self.assertTrue(payload["errors"])
+        self.assertNotIn("recent_upload_preparation_job_uuids", self.client.session)
 
     @override_settings(
         STORAGE_QUOTA_EDU_SUFFIXES=(".edu",),

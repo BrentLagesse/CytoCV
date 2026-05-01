@@ -2095,6 +2095,7 @@
     const useMetadataScaleKey = 'cytocv.use_metadata_scale.v2';
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
     const UPLOAD_BATCH_TARGET_BYTES = {{ upload_batch_target_bytes|default:83886080 }};
+    const UPLOAD_PREPARATION_EXECUTION_MODE = "{{ upload_preparation_execution_mode|default:'worker'|escapejs }}";
     let serverPreferenceDefaults = {};
     try {
         const defaultsRaw = serverPreferenceDefaultsElement
@@ -5804,6 +5805,30 @@
         }, message ? 250 : 0);
     }
 
+    function handleTerminalUploadPreparationPayload(payload, { submitBtn } = {}) {
+        if (!payload || typeof payload.status !== 'string') return false;
+        if (payload.status === 'succeeded') {
+            clearUploadProgressForButton(submitBtn);
+            if (payload.redirect) {
+                redirectToUploadPreparationResult(payload);
+                return true;
+            }
+            failWithUploadErrors([
+                'Upload preparation completed, but the preprocess page could not be resolved. Please refresh.',
+            ]);
+        }
+        if (payload.status === 'failed') {
+            const failureLines = Array.isArray(payload.errors) && payload.errors.length > 0
+                ? payload.errors
+                : [payload.failure_summary || 'Upload preparation failed. Please try again.'];
+            failWithUploadErrors(failureLines);
+        }
+        if (payload.status === 'cancelled') {
+            failWithUploadErrors(['Upload preparation was cancelled.']);
+        }
+        return false;
+    }
+
     async function pollUploadPreparationJob(jobUuid, { signal, deadline, submitBtn, btnText }) {
         const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
         let delay = 800;
@@ -5821,24 +5846,8 @@
                     status: statusPayload.status,
                 });
             }
-            if (statusPayload.status === 'succeeded') {
-                clearUploadProgressForButton(submitBtn);
-                if (statusPayload.redirect) {
-                    redirectToUploadPreparationResult(statusPayload);
-                    return;
-                }
-                failWithUploadErrors([
-                    'Upload preparation completed, but the preprocess page could not be resolved. Please refresh.',
-                ]);
-            }
-            if (statusPayload.status === 'failed') {
-                const failureLines = Array.isArray(statusPayload.errors) && statusPayload.errors.length > 0
-                    ? statusPayload.errors
-                    : [statusPayload.failure_summary || 'Upload preparation failed. Please try again.'];
-                failWithUploadErrors(failureLines);
-            }
-            if (statusPayload.status === 'cancelled') {
-                failWithUploadErrors(['Upload preparation was cancelled.']);
+            if (handleTerminalUploadPreparationPayload(statusPayload, { submitBtn })) {
+                return;
             }
             await wait(delay);
             delay = Math.min(2000, Math.round(delay * 1.25));
@@ -6071,10 +6080,13 @@
                 }
 
                 uploadedRunUuids.forEach((uuid) => prepData.append('new_run_uuids', uuid));
-                applyUploadPhaseText(btnText, 'Queued');
+                const uploadPrepUsesWorker = UPLOAD_PREPARATION_EXECUTION_MODE === 'worker';
+                applyUploadPhaseText(btnText, uploadPrepUsesWorker ? 'Queued' : 'Preparing Files');
                 setUploadProgressForButton(submitBtn, {
-                    phase: 'Queued',
-                    message: 'Waiting for upload-preparation worker.',
+                    phase: uploadPrepUsesWorker ? 'Queued' : 'Preparing Files',
+                    message: uploadPrepUsesWorker
+                        ? 'Waiting for upload-preparation worker.'
+                        : 'Preparing upload in this request.',
                 });
                 const prepResponse = await fetch('{% url "experiment_upload_prepare" %}', {
                     method: 'POST',
@@ -6088,6 +6100,9 @@
                 const prepPayload = await parseUploadJsonResponse(prepResponse);
                 if (!prepPayload.job_uuid) {
                     failWithUploadErrors(['Upload preparation could not be started. Please try again.']);
+                }
+                if (handleTerminalUploadPreparationPayload(prepPayload, { submitBtn })) {
+                    return;
                 }
 
                 await pollUploadPreparationJob(prepPayload.job_uuid, {

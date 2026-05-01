@@ -116,7 +116,7 @@ Operational expectations:
 - run a timer-driven artifact-maintenance sweep
 - restart web, both workers, and the timer after code or migration updates
 
-The upload-preparation worker is required for staged uploads. In worker analysis mode, the analysis worker owns queued analysis jobs after preprocess review.
+The upload-preparation worker is required for staged uploads when `CYTOCV_ANALYSIS_EXECUTION_MODE=worker`. In worker analysis mode, the analysis worker owns queued analysis jobs after preprocess review.
 
 ## 8. Configure The Reverse Proxy And HTTPS
 

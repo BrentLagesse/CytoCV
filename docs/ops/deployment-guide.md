@@ -222,7 +222,7 @@ Rollback guidance:
 
 - if the upload-preparation worker is unavailable, new staged uploads will remain queued; restore or restart that worker before accepting production traffic
 - if the analysis worker is unavailable, upload preparation still completes but analysis batches remain queued until that worker returns
-- `CYTOCV_ANALYSIS_EXECUTION_MODE=sync` only falls analysis back to the request-owned path after upload preparation has already completed
+- `CYTOCV_ANALYSIS_EXECUTION_MODE=sync` falls upload preparation and analysis back to the request-owned path
 - keep `CYTOCV_SEGMENT_SAVE_DEBUG_ARTIFACTS=0` unless you explicitly need debug overlays
 
 ## Intentional Database Data Reset

@@ -39,11 +39,11 @@ This is a maintainer reference. Document variable names and behavior here, but d
 - Type: enum
 - Allowed values: `sync`, `worker`
 - Default: `sync`
-- Effect: selects whether heavy analysis runs inline in the web flow or is queued for the database-backed worker
+- Effect: selects whether upload preparation and heavy analysis run inline in the web flow or are queued for the database-backed worker
 - Notes:
-  - `sync` preserves the local-development-friendly request flow
-  - `worker` is the recommended production mode because it keeps Gunicorn from owning long-running segmentation/statistics work
-  - upload preparation is background-worker backed in both modes, so the full upload workflow needs `python manage.py run_analysis_worker` running
+  - `sync` preserves the local-development-friendly request flow for upload preparation and analysis
+  - `worker` is the recommended production mode because it keeps Gunicorn from owning upload validation, preview generation, segmentation, and statistics work
+  - when set to `worker`, the full upload workflow needs `python manage.py run_analysis_worker` running
 
 ### `CYTOCV_ANALYSIS_QUEUE_STALE_SECONDS`
 
