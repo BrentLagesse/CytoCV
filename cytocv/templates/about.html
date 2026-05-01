@@ -111,6 +111,15 @@
             font-size: 14px;
             line-height: 1.62;
         }
+        .about-inline-link {
+            color: #c6ddff;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .about-inline-link:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
         .about-channel-list,
         .about-detail-list {
             list-style: none;
@@ -403,6 +412,7 @@
             <div class="about-copy">
                 <p>These measurements can help researchers compare signal localization between the nucleus and the cell pair, examine how paired Red and Green signals relate to one another, and evaluate patterns across yeast populations or mutant conditions.</p>
                 <p>CytoCV supports that interpretation by producing repeatable software measurements tied to the source images, but the results should still be reviewed alongside image context, experimental controls, and biological judgment.</p>
+                <p><a class="about-inline-link" href="{% url 'about_biology' %}">Read the deeper biological context</a> for assay-level explanations of chromosome segregation, puncta distance, CEN dot location, biorientation, and nuclear intensity workflows.</p>
             </div>
         </article>
     </section>
