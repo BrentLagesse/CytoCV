@@ -16,6 +16,10 @@ This page is for people running CytoCV locally for development, evaluation, or m
 - the required Mask R-CNN weights file under `cytocv/core/weights`
 - at least one supported DeltaVision `.dv` file
 
+## Browser Support
+
+CytoCV supports current stable Chrome, Edge, Safari, iOS Safari, and Android Chrome for core browser workflows. On phone-sized screens, dense result tables remain horizontally scrollable so the measurement columns stay readable.
+
 ## Supported Input Model
 
 CytoCV supports four logical channel roles:
