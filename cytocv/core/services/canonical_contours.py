@@ -22,6 +22,8 @@ from core.services.neck_split import (
 CELL_MASK_KEY = "cell_mask"
 CANONICAL_RED_SLOTS_KEY = "canonical_red_slots"
 CANONICAL_GREEN_SLOTS_KEY = "canonical_green_slots"
+CANONICAL_ALTERNATE_RED_SLOTS_KEY = "canonical_alternate_red_slots"
+CANONICAL_ALTERNATE_GREEN_SLOTS_KEY = "canonical_alternate_green_slots"
 CANONICAL_BLUE_SLOTS_KEY = "canonical_blue_slots"
 NECK_SPLIT_KEY = "neck_split"
 MOTHER_MASK_KEY = "mother_mask"
@@ -218,6 +220,20 @@ def build_canonical_contour_payload(
         height_width,
         limit=limit,
     )
+    if payload.get("alternate_nucleus_contours_red") is not None:
+        payload[CANONICAL_ALTERNATE_RED_SLOTS_KEY] = build_canonical_contour_slots(
+            payload.get("alternate_nucleus_contours_red", []),
+            cell_mask,
+            height_width,
+            limit=limit,
+        )
+    if payload.get("alternate_nucleus_contours_green") is not None:
+        payload[CANONICAL_ALTERNATE_GREEN_SLOTS_KEY] = build_canonical_contour_slots(
+            payload.get("alternate_nucleus_contours_green", []),
+            cell_mask,
+            height_width,
+            limit=limit,
+        )
     payload[CANONICAL_BLUE_SLOTS_KEY] = build_canonical_contour_slots(
         _select_raw_blue_contours(payload, height_width),
         cell_mask,

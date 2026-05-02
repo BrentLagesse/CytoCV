@@ -209,6 +209,72 @@ class AnalysisAsyncTestCase(TestCase):
             run_batch_mock.assert_called_once()
 
     @override_settings(ANALYSIS_EXECUTION_MODE="sync")
+    def test_pre_process_post_preserves_signal_quantification_alternate_detection(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="sync_signal_quant")
+
+            def run_batch_side_effect(*, user, context, progress, **_kwargs):
+                self.assertEqual(
+                    context.config_snapshot["selected_analysis"],
+                    ["CENDot", "NuclearCellPairIntensity"],
+                )
+                self.assertTrue(context.config_snapshot["signalQuantificationEnabled"])
+                self.assertEqual(
+                    context.config_snapshot["signalQuantificationMode"],
+                    "nuclear_cell_pair",
+                )
+                self.assertTrue(
+                    context.config_snapshot["alternateNucleusDetectionEnabled"]
+                )
+                self.assertEqual(
+                    context.config_snapshot["alternateNucleusDetectionChannel"],
+                    "channel_red",
+                )
+                self.assertEqual(
+                    context.config_snapshot["nuclear_cell_pair_mode"],
+                    "red_nucleus",
+                )
+                return SimpleNamespace(storage_warning_message="")
+
+            with patch(
+                "core.views.pre_process.ensure_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.views.pre_process.run_analysis_batch",
+                side_effect=run_batch_side_effect,
+            ):
+                response = self.client.post(
+                    reverse("pre_process", args=[str(uploaded.uuid)]),
+                    {
+                        "selected_analysis": [
+                            "PunctaDistance",
+                            "GreenRedIntensity",
+                            "CENDot",
+                        ],
+                        "signalQuantificationEnabled": "true",
+                        "signalQuantificationMode": "nuclear_cell_pair",
+                        "punctaContourIntensityEnabled": "true",
+                        "alternateNucleusDetectionEnabled": "true",
+                        "nuclear_cell_pair_mode": "red_nucleus",
+                    },
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["status"], "succeeded")
+            self.assertEqual(
+                self.client.session.get("selected_analysis"),
+                ["CENDot", "NuclearCellPairIntensity"],
+            )
+            self.assertTrue(
+                self.client.session.get("alternateNucleusDetectionEnabled")
+            )
+            self.assertEqual(
+                self.client.session.get("alternateNucleusDetectionChannel"),
+                "channel_red",
+            )
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="sync")
     def test_pre_process_sync_mode_cancel_returns_cancelled_without_segment_redirect(self):
         with temporary_media_root() as media_root:
             uploaded = self._create_uploaded_image(media_root, name="sync_cancel")

@@ -1943,7 +1943,7 @@
                                                 <span class="metric-value" id="contourStateValue">On</span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section">
+                                        <div class="cell-stats-section" data-stat-section="biorientation">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Biorientation</p>
                                                 <span
@@ -1962,7 +1962,7 @@
                                                 <span class="metric-value" id="offAxisDots"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section">
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Red In Red Raw Sums</p>
                                                 <span
@@ -1987,18 +1987,18 @@
                                         </div>
                                     </div>
                                     <div class="cell-stats-column">
-                                        <div class="cell-stats-section">
+                                        <div class="cell-stats-section" data-stat-section="nuclear_cell_pair_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Nucleus + Measurement</p>
                                                 <span
                                                     class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Shows which contour family is used as the nucleus, which fluorescence channel is measured, whether a nucleus contour is available, and the nuclear, whole cell-pair, and cytoplasmic intensity values."
+                                                    data-info-text="Shows the selected nucleus contour channel, which fluorescence channel is measured, whether a nucleus contour is available, and the nuclear, whole cell-pair, and cytoplasmic intensity values."
                                                     aria-label="Nucleus And Measurement Details"
                                                     title="Nucleus And Measurement Details"
                                                 >i</span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Nucleus Contour Source</span>
+                                                <span class="metric-label">Nucleus Contour Channel</span>
                                                 <span class="metric-value" id="nucleusContourChannel"></span>
                                             </div>
                                             <div class="metric-row">
@@ -2022,7 +2022,7 @@
                                                 <span class="metric-value" id="cytoplasmicIntensity"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section">
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Green In Red Raw Sums</p>
                                                 <span
@@ -2047,7 +2047,7 @@
                                         </div>
                                     </div>
                                     <div class="cell-stats-column">
-                                        <div class="cell-stats-section">
+                                        <div class="cell-stats-section" data-stat-section="cen_puncta">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">CEN Dot Measurements</p>
                                                 <span
@@ -2057,24 +2057,24 @@
                                                     title="CEN Dot Measurement Details"
                                                 >i</span>
                                             </div>
-                                            <div class="metric-row">
+                                            <div class="metric-row" data-stat-row="puncta_distance">
                                                 <span class="metric-label" id="distanceLabel">Distance Between Red Puncta</span>
                                                 <span class="metric-value" id="distance"></span>
                                             </div>
-                                            <div class="metric-row">
+                                            <div class="metric-row" data-stat-row="puncta_distance">
                                                 <span class="metric-label" id="lineIntensityLabel">Green Intensity Over Red Line</span>
                                                 <span class="metric-value" id="punctaLineIntensity"></span>
                                             </div>
-                                            <div class="metric-row">
+                                            <div class="metric-row" data-stat-row="cen_dot">
                                                 <span class="metric-label">Cell Parentage</span>
                                                 <span class="metric-value" id="cellParentage"></span>
                                             </div>
-                                            <div class="metric-row">
+                                            <div class="metric-row" data-stat-row="cen_dot">
                                                 <span class="metric-label">Cen Dot Location</span>
                                                 <span class="metric-value" id="cenDot"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section">
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Red In Green Raw Sums</p>
                                                 <span
@@ -2099,7 +2099,7 @@
                                         </div>
                                     </div>
                                     <div class="cell-stats-column">
-                                        <div class="cell-stats-section">
+                                        <div class="cell-stats-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Measurement/Contour</p>
                                                 <span
@@ -2126,7 +2126,7 @@
                                                 <span class="metric-value" id="measurementContourRatio3"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section">
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Green In Green Raw Sums</p>
                                                 <span
@@ -2331,6 +2331,7 @@
             'distance_of_green_from_red_1',
             'distance_of_green_from_red_2',
             'distance_of_green_from_red_3',
+            'nuclear_cell_pair_contour_source',
             'cell_pair_intensity_sum',
             'nucleus_intensity_sum',
             'cytoplasmic_intensity',
@@ -2339,6 +2340,44 @@
             'colinear_dots',
             'off_axis_dots',
         ];
+        const statFieldGroups = {
+            puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
+            legacy_blue_intensity: ['blue_contour_size'],
+            red_green_intensity: [
+                'red_contour_1_size',
+                'red_contour_2_size',
+                'red_contour_3_size',
+                'green_contour_1_size',
+                'green_contour_2_size',
+                'green_contour_3_size',
+                'red_intensity_1',
+                'red_intensity_2',
+                'red_intensity_3',
+                'green_intensity_1',
+                'green_intensity_2',
+                'green_intensity_3',
+                'red_in_green_intensity_1',
+                'red_in_green_intensity_2',
+                'red_in_green_intensity_3',
+                'green_in_green_intensity_1',
+                'green_in_green_intensity_2',
+                'green_in_green_intensity_3',
+                'measurement_contour_ratio_1',
+                'measurement_contour_ratio_2',
+                'measurement_contour_ratio_3',
+                'distance_of_green_from_red_1',
+                'distance_of_green_from_red_2',
+                'distance_of_green_from_red_3',
+            ],
+            nuclear_cell_pair_intensity: [
+                'nuclear_cell_pair_contour_source',
+                'cell_pair_intensity_sum',
+                'nucleus_intensity_sum',
+                'cytoplasmic_intensity',
+            ],
+            cen_dot: ['cell_parentage', 'category_cen_dot'],
+            biorientation: ['colinear_dots', 'off_axis_dots'],
+        };
         const spatialHeaderBaseLabels = {
             blue_contour_size: 'Blue Contour Size',
             red_contour_1_size: 'Red Contour 1 Size',
@@ -2618,6 +2657,65 @@
             return indices.map((index) => imageUrls[index] || noCellPlaceholder);
         }
 
+        function defaultStatVisibility() {
+            return {
+                puncta_distance: true,
+                red_green_intensity: true,
+                nuclear_cell_pair_intensity: true,
+                cen_dot: true,
+                biorientation: true,
+                legacy_blue_intensity: true,
+            };
+        }
+
+        function getStatVisibility(cellStats) {
+            const defaults = defaultStatVisibility();
+            const visibility = cellStats && typeof cellStats.stat_visibility === 'object'
+                ? cellStats.stat_visibility
+                : null;
+            return {
+                puncta_distance: visibility ? visibility.puncta_distance !== false : defaults.puncta_distance,
+                red_green_intensity: visibility ? visibility.red_green_intensity !== false : defaults.red_green_intensity,
+                nuclear_cell_pair_intensity: visibility ? visibility.nuclear_cell_pair_intensity !== false : defaults.nuclear_cell_pair_intensity,
+                cen_dot: visibility ? visibility.cen_dot !== false : defaults.cen_dot,
+                biorientation: visibility ? visibility.biorientation !== false : defaults.biorientation,
+                legacy_blue_intensity: visibility ? visibility.legacy_blue_intensity !== false : defaults.legacy_blue_intensity,
+            };
+        }
+
+        function getStatisticsVisibility(statistics) {
+            const firstStats = Object.values(statistics || {}).find((row) => row);
+            return getStatVisibility(firstStats || null);
+        }
+
+        function isTableFieldVisible(fieldName, visibility) {
+            for (const [key, fields] of Object.entries(statFieldGroups)) {
+                if (fields.includes(fieldName)) {
+                    return visibility[key] !== false;
+                }
+            }
+            return true;
+        }
+
+        function getVisibleTableFieldOrder(statistics) {
+            const visibility = getStatisticsVisibility(statistics);
+            return tableFieldOrder.filter((fieldName) => isTableFieldVisible(fieldName, visibility));
+        }
+
+        function applyMetricVisibility(visibility) {
+            document.querySelectorAll('[data-stat-section]').forEach((section) => {
+                const key = section.dataset.statSection;
+                if (key === 'cen_puncta') {
+                    section.hidden = visibility.puncta_distance === false && visibility.cen_dot === false;
+                    return;
+                }
+                section.hidden = visibility[key] === false;
+            });
+            document.querySelectorAll('[data-stat-row]').forEach((row) => {
+                row.hidden = visibility[row.dataset.statRow] === false;
+            });
+        }
+
         function getCellDisplayState(cellPairImages, statistics, { showContours = getContourToggleState(), cellNumber = currentCellNumber } = {}) {
             const safeCellPairImages = cellPairImages || {};
             const safeStatistics = statistics || {};
@@ -2634,10 +2732,12 @@
             const labels = getNuclearLabelPair(mode);
             const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance Between Red Puncta') : 'Distance Between Red Puncta';
             const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity Over Red Line') : 'Green Intensity Over Red Line';
+            const statVisibility = getStatVisibility(cellStats);
 
             return {
                 visibleImageUrls,
                 cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
+                statVisibility,
                 metricValues: {
                     distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),
                     punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
@@ -2686,6 +2786,7 @@
             document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
+            applyMetricVisibility(state.statVisibility || defaultStatVisibility());
 
             const imageIds = ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'];
             const imageUpdates = imageIds.map((id, index) =>
@@ -3228,7 +3329,8 @@
             });
 
             const headers = Array.from(document.querySelectorAll('#celltable thead th'));
-            tableFieldOrder.forEach((fieldName, index) => {
+            const visibleFieldOrder = getVisibleTableFieldOrder(fileData?.Statistics || {});
+            visibleFieldOrder.forEach((fieldName, index) => {
                 if (!Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName) || !headers[index]) {
                     return;
                 }
@@ -3296,6 +3398,7 @@
             ]);
             const scaleContext = getScaleContext(fileData);
             updateSpatialUnitControls(fileData);
+            const visibleFieldOrder = getVisibleTableFieldOrder(statistics);
 
             const ids = Object.keys(statistics || {})
                 .map((k) => Number(k))
@@ -3306,7 +3409,7 @@
             for (const id of ids) {
                 const rowStats = statistics[String(id)] || null;
                 const tr = document.createElement('tr');
-                for (const fieldName of tableFieldOrder) {
+                for (const fieldName of visibleFieldOrder) {
                     const td = document.createElement('td');
                     if (fieldName === 'cell_id') {
                         td.textContent = String(id);

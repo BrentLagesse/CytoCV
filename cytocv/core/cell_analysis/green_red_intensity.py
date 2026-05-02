@@ -6,9 +6,10 @@ from core.services.canonical_contours import (
     get_canonical_red_slots,
 )
 from core.services.measurement_contour_ratio import (
-    normalize_nuclear_cell_pair_mode,
+    normalize_measurement_contour_ratio_mode,
     store_measurement_contour_ratio_triplet,
 )
+from core.services.signal_quantification import measurement_ratio_mode_for_puncta_line_mode
 from .analysis import Analysis
 
 
@@ -45,8 +46,14 @@ class GreenRedIntensity(Analysis):
         if green_gray is None:
             green_gray = self.preprocessed_images.get_image("green")
         props = dict(getattr(self.cp, "properties", {}) or {})
-        mode = normalize_nuclear_cell_pair_mode(props.get("nuclear_cell_pair_mode"))
-        props["nuclear_cell_pair_mode"] = mode
+        if props.get("measurement_contour_ratio_mode"):
+            mode_source = props.get("measurement_contour_ratio_mode")
+        elif props.get("signal_quantification_mode") == "puncta_distance":
+            mode_source = measurement_ratio_mode_for_puncta_line_mode(props.get("puncta_line_mode"))
+        else:
+            mode_source = props.get("nuclear_cell_pair_mode")
+        mode = normalize_measurement_contour_ratio_mode(mode_source)
+        props["measurement_contour_ratio_mode"] = mode
         self.cp.properties = props
         if red_gray is None or green_gray is None:
             self._set_default_triplet("red_intensity")

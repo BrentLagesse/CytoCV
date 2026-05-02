@@ -12,6 +12,7 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
+from core.services.signal_quantification import build_stat_visibility
 
 
 def normalize_channel_display_name(value: Any, default: str = "") -> str:
@@ -42,8 +43,37 @@ def serialize_cell_statistics_payload(
     puncta_line_metadata = get_puncta_line_mode_metadata(
         properties.get("puncta_line_mode")
     )
+    selected_analysis = properties.get("selected_analysis")
+    if isinstance(selected_analysis, list):
+        stat_visibility = build_stat_visibility(selected_analysis)
+    else:
+        stat_visibility = properties.get("stat_visibility")
+        if not isinstance(stat_visibility, dict):
+            stat_visibility = {
+                "puncta_distance": True,
+                "red_green_intensity": True,
+                "nuclear_cell_pair_intensity": True,
+                "cen_dot": True,
+                "biorientation": True,
+                "legacy_blue_intensity": True,
+            }
+    measurement_contour_ratio_mode = properties.get(
+        "measurement_contour_ratio_mode",
+        nuclear_cell_pair_mode,
+    )
 
     return {
+        "selected_analysis": selected_analysis if isinstance(selected_analysis, list) else [],
+        "stat_visibility": stat_visibility,
+        "signal_quantification_enabled": properties.get("signal_quantification_enabled"),
+        "signal_quantification_mode": properties.get("signal_quantification_mode"),
+        "puncta_contour_intensity_enabled": properties.get("puncta_contour_intensity_enabled"),
+        "alternate_nucleus_detection_enabled": properties.get(
+            "alternate_nucleus_detection_enabled"
+        ),
+        "alternate_nucleus_detection_channel": properties.get(
+            "alternate_nucleus_detection_channel"
+        ),
         "puncta_distance": cell_stat.puncta_distance,
         "puncta_line_intensity": cell_stat.puncta_line_intensity,
         "blue_contour_size": cell_stat.blue_contour_size,
@@ -120,6 +150,9 @@ def serialize_cell_statistics_payload(
             ),
             default="Red",
         ),
+        "nuclear_cell_pair_contour_source": properties.get(
+            "nuclear_cell_pair_contour_source"
+        ),
         "nuclear_cell_pair_status": properties.get(
             "nuclear_cell_pair_status",
             properties.get("nuclear_cellular_status", "unknown"),
@@ -140,6 +173,6 @@ def serialize_cell_statistics_payload(
         "off_axis_dots": cell_stat.off_axis_dots,
         **build_measurement_contour_ratio_payload(
             cell_stat,
-            mode=nuclear_cell_pair_mode,
+            mode=measurement_contour_ratio_mode,
         ),
     }
