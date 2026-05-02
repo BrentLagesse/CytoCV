@@ -69,9 +69,11 @@
             display: flex;
             flex-direction: column;
             align-self: flex-start;
-            min-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            min-height: calc(100vh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            min-height: calc(var(--safe-viewport-height) - var(--nav-height) - (var(--page-shell-gap) * 2));
             height: auto;
-            max-height: calc(100dvh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            max-height: calc(100vh - var(--nav-height) - (var(--page-shell-gap) * 2));
+            max-height: calc(var(--safe-viewport-height) - var(--nav-height) - (var(--page-shell-gap) * 2));
             contain: layout paint;
             isolation: isolate;
         }
@@ -139,7 +141,7 @@
             overflow-x: hidden;
             overflow-y: auto;
             min-height: 0;       /* critical for flex children to allow scrolling */
-            padding-bottom: 12px;
+            padding: 0 6px 12px 0;
             margin-bottom: 10px;
             scrollbar-gutter: stable;
             scrollbar-width: auto;
@@ -174,6 +176,9 @@
             position: relative;
             display: grid;
             gap: 4px;
+            min-width: 0;
+            max-width: calc(100% - 12px);
+            overflow-wrap: anywhere;
         }
         .file-item:hover { background-color: #3399ff; }
         .file-item.active {
@@ -307,6 +312,7 @@
             display: grid;
             gap: 8px;
             margin: 0 12px 8px;
+            min-width: 0;
         }
         .visibility-controls {
             display: grid;
@@ -318,6 +324,8 @@
             align-items: center;
             justify-content: space-between;
             gap: 10px;
+            min-width: 0;
+            max-width: 100%;
             border: 1px solid var(--panel-border);
             border-radius: 8px;
             background: var(--surface-muted-alt);
@@ -335,6 +343,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             flex: 1;
+            min-width: 112px;
             border: none;
             border-radius: 999px;
             background: transparent;
@@ -360,6 +369,7 @@
             align-items: center;
             gap: 6px;
             min-height: 34px;
+            min-width: 0;
         }
         .selection-extra {
             display: flex;
@@ -370,6 +380,7 @@
             overflow: hidden;
             transform: translateX(-8px);
             transition: max-width 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+            min-width: 0;
         }
         .sidebar.select-mode .selection-extra {
             max-width: 340px;
@@ -802,6 +813,7 @@
         .table-scroll-frame {
             width: 100%;
             max-height: 520px;
+            max-height: min(520px, calc(var(--safe-viewport-height) - var(--nav-height) - 96px));
             overflow-x: auto;
             overflow-y: auto;
             border: 1px solid rgba(var(--glass-border-rgb), 0.35);
@@ -943,6 +955,7 @@
         .popup {
             position: absolute; display: none; background: var(--popup-surface-bg); border-radius: 4px; padding: 5px;
             font-family: var(--app-font); align-items: center; justify-content: space-around;
+            z-index: 2300;
         }
         .popup a { padding: 5px; font-size: 15px; margin-bottom:20px; }
         .popup button {
@@ -1443,6 +1456,7 @@
             font-variant-numeric: tabular-nums;
             font-feature-settings: "tnum" 1;
             min-width: 0;
+            overflow-wrap: anywhere;
         }
         .metric-detail {
             display: grid;
@@ -1535,6 +1549,7 @@
             overflow-x: auto;
             overflow-y: auto;
             scrollbar-gutter: stable;
+            max-height: min(520px, calc(var(--safe-viewport-height) - var(--nav-height) - 96px));
             border: 1px solid rgba(var(--glass-border-rgb), 0.3);
             background: rgba(10, 15, 22, 0.46);
             scrollbar-color: var(--scrollbar-thumb) transparent;
@@ -1592,6 +1607,9 @@
             -webkit-backdrop-filter: none;
             isolation: isolate;
         }
+        .table-panel:fullscreen .table-scroll-frame {
+            max-height: none;
+        }
         .export-buttons {
             justify-content: center;
             padding-top: 14px;
@@ -1627,7 +1645,7 @@
                 position: relative;
                 top: auto;
                 min-height: 0;
-                max-height: none;
+                max-height: min(520px, calc(var(--safe-viewport-height) - var(--nav-height) - (var(--page-shell-gap) * 2)));
                 width: 100%;
             }
             .content-wrapper {
@@ -1697,6 +1715,28 @@
             .cell-stats-strip {
                 grid-template-columns: 1fr;
                 width: 100%;
+            }
+            .sidebar-actions {
+                margin-inline: 10px;
+            }
+            .selection-toolbar,
+            .visibility-controls,
+            .sidebar-unit-controls {
+                width: 100%;
+            }
+            .selection-toolbar {
+                flex-wrap: wrap;
+            }
+            .sidebar.select-mode .selection-extra {
+                flex: 1 1 180px;
+                max-width: none;
+            }
+            .sidebar-unit-controls {
+                align-items: stretch;
+                flex-wrap: wrap;
+            }
+            .sidebar-unit-track {
+                flex-basis: 100%;
             }
             .cell-stats-column:nth-child(odd) {
                 border-right: none;
@@ -4193,6 +4233,7 @@
         var table = document.getElementById('celltable');
         var popup = document.getElementsByClassName('popup');
         var closebtn = document.getElementsByClassName('hide');
+        var activePopupRow = null;
 
         function rowListener(e){
             var row = e.target.closest('tr');
@@ -4201,27 +4242,96 @@
             }
         }
 
+        function getPopupElement(){
+            var popupEl = popup[0];
+            return popupEl || null;
+        }
+
+        function positionPopupForRow(row){
+            var popupEl = getPopupElement();
+            if (!popupEl || !row || !document.body.contains(row)) {
+                return;
+            }
+            var rect = row.getBoundingClientRect();
+            var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+            var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            var margin = 8;
+
+            popupEl.style.visibility = 'hidden';
+            popupEl.style.display = 'block';
+            popupEl.style.left = '0px';
+            popupEl.style.top = '0px';
+
+            var popupRect = popupEl.getBoundingClientRect();
+            var left = rect.right + 10;
+            if (left + popupRect.width + margin > viewportWidth) {
+                left = rect.left - popupRect.width - 10;
+            }
+            left = Math.max(margin, Math.min(left, viewportWidth - popupRect.width - margin));
+
+            var top = rect.top;
+            if (top + popupRect.height + margin > viewportHeight) {
+                top = viewportHeight - popupRect.height - margin;
+            }
+            top = Math.max(margin, top);
+
+            var offsetParent = popupEl.offsetParent || document.body;
+            var parentRect = offsetParent.getBoundingClientRect();
+            var parentScrollLeft = offsetParent === document.body
+                ? (window.pageXOffset || document.documentElement.scrollLeft)
+                : offsetParent.scrollLeft;
+            var parentScrollTop = offsetParent === document.body
+                ? (window.pageYOffset || document.documentElement.scrollTop)
+                : offsetParent.scrollTop;
+            var parentClientLeft = offsetParent.clientLeft || 0;
+            var parentClientTop = offsetParent.clientTop || 0;
+
+            popupEl.style.left = (left - parentRect.left + parentScrollLeft - parentClientLeft) + 'px';
+            popupEl.style.top = (top - parentRect.top + parentScrollTop - parentClientTop) + 'px';
+            popupEl.style.visibility = 'visible';
+        }
+
+        function repositionActivePopup(){
+            var popupEl = getPopupElement();
+            if (!popupEl || !activePopupRow || popupEl.style.display === 'none') {
+                return;
+            }
+            if (!document.body.contains(activePopupRow)) {
+                hidePopUp();
+                return;
+            }
+            positionPopupForRow(activePopupRow);
+        }
+
         function showPopUp(row,e){
             var cells = row.getElementsByTagName('td');
             var cell_id = cells[0].textContent.trim();
+            var popupEl = getPopupElement();
+            if (!popupEl) return;
 
-            document.getElementById('popup-id').textContent = cell_id
-
-            var rect = row.getBoundingClientRect();
-            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-
-            popup[0].style.left = (rect.right + scrollLeft + 10) + 'px';
-            popup[0].style.top = (rect.top + scrollTop) + 'px';
-            popup[0].style.display = 'block';
+            document.getElementById('popup-id').textContent = cell_id;
+            activePopupRow = row;
+            positionPopupForRow(row);
         };
 
         function hidePopUp(){
-            popup[0].style.display = 'none';
+            var popupEl = getPopupElement();
+            if (popupEl) {
+                popupEl.style.display = 'none';
+                popupEl.style.visibility = '';
+            }
+            activePopupRow = null;
         }
 
         if (table) {
             table.addEventListener("click", rowListener);
+        }
+        window.addEventListener('resize', repositionActivePopup);
+        window.addEventListener('orientationchange', repositionActivePopup);
+        window.addEventListener('scroll', repositionActivePopup);
+        var tableScrollFrame = document.getElementById('tableScrollFrame');
+        if (tableScrollFrame) {
+            tableScrollFrame.addEventListener('scroll', repositionActivePopup);
         }
 
         function setCellID(){

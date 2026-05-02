@@ -73,6 +73,7 @@
             --accent-dark: #0056b3;
             --danger: #a71d2a;
             --nav-height: 52px;
+            --safe-viewport-height: 100vh;
             --glass-surface-rgb: 24, 24, 24;
             --glass-surface-alpha: 0.88;
             --glass-surface-alpha-strong: 0.94;
@@ -122,6 +123,12 @@
             --workspace-sidebar-width: 400px;
         }
 
+        @supports (height: 100dvh) {
+            :root {
+                --safe-viewport-height: 100dvh;
+            }
+        }
+
         * { box-sizing: border-box; }
 
         html {
@@ -142,7 +149,8 @@
             display: block;
         }
         body {
-            min-height: 100dvh;
+            min-height: 100vh;
+            min-height: var(--safe-viewport-height);
         }
         button,
         input,
@@ -606,7 +614,8 @@
         }
 
         .site-shell {
-            min-height: 100dvh;
+            min-height: 100vh;
+            min-height: var(--safe-viewport-height);
             display: flex;
             flex-direction: column;
             width: 100%;
@@ -728,6 +737,93 @@
             .site-footer-top,
             .site-footer-bottom {
                 gap: 10px 14px;
+            }
+        }
+
+        :where(
+            .glass-shell,
+            .glass-card,
+            .glass-section,
+            .sidebar,
+            .sidebar-content,
+            .sidebar-actions,
+            .file-item,
+            .table-panel,
+            .table-scroll-frame,
+            .popup,
+            [role="dialog"]
+        ) {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        :where(
+            .glass-card,
+            .sidebar,
+            .file-item,
+            .popup,
+            [role="dialog"]
+        ) {
+            overflow-wrap: anywhere;
+        }
+
+        :where(
+            .sidebar-content,
+            .table-scroll-frame,
+            .save-preview-box,
+            .review-list-wrap,
+            .confirm ul
+        ) {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+
+        :where(
+            .popup-surface,
+            .settings-modal,
+            .reset-modal,
+            .folder-issue-modal,
+            .nav-exit-modal,
+            .logout-modal,
+            .delete-modal,
+            .save-modal,
+            .review-modal,
+            .confirm[role="dialog"]
+        ) {
+            max-width: calc(100vw - 24px);
+            max-height: calc(var(--safe-viewport-height) - 24px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        body .popup {
+            max-width: min(320px, calc(100vw - 16px));
+            max-height: calc(var(--safe-viewport-height) - 16px);
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 640px) {
+            :where(
+                .logout-modal-actions,
+                .delete-modal-actions,
+                .save-modal-actions,
+                .review-actions,
+                .confirm-actions
+            ) {
+                flex-wrap: wrap;
+            }
+
+            :where(
+                .logout-modal-actions > *,
+                .delete-modal-actions > *,
+                .save-modal-actions > *,
+                .review-actions > *,
+                .confirm-actions > *
+            ) {
+                flex: 1 1 140px;
+                min-width: 0;
             }
         }
 
