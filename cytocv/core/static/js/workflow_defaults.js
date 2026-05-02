@@ -74,6 +74,7 @@
   const selectedPlugins = new Set(
     pluginToggles.filter((toggle) => toggle.checked).map((toggle) => toggle.value)
   );
+  const signalPrimaryPlugins = new Set(['PunctaDistance', 'GreenRedIntensity', 'NuclearCellPairIntensity']);
   const overrideBox = document.getElementById('overrideChannels');
   const overrides = new Set(
     [...(overrideBox ? overrideBox.querySelectorAll('input[name=\"override_required_channels\"]') : [])]
@@ -81,6 +82,13 @@
       .filter((value) => value)
   );
   const pluginForm = document.getElementById('pluginForm');
+  const signalSelectedPluginsBox = document.getElementById('signalSelectedPlugins');
+  const signalQuantificationEnabledInput = document.getElementById('signal_quantification_enabled');
+  const signalQuantificationModeInput = document.getElementById('signal_quantification_mode');
+  const signalQuantificationInline = document.getElementById('signalQuantificationInline');
+  const signalQuantificationModule = document.getElementById('signalQuantificationModule');
+  const punctaContourIntensityEnabledInput = document.getElementById('puncta_contour_intensity_enabled');
+  const alternateNucleusDetectionInput = document.getElementById('alternate_nucleus_detection_enabled');
   const advancedForm = document.getElementById('advancedForm');
   const savingForm = document.getElementById('savingForm');
   const sectionFormMap = {
@@ -287,6 +295,55 @@
       if (!pluginMap.has(dependencyId)) return;
       selectedPlugins.add(dependencyId);
       applyPluginDependencies(dependencyId);
+    });
+  };
+
+  const normalizeSignalMode = (value) =>
+    value === 'nuclear_cell_pair' ? 'nuclear_cell_pair' : 'puncta_distance';
+
+  const isSignalQuantificationEnabled = () =>
+    !!(signalQuantificationEnabledInput && signalQuantificationEnabledInput.checked);
+
+  const deriveSignalPluginIds = () => {
+    if (!isSignalQuantificationEnabled()) return [];
+    if (normalizeSignalMode(signalQuantificationModeInput?.value) === 'nuclear_cell_pair') {
+      return ['NuclearCellPairIntensity'];
+    }
+    const plugins = ['PunctaDistance'];
+    if (!punctaContourIntensityEnabledInput || punctaContourIntensityEnabledInput.checked) {
+      plugins.push('GreenRedIntensity');
+    }
+    return plugins;
+  };
+
+  const syncSignalSelectedPlugins = () => {
+    signalPrimaryPlugins.forEach((pluginId) => selectedPlugins.delete(pluginId));
+    deriveSignalPluginIds().forEach((pluginId) => selectedPlugins.add(pluginId));
+    if (!signalSelectedPluginsBox) return;
+    signalSelectedPluginsBox.innerHTML = '';
+    deriveSignalPluginIds().forEach((pluginId) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'selected_plugins';
+      input.value = pluginId;
+      signalSelectedPluginsBox.appendChild(input);
+    });
+  };
+
+  const syncSignalQuantificationPanels = () => {
+    const enabled = isSignalQuantificationEnabled();
+    const mode = normalizeSignalMode(signalQuantificationModeInput?.value);
+    if (signalQuantificationInline) {
+      signalQuantificationInline.classList.toggle('is-active', enabled);
+      signalQuantificationInline.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+    }
+    if (signalQuantificationModule) {
+      signalQuantificationModule.classList.toggle('is-off', !enabled);
+    }
+    document.querySelectorAll('[data-signal-mode-panel]').forEach((panel) => {
+      const active = enabled && panel.dataset.signalModePanel === mode;
+      panel.classList.toggle('is-active', active);
+      panel.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
   };
 
@@ -535,6 +592,8 @@
   };
 
   const syncRows = () => {
+    syncSignalSelectedPlugins();
+    syncSignalQuantificationPanels();
     const statsRequired = requiredByStatsChannels();
     channelToggles.forEach((toggle) => {
       const channel = toggle.dataset.channel;
@@ -593,6 +652,22 @@
       } else {
         selectedPlugins.delete(toggle.value);
       }
+      syncPluginToggles();
+      syncRows();
+    });
+  });
+
+  [
+    signalQuantificationEnabledInput,
+    signalQuantificationModeInput,
+    punctaContourIntensityEnabledInput,
+    alternateNucleusDetectionInput,
+    document.getElementById('puncta_line_mode'),
+    document.getElementById('nuclear_cell_pair_mode'),
+  ].forEach((input) => {
+    if (!input) return;
+    input.addEventListener('change', () => {
+      clearOverridesRequiredBySelectedPlugins();
       syncPluginToggles();
       syncRows();
     });
@@ -801,7 +876,7 @@
   const greenContourFilterEnabledInput = document.getElementById('green_contour_filter_enabled');
   const greenDotSplitEnabledInput = document.getElementById('green_dot_split_enabled');
   const greenDotSplitModeInput = document.getElementById('green_dot_split_mode');
-  const alternateRedDetectionInput = document.getElementById('alternate_red_detection');
+  const alternateRedDetectionInput = alternateNucleusDetectionInput;
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
   const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
@@ -952,6 +1027,10 @@
     value === 'red_nucleus'
       ? 'Red Nucleus (Measure Green)'
       : 'Green Nucleus (Measure Red)';
+  const signalModeLabel = (value) =>
+    normalizeSignalMode(value) === 'nuclear_cell_pair'
+      ? 'Nuclear, Cell-Pair Intensity'
+      : 'Puncta Distance';
 
   const convertLengthValueToUnit = (value, fromUnit, toUnit, umPerPx) => {
     const sourceUnit = normalizeLengthUnit(fromUnit);
@@ -1071,6 +1150,14 @@
 
   const capturePluginSnapshot = () => ({
     selectedPlugins: sortByOrder([...selectedPlugins], pluginOrder),
+    signalQuantificationEnabled: isSignalQuantificationEnabled(),
+    signalQuantificationMode: normalizeSignalMode(signalQuantificationModeInput?.value),
+    punctaContourIntensityEnabled: !!(
+      punctaContourIntensityEnabledInput && punctaContourIntensityEnabledInput.checked
+    ),
+    alternateNucleusDetectionEnabled: !!(
+      alternateRedDetectionInput && alternateRedDetectionInput.checked
+    ),
     redWidth: captureNumericField(redWidthInput),
     redWidthUnit: normalizeLengthUnit(valueOrEmpty(redWidthUnit)),
     cenDotDistance: captureNumericField(cenDotDistanceInput),
@@ -1087,7 +1174,6 @@
     greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
     greenDotSplitEnabled: !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked),
     greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
-    alternateRedDetection: !!(alternateRedDetectionInput && alternateRedDetectionInput.checked),
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
   });
@@ -1117,6 +1203,23 @@
 
   const buildPluginChangeList = (fromSnapshot, toSnapshot) => {
     const changes = [];
+    pushToggleChange(
+      changes,
+      'Signal Quantification',
+      fromSnapshot.signalQuantificationEnabled,
+      toSnapshot.signalQuantificationEnabled
+    );
+    if (fromSnapshot.signalQuantificationMode !== toSnapshot.signalQuantificationMode) {
+      changes.push(
+        `Signal Quantification Mode: ${signalModeLabel(fromSnapshot.signalQuantificationMode)} -> ${signalModeLabel(toSnapshot.signalQuantificationMode)}`
+      );
+    }
+    pushToggleChange(
+      changes,
+      'Red/Green Contour Intensities',
+      fromSnapshot.punctaContourIntensityEnabled,
+      toSnapshot.punctaContourIntensityEnabled
+    );
     const before = new Set(fromSnapshot.selectedPlugins || []);
     const after = new Set(toSnapshot.selectedPlugins || []);
 
@@ -1183,9 +1286,9 @@
     }
     pushToggleChange(
       changes,
-      'Enable Alternate Red Detection',
-      fromSnapshot.alternateRedDetection,
-      toSnapshot.alternateRedDetection
+      'Alternate Nucleus Detection',
+      fromSnapshot.alternateNucleusDetectionEnabled,
+      toSnapshot.alternateNucleusDetectionEnabled
     );
     pushToggleChange(
       changes,
@@ -1353,6 +1456,9 @@
     if (!snapshot) return;
     selectedPlugins.clear();
     (snapshot.selectedPlugins || []).forEach((pluginId) => selectedPlugins.add(pluginId));
+    if (signalQuantificationEnabledInput) signalQuantificationEnabledInput.checked = snapshot.signalQuantificationEnabled;
+    if (signalQuantificationModeInput) signalQuantificationModeInput.value = normalizeSignalMode(snapshot.signalQuantificationMode);
+    if (punctaContourIntensityEnabledInput) punctaContourIntensityEnabledInput.checked = snapshot.punctaContourIntensityEnabled;
     syncPluginToggles();
     if (redWidthInput) redWidthInput.value = snapshot.redWidth.raw;
     if (redWidthUnit) {
@@ -1390,7 +1496,9 @@
     if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
     if (greenDotSplitEnabledInput) greenDotSplitEnabledInput.checked = snapshot.greenDotSplitEnabled;
     if (greenDotSplitModeInput) greenDotSplitModeInput.value = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
-    if (alternateRedDetectionInput) alternateRedDetectionInput.checked = snapshot.alternateRedDetection;
+    if (alternateRedDetectionInput) {
+      alternateRedDetectionInput.checked = snapshot.alternateNucleusDetectionEnabled;
+    }
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
     syncRows();
