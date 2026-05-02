@@ -7,12 +7,21 @@ import math
 from typing import Any
 
 from core.channel_roles import CHANNEL_ROLE_ORDER, channel_role_from_slug, channel_slug
+from core.services.biorientation_config import (
+    DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
 from core.services.green_dot_split import (
     normalize_green_dot_split_mode,
+)
+from core.services.signal_quantification import (
+    DEFAULT_SIGNAL_SELECTED_PLUGINS,
+    SIGNAL_MODE_PUNCTA_DISTANCE,
+    SIGNAL_QUANTIFICATION_MODES,
+    resolve_signal_quantification_selection,
 )
 from core.stats_plugins import (
     ALWAYS_REQUIRED_CHANNELS,
@@ -35,13 +44,11 @@ class PreferenceValidationError(ValueError):
 
 DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "experiment_defaults": {
-        "selected_plugins": [
-            "PunctaDistance",
-            "CENDot",
-            "Biorientation",
-            "GreenRedIntensity",
-            "NuclearCellPairIntensity",
-        ],
+        "selected_plugins": list(DEFAULT_SIGNAL_SELECTED_PLUGINS),
+        "signal_quantification_enabled": True,
+        "signal_quantification_mode": SIGNAL_MODE_PUNCTA_DISTANCE,
+        "puncta_contour_intensity_enabled": True,
+        "alternate_nucleus_detection_enabled": True,
         "module_enabled": False,
         "enforce_layer_count": False,
         "enforce_wavelengths": False,
@@ -52,7 +59,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "cen_dot_proximity_radius": 13,
         "biorientation_red_min_distance": 0,
         "biorientation_red_max_distance": 37,
-        "biorientation_collinearity_threshold": 66,
+        "biorientation_collinearity_threshold": DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
         "green_dot_split_enabled": True,
         "green_dot_split_mode": "balanced",
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
@@ -234,6 +241,16 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         ),
         default=False,
     )
+    normalized["experiment_defaults"]["alternate_nucleus_detection_enabled"] = _as_bool(
+        defaults_payload.get(
+            "alternate_nucleus_detection_enabled",
+            defaults_payload.get(
+                "alternate_red_detection",
+                defaults_payload.get("alternate_mcherry_detection"),
+            ),
+        ),
+        default=True,
+    )
 
     raw_required_channels = defaults_payload.get("manual_required_channels", [])
     if not isinstance(raw_required_channels, list):
@@ -330,7 +347,7 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
                 defaults_payload.get("gfp_threshold"),
             ),
         ),
-        default=66,
+        default=DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
         minimum=0,
     )
     normalized["experiment_defaults"]["green_dot_split_enabled"] = _as_bool(
@@ -367,6 +384,32 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     if mode not in NUCLEAR_CELL_PAIR_MODES:
         mode = "green_nucleus"
     normalized["experiment_defaults"]["nuclear_cell_pair_mode"] = mode
+
+    signal_selection = resolve_signal_quantification_selection(
+        payload=defaults_payload,
+        selected_plugins=normalized["experiment_defaults"]["selected_plugins"],
+        nuclear_cell_pair_mode=mode,
+        puncta_line_mode=normalized["experiment_defaults"]["puncta_line_mode"],
+        default_alternate_nucleus_detection_enabled=normalized[
+            "experiment_defaults"
+        ]["alternate_nucleus_detection_enabled"],
+    )
+    normalized["experiment_defaults"]["signal_quantification_enabled"] = (
+        signal_selection.enabled
+    )
+    normalized["experiment_defaults"]["signal_quantification_mode"] = signal_selection.mode
+    normalized["experiment_defaults"]["puncta_contour_intensity_enabled"] = (
+        signal_selection.puncta_contour_intensity_enabled
+    )
+    normalized["experiment_defaults"]["alternate_nucleus_detection_enabled"] = (
+        signal_selection.alternate_nucleus_detection_enabled
+    )
+    normalized["experiment_defaults"]["alternate_red_detection"] = (
+        signal_selection.alternate_nucleus_detection_enabled
+    )
+    normalized["experiment_defaults"]["selected_plugins"] = list(
+        signal_selection.selected_plugins
+    )
 
     normalized["auto_save_experiments"] = _as_bool(
         raw_payload.get("auto_save_experiments"),
@@ -407,6 +450,10 @@ def build_experiment_defaults_from_popup_payload(
 
     allowed_fields = {
         "selected_plugins",
+        "signal_quantification_enabled",
+        "signal_quantification_mode",
+        "puncta_contour_intensity_enabled",
+        "alternate_nucleus_detection_enabled",
         "module_enabled",
         "enforce_layer_count",
         "enforce_wavelengths",
@@ -558,6 +605,45 @@ def build_experiment_defaults_from_popup_payload(
         allowed={"balanced", "aggressive"},
     )
 
+    signal_payload: dict[str, Any] = {}
+    if "signal_quantification_enabled" in raw_payload:
+        signal_payload["signal_quantification_enabled"] = _strict_bool(
+            raw_payload.get("signal_quantification_enabled"),
+            field="signal_quantification_enabled",
+        )
+    if "signal_quantification_mode" in raw_payload:
+        signal_payload["signal_quantification_mode"] = _strict_mode(
+            raw_payload.get("signal_quantification_mode"),
+            field="signal_quantification_mode",
+            allowed=set(SIGNAL_QUANTIFICATION_MODES),
+        )
+    if "puncta_contour_intensity_enabled" in raw_payload:
+        signal_payload["puncta_contour_intensity_enabled"] = _strict_bool(
+            raw_payload.get("puncta_contour_intensity_enabled"),
+            field="puncta_contour_intensity_enabled",
+        )
+    alternate_detection_field = (
+        "alternate_nucleus_detection_enabled"
+        if "alternate_nucleus_detection_enabled" in raw_payload
+        else "alternate_red_detection"
+    )
+    if alternate_detection_field in raw_payload:
+        signal_payload["alternate_nucleus_detection_enabled"] = _strict_bool(
+            raw_payload.get(alternate_detection_field),
+            field=alternate_detection_field,
+        )
+
+    signal_selection = resolve_signal_quantification_selection(
+        payload=signal_payload,
+        selected_plugins=selected_plugins,
+        nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+        puncta_line_mode=puncta_line_mode,
+        default_alternate_nucleus_detection_enabled=bool(
+            current.get("alternate_nucleus_detection_enabled", True)
+        ),
+    )
+    selected_plugins = list(signal_selection.selected_plugins)
+
     show_legacy_plugins = _strict_bool(
         raw_payload.get("show_legacy_plugins"),
         field="show_legacy_plugins",
@@ -577,6 +663,14 @@ def build_experiment_defaults_from_popup_payload(
     next_defaults.update(
         {
             "selected_plugins": selected_plugins,
+            "signal_quantification_enabled": signal_selection.enabled,
+            "signal_quantification_mode": signal_selection.mode,
+            "puncta_contour_intensity_enabled": (
+                signal_selection.puncta_contour_intensity_enabled
+            ),
+            "alternate_nucleus_detection_enabled": (
+                signal_selection.alternate_nucleus_detection_enabled
+            ),
             "module_enabled": _strict_bool(
                 raw_payload.get("module_enabled"),
                 field="module_enabled",
@@ -600,9 +694,8 @@ def build_experiment_defaults_from_popup_payload(
                 field="green_dot_split_enabled",
             ),
             "green_dot_split_mode": green_dot_split_mode,
-            "alternate_red_detection": _strict_bool(
-                raw_payload.get("alternate_red_detection"),
-                field="alternate_red_detection",
+            "alternate_red_detection": (
+                signal_selection.alternate_nucleus_detection_enabled
             ),
             "puncta_line_width": puncta_line_width,
             "puncta_line_width_unit": puncta_line_width_unit,
