@@ -1,6 +1,9 @@
 import logging
 import math
 
+from core.services.biorientation_config import (
+    DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
 from core.services.canonical_contours import (
     get_canonical_green_slots,
     get_canonical_red_slots,
@@ -68,8 +71,11 @@ class Biorientation(Analysis):
             default=37.0,
         )
         collinearity_threshold = _coerce_float(
-            properties.get("stats_biorientation_collinearity_threshold", 66),
-            default=66,
+            properties.get(
+                "stats_biorientation_collinearity_threshold",
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+            ),
+            default=float(DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX),
         )
         min_unit = normalize_length_unit(
             properties.get("stats_biorientation_red_min_distance_unit"),
@@ -138,16 +144,18 @@ class Biorientation(Analysis):
             self.cp.off_axis_dots = 0
 
     @staticmethod
-    def _is_collinear(point, endpoint1, endpoint2, eps) -> bool:
+    def _is_collinear(point, endpoint1, endpoint2, threshold_px) -> bool:
         px, py = float(point[0]), float(point[1])
         x1, y1 = float(endpoint1[0]), float(endpoint1[1])
         x2, y2 = float(endpoint2[0]), float(endpoint2[1])
         dx = x2 - x1
         dy = y2 - y1
-        cross = (py - y1) * dx - (px - x1) * dy
-        if abs(cross) > eps:
-            return False
-
-        dot = (px - x1) * dx + (py - y1) * dy
         squared_dist = dx * dx + dy * dy
+        if squared_dist <= 0.0:
+            return False
+        cross = (py - y1) * dx - (px - x1) * dy
+        off_axis_distance = abs(cross) / math.sqrt(squared_dist)
+        if off_axis_distance > threshold_px:
+            return False
+        dot = (px - x1) * dx + (py - y1) * dy
         return not (dot < 0 or dot > squared_dist)
