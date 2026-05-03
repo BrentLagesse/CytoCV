@@ -969,6 +969,19 @@
         .stats-toggle-row.is-off .legacy-pill {
             opacity: var(--settings-module-off-control-opacity);
         }
+        .stats-toggle-row.is-paused {
+            background-color: var(--settings-module-off-bg);
+            border-color: var(--settings-module-off-border);
+            filter: var(--settings-module-off-filter);
+        }
+        .stats-toggle-row.is-paused .stats-toggle-left {
+            opacity: var(--settings-module-off-text-opacity);
+        }
+        .stats-toggle-row.is-paused .switch,
+        .stats-toggle-row.is-paused .info-dot,
+        .stats-toggle-row.is-paused .legacy-pill {
+            opacity: var(--settings-module-off-control-opacity);
+        }
         .stats-toggle-left {
             display: flex;
             align-items: center;
@@ -1292,6 +1305,26 @@
             margin-top: 4px;
             pointer-events: auto;
             overflow: visible;
+        }
+        .signal-mode-paused-note {
+            margin: 0;
+            min-height: 14px;
+            color: #e5c558;
+            font-size: 11px;
+            line-height: 1.25;
+            opacity: 0;
+            transform: translateY(-5px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .signal-mode-paused-note.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .signal-mode-paused-note.is-enabled {
+            color: #8fdc9c;
+        }
+        .signal-mode-paused-note.is-paused {
+            color: #e5c558;
         }
         .signal-mode-stack {
             display: grid;
@@ -2244,6 +2277,7 @@
     let signalQuantificationToggle = null;
     let signalQuantificationModeRow = null;
     let signalQuantificationModeSelect = null;
+    let signalModePausedNote = null;
     let signalPunctaPanel = null;
     let signalNuclearPanel = null;
     let punctaContourIntensityToggle = null;
@@ -2344,6 +2378,68 @@
         }
     }
 
+    function isNuclearSignalModeActive() {
+        return !!statsState.signalQuantificationEnabled
+            && normalizeSignalMode(statsState.signalQuantificationMode) === 'nuclear_cell_pair';
+    }
+
+    function isPluginPausedBySignalMode(pluginId) {
+        return isNuclearSignalModeActive() && pluginId !== 'NuclearCellPairIntensity';
+    }
+
+    function getEffectiveSelectedPlugins() {
+        if (isNuclearSignalModeActive()) {
+            return new Set(['NuclearCellPairIntensity']);
+        }
+        return new Set(statsState.selectedPlugins);
+    }
+
+    function buildSignalModeNotice(signalEnabled, signalMode) {
+        if (!signalEnabled) return null;
+        if (signalMode === 'nuclear_cell_pair') {
+            return {
+                state: 'paused',
+                text: 'All other stat modules disabled in Nuclear, Cell-Pair mode.',
+            };
+        }
+        const activeSecondaries = [
+            statsState.selectedPlugins.has('CENDot') ? 'Cen Dot' : null,
+            statsState.selectedPlugins.has('Biorientation') ? 'Biorientation' : null,
+        ].filter(Boolean);
+        if (!activeSecondaries.length) return null;
+        return {
+            state: 'enabled',
+            text: activeSecondaries.length === 2
+                ? `${activeSecondaries[0]} and ${activeSecondaries[1]} modules enabled.`
+                : `${activeSecondaries[0]} module enabled.`,
+        };
+    }
+
+    function syncSignalModeNotice(signalEnabled, signalMode) {
+        if (!signalModePausedNote) return;
+        const notice = buildSignalModeNotice(signalEnabled, signalMode);
+        const state = notice ? notice.state : '';
+        const text = notice ? notice.text : '';
+        const changed = signalModePausedNote.dataset.state !== state || signalModePausedNote.textContent !== text;
+        signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+        if (!notice) {
+            signalModePausedNote.classList.remove('visible');
+            signalModePausedNote.setAttribute('aria-hidden', 'true');
+            signalModePausedNote.dataset.state = '';
+            signalModePausedNote.textContent = '';
+            return;
+        }
+        signalModePausedNote.textContent = text;
+        signalModePausedNote.dataset.state = state;
+        signalModePausedNote.classList.add(`is-${state}`);
+        signalModePausedNote.setAttribute('aria-hidden', 'false');
+        if (changed) {
+            signalModePausedNote.classList.remove('visible');
+            void signalModePausedNote.offsetWidth;
+        }
+        signalModePausedNote.classList.add('visible');
+    }
+
     const advancedInfoTextById = {
         legacyPluginInfoDot: buildInfoSections([
             'Shows legacy Blue-channel statistics in the plugin list. Turn this on only when you need older Blue-nucleus or Red-in-Blue outputs; modern Red/Green modules stay available either way.',
@@ -2401,7 +2497,7 @@
 
     function selectedPluginLabelsRequiringChannel(channel) {
         const labels = [];
-        statsState.selectedPlugins.forEach((pluginId) => {
+        getEffectiveSelectedPlugins().forEach((pluginId) => {
             const plugin = pluginMap.get(pluginId);
             if (!plugin || !Array.isArray(plugin.required_channels)) return;
             if (plugin.required_channels.includes(channel)) {
@@ -3594,6 +3690,10 @@
         );
         modeTop.appendChild(signalQuantificationModeSelect.root);
         signalQuantificationModeRow.appendChild(modeTop);
+        signalModePausedNote = document.createElement('p');
+        signalModePausedNote.className = 'signal-mode-paused-note';
+        signalModePausedNote.setAttribute('aria-hidden', 'true');
+        signalQuantificationModeRow.appendChild(signalModePausedNote);
         row.appendChild(signalQuantificationModeRow);
 
         const signalPanelStack = document.createElement('div');
@@ -3762,6 +3862,7 @@
         signalQuantificationToggle = null;
         signalQuantificationModeRow = null;
         signalQuantificationModeSelect = null;
+        signalModePausedNote = null;
         signalPunctaPanel = null;
         signalNuclearPanel = null;
         punctaContourIntensityToggle = null;
@@ -4672,7 +4773,7 @@
 
     function getStatsRequiredChannels() {
         const required = new Set(alwaysRequiredChannels);
-        statsState.selectedPlugins.forEach((pluginId) => {
+        getEffectiveSelectedPlugins().forEach((pluginId) => {
             const plugin = pluginMap.get(pluginId);
             if (!plugin || !Array.isArray(plugin.required_channels)) return;
             plugin.required_channels.forEach((channel) => required.add(channel));
@@ -4682,7 +4783,7 @@
 
     function isChannelUsed(channel) {
         var used = statsState.manualRequiredChannels.has(channel);
-        statsState.selectedPlugins.forEach((pluginId) => {
+        getEffectiveSelectedPlugins().forEach((pluginId) => {
             const plugin = pluginMap.get(pluginId);
             if (!plugin || !Array.isArray(plugin.required_channels)) return false;
             plugin.required_channels.forEach((required_channel) => {
@@ -4693,7 +4794,7 @@
     }
 
     function selectedStatsRequireChannel(channel) {
-        for (const pluginId of statsState.selectedPlugins) {
+        for (const pluginId of getEffectiveSelectedPlugins()) {
             const plugin = pluginMap.get(pluginId);
             if (plugin && Array.isArray(plugin.required_channels) && plugin.required_channels.includes(channel)) {
                 return true;
@@ -4726,9 +4827,15 @@
         const moduleRow = document.getElementById('moduleToggleRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
-            toggle.checked = statsState.selectedPlugins.has(pluginId);
-            toggle.disabled = isPluginRequiredBySelection(pluginId);
-            setOffVisualState(toggle.closest('.stats-toggle-row'), !toggle.checked);
+            const row = toggle.closest('.stats-toggle-row');
+            const paused = isPluginPausedBySignalMode(pluginId);
+            toggle.checked = statsState.selectedPlugins.has(pluginId) && !paused;
+            toggle.disabled = isPluginRequiredBySelection(pluginId) || paused;
+            if (row) {
+                row.classList.toggle('is-paused', paused);
+                row.setAttribute('aria-disabled', paused ? 'true' : 'false');
+            }
+            setOffVisualState(row, !toggle.checked);
         });
 
         const signalEnabled = !!statsState.signalQuantificationEnabled;
@@ -4743,6 +4850,7 @@
         if (signalQuantificationModeRow) {
             signalQuantificationModeRow.classList.toggle('visible', signalEnabled);
         }
+        syncSignalModeNotice(signalEnabled, signalMode);
         if (signalPunctaPanel) {
             signalPunctaPanel.classList.toggle('visible', signalEnabled && signalMode === 'puncta_distance');
         }
@@ -4777,10 +4885,16 @@
             cenDotProximityRadiusInput.value = formatNumericInputValue(statsState.cenDotProximityRadius);
         }
         if (cenDotDistanceRow) {
-            cenDotDistanceRow.classList.toggle('visible', statsState.selectedPlugins.has('CENDot'));
+            cenDotDistanceRow.classList.toggle(
+                'visible',
+                statsState.selectedPlugins.has('CENDot') && !isPluginPausedBySignalMode('CENDot')
+            );
         }
         if (biorientationRow) {
-            biorientationRow.classList.toggle('visible', statsState.selectedPlugins.has('Biorientation'));
+            biorientationRow.classList.toggle(
+                'visible',
+                statsState.selectedPlugins.has('Biorientation') && !isPluginPausedBySignalMode('Biorientation')
+            );
         }
         if (biorientationRedMinDistanceInput) {
             biorientationRedMinDistanceInput.value = formatNumericInputValue(statsState.biorientationRedMinDistance);
@@ -6373,7 +6487,7 @@
             prepData.append('enforce_layer_count', layerEnabled ? '1' : '0');
             prepData.append('enforce_wavelengths', wavelengthEnabled ? '1' : '0');
             extraRequiredChannels.forEach((channel) => prepData.append('extra_required_channels', channel));
-            [...statsState.selectedPlugins].forEach((pluginId) => prepData.append('selected_analysis', pluginId));
+            [...getEffectiveSelectedPlugins()].forEach((pluginId) => prepData.append('selected_analysis', pluginId));
             prepData.append('signalQuantificationEnabled', String(statsState.signalQuantificationEnabled));
             prepData.append('signalQuantificationMode', normalizeSignalMode(statsState.signalQuantificationMode));
             prepData.append('punctaContourIntensityEnabled', String(statsState.punctaContourIntensityEnabled));

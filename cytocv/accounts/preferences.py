@@ -408,7 +408,7 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         signal_selection.alternate_nucleus_detection_enabled
     )
     normalized["experiment_defaults"]["selected_plugins"] = list(
-        signal_selection.selected_plugins
+        signal_selection.configured_plugins
     )
 
     normalized["auto_save_experiments"] = _as_bool(
@@ -642,7 +642,7 @@ def build_experiment_defaults_from_popup_payload(
             current.get("alternate_nucleus_detection_enabled", True)
         ),
     )
-    selected_plugins = list(signal_selection.selected_plugins)
+    selected_plugins = list(signal_selection.configured_plugins)
 
     show_legacy_plugins = _strict_bool(
         raw_payload.get("show_legacy_plugins"),

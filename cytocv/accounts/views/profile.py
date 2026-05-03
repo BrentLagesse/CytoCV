@@ -61,6 +61,7 @@ from core.services.puncta_line_mode import (
 )
 from core.services.green_dot_split import normalize_green_dot_split_mode
 from core.services.signal_quantification import (
+    resolve_signal_quantification_from_defaults,
     resolve_signal_quantification_selection,
 )
 from core.scale import (
@@ -1220,7 +1221,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 ),
             )
             next_defaults = dict(defaults)
-            next_defaults["selected_plugins"] = list(signal_selection.selected_plugins)
+            next_defaults["selected_plugins"] = list(signal_selection.configured_plugins)
             next_defaults.update(
                 {
                     "signal_quantification_enabled": signal_selection.enabled,
@@ -1299,7 +1300,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     )
                 ),
             )
-            selected_plugins = list(signal_selection.selected_plugins)
+            selected_plugins = list(signal_selection.configured_plugins)
 
             next_defaults = dict(defaults)
             next_defaults.update(
@@ -1372,7 +1373,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             return _preferences_redirect(request, section="saving")
 
     plugin_rows = []
-    selected_plugins = set(defaults.get("selected_plugins", []))
+    signal_defaults = resolve_signal_quantification_from_defaults(defaults)
+    selected_plugins = set(signal_defaults.configured_plugins)
+    effective_selected_plugins = set(signal_defaults.selected_plugins)
     for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugin_rows.append(
@@ -1392,7 +1395,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
 
     required_channel_rows, plugin_requirement_summary = _build_required_channel_rows(
         defaults,
-        list(selected_plugins),
+        list(effective_selected_plugins),
     )
     plugin_dependency_payload = build_plugin_ui_payload()
 

@@ -282,6 +282,20 @@ main.main > section.panel > form.panel > .card {
   opacity: var(--workflow-module-off-control-opacity);
 }
 
+.plugin.is-paused {
+  background: var(--workflow-module-off-bg);
+  border-color: var(--workflow-module-off-border);
+  filter: var(--workflow-module-off-filter);
+}
+
+.plugin.is-paused .plugin-main {
+  opacity: var(--workflow-module-off-text-opacity);
+}
+
+.plugin.is-paused > .sw {
+  opacity: var(--workflow-module-off-control-opacity);
+}
+
 .plugin-main {
   display: grid;
   gap: 4px;
@@ -352,6 +366,30 @@ main.main > section.panel > form.panel > .card {
   opacity: 1;
   pointer-events: auto;
   animation: signalModeChildFadeIn 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.signal-mode-paused-note {
+  margin: 2px 0 0;
+  min-height: 14px;
+  color: #e5c558;
+  font-size: 11px;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.signal-mode-paused-note.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.signal-mode-paused-note.is-enabled {
+  color: #8fdc9c;
+}
+
+.signal-mode-paused-note.is-paused {
+  color: #e5c558;
 }
 
 @keyframes signalModeChildFadeIn {
@@ -1462,6 +1500,7 @@ main.main > section.panel > form.panel > .card {
                 <div class="plugin-measure-copy">
                   <label for="signal_quantification_mode">Primary Mode:</label>
                   <p class="module-help">Puncta Distance can also calculate Red/Green contour intensities. Nuclear, Cell-Pair Intensity measures the opposite channel inside the selected nucleus contour and full cell-pair mask.</p>
+                  <p class="signal-mode-paused-note" id="signalModePausedNote" aria-hidden="true"></p>
                 </div>
                 <div class="mode-select-group plugin-measure-right">
                   <select id="signal_quantification_mode" name="signal_quantification_mode"><option value="puncta_distance" {% if preferences.experiment_defaults.signal_quantification_mode != 'nuclear_cell_pair' %}selected{% endif %}>Puncta Distance</option><option value="nuclear_cell_pair" {% if preferences.experiment_defaults.signal_quantification_mode == 'nuclear_cell_pair' %}selected{% endif %}>Nuclear, Cell-Pair Intensity</option></select>

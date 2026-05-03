@@ -193,7 +193,7 @@ class UploadScaleInitializationTests(TestCase):
 
         self.assertEqual(
             self.client.session.get("selected_analysis"),
-            ["CENDot", "NuclearCellPairIntensity"],
+            ["NuclearCellPairIntensity"],
         )
         self.assertEqual(self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair")
         self.assertTrue(self.client.session.get("alternateNucleusDetectionEnabled"))
@@ -225,7 +225,7 @@ class UploadScaleInitializationTests(TestCase):
 
         self.assertEqual(
             self.client.session.get("selected_analysis"),
-            ["Biorientation", "NuclearCellPairIntensity"],
+            ["NuclearCellPairIntensity"],
         )
         self.assertEqual(self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair")
         self.assertTrue(self.client.session.get("alternateNucleusDetectionEnabled"))

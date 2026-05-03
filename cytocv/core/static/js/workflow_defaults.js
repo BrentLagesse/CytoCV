@@ -87,6 +87,7 @@
   const signalQuantificationModeInput = document.getElementById('signal_quantification_mode');
   const signalQuantificationInline = document.getElementById('signalQuantificationInline');
   const signalQuantificationModule = document.getElementById('signalQuantificationModule');
+  const signalModePausedNote = document.getElementById('signalModePausedNote');
   const punctaContourIntensityEnabledInput = document.getElementById('puncta_contour_intensity_enabled');
   const alternateNucleusDetectionInput = document.getElementById('alternate_nucleus_detection_enabled');
   const advancedForm = document.getElementById('advancedForm');
@@ -216,7 +217,7 @@
 
   const requiredByStatsChannels = () => {
     const required = new Set(alwaysRequired);
-    selectedPlugins.forEach((pluginId) => {
+    effectiveSelectedPluginIds().forEach((pluginId) => {
       const plugin = pluginMap.get(pluginId);
       if (!plugin || !Array.isArray(plugin.required_channels)) return;
       plugin.required_channels.forEach((channel) => required.add(channel));
@@ -228,7 +229,7 @@
 
   const selectedPluginLabelsRequiringChannel = (channel) => {
     const labels = [];
-    selectedPlugins.forEach((pluginId) => {
+    effectiveSelectedPluginIds().forEach((pluginId) => {
       const plugin = pluginMap.get(pluginId);
       if (!plugin || !Array.isArray(plugin.required_channels)) return;
       if (plugin.required_channels.includes(channel)) {
@@ -304,6 +305,10 @@
   const isSignalQuantificationEnabled = () =>
     !!(signalQuantificationEnabledInput && signalQuantificationEnabledInput.checked);
 
+  const isNuclearSignalModeActive = () =>
+    isSignalQuantificationEnabled() &&
+    normalizeSignalMode(signalQuantificationModeInput?.value) === 'nuclear_cell_pair';
+
   const deriveSignalPluginIds = () => {
     if (!isSignalQuantificationEnabled()) return [];
     if (normalizeSignalMode(signalQuantificationModeInput?.value) === 'nuclear_cell_pair') {
@@ -316,12 +321,69 @@
     return plugins;
   };
 
+  const isPluginPausedBySignalMode = (pluginId) =>
+    isNuclearSignalModeActive() && pluginId !== 'NuclearCellPairIntensity';
+
+  const effectiveSelectedPluginIds = () => {
+    if (isNuclearSignalModeActive()) {
+      return new Set(['NuclearCellPairIntensity']);
+    }
+    return new Set(selectedPlugins);
+  };
+
+  const buildSignalModeNotice = (enabled, mode) => {
+    if (!enabled) return null;
+    if (mode === 'nuclear_cell_pair') {
+      return {
+        state: 'paused',
+        text: 'All other stat modules disabled in Nuclear, Cell-Pair mode.',
+      };
+    }
+    const activeSecondaries = [
+      selectedPlugins.has('CENDot') ? 'Cen Dot' : null,
+      selectedPlugins.has('Biorientation') ? 'Biorientation' : null,
+    ].filter(Boolean);
+    if (!activeSecondaries.length) return null;
+    const moduleText = activeSecondaries.length === 2
+      ? `${activeSecondaries[0]} and ${activeSecondaries[1]} modules enabled.`
+      : `${activeSecondaries[0]} module enabled.`;
+    return {
+      state: 'enabled',
+      text: moduleText,
+    };
+  };
+
+  const syncSignalModeNotice = (enabled, mode) => {
+    if (!signalModePausedNote) return;
+    const notice = buildSignalModeNotice(enabled, mode);
+    const state = notice ? notice.state : '';
+    const text = notice ? notice.text : '';
+    const changed = signalModePausedNote.dataset.state !== state || signalModePausedNote.textContent !== text;
+    signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+    if (!notice) {
+      signalModePausedNote.classList.remove('is-active');
+      signalModePausedNote.setAttribute('aria-hidden', 'true');
+      signalModePausedNote.dataset.state = '';
+      signalModePausedNote.textContent = '';
+      return;
+    }
+    signalModePausedNote.textContent = text;
+    signalModePausedNote.dataset.state = state;
+    signalModePausedNote.classList.add(`is-${state}`);
+    signalModePausedNote.setAttribute('aria-hidden', 'false');
+    if (changed) {
+      signalModePausedNote.classList.remove('is-active');
+      void signalModePausedNote.offsetWidth;
+    }
+    signalModePausedNote.classList.add('is-active');
+  };
+
   const syncSignalSelectedPlugins = () => {
     signalPrimaryPlugins.forEach((pluginId) => selectedPlugins.delete(pluginId));
     deriveSignalPluginIds().forEach((pluginId) => selectedPlugins.add(pluginId));
     if (!signalSelectedPluginsBox) return;
     signalSelectedPluginsBox.innerHTML = '';
-    deriveSignalPluginIds().forEach((pluginId) => {
+    sortByOrder([...selectedPlugins], pluginOrder).forEach((pluginId) => {
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = 'selected_plugins';
@@ -345,10 +407,11 @@
       panel.classList.toggle('is-active', active);
       panel.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
+    syncSignalModeNotice(enabled, mode);
   };
 
   const clearOverridesRequiredBySelectedPlugins = () => {
-    selectedPlugins.forEach((pluginId) => {
+    effectiveSelectedPluginIds().forEach((pluginId) => {
       const plugin = pluginMap.get(pluginId);
       if (!plugin || !Array.isArray(plugin.required_channels)) return;
       plugin.required_channels.forEach((channel) => overrides.delete(channel));
@@ -357,8 +420,9 @@
 
   const syncPluginToggles = () => {
     pluginToggles.forEach((toggle) => {
-      toggle.checked = selectedPlugins.has(toggle.value);
-      toggle.disabled = isPluginRequiredBySelection(toggle.value);
+      const paused = isPluginPausedBySignalMode(toggle.value);
+      toggle.checked = selectedPlugins.has(toggle.value) && !paused;
+      toggle.disabled = isPluginRequiredBySelection(toggle.value) || paused;
     });
   };
 
@@ -393,7 +457,7 @@
     [...document.querySelectorAll('[data-plugin-inline]')].forEach((panel) => {
       const pluginId = panel.dataset.pluginInline;
       const toggle = pluginToggles.find((item) => item.value === pluginId);
-      const isActive = !!(toggle && toggle.checked);
+      const isActive = !!(toggle && toggle.checked && !isPluginPausedBySignalMode(pluginId));
       panel.classList.toggle('is-active', isActive);
       panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
@@ -402,6 +466,9 @@
   const syncWorkflowModuleVisualStates = () => {
     document.querySelectorAll('.plugin').forEach((row) => {
       const toggle = row.querySelector('.plugin-toggle');
+      const paused = !!(toggle && isPluginPausedBySignalMode(toggle.value));
+      row.classList.toggle('is-paused', paused);
+      row.setAttribute('aria-disabled', paused ? 'true' : 'false');
       row.classList.toggle('is-off', !!toggle && !toggle.checked);
     });
 
@@ -667,6 +734,7 @@
   ].forEach((input) => {
     if (!input) return;
     input.addEventListener('change', () => {
+      syncSignalSelectedPlugins();
       clearOverridesRequiredBySelectedPlugins();
       syncPluginToggles();
       syncRows();

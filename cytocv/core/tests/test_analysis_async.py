@@ -216,7 +216,7 @@ class AnalysisAsyncTestCase(TestCase):
             def run_batch_side_effect(*, user, context, progress, **_kwargs):
                 self.assertEqual(
                     context.config_snapshot["selected_analysis"],
-                    ["CENDot", "NuclearCellPairIntensity"],
+                    ["NuclearCellPairIntensity"],
                 )
                 self.assertTrue(context.config_snapshot["signalQuantificationEnabled"])
                 self.assertEqual(
@@ -264,7 +264,7 @@ class AnalysisAsyncTestCase(TestCase):
             self.assertEqual(response.json()["status"], "succeeded")
             self.assertEqual(
                 self.client.session.get("selected_analysis"),
-                ["CENDot", "NuclearCellPairIntensity"],
+                ["NuclearCellPairIntensity"],
             )
             self.assertTrue(
                 self.client.session.get("alternateNucleusDetectionEnabled")

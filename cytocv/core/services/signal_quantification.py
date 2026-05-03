@@ -70,8 +70,10 @@ class SignalQuantificationSelection:
     puncta_contour_intensity_enabled: bool
     alternate_nucleus_detection_enabled: bool
     alternate_nucleus_detection_channel: str | None
+    configured_plugins: tuple[str, ...]
     selected_plugins: tuple[str, ...]
     independent_plugins: tuple[str, ...]
+    paused_plugins: tuple[str, ...]
     stat_visibility: dict[str, bool]
     measurement_contour_ratio_mode: str
 
@@ -246,16 +248,36 @@ def resolve_signal_quantification_selection(
         for plugin_id in legacy_plugins
         if plugin_id not in SIGNAL_QUANTIFICATION_PLUGIN_IDS
     )
-    selected: list[str] = []
+
+    configured: list[str] = []
     if enabled:
         if mode == SIGNAL_MODE_NUCLEAR_CELL_PAIR:
-            selected.append(NUCLEAR_CELL_PAIR_PLUGIN)
+            configured.append(NUCLEAR_CELL_PAIR_PLUGIN)
         else:
-            selected.append(PUNCTA_DISTANCE_PLUGIN)
+            configured.append(PUNCTA_DISTANCE_PLUGIN)
             if puncta_contour_intensity_enabled:
-                selected.append(GREEN_RED_INTENSITY_PLUGIN)
-    selected.extend(independent_plugins)
-    selected_plugins_tuple = tuple(expand_selected_plugins(selected))
+                configured.append(GREEN_RED_INTENSITY_PLUGIN)
+    configured.extend(independent_plugins)
+    configured_plugins_tuple = tuple(expand_selected_plugins(configured))
+
+    effective: list[str] = []
+    if enabled:
+        if mode == SIGNAL_MODE_NUCLEAR_CELL_PAIR:
+            effective.append(NUCLEAR_CELL_PAIR_PLUGIN)
+        else:
+            effective.append(PUNCTA_DISTANCE_PLUGIN)
+            if puncta_contour_intensity_enabled:
+                effective.append(GREEN_RED_INTENSITY_PLUGIN)
+            effective.extend(independent_plugins)
+    else:
+        effective.extend(independent_plugins)
+    selected_plugins_tuple = tuple(expand_selected_plugins(effective))
+    effective_plugin_set = set(selected_plugins_tuple)
+    paused_plugins_tuple = tuple(
+        plugin_id
+        for plugin_id in configured_plugins_tuple
+        if plugin_id not in effective_plugin_set
+    )
 
     return SignalQuantificationSelection(
         enabled=enabled,
@@ -266,8 +288,10 @@ def resolve_signal_quantification_selection(
             nuclear_cell_pair_mode,
             enabled=enabled and mode == SIGNAL_MODE_NUCLEAR_CELL_PAIR and alternate_enabled,
         ),
+        configured_plugins=configured_plugins_tuple,
         selected_plugins=selected_plugins_tuple,
         independent_plugins=tuple(expand_selected_plugins(independent_plugins)),
+        paused_plugins=paused_plugins_tuple,
         stat_visibility=build_stat_visibility(selected_plugins_tuple),
         measurement_contour_ratio_mode=measurement_ratio_mode_for_puncta_line_mode(
             puncta_line_mode

@@ -243,6 +243,31 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(selection.alternate_nucleus_detection_enabled)
         self.assertEqual(selection.alternate_nucleus_detection_channel, CHANNEL_ROLE_GREEN)
 
+    def test_signal_quantification_nuclear_mode_preserves_configured_secondary_plugins(self):
+        selection = resolve_signal_quantification_selection(
+            payload={
+                "signal_quantification_enabled": True,
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "puncta_contour_intensity_enabled": True,
+            },
+            selected_plugins=[
+                "PunctaDistance",
+                "GreenRedIntensity",
+                "CENDot",
+                "Biorientation",
+            ],
+            nuclear_cell_pair_mode="green_nucleus",
+        )
+
+        self.assertEqual(
+            selection.configured_plugins,
+            ("CENDot", "Biorientation", "NuclearCellPairIntensity"),
+        )
+        self.assertEqual(selection.selected_plugins, ("NuclearCellPairIntensity",))
+        self.assertEqual(selection.paused_plugins, ("CENDot", "Biorientation"))
+        self.assertFalse(selection.stat_visibility["cen_dot"])
+        self.assertFalse(selection.stat_visibility["biorientation"])
+
     def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
         normalized = normalize_preferences_payload(
             {
@@ -2285,6 +2310,36 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
+
+    def test_plugin_settings_form_preserves_paused_secondary_plugins_in_nuclear_mode(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_plugin_defaults",
+                "selected_plugins": [
+                    "NuclearCellPairIntensity",
+                    "CENDot",
+                    "Biorientation",
+                ],
+                "signal_quantification_enabled": "1",
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "puncta_contour_intensity_enabled": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertEqual(
+            defaults["selected_plugins"],
+            ["CENDot", "Biorientation", "NuclearCellPairIntensity"],
+        )
+        selection = resolve_signal_quantification_selection(
+            payload=defaults,
+            selected_plugins=defaults["selected_plugins"],
+            nuclear_cell_pair_mode=defaults["nuclear_cell_pair_mode"],
+        )
+        self.assertEqual(selection.selected_plugins, ("NuclearCellPairIntensity",))
 
     def test_advanced_settings_save_preserves_measurement_defaults(self):
         payload = get_user_preferences(self.user)
