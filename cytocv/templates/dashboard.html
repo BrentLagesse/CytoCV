@@ -2370,6 +2370,7 @@
             'distance_of_green_from_red_1',
             'distance_of_green_from_red_2',
             'distance_of_green_from_red_3',
+            'nuclear_cell_pair_contour_source',
             'cell_pair_intensity_sum',
             'nucleus_intensity_sum',
             'cytoplasmic_intensity',
@@ -2408,6 +2409,7 @@
                 'distance_of_green_from_red_3',
             ],
             nuclear_cell_pair_intensity: [
+                'nuclear_cell_pair_contour_source',
                 'cell_pair_intensity_sum',
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
@@ -2735,21 +2737,15 @@
         }
 
         function getVisibleTableFieldOrder(statistics) {
-            const visibility = getStatisticsVisibility(statistics);
-            return tableFieldOrder.filter((fieldName) => isTableFieldVisible(fieldName, visibility));
+            return tableFieldOrder.slice();
         }
 
         function applyMetricVisibility(visibility) {
             document.querySelectorAll('[data-stat-section]').forEach((section) => {
-                const key = section.dataset.statSection;
-                if (key === 'cen_puncta') {
-                    section.hidden = visibility.puncta_distance === false && visibility.cen_dot === false;
-                    return;
-                }
-                section.hidden = visibility[key] === false;
+                section.hidden = false;
             });
             document.querySelectorAll('[data-stat-row]').forEach((row) => {
-                row.hidden = visibility[row.dataset.statRow] === false;
+                row.hidden = false;
             });
         }
 

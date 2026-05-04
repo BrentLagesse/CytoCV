@@ -1492,6 +1492,13 @@ class RouteSurfaceRefactorTests(TestCase):
             "'measurement_contour_ratio_3',",
             html=False,
         )
+        self.assertContains(response, "return tableFieldOrder.slice();", html=False)
+        self.assertContains(response, "section.hidden = false;", html=False)
+        self.assertNotContains(
+            response,
+            "section.hidden = visibility[key] === false;",
+            html=False,
+        )
 
     def test_display_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         uuid_value = str(uuid4())
@@ -1566,6 +1573,13 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(
             response,
             "'measurement_contour_ratio_3',",
+            html=False,
+        )
+        self.assertContains(response, "return tableFieldOrder.slice();", html=False)
+        self.assertContains(response, "section.hidden = false;", html=False)
+        self.assertNotContains(
+            response,
+            "section.hidden = visibility[key] === false;",
             html=False,
         )
 
@@ -1714,6 +1728,101 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
+
+    def test_display_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-nuclear-only")
+            segmented = self._create_segmented_image(uuid_value, name="display-nuclear-only")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "display-nuclear-only")
+            self._create_cell_stats(
+                segmented,
+                "display-nuclear-only",
+                puncta_distance=10.0,
+                puncta_line_intensity=20.0,
+                red_intensity_1=5.0,
+                green_intensity_1=6.0,
+                red_in_green_intensity_1=7.0,
+                green_in_green_intensity_1=8.0,
+                nucleus_intensity_sum=30.0,
+                cell_pair_intensity_sum=40.0,
+                cytoplasmic_intensity=10.0,
+                colinear_dots=0,
+                off_axis_dots=0,
+                properties={
+                    "selected_analysis": ["NuclearCellPairIntensity"],
+                    "nuclear_cell_pair_mode": "green_nucleus",
+                    "nuclear_cell_pair_status": "ok",
+                    "nuclear_cell_pair_contour_source": "canonical_slot_1",
+                    "cen_dot_schema_version": 3,
+                },
+                category_cen_dot=1,
+            )
+
+            response = self.client.get(reverse("display", args=[uuid_value]))
+
+        self.assertEqual(response.status_code, 200)
+        files_data = json.loads(response.context["files_data"])
+        payload = files_data[uuid_value]["Statistics"]["1"]
+        self.assertIsNone(payload["puncta_distance"])
+        self.assertIsNone(payload["puncta_line_intensity"])
+        self.assertIsNone(payload["red_intensity_1"])
+        self.assertIsNone(payload["measurement_contour_ratio_1"])
+        self.assertEqual(payload["measurement_contour_ratio_display_text"], "N/A")
+        self.assertIsNone(payload["category_cen_dot"])
+        self.assertEqual(payload["category_cen_dot_label"], "N/A")
+        self.assertIsNone(payload["colinear_dots"])
+        self.assertEqual(payload["nucleus_intensity_sum"], 30.0)
+        self.assertEqual(payload["cell_pair_intensity_sum"], 40.0)
+
+    def test_dashboard_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-nuclear-only")
+            segmented = self._create_segmented_image(uuid_value, name="dashboard-nuclear-only")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "dashboard-nuclear-only")
+            self._create_cell_stats(
+                segmented,
+                "dashboard-nuclear-only",
+                puncta_distance=10.0,
+                puncta_line_intensity=20.0,
+                red_intensity_1=5.0,
+                green_intensity_1=6.0,
+                red_in_green_intensity_1=7.0,
+                green_in_green_intensity_1=8.0,
+                nucleus_intensity_sum=30.0,
+                cell_pair_intensity_sum=40.0,
+                cytoplasmic_intensity=10.0,
+                colinear_dots=0,
+                off_axis_dots=0,
+                properties={
+                    "selected_analysis": ["NuclearCellPairIntensity"],
+                    "nuclear_cell_pair_mode": "green_nucleus",
+                    "nuclear_cell_pair_status": "ok",
+                    "nuclear_cell_pair_contour_source": "canonical_slot_1",
+                    "cen_dot_schema_version": 3,
+                },
+                category_cen_dot=1,
+            )
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        files_data = json.loads(response.context["files_data_json"])
+        payload = files_data[uuid_value]["Statistics"]["1"]
+        self.assertIsNone(payload["puncta_distance"])
+        self.assertIsNone(payload["red_intensity_1"])
+        self.assertIsNone(payload["measurement_contour_ratio_1"])
+        self.assertEqual(payload["category_cen_dot_label"], "N/A")
+        self.assertIsNone(payload["colinear_dots"])
+        self.assertEqual(payload["nuclear_cell_pair_contour_source"], "canonical_slot_1")
+        self.assertEqual(payload["cell_pair_intensity_sum"], 40.0)
 
     def test_display_csv_export_includes_ratio_columns_after_raw_intensity_sums(self):
         uuid_value = str(uuid4())

@@ -20,7 +20,11 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
-from core.services.signal_quantification import build_stat_visibility
+from core.services.stat_applicability import (
+    STAT_FIELD_GROUPS,
+    is_field_applicable,
+    resolve_stat_visibility,
+)
 
 
 NUCLEAR_CELL_PAIR_LABELS = {
@@ -33,16 +37,35 @@ FALLBACK_NUCLEAR_CELL_PAIR_LABELS = ("Measured Cell-Pair Intensity", "Measured N
 class NumberColumn(tables.Column):
     """Format numeric values for display with fixed precision."""
 
-    def render(self, value: float) -> str:
+    def __init__(self, *args, stat_field: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stat_field = stat_field
+        self.stat_visibility = None
+
+    def render(self, value: float, record=None) -> str:
         """Render a numeric value with three decimal places."""
+        if self.stat_field and record is not None and not is_field_applicable(
+            record,
+            self.stat_field,
+            stat_visibility=self.stat_visibility,
+        ):
+            return "N/A"
         try:
             return "{:0.3f}".format(float(value))
         except (TypeError, ValueError):
             return "N/A"
 
+    def value(self, value: float, record=None) -> str:
+        return self.render(value, record=record)
+
 
 class ChoiceLabelColumn(tables.Column):
     """Render stored choice codes using their human-readable labels."""
+
+    def __init__(self, *args, stat_field: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stat_field = stat_field
+        self.stat_visibility = None
 
     @staticmethod
     def _schema_version(record) -> int | None:
@@ -50,6 +73,12 @@ class ChoiceLabelColumn(tables.Column):
         return properties.get("cen_dot_schema_version")
 
     def render(self, value: int, record=None) -> str:
+        if self.stat_field and record is not None and not is_field_applicable(
+            record,
+            self.stat_field,
+            stat_visibility=self.stat_visibility,
+        ):
+            return "N/A"
         return get_cen_dot_category_label(value, schema_version=self._schema_version(record))
 
     def value(self, value: int, record=None) -> str:
@@ -72,47 +101,7 @@ class CellTable(tables.Table):
         "distance_of_green_from_red_2": "distance",
         "distance_of_green_from_red_3": "distance",
     }
-    STAT_COLUMN_GROUPS = {
-        "puncta_distance": (
-            "puncta_distance",
-            "puncta_line_intensity",
-        ),
-        "red_green_intensity": (
-            "red_contour_1_size",
-            "red_contour_2_size",
-            "red_contour_3_size",
-            "green_contour_1_size",
-            "green_contour_2_size",
-            "green_contour_3_size",
-            "red_intensity_1",
-            "red_intensity_2",
-            "red_intensity_3",
-            "green_intensity_1",
-            "green_intensity_2",
-            "green_intensity_3",
-            "red_in_green_intensity_1",
-            "red_in_green_intensity_2",
-            "red_in_green_intensity_3",
-            "green_in_green_intensity_1",
-            "green_in_green_intensity_2",
-            "green_in_green_intensity_3",
-            "green_red_intensity_1",
-            "green_red_intensity_2",
-            "green_red_intensity_3",
-            "distance_of_green_from_red_1",
-            "distance_of_green_from_red_2",
-            "distance_of_green_from_red_3",
-        ),
-        "nuclear_cell_pair_intensity": (
-            "nuclear_cell_pair_contour_source",
-            "cell_pair_intensity_sum",
-            "nucleus_intensity_sum",
-            "cytoplasmic_intensity",
-        ),
-        "cen_dot": ("cell_parentage", "category_cen_dot"),
-        "biorientation": ("colinear_dots", "off_axis_dots"),
-        "legacy_blue_intensity": ("blue_contour_size",),
-    }
+    STAT_COLUMN_GROUPS = STAT_FIELD_GROUPS
 
     cell_id = tables.Column(verbose_name="Cell ID")
     puncta_distance = NumberColumn(verbose_name="Distance Between Red Puncta")
@@ -160,7 +149,10 @@ class CellTable(tables.Table):
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
 
     cell_parentage = tables.Column(verbose_name="Cell Parentage", empty_values=())
-    category_cen_dot = ChoiceLabelColumn(verbose_name="Cen Dot Location")
+    category_cen_dot = ChoiceLabelColumn(
+        verbose_name="Cen Dot Location",
+        stat_field="category_cen_dot",
+    )
     colinear_dots = tables.Column(verbose_name="Colinear Dots")
     off_axis_dots = tables.Column(verbose_name="Off Axis Dots")
 
@@ -220,20 +212,24 @@ class CellTable(tables.Table):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        resolved_visibility = self._resolve_stat_visibility(
+        self._resolved_stat_visibility = self._resolve_stat_visibility(
             args[0] if args else kwargs.get("data"),
             stat_visibility=stat_visibility,
             selected_plugins=selected_plugins,
         )
-        hidden_stat_columns: set[str] = set()
-        for visibility_key, field_names in self.STAT_COLUMN_GROUPS.items():
-            if resolved_visibility.get(visibility_key, True):
-                continue
+        for field_names in self.STAT_COLUMN_GROUPS.values():
             for field_name in field_names:
-                if field_name in self.columns:
-                    self.columns.hide(field_name)
-                    hidden_stat_columns.add(field_name)
-        self._hidden_stat_columns = hidden_stat_columns
+                if field_name in self.columns and isinstance(
+                    self.columns[field_name].column,
+                    NumberColumn,
+                ):
+                    self.columns[field_name].column.stat_field = field_name
+                    self.columns[field_name].column.stat_visibility = (
+                        self._resolved_stat_visibility
+                    )
+        self.columns["category_cen_dot"].column.stat_visibility = (
+            self._resolved_stat_visibility
+        )
         self._spatial_stats_unit = normalize_spatial_stats_unit(spatial_stats_unit, default="px")
         resolved_scale_context = dict(scale_context or {})
         self._scale_context = {
@@ -270,10 +266,7 @@ class CellTable(tables.Table):
             )
 
     def as_values(self, exclude_columns=None):
-        hidden = set(getattr(self, "_hidden_stat_columns", set()))
-        if exclude_columns is not None:
-            hidden.update(exclude_columns)
-        yield from super().as_values(exclude_columns=hidden)
+        yield from super().as_values(exclude_columns=exclude_columns)
 
     @classmethod
     def _resolve_stat_visibility(
@@ -283,32 +276,18 @@ class CellTable(tables.Table):
         stat_visibility: dict[str, bool] | None = None,
         selected_plugins: list[str] | tuple[str, ...] | None = None,
     ) -> dict[str, bool]:
-        if isinstance(stat_visibility, dict):
-            return {
-                key: bool(stat_visibility.get(key, True))
-                for key in cls.STAT_COLUMN_GROUPS
-            }
-        if selected_plugins is not None:
-            return build_stat_visibility(selected_plugins)
-        first_record = None
-        if hasattr(data, "first"):
-            try:
-                first_record = data.first()
-            except Exception:
-                first_record = None
-        elif isinstance(data, (list, tuple)) and data:
-            first_record = data[0]
-        properties = getattr(first_record, "properties", {}) or {}
-        property_visibility = properties.get("stat_visibility")
-        if isinstance(property_visibility, dict):
-            return {
-                key: bool(property_visibility.get(key, True))
-                for key in cls.STAT_COLUMN_GROUPS
-            }
-        selected = properties.get("selected_analysis")
-        if isinstance(selected, list):
-            return build_stat_visibility(selected)
-        return {key: True for key in cls.STAT_COLUMN_GROUPS}
+        return resolve_stat_visibility(
+            data,
+            stat_visibility=stat_visibility,
+            selected_plugins=selected_plugins,
+        )
+
+    def _field_is_applicable(self, record: CellStatistics, field_name: str) -> bool:
+        return is_field_applicable(
+            record,
+            field_name,
+            stat_visibility=self._resolved_stat_visibility,
+        )
 
     @staticmethod
     def _has_no_nucleus_contour(record: CellStatistics) -> bool:
@@ -326,6 +305,8 @@ class CellTable(tables.Table):
             return "N/A"
 
     def render_cell_parentage(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "cell_parentage"):
+            return "N/A"
         return cell_parentage_payload_from_properties(
             getattr(record, "properties", {}) or {}
         ).get("label", "Not identified")
@@ -363,9 +344,13 @@ class CellTable(tables.Table):
         return value
 
     def _render_spatial_value(self, field_name: str, value: float, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, field_name):
+            return "N/A"
         return self._format_number(self._converted_spatial_value(field_name, value, record))
 
     def _render_nuclear_cell_pair_value(self, record: CellStatistics, value: float) -> str:
+        if not self._field_is_applicable(record, "cell_pair_intensity_sum"):
+            return "N/A"
         if self._has_no_nucleus_contour(record):
             return "N/A"
         return self._format_number(value)
@@ -377,9 +362,13 @@ class CellTable(tables.Table):
         return str(value or "N/A")
 
     def render_nuclear_cell_pair_contour_source(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "nuclear_cell_pair_contour_source"):
+            return "N/A"
         return self._nuclear_cell_pair_contour_source(record)
 
     def value_nuclear_cell_pair_contour_source(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "nuclear_cell_pair_contour_source"):
+            return "N/A"
         return self._nuclear_cell_pair_contour_source(record)
 
     def render_cell_pair_intensity_sum(self, value: float, record: CellStatistics) -> str:
@@ -413,21 +402,33 @@ class CellTable(tables.Table):
         )
 
     def render_green_red_intensity_1(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "green_red_intensity_1"):
+            return "N/A"
         return self._format_number(self._measurement_contour_ratio_value(record, 1))
 
     def value_green_red_intensity_1(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "green_red_intensity_1"):
+            return "N/A"
         return self._format_number(self._measurement_contour_ratio_value(record, 1))
 
     def render_green_red_intensity_2(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "green_red_intensity_2"):
+            return "N/A"
         return self._format_number(self._measurement_contour_ratio_value(record, 2))
 
     def value_green_red_intensity_2(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "green_red_intensity_2"):
+            return "N/A"
         return self._format_number(self._measurement_contour_ratio_value(record, 2))
 
     def render_green_red_intensity_3(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "green_red_intensity_3"):
+            return "N/A"
         return self._format_number(self._measurement_contour_ratio_value(record, 3))
 
     def value_green_red_intensity_3(self, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "green_red_intensity_3"):
+            return "N/A"
         return self._format_number(self._measurement_contour_ratio_value(record, 3))
 
     def render_puncta_distance(self, value: float, record: CellStatistics) -> str:
@@ -495,6 +496,28 @@ class CellTable(tables.Table):
 
     def value_distance_of_green_from_red_3(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("distance_of_green_from_red_3", value, record)
+
+    def render_colinear_dots(self, value: int, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "colinear_dots"):
+            return "N/A"
+        try:
+            return str(int(value))
+        except (TypeError, ValueError):
+            return "N/A"
+
+    def value_colinear_dots(self, value: int, record: CellStatistics) -> str:
+        return self.render_colinear_dots(value, record)
+
+    def render_off_axis_dots(self, value: int, record: CellStatistics) -> str:
+        if not self._field_is_applicable(record, "off_axis_dots"):
+            return "N/A"
+        try:
+            return str(int(value))
+        except (TypeError, ValueError):
+            return "N/A"
+
+    def value_off_axis_dots(self, value: int, record: CellStatistics) -> str:
+        return self.render_off_axis_dots(value, record)
 
 class CellTableView(ExportMixin, SingleTableView):
     """Table view with CSV/XLSX export support for cell statistics."""

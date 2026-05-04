@@ -12,7 +12,7 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
-from core.services.signal_quantification import build_stat_visibility
+from core.services.stat_applicability import resolve_stat_visibility, stat_group_for_field
 
 
 def normalize_channel_display_name(value: Any, default: str = "") -> str:
@@ -44,23 +44,47 @@ def serialize_cell_statistics_payload(
         properties.get("puncta_line_mode")
     )
     selected_analysis = properties.get("selected_analysis")
-    if isinstance(selected_analysis, list):
-        stat_visibility = build_stat_visibility(selected_analysis)
-    else:
-        stat_visibility = properties.get("stat_visibility")
-        if not isinstance(stat_visibility, dict):
-            stat_visibility = {
-                "puncta_distance": True,
-                "red_green_intensity": True,
-                "nuclear_cell_pair_intensity": True,
-                "cen_dot": True,
-                "biorientation": True,
-                "legacy_blue_intensity": True,
-            }
+    stat_visibility = resolve_stat_visibility(cell_stat)
+    puncta_enabled = stat_visibility.get("puncta_distance", True)
+    red_green_enabled = stat_visibility.get("red_green_intensity", True)
+    nuclear_enabled = stat_visibility.get("nuclear_cell_pair_intensity", True)
+    cen_dot_enabled = stat_visibility.get("cen_dot", True)
+    biorientation_enabled = stat_visibility.get("biorientation", True)
     measurement_contour_ratio_mode = properties.get(
         "measurement_contour_ratio_mode",
         nuclear_cell_pair_mode,
     )
+    cell_parentage = (
+        cell_parentage
+        if cen_dot_enabled
+        else {
+            "label": "N/A",
+            "status": "not_calculated",
+            "mode": None,
+            "method": None,
+        }
+    )
+    ratio_payload = build_measurement_contour_ratio_payload(
+        cell_stat,
+        mode=measurement_contour_ratio_mode,
+    )
+    if not red_green_enabled:
+        ratio_payload.update(
+            {
+                "measurement_contour_ratio_1": None,
+                "measurement_contour_ratio_2": None,
+                "measurement_contour_ratio_3": None,
+                "measurement_contour_ratio_pair_label": None,
+                "measurement_contour_ratio_formula": None,
+                "measurement_contour_ratio_display_text": "N/A",
+            }
+        )
+
+    def stat_value(field_name: str, value: Any) -> Any:
+        group_name = stat_group_for_field(field_name)
+        if group_name is not None and not stat_visibility.get(group_name, True):
+            return None
+        return value
 
     return {
         "selected_analysis": selected_analysis if isinstance(selected_analysis, list) else [],
@@ -74,56 +98,147 @@ def serialize_cell_statistics_payload(
         "alternate_nucleus_detection_channel": properties.get(
             "alternate_nucleus_detection_channel"
         ),
-        "puncta_distance": cell_stat.puncta_distance,
-        "puncta_line_intensity": cell_stat.puncta_line_intensity,
-        "blue_contour_size": cell_stat.blue_contour_size,
-        "red_contour_1_size": cell_stat.red_contour_1_size,
-        "red_contour_2_size": cell_stat.red_contour_2_size,
-        "red_contour_3_size": cell_stat.red_contour_3_size,
-        "red_intensity_1": cell_stat.red_intensity_1,
-        "red_intensity_2": cell_stat.red_intensity_2,
-        "red_intensity_3": cell_stat.red_intensity_3,
-        "green_intensity_1": cell_stat.green_intensity_1,
-        "green_intensity_2": cell_stat.green_intensity_2,
-        "green_intensity_3": cell_stat.green_intensity_3,
-        "red_in_green_intensity_1": cell_stat.red_in_green_intensity_1,
-        "red_in_green_intensity_2": cell_stat.red_in_green_intensity_2,
-        "red_in_green_intensity_3": cell_stat.red_in_green_intensity_3,
-        "green_in_green_intensity_1": cell_stat.green_in_green_intensity_1,
-        "green_in_green_intensity_2": cell_stat.green_in_green_intensity_2,
-        "green_in_green_intensity_3": cell_stat.green_in_green_intensity_3,
-        "green_contour_1_size": cell_stat.green_contour_1_size,
-        "green_contour_2_size": cell_stat.green_contour_2_size,
-        "green_contour_3_size": cell_stat.green_contour_3_size,
-        "distance_of_green_from_red_1": cell_stat.distance_of_green_from_red_1,
-        "distance_of_green_from_red_2": cell_stat.distance_of_green_from_red_2,
-        "distance_of_green_from_red_3": cell_stat.distance_of_green_from_red_3,
-        "puncta_distance_delta_x_px": properties.get("puncta_distance_delta_x_px"),
-        "puncta_distance_delta_y_px": properties.get("puncta_distance_delta_y_px"),
+        "puncta_distance": stat_value("puncta_distance", cell_stat.puncta_distance),
+        "puncta_line_intensity": stat_value(
+            "puncta_line_intensity",
+            cell_stat.puncta_line_intensity,
+        ),
+        "blue_contour_size": stat_value("blue_contour_size", cell_stat.blue_contour_size),
+        "red_contour_1_size": stat_value(
+            "red_contour_1_size",
+            cell_stat.red_contour_1_size,
+        ),
+        "red_contour_2_size": stat_value(
+            "red_contour_2_size",
+            cell_stat.red_contour_2_size,
+        ),
+        "red_contour_3_size": stat_value(
+            "red_contour_3_size",
+            cell_stat.red_contour_3_size,
+        ),
+        "red_intensity_1": stat_value("red_intensity_1", cell_stat.red_intensity_1),
+        "red_intensity_2": stat_value("red_intensity_2", cell_stat.red_intensity_2),
+        "red_intensity_3": stat_value("red_intensity_3", cell_stat.red_intensity_3),
+        "green_intensity_1": stat_value(
+            "green_intensity_1",
+            cell_stat.green_intensity_1,
+        ),
+        "green_intensity_2": stat_value(
+            "green_intensity_2",
+            cell_stat.green_intensity_2,
+        ),
+        "green_intensity_3": stat_value(
+            "green_intensity_3",
+            cell_stat.green_intensity_3,
+        ),
+        "red_in_green_intensity_1": stat_value(
+            "red_in_green_intensity_1",
+            cell_stat.red_in_green_intensity_1,
+        ),
+        "red_in_green_intensity_2": stat_value(
+            "red_in_green_intensity_2",
+            cell_stat.red_in_green_intensity_2,
+        ),
+        "red_in_green_intensity_3": stat_value(
+            "red_in_green_intensity_3",
+            cell_stat.red_in_green_intensity_3,
+        ),
+        "green_in_green_intensity_1": stat_value(
+            "green_in_green_intensity_1",
+            cell_stat.green_in_green_intensity_1,
+        ),
+        "green_in_green_intensity_2": stat_value(
+            "green_in_green_intensity_2",
+            cell_stat.green_in_green_intensity_2,
+        ),
+        "green_in_green_intensity_3": stat_value(
+            "green_in_green_intensity_3",
+            cell_stat.green_in_green_intensity_3,
+        ),
+        "green_contour_1_size": stat_value(
+            "green_contour_1_size",
+            cell_stat.green_contour_1_size,
+        ),
+        "green_contour_2_size": stat_value(
+            "green_contour_2_size",
+            cell_stat.green_contour_2_size,
+        ),
+        "green_contour_3_size": stat_value(
+            "green_contour_3_size",
+            cell_stat.green_contour_3_size,
+        ),
+        "distance_of_green_from_red_1": stat_value(
+            "distance_of_green_from_red_1",
+            cell_stat.distance_of_green_from_red_1,
+        ),
+        "distance_of_green_from_red_2": stat_value(
+            "distance_of_green_from_red_2",
+            cell_stat.distance_of_green_from_red_2,
+        ),
+        "distance_of_green_from_red_3": stat_value(
+            "distance_of_green_from_red_3",
+            cell_stat.distance_of_green_from_red_3,
+        ),
+        "puncta_distance_delta_x_px": properties.get("puncta_distance_delta_x_px")
+        if puncta_enabled
+        else None,
+        "puncta_distance_delta_y_px": properties.get("puncta_distance_delta_y_px")
+        if puncta_enabled
+        else None,
         "distance_of_green_from_red_1_delta_x_px": properties.get(
             "distance_of_green_from_red_1_delta_x_px"
-        ),
+        )
+        if red_green_enabled
+        else None,
         "distance_of_green_from_red_1_delta_y_px": properties.get(
             "distance_of_green_from_red_1_delta_y_px"
-        ),
+        )
+        if red_green_enabled
+        else None,
         "distance_of_green_from_red_2_delta_x_px": properties.get(
             "distance_of_green_from_red_2_delta_x_px"
-        ),
+        )
+        if red_green_enabled
+        else None,
         "distance_of_green_from_red_2_delta_y_px": properties.get(
             "distance_of_green_from_red_2_delta_y_px"
-        ),
+        )
+        if red_green_enabled
+        else None,
         "distance_of_green_from_red_3_delta_x_px": properties.get(
             "distance_of_green_from_red_3_delta_x_px"
-        ),
+        )
+        if red_green_enabled
+        else None,
         "distance_of_green_from_red_3_delta_y_px": properties.get(
             "distance_of_green_from_red_3_delta_y_px"
+        )
+        if red_green_enabled
+        else None,
+        "nucleus_intensity_sum": stat_value(
+            "nucleus_intensity_sum",
+            cell_stat.nucleus_intensity_sum,
         ),
-        "nucleus_intensity_sum": cell_stat.nucleus_intensity_sum,
-        "cell_pair_intensity_sum": cell_stat.cell_pair_intensity_sum,
-        "cytoplasmic_intensity": cell_stat.cytoplasmic_intensity,
-        "cell_pair_intensity_sum_blue": cell_stat.cell_pair_intensity_sum_blue,
-        "nucleus_intensity_sum_blue": cell_stat.nucleus_intensity_sum_blue,
-        "cytoplasmic_intensity_blue": cell_stat.cytoplasmic_intensity_blue,
+        "cell_pair_intensity_sum": stat_value(
+            "cell_pair_intensity_sum",
+            cell_stat.cell_pair_intensity_sum,
+        ),
+        "cytoplasmic_intensity": stat_value(
+            "cytoplasmic_intensity",
+            cell_stat.cytoplasmic_intensity,
+        ),
+        "cell_pair_intensity_sum_blue": stat_value(
+            "cell_pair_intensity_sum_blue",
+            cell_stat.cell_pair_intensity_sum_blue,
+        ),
+        "nucleus_intensity_sum_blue": stat_value(
+            "nucleus_intensity_sum_blue",
+            cell_stat.nucleus_intensity_sum_blue,
+        ),
+        "cytoplasmic_intensity_blue": stat_value(
+            "cytoplasmic_intensity_blue",
+            cell_stat.cytoplasmic_intensity_blue,
+        ),
         "puncta_line_mode": puncta_line_metadata["mode"],
         "puncta_line_source_channel": normalize_channel_display_name(
             properties.get("puncta_line_source_channel"),
@@ -142,22 +257,29 @@ def serialize_cell_statistics_payload(
                 properties.get("nuclear_cellular_contour_channel"),
             ),
             default="Green",
-        ),
+        )
+        if nuclear_enabled
+        else "N/A",
         "nuclear_cell_pair_measurement_channel": normalize_channel_display_name(
             properties.get(
                 "nuclear_cell_pair_measurement_channel",
                 properties.get("nuclear_cellular_measurement_channel"),
             ),
             default="Red",
-        ),
-        "nuclear_cell_pair_contour_source": properties.get(
-            "nuclear_cell_pair_contour_source"
+        )
+        if nuclear_enabled
+        else "N/A",
+        "nuclear_cell_pair_contour_source": stat_value(
+            "nuclear_cell_pair_contour_source",
+            properties.get("nuclear_cell_pair_contour_source"),
         ),
         "nuclear_cell_pair_status": properties.get(
             "nuclear_cell_pair_status",
             properties.get("nuclear_cellular_status", "unknown"),
-        ),
-        "category_cen_dot": cell_stat.category_cen_dot,
+        )
+        if nuclear_enabled
+        else "N/A",
+        "category_cen_dot": cell_stat.category_cen_dot if cen_dot_enabled else None,
         "cell_parentage": cell_parentage,
         "cell_parentage_label": cell_parentage.get("label", "Not identified"),
         "cell_parentage_status": cell_parentage.get("status", "not_identified"),
@@ -166,13 +288,14 @@ def serialize_cell_statistics_payload(
         "category_cen_dot_label": get_cen_dot_category_label(
             cell_stat.category_cen_dot,
             schema_version=properties.get("cen_dot_schema_version"),
-        ),
-        "cen_dot_schema_version": properties.get("cen_dot_schema_version"),
-        "cen_dot_location": properties.get("cen_dot_location"),
-        "colinear_dots": cell_stat.colinear_dots,
-        "off_axis_dots": cell_stat.off_axis_dots,
-        **build_measurement_contour_ratio_payload(
-            cell_stat,
-            mode=measurement_contour_ratio_mode,
-        ),
+        )
+        if cen_dot_enabled
+        else "N/A",
+        "cen_dot_schema_version": properties.get("cen_dot_schema_version")
+        if cen_dot_enabled
+        else None,
+        "cen_dot_location": properties.get("cen_dot_location") if cen_dot_enabled else None,
+        "colinear_dots": cell_stat.colinear_dots if biorientation_enabled else None,
+        "off_axis_dots": cell_stat.off_axis_dots if biorientation_enabled else None,
+        **ratio_payload,
     }

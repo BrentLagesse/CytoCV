@@ -2698,21 +2698,15 @@
         }
 
         function getVisibleTableFieldOrder(statistics) {
-            const visibility = getStatisticsVisibility(statistics);
-            return tableFieldOrder.filter((fieldName) => isTableFieldVisible(fieldName, visibility));
+            return tableFieldOrder.slice();
         }
 
         function applyMetricVisibility(visibility) {
             document.querySelectorAll('[data-stat-section]').forEach((section) => {
-                const key = section.dataset.statSection;
-                if (key === 'cen_puncta') {
-                    section.hidden = visibility.puncta_distance === false && visibility.cen_dot === false;
-                    return;
-                }
-                section.hidden = visibility[key] === false;
+                section.hidden = false;
             });
             document.querySelectorAll('[data-stat-row]').forEach((row) => {
-                row.hidden = visibility[row.dataset.statRow] === false;
+                row.hidden = false;
             });
         }
 
