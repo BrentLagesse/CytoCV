@@ -14,14 +14,14 @@ from core.channel_roles import (
     CHANNEL_ROLE_RED,
     normalize_channel_role,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 
 logger = logging.getLogger(__name__)
 
-GREEN_DOT_SPLIT_PARAMS = {
+DOT_SPLIT_PARAMS = {
     "balanced": {
         "min_original_area_px": 8,
         "min_peak_distance": 1,
@@ -107,6 +107,9 @@ GREEN_DOT_SPLIT_PARAMS = {
         "asymmetric_max_boundary_saddle_distance_px": 8.0,
     },
 }
+
+# Backward-compatible alias for older internal imports.
+GREEN_DOT_SPLIT_PARAMS = DOT_SPLIT_PARAMS
 
 MAX_DEFECT_CANDIDATES = 8
 MAX_PEAK_CANDIDATES = 8
@@ -214,8 +217,8 @@ class _GreenContourFilterDecision:
 
 
 def _split_params(split_mode: str) -> dict:
-    mode = normalize_green_dot_split_mode(split_mode)
-    return GREEN_DOT_SPLIT_PARAMS[mode]
+    mode = normalize_dot_split_mode(split_mode)
+    return DOT_SPLIT_PARAMS[mode]
 
 
 def contour_to_mask(contour: np.ndarray, shape: tuple[int, int] | tuple[int, int, int]) -> np.ndarray:
@@ -267,7 +270,7 @@ def compute_contour_shape_metrics(
     *,
     min_defect_depth_px: float = 1.0,
 ) -> _ContourShapeMetrics | None:
-    """Measure compactness, concavity, and lobe scale for one GFP contour."""
+    """Measure compactness, concavity, and lobe scale for one dot contour."""
 
     mask = contour_to_mask(contour, image_shape)
     dense_contour = _dense_outer_contour(mask)
@@ -455,8 +458,8 @@ def _as_gray_float(image: np.ndarray | None) -> np.ndarray | None:
     return gray.astype(np.float32, copy=False)
 
 
-def _smooth_gfp_image(gfp_image: np.ndarray | None) -> np.ndarray | None:
-    gray = _as_gray_float(gfp_image)
+def _smooth_dot_evidence_image(evidence_image: np.ndarray | None) -> np.ndarray | None:
+    gray = _as_gray_float(evidence_image)
     if gray is None or gray.size == 0:
         return None
     return cv2.GaussianBlur(gray, (3, 3), 0)
@@ -464,12 +467,12 @@ def _smooth_gfp_image(gfp_image: np.ndarray | None) -> np.ndarray | None:
 
 def find_intensity_peaks_in_contour(
     mask: np.ndarray,
-    gfp_image: np.ndarray | None,
+    evidence_image: np.ndarray | None,
     params: dict,
 ) -> list[_Peak]:
-    """Find bright GFP centers inside a contour mask."""
+    """Find bright dot centers inside a contour mask."""
 
-    smoothed = _smooth_gfp_image(gfp_image)
+    smoothed = _smooth_dot_evidence_image(evidence_image)
     if smoothed is None:
         return []
     inside = mask > 0
@@ -600,12 +603,12 @@ def _markers_from_neck(mask: np.ndarray, neck: _NeckCandidate, params: dict) -> 
     return markers
 
 
-def _split_score_image(mask: np.ndarray, gfp_image: np.ndarray | None) -> np.ndarray:
+def _split_score_image(mask: np.ndarray, evidence_image: np.ndarray | None) -> np.ndarray:
     dist = ndi.distance_transform_edt(mask > 0).astype(np.float32)
     if dist.max() > 0:
         dist = dist / float(dist.max())
 
-    smoothed = _smooth_gfp_image(gfp_image)
+    smoothed = _smooth_dot_evidence_image(evidence_image)
     if smoothed is None:
         return dist
     inside = mask > 0
@@ -623,7 +626,7 @@ def _split_score_image(mask: np.ndarray, gfp_image: np.ndarray | None) -> np.nda
 
 def split_contour_with_watershed(
     mask: np.ndarray,
-    gfp_image: np.ndarray | None,
+    evidence_image: np.ndarray | None,
     peak_pair: _PeakPair | None,
     params: dict,
     *,
@@ -640,7 +643,7 @@ def split_contour_with_watershed(
     else:
         return None
 
-    score_image = _split_score_image(mask, gfp_image)
+    score_image = _split_score_image(mask, evidence_image)
     labels = watershed(-score_image, markers, mask=mask > 0)
     if int(labels.max()) != 2:
         return None
@@ -823,7 +826,7 @@ def _markers_from_neck_geometry(
 
 def split_contour_with_geometry_first_watershed(
     mask: np.ndarray,
-    gfp_image: np.ndarray | None,
+    evidence_image: np.ndarray | None,
     neck: _NeckCandidate,
     params: dict,
 ) -> np.ndarray | None:
@@ -833,7 +836,7 @@ def split_contour_with_geometry_first_watershed(
     if markers is None:
         return None
 
-    score_image = _split_score_image(mask, gfp_image)
+    score_image = _split_score_image(mask, evidence_image)
     labels = watershed(-score_image, markers, mask=mask > 0)
     if int(labels.max()) == 2:
         boundary = _internal_watershed_boundaries(labels)
@@ -911,7 +914,7 @@ def _label_at_point(labels: np.ndarray, point: tuple[int, int]) -> int:
 def validate_split_contours(
     original_mask: np.ndarray,
     split_labels: np.ndarray | None,
-    gfp_image: np.ndarray | None,
+    evidence_image: np.ndarray | None,
     params: dict,
     *,
     peak_pair: _PeakPair | None = None,
@@ -927,7 +930,7 @@ def validate_split_contours(
     if original_area <= 0:
         return []
 
-    gray = _as_gray_float(gfp_image)
+    gray = _as_gray_float(evidence_image)
     original_max = 0.0
     if gray is not None and gray.shape[:2] == original_mask.shape:
         original_values = gray[original_mask > 0]
@@ -1059,7 +1062,7 @@ def validate_geometry_first_split(
 def _boundary_has_low_signal_support(
     original_mask: np.ndarray,
     split_labels: np.ndarray,
-    gfp_image: np.ndarray | None,
+    evidence_image: np.ndarray | None,
     params: dict,
     *,
     peak_pair: _PeakPair | None = None,
@@ -1078,10 +1081,10 @@ def _boundary_has_low_signal_support(
     ):
         return False
 
-    if peak_pair is None or gfp_image is None:
+    if peak_pair is None or evidence_image is None:
         return True
 
-    smoothed = _smooth_gfp_image(gfp_image)
+    smoothed = _smooth_dot_evidence_image(evidence_image)
     if smoothed is None or smoothed.shape[:2] != original_mask.shape:
         return False
     distance_image = ndi.distance_transform_edt(original_mask > 0).astype(np.float32)
@@ -1114,7 +1117,7 @@ def _boundary_has_low_signal_support(
 def _validate_peak_backed_deterministic_split(
     original_mask: np.ndarray,
     split_labels: np.ndarray | None,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     params: dict,
     *,
     peak_pair: _PeakPair,
@@ -1125,7 +1128,7 @@ def _validate_peak_backed_deterministic_split(
     child_contours = validate_split_contours(
         original_mask,
         split_labels,
-        gfp_image,
+        evidence_image,
         params,
         peak_pair=peak_pair,
         neck_candidate=neck_candidate,
@@ -1141,7 +1144,7 @@ def _validate_peak_backed_deterministic_split(
     if not _boundary_has_low_signal_support(
         original_mask,
         split_labels,
-        gfp_image,
+        evidence_image,
         params,
         peak_pair=peak_pair,
         saddle_point=saddle_point,
@@ -1153,7 +1156,7 @@ def _validate_peak_backed_deterministic_split(
 
 def _try_deterministic_aggressive_split(
     metrics: _ContourShapeMetrics,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     params: dict,
     *,
     split_peak_pair: _PeakPair | None,
@@ -1168,7 +1171,7 @@ def _try_deterministic_aggressive_split(
             child_contours = _validate_peak_backed_deterministic_split(
                 metrics.mask,
                 neck_side_labels,
-                gfp_image,
+                evidence_image,
                 params,
                 peak_pair=split_peak_pair,
                 neck_candidate=neck_candidate,
@@ -1194,7 +1197,7 @@ def _try_deterministic_aggressive_split(
         child_contours = _validate_peak_backed_deterministic_split(
             metrics.mask,
             peak_axis_labels,
-            gfp_image,
+            evidence_image,
             params,
             peak_pair=split_peak_pair,
         )
@@ -1215,7 +1218,7 @@ def _try_deterministic_aggressive_split(
         child_contours = validate_asymmetric_split(
             metrics.mask,
             asymmetric_axis_labels,
-            gfp_image,
+            evidence_image,
             asymmetric_candidate,
             params,
         )
@@ -1234,7 +1237,7 @@ def _try_deterministic_aggressive_split(
             child_contours = _validate_peak_backed_deterministic_split(
                 metrics.mask,
                 bridge_axis_labels,
-                gfp_image,
+                evidence_image,
                 params,
                 peak_pair=split_peak_pair,
                 neck_candidate=neck_candidate,
@@ -1489,12 +1492,12 @@ def _single_defect_supports_saddle(
 
 def find_asymmetric_peak_saddle_candidate(
     mask: np.ndarray,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     params: dict,
 ) -> _AsymmetricSplitCandidate | None:
     """Return two-peak/one-sided-saddle evidence for aggressive fallback."""
 
-    smoothed = _smooth_gfp_image(gfp_image)
+    smoothed = _smooth_dot_evidence_image(evidence_image)
     if smoothed is None or smoothed.shape[:2] != mask.shape:
         return None
 
@@ -1626,7 +1629,7 @@ def find_asymmetric_peak_saddle_candidate(
 
 def split_contour_with_asymmetric_watershed(
     mask: np.ndarray,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     candidate: _AsymmetricSplitCandidate,
     params: dict,
 ) -> np.ndarray | None:
@@ -1634,7 +1637,7 @@ def split_contour_with_asymmetric_watershed(
 
     return split_contour_with_watershed(
         mask,
-        gfp_image,
+        evidence_image,
         candidate.peak_pair,
         params,
     )
@@ -1683,7 +1686,7 @@ def _boundary_reaches_saddle(
 def validate_asymmetric_split(
     original_mask: np.ndarray,
     split_labels: np.ndarray | None,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     candidate: _AsymmetricSplitCandidate,
     params: dict,
 ) -> list[np.ndarray]:
@@ -1692,7 +1695,7 @@ def validate_asymmetric_split(
     child_contours = validate_split_contours(
         original_mask,
         split_labels,
-        gfp_image,
+        evidence_image,
         params,
         peak_pair=candidate.peak_pair,
         neck_candidate=None,
@@ -1700,7 +1703,7 @@ def validate_asymmetric_split(
     if len(child_contours) != 2 or split_labels is None:
         return []
 
-    gray = _as_gray_float(gfp_image)
+    gray = _as_gray_float(evidence_image)
     if gray is None or gray.shape[:2] != original_mask.shape:
         return []
     original_values = gray[original_mask > 0]
@@ -1744,7 +1747,7 @@ def validate_asymmetric_split(
     ):
         return []
 
-    smoothed = _smooth_gfp_image(gfp_image)
+    smoothed = _smooth_dot_evidence_image(evidence_image)
     if smoothed is None or smoothed.shape[:2] != original_mask.shape:
         return []
     distance_image = ndi.distance_transform_edt(original_mask > 0).astype(np.float32)
@@ -1774,41 +1777,41 @@ def validate_asymmetric_split(
     return child_contours
 
 
-def split_asymmetric_gfp_contour_if_needed(
+def split_asymmetric_dot_contour_if_needed(
     metrics: _ContourShapeMetrics,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     params: dict,
     *,
     tightening_image: np.ndarray | None = None,
     candidate: _AsymmetricSplitCandidate | None = None,
     has_paired_neck: bool = False,
-    split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
+    split_mode: str = DEFAULT_DOT_SPLIT_MODE,
     debug: bool = False,
 ) -> list[np.ndarray]:
     if not bool(params.get("asymmetric_fallback_enabled", False)):
         return []
     if _is_round_single_dot(metrics, params):
         if debug:
-            logger.debug("Green asymmetric split rejected: contour is compact and round")
+            logger.debug("Dot contour asymmetric split rejected: contour is compact and round")
         return []
 
     if candidate is None:
-        candidate = find_asymmetric_peak_saddle_candidate(metrics.mask, gfp_image, params)
+        candidate = find_asymmetric_peak_saddle_candidate(metrics.mask, evidence_image, params)
     if candidate is None:
         if debug:
-            logger.debug("Green asymmetric split rejected: no two-peak saddle")
+            logger.debug("Dot contour asymmetric split rejected: no two-peak saddle")
         return []
 
     split_labels = split_contour_with_asymmetric_watershed(
         metrics.mask,
-        gfp_image,
+        evidence_image,
         candidate,
         params,
     )
     child_contours = validate_asymmetric_split(
         metrics.mask,
         split_labels,
-        gfp_image,
+        evidence_image,
         candidate,
         params,
     )
@@ -1822,16 +1825,16 @@ def split_asymmetric_gfp_contour_if_needed(
         )
 
     if debug:
-        logger.debug("Green asymmetric split rejected: watershed failed validation")
+        logger.debug("Dot contour asymmetric split rejected: watershed failed validation")
     return []
 
 
-def split_necked_gfp_contour_if_needed(
+def split_necked_dot_contour_if_needed(
     contour: np.ndarray,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     config: dict | str | None = None,
 ) -> list[np.ndarray]:
-    """Return one original contour or two child contours for a necked GFP blob.
+    """Return one original contour or two child contours for a necked dot blob.
 
     The splitter is intentionally gated by the existing contour outline. Public
     balanced preserves the former aggressive baseline, while public aggressive
@@ -1848,18 +1851,18 @@ def split_necked_gfp_contour_if_needed(
         tightening_image = None
     else:
         config_payload = dict(config or {})
-        split_mode = config_payload.get("mode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        split_mode = config_payload.get("mode", DEFAULT_DOT_SPLIT_MODE)
         debug = bool(config_payload.get("debug", False))
         tightening_image = config_payload.get("tightening_image")
-    split_mode = normalize_green_dot_split_mode(split_mode)
+    split_mode = normalize_dot_split_mode(split_mode)
 
     params = _split_params(split_mode)
     tightening_gray = _as_gray_float(tightening_image)
-    if tightening_gray is None or tightening_gray.shape[:2] != gfp_image.shape[:2]:
-        tightening_gray = _as_gray_float(gfp_image)
+    if tightening_gray is None or tightening_gray.shape[:2] != evidence_image.shape[:2]:
+        tightening_gray = _as_gray_float(evidence_image)
     metrics = compute_contour_shape_metrics(
         contour,
-        gfp_image.shape,
+        evidence_image.shape,
         min_defect_depth_px=float(params["min_defect_depth_px"]),
     )
     if metrics is None:
@@ -1874,8 +1877,8 @@ def split_necked_gfp_contour_if_needed(
     )
     neck = neck_candidates[0] if neck_candidates else None
 
-    intensity_peaks = find_intensity_peaks_in_contour(metrics.mask, gfp_image, params)
-    smoothed = _smooth_gfp_image(gfp_image)
+    intensity_peaks = find_intensity_peaks_in_contour(metrics.mask, evidence_image, params)
+    smoothed = _smooth_dot_evidence_image(evidence_image)
     intensity_pair = None
     if smoothed is not None:
         intensity_pair = _best_peak_pair(
@@ -1892,12 +1895,12 @@ def split_necked_gfp_contour_if_needed(
         params,
         max_valley_ratio_key="max_distance_valley_ratio",
     )
-    asymmetric_candidate = find_asymmetric_peak_saddle_candidate(metrics.mask, gfp_image, params)
+    asymmetric_candidate = find_asymmetric_peak_saddle_candidate(metrics.mask, evidence_image, params)
 
     def try_asymmetric_fallback() -> list[np.ndarray]:
-        return split_asymmetric_gfp_contour_if_needed(
+        return split_asymmetric_dot_contour_if_needed(
             metrics,
-            gfp_image,
+            evidence_image,
             params,
             tightening_image=tightening_gray,
             candidate=asymmetric_candidate,
@@ -1908,7 +1911,7 @@ def split_necked_gfp_contour_if_needed(
 
     if _is_round_single_dot(metrics, params):
         if debug:
-            logger.debug("Green neck split rejected: contour is compact and round")
+            logger.debug("Dot contour split rejected: contour is compact and round")
         return [contour]
 
     shape_suspicious = _shape_is_suspicious(metrics, params)
@@ -1934,7 +1937,7 @@ def split_necked_gfp_contour_if_needed(
             if len(child_contours) == 2:
                 return child_contours
             if debug:
-                logger.debug("Green neck split rejected: no paired concavity")
+                logger.debug("Dot contour split rejected: no paired concavity")
             return [contour]
         if (
             split_peak_pair is None
@@ -1944,7 +1947,7 @@ def split_necked_gfp_contour_if_needed(
         ):
             if debug:
                 logger.debug(
-                    "Green neck split rejected: smooth convex contour lacks peak-supported or usable neck-supported split evidence"
+                    "Dot contour split rejected: smooth convex contour lacks peak-supported or usable neck-supported split evidence"
                 )
             return [contour]
         has_peak_evidence = split_peak_pair is not None
@@ -1954,12 +1957,12 @@ def split_necked_gfp_contour_if_needed(
             if len(child_contours) == 2:
                 return child_contours
             if debug:
-                logger.debug("Green neck split rejected: no two-lobe evidence")
+                logger.debug("Dot contour split rejected: no two-lobe evidence")
             return [contour]
 
         split_labels = split_contour_with_watershed(
             metrics.mask,
-            gfp_image,
+            evidence_image,
             split_peak_pair,
             params,
             neck_candidate=neck,
@@ -1967,7 +1970,7 @@ def split_necked_gfp_contour_if_needed(
         child_contours = validate_split_contours(
             metrics.mask,
             split_labels,
-            gfp_image,
+            evidence_image,
             params,
             peak_pair=split_peak_pair,
             neck_candidate=neck,
@@ -1985,7 +1988,7 @@ def split_necked_gfp_contour_if_needed(
         child_contours = validate_split_contours(
             metrics.mask,
             chord_labels,
-            gfp_image,
+            evidence_image,
             params,
             peak_pair=None,
             neck_candidate=neck,
@@ -2002,7 +2005,7 @@ def split_necked_gfp_contour_if_needed(
         if baseline_peak_backed_geometry_evidence or baseline_peakless_geometry_evidence:
             geometry_labels = split_contour_with_geometry_first_watershed(
                 metrics.mask,
-                gfp_image,
+                evidence_image,
                 neck,
                 params,
             )
@@ -2026,7 +2029,7 @@ def split_necked_gfp_contour_if_needed(
             return child_contours
 
         if debug:
-            logger.debug("Green neck split rejected: candidate split failed validation")
+            logger.debug("Dot contour split rejected: candidate split failed validation")
         return [contour]
 
     if split_mode == "balanced":
@@ -2077,19 +2080,19 @@ def split_necked_gfp_contour_if_needed(
     ):
         if debug:
             logger.debug(
-                "Green neck split rejected: smooth convex contour lacks peak-backed or neck-backed merge evidence"
+                "Dot contour split rejected: smooth convex contour lacks peak-backed or neck-backed merge evidence"
             )
         return [contour]
 
     if not recall_first_triggered:
         if debug:
-            logger.debug("Green neck split rejected: no aggressive evidence bundle")
+            logger.debug("Dot contour split rejected: no aggressive evidence bundle")
         return [contour]
 
     if neck is not None:
         split_labels = split_contour_with_watershed(
             metrics.mask,
-            gfp_image,
+            evidence_image,
             split_peak_pair,
             params,
             neck_candidate=neck,
@@ -2097,7 +2100,7 @@ def split_necked_gfp_contour_if_needed(
         child_contours = validate_split_contours(
             metrics.mask,
             split_labels,
-            gfp_image,
+            evidence_image,
             params,
             peak_pair=split_peak_pair,
             neck_candidate=neck,
@@ -2117,7 +2120,7 @@ def split_necked_gfp_contour_if_needed(
         child_contours = validate_split_contours(
             metrics.mask,
             chord_labels,
-            gfp_image,
+            evidence_image,
             params,
             peak_pair=None,
             neck_candidate=neck,
@@ -2133,7 +2136,7 @@ def split_necked_gfp_contour_if_needed(
 
         geometry_labels = split_contour_with_geometry_first_watershed(
             metrics.mask,
-            gfp_image,
+            evidence_image,
             neck,
             params,
         )
@@ -2158,7 +2161,7 @@ def split_necked_gfp_contour_if_needed(
 
     child_contours = _try_deterministic_aggressive_split(
         metrics,
-        gfp_image,
+        evidence_image,
         params,
         split_peak_pair=split_peak_pair,
         neck_candidate=neck,
@@ -2170,32 +2173,38 @@ def split_necked_gfp_contour_if_needed(
         return child_contours
 
     if debug:
-        logger.debug("Green neck split rejected: recall-first routes failed validation")
+        logger.debug("Dot contour split rejected: recall-first routes failed validation")
     return [contour]
 
 
-def postprocess_gfp_contours_for_neck_splits(
+def postprocess_dot_contours_for_neck_splits(
     contours: list[np.ndarray] | tuple[np.ndarray, ...],
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     config: dict | str | None = None,
 ) -> list[np.ndarray]:
-    """Replace merged necked GFP contours with two validated child contours."""
+    """Replace merged necked dot contours with two validated child contours."""
 
     processed: list[np.ndarray] = []
     for contour in contours or []:
-        split_contours = split_necked_gfp_contour_if_needed(contour, gfp_image, config)
+        split_contours = split_necked_dot_contour_if_needed(contour, evidence_image, config)
         processed.extend(split_contours if split_contours else [contour])
     return processed
 
 
+# Backward-compatible aliases for older internal imports.
+split_asymmetric_gfp_contour_if_needed = split_asymmetric_dot_contour_if_needed
+split_necked_gfp_contour_if_needed = split_necked_dot_contour_if_needed
+postprocess_gfp_contours_for_neck_splits = postprocess_dot_contours_for_neck_splits
+
+
 def _aggressive_split_decision_for_contour(
     contour: np.ndarray,
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     config: dict | str | None = None,
 ) -> _AggressiveSplitDecision:
     """Return the aggressive split result for one contour without filtering."""
 
-    split_contours = split_necked_gfp_contour_if_needed(contour, gfp_image, config)
+    split_contours = split_necked_dot_contour_if_needed(contour, evidence_image, config)
     if len(split_contours) == 2:
         return _AggressiveSplitDecision(
             original_contour=contour,
@@ -2211,18 +2220,18 @@ def _aggressive_split_decision_for_contour(
 
 def _postprocess_and_filter_aggressive_green_contours(
     contours: list[np.ndarray] | tuple[np.ndarray, ...],
-    gfp_image: np.ndarray,
+    evidence_image: np.ndarray,
     config: dict | str | None = None,
 ) -> list[np.ndarray]:
     """Preserve accepted split pairs atomically through the legacy contour filter."""
 
     processed: list[np.ndarray] = []
     for contour in contours or []:
-        decision = _aggressive_split_decision_for_contour(contour, gfp_image, config)
+        decision = _aggressive_split_decision_for_contour(contour, evidence_image, config)
         if decision.accepted_split:
             filtered_children, _ = _filter_green_contours_with_image(
                 decision.output_contours,
-                gfp_image,
+                evidence_image,
             )
             if len(filtered_children) == 2:
                 processed.extend(filtered_children)
@@ -2233,7 +2242,7 @@ def _postprocess_and_filter_aggressive_green_contours(
             continue
         filtered_contours, _ = _filter_green_contours_with_image(
             decision.output_contours,
-            gfp_image,
+            evidence_image,
         )
         processed.extend(filtered_contours)
     return processed
@@ -2241,7 +2250,7 @@ def _postprocess_and_filter_aggressive_green_contours(
 
 def _split_merged_green_contours(
     thresh_green: np.ndarray,
-    split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
+    split_mode: str = DEFAULT_DOT_SPLIT_MODE,
 ) -> np.ndarray:
     """Backward-compatible mask wrapper for the contour postprocessor."""
 
@@ -2252,7 +2261,7 @@ def _split_merged_green_contours(
     )
     if not contours:
         return thresh_green
-    processed = postprocess_gfp_contours_for_neck_splits(
+    processed = postprocess_dot_contours_for_neck_splits(
         contours,
         thresh_green,
         {"mode": split_mode},
@@ -2378,10 +2387,12 @@ def find_contours(
     green_contour_filter_enabled: bool = False,
     alternate_red_detection: bool = False,
     green_dot_split_enabled: bool = True,
-    green_dot_split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
+    green_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
     *,
     alternate_detection_channel: str | None = None,
     skip_standard_contour_channels=None,
+    red_dot_split_enabled: bool = True,
+    red_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
 ):
     """
     Find red dot contours, blue nucleus contours, and green signal contours.
@@ -2389,11 +2400,13 @@ def find_contours(
 
     gray_red_3 = images.get_image("gray_red_3")
     gray_red = images.get_image("gray_red")
+    gray_red_no_bg = images.get_image("red_no_bg")
     gray_blue_3 = images.get_image("gray_blue_3")
     gray_blue = images.get_image("gray_blue")
     gray_green = images.get_image("green")
     gray_green_no_bg = images.get_image("green_no_bg")
-    green_dot_split_mode = normalize_green_dot_split_mode(green_dot_split_mode)
+    green_dot_split_mode = normalize_dot_split_mode(green_dot_split_mode)
+    red_dot_split_mode = normalize_dot_split_mode(red_dot_split_mode)
 
     dot_contours = []
     contours = []
@@ -2439,6 +2452,17 @@ def find_contours(
                 cv2.RETR_LIST,
                 cv2.CHAIN_APPROX_SIMPLE,
             )
+            if red_dot_split_enabled:
+                dot_contours = postprocess_dot_contours_for_neck_splits(
+                    list(dot_contours),
+                    gray_red_3,
+                    {
+                        "mode": red_dot_split_mode,
+                        "tightening_image": (
+                            gray_red_no_bg if gray_red_no_bg is not None else gray_red_3
+                        ),
+                    },
+                )
             dot_contours = [cnt for cnt in dot_contours if cv2.contourArea(cnt) < 100]
 
         thresh_red = None
@@ -2570,7 +2594,7 @@ def find_contours(
                 split_config,
             )
         elif green_dot_split_enabled:
-            contours_green = postprocess_gfp_contours_for_neck_splits(
+            contours_green = postprocess_dot_contours_for_neck_splits(
                 contours_green,
                 gray_green,
                 split_config,

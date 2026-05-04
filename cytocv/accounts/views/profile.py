@@ -59,7 +59,9 @@ from core.services.puncta_line_mode import (
     VALID_PUNCTA_LINE_MODES,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import normalize_green_dot_split_mode
+from core.services.dot_split import (
+    normalize_dot_split_mode,
+)
 from core.services.signal_quantification import (
     resolve_signal_quantification_from_defaults,
     resolve_signal_quantification_selection,
@@ -1169,10 +1171,21 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 default=bool(defaults.get("green_dot_split_enabled", True)),
                 legacy_key="biorientation_green_split_enabled",
             )
-            green_dot_split_mode = normalize_green_dot_split_mode(
+            green_dot_split_mode = normalize_dot_split_mode(
                 request.POST.get(
                     "green_dot_split_mode",
                     defaults.get("green_dot_split_mode"),
+                )
+            )
+            red_dot_split_enabled = _payload_bool(
+                request.POST,
+                "red_dot_split_enabled",
+                default=bool(defaults.get("red_dot_split_enabled", True)),
+            )
+            red_dot_split_mode = normalize_dot_split_mode(
+                request.POST.get(
+                    "red_dot_split_mode",
+                    defaults.get("red_dot_split_mode"),
                 )
             )
             signal_payload: dict[str, object] = {}
@@ -1241,6 +1254,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     ),
                     "green_dot_split_enabled": green_dot_split_enabled,
                     "green_dot_split_mode": green_dot_split_mode,
+                    "red_dot_split_enabled": red_dot_split_enabled,
+                    "red_dot_split_mode": red_dot_split_mode,
                     "alternate_red_detection": (
                         signal_selection.alternate_nucleus_detection_enabled
                     ),

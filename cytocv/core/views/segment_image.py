@@ -116,9 +116,9 @@ from core.services.puncta_line_mode import (
     get_puncta_line_mode_metadata,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     BIORIENTATION_PLUGIN,
@@ -292,7 +292,9 @@ def get_stats(
     green_contour_filter_enabled=False,
     alternate_red_detection=False,
     green_dot_split_enabled=True,
-    green_dot_split_mode=DEFAULT_GREEN_DOT_SPLIT_MODE,
+    green_dot_split_mode=DEFAULT_DOT_SPLIT_MODE,
+    red_dot_split_enabled=True,
+    red_dot_split_mode=DEFAULT_DOT_SPLIT_MODE,
     cached_images=None,
     cached_measurement_images=None,
     alternate_detection_channel=None,
@@ -301,16 +303,29 @@ def get_stats(
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cell_pair_mode = conf.get("nuclear_cell_pair_mode", "green_nucleus")
     puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
-    green_dot_split_mode = normalize_green_dot_split_mode(
+    green_dot_split_mode = normalize_dot_split_mode(
         green_dot_split_mode
         or conf.get("green_dot_split_mode")
         or conf.get("greenDotSplitMode")
+    )
+    red_dot_split_enabled = _truthy_config_flag(
+        conf.get(
+            "red_dot_split_enabled",
+            conf.get("redDotSplitEnabled", red_dot_split_enabled),
+        )
+    )
+    red_dot_split_mode = normalize_dot_split_mode(
+        red_dot_split_mode
+        or conf.get("red_dot_split_mode")
+        or conf.get("redDotSplitMode")
     )
     cp.properties = dict(cp.properties or {})
     cp.properties["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
     cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
     cp.properties["puncta_line_source_channel"] = puncta_line_metadata["source_channel"]
     cp.properties["puncta_line_measurement_channel"] = puncta_line_metadata["measurement_channel"]
+    cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
+    cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
     configured_signal_mode = conf.get(
         "signal_quantification_mode",
         conf.get("signalQuantificationMode"),
@@ -451,6 +466,8 @@ def get_stats(
         green_dot_split_mode,
         alternate_detection_channel=alternate_detection_channel,
         skip_standard_contour_channels=skipped_standard_contour_channels,
+        red_dot_split_enabled=red_dot_split_enabled,
+        red_dot_split_mode=red_dot_split_mode,
     )
     contours_data = build_canonical_contour_payload(
         contours_data,
@@ -1334,8 +1351,18 @@ def segment_image(request, uuids):
             else str(green_dot_split_enabled_raw).strip().lower()
             in {"1", "true", "yes", "on"}
         )
-        green_dot_split_mode = normalize_green_dot_split_mode(
-            request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        green_dot_split_mode = normalize_dot_split_mode(
+            request.session.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
+        )
+        red_dot_split_enabled_raw = request.session.get("redDotSplitEnabled", True)
+        red_dot_split_enabled = (
+            red_dot_split_enabled_raw
+            if isinstance(red_dot_split_enabled_raw, bool)
+            else str(red_dot_split_enabled_raw).strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
+        red_dot_split_mode = normalize_dot_split_mode(
+            request.session.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
         )
         signal_quantification_enabled = request.session.get("signalQuantificationEnabled", True)
         signal_quantification_enabled = (
@@ -1398,6 +1425,8 @@ def segment_image(request, uuids):
             'alternate_nucleus_detection_channel': alternate_nucleus_detection_channel,
             'green_dot_split_enabled': green_dot_split_enabled,
             'green_dot_split_mode': green_dot_split_mode,
+            'red_dot_split_enabled': red_dot_split_enabled,
+            'red_dot_split_mode': red_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -1441,6 +1470,8 @@ def segment_image(request, uuids):
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
                 green_dot_split_enabled=green_dot_split_enabled,
                 green_dot_split_mode=green_dot_split_mode,
+                red_dot_split_enabled=red_dot_split_enabled,
+                red_dot_split_mode=red_dot_split_mode,
             ),
         )
 
@@ -1521,6 +1552,8 @@ def segment_image(request, uuids):
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
             cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
+            cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
+            cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
             cp.properties["signal_quantification_enabled"] = signal_quantification_enabled
             cp.properties["signal_quantification_mode"] = signal_quantification_mode
             cp.properties["puncta_contour_intensity_enabled"] = puncta_contour_intensity_enabled
@@ -1538,6 +1571,8 @@ def segment_image(request, uuids):
                 alternate_nucleus_detection_enabled,
                 green_dot_split_enabled,
                 green_dot_split_mode,
+                red_dot_split_enabled,
+                red_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
                 alternate_detection_channel=alternate_nucleus_detection_channel,

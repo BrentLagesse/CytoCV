@@ -72,9 +72,9 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
@@ -1031,8 +1031,14 @@ def run_segmentation_batch(
                 config_snapshot.get("biorientationGreenSplitEnabled", True),
             )
         )
-        green_dot_split_mode = normalize_green_dot_split_mode(
-            config_snapshot.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        green_dot_split_mode = normalize_dot_split_mode(
+            config_snapshot.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
+        )
+        red_dot_split_enabled = bool(
+            config_snapshot.get("redDotSplitEnabled", True)
+        )
+        red_dot_split_mode = normalize_dot_split_mode(
+            config_snapshot.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
         )
 
         configured_puncta_line_width = _process_config_value(
@@ -1067,6 +1073,8 @@ def run_segmentation_batch(
             "alternate_nucleus_detection_channel": alternate_nucleus_detection_channel,
             "green_dot_split_enabled": green_dot_split_enabled,
             "green_dot_split_mode": green_dot_split_mode,
+            "red_dot_split_enabled": red_dot_split_enabled,
+            "red_dot_split_mode": red_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -1106,6 +1114,8 @@ def run_segmentation_batch(
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
                 green_dot_split_enabled=green_dot_split_enabled,
                 green_dot_split_mode=green_dot_split_mode,
+                red_dot_split_enabled=red_dot_split_enabled,
+                red_dot_split_mode=red_dot_split_mode,
             ),
         )
 
@@ -1203,6 +1213,8 @@ def run_segmentation_batch(
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
             cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
+            cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
+            cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
             cp.properties["signal_quantification_enabled"] = signal_quantification_enabled
             cp.properties["signal_quantification_mode"] = signal_quantification_mode
             cp.properties["puncta_contour_intensity_enabled"] = puncta_contour_intensity_enabled
@@ -1224,6 +1236,8 @@ def run_segmentation_batch(
                 alternate_nucleus_detection_enabled,
                 green_dot_split_enabled,
                 green_dot_split_mode,
+                red_dot_split_enabled,
+                red_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
                 alternate_detection_channel=alternate_nucleus_detection_channel,

@@ -1,4 +1,4 @@
-"""Tests for Green dot contour splitting."""
+"""Tests for shared dot contour splitting."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from core.contour_processing.contour_operations import (
     find_contours,
     find_convexity_defect_neck_candidates,
     find_intensity_peaks_in_contour,
-    postprocess_gfp_contours_for_neck_splits,
+    postprocess_dot_contours_for_neck_splits,
     split_contour_with_geometry_first_watershed,
     split_contour_with_watershed,
     validate_geometry_first_split,
@@ -337,6 +337,24 @@ def _green_only_images(
     )
 
 
+def _red_only_images(
+    image: np.ndarray,
+    *,
+    red_no_bg: np.ndarray | None = None,
+) -> GrayImage:
+    return GrayImage(
+        {
+            "gray_red_3": image,
+            "gray_red": image,
+            "red_no_bg": red_no_bg if red_no_bg is not None else image,
+            "gray_blue_3": None,
+            "gray_blue": None,
+            "green": None,
+            "green_no_bg": None,
+        }
+    )
+
+
 def _green_pre_postprocess_contours_from_image(image: np.ndarray) -> list[np.ndarray]:
     low_val, _ = cv2.threshold(
         image,
@@ -377,7 +395,22 @@ def _split_green_contours_from_image(
     return list(contours_data.get("contours_green", []))
 
 
-class GreenDotSplitTests(SimpleTestCase):
+def _red_dot_contours_from_image(
+    image: np.ndarray,
+    *,
+    red_dot_split_enabled: bool = True,
+    red_dot_split_mode: str = "balanced",
+) -> list[np.ndarray]:
+    contours_data = find_contours(
+        _red_only_images(image),
+        green_dot_split_enabled=False,
+        red_dot_split_enabled=red_dot_split_enabled,
+        red_dot_split_mode=red_dot_split_mode,
+    )
+    return list(contours_data.get("dot_contours", []))
+
+
+class DotSplitTests(SimpleTestCase):
     def test_balanced_mode_splits_overlapping_green_dots(self):
         mask = _dumbbell(8, 8, center_distance=10)
 
@@ -417,7 +450,7 @@ class GreenDotSplitTests(SimpleTestCase):
 
         self.assertEqual(len(contours), 1)
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 image,
                 {"mode": split_mode},
@@ -432,7 +465,7 @@ class GreenDotSplitTests(SimpleTestCase):
 
         self.assertEqual(len(contours), 1)
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 mask,
                 {"mode": split_mode},
@@ -447,7 +480,7 @@ class GreenDotSplitTests(SimpleTestCase):
         contours = _contours_from_mask(mask)
 
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 mask,
                 {"mode": split_mode},
@@ -461,7 +494,7 @@ class GreenDotSplitTests(SimpleTestCase):
 
         self.assertEqual(len(contours), 1)
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 image,
                 {"mode": split_mode},
@@ -494,12 +527,12 @@ class GreenDotSplitTests(SimpleTestCase):
         image = _geometry_first_single_peak_image(mask)
         contours = _contours_from_mask(mask)
 
-        balanced = postprocess_gfp_contours_for_neck_splits(
+        balanced = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "balanced"},
         )
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "aggressive"},
@@ -513,12 +546,12 @@ class GreenDotSplitTests(SimpleTestCase):
         image = _wide_neck_guard_single_peak_image(mask)
         contours = _contours_from_mask(mask)
 
-        balanced = postprocess_gfp_contours_for_neck_splits(
+        balanced = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "balanced"},
         )
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "aggressive"},
@@ -532,12 +565,12 @@ class GreenDotSplitTests(SimpleTestCase):
         image = _moderate_aspect_two_peak_neck_image()
         contours = _contours_from_mask(mask)
 
-        balanced = postprocess_gfp_contours_for_neck_splits(
+        balanced = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "balanced"},
         )
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "aggressive"},
@@ -549,12 +582,12 @@ class GreenDotSplitTests(SimpleTestCase):
     def test_balanced_and_aggressive_split_cell_8_like_peak_backed_necked_contour(self):
         image = _cell_8_like_green_image()
         contour = _cell_8_like_merged_contour()
-        balanced = postprocess_gfp_contours_for_neck_splits(
+        balanced = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {"mode": "balanced"},
         )
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {"mode": "aggressive"},
@@ -566,12 +599,12 @@ class GreenDotSplitTests(SimpleTestCase):
     def test_balanced_and_aggressive_split_cell_8_like_single_peak_neck_shape(self):
         image = _cell_8_like_single_peak_image()
         contour = _cell_8_like_merged_contour()
-        balanced = postprocess_gfp_contours_for_neck_splits(
+        balanced = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {"mode": "balanced"},
         )
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {"mode": "aggressive"},
@@ -595,7 +628,7 @@ class GreenDotSplitTests(SimpleTestCase):
 
         self.assertEqual(len(contours), 1)
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 image,
                 {"mode": split_mode},
@@ -611,7 +644,7 @@ class GreenDotSplitTests(SimpleTestCase):
 
         self.assertEqual(len(contours), 1)
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 image,
                 {"mode": split_mode},
@@ -631,7 +664,7 @@ class GreenDotSplitTests(SimpleTestCase):
         contours = _contours_from_mask(mask)
 
         for split_mode in ("balanced", "aggressive"):
-            split = postprocess_gfp_contours_for_neck_splits(
+            split = postprocess_dot_contours_for_neck_splits(
                 contours,
                 image,
                 {"mode": split_mode},
@@ -660,7 +693,7 @@ class GreenDotSplitTests(SimpleTestCase):
         self.assertEqual(len(find_intensity_peaks_in_contour(metrics.mask, image, params)), 1)
         self.assertIsNone(_markers_from_neck(metrics.mask, neck_candidates[0], params))
         self.assertIsNone(_split_contour_with_neck_chord(metrics.mask, neck_candidates[0], params))
-        split = postprocess_gfp_contours_for_neck_splits(
+        split = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "aggressive"},
@@ -716,7 +749,7 @@ class GreenDotSplitTests(SimpleTestCase):
             _choose_split_peak_pair(intensity_pair, distance_pair, params)
         )
 
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             contours,
             image,
             {"mode": "aggressive"},
@@ -805,14 +838,14 @@ class GreenDotSplitTests(SimpleTestCase):
         )
         self.assertEqual(len(geometry_children), 2)
 
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {"mode": "aggressive"},
         )
         self.assertEqual(_contour_list_count(aggressive), 2)
 
-        tightened_aggressive = postprocess_gfp_contours_for_neck_splits(
+        tightened_aggressive = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {
@@ -921,7 +954,7 @@ class GreenDotSplitTests(SimpleTestCase):
         )
         self.assertEqual(len(geometry_children), 2)
 
-        aggressive = postprocess_gfp_contours_for_neck_splits(
+        aggressive = postprocess_dot_contours_for_neck_splits(
             [contour],
             image,
             {"mode": "aggressive"},
@@ -942,15 +975,15 @@ class GreenDotSplitTests(SimpleTestCase):
             "core.contour_processing.contour_operations.split_contour_with_geometry_first_watershed",
             return_value=None,
         ), patch(
-            "core.contour_processing.contour_operations.split_asymmetric_gfp_contour_if_needed",
+            "core.contour_processing.contour_operations.split_asymmetric_dot_contour_if_needed",
             return_value=[],
         ):
-            balanced = postprocess_gfp_contours_for_neck_splits(
+            balanced = postprocess_dot_contours_for_neck_splits(
                 [contour],
                 image,
                 {"mode": "balanced"},
             )
-            aggressive = postprocess_gfp_contours_for_neck_splits(
+            aggressive = postprocess_dot_contours_for_neck_splits(
                 [contour],
                 image,
                 {"mode": "aggressive"},
@@ -972,14 +1005,14 @@ class GreenDotSplitTests(SimpleTestCase):
         image = _tip_connected_pair_image()
         captured: dict[str, list[np.ndarray]] = {}
 
-        def capture(contours, gfp_image, config=None):
-            del gfp_image
+        def capture(contours, evidence_image, config=None):
+            del evidence_image
             mode = (config or {}).get("mode", "balanced")
             captured[mode] = [contour.copy() for contour in contours]
             return list(contours)
 
         with patch(
-            "core.contour_processing.contour_operations.postprocess_gfp_contours_for_neck_splits",
+            "core.contour_processing.contour_operations.postprocess_dot_contours_for_neck_splits",
             side_effect=capture,
         ):
             _split_green_contours_from_image(image, "balanced")
@@ -995,6 +1028,41 @@ class GreenDotSplitTests(SimpleTestCase):
         ):
             self.assertTrue(np.array_equal(expected_contour, balanced_contour))
             self.assertTrue(np.array_equal(expected_contour, aggressive_contour))
+
+    def test_red_dot_split_runs_before_legacy_area_cap(self):
+        image = _gaussian_pair_image(
+            center_a=(44, 40),
+            center_b=(56, 40),
+            sigma=3.2,
+            bridge_intensity=90.0,
+            shape=(80, 100),
+        )
+
+        split = _red_dot_contours_from_image(
+            image,
+            red_dot_split_enabled=True,
+            red_dot_split_mode="balanced",
+        )
+
+        self.assertEqual(_contour_list_count(split, min_area=4.0), 2)
+        self.assertTrue(all(cv2.contourArea(contour) < 100 for contour in split))
+
+    def test_red_dot_split_disabled_preserves_legacy_area_cap_behavior(self):
+        image = _gaussian_pair_image(
+            center_a=(44, 40),
+            center_b=(56, 40),
+            sigma=3.2,
+            bridge_intensity=90.0,
+            shape=(80, 100),
+        )
+
+        unsplit = _red_dot_contours_from_image(
+            image,
+            red_dot_split_enabled=False,
+            red_dot_split_mode="balanced",
+        )
+
+        self.assertEqual(_contour_list_count(unsplit, min_area=4.0), 0)
 
     def test_split_filtered_find_contours_never_collapses_accepted_split_to_one_child(self):
         image = _tip_connected_pair_image()
@@ -1023,12 +1091,12 @@ class GreenDotSplitTests(SimpleTestCase):
         cv2.circle(mask, (74, 48), 13, 255, -1)
         contours = _contours_from_mask(mask)
 
-        aggressive_untightened = postprocess_gfp_contours_for_neck_splits(
+        aggressive_untightened = postprocess_dot_contours_for_neck_splits(
             contours,
             mask,
             {"mode": "aggressive"},
         )
-        aggressive_tightened = postprocess_gfp_contours_for_neck_splits(
+        aggressive_tightened = postprocess_dot_contours_for_neck_splits(
             contours,
             mask,
             {"mode": "aggressive", "tightening_image": mask},
@@ -1091,12 +1159,12 @@ class GreenDotSplitTests(SimpleTestCase):
 
         for mask in (round_mask, irregular_mask):
             contours = _contours_from_mask(mask)
-            balanced = postprocess_gfp_contours_for_neck_splits(
+            balanced = postprocess_dot_contours_for_neck_splits(
                 contours,
                 mask,
                 {"mode": "balanced"},
             )
-            aggressive = postprocess_gfp_contours_for_neck_splits(
+            aggressive = postprocess_dot_contours_for_neck_splits(
                 contours,
                 mask,
                 {"mode": "aggressive", "tightening_image": mask},

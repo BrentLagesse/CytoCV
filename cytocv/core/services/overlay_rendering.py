@@ -33,15 +33,15 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.stats_plugins import build_stats_execution_plan
 
 logger = logging.getLogger(__name__)
 
-OVERLAY_RENDER_SCHEMA_VERSION = 3
+OVERLAY_RENDER_SCHEMA_VERSION = 4
 OVERLAY_RENDER_CONFIG_FILENAME = "overlay-render-config.json"
 OVERLAY_CACHE_DIRNAME = f"overlay-cache-v{OVERLAY_RENDER_SCHEMA_VERSION}"
 OVERLAY_CHANNEL_LABELS = {
@@ -95,10 +95,22 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
         )
     if "biorientation_green_split_enabled" in normalized and "green_dot_split_enabled" not in normalized:
         normalized["green_dot_split_enabled"] = normalized["biorientation_green_split_enabled"]
-    normalized["green_dot_split_mode"] = normalize_green_dot_split_mode(
+    normalized["green_dot_split_mode"] = normalize_dot_split_mode(
         normalized.get(
             "green_dot_split_mode",
-            normalized.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE),
+            normalized.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE),
+        )
+    )
+    normalized["red_dot_split_enabled"] = bool(
+        normalized.get(
+            "red_dot_split_enabled",
+            normalized.get("redDotSplitEnabled", True),
+        )
+    )
+    normalized["red_dot_split_mode"] = normalize_dot_split_mode(
+        normalized.get(
+            "red_dot_split_mode",
+            normalized.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE),
         )
     )
     if "stats_mcherry_width_unit" in normalized and "stats_puncta_line_width_unit" not in normalized:
@@ -181,7 +193,9 @@ def build_overlay_render_config(
     biorientation_red_max_distance_unit: str = "px",
     biorientation_collinearity_threshold: int = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
     green_dot_split_enabled: bool = True,
-    green_dot_split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
+    green_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
+    red_dot_split_enabled: bool = True,
+    red_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
 ) -> dict[str, object]:
     render_config: dict[str, object] = {
         "schema_version": OVERLAY_RENDER_SCHEMA_VERSION,
@@ -213,7 +227,9 @@ def build_overlay_render_config(
         ),
         "alternate_nucleus_detection_channel": alternate_nucleus_detection_channel,
         "green_dot_split_enabled": bool(green_dot_split_enabled),
-        "green_dot_split_mode": normalize_green_dot_split_mode(green_dot_split_mode),
+        "green_dot_split_mode": normalize_dot_split_mode(green_dot_split_mode),
+        "red_dot_split_enabled": bool(red_dot_split_enabled),
+        "red_dot_split_mode": normalize_dot_split_mode(red_dot_split_mode),
         "stats_biorientation_red_min_distance_value": float(biorientation_red_min_distance_value),
         "stats_biorientation_red_min_distance_unit": str(biorientation_red_min_distance_unit),
         "stats_biorientation_red_max_distance_value": float(biorientation_red_max_distance_value),
@@ -356,8 +372,14 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
                 render_config.get("biorientation_green_split_enabled", True),
             )
         ),
-        "green_dot_split_mode": normalize_green_dot_split_mode(
-            render_config.get("green_dot_split_mode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        "green_dot_split_mode": normalize_dot_split_mode(
+            render_config.get("green_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
+        ),
+        "red_dot_split_enabled": bool(
+            render_config.get("red_dot_split_enabled", True)
+        ),
+        "red_dot_split_mode": normalize_dot_split_mode(
+            render_config.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
         ),
     }
 
@@ -429,8 +451,15 @@ def render_overlay_images_for_cell(
         "green_dot_split_enabled",
         render_config.get("biorientation_green_split_enabled", True),
     )
-    render_cp.properties["stats_green_dot_split_mode"] = normalize_green_dot_split_mode(
-        render_config.get("green_dot_split_mode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+    render_cp.properties["stats_green_dot_split_mode"] = normalize_dot_split_mode(
+        render_config.get("green_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
+    )
+    render_cp.properties["stats_red_dot_split_enabled"] = render_config.get(
+        "red_dot_split_enabled",
+        True,
+    )
+    render_cp.properties["stats_red_dot_split_mode"] = normalize_dot_split_mode(
+        render_config.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
     )
     render_cp.properties["signal_quantification_enabled"] = bool(
         render_config.get("signal_quantification_enabled", True)
@@ -470,8 +499,12 @@ def render_overlay_images_for_cell(
                 render_config.get("biorientation_green_split_enabled", True),
             )
         ),
-        normalize_green_dot_split_mode(
-            render_config.get("green_dot_split_mode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        normalize_dot_split_mode(
+            render_config.get("green_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
+        ),
+        bool(render_config.get("red_dot_split_enabled", True)),
+        normalize_dot_split_mode(
+            render_config.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
         ),
         cached_images=images_to_use,
         alternate_detection_channel=render_config.get("alternate_nucleus_detection_channel"),

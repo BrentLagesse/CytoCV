@@ -55,6 +55,8 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertTrue(defaults["red_dot_split_enabled"])
+        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -78,6 +80,8 @@ class PreferenceNormalizationTests(TestCase):
                     "puncta_line_mode": "bad_mode",
                     "nuclear_cell_pair_mode": "bad_mode",
                     "green_dot_split_mode": "bad_mode",
+                    "red_dot_split_enabled": "off",
+                    "red_dot_split_mode": "bad_mode",
                     "puncta_line_width_unit": "um",
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
@@ -105,6 +109,8 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertFalse(defaults["red_dot_split_enabled"])
+        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(normalized["auto_save_experiments"])
@@ -1763,8 +1769,15 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="advancedWavelengthCheckRow"', html=False)
         self.assertContains(response, 'id="sidebar_starts_open"', html=False)
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
+        self.assertContains(response, 'id="dot_split_enabled"', html=False)
+        self.assertContains(response, 'id="dot_split_target"', html=False)
         self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
         self.assertContains(response, 'id="green_dot_split_mode"', html=False)
+        self.assertContains(response, 'id="red_dot_split_enabled"', html=False)
+        self.assertContains(response, 'id="red_dot_split_mode"', html=False)
+        self.assertContains(response, "Split Merged Dots")
+        self.assertNotContains(response, "Split Merged Green Dots")
+        self.assertNotContains(response, "Split Merged Red Dots")
         self.assertContains(response, "Signal Quantification")
         self.assertContains(response, 'id="signal_quantification_enabled"', html=False)
         self.assertContains(response, 'id="signal_quantification_mode"', html=False)
@@ -1772,7 +1785,27 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Alternate Nucleus Detection")
         self.assertContains(
             response,
-            "Only affects Nuclear, Cell-Pair Intensity. Uses the alternate contour detection path on the selected nucleus source channel only.",
+            "Controls the primary Red/Green signal measurement workflow for this experiment. Choose one primary mode: Puncta Distance or Nuclear, Cell-Pair Intensity.",
+        )
+        self.assertContains(
+            response,
+            "Primary Mode selects which mutually exclusive signal workflow is saved as the default.",
+        )
+        self.assertContains(
+            response,
+            "Detects the first two usable puncta in the selected source channel, measures the distance between their centers",
+        )
+        self.assertContains(
+            response,
+            "Measures signal from the selected measurement channel inside the selected nucleus contour and inside the full DIC cell-pair mask.",
+        )
+        self.assertContains(
+            response,
+            "Red Nucleus uses alternate Red detection, and Green Nucleus uses alternate Green detection.",
+        )
+        self.assertContains(
+            response,
+            "All other stat modules enabled in Puncta Distance mode.",
         )
         self.assertContains(response, 'id="alternate_nucleus_detection_enabled"', html=False)
         self.assertNotContains(response, 'id="cell_parentage_mode"', html=False)
@@ -1792,7 +1825,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         ]
         self.assertIn("Show Legacy Blue-Channel Plugins", advanced_plugin_behavior)
         self.assertNotIn("Filter Green Contours", advanced_plugin_behavior)
-        self.assertNotIn("Split Merged Green Dots", advanced_plugin_behavior)
+        self.assertNotIn("Split Merged Dots", advanced_plugin_behavior)
         self.assertNotIn("Enable Alternate Red Detection", advanced_plugin_behavior)
         self.assertContains(
             response,
@@ -1816,7 +1849,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertContains(
             response,
-            "Uses the alternate contour detection path on the selected nucleus source channel only.",
+            "If disabled, the standard nucleus contour path is used.",
         )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
         self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
@@ -1846,6 +1879,46 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Keep New Changes")
         self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
         self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
+
+    def test_experiment_page_contains_mode_aware_signal_quantification_info_text(self):
+        response = self.client.get(reverse("experiment"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Signal Quantification controls the primary Red/Green signal measurement workflow for this experiment.",
+        )
+        self.assertContains(
+            response,
+            "Puncta Distance detects the first two usable puncta in the selected source channel",
+        )
+        self.assertContains(
+            response,
+            "Red/Green Contour Intensities optionally calculates raw intensity sums inside detected Red and Green contour masks.",
+        )
+        self.assertContains(
+            response,
+            "Nuclear, Cell-Pair Intensity measures signal from the selected measurement channel inside the selected nucleus contour",
+        )
+        self.assertContains(
+            response,
+            "Alternate Nucleus Detection changes only the Nuclear, Cell-Pair nucleus contour path.",
+        )
+        self.assertContains(response, "Required channels: Red and Green.")
+        self.assertContains(response, "All other stat modules enabled in Puncta Distance mode.")
+        self.assertContains(
+            response,
+            "Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.",
+        )
+        self.assertContains(response, "signalQuantificationInfoDot")
+        self.assertContains(response, "buildSignalQuantificationInfoText")
+        self.assertContains(response, 'id="dotSplitEnabled"', html=False)
+        self.assertContains(response, 'id="dotSplitTargetMount"', html=False)
+        self.assertContains(response, 'id="greenDotSplitModeMount"', html=False)
+        self.assertContains(response, 'id="redDotSplitModeMount"', html=False)
+        self.assertContains(response, "Split Merged Dots")
+        self.assertNotContains(response, "Split Merged Green Dots")
+        self.assertNotContains(response, "Split Merged Red Dots")
 
     def test_experiment_workflow_defaults_endpoint_persists_popup_settings(self):
         payload = self._build_experiment_workflow_defaults_payload()
@@ -2401,7 +2474,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
 
-    def test_plugin_settings_form_persists_green_dot_split_default(self):
+    def test_plugin_settings_form_persists_dot_split_defaults(self):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
@@ -2409,6 +2482,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "selected_plugins": ["PunctaDistance"],
                 "green_dot_split_enabled": "0",
                 "green_dot_split_mode": "aggressive",
+                "red_dot_split_enabled": "1",
+                "red_dot_split_mode": "aggressive",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -2418,6 +2493,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         defaults = get_user_preferences(self.user)["experiment_defaults"]
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertTrue(defaults["red_dot_split_enabled"])
+        self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
 
         response = self.client.post(
             reverse("workflow_defaults"),
@@ -2426,6 +2503,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "selected_plugins": ["PunctaDistance"],
                 "green_dot_split_enabled": "on",
                 "green_dot_split_mode": "invalid",
+                "red_dot_split_enabled": "0",
+                "red_dot_split_mode": "invalid",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -2434,6 +2513,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         defaults = get_user_preferences(self.user)["experiment_defaults"]
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertFalse(defaults["red_dot_split_enabled"])
+        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(

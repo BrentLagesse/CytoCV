@@ -40,9 +40,9 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
@@ -588,8 +588,15 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         payload.get("greenDotSplitEnabled", payload.get("biorientationGreenSplitEnabled")),
         default=True,
     )
-    green_dot_split_mode = normalize_green_dot_split_mode(
-        payload.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+    green_dot_split_mode = normalize_dot_split_mode(
+        payload.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
+    )
+    red_dot_split_enabled = _parse_bool(
+        payload.get("redDotSplitEnabled"),
+        default=True,
+    )
+    red_dot_split_mode = normalize_dot_split_mode(
+        payload.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
     )
     green_contour_filter_enabled = _parse_bool(
         payload.get(
@@ -689,6 +696,8 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         "biorientationCollinearityThreshold": biorientation_collinearity_threshold,
         "greenDotSplitEnabled": green_dot_split_enabled,
         "greenDotSplitMode": green_dot_split_mode,
+        "redDotSplitEnabled": red_dot_split_enabled,
+        "redDotSplitMode": red_dot_split_mode,
         "stats_biorientation_red_min_distance_value": biorientation_red_min_distance_value,
         "stats_biorientation_red_min_distance_unit": biorientation_red_min_distance_unit,
         "stats_biorientation_red_max_distance_value": biorientation_red_max_distance_value,

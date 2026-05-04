@@ -44,9 +44,9 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
@@ -528,10 +528,20 @@ def pre_process(request, uuids):
                 ),
             ),
         )
-        green_dot_split_mode = normalize_green_dot_split_mode(
+        green_dot_split_mode = normalize_dot_split_mode(
             request.POST.get(
                 "greenDotSplitMode",
-                request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE),
+                request.session.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE),
+            )
+        )
+        red_dot_split_enabled_raw = request.POST.get(
+            "redDotSplitEnabled",
+            request.session.get("redDotSplitEnabled", "True"),
+        )
+        red_dot_split_mode = normalize_dot_split_mode(
+            request.POST.get(
+                "redDotSplitMode",
+                request.session.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE),
             )
         )
         puncta_line_mode = normalize_puncta_line_mode(
@@ -659,6 +669,12 @@ def pre_process(request, uuids):
             else str(green_dot_split_enabled_raw).strip().lower()
             in {"1", "true", "yes", "on"}
         )
+        red_dot_split_enabled = (
+            red_dot_split_enabled_raw
+            if isinstance(red_dot_split_enabled_raw, bool)
+            else str(red_dot_split_enabled_raw).strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
 
         request.session['selected_analysis'] = list(signal_selection.selected_plugins)
         request.session['punctaLineWidth'] = puncta_line_width
@@ -670,6 +686,8 @@ def pre_process(request, uuids):
         request.session['biorientationCollinearityThreshold'] = biorientation_collinearity_threshold
         request.session['greenDotSplitEnabled'] = green_dot_split_enabled
         request.session['greenDotSplitMode'] = green_dot_split_mode
+        request.session['redDotSplitEnabled'] = red_dot_split_enabled
+        request.session['redDotSplitMode'] = red_dot_split_mode
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled

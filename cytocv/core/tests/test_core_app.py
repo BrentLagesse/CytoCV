@@ -1302,10 +1302,10 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertEqual(int(np.count_nonzero(cyan_like)), 0)
 
-    def test_overlay_cache_path_uses_schema_v3_directory(self):
+    def test_overlay_cache_path_uses_schema_v4_directory(self):
         uuid_value = str(uuid4())
         cache_path = overlay_cache_image_path(uuid_value, 1, "green")
-        self.assertIn("overlay-cache-v3", str(cache_path))
+        self.assertIn("overlay-cache-v4", str(cache_path))
 
     def test_overlay_endpoint_returns_404_for_unauthorized_user(self):
         other_user = get_user_model().objects.create_user(
