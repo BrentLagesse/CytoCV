@@ -36,6 +36,7 @@ class UploadScaleInitializationTests(TestCase):
         metadata_payload: dict,
         use_metadata_scale: bool,
         puncta_line_mode: str = "red_puncta",
+        extra_payload: dict | None = None,
     ) -> UploadedImage:
         upload_file = SimpleUploadedFile(
             "sample.dv",
@@ -72,19 +73,22 @@ class UploadScaleInitializationTests(TestCase):
                                 "core.services.upload_preparation.generate_preview_assets",
                                 return_value=None,
                             ):
+                                post_data = {
+                                    "files": [upload_file],
+                                    "selected_analysis": ["PunctaDistance"],
+                                    "stats_puncta_line_width_value": "1",
+                                    "stats_cen_dot_distance_value": "37",
+                                    "stats_puncta_line_width_unit": "px",
+                                    "stats_cen_dot_distance_unit": "px",
+                                    "puncta_line_mode": puncta_line_mode,
+                                    "stats_microns_per_pixel": "0.2",
+                                    "stats_use_metadata_scale": "1" if use_metadata_scale else "0",
+                                }
+                                if extra_payload:
+                                    post_data.update(extra_payload)
                                 response = self.client.post(
                                     reverse("experiment"),
-                                    data={
-                                        "files": [upload_file],
-                                        "selected_analysis": ["PunctaDistance"],
-                                        "stats_puncta_line_width_value": "1",
-                                        "stats_cen_dot_distance_value": "37",
-                                        "stats_puncta_line_width_unit": "px",
-                                        "stats_cen_dot_distance_unit": "px",
-                                        "puncta_line_mode": puncta_line_mode,
-                                        "stats_microns_per_pixel": "0.2",
-                                        "stats_use_metadata_scale": "1" if use_metadata_scale else "0",
-                                    },
+                                    data=post_data,
                                 )
                                 self.assertEqual(response.status_code, 200)
                                 payload = response.json()
@@ -161,3 +165,99 @@ class UploadScaleInitializationTests(TestCase):
         )
 
         self.assertEqual(self.client.session.get("puncta_line_mode"), "green_puncta")
+        self.assertEqual(self.client.session.get("selected_analysis"), ["PunctaDistance"])
+        self.assertTrue(self.client.session.get("signalQuantificationEnabled"))
+        self.assertEqual(self.client.session.get("signalQuantificationMode"), "puncta_distance")
+        self.assertFalse(self.client.session.get("punctaContourIntensityEnabled"))
+
+    def test_upload_signal_quantification_nuclear_mode_derives_session_selection(self):
+        self._post_upload(
+            metadata_payload={
+                "metadata_um_per_px": 0.11,
+                "status": "ok",
+                "dx": 0.11,
+                "dy": 0.11,
+                "dz": 0.2,
+                "note": "",
+            },
+            use_metadata_scale=True,
+            extra_payload={
+                "selected_analysis": ["PunctaDistance", "GreenRedIntensity", "CENDot"],
+                "signalQuantificationEnabled": "true",
+                "signalQuantificationMode": "nuclear_cell_pair",
+                "punctaContourIntensityEnabled": "true",
+                "alternateNucleusDetectionEnabled": "true",
+                "nuclear_cell_pair_mode": "red_nucleus",
+            },
+        )
+
+        self.assertEqual(
+            self.client.session.get("selected_analysis"),
+            ["NuclearCellPairIntensity"],
+        )
+        self.assertEqual(self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair")
+        self.assertTrue(self.client.session.get("alternateNucleusDetectionEnabled"))
+        self.assertEqual(
+            self.client.session.get("alternateNucleusDetectionChannel"),
+            "channel_red",
+        )
+
+    def test_upload_signal_quantification_green_nuclear_mode_derives_session_selection(self):
+        self._post_upload(
+            metadata_payload={
+                "metadata_um_per_px": 0.11,
+                "status": "ok",
+                "dx": 0.11,
+                "dy": 0.11,
+                "dz": 0.2,
+                "note": "",
+            },
+            use_metadata_scale=True,
+            extra_payload={
+                "selected_analysis": ["PunctaDistance", "Biorientation"],
+                "signalQuantificationEnabled": "true",
+                "signalQuantificationMode": "nuclear_cell_pair",
+                "punctaContourIntensityEnabled": "false",
+                "alternateNucleusDetectionEnabled": "true",
+                "nuclear_cell_pair_mode": "green_nucleus",
+            },
+        )
+
+        self.assertEqual(
+            self.client.session.get("selected_analysis"),
+            ["NuclearCellPairIntensity"],
+        )
+        self.assertEqual(self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair")
+        self.assertTrue(self.client.session.get("alternateNucleusDetectionEnabled"))
+        self.assertEqual(
+            self.client.session.get("alternateNucleusDetectionChannel"),
+            "channel_green",
+        )
+
+    def test_upload_signal_quantification_nuclear_mode_off_clears_alternate_channel(self):
+        self._post_upload(
+            metadata_payload={
+                "metadata_um_per_px": 0.11,
+                "status": "ok",
+                "dx": 0.11,
+                "dy": 0.11,
+                "dz": 0.2,
+                "note": "",
+            },
+            use_metadata_scale=True,
+            extra_payload={
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "signalQuantificationEnabled": "true",
+                "signalQuantificationMode": "nuclear_cell_pair",
+                "punctaContourIntensityEnabled": "false",
+                "alternateNucleusDetectionEnabled": "false",
+                "nuclear_cell_pair_mode": "red_nucleus",
+            },
+        )
+
+        self.assertEqual(
+            self.client.session.get("selected_analysis"),
+            ["NuclearCellPairIntensity"],
+        )
+        self.assertFalse(self.client.session.get("alternateNucleusDetectionEnabled"))
+        self.assertIsNone(self.client.session.get("alternateNucleusDetectionChannel"))

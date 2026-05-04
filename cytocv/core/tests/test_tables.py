@@ -147,6 +147,67 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertIn("Distance Between Green Puncta (px)", header_row)
         self.assertIn("Red Intensity Over Green Line", header_row)
 
+    def test_nuclear_mode_hides_puncta_contour_cen_and_biorientation_columns(self):
+        header_row = list(
+            CellTable(
+                [],
+                intensity_mode="green_nucleus",
+                selected_plugins=["NuclearCellPairIntensity"],
+            ).as_values()
+        )[0]
+
+        self.assertIn("Nucleus Contour Source", header_row)
+        self.assertIn("Red Cell-Pair Intensity", header_row)
+        self.assertIn("Red Nuclear Intensity", header_row)
+        self.assertIn("Cytoplasmic Intensity", header_row)
+        self.assertNotIn("Distance Between Red Puncta (px)", header_row)
+        self.assertNotIn("Green Intensity Over Red Line", header_row)
+        self.assertNotIn("Red In Red Intensity 1", header_row)
+        self.assertNotIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
+        self.assertNotIn("Distance Of Green From Red 1 (px)", header_row)
+        self.assertNotIn("Cell Parentage", header_row)
+        self.assertNotIn("Cen Dot Location", header_row)
+        self.assertNotIn("Colinear Dots", header_row)
+        self.assertNotIn("Blue Contour Size (px²)", header_row)
+
+    def test_puncta_mode_without_contour_intensity_hides_raw_sums_and_ratios(self):
+        header_row = list(
+            CellTable(
+                [],
+                puncta_line_mode="red_puncta",
+                selected_plugins=["PunctaDistance"],
+            ).as_values()
+        )[0]
+
+        self.assertIn("Distance Between Red Puncta (px)", header_row)
+        self.assertIn("Green Intensity Over Red Line", header_row)
+        self.assertNotIn("Red In Red Intensity 1", header_row)
+        self.assertNotIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
+        self.assertNotIn("Distance Of Green From Red 1 (px)", header_row)
+        self.assertNotIn("Nucleus Contour Source", header_row)
+        self.assertNotIn("Measured Cell-Pair Intensity", header_row)
+
+    def test_nuclear_contour_source_exports_from_record_properties(self):
+        record = SimpleNamespace(
+            category_cen_dot=0,
+            properties={
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "nuclear_cell_pair_contour_source": "alternate_green_nucleus_slot_1",
+                "nuclear_cell_pair_status": "ok",
+            },
+        )
+
+        table = CellTable([record], intensity_mode="green_nucleus")
+        row = list(table.rows)[0]
+        values = list(table.as_values())
+        header = values[0]
+
+        self.assertEqual(row.get_cell("nuclear_cell_pair_contour_source"), "alternate_green_nucleus_slot_1")
+        self.assertEqual(
+            values[1][header.index("Nucleus Contour Source")],
+            "alternate_green_nucleus_slot_1",
+        )
+
     def test_ratio_values_are_derived_from_raw_sums_not_stale_stored_values(self):
         record = SimpleNamespace(
             green_red_intensity_1=99.0,

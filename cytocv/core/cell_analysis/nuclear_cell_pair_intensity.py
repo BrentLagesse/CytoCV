@@ -1,20 +1,19 @@
 import cv2
 import numpy as np
 
-from core.image_processing.dashed_line import draw_dashed_polyline
 from core.services.canonical_contours import (
+    CANONICAL_ALTERNATE_GREEN_SLOTS_KEY,
+    CANONICAL_ALTERNATE_RED_SLOTS_KEY,
     get_canonical_green_slots,
     get_canonical_red_slots,
     load_cell_mask,
 )
+from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
 from .analysis import Analysis
 
 
 class NuclearCellPairIntensity(Analysis):
     name = "Nuclear, Cell-Pair Intensity"
-
-    # Temporary release toggle: keep overlay logic available but disabled by default.
-    _DRAW_NUCLEAR_CONTOUR_OVERLAY = False
 
     _MODE_CONFIG = {
         "green_nucleus": (
@@ -39,18 +38,24 @@ class NuclearCellPairIntensity(Analysis):
         return None
 
     @staticmethod
-    def _draw_dashed_contour(image, contour, color=(0, 255, 255), dash_px=2, gap_px=2, thickness=1):
-        if image is None or contour is None or len(contour) < 2:
+    def _resolved_alternate_target_channel(props: dict) -> str | None:
+        raw_enabled = props.get("alternate_nucleus_detection_enabled")
+        if isinstance(raw_enabled, str):
+            normalized = raw_enabled.strip().lower()
+            if normalized in {"0", "false", "no", "off"}:
+                return None
+        elif raw_enabled is False or raw_enabled == 0:
+            return None
+        return props.get("alternate_nucleus_detection_channel")
+
+    @staticmethod
+    def _draw_nucleus_contour(red_image, green_image, contour, mode: str) -> None:
+        if contour is None or len(contour) < 2:
             return
-        draw_dashed_polyline(
-            image,
-            contour.reshape(-1, 2),
-            color,
-            closed=True,
-            dash_px=dash_px,
-            gap_px=gap_px,
-            thickness=thickness,
-        )
+        color = (0, 0, 255) if mode == "red_nucleus" else (0, 255, 0)
+        for image in (red_image, green_image):
+            if image is not None:
+                cv2.drawContours(image, [contour], -1, color, 1)
 
     def calculate_statistics(
         self,
@@ -100,11 +105,21 @@ class NuclearCellPairIntensity(Analysis):
 
         slot_payload = dict(contours_data or {})
         slot_payload["cell_mask"] = cell_mask
+        alternate_target_channel = self._resolved_alternate_target_channel(props)
         if mode == "red_nucleus":
-            source_slots = get_canonical_red_slots(slot_payload, (h, w), limit=1)
+            if alternate_target_channel == CHANNEL_ROLE_RED:
+                source_slots = list(slot_payload.get(CANONICAL_ALTERNATE_RED_SLOTS_KEY, []))[:1]
+                used_contour_source = "alternate_red_nucleus_slot_1"
+            else:
+                source_slots = get_canonical_red_slots(slot_payload, (h, w), limit=1)
+                used_contour_source = "canonical_slot_1"
         else:
-            source_slots = get_canonical_green_slots(slot_payload, (h, w), limit=1)
-        used_contour_source = "canonical_slot_1"
+            if alternate_target_channel == CHANNEL_ROLE_GREEN:
+                source_slots = list(slot_payload.get(CANONICAL_ALTERNATE_GREEN_SLOTS_KEY, []))[:1]
+                used_contour_source = "alternate_green_nucleus_slot_1"
+            else:
+                source_slots = get_canonical_green_slots(slot_payload, (h, w), limit=1)
+                used_contour_source = "canonical_slot_1"
 
         if not source_slots:
             self.cp.nucleus_intensity_sum = 0.0
@@ -144,8 +159,4 @@ class NuclearCellPairIntensity(Analysis):
         props["nuclear_cell_pair_status"] = "ok"
         self.cp.properties = props
 
-        if self._DRAW_NUCLEAR_CONTOUR_OVERLAY:
-            if red_image is not None:
-                self._draw_dashed_contour(red_image, largest_contour, color=(0, 255, 255), dash_px=2, gap_px=2, thickness=1)
-            if green_image is not None:
-                self._draw_dashed_contour(green_image, largest_contour, color=(0, 255, 255), dash_px=2, gap_px=2, thickness=1)
+        self._draw_nucleus_contour(red_image, green_image, largest_contour, mode)

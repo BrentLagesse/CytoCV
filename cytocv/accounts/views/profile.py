@@ -48,6 +48,9 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
+from core.services.biorientation_config import (
+    DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
@@ -57,6 +60,10 @@ from core.services.puncta_line_mode import (
     normalize_puncta_line_mode,
 )
 from core.services.green_dot_split import normalize_green_dot_split_mode
+from core.services.signal_quantification import (
+    resolve_signal_quantification_from_defaults,
+    resolve_signal_quantification_selection,
+)
 from core.scale import (
     get_scale_context_payload,
     get_scale_sidebar_payload,
@@ -198,7 +205,7 @@ def _extract_measurement_defaults(
             "biorientation_collinearity_threshold",
             defaults.get("cen_dot_collinearity_threshold"),
         ),
-        default=66,
+        default=DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
         minimum=0,
     )
     current_microns_per_pixel = _parse_positive_float(
@@ -1168,10 +1175,63 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     defaults.get("green_dot_split_mode"),
                 )
             )
+            signal_payload: dict[str, object] = {}
+            if "signal_quantification_enabled" in request.POST:
+                signal_payload["signal_quantification_enabled"] = _payload_bool(
+                    request.POST,
+                    "signal_quantification_enabled",
+                    default=bool(defaults.get("signal_quantification_enabled", True)),
+                )
+            if "signal_quantification_mode" in request.POST:
+                signal_payload["signal_quantification_mode"] = request.POST.get(
+                    "signal_quantification_mode",
+                    defaults.get("signal_quantification_mode", "puncta_distance"),
+                )
+            if "puncta_contour_intensity_enabled" in request.POST:
+                signal_payload["puncta_contour_intensity_enabled"] = _payload_bool(
+                    request.POST,
+                    "puncta_contour_intensity_enabled",
+                    default=bool(defaults.get("puncta_contour_intensity_enabled", True)),
+                )
+            if (
+                "alternate_nucleus_detection_enabled" in request.POST
+                or "alternate_red_detection" in request.POST
+            ):
+                signal_payload["alternate_nucleus_detection_enabled"] = _payload_bool(
+                    request.POST,
+                    "alternate_nucleus_detection_enabled",
+                    default=bool(
+                        defaults.get(
+                            "alternate_nucleus_detection_enabled",
+                            defaults.get("alternate_red_detection", False),
+                        )
+                    ),
+                    legacy_key="alternate_red_detection",
+                )
+            signal_selection = resolve_signal_quantification_selection(
+                payload=signal_payload,
+                selected_plugins=selected_plugins,
+                nuclear_cell_pair_mode=measurement_defaults.get(
+                    "nuclear_cell_pair_mode",
+                    defaults.get("nuclear_cell_pair_mode", "green_nucleus"),
+                ),
+                puncta_line_mode=measurement_defaults.get(
+                    "puncta_line_mode",
+                    defaults.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
+                ),
+            )
             next_defaults = dict(defaults)
-            next_defaults["selected_plugins"] = selected_plugins
+            next_defaults["selected_plugins"] = list(signal_selection.configured_plugins)
             next_defaults.update(
                 {
+                    "signal_quantification_enabled": signal_selection.enabled,
+                    "signal_quantification_mode": signal_selection.mode,
+                    "puncta_contour_intensity_enabled": (
+                        signal_selection.puncta_contour_intensity_enabled
+                    ),
+                    "alternate_nucleus_detection_enabled": (
+                        signal_selection.alternate_nucleus_detection_enabled
+                    ),
                     "green_contour_filter_enabled": _payload_bool(
                         request.POST,
                         "green_contour_filter_enabled",
@@ -1181,12 +1241,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     ),
                     "green_dot_split_enabled": green_dot_split_enabled,
                     "green_dot_split_mode": green_dot_split_mode,
-                    "alternate_red_detection": _payload_bool(
-                        request.POST,
-                        "alternate_red_detection",
-                        default=bool(
-                            defaults.get("alternate_red_detection", False)
-                        ),
+                    "alternate_red_detection": (
+                        signal_selection.alternate_nucleus_detection_enabled
                     ),
                 }
             )
@@ -1226,11 +1282,41 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                         continue
                     kept_plugins.append(plugin_id)
                 selected_plugins = kept_plugins
+            signal_selection = resolve_signal_quantification_selection(
+                payload={},
+                selected_plugins=selected_plugins,
+                nuclear_cell_pair_mode=measurement_defaults.get(
+                    "nuclear_cell_pair_mode",
+                    defaults.get("nuclear_cell_pair_mode", "green_nucleus"),
+                ),
+                puncta_line_mode=measurement_defaults.get(
+                    "puncta_line_mode",
+                    defaults.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
+                ),
+                default_alternate_nucleus_detection_enabled=bool(
+                    defaults.get(
+                        "alternate_nucleus_detection_enabled",
+                        defaults.get("alternate_red_detection", False),
+                    )
+                ),
+            )
+            selected_plugins = list(signal_selection.configured_plugins)
 
             next_defaults = dict(defaults)
             next_defaults.update(
                 {
                     "selected_plugins": selected_plugins,
+                    "signal_quantification_enabled": signal_selection.enabled,
+                    "signal_quantification_mode": signal_selection.mode,
+                    "puncta_contour_intensity_enabled": (
+                        signal_selection.puncta_contour_intensity_enabled
+                    ),
+                    "alternate_nucleus_detection_enabled": (
+                        signal_selection.alternate_nucleus_detection_enabled
+                    ),
+                    "alternate_red_detection": (
+                        signal_selection.alternate_nucleus_detection_enabled
+                    ),
                     "module_enabled": module_enabled,
                     "enforce_layer_count": enforce_layer_count,
                     "enforce_wavelengths": enforce_wavelengths,
@@ -1287,7 +1373,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             return _preferences_redirect(request, section="saving")
 
     plugin_rows = []
-    selected_plugins = set(defaults.get("selected_plugins", []))
+    signal_defaults = resolve_signal_quantification_from_defaults(defaults)
+    selected_plugins = set(signal_defaults.configured_plugins)
+    effective_selected_plugins = set(signal_defaults.selected_plugins)
     for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugin_rows.append(
@@ -1307,7 +1395,7 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
 
     required_channel_rows, plugin_requirement_summary = _build_required_channel_rows(
         defaults,
-        list(selected_plugins),
+        list(effective_selected_plugins),
     )
     plugin_dependency_payload = build_plugin_ui_payload()
 

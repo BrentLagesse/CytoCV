@@ -9,6 +9,9 @@ from uuid import UUID
 from django.conf import settings
 
 from accounts.preferences import should_auto_save_experiments
+from core.services.biorientation_config import (
+    DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
@@ -17,10 +20,19 @@ from core.services.green_dot_split import (
     DEFAULT_GREEN_DOT_SPLIT_MODE,
     normalize_green_dot_split_mode,
 )
+from core.services.signal_quantification import (
+    SIGNAL_MODE_PUNCTA_DISTANCE,
+    resolve_signal_quantification_selection,
+)
 
 NUCLEAR_CELL_PAIR_MODES = frozenset({"green_nucleus", "red_nucleus"})
 DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "selected_analysis": [],
+    "signalQuantificationEnabled": True,
+    "signalQuantificationMode": SIGNAL_MODE_PUNCTA_DISTANCE,
+    "punctaContourIntensityEnabled": True,
+    "alternateNucleusDetectionEnabled": False,
+    "alternateNucleusDetectionChannel": None,
     "punctaLineWidth": 1,
     "cenDotDistance": 37,
     "stats_puncta_line_width_unit": "px",
@@ -31,7 +43,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "stats_cen_dot_distance_value": 37.0,
     "biorientationRedMinDistance": 0,
     "biorientationRedMaxDistance": 37,
-    "biorientationCollinearityThreshold": 66,
+    "biorientationCollinearityThreshold": DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
     "greenDotSplitEnabled": True,
     "greenDotSplitMode": DEFAULT_GREEN_DOT_SPLIT_MODE,
     "stats_biorientation_red_min_distance_unit": "px",
@@ -125,9 +137,10 @@ def normalize_execution_mode(value: object | None = None) -> str:
 def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, object]:
     """Normalize a persisted analysis snapshot back into safe runtime values."""
 
+    source_snapshot = snapshot if isinstance(snapshot, dict) else {}
     payload = dict(DEFAULT_ANALYSIS_CONFIG_SNAPSHOT)
-    if snapshot:
-        payload.update(snapshot)
+    if source_snapshot:
+        payload.update(source_snapshot)
 
     selected_analysis = payload.get("selected_analysis") or []
     if not isinstance(selected_analysis, list):
@@ -151,9 +164,36 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
         ),
         default=DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["puncta_line_mode"],
     )
+    signal_payload = {
+        key: payload.get(key)
+        for key in (
+            "signalQuantificationEnabled",
+            "signalQuantificationMode",
+            "punctaContourIntensityEnabled",
+            "alternateNucleusDetectionEnabled",
+            "alternateRedDetection",
+            "alternateMCherryDetection",
+        )
+        if key in source_snapshot
+    }
+    signal_selection = resolve_signal_quantification_selection(
+        payload=signal_payload,
+        selected_plugins=selected_analysis,
+        nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+        puncta_line_mode=puncta_line_mode,
+        default_alternate_nucleus_detection_enabled=_parse_bool(
+            payload.get("alternateNucleusDetectionEnabled", payload.get("alternateRedDetection")),
+            default=False,
+        ),
+    )
 
     normalized = {
-        "selected_analysis": [str(item) for item in selected_analysis if str(item)],
+        "selected_analysis": list(signal_selection.selected_plugins),
+        "signalQuantificationEnabled": signal_selection.enabled,
+        "signalQuantificationMode": signal_selection.mode,
+        "punctaContourIntensityEnabled": signal_selection.puncta_contour_intensity_enabled,
+        "alternateNucleusDetectionEnabled": signal_selection.alternate_nucleus_detection_enabled,
+        "alternateNucleusDetectionChannel": signal_selection.alternate_nucleus_detection_channel,
         "punctaLineWidth": _parse_int(
             payload.get(
                 "punctaLineWidth",
@@ -256,10 +296,7 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
         ),
-        "alternateRedDetection": _parse_bool(
-            payload.get("alternateRedDetection", payload.get("alternateMCherryDetection")),
-            default=False,
-        ),
+        "alternateRedDetection": signal_selection.alternate_nucleus_detection_enabled,
         "auto_save_experiments": _parse_bool(
             payload.get("auto_save_experiments"),
             default=True,
@@ -274,6 +311,29 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
 
     snapshot = {
         "selected_analysis": request.session.get("selected_analysis", []),
+        "signalQuantificationEnabled": request.session.get(
+            "signalQuantificationEnabled",
+            request.session.get("signal_quantification_enabled", True),
+        ),
+        "signalQuantificationMode": request.session.get(
+            "signalQuantificationMode",
+            request.session.get("signal_quantification_mode", SIGNAL_MODE_PUNCTA_DISTANCE),
+        ),
+        "punctaContourIntensityEnabled": request.session.get(
+            "punctaContourIntensityEnabled",
+            request.session.get("puncta_contour_intensity_enabled", True),
+        ),
+        "alternateNucleusDetectionEnabled": request.session.get(
+            "alternateNucleusDetectionEnabled",
+            request.session.get(
+                "alternate_nucleus_detection_enabled",
+                request.session.get("alternateRedDetection", False),
+            ),
+        ),
+        "alternateNucleusDetectionChannel": request.session.get(
+            "alternateNucleusDetectionChannel",
+            request.session.get("alternate_nucleus_detection_channel"),
+        ),
         "punctaLineWidth": request.session.get(
             "punctaLineWidth",
             request.session.get("redLineWidth", request.session.get("mCherryWidth", 1)),
@@ -301,7 +361,10 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         ),
         "biorientationCollinearityThreshold": request.session.get(
             "biorientationCollinearityThreshold",
-            request.session.get("cenDotCollinearityThreshold", 66),
+            request.session.get(
+                "cenDotCollinearityThreshold",
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+            ),
         ),
         "greenDotSplitEnabled": request.session.get(
             "greenDotSplitEnabled",

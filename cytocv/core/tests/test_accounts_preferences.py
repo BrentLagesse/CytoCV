@@ -21,6 +21,7 @@ from accounts.preferences import (
     should_auto_save_experiments,
     update_user_preferences,
 )
+from core.channel_roles import CHANNEL_ROLE_GREEN
 from core.models import (
     CellStatistics,
     DVLayerTifPreview,
@@ -29,6 +30,7 @@ from core.models import (
     get_guest_user,
 )
 from core.scale import apply_manual_override_scale, build_scale_info
+from core.services.signal_quantification import resolve_signal_quantification_selection
 from core.stats_plugins import PLUGIN_DEFINITIONS
 
 
@@ -43,9 +45,12 @@ class PreferenceNormalizationTests(TestCase):
                 "CENDot",
                 "Biorientation",
                 "GreenRedIntensity",
-                "NuclearCellPairIntensity",
             ],
         )
+        self.assertTrue(defaults["signal_quantification_enabled"])
+        self.assertEqual(defaults["signal_quantification_mode"], "puncta_distance")
+        self.assertTrue(defaults["puncta_contour_intensity_enabled"])
+        self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
@@ -87,13 +92,16 @@ class PreferenceNormalizationTests(TestCase):
 
         defaults = normalized["experiment_defaults"]
         self.assertEqual(defaults["selected_plugins"], ["PunctaDistance"])
+        self.assertTrue(defaults["signal_quantification_enabled"])
+        self.assertEqual(defaults["signal_quantification_mode"], "puncta_distance")
+        self.assertFalse(defaults["puncta_contour_intensity_enabled"])
         self.assertTrue(defaults["module_enabled"])
         self.assertTrue(defaults["enforce_layer_count"])
         self.assertFalse(defaults["enforce_wavelengths"])
         self.assertEqual(defaults["manual_required_channels"], ["DIC"])
         self.assertEqual(defaults["puncta_line_width"], 1)
         self.assertEqual(defaults["cen_dot_distance"], 37)
-        self.assertEqual(defaults["biorientation_collinearity_threshold"], 66)
+        self.assertEqual(defaults["biorientation_collinearity_threshold"], 3)
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
@@ -127,6 +135,138 @@ class PreferenceNormalizationTests(TestCase):
             normalized["experiment_defaults"]["selected_plugins"],
             ["CENDot"],
         )
+        self.assertFalse(
+            normalized["experiment_defaults"]["signal_quantification_enabled"]
+        )
+
+    def test_normalize_preferences_migrates_legacy_primary_stats_to_puncta_mode(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "selected_plugins": [
+                        "PunctaDistance",
+                        "GreenRedIntensity",
+                        "NuclearCellPairIntensity",
+                        "CENDot",
+                    ],
+                }
+            }
+        )
+
+        defaults = normalized["experiment_defaults"]
+        self.assertEqual(
+            defaults["selected_plugins"],
+            ["PunctaDistance", "CENDot", "GreenRedIntensity"],
+        )
+        self.assertTrue(defaults["signal_quantification_enabled"])
+        self.assertEqual(defaults["signal_quantification_mode"], "puncta_distance")
+        self.assertTrue(defaults["puncta_contour_intensity_enabled"])
+
+    def test_normalize_preferences_migrates_legacy_nuclear_only_mode(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "selected_plugins": [
+                        "NuclearCellPairIntensity",
+                        "Biorientation",
+                    ],
+                }
+            }
+        )
+
+        defaults = normalized["experiment_defaults"]
+        self.assertEqual(
+            defaults["selected_plugins"],
+            ["Biorientation", "NuclearCellPairIntensity"],
+        )
+        self.assertTrue(defaults["signal_quantification_enabled"])
+        self.assertEqual(defaults["signal_quantification_mode"], "nuclear_cell_pair")
+        self.assertFalse(defaults["puncta_contour_intensity_enabled"])
+
+    def test_normalize_preferences_parent_off_keeps_independent_stats_only(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "selected_plugins": [
+                        "PunctaDistance",
+                        "GreenRedIntensity",
+                        "CENDot",
+                    ],
+                    "signal_quantification_enabled": False,
+                }
+            }
+        )
+
+        defaults = normalized["experiment_defaults"]
+        self.assertEqual(defaults["selected_plugins"], ["CENDot"])
+        self.assertFalse(defaults["signal_quantification_enabled"])
+
+    def test_normalize_preferences_accepts_legacy_alternate_detection_payload(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "selected_plugins": ["NuclearCellPairIntensity"],
+                    "alternate_red_detection": True,
+                }
+            }
+        )
+
+        defaults = normalized["experiment_defaults"]
+        self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
+        self.assertTrue(defaults["alternate_red_detection"])
+
+    def test_signal_quantification_ignores_alternate_detection_in_puncta_mode(self):
+        selection = resolve_signal_quantification_selection(
+            payload={
+                "signal_quantification_enabled": True,
+                "signal_quantification_mode": "puncta_distance",
+                "alternate_nucleus_detection_enabled": True,
+            },
+            selected_plugins=["PunctaDistance", "GreenRedIntensity"],
+            nuclear_cell_pair_mode="green_nucleus",
+        )
+
+        self.assertTrue(selection.alternate_nucleus_detection_enabled)
+        self.assertIsNone(selection.alternate_nucleus_detection_channel)
+
+    def test_signal_quantification_applies_alternate_detection_in_nuclear_mode(self):
+        selection = resolve_signal_quantification_selection(
+            payload={
+                "signal_quantification_enabled": True,
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "alternate_nucleus_detection_enabled": True,
+            },
+            selected_plugins=["NuclearCellPairIntensity"],
+            nuclear_cell_pair_mode="green_nucleus",
+        )
+
+        self.assertTrue(selection.alternate_nucleus_detection_enabled)
+        self.assertEqual(selection.alternate_nucleus_detection_channel, CHANNEL_ROLE_GREEN)
+
+    def test_signal_quantification_nuclear_mode_preserves_configured_secondary_plugins(self):
+        selection = resolve_signal_quantification_selection(
+            payload={
+                "signal_quantification_enabled": True,
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "puncta_contour_intensity_enabled": True,
+            },
+            selected_plugins=[
+                "PunctaDistance",
+                "GreenRedIntensity",
+                "CENDot",
+                "Biorientation",
+            ],
+            nuclear_cell_pair_mode="green_nucleus",
+        )
+
+        self.assertEqual(
+            selection.configured_plugins,
+            ("CENDot", "Biorientation", "NuclearCellPairIntensity"),
+        )
+        self.assertEqual(selection.selected_plugins, ("NuclearCellPairIntensity",))
+        self.assertEqual(selection.paused_plugins, ("CENDot", "Biorientation"))
+        self.assertFalse(selection.stat_visibility["cen_dot"])
+        self.assertFalse(selection.stat_visibility["biorientation"])
 
     def test_sidebar_spatial_stats_unit_falls_back_to_workflow_default(self):
         normalized = normalize_preferences_payload(
@@ -724,6 +864,42 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'Green In Green Raw Sums')
         self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
+
+    def test_display_view_serializes_nuclear_contour_source_without_stat_card_row(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_contour_source",
+        )
+        self._add_cell_stat(saved_uuid)
+        cell_stat = CellStatistics.objects.get(
+            segmented_image__UUID=saved_uuid,
+            cell_id=1,
+        )
+        properties = dict(cell_stat.properties or {})
+        properties.update(
+            {
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "nuclear_cell_pair_contour_channel": "Red",
+                "nuclear_cell_pair_measurement_channel": "Green",
+                "nuclear_cell_pair_contour_source": "alternate_red_nucleus_slot_1",
+                "nuclear_cell_pair_status": "ok",
+            }
+        )
+        cell_stat.properties = properties
+        cell_stat.save(update_fields=["properties"])
+
+        response = self.client.get(reverse("display", args=[saved_uuid]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="nucleusContourSource"', html=False)
+        self.assertNotContains(response, "Contour Source Used", html=False)
+        files_data = json.loads(response.context["files_data"])
+        payload = files_data[saved_uuid]["Statistics"]["1"]
+        self.assertEqual(
+            payload["nuclear_cell_pair_contour_source"],
+            "alternate_red_nucleus_slot_1",
+        )
 
     def test_dashboard_template_exposes_preferred_main_image_channel(self):
         self._create_display_file(
@@ -1589,9 +1765,20 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="prefsGfpFilterExperimentalDot"', html=False)
         self.assertContains(response, 'id="green_dot_split_enabled"', html=False)
         self.assertContains(response, 'id="green_dot_split_mode"', html=False)
+        self.assertContains(response, "Signal Quantification")
+        self.assertContains(response, 'id="signal_quantification_enabled"', html=False)
+        self.assertContains(response, 'id="signal_quantification_mode"', html=False)
+        self.assertContains(response, "Red/Green Contour Intensities")
+        self.assertContains(response, "Alternate Nucleus Detection")
+        self.assertContains(
+            response,
+            "Only affects Nuclear, Cell-Pair Intensity. Uses the alternate contour detection path on the selected nucleus source channel only.",
+        )
+        self.assertContains(response, 'id="alternate_nucleus_detection_enabled"', html=False)
         self.assertNotContains(response, 'id="cell_parentage_mode"', html=False)
         self.assertNotContains(response, "Mother/Daughter Mode")
         self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
+        self.assertNotContains(response, 'id="alternate_red_detection"', html=False)
         self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
         html = response.content.decode()
         plugin_defaults_index = html.index('<div class="card" data-workflow-card="plugin-defaults"')
@@ -1629,7 +1816,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertContains(
             response,
-            "Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.",
+            "Uses the alternate contour detection path on the selected nucleus source channel only.",
         )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
         self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
@@ -1686,6 +1873,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(defaults["green_contour_filter_enabled"])
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
         self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_width"], 2.5)
         self.assertEqual(defaults["puncta_line_width_unit"], "um")
@@ -1770,6 +1958,40 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(rendered_defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "red_nucleus")
 
+    def test_experiment_page_restores_saved_nuclear_signal_quantification_defaults(self):
+        payload = self._build_experiment_workflow_defaults_payload()
+        payload.update(
+            {
+                "selected_plugins": ["CENDot"],
+                "signal_quantification_enabled": True,
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "puncta_contour_intensity_enabled": False,
+                "alternate_nucleus_detection_enabled": True,
+                "alternate_red_detection": True,
+                "nuclear_cell_pair_mode": "green_nucleus",
+            }
+        )
+
+        response = self.client.post(
+            reverse("experiment_workflow_defaults"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        experiment_response = self.client.get(reverse("experiment"))
+        self.assertEqual(experiment_response.status_code, 200)
+        rendered_defaults = json.loads(experiment_response.context["user_preference_defaults_json"])
+        self.assertEqual(
+            rendered_defaults["selected_plugins"],
+            ["CENDot", "NuclearCellPairIntensity"],
+        )
+        self.assertTrue(rendered_defaults["signal_quantification_enabled"])
+        self.assertEqual(rendered_defaults["signal_quantification_mode"], "nuclear_cell_pair")
+        self.assertFalse(rendered_defaults["puncta_contour_intensity_enabled"])
+        self.assertTrue(rendered_defaults["alternate_nucleus_detection_enabled"])
+        self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "green_nucleus")
+
     def test_preferences_plugin_payload_includes_exclusive_and_dependency_fields(self):
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
@@ -1793,7 +2015,6 @@ class ChannelVisibilityPreferenceTests(TestCase):
             "CENDot",
             "Biorientation",
             "GreenRedIntensity",
-            "NuclearCellPairIntensity",
         ):
             self.assertContains(response, PLUGIN_DEFINITIONS[plugin_id].label)
 
@@ -2028,9 +2249,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "CENDot",
                 "Biorientation",
                 "GreenRedIntensity",
-                "NuclearCellPairIntensity",
             ],
         )
+        self.assertTrue(defaults["signal_quantification_enabled"])
+        self.assertEqual(defaults["signal_quantification_mode"], "puncta_distance")
+        self.assertTrue(defaults["puncta_contour_intensity_enabled"])
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
@@ -2080,12 +2303,43 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(defaults["green_contour_filter_enabled"])
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
         self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
+
+    def test_plugin_settings_form_preserves_paused_secondary_plugins_in_nuclear_mode(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_plugin_defaults",
+                "selected_plugins": [
+                    "NuclearCellPairIntensity",
+                    "CENDot",
+                    "Biorientation",
+                ],
+                "signal_quantification_enabled": "1",
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "puncta_contour_intensity_enabled": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.user.refresh_from_db()
+        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        self.assertEqual(
+            defaults["selected_plugins"],
+            ["CENDot", "Biorientation", "NuclearCellPairIntensity"],
+        )
+        selection = resolve_signal_quantification_selection(
+            payload=defaults,
+            selected_plugins=defaults["selected_plugins"],
+            nuclear_cell_pair_mode=defaults["nuclear_cell_pair_mode"],
+        )
+        self.assertEqual(selection.selected_plugins, ("NuclearCellPairIntensity",))
 
     def test_advanced_settings_save_preserves_measurement_defaults(self):
         payload = get_user_preferences(self.user)
@@ -2103,6 +2357,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "green_contour_filter_enabled": True,
                 "green_dot_split_enabled": False,
                 "green_dot_split_mode": "aggressive",
+                "alternate_nucleus_detection_enabled": True,
                 "alternate_red_detection": True,
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",

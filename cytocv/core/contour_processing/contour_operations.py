@@ -9,6 +9,11 @@ from skimage.segmentation import find_boundaries, watershed
 
 from core.contour_processing import get_largest
 from core.image_processing import GrayImage
+from core.channel_roles import (
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+    normalize_channel_role,
+)
 from core.services.green_dot_split import (
     DEFAULT_GREEN_DOT_SPLIT_MODE,
     normalize_green_dot_split_mode,
@@ -2258,12 +2263,125 @@ def _split_merged_green_contours(
     return split_mask
 
 
+def _should_bridge_alternate_contours(gray_blue: np.ndarray | None) -> bool:
+    if gray_blue is None:
+        return False
+    gray_blue_blur = cv2.GaussianBlur(gray_blue, (9, 9), 0)
+    _, thresh_blue_blur = cv2.threshold(
+        gray_blue_blur,
+        40,
+        255,
+        cv2.THRESH_BINARY,
+    )
+    blue_blur_contours, _ = cv2.findContours(
+        thresh_blue_blur,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+    blue_blur_contours = [
+        cnt for cnt in blue_blur_contours if cv2.contourArea(cnt) >= 150
+    ]
+    return len(blue_blur_contours) < 2
+
+
+def _alternate_channel_contour_family(
+    *,
+    bright_image: np.ndarray | None,
+    base_image: np.ndarray | None,
+    bridge_contours: bool,
+) -> tuple[list[np.ndarray], list[np.ndarray], list[int], list[np.ndarray], list[int]]:
+    """Return alternate dot/base contour sets using the legacy low-threshold path."""
+
+    dot_contours: list[np.ndarray] = []
+    contours: list[np.ndarray] = []
+    contours_bright: list[np.ndarray] = []
+    best_contours: list[int] = []
+    best_contours_bright: list[int] = []
+    bright_thresh = None
+
+    if bright_image is not None:
+        blurred_bright = cv2.GaussianBlur(bright_image, (9, 9), 0)
+        _, bright_thresh = cv2.threshold(
+            blurred_bright,
+            5,
+            255,
+            cv2.THRESH_BINARY,
+        )
+        dot_contours, _ = cv2.findContours(
+            bright_thresh,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+
+    if bright_thresh is not None and base_image is not None:
+        _, thresh = cv2.threshold(
+            base_image,
+            5,
+            255,
+            cv2.THRESH_BINARY,
+        )
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours_bright, _ = cv2.findContours(
+            bright_thresh,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        best_contours = get_largest(contours)
+        best_contours_bright = get_largest(contours_bright)
+
+        if bridge_contours and (len(best_contours) > 1 or len(best_contours_bright) > 1):
+            _, bright_thresh = cv2.threshold(
+                bright_image,
+                4,
+                255,
+                cv2.THRESH_BINARY,
+            )
+            dot_contours, _ = cv2.findContours(
+                bright_thresh,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            _, thresh = cv2.threshold(
+                base_image,
+                4,
+                255,
+                cv2.THRESH_BINARY,
+            )
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours_bright, _ = cv2.findContours(
+                bright_thresh,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            best_contours = get_largest(contours)
+            best_contours_bright = get_largest(contours_bright)
+
+    return dot_contours, contours, best_contours, contours_bright, best_contours_bright
+
+
+def _alternate_nucleus_contours_from_family(
+    *,
+    bright_image: np.ndarray | None,
+    base_image: np.ndarray | None,
+    bridge_contours: bool,
+) -> list[np.ndarray]:
+    dot_contours, contours, _, _, _ = _alternate_channel_contour_family(
+        bright_image=bright_image,
+        base_image=base_image,
+        bridge_contours=bridge_contours,
+    )
+    return dot_contours or contours
+
+
 def find_contours(
     images: GrayImage,
     green_contour_filter_enabled: bool = False,
     alternate_red_detection: bool = False,
     green_dot_split_enabled: bool = True,
     green_dot_split_mode: str = DEFAULT_GREEN_DOT_SPLIT_MODE,
+    *,
+    alternate_detection_channel: str | None = None,
+    skip_standard_contour_channels=None,
 ):
     """
     Find red dot contours, blue nucleus contours, and green signal contours.
@@ -2282,9 +2400,28 @@ def find_contours(
     contours_red = []
     best_contours = []
     best_contours_red = []
+    alternate_nucleus_contours_red = []
+    alternate_nucleus_contours_green = []
+    normalized_alternate_channel = normalize_channel_role(alternate_detection_channel)
+    legacy_alternate_red_detection = (
+        bool(alternate_red_detection) and normalized_alternate_channel is None
+    )
+    skipped_standard_channels = {
+        normalized
+        for normalized in (
+            normalize_channel_role(channel)
+            for channel in (skip_standard_contour_channels or ())
+        )
+        if normalized
+    }
+    skip_standard_red = (
+        CHANNEL_ROLE_RED in skipped_standard_channels
+        and not legacy_alternate_red_detection
+    )
+    skip_standard_green = CHANNEL_ROLE_GREEN in skipped_standard_channels
 
-    if not alternate_red_detection:
-        if gray_red_3 is not None:
+    if not legacy_alternate_red_detection:
+        if gray_red_3 is not None and not skip_standard_red:
             low_val, _ = cv2.threshold(
                 gray_red_3,
                 0.65,
@@ -2306,7 +2443,7 @@ def find_contours(
 
         thresh_red = None
         thresh = None
-        if gray_red_3 is not None and gray_red is not None:
+        if gray_red_3 is not None and gray_red is not None and not skip_standard_red:
             thresh_red = cv2.Canny(gray_red_3, 50, 150)
             thresh = cv2.Canny(gray_red, 50, 150)
 
@@ -2334,90 +2471,25 @@ def find_contours(
             )
             best_contours = get_largest(contours)
             best_contours_red = get_largest(contours_red)
-    else: # Alternate mode
-        # Flag for trying to connect red signals
-        bridge_red = False
+    else:
+        (
+            dot_contours,
+            contours,
+            best_contours,
+            contours_red,
+            best_contours_red,
+        ) = _alternate_channel_contour_family(
+            bright_image=gray_red_3,
+            base_image=gray_red,
+            bridge_contours=_should_bridge_alternate_contours(gray_blue),
+        )
 
-        # Find the number of blue contours
-        if gray_blue is not None:
-            gray_blue_blur = cv2.GaussianBlur(gray_blue, (9, 9), 0)
-            _, thresh_blue_blur = cv2.threshold(
-                gray_blue_blur,
-                40,
-                255,
-                cv2.THRESH_BINARY,
-            )
-            blue_blur_contours, _ = cv2.findContours(
-                thresh_blue_blur,
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE,
-            )
-            blue_blur_contours = [cnt for cnt in blue_blur_contours if cv2.contourArea(cnt) >= 150]
-            bridge_red = len(blue_blur_contours) < 2
-
-        if gray_red_3 is not None:
-            gray_red_3 = cv2.GaussianBlur(gray_red_3, (9, 9), 0)
-            _, bright_thresh = cv2.threshold(
-                gray_red_3,
-                5,
-                255,
-                cv2.THRESH_BINARY,
-            )
-            # NOTE: Adaptive doesn't work well when there are strong signals
-            dot_contours, _ = cv2.findContours(
-                bright_thresh,
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE,
-            )
-        if gray_red_3 is not None and gray_red is not None:
-            _, thresh = cv2.threshold(
-                gray_red,
-                5,
-                255,
-                cv2.THRESH_BINARY,
-            )
-            thresh_red = bright_thresh
-            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            contours_red, _ = cv2.findContours(
-                thresh_red,
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE,
-            )
-            best_contours = get_largest(contours)
-            best_contours_red = get_largest(contours_red)
-
-            # Checking whether we need to try to connect red contours
-            if bridge_red and (len(best_contours) > 1 or len(best_contours_red) > 1):
-                # Try lower thresholds to connect red contours
-                # NOTE: Other approaches have been tried, such as morphological ops and geometric bridging.
-                # However, they were decided against due to basically making up the data.
-                if gray_red_3 is not None and gray_red is not None:
-                    _, bright_thresh = cv2.threshold(
-                        gray_red_3,
-                        4,
-                        255,
-                        cv2.THRESH_BINARY,
-                    )
-                    dot_contours, _ = cv2.findContours(
-                        bright_thresh,
-                        cv2.RETR_EXTERNAL,
-                        cv2.CHAIN_APPROX_SIMPLE,
-                    )
-                    _, thresh = cv2.threshold(
-                        gray_red,
-                        4,
-                        255,
-                        cv2.THRESH_BINARY,
-                    )
-                    thresh_red = bright_thresh
-                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    contours_red, _ = cv2.findContours(
-                        thresh_red,
-                        cv2.RETR_EXTERNAL,
-                        cv2.CHAIN_APPROX_SIMPLE,
-                    )
-                    best_contours = get_largest(contours)
-                    best_contours_red = get_largest(contours_red)
+    if normalized_alternate_channel == CHANNEL_ROLE_RED and not legacy_alternate_red_detection:
+        alternate_nucleus_contours_red = _alternate_nucleus_contours_from_family(
+            bright_image=gray_red_3,
+            base_image=gray_red,
+            bridge_contours=_should_bridge_alternate_contours(gray_blue),
+        )
 
 
     contours_blue = []
@@ -2465,7 +2537,7 @@ def find_contours(
         best_contours_blue_3 = get_largest(contours_blue_3) if contours_blue_3 else []
 
     contours_green = []
-    if gray_green is not None:
+    if gray_green is not None and not skip_standard_green:
         low_val, _ = cv2.threshold(
             gray_green,
             0.65,
@@ -2514,6 +2586,13 @@ def find_contours(
                 gray_green,
             )
 
+    if normalized_alternate_channel == CHANNEL_ROLE_GREEN:
+        alternate_nucleus_contours_green = _alternate_nucleus_contours_from_family(
+            bright_image=gray_green,
+            base_image=gray_green_no_bg if gray_green_no_bg is not None else gray_green,
+            bridge_contours=_should_bridge_alternate_contours(gray_blue),
+        )
+
     return {
         "best_contours": best_contours,
         "best_contours_red": best_contours_red,
@@ -2525,6 +2604,8 @@ def find_contours(
         "best_contours_blue_3": best_contours_blue_3,
         "dot_contours": dot_contours,
         "contours_green": contours_green,
+        "alternate_nucleus_contours_red": alternate_nucleus_contours_red,
+        "alternate_nucleus_contours_green": alternate_nucleus_contours_green,
     }
 
 

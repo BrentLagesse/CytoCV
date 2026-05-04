@@ -282,6 +282,20 @@ main.main > section.panel > form.panel > .card {
   opacity: var(--workflow-module-off-control-opacity);
 }
 
+.plugin.is-paused {
+  background: var(--workflow-module-off-bg);
+  border-color: var(--workflow-module-off-border);
+  filter: var(--workflow-module-off-filter);
+}
+
+.plugin.is-paused .plugin-main {
+  opacity: var(--workflow-module-off-text-opacity);
+}
+
+.plugin.is-paused > .sw {
+  opacity: var(--workflow-module-off-control-opacity);
+}
+
 .plugin-main {
   display: grid;
   gap: 4px;
@@ -327,6 +341,66 @@ main.main > section.panel > form.panel > .card {
   overflow: visible;
   padding: 0;
   pointer-events: auto;
+}
+
+.signal-mode-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 10px;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.signal-mode-panel {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 92px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signal-mode-panel.is-active {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  animation: signalModeChildFadeIn 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.signal-mode-paused-note {
+  margin: 2px 0 0;
+  min-height: 14px;
+  color: #e5c558;
+  font-size: 11px;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.signal-mode-paused-note.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.signal-mode-paused-note.is-enabled {
+  color: #8fdc9c;
+}
+
+.signal-mode-paused-note.is-paused {
+  color: #e5c558;
+}
+
+@keyframes signalModeChildFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .plugin-measure-line {
@@ -1412,7 +1486,84 @@ main.main > section.panel > form.panel > .card {
           {% endfor %}
         </div></div>
         <div class="card" data-workflow-card="plugin-defaults"><p class="section-eyebrow card-title">Plugin Defaults</p><div class="plugins">
+          <div id="signalSelectedPlugins"></div>
+          <div class="plugin signal-quantification" id="signalQuantificationModule">
+            <div class="plugin-main">
+              <p><strong>Signal Quantification</strong></p>
+              <p class="desc">Choose one primary signal workflow for this experiment.</p>
+              <p class="reqtxt">Requires: Red, Green.</p>
+            </div>
+            <input type="hidden" name="signal_quantification_enabled" value="0">
+            <label class="sw"><input type="checkbox" id="signal_quantification_enabled" name="signal_quantification_enabled" value="1" {% if preferences.experiment_defaults.signal_quantification_enabled %}checked{% endif %}><span class="sl"></span></label>
+            <div class="plugin-inline{% if preferences.experiment_defaults.signal_quantification_enabled %} is-active{% endif %}" id="signalQuantificationInline" aria-hidden="{% if preferences.experiment_defaults.signal_quantification_enabled %}false{% else %}true{% endif %}">
+              <div class="plugin-measure-line">
+                <div class="plugin-measure-copy">
+                  <label for="signal_quantification_mode">Primary Mode:</label>
+                  <p class="module-help">Puncta Distance can also calculate Red/Green contour intensities. Nuclear, Cell-Pair Intensity measures the opposite channel inside the selected nucleus contour and full cell-pair mask.</p>
+                  <p class="signal-mode-paused-note" id="signalModePausedNote" aria-hidden="true"></p>
+                </div>
+                <div class="mode-select-group plugin-measure-right">
+                  <select id="signal_quantification_mode" name="signal_quantification_mode"><option value="puncta_distance" {% if preferences.experiment_defaults.signal_quantification_mode != 'nuclear_cell_pair' %}selected{% endif %}>Puncta Distance</option><option value="nuclear_cell_pair" {% if preferences.experiment_defaults.signal_quantification_mode == 'nuclear_cell_pair' %}selected{% endif %}>Nuclear, Cell-Pair Intensity</option></select>
+                </div>
+              </div>
+              <div class="signal-mode-stack">
+              <div class="signal-mode-panel" id="signalPunctaPanel" data-signal-mode-panel="puncta_distance">
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
+                    <label for="puncta_line_mode">Puncta Source:</label>
+                    <p class="module-help">Chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.</p>
+                  </div>
+                  <div class="mode-select-group plugin-measure-right">
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
+                    <label for="puncta_line_width">Puncta Line Width:</label>
+                    <p class="module-help">Sets the thickness of the line mask used for the intensity sum. Values can be saved in px or um.</p>
+                  </div>
+                  <div class="length-input-group plugin-measure-right">
+                    <input type="number" step="0.01" min="0" id="puncta_line_width" name="puncta_line_width" value="{{ preferences.experiment_defaults.puncta_line_width }}">
+                    <select id="puncta_line_width_unit" name="puncta_line_width_unit"><option value="px" {% if preferences.experiment_defaults.puncta_line_width_unit == 'px' %}selected{% endif %}>px</option><option value="um" {% if preferences.experiment_defaults.puncta_line_width_unit == 'um' %}selected{% endif %}>&micro;m</option></select>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
+                    <label for="puncta_contour_intensity_enabled">Red/Green Contour Intensities:</label>
+                    <p class="module-help">Calculates raw Red/Green sums in Red and Green contour masks plus the Measurement/Contour ratios for the selected puncta source.</p>
+                  </div>
+                  <div class="plugin-measure-right compact-control">
+                    <input type="hidden" name="puncta_contour_intensity_enabled" value="0">
+                    <label class="sw"><input type="checkbox" id="puncta_contour_intensity_enabled" name="puncta_contour_intensity_enabled" value="1" {% if preferences.experiment_defaults.puncta_contour_intensity_enabled %}checked{% endif %}><span class="sl"></span></label>
+                  </div>
+                </div>
+              </div>
+              <div class="signal-mode-panel" id="signalNuclearPanel" data-signal-mode-panel="nuclear_cell_pair">
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
+                    <label for="nuclear_cell_pair_mode">Nucleus Contour Source:</label>
+                    <p class="module-help">Chooses which channel supplies the nucleus contour. Green Nucleus measures Red signal; Red Nucleus measures Green signal.</p>
+                  </div>
+                  <div class="mode-select-group plugin-measure-right">
+                    <select id="nuclear_cell_pair_mode" name="nuclear_cell_pair_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'green_nucleus' %}selected{% endif %}>Green Nucleus (Measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'red_nucleus' %}selected{% endif %}>Red Nucleus (Measure Green)</option></select>
+                  </div>
+                </div>
+                  <div class="plugin-measure-line">
+                    <div class="plugin-measure-copy">
+                      <label for="alternate_nucleus_detection_enabled">Alternate Nucleus Detection:</label>
+                      <p class="module-help">Only affects Nuclear, Cell-Pair Intensity. Uses the alternate contour detection path on the selected nucleus source channel only.</p>
+                    </div>
+                  <div class="plugin-measure-right compact-control">
+                    <input type="hidden" name="alternate_nucleus_detection_enabled" value="0">
+                    <label class="sw"><input type="checkbox" id="alternate_nucleus_detection_enabled" name="alternate_nucleus_detection_enabled" value="1" {% if preferences.experiment_defaults.alternate_nucleus_detection_enabled %}checked{% endif %}><span class="sl"></span></label>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
           {% for plugin in plugins %}
+          {% if plugin.id != 'PunctaDistance' and plugin.id != 'GreenRedIntensity' and plugin.id != 'NuclearCellPairIntensity' %}
           <div class="plugin">
             <div class="plugin-main">
               <p><strong>{{ plugin.label }}</strong>{% if plugin.is_legacy %}<span class="legacy">Legacy</span>{% endif %}</p>
@@ -1490,7 +1641,7 @@ main.main > section.panel > form.panel > .card {
                 <div class="plugin-measure-line">
                   <div class="plugin-measure-copy">
                     <label for="biorientation_collinearity_threshold">Collinearity Threshold:</label>
-                    <p class="module-help">Maximum allowed perpendicular offset from the Red-puncta line for a Green dot to count as colinear.</p>
+                    <p class="module-help">Maximum allowed perpendicular offset (pixels) from the Red-puncta line for a Green dot to count as colinear.</p>
                   </div>
                   <div class="boxed-number-group plugin-measure-right compact-control">
                     <input type="number" min="0" id="biorientation_collinearity_threshold" name="biorientation_collinearity_threshold" value="{{ preferences.experiment_defaults.biorientation_collinearity_threshold }}">
@@ -1511,21 +1662,11 @@ main.main > section.panel > form.panel > .card {
               </div>
             {% endif %}
           </div>
+          {% endif %}
           {% endfor %}
         </div></div>
         <div class="card" data-workflow-card="dot-detection">
           <p class="section-eyebrow card-title">Dot Detection</p>
-          <div class="row">
-            <div class="row-copy">
-              <span class="row-label-line">
-                <label for="alternate_red_detection">Enable Alternate Red Detection</label>
-              </span>
-              <p class="module-help">Utilize an alternate Red detection mode where the tool attempts to find a single contour to surround all speckles.</p>
-              <p class="reqtxt">Requires: Red.</p>
-            </div>
-            <input type="hidden" name="alternate_red_detection" value="0">
-            <label class="sw"><input type="checkbox" id="alternate_red_detection" name="alternate_red_detection" value="1" {% if preferences.experiment_defaults.alternate_red_detection %}checked{% endif %}><span class="sl"></span></label>
-          </div>
           <div class="row combo" id="greenDotSplitRow">
             <div class="row-line">
               <div class="row-copy">

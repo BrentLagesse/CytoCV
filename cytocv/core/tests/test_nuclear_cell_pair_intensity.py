@@ -7,7 +7,9 @@ import cv2
 import numpy as np
 
 from core.cell_analysis import NuclearCellPairIntensity
+from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
 from core.image_processing import GrayImage
+from core.services.canonical_contours import build_canonical_contour_payload
 
 
 class NuclearCellPairIntensityPluginTests(SimpleTestCase):
@@ -64,6 +66,45 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
             plugin.calculate_statistics({}, contours_data, red_debug, green_debug, 1, 37)
             return cp, red_debug, green_debug
 
+    def _run_plugin_with_alternate_target(self, mode: str, alternate_channel: str):
+        plugin = NuclearCellPairIntensity()
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={
+                "nuclear_cell_pair_mode": mode,
+                "alternate_nucleus_detection_channel": alternate_channel,
+            },
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            self._write_outline(output_dir)
+            preprocessed = self._build_gray_images()
+            standard_contour = self._rect_contour(8, 8, 12, 12)
+            alternate_contour = self._rect_contour(8, 8, 16, 16)
+            contours_data = build_canonical_contour_payload(
+                {
+                    "dot_contours": [standard_contour],
+                    "contours_green": [standard_contour],
+                    "alternate_nucleus_contours_red": [alternate_contour],
+                    "alternate_nucleus_contours_green": [alternate_contour],
+                },
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=str(output_dir),
+                shape=(24, 24),
+            )
+            plugin.setting_up(cp, preprocessed, str(output_dir))
+            plugin.calculate_statistics(
+                {},
+                contours_data,
+                np.zeros((24, 24, 3), dtype=np.uint8),
+                np.zeros((24, 24, 3), dtype=np.uint8),
+                1,
+                37,
+            )
+            return cp, preprocessed, standard_contour, alternate_contour
+
     def test_red_nucleus_sets_expected_contour_and_measurement_channels(self):
         cp, _, _ = self._run_plugin("red_nucleus")
         self.assertEqual(cp.properties["nuclear_cell_pair_contour_channel"], "Red")
@@ -80,10 +121,117 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.properties["nuclear_cell_pair_status"], "ok")
         self.assertEqual(cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
 
-    def test_debug_overlay_is_disabled_even_when_precomputed_contour_exists(self):
-        _, red_debug, green_debug = self._run_plugin("red_nucleus")
+    def test_alternate_detection_targets_red_nucleus_contours_for_red_nucleus_mode(self):
+        cp, preprocessed, _, alternate_contour = self._run_plugin_with_alternate_target(
+            "red_nucleus",
+            CHANNEL_ROLE_RED,
+        )
+        green_image = preprocessed.get_image("green_no_bg")
+        nucleus_mask = np.zeros(green_image.shape, dtype=np.uint8)
+        cv2.drawContours(nucleus_mask, [alternate_contour], 0, 255, -1)
+
+        self.assertEqual(
+            cp.properties["nuclear_cell_pair_contour_source"],
+            "alternate_red_nucleus_slot_1",
+        )
+        self.assertEqual(
+            cp.nucleus_intensity_sum,
+            float(np.sum(green_image[nucleus_mask > 0])),
+        )
+
+    def test_alternate_detection_targets_green_nucleus_contours_for_green_nucleus_mode(self):
+        cp, preprocessed, _, alternate_contour = self._run_plugin_with_alternate_target(
+            "green_nucleus",
+            CHANNEL_ROLE_GREEN,
+        )
+        red_image = preprocessed.get_image("red_no_bg")
+        nucleus_mask = np.zeros(red_image.shape, dtype=np.uint8)
+        cv2.drawContours(nucleus_mask, [alternate_contour], 0, 255, -1)
+
+        self.assertEqual(
+            cp.properties["nuclear_cell_pair_contour_source"],
+            "alternate_green_nucleus_slot_1",
+        )
+        self.assertEqual(
+            cp.nucleus_intensity_sum,
+            float(np.sum(red_image[nucleus_mask > 0])),
+        )
+
+    def test_alternate_detection_ignores_unselected_nucleus_channel(self):
+        cp, preprocessed, standard_contour, _ = self._run_plugin_with_alternate_target(
+            "green_nucleus",
+            CHANNEL_ROLE_RED,
+        )
+        red_image = preprocessed.get_image("red_no_bg")
+        nucleus_mask = np.zeros(red_image.shape, dtype=np.uint8)
+        cv2.drawContours(nucleus_mask, [standard_contour], 0, 255, -1)
+
+        self.assertEqual(cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
+        self.assertEqual(
+            cp.nucleus_intensity_sum,
+            float(np.sum(red_image[nucleus_mask > 0])),
+        )
+
+    def test_alternate_detection_without_alternate_slot_does_not_fallback_to_canonical(self):
+        plugin = NuclearCellPairIntensity()
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={
+                "nuclear_cell_pair_mode": "red_nucleus",
+                "alternate_nucleus_detection_enabled": True,
+                "alternate_nucleus_detection_channel": CHANNEL_ROLE_RED,
+            },
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            self._write_outline(output_dir)
+            preprocessed = self._build_gray_images()
+            standard_contour = self._rect_contour(8, 8, 16, 16)
+            contours_data = build_canonical_contour_payload(
+                {
+                    "dot_contours": [standard_contour],
+                    "contours_green": [],
+                },
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=str(output_dir),
+                shape=(24, 24),
+            )
+            red_debug = np.zeros((24, 24, 3), dtype=np.uint8)
+            green_debug = np.zeros((24, 24, 3), dtype=np.uint8)
+            plugin.setting_up(cp, preprocessed, str(output_dir))
+            plugin.calculate_statistics(
+                {},
+                contours_data,
+                red_debug,
+                green_debug,
+                1,
+                37,
+            )
+
+        self.assertEqual(cp.properties["nuclear_cell_pair_status"], "no_nucleus_contour")
+        self.assertEqual(
+            cp.properties["nuclear_cell_pair_contour_source"],
+            "alternate_red_nucleus_slot_1",
+        )
+        self.assertEqual(cp.nucleus_intensity_sum, 0.0)
         self.assertFalse(np.any(red_debug > 0))
         self.assertFalse(np.any(green_debug > 0))
+
+    def test_debug_overlay_draws_selected_red_nucleus_contour(self):
+        _, red_debug, green_debug = self._run_plugin("red_nucleus")
+        red_pixels = np.array([0, 0, 255], dtype=np.uint8)
+
+        self.assertTrue(np.any(np.all(red_debug == red_pixels, axis=2)))
+        self.assertTrue(np.any(np.all(green_debug == red_pixels, axis=2)))
+
+    def test_debug_overlay_draws_selected_green_nucleus_contour(self):
+        _, red_debug, green_debug = self._run_plugin("green_nucleus")
+        green_pixels = np.array([0, 255, 0], dtype=np.uint8)
+
+        self.assertTrue(np.any(np.all(red_debug == green_pixels, axis=2)))
+        self.assertTrue(np.any(np.all(green_debug == green_pixels, axis=2)))
 
     def test_hard_cutoff_marks_no_nucleus_contour_without_fallback(self):
         cp, red_debug, green_debug = self._run_plugin("red_nucleus", include_precomputed=False)

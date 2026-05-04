@@ -26,6 +26,38 @@ class GreenDotSplitConfigTests(SimpleTestCase):
 
         self.assertEqual(normalized["greenDotSplitMode"], "balanced")
 
+    def test_analysis_snapshot_derives_puncta_without_contour_intensity(self):
+        normalized = normalize_analysis_config_snapshot(
+            {
+                "selected_analysis": ["PunctaDistance"],
+                "puncta_line_mode": "green_puncta",
+            }
+        )
+
+        self.assertEqual(normalized["selected_analysis"], ["PunctaDistance"])
+        self.assertTrue(normalized["signalQuantificationEnabled"])
+        self.assertEqual(normalized["signalQuantificationMode"], "puncta_distance")
+        self.assertFalse(normalized["punctaContourIntensityEnabled"])
+
+    def test_analysis_snapshot_derives_nuclear_mode_and_alternate_target(self):
+        normalized = normalize_analysis_config_snapshot(
+            {
+                "selected_analysis": ["PunctaDistance", "GreenRedIntensity", "CENDot"],
+                "signalQuantificationEnabled": True,
+                "signalQuantificationMode": "nuclear_cell_pair",
+                "alternateNucleusDetectionEnabled": True,
+                "nuclear_cell_pair_mode": "red_nucleus",
+            }
+        )
+
+        self.assertEqual(
+            normalized["selected_analysis"],
+            ["CENDot", "NuclearCellPairIntensity"],
+        )
+        self.assertEqual(normalized["signalQuantificationMode"], "nuclear_cell_pair")
+        self.assertTrue(normalized["alternateNucleusDetectionEnabled"])
+        self.assertEqual(normalized["alternateNucleusDetectionChannel"], "channel_red")
+
     def test_overlay_render_config_preserves_green_dot_split_mode(self):
         config = build_overlay_render_config(
             image_stem="sample",

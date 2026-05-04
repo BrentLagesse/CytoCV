@@ -37,6 +37,9 @@ from core.services.analysis_progress_contract import (
     progress_log_ref,
     validate_progress_status,
 )
+from core.services.biorientation_config import (
+    DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
@@ -44,6 +47,9 @@ from core.services.puncta_line_mode import (
 from core.services.green_dot_split import (
     DEFAULT_GREEN_DOT_SPLIT_MODE,
     normalize_green_dot_split_mode,
+)
+from core.services.signal_quantification import (
+    resolve_signal_quantification_selection,
 )
 from .utils import (
     tif_to_jpg,
@@ -92,6 +98,16 @@ class ProgressRequestError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def _parse_bool(value, default: bool = False) -> bool:
+    """Parse common truthy/falsy request/session values."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _current_owner_filter(request) -> dict:
@@ -497,7 +513,10 @@ def pre_process(request, uuids):
         )
         biorientation_collinearity_threshold_raw = request.POST.get(
             'biorientationCollinearityThreshold',
-            request.session.get('biorientationCollinearityThreshold', 66),
+            request.session.get(
+                'biorientationCollinearityThreshold',
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+            ),
         )
         green_dot_split_enabled_raw = request.POST.get(
             'greenDotSplitEnabled',
@@ -532,12 +551,64 @@ def pre_process(request, uuids):
             'greenContourFilterEnabled',
             request.session.get('greenContourFilterEnabled', request.session.get('gfpFilterEnabled', 'False')),
         )
-        green_contour_filter_enabled = green_contour_filter_enabled_raw == 'true'
-        alternate_red_detection_raw = request.POST.get(
-            'alternateRedDetection',
-            request.session.get('alternateRedDetection', request.session.get('alternateMCherryDetection', 'False')),
+        green_contour_filter_enabled = _parse_bool(green_contour_filter_enabled_raw, default=False)
+        signal_selection = resolve_signal_quantification_selection(
+            payload={
+                "signalQuantificationEnabled": request.POST.get(
+                    "signalQuantificationEnabled",
+                    request.session.get(
+                        "signalQuantificationEnabled",
+                        request.session.get("signal_quantification_enabled"),
+                    ),
+                ),
+                "signalQuantificationMode": request.POST.get(
+                    "signalQuantificationMode",
+                    request.session.get(
+                        "signalQuantificationMode",
+                        request.session.get("signal_quantification_mode"),
+                    ),
+                ),
+                "punctaContourIntensityEnabled": request.POST.get(
+                    "punctaContourIntensityEnabled",
+                    request.session.get(
+                        "punctaContourIntensityEnabled",
+                        request.session.get("puncta_contour_intensity_enabled"),
+                    ),
+                ),
+                "alternateNucleusDetectionEnabled": request.POST.get(
+                    "alternateNucleusDetectionEnabled",
+                    request.POST.get(
+                        "alternateRedDetection",
+                        request.session.get(
+                            "alternateNucleusDetectionEnabled",
+                            request.session.get(
+                                "alternate_nucleus_detection_enabled",
+                                request.session.get(
+                                    "alternateRedDetection",
+                                    request.session.get("alternateMCherryDetection", False),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            },
+            selected_plugins=selected_analysis,
+            nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+            puncta_line_mode=puncta_line_mode,
+            default_alternate_nucleus_detection_enabled=_parse_bool(
+                request.session.get(
+                    "alternateNucleusDetectionEnabled",
+                    request.session.get(
+                        "alternate_nucleus_detection_enabled",
+                        request.session.get(
+                            "alternateRedDetection",
+                            request.session.get("alternateMCherryDetection", False),
+                        ),
+                    ),
+                ),
+                default=False,
+            ),
         )
-        alternate_red_detection = alternate_red_detection_raw == 'true'
         try:
             puncta_line_width = int(puncta_line_width_raw)
         except (TypeError, ValueError):
@@ -579,9 +650,9 @@ def pre_process(request, uuids):
                 biorientation_collinearity_threshold_raw
             )
         except (TypeError, ValueError):
-            biorientation_collinearity_threshold = 66
+            biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
         if biorientation_collinearity_threshold < 0:
-            biorientation_collinearity_threshold = 66
+            biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
         green_dot_split_enabled = (
             green_dot_split_enabled_raw
             if isinstance(green_dot_split_enabled_raw, bool)
@@ -589,7 +660,7 @@ def pre_process(request, uuids):
             in {"1", "true", "yes", "on"}
         )
 
-        request.session['selected_analysis'] = selected_analysis
+        request.session['selected_analysis'] = list(signal_selection.selected_plugins)
         request.session['punctaLineWidth'] = puncta_line_width
         request.session['cenDotDistance'] = cen_dot_distance
         request.session['stats_biorientation_red_min_distance_value'] = biorientation_red_min_distance_value
@@ -602,7 +673,18 @@ def pre_process(request, uuids):
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
-        request.session['alternateRedDetection'] = alternate_red_detection
+        request.session['alternateRedDetection'] = signal_selection.alternate_nucleus_detection_enabled
+        request.session['alternateNucleusDetectionEnabled'] = (
+            signal_selection.alternate_nucleus_detection_enabled
+        )
+        request.session['alternateNucleusDetectionChannel'] = (
+            signal_selection.alternate_nucleus_detection_channel
+        )
+        request.session['signalQuantificationEnabled'] = signal_selection.enabled
+        request.session['signalQuantificationMode'] = signal_selection.mode
+        request.session['punctaContourIntensityEnabled'] = (
+            signal_selection.puncta_contour_intensity_enabled
+        )
         context = build_analysis_batch_context(request, uuid_list)
         batch_key = context.batch_key
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'

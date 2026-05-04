@@ -33,6 +33,9 @@ from core.scale import (
     normalize_length_unit,
     parse_microns_per_pixel,
 )
+from core.services.biorientation_config import (
+    DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
@@ -40,6 +43,9 @@ from core.services.puncta_line_mode import (
 from core.services.green_dot_split import (
     DEFAULT_GREEN_DOT_SPLIT_MODE,
     normalize_green_dot_split_mode,
+)
+from core.services.signal_quantification import (
+    resolve_signal_quantification_selection,
 )
 from core.services.artifact_storage import (
     delete_uploaded_run_by_uuid,
@@ -443,6 +449,13 @@ def _getlist(payload, key: str) -> list[str]:
     return [value]
 
 
+def _has_payload_key(payload, key: str) -> bool:
+    try:
+        return key in payload
+    except TypeError:
+        return False
+
+
 def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[str, object], dict[str, object]]:
     """Parse upload settings once for session persistence and worker execution."""
 
@@ -453,8 +466,8 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     )
     default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
 
-    selected_analysis = normalize_selected_plugins(_getlist(payload, "selected_analysis"))
-    requirement_summary = build_requirement_summary(selected_analysis)
+    has_selected_analysis_payload = _has_payload_key(payload, "selected_analysis")
+    raw_selected_analysis = normalize_selected_plugins(_getlist(payload, "selected_analysis"))
 
     posted_microns_per_pixel = parse_microns_per_pixel(
         payload.get("stats_microns_per_pixel"),
@@ -561,12 +574,15 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     )
     try:
         biorientation_collinearity_threshold = int(
-            payload.get("biorientationCollinearityThreshold", "66")
+            payload.get(
+                "biorientationCollinearityThreshold",
+                str(DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX),
+            )
         )
     except (TypeError, ValueError):
-        biorientation_collinearity_threshold = 66
+        biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
     if biorientation_collinearity_threshold < 0:
-        biorientation_collinearity_threshold = 66
+        biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
 
     green_dot_split_enabled = _parse_bool(
         payload.get("greenDotSplitEnabled", payload.get("biorientationGreenSplitEnabled")),
@@ -575,13 +591,12 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     green_dot_split_mode = normalize_green_dot_split_mode(
         payload.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
     )
-    green_contour_filter_enabled = payload.get(
-        "greenContourFilterEnabled",
-        payload.get("gfpFilterEnabled", False),
-    )
-    alternate_red_detection = payload.get(
-        "alternateRedDetection",
-        payload.get("alternateMCherryDetection", False),
+    green_contour_filter_enabled = _parse_bool(
+        payload.get(
+            "greenContourFilterEnabled",
+            payload.get("gfpFilterEnabled", False),
+        ),
+        default=False,
     )
     puncta_line_mode = _parse_puncta_line_mode(
         payload.get("puncta_line_mode"),
@@ -591,6 +606,56 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         payload.get("nuclear_cell_pair_mode", payload.get("nuclear_cellular_mode")),
         default="green_nucleus",
     )
+    signal_selection = resolve_signal_quantification_selection(
+        payload={
+            "signal_quantification_enabled": payload.get(
+                "signalQuantificationEnabled",
+                payload.get("signal_quantification_enabled"),
+            ),
+            "signal_quantification_mode": payload.get(
+                "signalQuantificationMode",
+                payload.get("signal_quantification_mode"),
+            ),
+            "puncta_contour_intensity_enabled": payload.get(
+                "punctaContourIntensityEnabled",
+                payload.get("puncta_contour_intensity_enabled"),
+            ),
+            "alternate_nucleus_detection_enabled": payload.get(
+                "alternateNucleusDetectionEnabled",
+                payload.get(
+                    "alternate_nucleus_detection_enabled",
+                    payload.get(
+                        "alternateRedDetection",
+                        payload.get("alternateMCherryDetection"),
+                    ),
+                ),
+            ),
+        },
+        selected_plugins=raw_selected_analysis,
+        nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+        puncta_line_mode=puncta_line_mode,
+        default_enabled=(
+            None
+            if has_selected_analysis_payload
+            else experiment_defaults.get("signal_quantification_enabled")
+        ),
+        default_mode=(
+            None
+            if has_selected_analysis_payload
+            else experiment_defaults.get("signal_quantification_mode")
+        ),
+        default_puncta_contour_intensity_enabled=(
+            None
+            if has_selected_analysis_payload
+            else experiment_defaults.get("puncta_contour_intensity_enabled")
+        ),
+        default_alternate_nucleus_detection_enabled=experiment_defaults.get(
+            "alternate_nucleus_detection_enabled",
+            experiment_defaults.get("alternate_red_detection", False),
+        ),
+    )
+    selected_analysis = list(signal_selection.selected_plugins)
+    requirement_summary = build_requirement_summary(selected_analysis)
 
     module_enabled = _parse_bool(payload.get("cytocv_analysis_enabled"), default=False)
     enforce_layer_count = module_enabled and _parse_bool(
@@ -631,9 +696,15 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         "puncta_line_mode": puncta_line_mode,
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
         "greenContourFilterEnabled": green_contour_filter_enabled,
-        "alternateRedDetection": alternate_red_detection,
+        "alternateRedDetection": signal_selection.alternate_nucleus_detection_enabled,
+        "alternateNucleusDetectionEnabled": signal_selection.alternate_nucleus_detection_enabled,
+        "alternateNucleusDetectionChannel": signal_selection.alternate_nucleus_detection_channel,
+        "signalQuantificationEnabled": signal_selection.enabled,
+        "signalQuantificationMode": signal_selection.mode,
+        "punctaContourIntensityEnabled": signal_selection.puncta_contour_intensity_enabled,
     }
     config_snapshot = {
+        **session_values,
         "selected_analysis": requirement_summary["selected_plugins"],
         "manual_um_per_px": posted_microns_per_pixel,
         "prefer_metadata_scale": stats_use_metadata_scale,

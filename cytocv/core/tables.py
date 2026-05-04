@@ -20,6 +20,7 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
+from core.services.signal_quantification import build_stat_visibility
 
 
 NUCLEAR_CELL_PAIR_LABELS = {
@@ -71,6 +72,47 @@ class CellTable(tables.Table):
         "distance_of_green_from_red_2": "distance",
         "distance_of_green_from_red_3": "distance",
     }
+    STAT_COLUMN_GROUPS = {
+        "puncta_distance": (
+            "puncta_distance",
+            "puncta_line_intensity",
+        ),
+        "red_green_intensity": (
+            "red_contour_1_size",
+            "red_contour_2_size",
+            "red_contour_3_size",
+            "green_contour_1_size",
+            "green_contour_2_size",
+            "green_contour_3_size",
+            "red_intensity_1",
+            "red_intensity_2",
+            "red_intensity_3",
+            "green_intensity_1",
+            "green_intensity_2",
+            "green_intensity_3",
+            "red_in_green_intensity_1",
+            "red_in_green_intensity_2",
+            "red_in_green_intensity_3",
+            "green_in_green_intensity_1",
+            "green_in_green_intensity_2",
+            "green_in_green_intensity_3",
+            "green_red_intensity_1",
+            "green_red_intensity_2",
+            "green_red_intensity_3",
+            "distance_of_green_from_red_1",
+            "distance_of_green_from_red_2",
+            "distance_of_green_from_red_3",
+        ),
+        "nuclear_cell_pair_intensity": (
+            "nuclear_cell_pair_contour_source",
+            "cell_pair_intensity_sum",
+            "nucleus_intensity_sum",
+            "cytoplasmic_intensity",
+        ),
+        "cen_dot": ("cell_parentage", "category_cen_dot"),
+        "biorientation": ("colinear_dots", "off_axis_dots"),
+        "legacy_blue_intensity": ("blue_contour_size",),
+    }
 
     cell_id = tables.Column(verbose_name="Cell ID")
     puncta_distance = NumberColumn(verbose_name="Distance Between Red Puncta")
@@ -109,6 +151,10 @@ class CellTable(tables.Table):
     distance_of_green_from_red_2 = NumberColumn(verbose_name="Distance Of Green From Red 2")
     distance_of_green_from_red_3 = NumberColumn(verbose_name="Distance Of Green From Red 3")
 
+    nuclear_cell_pair_contour_source = tables.Column(
+        verbose_name="Nucleus Contour Source",
+        empty_values=(),
+    )
     cell_pair_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[0])
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
@@ -151,6 +197,7 @@ class CellTable(tables.Table):
             "distance_of_green_from_red_1",
             "distance_of_green_from_red_2",
             "distance_of_green_from_red_3",
+            "nuclear_cell_pair_contour_source",
             "cell_pair_intensity_sum",
             "nucleus_intensity_sum",
             "cytoplasmic_intensity",
@@ -166,11 +213,27 @@ class CellTable(tables.Table):
         *args,
         intensity_mode: str | None = None,
         puncta_line_mode: str | None = None,
+        stat_visibility: dict[str, bool] | None = None,
+        selected_plugins: list[str] | tuple[str, ...] | None = None,
         spatial_stats_unit: str = "px",
         scale_context: dict[str, object] | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        resolved_visibility = self._resolve_stat_visibility(
+            args[0] if args else kwargs.get("data"),
+            stat_visibility=stat_visibility,
+            selected_plugins=selected_plugins,
+        )
+        hidden_stat_columns: set[str] = set()
+        for visibility_key, field_names in self.STAT_COLUMN_GROUPS.items():
+            if resolved_visibility.get(visibility_key, True):
+                continue
+            for field_name in field_names:
+                if field_name in self.columns:
+                    self.columns.hide(field_name)
+                    hidden_stat_columns.add(field_name)
+        self._hidden_stat_columns = hidden_stat_columns
         self._spatial_stats_unit = normalize_spatial_stats_unit(spatial_stats_unit, default="px")
         resolved_scale_context = dict(scale_context or {})
         self._scale_context = {
@@ -197,12 +260,55 @@ class CellTable(tables.Table):
         self.columns["green_red_intensity_2"].column.verbose_name = ratio_headers[1]
         self.columns["green_red_intensity_3"].column.verbose_name = ratio_headers[2]
         for field_name, spatial_kind in self.SPATIAL_FIELDS.items():
+            if field_name not in self.columns:
+                continue
             column = self.columns[field_name].column
             column.verbose_name = format_spatial_stat_header(
                 str(column.verbose_name),
                 spatial_kind=spatial_kind,
                 unit=self._spatial_stats_unit,
             )
+
+    def as_values(self, exclude_columns=None):
+        hidden = set(getattr(self, "_hidden_stat_columns", set()))
+        if exclude_columns is not None:
+            hidden.update(exclude_columns)
+        yield from super().as_values(exclude_columns=hidden)
+
+    @classmethod
+    def _resolve_stat_visibility(
+        cls,
+        data,
+        *,
+        stat_visibility: dict[str, bool] | None = None,
+        selected_plugins: list[str] | tuple[str, ...] | None = None,
+    ) -> dict[str, bool]:
+        if isinstance(stat_visibility, dict):
+            return {
+                key: bool(stat_visibility.get(key, True))
+                for key in cls.STAT_COLUMN_GROUPS
+            }
+        if selected_plugins is not None:
+            return build_stat_visibility(selected_plugins)
+        first_record = None
+        if hasattr(data, "first"):
+            try:
+                first_record = data.first()
+            except Exception:
+                first_record = None
+        elif isinstance(data, (list, tuple)) and data:
+            first_record = data[0]
+        properties = getattr(first_record, "properties", {}) or {}
+        property_visibility = properties.get("stat_visibility")
+        if isinstance(property_visibility, dict):
+            return {
+                key: bool(property_visibility.get(key, True))
+                for key in cls.STAT_COLUMN_GROUPS
+            }
+        selected = properties.get("selected_analysis")
+        if isinstance(selected, list):
+            return build_stat_visibility(selected)
+        return {key: True for key in cls.STAT_COLUMN_GROUPS}
 
     @staticmethod
     def _has_no_nucleus_contour(record: CellStatistics) -> bool:
@@ -263,6 +369,18 @@ class CellTable(tables.Table):
         if self._has_no_nucleus_contour(record):
             return "N/A"
         return self._format_number(value)
+
+    @staticmethod
+    def _nuclear_cell_pair_contour_source(record: CellStatistics) -> str:
+        properties = getattr(record, "properties", {}) or {}
+        value = properties.get("nuclear_cell_pair_contour_source")
+        return str(value or "N/A")
+
+    def render_nuclear_cell_pair_contour_source(self, record: CellStatistics) -> str:
+        return self._nuclear_cell_pair_contour_source(record)
+
+    def value_nuclear_cell_pair_contour_source(self, record: CellStatistics) -> str:
+        return self._nuclear_cell_pair_contour_source(record)
 
     def render_cell_pair_intensity_sum(self, value: float, record: CellStatistics) -> str:
         return self._render_nuclear_cell_pair_value(record, value)

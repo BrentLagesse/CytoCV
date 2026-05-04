@@ -64,7 +64,7 @@ class BiorientationTests(SimpleTestCase):
         cell_mask: np.ndarray | None = None,
         min_distance: float = 0.0,
         max_distance: float = 37.0,
-        threshold: int = 66,
+        threshold: int = 3,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -163,3 +163,60 @@ class BiorientationTests(SimpleTestCase):
 
         self.assertEqual(cp.colinear_dots, 2)
         self.assertEqual(cp.off_axis_dots, 0)
+
+    def test_perpendicular_offset_within_threshold_is_colinear(self):
+        cp = self._run(
+            red_centers=[(10, 20), (20, 20)],
+            green_centers=[(15, 22)],
+            threshold=3,
+        )
+
+        self.assertEqual(cp.colinear_dots, 1)
+        self.assertEqual(cp.off_axis_dots, 0)
+
+    def test_perpendicular_offset_beyond_threshold_is_off_axis(self):
+        cp = self._run(
+            red_centers=[(10, 20), (20, 20)],
+            green_centers=[(15, 25)],
+            threshold=3,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 1)
+
+    def test_classification_is_invariant_to_red_red_distance(self):
+        short = self._run(
+            red_centers=[(10, 20), (20, 20)],
+            green_centers=[(15, 22)],
+            threshold=3,
+            max_distance=40,
+        )
+        long = self._run(
+            red_centers=[(5, 20), (35, 20)],
+            green_centers=[(20, 22)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(
+            (short.colinear_dots, short.off_axis_dots),
+            (long.colinear_dots, long.off_axis_dots),
+        )
+        self.assertEqual(long.colinear_dots, 1)
+        self.assertEqual(long.off_axis_dots, 0)
+
+    def test_dot_on_infinite_line_outside_segment_is_off_axis(self):
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(35, 20)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 1)
+
+    def test_zero_length_axis_returns_false(self):
+        self.assertFalse(
+            Biorientation._is_collinear((10.0, 10.0), (5.0, 5.0), (5.0, 5.0), 3)
+        )
