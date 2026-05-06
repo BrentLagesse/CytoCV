@@ -2199,7 +2199,7 @@
                         </div>
                     </div>
                     {% load export_url from django_tables2 %}
-                    <div class="export-buttons">
+                    <div class="export-buttons" id="displayExportButtons">
                         <a class="export_btn" id="displayDownloadCsvBtn" href="{% export_url 'csv' %}">Download CSV</a>
                         <a class="export_btn" id="displayDownloadXlsxBtn" href="{% export_url 'xlsx' %}">Download Excel</a>
                     </div>
@@ -2243,7 +2243,6 @@
         const channels = ["dic", "blue", "red", "green"];
         let activeChannelRequest = 0;
         const defaultChannelIndexMap = { 0: 'dic', 1: 'blue', 2: 'green', 3: 'red' };
-        const serverTableUUID = "{{ table_uuid|default:'' }}";
         const noCellPlaceholder =
             "data:image/svg+xml;utf8," + encodeURIComponent(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">' +
@@ -3382,9 +3381,9 @@
 
         function renderStatisticsTable(statistics, fileData) {
             const table = document.getElementById('celltable');
-            if (!table) return;
+            if (!table) return 0;
             const tbody = table.querySelector('tbody');
-            if (!tbody) return;
+            if (!tbody) return 0;
             const nuclearCellularFields = new Set([
                 'cell_pair_intensity_sum',
                 'nucleus_intensity_sum',
@@ -3425,10 +3424,56 @@
                 }
                 tbody.appendChild(tr);
             }
+            return ids.length;
+        }
+
+        function getStatisticsTableRowCount(fileData, renderedRowCount = 0) {
+            const statistics = fileData?.Statistics || {};
+            const serializedRows = Object.keys(statistics).length;
+            const fileCellCount = Number(fileData?.NumberOfCells || 0);
+            return Math.max(
+                Number(renderedRowCount) || 0,
+                serializedRows,
+                Number.isFinite(fileCellCount) ? fileCellCount : 0,
+            );
+        }
+
+        function hasStatisticsTableRows(fileData, renderedRowCount = 0) {
+            return getStatisticsTableRowCount(fileData, renderedRowCount) > 0;
+        }
+
+        function buildDisplayExportUrl(fileUUID, format) {
+            const params = new URLSearchParams({
+                _export: format,
+                _unit: getCurrentSpatialUnit(),
+            });
+            return `/experiment/${encodeURIComponent(fileUUID)}/display/?${params.toString()}`;
+        }
+
+        function syncDisplayExportButtons(fileUUID, fileData, renderedRowCount = 0) {
+            const exportButtons = document.getElementById('displayExportButtons');
+            if (!exportButtons) {
+                return;
+            }
+
+            const canExport = Boolean(fileUUID) && hasStatisticsTableRows(fileData, renderedRowCount);
+            exportButtons.style.display = canExport ? 'flex' : 'none';
+            if (!canExport) {
+                return;
+            }
+
+            const csvBtn = document.getElementById('displayDownloadCsvBtn');
+            const xlsxBtn = document.getElementById('displayDownloadXlsxBtn');
+            if (csvBtn) {
+                csvBtn.href = buildDisplayExportUrl(fileUUID, 'csv');
+            }
+            if (xlsxBtn) {
+                xlsxBtn.href = buildDisplayExportUrl(fileUUID, 'xlsx');
+            }
         }
 
         function updateTableState(fileUUID, fileData) {
-            const exportButtons = document.querySelector('.export-buttons');
+            const exportButtons = document.getElementById('displayExportButtons');
             let note = document.getElementById('table-empty-note');
             if (!note) {
                 note = document.createElement('div');
@@ -3441,7 +3486,7 @@
                 }
             }
 
-            renderStatisticsTable(fileData.Statistics || {}, fileData);
+            const renderedRowCount = renderStatisticsTable(fileData.Statistics || {}, fileData);
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
@@ -3450,20 +3495,7 @@
                 note.style.display = 'none';
             }
 
-            if (exportButtons) {
-                const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
-                const canExportCurrentView = hasRows && fileUUID === serverTableUUID;
-                exportButtons.style.display = canExportCurrentView ? 'flex' : 'none';
-                const spatialUnit = getCurrentSpatialUnit();
-                const csvBtn = document.getElementById('displayDownloadCsvBtn');
-                const xlsxBtn = document.getElementById('displayDownloadXlsxBtn');
-                if (csvBtn) {
-                    csvBtn.href = `/experiment/${encodeURIComponent(fileUUID)}/display/?_export=csv&_unit=${encodeURIComponent(spatialUnit)}`;
-                }
-                if (xlsxBtn) {
-                    xlsxBtn.href = `/experiment/${encodeURIComponent(fileUUID)}/display/?_export=xlsx&_unit=${encodeURIComponent(spatialUnit)}`;
-                }
-            }
+            syncDisplayExportButtons(fileUUID, fileData, renderedRowCount);
         }
 
         function rerenderSpatialUnitsForCurrentFile() {

@@ -2226,8 +2226,8 @@
                         </div>
                     </div>
                     <div class="export-buttons" id="exportButtons">
-                        <a class="export_btn" id="downloadCsvBtn" href="#">Download CSV</a>
-                        <a class="export_btn" id="downloadXlsxBtn" href="#">Download Excel</a>
+                        <a class="export_btn" id="downloadCsvBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=csv&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download CSV</a>
+                        <a class="export_btn" id="downloadXlsxBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=xlsx&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download Excel</a>
                     </div>
 
                 </div>
@@ -3161,8 +3161,54 @@
             return ids.length;
         }
 
+        function getStatisticsTableRowCount(fileData, renderedRowCount = 0) {
+            const statistics = fileData?.Statistics || {};
+            const serializedRows = Object.keys(statistics).length;
+            const fileCellCount = Number(fileData?.NumberOfCells || 0);
+            return Math.max(
+                Number(renderedRowCount) || 0,
+                serializedRows,
+                Number.isFinite(fileCellCount) ? fileCellCount : 0,
+            );
+        }
+
+        function hasStatisticsTableRows(fileData, renderedRowCount = 0) {
+            return getStatisticsTableRowCount(fileData, renderedRowCount) > 0;
+        }
+
+        function buildDashboardExportUrl(fileUUID, format) {
+            const params = new URLSearchParams({
+                file_uuid: fileUUID,
+                _export: format,
+                _unit: getCurrentSpatialUnit(),
+            });
+            return `/dashboard/?${params.toString()}`;
+        }
+
+        function syncDashboardExportButtons(fileUUID, fileData, renderedRowCount = 0) {
+            const exportButtons = document.getElementById('exportButtons');
+            if (!exportButtons) {
+                return;
+            }
+
+            const canExport = Boolean(fileUUID) && hasStatisticsTableRows(fileData, renderedRowCount);
+            exportButtons.style.display = canExport ? 'flex' : 'none';
+            if (!canExport) {
+                return;
+            }
+
+            const csvBtn = document.getElementById('downloadCsvBtn');
+            const xlsxBtn = document.getElementById('downloadXlsxBtn');
+            if (csvBtn) {
+                csvBtn.href = buildDashboardExportUrl(fileUUID, 'csv');
+            }
+            if (xlsxBtn) {
+                xlsxBtn.href = buildDashboardExportUrl(fileUUID, 'xlsx');
+            }
+        }
+
         function updateTableState(fileUUID, fileData) {
-            const exportButtons = document.querySelector('.export-buttons');
+            const exportButtons = document.getElementById('exportButtons');
             let note = document.getElementById('table-empty-note');
             if (!note) {
                 note = document.createElement('div');
@@ -3175,7 +3221,7 @@
                 }
             }
 
-            renderStatisticsTable(
+            const renderedRowCount = renderStatisticsTable(
                 fileData.Statistics || {},
                 Number(fileData.NumberOfCells || 0),
                 fileData,
@@ -3188,19 +3234,7 @@
                 note.style.display = 'none';
             }
 
-            if (exportButtons) {
-                const hasRows = Object.keys(fileData.Statistics || {}).length > 0;
-                exportButtons.style.display = hasRows ? 'flex' : 'none';
-                const csvBtn = document.getElementById('downloadCsvBtn');
-                const xlsxBtn = document.getElementById('downloadXlsxBtn');
-                const spatialUnit = getCurrentSpatialUnit();
-                if (csvBtn) {
-                    csvBtn.href = `/dashboard/?file_uuid=${encodeURIComponent(fileUUID)}&_export=csv&_unit=${encodeURIComponent(spatialUnit)}`;
-                }
-                if (xlsxBtn) {
-                    xlsxBtn.href = `/dashboard/?file_uuid=${encodeURIComponent(fileUUID)}&_export=xlsx&_unit=${encodeURIComponent(spatialUnit)}`;
-                }
-            }
+            syncDashboardExportButtons(fileUUID, fileData, renderedRowCount);
         }
 
         function rerenderSpatialUnitsForCurrentFile() {

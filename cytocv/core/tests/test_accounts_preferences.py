@@ -833,6 +833,28 @@ class DisplayManualSaveTests(TestCase):
         self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
 
+    def test_dashboard_export_buttons_have_server_rendered_fallback_urls(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_export_fallback",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="/dashboard/?file_uuid={saved_uuid}&amp;_export=csv&amp;_unit=px"',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f'href="/dashboard/?file_uuid={saved_uuid}&amp;_export=xlsx&amp;_unit=px"',
+            html=False,
+        )
+
     def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
         self._create_display_file(
             uploaded_owner=self.user,
@@ -896,6 +918,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="celltable"', html=False)
+        self.assertContains(response, 'id="displayExportButtons"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
@@ -914,6 +937,31 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'Green In Green Raw Sums')
         self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
         self.assertNotContains(response, 'Intensity + Green Output')
+
+    def test_display_export_buttons_are_not_bound_to_initial_table_uuid(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_export_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_export_second",
+        )
+        self._add_cell_stat(first_uuid)
+        self._add_cell_stat(second_uuid)
+
+        response = self.client.get(reverse("display", args=[f"{first_uuid},{second_uuid}"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "function syncDisplayExportButtons", html=False)
+        self.assertContains(
+            response,
+            "syncDisplayExportButtons(fileUUID, fileData, renderedRowCount);",
+            html=False,
+        )
+        self.assertNotContains(response, "serverTableUUID", html=False)
 
     def test_display_view_serializes_nuclear_contour_source_without_stat_card_row(self):
         saved_uuid = self._create_display_file(
