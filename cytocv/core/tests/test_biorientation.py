@@ -220,3 +220,69 @@ class BiorientationTests(SimpleTestCase):
         self.assertFalse(
             Biorientation._is_collinear((10.0, 10.0), (5.0, 5.0), (5.0, 5.0), 3)
         )
+
+    def test_green_just_past_anchor_within_radius_is_colinear(self):
+        # _disk_slot(radius=2) yields a mask area of ~13 px → effective anchor
+        # radius ~2.03 px. A green centroid 1 px past the second red anchor
+        # along the axis still falls inside the anchor footprint and must be
+        # classified as colinear (issue #240).
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(31, 20)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 1)
+        self.assertEqual(cp.off_axis_dots, 0)
+
+    def test_green_past_anchor_beyond_radius_remains_off_axis(self):
+        # 3 px past the endpoint exceeds the ~2.03 px effective anchor radius,
+        # so the signal must remain off-axis (no global threshold inflation).
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(33, 20)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 1)
+
+    def test_green_past_anchor_with_perpendicular_offset_stays_off_axis(self):
+        # Anchor padding is along-axis only; perpendicular threshold is unchanged.
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(31, 26)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 1)
+
+    def test_anchor_padding_extends_segment_along_axis(self):
+        # 1.5 px past endpoint with 2 px padding → colinear.
+        self.assertTrue(
+            Biorientation._is_collinear(
+                (11.5, 0.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint2_padding=2.0
+            )
+        )
+        # 2.5 px past endpoint with 2 px padding → off-axis.
+        self.assertFalse(
+            Biorientation._is_collinear(
+                (12.5, 0.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint2_padding=2.0
+            )
+        )
+        # Padding does not relax the perpendicular threshold.
+        self.assertFalse(
+            Biorientation._is_collinear(
+                (11.0, 5.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint2_padding=2.0
+            )
+        )
+        # Padding applies symmetrically to endpoint1.
+        self.assertTrue(
+            Biorientation._is_collinear(
+                (-1.5, 0.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint1_padding=2.0
+            )
+        )

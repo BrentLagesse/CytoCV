@@ -27,6 +27,16 @@ def _coerce_float(value, default: float) -> float:
         return default
 
 
+def _anchor_radius_from_area(area) -> float:
+    try:
+        area_value = float(area)
+    except (TypeError, ValueError):
+        return 0.0
+    if area_value <= 0.0:
+        return 0.0
+    return math.sqrt(area_value / math.pi)
+
+
 def _pixel_distance(center_1, center_2, properties: dict, unit: str) -> float:
     if unit == "um":
         x_scale = _coerce_float(
@@ -124,13 +134,21 @@ class Biorientation(Analysis):
             if distance_max > red_max:
                 return
 
+            anchor_radius_1 = _anchor_radius_from_area(red_slots[0].area)
+            anchor_radius_2 = _anchor_radius_from_area(red_slots[1].area)
+
             collinear_count = 0
             off_axis_count = 0
             for green_slot in green_slots:
                 if not CENDot._green_slot_inside_pair_mask(green_slot, cell_mask):
                     continue
                 if self._is_collinear(
-                    green_slot.center, center_1, center_2, collinearity_threshold
+                    green_slot.center,
+                    center_1,
+                    center_2,
+                    collinearity_threshold,
+                    endpoint1_padding=anchor_radius_1,
+                    endpoint2_padding=anchor_radius_2,
                 ):
                     collinear_count += 1
                 else:
@@ -144,7 +162,15 @@ class Biorientation(Analysis):
             self.cp.off_axis_dots = 0
 
     @staticmethod
-    def _is_collinear(point, endpoint1, endpoint2, threshold_px) -> bool:
+    def _is_collinear(
+        point,
+        endpoint1,
+        endpoint2,
+        threshold_px,
+        *,
+        endpoint1_padding: float = 0.0,
+        endpoint2_padding: float = 0.0,
+    ) -> bool:
         px, py = float(point[0]), float(point[1])
         x1, y1 = float(endpoint1[0]), float(endpoint1[1])
         x2, y2 = float(endpoint2[0]), float(endpoint2[1])
@@ -153,9 +179,12 @@ class Biorientation(Analysis):
         squared_dist = dx * dx + dy * dy
         if squared_dist <= 0.0:
             return False
+        length = math.sqrt(squared_dist)
         cross = (py - y1) * dx - (px - x1) * dy
-        off_axis_distance = abs(cross) / math.sqrt(squared_dist)
+        off_axis_distance = abs(cross) / length
         if off_axis_distance > threshold_px:
             return False
         dot = (px - x1) * dx + (py - y1) * dy
-        return not (dot < 0 or dot > squared_dist)
+        min_dot = -max(float(endpoint1_padding), 0.0) * length
+        max_dot = squared_dist + max(float(endpoint2_padding), 0.0) * length
+        return min_dot <= dot <= max_dot
