@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
+from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED, normalize_channel_role
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
@@ -159,6 +159,33 @@ def alternate_detection_channel_for_nuclear_mode(
     if not enabled:
         return None
     return CHANNEL_ROLE_RED if str(nuclear_cell_pair_mode) == "red_nucleus" else CHANNEL_ROLE_GREEN
+
+
+def resolve_effective_alternate_nucleus_detection(
+    *,
+    signal_quantification_enabled: Any,
+    signal_quantification_mode: Any,
+    nuclear_cell_pair_mode: Any,
+    alternate_nucleus_detection_enabled: Any,
+    alternate_nucleus_detection_channel: Any = None,
+) -> tuple[bool, str | None]:
+    """Return the operational alternate nucleus setting for stats execution."""
+
+    if not _as_bool(signal_quantification_enabled, default=False):
+        return False, None
+    if normalize_signal_quantification_mode(signal_quantification_mode) != SIGNAL_MODE_NUCLEAR_CELL_PAIR:
+        return False, None
+    if not _as_bool(alternate_nucleus_detection_enabled, default=False):
+        return False, None
+
+    derived_channel = alternate_detection_channel_for_nuclear_mode(
+        nuclear_cell_pair_mode,
+        enabled=True,
+    )
+    requested_channel = normalize_channel_role(alternate_nucleus_detection_channel)
+    if requested_channel == derived_channel:
+        return True, requested_channel
+    return bool(derived_channel), derived_channel
 
 
 def build_stat_visibility(selected_plugins: Iterable[Any]) -> dict[str, bool]:

@@ -17,7 +17,10 @@ from core.services.canonical_contours import (
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
-from core.services.signal_quantification import SIGNAL_MODE_NUCLEAR_CELL_PAIR
+from core.services.signal_quantification import (
+    SIGNAL_MODE_NUCLEAR_CELL_PAIR,
+    SIGNAL_MODE_PUNCTA_DISTANCE,
+)
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import get_stats
 
@@ -509,6 +512,25 @@ class ModernContourStatisticsTests(SimpleTestCase):
             self._dominant_red_pixel_count(debug_red_off),
         )
 
+    def test_live_nuclear_mode_derives_alternate_channel_from_nucleus_source(self):
+        preprocessed = self._build_live_alternate_detection_images()
+        cp_on, _, _, _ = self._run_live_get_stats(
+            mode="red_nucleus",
+            selected_analysis=["NuclearCellPairIntensity"],
+            preprocessed=preprocessed,
+            y_range=range(8, 28),
+            x_range=range(8, 28),
+            alternate_enabled=True,
+            alternate_channel=None,
+        )
+
+        self.assertTrue(cp_on.properties["alternate_nucleus_detection_enabled"])
+        self.assertEqual(cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED)
+        self.assertEqual(
+            cp_on.properties["nuclear_cell_pair_contour_source"],
+            "alternate_red_nucleus_slot_1",
+        )
+
     def test_live_nuclear_mode_green_nucleus_alternate_detection_uses_alternate_green_source(self):
         preprocessed = self._build_live_alternate_detection_images()
         cp_off, debug_red_off, _, _ = self._run_live_get_stats(
@@ -862,6 +884,28 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(getattr(cp_on, "green_intensity_1", 0.0), 0.0)
         self.assertGreater(getattr(cp_with_intensity, "red_intensity_1", 0.0), 0.0)
         self.assertGreater(getattr(cp_with_intensity, "green_intensity_1", 0.0), 0.0)
+
+    def test_live_puncta_mode_with_alternate_enabled_does_not_use_legacy_alternate_red_detection(self):
+        preprocessed = self._build_live_puncta_images()
+
+        with patch(
+            "core.contour_processing.contour_operations._alternate_channel_contour_family",
+            side_effect=AssertionError("alternate contour family should stay nuclear-only"),
+        ):
+            cp, _, _, _ = self._run_live_get_stats(
+                mode="red_nucleus",
+                selected_analysis=["PunctaDistance"],
+                preprocessed=preprocessed,
+                y_range=range(0, 36),
+                x_range=range(0, 36),
+                alternate_enabled=True,
+                alternate_channel=None,
+            )
+
+        self.assertFalse(cp.properties["alternate_nucleus_detection_enabled"])
+        self.assertIsNone(cp.properties["alternate_nucleus_detection_channel"])
+        self.assertGreater(cp.puncta_distance, 0.0)
+        self.assertEqual(cp.properties["signal_quantification_mode"], SIGNAL_MODE_PUNCTA_DISTANCE)
 
     def test_aggressive_tightened_green_slots_drive_stats_and_debug_contours(self):
         shape = (96, 128)

@@ -22,6 +22,7 @@ from core.services.dot_split import (
 )
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
+    resolve_effective_alternate_nucleus_detection,
     resolve_signal_quantification_selection,
 )
 
@@ -188,14 +189,27 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             default=False,
         ),
     )
+    effective_alternate_enabled, effective_alternate_channel = (
+        resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=signal_selection.enabled,
+            signal_quantification_mode=signal_selection.mode,
+            nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+            alternate_nucleus_detection_enabled=(
+                signal_selection.alternate_nucleus_detection_enabled
+            ),
+            alternate_nucleus_detection_channel=(
+                signal_selection.alternate_nucleus_detection_channel
+            ),
+        )
+    )
 
     normalized = {
         "selected_analysis": list(signal_selection.selected_plugins),
         "signalQuantificationEnabled": signal_selection.enabled,
         "signalQuantificationMode": signal_selection.mode,
         "punctaContourIntensityEnabled": signal_selection.puncta_contour_intensity_enabled,
-        "alternateNucleusDetectionEnabled": signal_selection.alternate_nucleus_detection_enabled,
-        "alternateNucleusDetectionChannel": signal_selection.alternate_nucleus_detection_channel,
+        "alternateNucleusDetectionEnabled": effective_alternate_enabled,
+        "alternateNucleusDetectionChannel": effective_alternate_channel,
         "punctaLineWidth": _parse_int(
             payload.get(
                 "punctaLineWidth",
@@ -305,7 +319,7 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
         ),
-        "alternateRedDetection": signal_selection.alternate_nucleus_detection_enabled,
+        "alternateRedDetection": effective_alternate_enabled,
         "auto_save_experiments": _parse_bool(
             payload.get("auto_save_experiments"),
             default=True,

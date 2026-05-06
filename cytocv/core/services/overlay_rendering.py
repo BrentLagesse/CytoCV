@@ -37,6 +37,10 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.signal_quantification import (
+    SIGNAL_MODE_PUNCTA_DISTANCE,
+    resolve_effective_alternate_nucleus_detection,
+)
 from core.stats_plugins import build_stats_execution_plan
 
 logger = logging.getLogger(__name__)
@@ -197,6 +201,19 @@ def build_overlay_render_config(
     red_dot_split_enabled: bool = True,
     red_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
 ) -> dict[str, object]:
+    effective_alternate_enabled, effective_alternate_channel = (
+        resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=signal_quantification_enabled,
+            signal_quantification_mode=signal_quantification_mode,
+            nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+            alternate_nucleus_detection_enabled=(
+                alternate_red_detection
+                if alternate_nucleus_detection_enabled is None
+                else alternate_nucleus_detection_enabled
+            ),
+            alternate_nucleus_detection_channel=alternate_nucleus_detection_channel,
+        )
+    )
     render_config: dict[str, object] = {
         "schema_version": OVERLAY_RENDER_SCHEMA_VERSION,
         "image_stem": str(image_stem),
@@ -216,16 +233,12 @@ def build_overlay_render_config(
         "cen_dot_distance_value_used": float(cen_dot_distance_value_used),
         "biorientation_collinearity_threshold": int(biorientation_collinearity_threshold),
         "green_contour_filter_enabled": bool(green_contour_filter_enabled),
-        "alternate_red_detection": bool(alternate_red_detection),
+        "alternate_red_detection": effective_alternate_enabled,
         "signal_quantification_enabled": bool(signal_quantification_enabled),
         "signal_quantification_mode": str(signal_quantification_mode),
         "puncta_contour_intensity_enabled": bool(puncta_contour_intensity_enabled),
-        "alternate_nucleus_detection_enabled": bool(
-            alternate_red_detection
-            if alternate_nucleus_detection_enabled is None
-            else alternate_nucleus_detection_enabled
-        ),
-        "alternate_nucleus_detection_channel": alternate_nucleus_detection_channel,
+        "alternate_nucleus_detection_enabled": effective_alternate_enabled,
+        "alternate_nucleus_detection_channel": effective_alternate_channel,
         "green_dot_split_enabled": bool(green_dot_split_enabled),
         "green_dot_split_mode": normalize_dot_split_mode(green_dot_split_mode),
         "red_dot_split_enabled": bool(red_dot_split_enabled),
@@ -329,6 +342,27 @@ def clone_cell_statistics_for_overlay(cell_stat: CellStatistics) -> CellStatisti
 
 
 def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict[str, object]:
+    signal_quantification_enabled = bool(
+        render_config.get("signal_quantification_enabled", True)
+    )
+    signal_quantification_mode = str(
+        render_config.get("signal_quantification_mode", SIGNAL_MODE_PUNCTA_DISTANCE)
+    )
+    nuclear_cell_pair_mode = str(render_config.get("nuclear_cell_pair_mode", "green_nucleus"))
+    effective_alternate_enabled, effective_alternate_channel = (
+        resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=signal_quantification_enabled,
+            signal_quantification_mode=signal_quantification_mode,
+            nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+            alternate_nucleus_detection_enabled=render_config.get(
+                "alternate_nucleus_detection_enabled",
+                render_config.get("alternate_red_detection", False),
+            ),
+            alternate_nucleus_detection_channel=render_config.get(
+                "alternate_nucleus_detection_channel"
+            ),
+        )
+    )
     return {
         "input_dir": input_dir,
         "output_dir": str(Path(settings.MEDIA_ROOT) / str(run_uuid)),
@@ -341,31 +375,18 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
             render_config.get("puncta_line_mode"),
             default=DEFAULT_PUNCTA_LINE_MODE,
         ),
-        "nuclear_cell_pair_mode": str(render_config.get("nuclear_cell_pair_mode", "green_nucleus")),
+        "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
         "green_contour_filter_enabled": bool(
             render_config.get("green_contour_filter_enabled", False)
         ),
-        "alternate_red_detection": bool(
-            render_config.get("alternate_red_detection", False)
-        ),
-        "signal_quantification_enabled": bool(
-            render_config.get("signal_quantification_enabled", True)
-        ),
-        "signal_quantification_mode": str(
-            render_config.get("signal_quantification_mode", "puncta_distance")
-        ),
+        "alternate_red_detection": effective_alternate_enabled,
+        "signal_quantification_enabled": signal_quantification_enabled,
+        "signal_quantification_mode": signal_quantification_mode,
         "puncta_contour_intensity_enabled": bool(
             render_config.get("puncta_contour_intensity_enabled", True)
         ),
-        "alternate_nucleus_detection_enabled": bool(
-            render_config.get(
-                "alternate_nucleus_detection_enabled",
-                render_config.get("alternate_red_detection", False),
-            )
-        ),
-        "alternate_nucleus_detection_channel": render_config.get(
-            "alternate_nucleus_detection_channel"
-        ),
+        "alternate_nucleus_detection_enabled": effective_alternate_enabled,
+        "alternate_nucleus_detection_channel": effective_alternate_channel,
         "green_dot_split_enabled": bool(
             render_config.get(
                 "green_dot_split_enabled",
@@ -425,6 +446,7 @@ def render_overlay_images_for_cell(
         int(cell_stat.cell_id),
         render_config,
     )
+    overlay_conf = _build_overlay_conf(run_uuid, render_config)
     execution_plan = build_stats_execution_plan(render_config.get("selected_analysis", []))
     render_cp.properties = dict(render_cp.properties or {})
     render_cp.properties["stats_biorientation_red_min_distance_value"] = render_config.get(
@@ -461,38 +483,30 @@ def render_overlay_images_for_cell(
     render_cp.properties["stats_red_dot_split_mode"] = normalize_dot_split_mode(
         render_config.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
     )
-    render_cp.properties["signal_quantification_enabled"] = bool(
-        render_config.get("signal_quantification_enabled", True)
-    )
-    render_cp.properties["signal_quantification_mode"] = str(
-        render_config.get("signal_quantification_mode", "puncta_distance")
-    )
+    render_cp.properties["signal_quantification_enabled"] = overlay_conf[
+        "signal_quantification_enabled"
+    ]
+    render_cp.properties["signal_quantification_mode"] = overlay_conf[
+        "signal_quantification_mode"
+    ]
     render_cp.properties["puncta_contour_intensity_enabled"] = bool(
         render_config.get("puncta_contour_intensity_enabled", True)
     )
-    render_cp.properties["alternate_nucleus_detection_enabled"] = bool(
-        render_config.get(
-            "alternate_nucleus_detection_enabled",
-            render_config.get("alternate_red_detection", False),
-        )
-    )
-    render_cp.properties["alternate_nucleus_detection_channel"] = render_config.get(
+    render_cp.properties["alternate_nucleus_detection_enabled"] = overlay_conf[
+        "alternate_nucleus_detection_enabled"
+    ]
+    render_cp.properties["alternate_nucleus_detection_channel"] = overlay_conf[
         "alternate_nucleus_detection_channel"
-    )
+    ]
     debug_red, debug_green, debug_blue = get_stats(
         render_cp,
-        _build_overlay_conf(run_uuid, render_config),
+        overlay_conf,
         execution_plan,
         int(render_config.get("puncta_line_width_px", 1)),
         float(render_config.get("cen_dot_distance_value_used", 37.0)),
         float(render_config.get("cen_dot_proximity_radius", 13)),
         bool(render_config.get("green_contour_filter_enabled", False)),
-        bool(
-            render_config.get(
-                "alternate_nucleus_detection_enabled",
-                render_config.get("alternate_red_detection", False),
-            )
-        ),
+        overlay_conf["alternate_nucleus_detection_enabled"],
         bool(
             render_config.get(
                 "green_dot_split_enabled",
@@ -507,7 +521,7 @@ def render_overlay_images_for_cell(
             render_config.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE)
         ),
         cached_images=images_to_use,
-        alternate_detection_channel=render_config.get("alternate_nucleus_detection_channel"),
+        alternate_detection_channel=overlay_conf["alternate_nucleus_detection_channel"],
     )
     return {
         "red": debug_red,

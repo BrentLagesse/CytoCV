@@ -21,7 +21,7 @@ from accounts.preferences import (
     should_auto_save_experiments,
     update_user_preferences,
 )
-from core.channel_roles import CHANNEL_ROLE_GREEN
+from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
 from core.models import (
     CellStatistics,
     DVLayerTifPreview,
@@ -30,7 +30,11 @@ from core.models import (
     get_guest_user,
 )
 from core.scale import apply_manual_override_scale, build_scale_info
-from core.services.signal_quantification import resolve_signal_quantification_selection
+from core.services.analysis_context import normalize_analysis_config_snapshot
+from core.services.signal_quantification import (
+    resolve_effective_alternate_nucleus_detection,
+    resolve_signal_quantification_selection,
+)
 from core.stats_plugins import PLUGIN_DEFINITIONS
 
 
@@ -235,6 +239,34 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(selection.alternate_nucleus_detection_enabled)
         self.assertIsNone(selection.alternate_nucleus_detection_channel)
 
+    def test_effective_alternate_detection_is_disabled_in_puncta_mode(self):
+        enabled, channel = resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=True,
+            signal_quantification_mode="puncta_distance",
+            nuclear_cell_pair_mode="red_nucleus",
+            alternate_nucleus_detection_enabled=True,
+            alternate_nucleus_detection_channel=CHANNEL_ROLE_GREEN,
+        )
+
+        self.assertFalse(enabled)
+        self.assertIsNone(channel)
+
+    def test_analysis_snapshot_disables_operational_alternate_detection_in_puncta_mode(self):
+        normalized = normalize_analysis_config_snapshot(
+            {
+                "selected_analysis": ["PunctaDistance"],
+                "signalQuantificationEnabled": True,
+                "signalQuantificationMode": "puncta_distance",
+                "alternateNucleusDetectionEnabled": True,
+                "alternateNucleusDetectionChannel": CHANNEL_ROLE_GREEN,
+                "nuclear_cell_pair_mode": "green_nucleus",
+            }
+        )
+
+        self.assertFalse(normalized["alternateNucleusDetectionEnabled"])
+        self.assertIsNone(normalized["alternateNucleusDetectionChannel"])
+        self.assertFalse(normalized["alternateRedDetection"])
+
     def test_signal_quantification_applies_alternate_detection_in_nuclear_mode(self):
         selection = resolve_signal_quantification_selection(
             payload={
@@ -248,6 +280,18 @@ class PreferenceNormalizationTests(TestCase):
 
         self.assertTrue(selection.alternate_nucleus_detection_enabled)
         self.assertEqual(selection.alternate_nucleus_detection_channel, CHANNEL_ROLE_GREEN)
+
+    def test_effective_alternate_detection_derives_channel_in_nuclear_mode(self):
+        enabled, channel = resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=True,
+            signal_quantification_mode="nuclear_cell_pair",
+            nuclear_cell_pair_mode="red_nucleus",
+            alternate_nucleus_detection_enabled=True,
+            alternate_nucleus_detection_channel=None,
+        )
+
+        self.assertTrue(enabled)
+        self.assertEqual(channel, CHANNEL_ROLE_RED)
 
     def test_signal_quantification_nuclear_mode_preserves_configured_secondary_plugins(self):
         selection = resolve_signal_quantification_selection(
