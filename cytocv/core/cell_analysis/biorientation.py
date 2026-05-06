@@ -142,6 +142,14 @@ class Biorientation(Analysis):
             for green_slot in green_slots:
                 if not CENDot._green_slot_inside_pair_mask(green_slot, cell_mask):
                     continue
+                if not self._projects_within_segment(
+                    green_slot.center,
+                    center_1,
+                    center_2,
+                    endpoint1_padding=anchor_radius_1,
+                    endpoint2_padding=anchor_radius_2,
+                ):
+                    continue
                 if self._is_collinear(
                     green_slot.center,
                     center_1,
@@ -160,6 +168,29 @@ class Biorientation(Analysis):
             logger.debug("Biorientation analysis skipped: %s", exc)
             self.cp.colinear_dots = 0
             self.cp.off_axis_dots = 0
+
+    @staticmethod
+    def _projects_within_segment(
+        point,
+        endpoint1,
+        endpoint2,
+        *,
+        endpoint1_padding: float = 0.0,
+        endpoint2_padding: float = 0.0,
+    ) -> bool:
+        px, py = float(point[0]), float(point[1])
+        x1, y1 = float(endpoint1[0]), float(endpoint1[1])
+        x2, y2 = float(endpoint2[0]), float(endpoint2[1])
+        dx = x2 - x1
+        dy = y2 - y1
+        squared_dist = dx * dx + dy * dy
+        if squared_dist <= 0.0:
+            return False
+        length = math.sqrt(squared_dist)
+        dot = (px - x1) * dx + (py - y1) * dy
+        min_dot = -max(float(endpoint1_padding), 0.0) * length
+        max_dot = squared_dist + max(float(endpoint2_padding), 0.0) * length
+        return min_dot <= dot <= max_dot
 
     @staticmethod
     def _is_collinear(
