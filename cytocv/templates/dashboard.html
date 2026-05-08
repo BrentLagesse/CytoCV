@@ -4017,6 +4017,18 @@
             return [1, -1, 2, -2];
         }
 
+        function buildFullCircularCellOrder(activeCellNumber, totalCells) {
+            const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
+            if (sortedIds.length < 2 || Number(totalCells || 0) < 1) {
+                return [];
+            }
+            const currentIdx = Math.max(0, sortedIds.indexOf(Number(activeCellNumber)));
+            const ordered = [];
+            for (let offset = 1; offset < sortedIds.length; offset += 1) {
+                ordered.push(sortedIds[(currentIdx + offset) % sortedIds.length]);
+            }
+            return ordered;
+        }
 
         function getCircularWarmQueue(direction = 'initial') {
             const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
@@ -4025,7 +4037,9 @@
             }
             const currentIdx = Math.max(0, sortedIds.indexOf(Number(currentCellNumber)));
             const offsets = sortedIds.length <= 5
-                ? sortedIds.map((_, index) => index).filter((index) => index !== 0)
+                ? buildFullCircularCellOrder(currentCellNumber, maxCells).map((cellNumber) => (
+                    (sortedIds.indexOf(cellNumber) - currentIdx + sortedIds.length) % sortedIds.length
+                ))
                 : getWarmPriorityOffsets(direction);
             const seen = new Set();
             const ordered = [];
