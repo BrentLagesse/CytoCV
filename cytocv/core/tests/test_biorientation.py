@@ -205,7 +205,10 @@ class BiorientationTests(SimpleTestCase):
         self.assertEqual(long.colinear_dots, 1)
         self.assertEqual(long.off_axis_dots, 0)
 
-    def test_dot_on_infinite_line_outside_segment_is_off_axis(self):
+    def test_dot_on_infinite_line_outside_segment_is_not_counted(self):
+        # 5 px past the second anchor exceeds the ~2.03 px effective anchor
+        # radius, so the projection sits outside the anchor-padded segment.
+        # Such dots are excluded from BOTH counts (issue follow-up to #240).
         cp = self._run(
             red_centers=[(10, 20), (30, 20)],
             green_centers=[(35, 20)],
@@ -214,9 +217,138 @@ class BiorientationTests(SimpleTestCase):
         )
 
         self.assertEqual(cp.colinear_dots, 0)
-        self.assertEqual(cp.off_axis_dots, 1)
+        self.assertEqual(cp.off_axis_dots, 0)
 
     def test_zero_length_axis_returns_false(self):
         self.assertFalse(
             Biorientation._is_collinear((10.0, 10.0), (5.0, 5.0), (5.0, 5.0), 3)
         )
+
+    def test_green_just_past_anchor_within_radius_is_colinear(self):
+        # _disk_slot(radius=2) yields a mask area of ~13 px → effective anchor
+        # radius ~2.03 px. A green centroid 1 px past the second red anchor
+        # along the axis still falls inside the anchor footprint and must be
+        # classified as colinear (issue #240).
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(31, 20)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 1)
+        self.assertEqual(cp.off_axis_dots, 0)
+
+    def test_green_past_anchor_beyond_radius_is_not_counted(self):
+        # 3 px past the endpoint exceeds the ~2.03 px effective anchor radius,
+        # so the projection is outside the anchor-padded segment and the dot
+        # is excluded from both colinear and off-axis counts.
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(33, 20)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 0)
+
+    def test_green_past_anchor_with_perpendicular_offset_stays_off_axis(self):
+        # Anchor padding is along-axis only; perpendicular threshold is unchanged.
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(31, 26)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 1)
+
+    def test_anchor_padding_extends_segment_along_axis(self):
+        # 1.5 px past endpoint with 2 px padding → colinear.
+        self.assertTrue(
+            Biorientation._is_collinear(
+                (11.5, 0.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint2_padding=2.0
+            )
+        )
+        # 2.5 px past endpoint with 2 px padding → off-axis.
+        self.assertFalse(
+            Biorientation._is_collinear(
+                (12.5, 0.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint2_padding=2.0
+            )
+        )
+        # Padding does not relax the perpendicular threshold.
+        self.assertFalse(
+            Biorientation._is_collinear(
+                (11.0, 5.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint2_padding=2.0
+            )
+        )
+        # Padding applies symmetrically to endpoint1.
+        self.assertTrue(
+            Biorientation._is_collinear(
+                (-1.5, 0.0), (0.0, 0.0), (10.0, 0.0), 3, endpoint1_padding=2.0
+            )
+        )
+
+    def test_off_axis_outside_segment_is_not_counted(self):
+        # Perpendicular distance well beyond the colinearity threshold AND
+        # projection outside the anchor-padded segment: the dot must be
+        # excluded from both counts, not silently bucketed as off-axis.
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(35, 30)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 0)
+
+    def test_off_axis_inside_segment_is_counted(self):
+        # Perpendicular distance > threshold but projection inside the
+        # segment: still counted as off-axis (regression check for the new
+        # gate not over-filtering).
+        cp = self._run(
+            red_centers=[(10, 20), (30, 20)],
+            green_centers=[(20, 35)],
+            threshold=3,
+            max_distance=40,
+        )
+
+        self.assertEqual(cp.colinear_dots, 0)
+        self.assertEqual(cp.off_axis_dots, 1)
+
+    def test_projects_within_segment_helper(self):
+        e1 = (0.0, 0.0)
+        e2 = (10.0, 0.0)
+
+        # Inside segment without padding.
+        self.assertTrue(Biorientation._projects_within_segment((5.0, 0.0), e1, e2))
+        # Just past endpoint without padding.
+        self.assertFalse(Biorientation._projects_within_segment((10.5, 0.0), e1, e2))
+        # Just past endpoint with sufficient padding.
+        self.assertTrue(
+            Biorientation._projects_within_segment(
+                (11.5, 0.0), e1, e2, endpoint2_padding=2.0
+            )
+        )
+        # Past endpoint beyond padding.
+        self.assertFalse(
+            Biorientation._projects_within_segment(
+                (12.5, 0.0), e1, e2, endpoint2_padding=2.0
+            )
+        )
+        # Symmetric padding for endpoint1.
+        self.assertTrue(
+            Biorientation._projects_within_segment(
+                (-1.5, 0.0), e1, e2, endpoint1_padding=2.0
+            )
+        )
+        # Zero-length axis returns False.
+        self.assertFalse(
+            Biorientation._projects_within_segment((1.0, 0.0), (5.0, 5.0), (5.0, 5.0))
+        )
+        # Perpendicular distance is irrelevant to this helper: a far-perpendicular
+        # point whose projection is inside the segment still returns True.
+        self.assertTrue(Biorientation._projects_within_segment((5.0, 50.0), e1, e2))

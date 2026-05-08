@@ -376,7 +376,7 @@ main.main > section.panel > form.panel > .card {
   line-height: 1.25;
   opacity: 0;
   transform: translateY(-5px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 .signal-mode-paused-note.is-active {
@@ -441,8 +441,12 @@ main.main > section.panel > form.panel > .card {
 }
 
 .plugin-inline .plugin-measure-right,
+#advancedForm #dotSplitTargetRow .plugin-measure-right,
+#pluginForm #dotSplitTargetRow .plugin-measure-right,
 #advancedForm #greenDotSplitModeRow .plugin-measure-right,
-#pluginForm #greenDotSplitModeRow .plugin-measure-right {
+#pluginForm #greenDotSplitModeRow .plugin-measure-right,
+#advancedForm #redDotSplitModeRow .plugin-measure-right,
+#pluginForm #redDotSplitModeRow .plugin-measure-right {
   justify-self: end;
   align-self: start;
   width: 100%;
@@ -452,8 +456,12 @@ main.main > section.panel > form.panel > .card {
 .plugin-inline .length-input-group.plugin-measure-right,
 .plugin-inline .boxed-number-group.plugin-measure-right,
 .plugin-inline .mode-select-group.plugin-measure-right,
+#advancedForm #dotSplitTargetRow .mode-select-group.plugin-measure-right,
+#pluginForm #dotSplitTargetRow .mode-select-group.plugin-measure-right,
 #advancedForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right,
-#pluginForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right {
+#pluginForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right,
+#advancedForm #redDotSplitModeRow .mode-select-group.plugin-measure-right,
+#pluginForm #redDotSplitModeRow .mode-select-group.plugin-measure-right {
   width: 100%;
 }
 
@@ -464,8 +472,12 @@ main.main > section.panel > form.panel > .card {
 }
 
 .plugin-inline .mode-select-group.plugin-measure-right select,
+#advancedForm #dotSplitTargetRow .mode-select-group.plugin-measure-right select,
+#pluginForm #dotSplitTargetRow .mode-select-group.plugin-measure-right select,
 #advancedForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right select,
-#pluginForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right select {
+#pluginForm #greenDotSplitModeRow .mode-select-group.plugin-measure-right select,
+#advancedForm #redDotSplitModeRow .mode-select-group.plugin-measure-right select,
+#pluginForm #redDotSplitModeRow .mode-select-group.plugin-measure-right select {
   width: 100%;
 }
 
@@ -556,13 +568,29 @@ main.main > section.panel > form.panel > .card {
   white-space: nowrap;
 }
 .length-unit-trigger:hover { background: rgba(255, 255, 255, 0.08); }
-.length-unit-dropdown.open { z-index: 4500; }
+.length-unit-dropdown.open { z-index: 5200; }
 .length-unit-dropdown.open .length-unit-trigger { background: rgba(255, 255, 255, 0.13); }
+.length-unit-dropdown.is-disabled .length-unit-trigger,
+.length-unit-trigger:disabled {
+  opacity: var(--workflow-module-disabled-opacity);
+  cursor: not-allowed;
+}
+.length-unit-dropdown.is-disabled .length-unit-trigger:hover,
+.length-unit-trigger:disabled:hover {
+  background: transparent;
+}
 .row:has(.length-unit-dropdown.open),
 .row-sub:has(.length-unit-dropdown.open),
 .plugin:has(.length-unit-dropdown.open) {
   position: relative;
-  z-index: 4500;
+  z-index: 5200;
+}
+.row.mode-menu-open,
+.row-sub.mode-menu-open,
+.plugin.mode-menu-open {
+  position: relative;
+  z-index: 5200;
+  overflow: visible;
 }
 .length-unit-caret {
   width: 0;
@@ -582,7 +610,7 @@ main.main > section.panel > form.panel > .card {
   border-radius: 8px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42);
   overflow: hidden;
-  z-index: 4200;
+  z-index: 5300;
 }
 .length-unit-option {
   width: 100%;
@@ -607,6 +635,16 @@ main.main > section.panel > form.panel > .card {
 }
 .length-unit-option:hover { background: #464646; color: #ffffff; }
 .length-unit-option.is-selected { background: #5a5a5a; color: #ffffff; font-weight: 600; }
+.length-unit-option:disabled,
+.length-unit-option.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.length-unit-option:disabled:hover,
+.length-unit-option.is-disabled:hover {
+  background: #2f2f2f;
+  color: #efefef;
+}
 /* Mode-select (standalone, no number input to the left) */
 .mode-select-group .length-unit-dropdown { width: 100%; }
 .mode-select-group .length-unit-trigger {
@@ -768,13 +806,17 @@ main.main > section.panel > form.panel > .card {
   flex: 1 1 auto;
 }
 
-#advancedForm #greenDotSplitRow .row-line,
-#pluginForm #greenDotSplitRow .row-line {
+#advancedForm #dotSplitRow .row-line,
+#pluginForm #dotSplitRow .row-line {
   align-items: flex-start;
 }
 
+#advancedForm #dotSplitTargetRow,
+#pluginForm #dotSplitTargetRow,
 #advancedForm #greenDotSplitModeRow,
-#pluginForm #greenDotSplitModeRow {
+#pluginForm #greenDotSplitModeRow,
+#advancedForm #redDotSplitModeRow,
+#pluginForm #redDotSplitModeRow {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--workflow-module-control-width);
@@ -794,8 +836,12 @@ main.main > section.panel > form.panel > .card {
     transform 0.2s ease;
 }
 
+#advancedForm #dotSplitTargetRow.is-active,
+#pluginForm #dotSplitTargetRow.is-active,
 #advancedForm #greenDotSplitModeRow.is-active,
-#pluginForm #greenDotSplitModeRow.is-active {
+#pluginForm #greenDotSplitModeRow.is-active,
+#advancedForm #redDotSplitModeRow.is-active,
+#pluginForm #redDotSplitModeRow.is-active {
   max-height: 96px;
   opacity: 1;
   padding-top: 10px;
@@ -804,8 +850,48 @@ main.main > section.panel > form.panel > .card {
   transform: translateY(0);
 }
 
+#pluginForm #dotSplitRow:has(#dot_split_enabled:checked) #dotSplitTargetRow,
+#pluginForm #dotSplitRow:has(#dot_split_enabled:checked) #greenDotSplitModeRow,
+#pluginForm #dotSplitRow:has(#dot_split_enabled:checked) #redDotSplitModeRow {
+  max-height: 96px;
+  opacity: 1;
+  padding-top: 10px;
+  overflow: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+#pluginForm #dotSplitRow:has(#dot_split_enabled:not(:checked)) {
+  background: var(--workflow-module-off-bg);
+  border-color: var(--workflow-module-off-border);
+  filter: var(--workflow-module-off-filter);
+  gap: 0;
+}
+
+#pluginForm #dotSplitRow.is-off {
+  gap: 0;
+}
+
+#pluginForm #dotSplitRow:has(#dot_split_enabled:not(:checked)) .row-copy {
+  opacity: var(--workflow-module-off-text-opacity);
+}
+
+#pluginForm #dotSplitRow:has(#dot_split_enabled:not(:checked)) .row-line > .sw {
+  opacity: var(--workflow-module-off-control-opacity);
+}
+
+#pluginForm #greenDotSplitModeRow:has(select:disabled),
+#pluginForm #redDotSplitModeRow:has(select:disabled) {
+  opacity: var(--workflow-module-disabled-opacity);
+  pointer-events: none;
+}
+
+#advancedForm #dotSplitTargetRow::before,
+#pluginForm #dotSplitTargetRow::before,
 #advancedForm #greenDotSplitModeRow::before,
-#pluginForm #greenDotSplitModeRow::before {
+#pluginForm #greenDotSplitModeRow::before,
+#advancedForm #redDotSplitModeRow::before,
+#pluginForm #redDotSplitModeRow::before {
   content: "";
   position: absolute;
   top: 0;
@@ -834,10 +920,20 @@ main.main > section.panel > form.panel > .card {
 
 #pluginForm [data-workflow-card="measurement-scale"] .compact-control,
 .plugin-inline .compact-control.plugin-measure-right,
+#advancedForm #dotSplitTargetRow .compact-control.plugin-measure-right,
+#pluginForm #dotSplitTargetRow .compact-control.plugin-measure-right,
 #advancedForm #greenDotSplitModeRow .compact-control.plugin-measure-right,
-#pluginForm #greenDotSplitModeRow .compact-control.plugin-measure-right {
+#pluginForm #greenDotSplitModeRow .compact-control.plugin-measure-right,
+#advancedForm #redDotSplitModeRow .compact-control.plugin-measure-right,
+#pluginForm #redDotSplitModeRow .compact-control.plugin-measure-right {
   width: 100%;
   max-width: var(--workflow-module-compact-control-width);
+}
+
+.plugin-inline .compact-control.plugin-measure-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
 }
 
 #pluginForm [data-workflow-card="measurement-scale"] .mode-select-group.plugin-measure-right select {
@@ -1398,8 +1494,12 @@ main.main > section.panel > form.panel > .card {
   }
 
   .plugin-measure-line,
+  #advancedForm #dotSplitTargetRow,
+  #pluginForm #dotSplitTargetRow,
   #advancedForm #greenDotSplitModeRow,
   #pluginForm #greenDotSplitModeRow,
+  #advancedForm #redDotSplitModeRow,
+  #pluginForm #redDotSplitModeRow,
   #pluginForm [data-workflow-card="dot-detection"] > .row:not(.combo),
   #pluginForm [data-workflow-card="measurement-scale"] > .row {
     grid-template-columns: 1fr;
@@ -1407,8 +1507,12 @@ main.main > section.panel > form.panel > .card {
   }
 
   .plugin-inline .plugin-measure-right,
+  #advancedForm #dotSplitTargetRow .plugin-measure-right,
+  #pluginForm #dotSplitTargetRow .plugin-measure-right,
   #advancedForm #greenDotSplitModeRow .plugin-measure-right,
   #pluginForm #greenDotSplitModeRow .plugin-measure-right,
+  #advancedForm #redDotSplitModeRow .plugin-measure-right,
+  #pluginForm #redDotSplitModeRow .plugin-measure-right,
   #pluginForm [data-workflow-card="measurement-scale"] .plugin-measure-right,
   #pluginForm [data-workflow-card="measurement-scale"] .measurement-scale-input-group {
     justify-self: stretch;
@@ -1490,18 +1594,23 @@ main.main > section.panel > form.panel > .card {
           <div class="plugin signal-quantification" id="signalQuantificationModule">
             <div class="plugin-main">
               <p><strong>Signal Quantification</strong></p>
-              <p class="desc">Choose one primary signal workflow for this experiment.</p>
+              <p class="desc">Controls the primary Red/Green signal measurement workflow for this experiment. Choose one primary mode: Puncta Distance or Nuclear, Cell-Pair Intensity.</p>
               <p class="reqtxt">Requires: Red, Green.</p>
             </div>
             <input type="hidden" name="signal_quantification_enabled" value="0">
             <label class="sw"><input type="checkbox" id="signal_quantification_enabled" name="signal_quantification_enabled" value="1" {% if preferences.experiment_defaults.signal_quantification_enabled %}checked{% endif %}><span class="sl"></span></label>
             <div class="plugin-inline{% if preferences.experiment_defaults.signal_quantification_enabled %} is-active{% endif %}" id="signalQuantificationInline" aria-hidden="{% if preferences.experiment_defaults.signal_quantification_enabled %}false{% else %}true{% endif %}">
-              <div class="plugin-measure-line">
-                <div class="plugin-measure-copy">
-                  <label for="signal_quantification_mode">Primary Mode:</label>
-                  <p class="module-help">Puncta Distance can also calculate Red/Green contour intensities. Nuclear, Cell-Pair Intensity measures the opposite channel inside the selected nucleus contour and full cell-pair mask.</p>
-                  <p class="signal-mode-paused-note" id="signalModePausedNote" aria-hidden="true"></p>
-                </div>
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
+                    <label for="signal_quantification_mode">Primary Mode:</label>
+                    <p class="module-help">Primary Mode selects which mutually exclusive signal workflow is saved as the default. The selected mode determines which statistics are calculated, which child controls are shown, and which results appear in the output.</p>
+                    <p
+                      class="signal-mode-paused-note{% if preferences.experiment_defaults.signal_quantification_enabled %} is-active{% if preferences.experiment_defaults.signal_quantification_mode == 'nuclear_cell_pair' %} is-paused{% else %} is-enabled{% endif %}{% endif %}"
+                      id="signalModePausedNote"
+                      aria-hidden="{% if preferences.experiment_defaults.signal_quantification_enabled %}false{% else %}true{% endif %}"
+                      data-state="{% if preferences.experiment_defaults.signal_quantification_enabled %}{% if preferences.experiment_defaults.signal_quantification_mode == 'nuclear_cell_pair' %}paused{% else %}enabled{% endif %}{% endif %}"
+                    >{% if preferences.experiment_defaults.signal_quantification_enabled %}{% if preferences.experiment_defaults.signal_quantification_mode == 'nuclear_cell_pair' %}Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.{% else %}All other stat modules enabled in Puncta Distance mode.{% endif %}{% endif %}</p>
+                  </div>
                 <div class="mode-select-group plugin-measure-right">
                   <select id="signal_quantification_mode" name="signal_quantification_mode"><option value="puncta_distance" {% if preferences.experiment_defaults.signal_quantification_mode != 'nuclear_cell_pair' %}selected{% endif %}>Puncta Distance</option><option value="nuclear_cell_pair" {% if preferences.experiment_defaults.signal_quantification_mode == 'nuclear_cell_pair' %}selected{% endif %}>Nuclear, Cell-Pair Intensity</option></select>
                 </div>
@@ -1510,8 +1619,14 @@ main.main > section.panel > form.panel > .card {
               <div class="signal-mode-panel" id="signalPunctaPanel" data-signal-mode-panel="puncta_distance">
                 <div class="plugin-measure-line">
                   <div class="plugin-measure-copy">
+                    <label>Puncta Distance:</label>
+                    <p class="module-help">Detects the first two usable puncta in the selected source channel, measures the distance between their centers, draws a line mask between them, and sums intensity from the opposite measurement channel along that line. Results include puncta distance, puncta line intensity, and pixel/scale-adjusted distance values.</p>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
                     <label for="puncta_line_mode">Puncta Source:</label>
-                    <p class="module-help">Chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.</p>
+                    <p class="module-help">Chooses which channel defines the two puncta and which opposite channel is measured. Red Puncta measures Green signal along the Red-puncta line; Green Puncta measures Red signal along the Green-puncta line.</p>
                   </div>
                   <div class="mode-select-group plugin-measure-right">
                     <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option></select>
@@ -1520,7 +1635,7 @@ main.main > section.panel > form.panel > .card {
                 <div class="plugin-measure-line">
                   <div class="plugin-measure-copy">
                     <label for="puncta_line_width">Puncta Line Width:</label>
-                    <p class="module-help">Sets the thickness of the line mask used for the intensity sum. Values can be saved in px or um.</p>
+                    <p class="module-help">Sets the thickness of the line mask used for the line-intensity sum. Values can be entered in pixels or microns; micron values are converted using the active measurement scale.</p>
                   </div>
                   <div class="length-input-group plugin-measure-right">
                     <input type="number" step="0.01" min="0" id="puncta_line_width" name="puncta_line_width" value="{{ preferences.experiment_defaults.puncta_line_width }}">
@@ -1530,7 +1645,7 @@ main.main > section.panel > form.panel > .card {
                 <div class="plugin-measure-line">
                   <div class="plugin-measure-copy">
                     <label for="puncta_contour_intensity_enabled">Red/Green Contour Intensities:</label>
-                    <p class="module-help">Calculates raw Red/Green sums in Red and Green contour masks plus the Measurement/Contour ratios for the selected puncta source.</p>
+                    <p class="module-help">Optionally calculates raw intensity sums inside detected Red and Green contour masks. When enabled, results include Red in Red, Green in Red, Red in Green, Green in Green, Green-from-Red distance fields, and Measurement/Contour ratios for the selected puncta source.</p>
                   </div>
                   <div class="plugin-measure-right compact-control">
                     <input type="hidden" name="puncta_contour_intensity_enabled" value="0">
@@ -1541,8 +1656,14 @@ main.main > section.panel > form.panel > .card {
               <div class="signal-mode-panel" id="signalNuclearPanel" data-signal-mode-panel="nuclear_cell_pair">
                 <div class="plugin-measure-line">
                   <div class="plugin-measure-copy">
+                    <label>Nuclear, Cell-Pair Intensity:</label>
+                    <p class="module-help">Measures signal from the selected measurement channel inside the selected nucleus contour and inside the full DIC cell-pair mask. Results include nucleus contour channel, measurement channel, nuclear intensity, cell-pair intensity, cytoplasmic intensity, and nuclear status.</p>
+                  </div>
+                </div>
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
                     <label for="nuclear_cell_pair_mode">Nucleus Contour Source:</label>
-                    <p class="module-help">Chooses which channel supplies the nucleus contour. Green Nucleus measures Red signal; Red Nucleus measures Green signal.</p>
+                    <p class="module-help">Chooses which channel supplies the nucleus contour and which opposite channel is measured. Green Nucleus uses the Green contour as the nucleus and measures Red signal; Red Nucleus uses the Red contour as the nucleus and measures Green signal.</p>
                   </div>
                   <div class="mode-select-group plugin-measure-right">
                     <select id="nuclear_cell_pair_mode" name="nuclear_cell_pair_mode"><option value="green_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'green_nucleus' %}selected{% endif %}>Green Nucleus (Measure Red)</option><option value="red_nucleus" {% if preferences.experiment_defaults.nuclear_cell_pair_mode == 'red_nucleus' %}selected{% endif %}>Red Nucleus (Measure Green)</option></select>
@@ -1551,7 +1672,7 @@ main.main > section.panel > form.panel > .card {
                   <div class="plugin-measure-line">
                     <div class="plugin-measure-copy">
                       <label for="alternate_nucleus_detection_enabled">Alternate Nucleus Detection:</label>
-                      <p class="module-help">Only affects Nuclear, Cell-Pair Intensity. Uses the alternate contour detection path on the selected nucleus source channel only.</p>
+                      <p class="module-help">Changes only the Nuclear, Cell-Pair nucleus contour path. When enabled, the alternate detection path is used for the selected nucleus source channel only: Red Nucleus uses alternate Red detection, and Green Nucleus uses alternate Green detection. If disabled, the standard nucleus contour path is used.</p>
                     </div>
                   <div class="plugin-measure-right compact-control">
                     <input type="hidden" name="alternate_nucleus_detection_enabled" value="0">
@@ -1667,24 +1788,45 @@ main.main > section.panel > form.panel > .card {
         </div></div>
         <div class="card" data-workflow-card="dot-detection">
           <p class="section-eyebrow card-title">Dot Detection</p>
-          <div class="row combo" id="greenDotSplitRow">
+          <div class="row combo{% if not preferences.experiment_defaults.green_dot_split_enabled and not preferences.experiment_defaults.red_dot_split_enabled %} is-off{% endif %}" id="dotSplitRow">
             <div class="row-line">
               <div class="row-copy">
                 <span class="row-label-line">
-                  <label for="green_dot_split_enabled">Split Merged Green Dots</label>
+                  <label for="dot_split_enabled">Split Merged Dots</label>
                 </span>
-                <p class="module-help">Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use this when two nearby Green dots are detected as one merged contour.</p>
-                <p class="reqtxt">Requires: Green.</p>
+                <p class="module-help">Splits connected multi-peak Red and/or Green signal into separate dot contours before statistics are calculated.</p>
+                <p class="reqtxt">Requires: Red or Green.</p>
               </div>
-              <input type="hidden" name="green_dot_split_enabled" value="0">
-              <label class="sw"><input type="checkbox" id="green_dot_split_enabled" name="green_dot_split_enabled" value="1" {% if preferences.experiment_defaults.green_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label>
+              <input type="hidden" id="green_dot_split_enabled" name="green_dot_split_enabled" value="{% if preferences.experiment_defaults.green_dot_split_enabled %}1{% else %}0{% endif %}">
+              <input type="hidden" id="red_dot_split_enabled" name="red_dot_split_enabled" value="{% if preferences.experiment_defaults.red_dot_split_enabled %}1{% else %}0{% endif %}">
+              <label class="sw"><input type="checkbox" id="dot_split_enabled" {% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %}checked{% endif %}><span class="sl"></span></label>
             </div>
-            <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled %} is-active{% endif %}" id="greenDotSplitModeRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled %}false{% else %}true{% endif %}">
+            <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %} is-active{% endif %}" id="dotSplitTargetRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %}false{% else %}true{% endif %}">
               <div class="row-copy">
-                <span class="row-label-line"><label for="green_dot_split_mode">Green Dot Split Mode</label></span>
+                <span class="row-label-line"><label for="dot_split_target">Split Target</label></span>
+                <p class="module-help">Choose which dot contours get the post-contour merge fix.</p>
+              </div>
+              <div class="mode-select-group plugin-measure-right compact-control">
+                <select id="dot_split_target">
+                  <option value="both" {% if preferences.experiment_defaults.green_dot_split_enabled and preferences.experiment_defaults.red_dot_split_enabled %}selected{% endif %}>Both</option>
+                  <option value="green" {% if preferences.experiment_defaults.green_dot_split_enabled and not preferences.experiment_defaults.red_dot_split_enabled %}selected{% endif %}>Green</option>
+                  <option value="red" {% if preferences.experiment_defaults.red_dot_split_enabled and not preferences.experiment_defaults.green_dot_split_enabled %}selected{% endif %}>Red</option>
+                </select>
+              </div>
+            </div>
+            <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %} is-active{% endif %}{% if not preferences.experiment_defaults.green_dot_split_enabled %} disabled{% endif %}" id="greenDotSplitModeRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %}false{% else %}true{% endif %}">
+              <div class="row-copy">
+                <span class="row-label-line"><label for="green_dot_split_mode">Green Split Mode</label></span>
                 <p class="module-help">Balanced uses standard split sensitivity, now stronger than the old balanced mode. Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots.</p>
               </div>
-              <div class="mode-select-group plugin-measure-right compact-control"><select id="green_dot_split_mode" name="green_dot_split_mode"><option value="balanced" {% if preferences.experiment_defaults.green_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.green_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
+              <div class="mode-select-group plugin-measure-right compact-control"><select id="green_dot_split_mode" name="green_dot_split_mode" {% if not preferences.experiment_defaults.green_dot_split_enabled %}disabled{% endif %}><option value="balanced" {% if preferences.experiment_defaults.green_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.green_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
+            </div>
+            <div class="row-sub{% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %} is-active{% endif %}{% if not preferences.experiment_defaults.red_dot_split_enabled %} disabled{% endif %}" id="redDotSplitModeRow" aria-hidden="{% if preferences.experiment_defaults.green_dot_split_enabled or preferences.experiment_defaults.red_dot_split_enabled %}false{% else %}true{% endif %}">
+              <div class="row-copy">
+                <span class="row-label-line"><label for="red_dot_split_mode">Red Split Mode</label></span>
+                <p class="module-help">Balanced uses standard split sensitivity. Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Red dots.</p>
+              </div>
+              <div class="mode-select-group plugin-measure-right compact-control"><select id="red_dot_split_mode" name="red_dot_split_mode" {% if not preferences.experiment_defaults.red_dot_split_enabled %}disabled{% endif %}><option value="balanced" {% if preferences.experiment_defaults.red_dot_split_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.red_dot_split_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select></div>
             </div>
           </div>
           <div class="row">
@@ -1873,6 +2015,11 @@ main.main > section.panel > form.panel > .card {
           <p class="section-eyebrow card-title">Saving Preferences</p>
           <div class="row"><div class="row-copy"><label for="auto_save_experiments">Auto-Save Experiment Files To Account</label><p class="module-help">When enabled, completed experiment runs are saved to the account dashboard. When off, new runs are excluded from dashboard history.</p></div><label class="sw"><input type="checkbox" id="auto_save_experiments" name="auto_save_experiments" {% if preferences.auto_save_experiments %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
+        <div class="card" data-workflow-card="deletion-preferences">
+          <p class="section-eyebrow card-title">Deletion Preferences</p>
+          <div class="row"><div class="row-copy"><label for="confirm_cell_deletion">Confirm Before Deleting Cells</label><p class="module-help">When enabled, deleting a cell opens a confirmation dialog. When off, cell delete actions run immediately.</p></div><label class="sw"><input type="checkbox" id="confirm_cell_deletion" name="confirm_cell_deletion" {% if preferences.confirm_cell_deletion %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><label for="confirm_multi_cell_deletion">Confirm Before Deleting Multiple Cells</label><p class="module-help">When enabled, deleting selected cells opens a confirmation step. When off, selected cells are deleted immediately.</p></div><label class="sw"><input type="checkbox" id="confirm_multi_cell_deletion" name="confirm_multi_cell_deletion" {% if preferences.confirm_multi_cell_deletion %}checked{% endif %}><span class="sl"></span></label></div>
+        </div>
         <div class="card" data-workflow-card="sidebar-preferences">
           <p class="section-eyebrow card-title">Sidebar Preferences</p>
           <div class="row"><div class="row-copy"><label for="show_saved_file_channels">Show Channel Tags In Dashboard Sidebar</label><p class="module-help">Shows DIC, Blue, Red, and Green tags under each saved file so channel availability can be scanned from the dashboard sidebar.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
@@ -1928,7 +2075,7 @@ main.main > section.panel > form.panel > .card {
 </div>
 
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
-<script src="{% static 'js/workflow_defaults.js' %}" defer></script>
+<script src="{% static 'js/workflow_defaults.js' %}?v=signal-status-20260504" defer></script>
 </div>
 {% endblock content %}
 

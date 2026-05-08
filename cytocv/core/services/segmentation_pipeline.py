@@ -72,12 +72,13 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
+    resolve_effective_alternate_nucleus_detection,
 )
 from core.stats_plugins import build_stats_execution_plan
 from core.views.segment_image import (
@@ -975,6 +976,10 @@ def run_segmentation_batch(
                 SIGNAL_MODE_PUNCTA_DISTANCE,
             )
         )
+        nuclear_cell_pair_mode = config_snapshot.get(
+            "nuclear_cell_pair_mode",
+            config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
+        )
         puncta_contour_intensity_enabled = bool(
             config_snapshot.get(
                 "punctaContourIntensityEnabled",
@@ -989,6 +994,19 @@ def run_segmentation_batch(
         )
         alternate_nucleus_detection_channel = config_snapshot.get(
             "alternateNucleusDetectionChannel"
+        )
+        effective_alternate_enabled, effective_alternate_channel = (
+            resolve_effective_alternate_nucleus_detection(
+                signal_quantification_enabled=signal_quantification_enabled,
+                signal_quantification_mode=signal_quantification_mode,
+                nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+                alternate_nucleus_detection_enabled=(
+                    alternate_nucleus_detection_enabled
+                ),
+                alternate_nucleus_detection_channel=(
+                    alternate_nucleus_detection_channel
+                ),
+            )
         )
         biorientation_red_min_distance_unit = normalize_length_unit(
             str(config_snapshot.get("stats_biorientation_red_min_distance_unit", "px")),
@@ -1031,8 +1049,14 @@ def run_segmentation_batch(
                 config_snapshot.get("biorientationGreenSplitEnabled", True),
             )
         )
-        green_dot_split_mode = normalize_green_dot_split_mode(
-            config_snapshot.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        green_dot_split_mode = normalize_dot_split_mode(
+            config_snapshot.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
+        )
+        red_dot_split_enabled = bool(
+            config_snapshot.get("redDotSplitEnabled", True)
+        )
+        red_dot_split_mode = normalize_dot_split_mode(
+            config_snapshot.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
         )
 
         configured_puncta_line_width = _process_config_value(
@@ -1054,19 +1078,18 @@ def run_segmentation_batch(
                 config_snapshot.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
             ),
-            "nuclear_cell_pair_mode": config_snapshot.get(
-                "nuclear_cell_pair_mode",
-                config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
-            ),
+            "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
             "green_contour_filter_enabled": green_contour_filter_enabled,
-            "alternate_red_detection": alternate_nucleus_detection_enabled,
+            "alternate_red_detection": effective_alternate_enabled,
             "signal_quantification_enabled": signal_quantification_enabled,
             "signal_quantification_mode": signal_quantification_mode,
             "puncta_contour_intensity_enabled": puncta_contour_intensity_enabled,
-            "alternate_nucleus_detection_enabled": alternate_nucleus_detection_enabled,
-            "alternate_nucleus_detection_channel": alternate_nucleus_detection_channel,
+            "alternate_nucleus_detection_enabled": effective_alternate_enabled,
+            "alternate_nucleus_detection_channel": effective_alternate_channel,
             "green_dot_split_enabled": green_dot_split_enabled,
             "green_dot_split_mode": green_dot_split_mode,
+            "red_dot_split_enabled": red_dot_split_enabled,
+            "red_dot_split_mode": red_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -1082,19 +1105,16 @@ def run_segmentation_batch(
                     config_snapshot.get("puncta_line_mode"),
                     default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
-                nuclear_cell_pair_mode=config_snapshot.get(
-                    "nuclear_cell_pair_mode",
-                    config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
-                ),
+                nuclear_cell_pair_mode=nuclear_cell_pair_mode,
                 puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
                 green_contour_filter_enabled=bool(green_contour_filter_enabled),
-                alternate_red_detection=alternate_nucleus_detection_enabled,
+                alternate_red_detection=effective_alternate_enabled,
                 signal_quantification_enabled=signal_quantification_enabled,
                 signal_quantification_mode=signal_quantification_mode,
                 puncta_contour_intensity_enabled=puncta_contour_intensity_enabled,
-                alternate_nucleus_detection_enabled=alternate_nucleus_detection_enabled,
-                alternate_nucleus_detection_channel=alternate_nucleus_detection_channel,
+                alternate_nucleus_detection_enabled=effective_alternate_enabled,
+                alternate_nucleus_detection_channel=effective_alternate_channel,
                 puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
                 cen_dot_proximity_radius=cen_dot_proximity_radius,
@@ -1106,6 +1126,8 @@ def run_segmentation_batch(
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
                 green_dot_split_enabled=green_dot_split_enabled,
                 green_dot_split_mode=green_dot_split_mode,
+                red_dot_split_enabled=red_dot_split_enabled,
+                red_dot_split_mode=red_dot_split_mode,
             ),
         )
 
@@ -1203,11 +1225,13 @@ def run_segmentation_batch(
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
             cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
+            cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
+            cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
             cp.properties["signal_quantification_enabled"] = signal_quantification_enabled
             cp.properties["signal_quantification_mode"] = signal_quantification_mode
             cp.properties["puncta_contour_intensity_enabled"] = puncta_contour_intensity_enabled
-            cp.properties["alternate_nucleus_detection_enabled"] = alternate_nucleus_detection_enabled
-            cp.properties["alternate_nucleus_detection_channel"] = alternate_nucleus_detection_channel
+            cp.properties["alternate_nucleus_detection_enabled"] = effective_alternate_enabled
+            cp.properties["alternate_nucleus_detection_channel"] = effective_alternate_channel
 
             cp.properties["neck_split"] = _build_neck_split_properties(
                 pair_geometry_cache.get(cell_number)
@@ -1221,12 +1245,14 @@ def run_segmentation_batch(
                 cen_dot_distance,
                 cen_dot_proximity_radius,
                 green_contour_filter_enabled,
-                alternate_nucleus_detection_enabled,
+                effective_alternate_enabled,
                 green_dot_split_enabled,
                 green_dot_split_mode,
+                red_dot_split_enabled,
+                red_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
-                alternate_detection_channel=alternate_nucleus_detection_channel,
+                alternate_detection_channel=effective_alternate_channel,
             )
             rendered_overlay_images = {
                 "red": debug_red,

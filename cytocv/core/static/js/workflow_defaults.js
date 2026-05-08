@@ -88,6 +88,9 @@
   const signalQuantificationInline = document.getElementById('signalQuantificationInline');
   const signalQuantificationModule = document.getElementById('signalQuantificationModule');
   const signalModePausedNote = document.getElementById('signalModePausedNote');
+  const SIGNAL_MODE_NOTICE_FADE_MS = 120;
+  let signalModeNoticeTimer = null;
+  let signalModeNoticeTransition = 0;
   const punctaContourIntensityEnabledInput = document.getElementById('puncta_contour_intensity_enabled');
   const alternateNucleusDetectionInput = document.getElementById('alternate_nucleus_detection_enabled');
   const advancedForm = document.getElementById('advancedForm');
@@ -336,20 +339,12 @@
     if (mode === 'nuclear_cell_pair') {
       return {
         state: 'paused',
-        text: 'All other stat modules disabled in Nuclear, Cell-Pair mode.',
+        text: 'Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.',
       };
     }
-    const activeSecondaries = [
-      selectedPlugins.has('CENDot') ? 'Cen Dot' : null,
-      selectedPlugins.has('Biorientation') ? 'Biorientation' : null,
-    ].filter(Boolean);
-    if (!activeSecondaries.length) return null;
-    const moduleText = activeSecondaries.length === 2
-      ? `${activeSecondaries[0]} and ${activeSecondaries[1]} modules enabled.`
-      : `${activeSecondaries[0]} module enabled.`;
     return {
       state: 'enabled',
-      text: moduleText,
+      text: 'All other stat modules enabled in Puncta Distance mode.',
     };
   };
 
@@ -359,23 +354,45 @@
     const state = notice ? notice.state : '';
     const text = notice ? notice.text : '';
     const changed = signalModePausedNote.dataset.state !== state || signalModePausedNote.textContent !== text;
-    signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+    const isActive = signalModePausedNote.classList.contains('is-active');
+    signalModeNoticeTransition += 1;
+    const transitionId = signalModeNoticeTransition;
+    if (signalModeNoticeTimer) {
+      window.clearTimeout(signalModeNoticeTimer);
+      signalModeNoticeTimer = null;
+    }
+    const applyNotice = () => {
+      if (transitionId !== signalModeNoticeTransition) return;
+      signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+      signalModePausedNote.textContent = text;
+      signalModePausedNote.dataset.state = state;
+      signalModePausedNote.classList.add(`is-${state}`);
+      signalModePausedNote.setAttribute('aria-hidden', 'false');
+      void signalModePausedNote.offsetWidth;
+      signalModePausedNote.classList.add('is-active');
+    };
     if (!notice) {
       signalModePausedNote.classList.remove('is-active');
       signalModePausedNote.setAttribute('aria-hidden', 'true');
-      signalModePausedNote.dataset.state = '';
-      signalModePausedNote.textContent = '';
+      signalModeNoticeTimer = window.setTimeout(() => {
+        if (transitionId !== signalModeNoticeTransition) return;
+        signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+        signalModePausedNote.dataset.state = '';
+        signalModePausedNote.textContent = '';
+      }, SIGNAL_MODE_NOTICE_FADE_MS);
       return;
     }
-    signalModePausedNote.textContent = text;
-    signalModePausedNote.dataset.state = state;
-    signalModePausedNote.classList.add(`is-${state}`);
-    signalModePausedNote.setAttribute('aria-hidden', 'false');
-    if (changed) {
-      signalModePausedNote.classList.remove('is-active');
-      void signalModePausedNote.offsetWidth;
+    if (!changed && isActive) {
+      signalModePausedNote.setAttribute('aria-hidden', 'false');
+      return;
     }
-    signalModePausedNote.classList.add('is-active');
+    if (changed && isActive) {
+      signalModePausedNote.classList.remove('is-active');
+      signalModePausedNote.setAttribute('aria-hidden', 'true');
+      signalModeNoticeTimer = window.setTimeout(applyNotice, SIGNAL_MODE_NOTICE_FADE_MS);
+      return;
+    }
+    applyNotice();
   };
 
   const syncSignalSelectedPlugins = () => {
@@ -577,7 +594,46 @@
 
   const syncAdvancedValidationUI = () => {
     const moduleEnabled = !!(moduleEnabledInput && moduleEnabledInput.checked);
-    const greenDotSplitActive = !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked && !greenDotSplitEnabledInput.disabled);
+    const requiredChannels = requiredByStatsChannels();
+    const greenDotSplitAllowed = requiredChannels.has('channel_green');
+    const redDotSplitAllowed = requiredChannels.has('channel_red');
+    let dotSplitEnabled = !!(dotSplitEnabledInput && dotSplitEnabledInput.checked);
+    let dotSplitTarget = normalizeDotSplitTarget(
+      dotSplitTargetInput && dotSplitTargetInput.value
+        ? dotSplitTargetInput.value
+        : dotSplitTargetFromFlags(
+          truthyHiddenValue(greenDotSplitEnabledInput),
+          truthyHiddenValue(redDotSplitEnabledInput)
+        )
+    );
+    dotSplitTarget = fallbackDotSplitTarget(dotSplitTarget, greenDotSplitAllowed, redDotSplitAllowed);
+    if (!dotSplitTarget) {
+      dotSplitEnabled = false;
+    }
+    if (dotSplitEnabledInput) {
+      dotSplitEnabledInput.disabled = !dotSplitTarget;
+      dotSplitEnabledInput.checked = dotSplitEnabled;
+    }
+    if (dotSplitTargetInput) {
+      Array.from(dotSplitTargetInput.options).forEach((option) => {
+        option.disabled = !dotSplitTargetAllowed(option.value, greenDotSplitAllowed, redDotSplitAllowed);
+      });
+      dotSplitTargetInput.disabled = !dotSplitEnabled || !dotSplitTarget;
+      if (dotSplitTarget) dotSplitTargetInput.value = dotSplitTarget;
+      refreshCustomSelect(dotSplitTargetInput);
+    }
+    const greenDotSplitActive = dotSplitEnabled && (dotSplitTarget === 'green' || dotSplitTarget === 'both');
+    const redDotSplitActive = dotSplitEnabled && (dotSplitTarget === 'red' || dotSplitTarget === 'both');
+    setHiddenBoolValue(greenDotSplitEnabledInput, greenDotSplitActive);
+    setHiddenBoolValue(redDotSplitEnabledInput, redDotSplitActive);
+    if (dotSplitRow) {
+      dotSplitRow.classList.toggle('disabled', !dotSplitTarget);
+      dotSplitRow.classList.toggle('is-off', !dotSplitEnabled);
+    }
+    if (dotSplitTargetRow) {
+      dotSplitTargetRow.classList.toggle('is-active', dotSplitEnabled && !!dotSplitTarget);
+      dotSplitTargetRow.setAttribute('aria-hidden', dotSplitEnabled && dotSplitTarget ? 'false' : 'true');
+    }
     [
       [enforceLayerCountInput, advancedLayerCheckRow],
       [enforceWavelengthsInput, advancedWavelengthCheckRow],
@@ -587,11 +643,22 @@
     });
 
     if (greenDotSplitModeRow) {
-      greenDotSplitModeRow.classList.toggle('is-active', greenDotSplitActive);
-      greenDotSplitModeRow.setAttribute('aria-hidden', greenDotSplitActive ? 'false' : 'true');
+      greenDotSplitModeRow.classList.toggle('is-active', dotSplitEnabled && !!dotSplitTarget);
+      greenDotSplitModeRow.classList.toggle('disabled', !greenDotSplitActive);
+      greenDotSplitModeRow.setAttribute('aria-hidden', dotSplitEnabled && dotSplitTarget ? 'false' : 'true');
     }
     if (greenDotSplitModeInput) {
       greenDotSplitModeInput.disabled = !greenDotSplitActive;
+      refreshCustomSelect(greenDotSplitModeInput);
+    }
+    if (redDotSplitModeRow) {
+      redDotSplitModeRow.classList.toggle('is-active', dotSplitEnabled && !!dotSplitTarget);
+      redDotSplitModeRow.classList.toggle('disabled', !redDotSplitActive);
+      redDotSplitModeRow.setAttribute('aria-hidden', dotSplitEnabled && dotSplitTarget ? 'false' : 'true');
+    }
+    if (redDotSplitModeInput) {
+      redDotSplitModeInput.disabled = !redDotSplitActive;
+      refreshCustomSelect(redDotSplitModeInput);
     }
 
     if (enforceLayerCountStateInput && enforceLayerCountInput) {
@@ -942,8 +1009,16 @@
   const advancedWavelengthCheckRow = document.getElementById('advancedWavelengthCheckRow');
   const showLegacyPluginsInput = document.getElementById('show_legacy_plugins');
   const greenContourFilterEnabledInput = document.getElementById('green_contour_filter_enabled');
+  const dotSplitEnabledInput = document.getElementById('dot_split_enabled');
+  const dotSplitTargetInput = document.getElementById('dot_split_target');
+  const dotSplitRow = document.getElementById('dotSplitRow');
+  const dotSplitTargetRow = document.getElementById('dotSplitTargetRow');
   const greenDotSplitEnabledInput = document.getElementById('green_dot_split_enabled');
   const greenDotSplitModeInput = document.getElementById('green_dot_split_mode');
+  const greenDotSplitModeRow = document.getElementById('greenDotSplitModeRow');
+  const redDotSplitEnabledInput = document.getElementById('red_dot_split_enabled');
+  const redDotSplitModeInput = document.getElementById('red_dot_split_mode');
+  const redDotSplitModeRow = document.getElementById('redDotSplitModeRow');
   const alternateRedDetectionInput = alternateNucleusDetectionInput;
   const autoSaveExperimentsInput = document.getElementById('auto_save_experiments');
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
@@ -953,8 +1028,11 @@
     if (!input) return;
     input.addEventListener('change', syncRows);
   });
-  if (greenDotSplitEnabledInput) {
-    greenDotSplitEnabledInput.addEventListener('change', syncRows);
+  if (dotSplitEnabledInput) {
+    dotSplitEnabledInput.addEventListener('change', syncRows);
+  }
+  if (dotSplitTargetInput) {
+    dotSplitTargetInput.addEventListener('change', syncRows);
   }
   const pluginOrder = pluginCatalog.map((plugin) => plugin.id);
   const channelOrder = payload.channel_order || [];
@@ -967,7 +1045,48 @@
 
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
   const normalizeGreenDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
+  const normalizeRedDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
+  const normalizeDotSplitTarget = (value) => {
+    if (value === 'red' || value === 'green' || value === 'both') return value;
+    return 'both';
+  };
   const formatLengthUnitLabel = (value) => (normalizeLengthUnit(value) === 'um' ? '\u00b5m' : 'px');
+  const truthyHiddenValue = (inputEl) => {
+    const raw = String(inputEl ? inputEl.value : '').trim().toLowerCase();
+    return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+  };
+  const setHiddenBoolValue = (inputEl, enabled) => {
+    if (inputEl) inputEl.value = enabled ? '1' : '0';
+  };
+  const dotSplitTargetFromFlags = (greenEnabled, redEnabled) => {
+    if (greenEnabled && redEnabled) return 'both';
+    if (greenEnabled) return 'green';
+    if (redEnabled) return 'red';
+    return 'both';
+  };
+  const dotSplitTargetLabel = (target) => {
+    if (target === 'red') return 'Red';
+    if (target === 'green') return 'Green';
+    return 'Both';
+  };
+  const dotSplitTargetAllowed = (target, greenAllowed, redAllowed) => {
+    if (target === 'green') return greenAllowed;
+    if (target === 'red') return redAllowed;
+    return greenAllowed && redAllowed;
+  };
+  const fallbackDotSplitTarget = (preferredTarget, greenAllowed, redAllowed) => {
+    const target = normalizeDotSplitTarget(preferredTarget);
+    if (dotSplitTargetAllowed(target, greenAllowed, redAllowed)) return target;
+    if (greenAllowed && redAllowed) return 'both';
+    if (greenAllowed) return 'green';
+    if (redAllowed) return 'red';
+    return '';
+  };
+  function refreshCustomSelect(nativeSelect) {
+    if (nativeSelect) {
+      nativeSelect.dispatchEvent(new Event('cytocv:custom-select-refresh'));
+    }
+  }
 
   // Custom styled dropdowns to replace native <select> elements
   const openCustomDropdowns = new Set();
@@ -1014,6 +1133,20 @@
     root.appendChild(menu);
 
     const optionButtons = [];
+    const syncFromNative = () => {
+      const selectedOption = nativeSelect.options[nativeSelect.selectedIndex];
+      labelSpan.textContent = selectedOption ? selectedOption.text : '';
+      trigger.disabled = !!nativeSelect.disabled;
+      root.classList.toggle('is-disabled', !!nativeSelect.disabled);
+      optionButtons.forEach((btn, idx) => {
+        const opt = nativeSelect.options[idx];
+        const disabled = !!nativeSelect.disabled || !!(opt && opt.disabled);
+        btn.disabled = disabled;
+        btn.classList.toggle('is-disabled', disabled);
+        btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        btn.classList.toggle('is-selected', !!opt && opt.value === nativeSelect.value);
+      });
+    };
     Array.from(nativeSelect.options).forEach((opt) => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -1025,10 +1158,9 @@
       btn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (nativeSelect.disabled || opt.disabled) return;
         nativeSelect.value = opt.value;
         nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        labelSpan.textContent = opt.text;
-        optionButtons.forEach((b) => b.classList.toggle('is-selected', b.dataset.value === opt.value));
         ctrl.close();
       });
       menu.appendChild(btn);
@@ -1040,6 +1172,9 @@
         root.classList.remove('open');
         menu.hidden = true;
         trigger.setAttribute('aria-expanded', 'false');
+        [root.closest('.row-sub'), root.closest('.row'), root.closest('.plugin')].forEach((el) => {
+          if (el) el.classList.remove('mode-menu-open');
+        });
         openCustomDropdowns.delete(ctrl);
       },
       open() {
@@ -1047,6 +1182,9 @@
         root.classList.add('open');
         menu.hidden = false;
         trigger.setAttribute('aria-expanded', 'true');
+        [root.closest('.row-sub'), root.closest('.row'), root.closest('.plugin')].forEach((el) => {
+          if (el) el.classList.add('mode-menu-open');
+        });
         openCustomDropdowns.add(ctrl);
       },
     };
@@ -1058,6 +1196,9 @@
     });
 
     nativeSelect.parentNode.insertBefore(root, nativeSelect.nextSibling);
+    nativeSelect.addEventListener('change', syncFromNative);
+    nativeSelect.addEventListener('cytocv:custom-select-refresh', syncFromNative);
+    syncFromNative();
     return ctrl;
   }
 
@@ -1240,8 +1381,10 @@
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
     greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
-    greenDotSplitEnabled: !!(greenDotSplitEnabledInput && greenDotSplitEnabledInput.checked),
+    greenDotSplitEnabled: truthyHiddenValue(greenDotSplitEnabledInput),
     greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
+    redDotSplitEnabled: truthyHiddenValue(redDotSplitEnabledInput),
+    redDotSplitMode: normalizeRedDotSplitMode(valueOrEmpty(redDotSplitModeInput)),
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
   });
@@ -1358,14 +1501,27 @@
       fromSnapshot.alternateNucleusDetectionEnabled,
       toSnapshot.alternateNucleusDetectionEnabled
     );
-    pushToggleChange(
-      changes,
-      'Split Merged Green Dots',
+    const fromDotSplitEnabled = !!(fromSnapshot.greenDotSplitEnabled || fromSnapshot.redDotSplitEnabled);
+    const toDotSplitEnabled = !!(toSnapshot.greenDotSplitEnabled || toSnapshot.redDotSplitEnabled);
+    pushToggleChange(changes, 'Split Merged Dots', fromDotSplitEnabled, toDotSplitEnabled);
+    const fromDotSplitTarget = dotSplitTargetFromFlags(
       fromSnapshot.greenDotSplitEnabled,
-      toSnapshot.greenDotSplitEnabled
+      fromSnapshot.redDotSplitEnabled
     );
+    const toDotSplitTarget = dotSplitTargetFromFlags(
+      toSnapshot.greenDotSplitEnabled,
+      toSnapshot.redDotSplitEnabled
+    );
+    if (fromDotSplitEnabled && toDotSplitEnabled && fromDotSplitTarget !== toDotSplitTarget) {
+      changes.push(
+        `Split Merged Dots Target: ${dotSplitTargetLabel(fromDotSplitTarget)} -> ${dotSplitTargetLabel(toDotSplitTarget)}`
+      );
+    }
     if (normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode) !== normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)) {
-      changes.push(`Green Dot Split Mode: ${normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode)} -> ${normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)}`);
+      changes.push(`Green Split Mode: ${normalizeGreenDotSplitMode(fromSnapshot.greenDotSplitMode)} -> ${normalizeGreenDotSplitMode(toSnapshot.greenDotSplitMode)}`);
+    }
+    if (normalizeRedDotSplitMode(fromSnapshot.redDotSplitMode) !== normalizeRedDotSplitMode(toSnapshot.redDotSplitMode)) {
+      changes.push(`Red Split Mode: ${normalizeRedDotSplitMode(fromSnapshot.redDotSplitMode)} -> ${normalizeRedDotSplitMode(toSnapshot.redDotSplitMode)}`);
     }
     pushToggleChange(
       changes,
@@ -1562,8 +1718,20 @@
     if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
     if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
-    if (greenDotSplitEnabledInput) greenDotSplitEnabledInput.checked = snapshot.greenDotSplitEnabled;
+    setHiddenBoolValue(greenDotSplitEnabledInput, snapshot.greenDotSplitEnabled);
+    setHiddenBoolValue(redDotSplitEnabledInput, snapshot.redDotSplitEnabled);
+    if (dotSplitEnabledInput) {
+      dotSplitEnabledInput.checked = !!(snapshot.greenDotSplitEnabled || snapshot.redDotSplitEnabled);
+    }
+    if (dotSplitTargetInput) {
+      dotSplitTargetInput.value = dotSplitTargetFromFlags(
+        snapshot.greenDotSplitEnabled,
+        snapshot.redDotSplitEnabled
+      );
+      refreshCustomSelect(dotSplitTargetInput);
+    }
     if (greenDotSplitModeInput) greenDotSplitModeInput.value = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
+    if (redDotSplitModeInput) redDotSplitModeInput.value = normalizeRedDotSplitMode(snapshot.redDotSplitMode);
     if (alternateRedDetectionInput) {
       alternateRedDetectionInput.checked = snapshot.alternateNucleusDetectionEnabled;
     }

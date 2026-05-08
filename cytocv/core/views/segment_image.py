@@ -116,9 +116,9 @@ from core.services.puncta_line_mode import (
     get_puncta_line_mode_metadata,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     BIORIENTATION_PLUGIN,
@@ -127,8 +127,10 @@ from core.services.signal_quantification import (
     NUCLEAR_CELL_PAIR_PLUGIN,
     PUNCTA_DISTANCE_PLUGIN,
     SIGNAL_MODE_NUCLEAR_CELL_PAIR,
+    SIGNAL_MODE_PUNCTA_DISTANCE,
     build_stat_visibility,
     measurement_ratio_mode_for_puncta_line_mode,
+    resolve_effective_alternate_nucleus_detection,
 )
 
 logger = logging.getLogger(__name__)
@@ -292,7 +294,9 @@ def get_stats(
     green_contour_filter_enabled=False,
     alternate_red_detection=False,
     green_dot_split_enabled=True,
-    green_dot_split_mode=DEFAULT_GREEN_DOT_SPLIT_MODE,
+    green_dot_split_mode=DEFAULT_DOT_SPLIT_MODE,
+    red_dot_split_enabled=True,
+    red_dot_split_mode=DEFAULT_DOT_SPLIT_MODE,
     cached_images=None,
     cached_measurement_images=None,
     alternate_detection_channel=None,
@@ -301,16 +305,29 @@ def get_stats(
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cell_pair_mode = conf.get("nuclear_cell_pair_mode", "green_nucleus")
     puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
-    green_dot_split_mode = normalize_green_dot_split_mode(
+    green_dot_split_mode = normalize_dot_split_mode(
         green_dot_split_mode
         or conf.get("green_dot_split_mode")
         or conf.get("greenDotSplitMode")
+    )
+    red_dot_split_enabled = _truthy_config_flag(
+        conf.get(
+            "red_dot_split_enabled",
+            conf.get("redDotSplitEnabled", red_dot_split_enabled),
+        )
+    )
+    red_dot_split_mode = normalize_dot_split_mode(
+        red_dot_split_mode
+        or conf.get("red_dot_split_mode")
+        or conf.get("redDotSplitMode")
     )
     cp.properties = dict(cp.properties or {})
     cp.properties["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
     cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
     cp.properties["puncta_line_source_channel"] = puncta_line_metadata["source_channel"]
     cp.properties["puncta_line_measurement_channel"] = puncta_line_metadata["measurement_channel"]
+    cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
+    cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
     configured_signal_mode = conf.get(
         "signal_quantification_mode",
         conf.get("signalQuantificationMode"),
@@ -338,20 +355,41 @@ def get_stats(
     if execution_plan is None:
         execution_plan = build_stats_execution_plan(conf.get("analysis", []))
     selected_plugins = list(execution_plan.selected_plugins)
-    alternate_detection_channel = (
+    selected_plugin_set = set(selected_plugins)
+    raw_alternate_detection_channel = (
         alternate_detection_channel
         or conf.get("alternate_nucleus_detection_channel")
         or conf.get("alternateNucleusDetectionChannel")
     )
-    cp.properties["selected_analysis"] = selected_plugins
-    cp.properties["stat_visibility"] = build_stat_visibility(selected_plugins)
-    cp.properties["alternate_nucleus_detection_enabled"] = _truthy_config_flag(
-        conf.get(
-            "alternate_nucleus_detection_enabled",
-            conf.get("alternateNucleusDetectionEnabled", alternate_red_detection),
+    effective_signal_mode = configured_signal_mode or (
+        SIGNAL_MODE_NUCLEAR_CELL_PAIR
+        if NUCLEAR_CELL_PAIR_PLUGIN in selected_plugin_set
+        else SIGNAL_MODE_PUNCTA_DISTANCE
+    )
+    effective_signal_enabled = bool(
+        cp.properties["signal_quantification_enabled"]
+        or selected_plugin_set
+        & {PUNCTA_DISTANCE_PLUGIN, GREEN_RED_INTENSITY_PLUGIN, NUCLEAR_CELL_PAIR_PLUGIN}
+    )
+    effective_alternate_enabled, effective_alternate_channel = (
+        resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=effective_signal_enabled,
+            signal_quantification_mode=effective_signal_mode,
+            nuclear_cell_pair_mode=cp.properties.get("nuclear_cell_pair_mode"),
+            alternate_nucleus_detection_enabled=conf.get(
+                "alternate_nucleus_detection_enabled",
+                conf.get("alternateNucleusDetectionEnabled", alternate_red_detection),
+            ),
+            alternate_nucleus_detection_channel=raw_alternate_detection_channel,
         )
     )
-    cp.properties["alternate_nucleus_detection_channel"] = alternate_detection_channel
+    cp.properties["signal_quantification_enabled"] = effective_signal_enabled
+    if effective_signal_enabled:
+        cp.properties["signal_quantification_mode"] = effective_signal_mode
+    cp.properties["selected_analysis"] = selected_plugins
+    cp.properties["stat_visibility"] = build_stat_visibility(selected_plugins)
+    cp.properties["alternate_nucleus_detection_enabled"] = effective_alternate_enabled
+    cp.properties["alternate_nucleus_detection_channel"] = effective_alternate_channel
     stats_required_channels = {
         channel
         for channel in execution_plan.required_channels
@@ -446,11 +484,13 @@ def get_stats(
     contours_data = find_contours(
         preprocessed_images,
         green_contour_filter_enabled,
-        alternate_red_detection,
+        effective_alternate_enabled,
         green_dot_split_enabled,
         green_dot_split_mode,
-        alternate_detection_channel=alternate_detection_channel,
+        alternate_detection_channel=effective_alternate_channel,
         skip_standard_contour_channels=skipped_standard_contour_channels,
+        red_dot_split_enabled=red_dot_split_enabled,
+        red_dot_split_mode=red_dot_split_mode,
     )
     contours_data = build_canonical_contour_payload(
         contours_data,
@@ -1334,8 +1374,18 @@ def segment_image(request, uuids):
             else str(green_dot_split_enabled_raw).strip().lower()
             in {"1", "true", "yes", "on"}
         )
-        green_dot_split_mode = normalize_green_dot_split_mode(
-            request.session.get("greenDotSplitMode", DEFAULT_GREEN_DOT_SPLIT_MODE)
+        green_dot_split_mode = normalize_dot_split_mode(
+            request.session.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
+        )
+        red_dot_split_enabled_raw = request.session.get("redDotSplitEnabled", True)
+        red_dot_split_enabled = (
+            red_dot_split_enabled_raw
+            if isinstance(red_dot_split_enabled_raw, bool)
+            else str(red_dot_split_enabled_raw).strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
+        red_dot_split_mode = normalize_dot_split_mode(
+            request.session.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
         )
         signal_quantification_enabled = request.session.get("signalQuantificationEnabled", True)
         signal_quantification_enabled = (
@@ -1365,6 +1415,19 @@ def segment_image(request, uuids):
         alternate_nucleus_detection_channel = request.session.get(
             "alternateNucleusDetectionChannel"
         )
+        nuclear_cell_pair_mode = request.session.get(
+            "nuclear_cell_pair_mode",
+            request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        )
+        effective_alternate_enabled, effective_alternate_channel = (
+            resolve_effective_alternate_nucleus_detection(
+                signal_quantification_enabled=signal_quantification_enabled,
+                signal_quantification_mode=signal_quantification_mode,
+                nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+                alternate_nucleus_detection_enabled=alternate_nucleus_detection_enabled,
+                alternate_nucleus_detection_channel=alternate_nucleus_detection_channel,
+            )
+        )
         configured_puncta_line_width = _process_config_value(
             configuration,
             "puncta_line_width",
@@ -1385,19 +1448,18 @@ def segment_image(request, uuids):
                 request.session.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
             ),
-            'nuclear_cell_pair_mode': request.session.get(
-                "nuclear_cell_pair_mode",
-                request.session.get("nuclear_cellular_mode", "green_nucleus"),
-            ),
+            'nuclear_cell_pair_mode': nuclear_cell_pair_mode,
             'green_contour_filter_enabled': green_contour_filter_enabled,
-            'alternate_red_detection': alternate_nucleus_detection_enabled,
+            'alternate_red_detection': effective_alternate_enabled,
             'signal_quantification_enabled': signal_quantification_enabled,
             'signal_quantification_mode': signal_quantification_mode,
             'puncta_contour_intensity_enabled': puncta_contour_intensity_enabled,
-            'alternate_nucleus_detection_enabled': alternate_nucleus_detection_enabled,
-            'alternate_nucleus_detection_channel': alternate_nucleus_detection_channel,
+            'alternate_nucleus_detection_enabled': effective_alternate_enabled,
+            'alternate_nucleus_detection_channel': effective_alternate_channel,
             'green_dot_split_enabled': green_dot_split_enabled,
             'green_dot_split_mode': green_dot_split_mode,
+            'red_dot_split_enabled': red_dot_split_enabled,
+            'red_dot_split_mode': red_dot_split_mode,
         }
         write_overlay_render_config(
             uuid,
@@ -1413,10 +1475,7 @@ def segment_image(request, uuids):
                     request.session.get("puncta_line_mode"),
                     default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
-                nuclear_cell_pair_mode=request.session.get(
-                    "nuclear_cell_pair_mode",
-                    request.session.get("nuclear_cellular_mode", "green_nucleus"),
-                ),
+                nuclear_cell_pair_mode=nuclear_cell_pair_mode,
                 puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
                 green_contour_filter_enabled=(
@@ -1424,12 +1483,12 @@ def segment_image(request, uuids):
                     if isinstance(green_contour_filter_enabled, bool)
                     else str(green_contour_filter_enabled).strip().lower() in {"1", "true", "yes", "on"}
                 ),
-                alternate_red_detection=alternate_nucleus_detection_enabled,
+                alternate_red_detection=effective_alternate_enabled,
                 signal_quantification_enabled=signal_quantification_enabled,
                 signal_quantification_mode=signal_quantification_mode,
                 puncta_contour_intensity_enabled=puncta_contour_intensity_enabled,
-                alternate_nucleus_detection_enabled=alternate_nucleus_detection_enabled,
-                alternate_nucleus_detection_channel=alternate_nucleus_detection_channel,
+                alternate_nucleus_detection_enabled=effective_alternate_enabled,
+                alternate_nucleus_detection_channel=effective_alternate_channel,
                 puncta_line_width_unit=puncta_line_width_unit,
                 cen_dot_distance_unit=cen_dot_distance_unit,
                 cen_dot_proximity_radius=cen_dot_proximity_radius,
@@ -1441,6 +1500,8 @@ def segment_image(request, uuids):
                 biorientation_collinearity_threshold=biorientation_collinearity_threshold,
                 green_dot_split_enabled=green_dot_split_enabled,
                 green_dot_split_mode=green_dot_split_mode,
+                red_dot_split_enabled=red_dot_split_enabled,
+                red_dot_split_mode=red_dot_split_mode,
             ),
         )
 
@@ -1521,11 +1582,13 @@ def segment_image(request, uuids):
             cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
             cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
+            cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
+            cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
             cp.properties["signal_quantification_enabled"] = signal_quantification_enabled
             cp.properties["signal_quantification_mode"] = signal_quantification_mode
             cp.properties["puncta_contour_intensity_enabled"] = puncta_contour_intensity_enabled
-            cp.properties["alternate_nucleus_detection_enabled"] = alternate_nucleus_detection_enabled
-            cp.properties["alternate_nucleus_detection_channel"] = alternate_nucleus_detection_channel
+            cp.properties["alternate_nucleus_detection_enabled"] = effective_alternate_enabled
+            cp.properties["alternate_nucleus_detection_channel"] = effective_alternate_channel
             # Call get_stats to do the real work
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1535,12 +1598,14 @@ def segment_image(request, uuids):
                 cen_dot_distance,
                 cen_dot_proximity_radius,
                 green_contour_filter_enabled,
-                alternate_nucleus_detection_enabled,
+                effective_alternate_enabled,
                 green_dot_split_enabled,
                 green_dot_split_mode,
+                red_dot_split_enabled,
+                red_dot_split_mode,
                 cached_images=cell_image_cache.get(cell_number),
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
-                alternate_detection_channel=alternate_nucleus_detection_channel,
+                alternate_detection_channel=effective_alternate_channel,
             )
 
             try:

@@ -213,6 +213,27 @@ class RouteSurfaceRefactorTests(TestCase):
         return path
 
     @staticmethod
+    def _write_historical_overlay_cache_image(
+        media_root: Path,
+        uuid_value: str,
+        cell_id: int,
+        channel: str,
+        *,
+        color: tuple[int, int, int],
+        schema_version: int = 3,
+    ) -> Path:
+        path = (
+            media_root
+            / uuid_value
+            / "segmented"
+            / f"overlay-cache-v{schema_version}"
+            / f"cell-{cell_id}-{channel}.png"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(np.full((6, 6, 3), color, dtype=np.uint8)).save(path)
+        return path
+
+    @staticmethod
     def _write_overlay_config(uuid_value: str, image_stem: str) -> dict[str, object]:
         render_config = build_overlay_render_config(
             image_stem=image_stem,
@@ -1215,6 +1236,101 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
 
+    def test_dashboard_uses_historical_cached_overlay_endpoint_for_old_schema(self):
+        uuid_value = str(uuid4())
+        expected_path: Path | None = None
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-old-overlay")
+            segmented = self._create_segmented_image(
+                uuid_value,
+                name="dashboard-old-overlay",
+            )
+            segmented.user = self.user
+            segmented.NumCells = 1
+            segmented.save(update_fields=["user", "NumCells"])
+            self._write_segmented_cell_assets(
+                media_root,
+                uuid_value,
+                "dashboard-old-overlay",
+            )
+            self._create_cell_stats(segmented, "dashboard-old-overlay")
+            render_config = self._write_overlay_config(uuid_value, "dashboard-old-overlay")
+            render_config["schema_version"] = 3
+            write_overlay_render_config(uuid_value, render_config)
+            expected_path = self._write_historical_overlay_cache_image(
+                media_root,
+                uuid_value,
+                1,
+                "green",
+                color=(12, 180, 45),
+            )
+
+            response = self.client.get(reverse("dashboard"))
+            overlay_response = self.client.get(
+                reverse("cell_overlay_image", args=[uuid_value, 1, "green"])
+            )
+            self.assertEqual(overlay_response.status_code, 200)
+            payload = b"".join(overlay_response.streaming_content)
+            rendered = np.array(Image.open(BytesIO(payload)))
+            with Image.open(expected_path) as expected_image:
+                expected = np.array(expected_image)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "green"]),
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "red"]),
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            reverse("cell_overlay_image", args=[uuid_value, 1, "blue"]),
+            html=False,
+        )
+        self.assertTrue(np.array_equal(rendered, expected))
+
+    def test_dashboard_uses_static_images_for_old_schema_without_historical_cache(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-old-static")
+            segmented = self._create_segmented_image(
+                uuid_value,
+                name="dashboard-old-static",
+            )
+            segmented.user = self.user
+            segmented.NumCells = 1
+            segmented.save(update_fields=["user", "NumCells"])
+            self._write_segmented_cell_assets(
+                media_root,
+                uuid_value,
+                "dashboard-old-static",
+            )
+            self._create_cell_stats(segmented, "dashboard-old-static")
+            render_config = self._write_overlay_config(uuid_value, "dashboard-old-static")
+            render_config["schema_version"] = 3
+            write_overlay_render_config(uuid_value, render_config)
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        for channel in ("green", "red", "blue"):
+            self.assertNotContains(
+                response,
+                reverse("cell_overlay_image", args=[uuid_value, 1, channel]),
+                html=False,
+            )
+        self.assertContains(
+            response,
+            f"/media/{uuid_value}/segmented/dashboard-old-static-{DEFAULT_CHANNEL_CONFIG['channel_green']}-1.png",
+            html=False,
+        )
+
     def test_overlay_endpoint_serves_cached_channel_without_render_config(self):
         uuid_value = str(uuid4())
         expected_path: Path | None = None
@@ -1302,10 +1418,10 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertEqual(int(np.count_nonzero(cyan_like)), 0)
 
-    def test_overlay_cache_path_uses_schema_v3_directory(self):
+    def test_overlay_cache_path_uses_schema_v4_directory(self):
         uuid_value = str(uuid4())
         cache_path = overlay_cache_image_path(uuid_value, 1, "green")
-        self.assertIn("overlay-cache-v3", str(cache_path))
+        self.assertIn("overlay-cache-v4", str(cache_path))
 
     def test_overlay_endpoint_returns_404_for_unauthorized_user(self):
         other_user = get_user_model().objects.create_user(
@@ -1492,6 +1608,13 @@ class RouteSurfaceRefactorTests(TestCase):
             "'measurement_contour_ratio_3',",
             html=False,
         )
+        self.assertContains(response, "return tableFieldOrder.slice();", html=False)
+        self.assertContains(response, "section.hidden = false;", html=False)
+        self.assertNotContains(
+            response,
+            "section.hidden = visibility[key] === false;",
+            html=False,
+        )
 
     def test_display_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         uuid_value = str(uuid4())
@@ -1566,6 +1689,13 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(
             response,
             "'measurement_contour_ratio_3',",
+            html=False,
+        )
+        self.assertContains(response, "return tableFieldOrder.slice();", html=False)
+        self.assertContains(response, "section.hidden = false;", html=False)
+        self.assertNotContains(
+            response,
+            "section.hidden = visibility[key] === false;",
             html=False,
         )
 
@@ -1714,6 +1844,101 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
         self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
+
+    def test_display_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="display-nuclear-only")
+            segmented = self._create_segmented_image(uuid_value, name="display-nuclear-only")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "display-nuclear-only")
+            self._create_cell_stats(
+                segmented,
+                "display-nuclear-only",
+                puncta_distance=10.0,
+                puncta_line_intensity=20.0,
+                red_intensity_1=5.0,
+                green_intensity_1=6.0,
+                red_in_green_intensity_1=7.0,
+                green_in_green_intensity_1=8.0,
+                nucleus_intensity_sum=30.0,
+                cell_pair_intensity_sum=40.0,
+                cytoplasmic_intensity=10.0,
+                colinear_dots=0,
+                off_axis_dots=0,
+                properties={
+                    "selected_analysis": ["NuclearCellPairIntensity"],
+                    "nuclear_cell_pair_mode": "green_nucleus",
+                    "nuclear_cell_pair_status": "ok",
+                    "nuclear_cell_pair_contour_source": "canonical_slot_1",
+                    "cen_dot_schema_version": 3,
+                },
+                category_cen_dot=1,
+            )
+
+            response = self.client.get(reverse("display", args=[uuid_value]))
+
+        self.assertEqual(response.status_code, 200)
+        files_data = json.loads(response.context["files_data"])
+        payload = files_data[uuid_value]["Statistics"]["1"]
+        self.assertIsNone(payload["puncta_distance"])
+        self.assertIsNone(payload["puncta_line_intensity"])
+        self.assertIsNone(payload["red_intensity_1"])
+        self.assertIsNone(payload["measurement_contour_ratio_1"])
+        self.assertEqual(payload["measurement_contour_ratio_display_text"], "N/A")
+        self.assertIsNone(payload["category_cen_dot"])
+        self.assertEqual(payload["category_cen_dot_label"], "N/A")
+        self.assertIsNone(payload["colinear_dots"])
+        self.assertEqual(payload["nucleus_intensity_sum"], 30.0)
+        self.assertEqual(payload["cell_pair_intensity_sum"], 40.0)
+
+    def test_dashboard_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="dashboard-nuclear-only")
+            segmented = self._create_segmented_image(uuid_value, name="dashboard-nuclear-only")
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            self._write_segmented_cell_assets(media_root, uuid_value, "dashboard-nuclear-only")
+            self._create_cell_stats(
+                segmented,
+                "dashboard-nuclear-only",
+                puncta_distance=10.0,
+                puncta_line_intensity=20.0,
+                red_intensity_1=5.0,
+                green_intensity_1=6.0,
+                red_in_green_intensity_1=7.0,
+                green_in_green_intensity_1=8.0,
+                nucleus_intensity_sum=30.0,
+                cell_pair_intensity_sum=40.0,
+                cytoplasmic_intensity=10.0,
+                colinear_dots=0,
+                off_axis_dots=0,
+                properties={
+                    "selected_analysis": ["NuclearCellPairIntensity"],
+                    "nuclear_cell_pair_mode": "green_nucleus",
+                    "nuclear_cell_pair_status": "ok",
+                    "nuclear_cell_pair_contour_source": "canonical_slot_1",
+                    "cen_dot_schema_version": 3,
+                },
+                category_cen_dot=1,
+            )
+
+            response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        files_data = json.loads(response.context["files_data_json"])
+        payload = files_data[uuid_value]["Statistics"]["1"]
+        self.assertIsNone(payload["puncta_distance"])
+        self.assertIsNone(payload["red_intensity_1"])
+        self.assertIsNone(payload["measurement_contour_ratio_1"])
+        self.assertEqual(payload["category_cen_dot_label"], "N/A")
+        self.assertIsNone(payload["colinear_dots"])
+        self.assertEqual(payload["nuclear_cell_pair_contour_source"], "canonical_slot_1")
+        self.assertEqual(payload["cell_pair_intensity_sum"], 40.0)
 
     def test_display_csv_export_includes_ratio_columns_after_raw_intensity_sums(self):
         uuid_value = str(uuid4())

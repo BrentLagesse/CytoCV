@@ -16,12 +16,13 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    DEFAULT_GREEN_DOT_SPLIT_MODE,
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
+    resolve_effective_alternate_nucleus_detection,
     resolve_signal_quantification_selection,
 )
 
@@ -45,7 +46,9 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "biorientationRedMaxDistance": 37,
     "biorientationCollinearityThreshold": DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
     "greenDotSplitEnabled": True,
-    "greenDotSplitMode": DEFAULT_GREEN_DOT_SPLIT_MODE,
+    "greenDotSplitMode": DEFAULT_DOT_SPLIT_MODE,
+    "redDotSplitEnabled": True,
+    "redDotSplitMode": DEFAULT_DOT_SPLIT_MODE,
     "stats_biorientation_red_min_distance_unit": "px",
     "stats_biorientation_red_min_distance_value": 0.0,
     "stats_biorientation_red_max_distance_unit": "px",
@@ -186,14 +189,27 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             default=False,
         ),
     )
+    effective_alternate_enabled, effective_alternate_channel = (
+        resolve_effective_alternate_nucleus_detection(
+            signal_quantification_enabled=signal_selection.enabled,
+            signal_quantification_mode=signal_selection.mode,
+            nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+            alternate_nucleus_detection_enabled=(
+                signal_selection.alternate_nucleus_detection_enabled
+            ),
+            alternate_nucleus_detection_channel=(
+                signal_selection.alternate_nucleus_detection_channel
+            ),
+        )
+    )
 
     normalized = {
         "selected_analysis": list(signal_selection.selected_plugins),
         "signalQuantificationEnabled": signal_selection.enabled,
         "signalQuantificationMode": signal_selection.mode,
         "punctaContourIntensityEnabled": signal_selection.puncta_contour_intensity_enabled,
-        "alternateNucleusDetectionEnabled": signal_selection.alternate_nucleus_detection_enabled,
-        "alternateNucleusDetectionChannel": signal_selection.alternate_nucleus_detection_channel,
+        "alternateNucleusDetectionEnabled": effective_alternate_enabled,
+        "alternateNucleusDetectionChannel": effective_alternate_channel,
         "punctaLineWidth": _parse_int(
             payload.get(
                 "punctaLineWidth",
@@ -238,8 +254,15 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             ),
             default=True,
         ),
-        "greenDotSplitMode": normalize_green_dot_split_mode(
+        "greenDotSplitMode": normalize_dot_split_mode(
             payload.get("greenDotSplitMode", payload.get("green_dot_split_mode"))
+        ),
+        "redDotSplitEnabled": _parse_bool(
+            payload.get("redDotSplitEnabled", payload.get("red_dot_split_enabled")),
+            default=True,
+        ),
+        "redDotSplitMode": normalize_dot_split_mode(
+            payload.get("redDotSplitMode", payload.get("red_dot_split_mode"))
         ),
         "stats_biorientation_red_min_distance_unit": "um"
         if str(payload.get("stats_biorientation_red_min_distance_unit", "px")).strip().lower() == "um"
@@ -296,7 +319,7 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
         ),
-        "alternateRedDetection": signal_selection.alternate_nucleus_detection_enabled,
+        "alternateRedDetection": effective_alternate_enabled,
         "auto_save_experiments": _parse_bool(
             payload.get("auto_save_experiments"),
             default=True,
@@ -372,7 +395,15 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         ),
         "greenDotSplitMode": request.session.get(
             "greenDotSplitMode",
-            request.session.get("green_dot_split_mode", DEFAULT_GREEN_DOT_SPLIT_MODE),
+            request.session.get("green_dot_split_mode", DEFAULT_DOT_SPLIT_MODE),
+        ),
+        "redDotSplitEnabled": request.session.get(
+            "redDotSplitEnabled",
+            request.session.get("red_dot_split_enabled", True),
+        ),
+        "redDotSplitMode": request.session.get(
+            "redDotSplitMode",
+            request.session.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE),
         ),
         "stats_biorientation_red_min_distance_unit": request.session.get(
             "stats_biorientation_red_min_distance_unit", "px"

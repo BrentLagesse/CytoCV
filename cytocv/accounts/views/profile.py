@@ -19,6 +19,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.template.response import TemplateResponse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django_tables2.export.export import TableExport
 
@@ -59,7 +60,9 @@ from core.services.puncta_line_mode import (
     VALID_PUNCTA_LINE_MODES,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import normalize_green_dot_split_mode
+from core.services.dot_split import (
+    normalize_dot_split_mode,
+)
 from core.services.signal_quantification import (
     resolve_signal_quantification_from_defaults,
     resolve_signal_quantification_selection,
@@ -620,6 +623,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
+    confirm_cell_deletion = bool(preferences.get("confirm_cell_deletion", True))
+    confirm_multi_cell_deletion = bool(
+        preferences.get("confirm_multi_cell_deletion", True)
+    )
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -673,17 +680,6 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             uploaded.scale_info,
             manual_default=default_manual_scale,
         )
-        file_list.append(
-            {
-                "uuid": uuid,
-                "name": image_name,
-                "uploaded_date": segmented_image.uploaded_date,
-                "num_cells": segmented_image.NumCells,
-                "detected_channels": detected_channels,
-                "scale": scale_payload,
-            }
-        )
-
         stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
             "cell_id"
         )
@@ -760,13 +756,20 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
 
                 cell_images[str(cell_id)].append(outlined_url)
                 cell_images[str(cell_id)].append(no_outline_url)
-            statistics[str(cell_id)] = _serialize_cell_statistics(cell_stat)
+            if cell_stat is not None:
+                statistics[str(cell_id)] = _serialize_cell_statistics(cell_stat)
 
-        number_of_cells = max(len(cell_ids), int(segmented_image.NumCells or 0))
-        if number_of_cells > 0 and not cell_ids:
-            for cell_id in range(1, number_of_cells + 1):
-                statistics[str(cell_id)] = None
-                cell_images[str(cell_id)] = ["", "", "", "", "", "", "", ""]
+        number_of_cells = len(cell_ids)
+        file_list.append(
+            {
+                "uuid": uuid,
+                "name": image_name,
+                "uploaded_date": segmented_image.uploaded_date,
+                "num_cells": number_of_cells,
+                "detected_channels": detected_channels,
+                "scale": scale_payload,
+            }
+        )
 
         no_cells_warning = None
         if number_of_cells == 0:
@@ -857,6 +860,8 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "show_saved_file_channels": show_saved_file_channels,
         "show_saved_file_scales": show_saved_file_scales,
         "sidebar_starts_open": sidebar_starts_open,
+        "confirm_cell_deletion": confirm_cell_deletion,
+        "confirm_multi_cell_deletion": confirm_multi_cell_deletion,
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
@@ -952,6 +957,7 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 
 
 @login_required
+@never_cache
 def dashboard_view(request: HttpRequest) -> HttpResponse:
     cleanup_summary = sweep_user_run_artifacts(
         request.user,
@@ -1169,10 +1175,21 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 default=bool(defaults.get("green_dot_split_enabled", True)),
                 legacy_key="biorientation_green_split_enabled",
             )
-            green_dot_split_mode = normalize_green_dot_split_mode(
+            green_dot_split_mode = normalize_dot_split_mode(
                 request.POST.get(
                     "green_dot_split_mode",
                     defaults.get("green_dot_split_mode"),
+                )
+            )
+            red_dot_split_enabled = _payload_bool(
+                request.POST,
+                "red_dot_split_enabled",
+                default=bool(defaults.get("red_dot_split_enabled", True)),
+            )
+            red_dot_split_mode = normalize_dot_split_mode(
+                request.POST.get(
+                    "red_dot_split_mode",
+                    defaults.get("red_dot_split_mode"),
                 )
             )
             signal_payload: dict[str, object] = {}
@@ -1241,6 +1258,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                     ),
                     "green_dot_split_enabled": green_dot_split_enabled,
                     "green_dot_split_mode": green_dot_split_mode,
+                    "red_dot_split_enabled": red_dot_split_enabled,
+                    "red_dot_split_mode": red_dot_split_mode,
                     "alternate_red_detection": (
                         signal_selection.alternate_nucleus_detection_enabled
                     ),
@@ -1358,6 +1377,14 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             next_payload["sidebar_starts_open"] = _post_bool(
                 request,
                 "sidebar_starts_open",
+            )
+            next_payload["confirm_cell_deletion"] = _post_bool(
+                request,
+                "confirm_cell_deletion",
+            )
+            next_payload["confirm_multi_cell_deletion"] = _post_bool(
+                request,
+                "confirm_multi_cell_deletion",
             )
             preferences = update_user_preferences(request.user, next_payload)
             if should_auto_save_experiments(request.user):

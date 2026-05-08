@@ -1,4 +1,4 @@
-"""Tests for Green dot split mode configuration plumbing."""
+"""Tests for Red/Green dot split mode configuration plumbing."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from core.services.analysis_context import normalize_analysis_config_snapshot
 from core.services.overlay_rendering import build_overlay_render_config
 
 
-class GreenDotSplitConfigTests(SimpleTestCase):
+class DotSplitConfigTests(SimpleTestCase):
     def test_analysis_snapshot_preserves_green_dot_split_mode(self):
         normalized = normalize_analysis_config_snapshot(
             {
@@ -25,6 +25,22 @@ class GreenDotSplitConfigTests(SimpleTestCase):
         normalized = normalize_analysis_config_snapshot({"greenDotSplitMode": "bad"})
 
         self.assertEqual(normalized["greenDotSplitMode"], "balanced")
+
+    def test_analysis_snapshot_preserves_red_dot_split_mode(self):
+        normalized = normalize_analysis_config_snapshot(
+            {
+                "redDotSplitEnabled": False,
+                "redDotSplitMode": "aggressive",
+            }
+        )
+
+        self.assertFalse(normalized["redDotSplitEnabled"])
+        self.assertEqual(normalized["redDotSplitMode"], "aggressive")
+
+    def test_analysis_snapshot_defaults_invalid_red_dot_split_mode(self):
+        normalized = normalize_analysis_config_snapshot({"redDotSplitMode": "bad"})
+
+        self.assertEqual(normalized["redDotSplitMode"], "balanced")
 
     def test_analysis_snapshot_derives_puncta_without_contour_intensity(self):
         normalized = normalize_analysis_config_snapshot(
@@ -52,7 +68,7 @@ class GreenDotSplitConfigTests(SimpleTestCase):
 
         self.assertEqual(
             normalized["selected_analysis"],
-            ["CENDot", "NuclearCellPairIntensity"],
+            ["NuclearCellPairIntensity"],
         )
         self.assertEqual(normalized["signalQuantificationMode"], "nuclear_cell_pair")
         self.assertTrue(normalized["alternateNucleusDetectionEnabled"])
@@ -75,7 +91,11 @@ class GreenDotSplitConfigTests(SimpleTestCase):
             alternate_red_detection=False,
             green_dot_split_enabled=True,
             green_dot_split_mode="aggressive",
+            red_dot_split_enabled=False,
+            red_dot_split_mode="aggressive",
         )
 
         self.assertTrue(config["green_dot_split_enabled"])
         self.assertEqual(config["green_dot_split_mode"], "aggressive")
+        self.assertFalse(config["red_dot_split_enabled"])
+        self.assertEqual(config["red_dot_split_mode"], "aggressive")

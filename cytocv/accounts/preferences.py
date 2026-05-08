@@ -14,8 +14,8 @@ from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     normalize_puncta_line_mode,
 )
-from core.services.green_dot_split import (
-    normalize_green_dot_split_mode,
+from core.services.dot_split import (
+    normalize_dot_split_mode,
 )
 from core.services.signal_quantification import (
     DEFAULT_SIGNAL_SELECTED_PLUGINS,
@@ -62,6 +62,8 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_collinearity_threshold": DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
         "green_dot_split_enabled": True,
         "green_dot_split_mode": "balanced",
+        "red_dot_split_enabled": True,
+        "red_dot_split_mode": "balanced",
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
@@ -79,6 +81,8 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "show_saved_file_channels": True,
     "show_saved_file_scales": True,
     "sidebar_starts_open": True,
+    "confirm_cell_deletion": True,
+    "confirm_multi_cell_deletion": True,
     "sidebar_spatial_stats_unit": "px",
     "main_image_channel": "",
 }
@@ -367,7 +371,23 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         ]["green_dot_split_mode"]
     else:
         normalized["experiment_defaults"]["green_dot_split_mode"] = (
-            normalize_green_dot_split_mode(raw_green_dot_split_mode)
+            normalize_dot_split_mode(raw_green_dot_split_mode)
+        )
+    normalized["experiment_defaults"]["red_dot_split_enabled"] = _as_bool(
+        defaults_payload.get("red_dot_split_enabled"),
+        default=True,
+    )
+    raw_red_dot_split_mode = _first_present(
+        defaults_payload.get("red_dot_split_mode"),
+        defaults_payload.get("redDotSplitMode"),
+    )
+    if raw_red_dot_split_mode is None:
+        normalized["experiment_defaults"]["red_dot_split_mode"] = normalized[
+            "experiment_defaults"
+        ]["red_dot_split_mode"]
+    else:
+        normalized["experiment_defaults"]["red_dot_split_mode"] = (
+            normalize_dot_split_mode(raw_red_dot_split_mode)
         )
     normalized["experiment_defaults"]["puncta_line_mode"] = normalize_puncta_line_mode(
         defaults_payload.get("puncta_line_mode"),
@@ -427,6 +447,14 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         raw_payload.get("sidebar_starts_open"),
         default=True,
     )
+    normalized["confirm_cell_deletion"] = _as_bool(
+        raw_payload.get("confirm_cell_deletion"),
+        default=True,
+    )
+    normalized["confirm_multi_cell_deletion"] = _as_bool(
+        raw_payload.get("confirm_multi_cell_deletion"),
+        default=True,
+    )
     normalized["sidebar_spatial_stats_unit"] = _normalize_unit(
         raw_payload.get("sidebar_spatial_stats_unit"),
         default=normalized["experiment_defaults"]["spatial_stats_unit"],
@@ -462,6 +490,8 @@ def build_experiment_defaults_from_popup_payload(
         "green_contour_filter_enabled",
         "green_dot_split_enabled",
         "green_dot_split_mode",
+        "red_dot_split_enabled",
+        "red_dot_split_mode",
         "alternate_red_detection",
         "puncta_line_width",
         "puncta_line_width_unit",
@@ -604,6 +634,11 @@ def build_experiment_defaults_from_popup_payload(
         field="green_dot_split_mode",
         allowed={"balanced", "aggressive"},
     )
+    red_dot_split_mode = _strict_mode(
+        raw_payload.get("red_dot_split_mode", current.get("red_dot_split_mode", "balanced")),
+        field="red_dot_split_mode",
+        allowed={"balanced", "aggressive"},
+    )
 
     signal_payload: dict[str, Any] = {}
     if "signal_quantification_enabled" in raw_payload:
@@ -694,6 +729,14 @@ def build_experiment_defaults_from_popup_payload(
                 field="green_dot_split_enabled",
             ),
             "green_dot_split_mode": green_dot_split_mode,
+            "red_dot_split_enabled": _strict_bool(
+                raw_payload.get(
+                    "red_dot_split_enabled",
+                    current.get("red_dot_split_enabled", True),
+                ),
+                field="red_dot_split_enabled",
+            ),
+            "red_dot_split_mode": red_dot_split_mode,
             "alternate_red_detection": (
                 signal_selection.alternate_nucleus_detection_enabled
             ),

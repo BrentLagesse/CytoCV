@@ -1201,7 +1201,7 @@
             border-radius: 8px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42);
             overflow: hidden;
-            z-index: 4200;
+            z-index: 5300;
         }
         .length-unit-option {
             width: 100%;
@@ -1225,6 +1225,16 @@
         .length-unit-option:hover {
             background: #464646;
             color: #ffffff;
+        }
+        .length-unit-option:disabled,
+        .length-unit-option.is-disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .length-unit-option:disabled:hover,
+        .length-unit-option.is-disabled:hover {
+            background: #2f2f2f;
+            color: #efefef;
         }
         .length-unit-option.is-selected {
             background: #5a5a5a;
@@ -1250,6 +1260,7 @@
         .mode-dropdown.open {
             border-color: rgba(86, 147, 220, 0.75);
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
+            z-index: 5200;
         }
         .mode-trigger {
             border-left: none;
@@ -1314,7 +1325,7 @@
             line-height: 1.25;
             opacity: 0;
             transform: translateY(-5px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transition: opacity 0.12s ease, transform 0.12s ease;
         }
         .signal-mode-paused-note.visible {
             opacity: 1;
@@ -1501,6 +1512,11 @@
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
             pointer-events: none;
         }
+        .info-tooltip.wide {
+            width: min(520px, calc(100vw - 24px));
+            max-width: min(520px, calc(100vw - 24px));
+            padding: 10px 12px;
+        }
         .info-tooltip[hidden] {
             display: none !important;
         }
@@ -1605,8 +1621,11 @@
             row-gap: 0;
             position: relative;
         }
-        .toggle-row.combo.mode-menu-open {
-            z-index: 4300;
+        .toggle-row.combo.mode-menu-open,
+        .stats-distance-inline.mode-menu-open {
+            position: relative;
+            z-index: 5200;
+            overflow: visible;
         }
         .toggle-row.combo .stats-distance-inline.disabled {
             opacity: 0.5;
@@ -1831,27 +1850,39 @@
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Dot Detection</div>
                     <div class="stats-list dot-detection-list">
-                        <div class="toggle-row combo" id="greenDotSplitRow">
+                        <div class="toggle-row combo" id="dotSplitRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Split Merged Green Dots</span>
+                                    <span class="toggle-label">Split Merged Dots</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
-                                        id="greenDotSplitInfoDot"
-                                        data-info-text="Split connected multi-peak Green signal into separate dot contours before statistics are calculated.&#10;&#10;Modes:&#10;- Balanced: standard split sensitivity, now stronger than the old balanced mode.&#10;- Aggressive: highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots."
-                                        aria-label="Split merged Green dots info"
+                                        id="dotSplitInfoDot"
+                                        data-info-text="Split connected multi-peak Red and/or Green signal into separate dot contours before statistics are calculated.&#10;&#10;Targets: Red, Green, or Both.&#10;&#10;Modes: Balanced uses standard split sensitivity; Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged dots."
+                                        aria-label="Split merged dots info"
                                     >i</button>
                                 </span>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" id="greenDotSplitEnabled">
+                                <input type="checkbox" id="dotSplitEnabled">
                                 <span class="slider"></span>
                             </label>
+                            <div class="stats-distance-inline" id="dotSplitTargetRow">
+                                <div class="stats-distance-line">
+                                    <label for="dotSplitTarget">Split Target:</label>
+                                    <div id="dotSplitTargetMount" class="split-mode-mount"></div>
+                                </div>
+                            </div>
                             <div class="stats-distance-inline" id="greenDotSplitModeRow">
                                 <div class="stats-distance-line">
-                                    <label for="greenDotSplitMode">Green Dot Split Mode:</label>
+                                    <label for="greenDotSplitMode">Green Split Mode:</label>
                                     <div id="greenDotSplitModeMount" class="split-mode-mount"></div>
+                                </div>
+                            </div>
+                            <div class="stats-distance-inline" id="redDotSplitModeRow">
+                                <div class="stats-distance-line">
+                                    <label for="redDotSplitMode">Red Split Mode:</label>
+                                    <div id="redDotSplitModeMount" class="split-mode-mount"></div>
                                 </div>
                             </div>
                         </div>
@@ -2167,6 +2198,8 @@
     const biorientationThresholdKey = 'cytocv.biorientation_collinearity_threshold.v1';
     const greenDotSplitKey = 'cytocv.green_dot_split_enabled.v1';
     const greenDotSplitModeKey = 'cytocv.green_dot_split_mode.v1';
+    const redDotSplitKey = 'cytocv.red_dot_split_enabled.v1';
+    const redDotSplitModeKey = 'cytocv.red_dot_split_mode.v1';
     const legacyBiorientationGreenSplitKey = 'cytocv.biorientation_green_split_enabled.v1';
     const advancedKey = 'cytocv.advanced_validation.v3';
     const signalQuantificationKey = 'cytocv.signal_quantification.v1';
@@ -2240,6 +2273,8 @@
         alternateNucleusDetectionEnabled: false,
         greenDotSplitEnabled: true,
         greenDotSplitMode: 'balanced',
+        redDotSplitEnabled: true,
+        redDotSplitMode: 'balanced',
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
         greenContourFilterEnabled: false,
@@ -2277,7 +2312,11 @@
     let signalQuantificationToggle = null;
     let signalQuantificationModeRow = null;
     let signalQuantificationModeSelect = null;
+    let signalQuantificationInfoDot = null;
     let signalModePausedNote = null;
+    const SIGNAL_MODE_NOTICE_FADE_MS = 120;
+    let signalModeNoticeTimer = null;
+    let signalModeNoticeTransition = 0;
     let signalPunctaPanel = null;
     let signalNuclearPanel = null;
     let punctaContourIntensityToggle = null;
@@ -2286,13 +2325,60 @@
     let alternateNucleusDetectionRow = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
+    let dotSplitTargetSelect = null;
     let greenDotSplitModeSelect = null;
+    let redDotSplitModeSelect = null;
     let selectionsInitializedBeforeLoad = false;
     let infoTooltipElement = null;
     let activeInfoAnchor = null;
 
     function normalizeGreenDotSplitMode(value) {
         return value === 'aggressive' ? 'aggressive' : 'balanced';
+    }
+
+    function normalizeRedDotSplitMode(value) {
+        return value === 'aggressive' ? 'aggressive' : 'balanced';
+    }
+
+    function normalizeDotSplitTarget(value) {
+        if (value === 'red' || value === 'green' || value === 'both') return value;
+        return 'both';
+    }
+
+    function dotSplitTargetFromFlags(greenEnabled, redEnabled) {
+        if (greenEnabled && redEnabled) return 'both';
+        if (greenEnabled) return 'green';
+        if (redEnabled) return 'red';
+        return 'both';
+    }
+
+    function dotSplitTargetAllowed(target, greenAllowed, redAllowed) {
+        if (target === 'green') return greenAllowed;
+        if (target === 'red') return redAllowed;
+        return greenAllowed && redAllowed;
+    }
+
+    function fallbackDotSplitTarget(preferredTarget, greenAllowed, redAllowed) {
+        const target = normalizeDotSplitTarget(preferredTarget);
+        if (dotSplitTargetAllowed(target, greenAllowed, redAllowed)) return target;
+        if (greenAllowed && redAllowed) return 'both';
+        if (greenAllowed) return 'green';
+        if (redAllowed) return 'red';
+        return '';
+    }
+
+    function applyDotSplitTargetToState(preferredTarget, enabled) {
+        const greenAllowed = selectedStatsRequireChannel('channel_green');
+        const redAllowed = selectedStatsRequireChannel('channel_red');
+        const target = fallbackDotSplitTarget(preferredTarget, greenAllowed, redAllowed);
+        if (!enabled || !target) {
+            statsState.greenDotSplitEnabled = false;
+            statsState.redDotSplitEnabled = false;
+            return target;
+        }
+        statsState.greenDotSplitEnabled = target === 'green' || target === 'both';
+        statsState.redDotSplitEnabled = target === 'red' || target === 'both';
+        return target;
     }
 
     function joinLabels(labels) {
@@ -2350,6 +2436,40 @@
         ]);
     }
 
+    const signalQuantificationInfoBase = 'Signal Quantification controls the primary Red/Green signal measurement workflow for this experiment. Choose one primary mode: Puncta Distance or Nuclear, Cell-Pair Intensity. The selected mode determines which statistics are calculated, which child controls are shown, and which results appear in the output.';
+    const signalQuantificationPunctaInfo = [
+        'Puncta Distance detects the first two usable puncta in the selected source channel, measures the distance between their centers, draws a line mask between them, and sums intensity from the opposite measurement channel along that line. Results include puncta distance, puncta line intensity, and pixel/scale-adjusted distance values.',
+        'Puncta Source chooses which channel defines the two puncta and which opposite channel is measured. Red Puncta measures Green signal along the Red-puncta line; Green Puncta measures Red signal along the Green-puncta line.',
+        'Puncta Line Width sets the thickness of the line mask used for the line-intensity sum. Values can be entered in pixels or microns; micron values are converted using the active measurement scale.',
+        'Red/Green Contour Intensities optionally calculates raw intensity sums inside detected Red and Green contour masks. When enabled, results include Red in Red, Green in Red, Red in Green, Green in Green, Green-from-Red distance fields, and Measurement/Contour ratios for the selected puncta source.',
+    ];
+    const signalQuantificationNuclearInfo = [
+        'Nuclear, Cell-Pair Intensity measures signal from the selected measurement channel inside the selected nucleus contour and inside the full DIC cell-pair mask. Results include nucleus contour channel, measurement channel, nuclear intensity, cell-pair intensity, cytoplasmic intensity, and nuclear status.',
+        'Nucleus Contour Source chooses which channel supplies the nucleus contour and which opposite channel is measured. Green Nucleus uses the Green contour as the nucleus and measures Red signal; Red Nucleus uses the Red contour as the nucleus and measures Green signal.',
+        'Alternate Nucleus Detection changes only the Nuclear, Cell-Pair nucleus contour path. When enabled, the alternate detection path is used for the selected nucleus source channel only: Red Nucleus uses alternate Red detection, and Green Nucleus uses alternate Green detection. If disabled, the standard nucleus contour path is used.',
+    ];
+
+    function buildSignalQuantificationInfoText(mode = statsState.signalQuantificationMode) {
+        const modeSections = normalizeSignalMode(mode) === 'nuclear_cell_pair'
+            ? signalQuantificationNuclearInfo
+            : signalQuantificationPunctaInfo;
+        return buildInfoSections([
+            signalQuantificationInfoBase,
+            ...modeSections,
+            'Required channels: Red and Green.',
+        ]);
+    }
+
+    function updateSignalQuantificationInfoDot() {
+        if (!signalQuantificationInfoDot) return;
+        const normalized = normalizeInfoText(buildSignalQuantificationInfoText());
+        signalQuantificationInfoDot.dataset.infoText = normalized;
+        signalQuantificationInfoDot.setAttribute('aria-label', normalized || 'Information');
+        if (activeInfoAnchor === signalQuantificationInfoDot && infoTooltipElement && !infoTooltipElement.hidden) {
+            showInfoTooltip(signalQuantificationInfoDot);
+        }
+    }
+
     function normalizeSignalMode(value) {
         return value === 'nuclear_cell_pair' ? 'nuclear_cell_pair' : 'puncta_distance';
     }
@@ -2399,19 +2519,12 @@
         if (signalMode === 'nuclear_cell_pair') {
             return {
                 state: 'paused',
-                text: 'All other stat modules disabled in Nuclear, Cell-Pair mode.',
+                text: 'Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.',
             };
         }
-        const activeSecondaries = [
-            statsState.selectedPlugins.has('CENDot') ? 'Cen Dot' : null,
-            statsState.selectedPlugins.has('Biorientation') ? 'Biorientation' : null,
-        ].filter(Boolean);
-        if (!activeSecondaries.length) return null;
         return {
             state: 'enabled',
-            text: activeSecondaries.length === 2
-                ? `${activeSecondaries[0]} and ${activeSecondaries[1]} modules enabled.`
-                : `${activeSecondaries[0]} module enabled.`,
+            text: 'All other stat modules enabled in Puncta Distance mode.',
         };
     }
 
@@ -2421,23 +2534,45 @@
         const state = notice ? notice.state : '';
         const text = notice ? notice.text : '';
         const changed = signalModePausedNote.dataset.state !== state || signalModePausedNote.textContent !== text;
-        signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+        const isActive = signalModePausedNote.classList.contains('visible');
+        signalModeNoticeTransition += 1;
+        const transitionId = signalModeNoticeTransition;
+        if (signalModeNoticeTimer) {
+            window.clearTimeout(signalModeNoticeTimer);
+            signalModeNoticeTimer = null;
+        }
+        const applyNotice = () => {
+            if (transitionId !== signalModeNoticeTransition) return;
+            signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+            signalModePausedNote.textContent = text;
+            signalModePausedNote.dataset.state = state;
+            signalModePausedNote.classList.add(`is-${state}`);
+            signalModePausedNote.setAttribute('aria-hidden', 'false');
+            void signalModePausedNote.offsetWidth;
+            signalModePausedNote.classList.add('visible');
+        };
         if (!notice) {
             signalModePausedNote.classList.remove('visible');
             signalModePausedNote.setAttribute('aria-hidden', 'true');
-            signalModePausedNote.dataset.state = '';
-            signalModePausedNote.textContent = '';
+            signalModeNoticeTimer = window.setTimeout(() => {
+                if (transitionId !== signalModeNoticeTransition) return;
+                signalModePausedNote.classList.remove('is-enabled', 'is-paused');
+                signalModePausedNote.dataset.state = '';
+                signalModePausedNote.textContent = '';
+            }, SIGNAL_MODE_NOTICE_FADE_MS);
             return;
         }
-        signalModePausedNote.textContent = text;
-        signalModePausedNote.dataset.state = state;
-        signalModePausedNote.classList.add(`is-${state}`);
-        signalModePausedNote.setAttribute('aria-hidden', 'false');
-        if (changed) {
-            signalModePausedNote.classList.remove('visible');
-            void signalModePausedNote.offsetWidth;
+        if (!changed && isActive) {
+            signalModePausedNote.setAttribute('aria-hidden', 'false');
+            return;
         }
-        signalModePausedNote.classList.add('visible');
+        if (changed && isActive) {
+            signalModePausedNote.classList.remove('visible');
+            signalModePausedNote.setAttribute('aria-hidden', 'true');
+            signalModeNoticeTimer = window.setTimeout(applyNotice, SIGNAL_MODE_NOTICE_FADE_MS);
+            return;
+        }
+        applyNotice();
     }
 
     const advancedInfoTextById = {
@@ -2450,11 +2585,11 @@
             'Required channels: Green.',
         ]),
         greenFilterExperimentalDot: 'Experimental setting: behavior can vary across image quality, exposure, and channel mapping. Validate outputs before using results for conclusions.',
-        greenDotSplitInfoDot: buildInfoSections([
-            'Splits connected multi-peak Green signal into separate dot contours before statistics are calculated. Use it when two nearby Green dots are detected as one merged contour.',
-            'Green Dot Split Mode: Balanced uses standard split sensitivity, now stronger than the old balanced mode; Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged Green dots.',
-            'Availability: enabled only when a selected statistic requires the Green channel.',
-            'Required channels: Green.',
+        dotSplitInfoDot: buildInfoSections([
+            'Splits connected multi-peak Red and/or Green signal into separate dot contours before statistics are calculated. Use it when nearby dots are detected as one merged contour.',
+            'Target: choose Red, Green, or Both. Unavailable targets are disabled when selected statistics do not require that channel.',
+            'Modes: Balanced uses standard split sensitivity; Aggressive is the highest-recall split mode for tiny, very close, unequal, or tip-connected merged dots.',
+            'Required channels: Red or Green.',
         ]),
         alternateRedInfoDot: buildInfoSections([
             'Uses alternate Red detection when standard detection creates one contour around all Red speckles. It tries to recover separate Red-dot contours so Red-dependent statistics can still run.',
@@ -2534,6 +2669,9 @@
         const rawGreenDotSplitDefault = Object.prototype.hasOwnProperty.call(serverPreferenceDefaults, 'green_dot_split_enabled')
             ? serverPreferenceDefaults.green_dot_split_enabled
             : serverPreferenceDefaults.biorientation_green_split_enabled;
+        const rawRedDotSplitDefault = Object.prototype.hasOwnProperty.call(serverPreferenceDefaults, 'red_dot_split_enabled')
+            ? serverPreferenceDefaults.red_dot_split_enabled
+            : true;
         const advancedPayload = {
             moduleEnabled: !!serverPreferenceDefaults.module_enabled,
             enforceLayerCount: !!serverPreferenceDefaults.enforce_layer_count,
@@ -2543,6 +2681,8 @@
             greenContourFilterEnabled: !!serverPreferenceDefaults.green_contour_filter_enabled,
             greenDotSplitEnabled: rawGreenDotSplitDefault !== false,
             greenDotSplitMode: normalizeGreenDotSplitMode(serverPreferenceDefaults.green_dot_split_mode),
+            redDotSplitEnabled: rawRedDotSplitDefault !== false,
+            redDotSplitMode: normalizeRedDotSplitMode(serverPreferenceDefaults.red_dot_split_mode),
         };
         localStorage.setItem(advancedKey, JSON.stringify(advancedPayload));
         localStorage.setItem(signalQuantificationKey, JSON.stringify({
@@ -2583,6 +2723,9 @@
         localStorage.setItem(biorientationRedMaxDistanceKey, Number.isFinite(biorientationMaxDistance) ? String(biorientationMaxDistance) : '37');
         localStorage.setItem(biorientationThresholdKey, Number.isFinite(threshold) ? String(Math.max(0, Math.round(threshold))) : '3');
         localStorage.setItem(greenDotSplitKey, String(rawGreenDotSplitDefault !== false));
+        localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(serverPreferenceDefaults.green_dot_split_mode));
+        localStorage.setItem(redDotSplitKey, String(rawRedDotSplitDefault !== false));
+        localStorage.setItem(redDotSplitModeKey, normalizeRedDotSplitMode(serverPreferenceDefaults.red_dot_split_mode));
         localStorage.setItem(
             micronsPerPixelKey,
             Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
@@ -2981,6 +3124,7 @@
         if (!infoTooltipElement) return;
         infoTooltipElement.hidden = true;
         infoTooltipElement.textContent = '';
+        infoTooltipElement.classList.remove('wide');
     }
 
     function positionInfoTooltip(anchor) {
@@ -2994,11 +3138,26 @@
         const width = infoTooltipElement.offsetWidth;
         const height = infoTooltipElement.offsetHeight;
 
+        const placement = anchor.dataset.tooltipPlacement || 'above';
         let left = rect.left + (rect.width / 2) - (width / 2);
-        left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
-
         let top = rect.top - height - gap;
-        if (top < margin) {
+
+        if (placement === 'right') {
+            left = rect.right + gap;
+            if (left + width > window.innerWidth - margin) {
+                left = rect.left - width - gap;
+            }
+            left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+            top = rect.top + (rect.height / 2) - (height / 2);
+            top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
+        } else {
+            left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+        }
+
+        const preferAbove = placement === 'above';
+        if (placement !== 'right' && top < margin && preferAbove) {
+            top = margin;
+        } else if (placement !== 'right' && top < margin) {
             top = rect.bottom + gap;
         }
         if (top + height > window.innerHeight - margin) {
@@ -3023,6 +3182,7 @@
         }
         activeInfoAnchor = anchor;
         infoTooltipElement.textContent = text;
+        infoTooltipElement.classList.toggle('wide', anchor.dataset.tooltipWidth === 'wide');
         infoTooltipElement.hidden = false;
         positionInfoTooltip(anchor);
     }
@@ -3394,6 +3554,8 @@
 
     function buildCustomModeSelect(optionsList, initialValue, onChange) {
         let currentValue = initialValue;
+        let disabledValues = new Set(optionsList.filter((o) => o.disabled).map((o) => o.value));
+        let controlDisabled = false;
 
         const root = document.createElement('div');
         root.className = 'length-unit-dropdown mode-dropdown';
@@ -3422,6 +3584,17 @@
         root.appendChild(menu);
 
         const optionButtons = new Map();
+        const syncDisabledState = () => {
+            trigger.disabled = controlDisabled;
+            root.classList.toggle('is-disabled', controlDisabled);
+            optionButtons.forEach((btn, value) => {
+                const disabled = controlDisabled || disabledValues.has(value);
+                btn.disabled = disabled;
+                btn.classList.toggle('is-disabled', disabled);
+                btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+            });
+        };
+
         optionsList.forEach(({ value, text }) => {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -3433,6 +3606,7 @@
             btn.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (controlDisabled || disabledValues.has(value)) return;
                 currentValue = value;
                 optionButtons.forEach((b, v) => b.classList.toggle('is-selected', v === value));
                 labelSpan.textContent = getLabel(value);
@@ -3455,6 +3629,8 @@
                 if (modeInline) modeInline.classList.remove('mode-menu-open');
                 const comboRow = root.closest('.toggle-row.combo');
                 if (comboRow) comboRow.classList.remove('mode-menu-open');
+                const statsInline = root.closest('.stats-distance-inline');
+                if (statsInline) statsInline.classList.remove('mode-menu-open');
             },
             open() {
                 modeDropdownControls.forEach((c) => { if (c !== ctrl) c.close(); });
@@ -3467,6 +3643,8 @@
                 if (modeInline) modeInline.classList.add('mode-menu-open');
                 const comboRow = root.closest('.toggle-row.combo');
                 if (comboRow) comboRow.classList.add('mode-menu-open');
+                const statsInline = root.closest('.stats-distance-inline');
+                if (statsInline) statsInline.classList.add('mode-menu-open');
             },
         };
 
@@ -3487,8 +3665,18 @@
             enumerable: true,
             configurable: true,
         });
+        handle.setDisabledValues = (values) => {
+            disabledValues = new Set(Array.isArray(values) ? values : []);
+            syncDisabledState();
+        };
+        handle.setDisabled = (disabled) => {
+            controlDisabled = !!disabled;
+            if (controlDisabled) ctrl.close();
+            syncDisabledState();
+        };
         handle.root = root;
         handle.ctrl = ctrl;
+        syncDisabledState();
         return handle;
     }
 
@@ -3639,11 +3827,10 @@
         title.textContent = 'Signal Quantification';
         titleWrap.appendChild(title);
         left.appendChild(titleWrap);
-        left.appendChild(buildInfoDot(buildInfoSections([
-            'Choose one primary signal workflow for this experiment.',
-            'Puncta Distance can also calculate Red/Green contour intensities. Nuclear, Cell-Pair Intensity measures the opposite channel inside the selected nucleus contour and full cell-pair mask.',
-            'Required channels: Red and Green.',
-        ])));
+        signalQuantificationInfoDot = buildInfoDot(buildSignalQuantificationInfoText());
+        signalQuantificationInfoDot.dataset.tooltipWidth = 'wide';
+        signalQuantificationInfoDot.dataset.tooltipPlacement = 'right';
+        left.appendChild(signalQuantificationInfoDot);
         row.appendChild(left);
 
         const right = document.createElement('div');
@@ -3844,6 +4031,11 @@
     function renderStatsToggles() {
         const list = document.getElementById('statsList');
         if (!list) return;
+        if (signalModeNoticeTimer) {
+            window.clearTimeout(signalModeNoticeTimer);
+            signalModeNoticeTimer = null;
+        }
+        signalModeNoticeTransition += 1;
         list.innerHTML = '';
         statToggleElements.clear();
         lengthUnitSelectElements.clear();
@@ -3862,6 +4054,7 @@
         signalQuantificationToggle = null;
         signalQuantificationModeRow = null;
         signalQuantificationModeSelect = null;
+        signalQuantificationInfoDot = null;
         signalModePausedNote = null;
         signalPunctaPanel = null;
         signalNuclearPanel = null;
@@ -4456,8 +4649,10 @@
         });
 
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
-        const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
+        const dotSplitEnabled = document.getElementById('dotSplitEnabled');
+        const dotSplitTargetMount = document.getElementById('dotSplitTargetMount');
         const greenDotSplitModeMount = document.getElementById('greenDotSplitModeMount');
+        const redDotSplitModeMount = document.getElementById('redDotSplitModeMount');
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
         const layerToggle = document.getElementById('enforceLayerCount');
         const wavelengthToggle = document.getElementById('enforceWavelengths');
@@ -4469,12 +4664,33 @@
                 syncStatsUI();
             });
         }
-        if (greenDotSplitEnabled) {
-            greenDotSplitEnabled.addEventListener('change', () => {
-                statsState.greenDotSplitEnabled = greenDotSplitEnabled.checked;
+        if (dotSplitEnabled) {
+            dotSplitEnabled.addEventListener('change', () => {
+                applyDotSplitTargetToState(
+                    dotSplitTargetSelect
+                        ? dotSplitTargetSelect.value
+                        : dotSplitTargetFromFlags(statsState.greenDotSplitEnabled, statsState.redDotSplitEnabled),
+                    dotSplitEnabled.checked
+                );
                 persistAdvancedSettings();
                 syncStatsUI();
             });
+        }
+        if (dotSplitTargetMount && !dotSplitTargetSelect) {
+            dotSplitTargetSelect = buildCustomModeSelect(
+                [
+                    { value: 'both', text: 'Both' },
+                    { value: 'green', text: 'Green' },
+                    { value: 'red', text: 'Red' },
+                ],
+                dotSplitTargetFromFlags(statsState.greenDotSplitEnabled, statsState.redDotSplitEnabled),
+                (nextTarget) => {
+                    applyDotSplitTargetToState(nextTarget, true);
+                    persistAdvancedSettings();
+                    syncStatsUI();
+                },
+            );
+            dotSplitTargetMount.appendChild(dotSplitTargetSelect.root);
         }
         if (greenDotSplitModeMount && !greenDotSplitModeSelect) {
             greenDotSplitModeSelect = buildCustomModeSelect(
@@ -4490,6 +4706,21 @@
                 },
             );
             greenDotSplitModeMount.appendChild(greenDotSplitModeSelect.root);
+        }
+        if (redDotSplitModeMount && !redDotSplitModeSelect) {
+            redDotSplitModeSelect = buildCustomModeSelect(
+                [
+                    { value: 'balanced', text: 'Balanced' },
+                    { value: 'aggressive', text: 'Aggressive' },
+                ],
+                normalizeRedDotSplitMode(statsState.redDotSplitMode),
+                (nextMode) => {
+                    statsState.redDotSplitMode = normalizeRedDotSplitMode(nextMode);
+                    persistAdvancedSettings();
+                    syncStatsUI();
+                },
+            );
+            redDotSplitModeMount.appendChild(redDotSplitModeSelect.root);
         }
         if (moduleToggle) {
             moduleToggle.addEventListener('change', () => {
@@ -4578,6 +4809,17 @@
         }
         statsState.greenDotSplitMode = normalizeGreenDotSplitMode(
             stored.greenDotSplitMode || localStorage.getItem(greenDotSplitModeKey)
+        );
+        if (typeof stored.redDotSplitEnabled === 'boolean') {
+            statsState.redDotSplitEnabled = stored.redDotSplitEnabled;
+        } else {
+            const redSplitRaw = localStorage.getItem(redDotSplitKey);
+            statsState.redDotSplitEnabled = redSplitRaw === null
+                ? true
+                : !['0', 'false', 'off', 'no'].includes(String(redSplitRaw).trim().toLowerCase());
+        }
+        statsState.redDotSplitMode = normalizeRedDotSplitMode(
+            stored.redDotSplitMode || localStorage.getItem(redDotSplitModeKey)
         );
         statsState.moduleEnabled = typeof stored.moduleEnabled === 'boolean' ? stored.moduleEnabled : false;
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
@@ -4718,9 +4960,13 @@
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
+            redDotSplitEnabled: !!statsState.redDotSplitEnabled,
+            redDotSplitMode: normalizeRedDotSplitMode(statsState.redDotSplitMode),
         }));
         localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
         localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
+        localStorage.setItem(redDotSplitKey, String(statsState.redDotSplitEnabled));
+        localStorage.setItem(redDotSplitModeKey, normalizeRedDotSplitMode(statsState.redDotSplitMode));
     }
 
     function enforceExclusiveGroup(pluginId) {
@@ -4820,10 +5066,12 @@
         const wavelengthRow = document.getElementById('wavelengthCheckRow');
         const optionalChecksNote = document.getElementById('optionalChecksNote');
         const greenContourFilterEnabled = document.getElementById('greenContourFilterEnabled');
-        const greenDotSplitEnabled = document.getElementById('greenDotSplitEnabled');
+        const dotSplitEnabled = document.getElementById('dotSplitEnabled');
+        const dotSplitTargetRow = document.getElementById('dotSplitTargetRow');
         const greenDotSplitModeRow = document.getElementById('greenDotSplitModeRow');
+        const redDotSplitModeRow = document.getElementById('redDotSplitModeRow');
         const greenFilterRow = document.getElementById('greenFilterRow');
-        const greenDotSplitRow = document.getElementById('greenDotSplitRow');
+        const dotSplitRow = document.getElementById('dotSplitRow');
         const moduleRow = document.getElementById('moduleToggleRow');
 
         statToggleElements.forEach((toggle, pluginId) => {
@@ -4840,6 +5088,7 @@
 
         const signalEnabled = !!statsState.signalQuantificationEnabled;
         const signalMode = normalizeSignalMode(statsState.signalQuantificationMode);
+        updateSignalQuantificationInfoDot();
         if (signalQuantificationToggle) {
             signalQuantificationToggle.checked = signalEnabled;
             setOffVisualState(signalQuantificationToggle.closest('.stats-toggle-row'), !signalEnabled);
@@ -4931,22 +5180,54 @@
             }
             setOffVisualState(greenFilterRow, !greenContourFilterEnabled.checked);
         }
-        if (greenDotSplitEnabled) {
-            const greenStatSelected = selectedStatsRequireChannel('channel_green');
-            greenDotSplitEnabled.disabled = !greenStatSelected;
-            greenDotSplitEnabled.checked = greenStatSelected && !!statsState.greenDotSplitEnabled;
-            if (greenDotSplitRow) {
-                greenDotSplitRow.classList.toggle('disabled', !greenStatSelected);
-            }
+        const greenDotSplitAllowed = selectedStatsRequireChannel('channel_green');
+        const redDotSplitAllowed = selectedStatsRequireChannel('channel_red');
+        let dotSplitTarget = fallbackDotSplitTarget(
+            dotSplitTargetSelect
+                ? dotSplitTargetSelect.value
+                : dotSplitTargetFromFlags(statsState.greenDotSplitEnabled, statsState.redDotSplitEnabled),
+            greenDotSplitAllowed,
+            redDotSplitAllowed
+        );
+        let dotSplitActive = !!(statsState.greenDotSplitEnabled || statsState.redDotSplitEnabled);
+        if (!dotSplitTarget) dotSplitActive = false;
+        dotSplitTarget = applyDotSplitTargetToState(dotSplitTarget, dotSplitActive);
+        dotSplitActive = !!(statsState.greenDotSplitEnabled || statsState.redDotSplitEnabled);
+        if (dotSplitEnabled) {
+            dotSplitEnabled.disabled = !dotSplitTarget;
+            dotSplitEnabled.checked = dotSplitActive;
+        }
+        if (dotSplitTargetSelect) {
+            const disabledTargets = [];
+            if (!dotSplitTargetAllowed('both', greenDotSplitAllowed, redDotSplitAllowed)) disabledTargets.push('both');
+            if (!dotSplitTargetAllowed('green', greenDotSplitAllowed, redDotSplitAllowed)) disabledTargets.push('green');
+            if (!dotSplitTargetAllowed('red', greenDotSplitAllowed, redDotSplitAllowed)) disabledTargets.push('red');
+            dotSplitTargetSelect.setDisabledValues(disabledTargets);
+            dotSplitTargetSelect.setDisabled(!dotSplitActive || !dotSplitTarget);
+            if (dotSplitTarget) dotSplitTargetSelect.value = dotSplitTarget;
+        }
+        if (dotSplitRow) {
+            dotSplitRow.classList.toggle('disabled', !dotSplitTarget);
+            setOffVisualState(dotSplitRow, !dotSplitActive);
+        }
+        if (dotSplitTargetRow) {
+            dotSplitTargetRow.classList.toggle('visible', dotSplitActive && !!dotSplitTarget);
         }
         if (greenDotSplitModeSelect) {
             greenDotSplitModeSelect.value = normalizeGreenDotSplitMode(statsState.greenDotSplitMode);
-        }
-        if (greenDotSplitRow) {
-            setOffVisualState(greenDotSplitRow, !greenDotSplitEnabled || greenDotSplitEnabled.disabled || !greenDotSplitEnabled.checked);
+            greenDotSplitModeSelect.setDisabled(!statsState.greenDotSplitEnabled);
         }
         if (greenDotSplitModeRow) {
-            greenDotSplitModeRow.classList.toggle('visible', !!greenDotSplitEnabled && !greenDotSplitEnabled.disabled && greenDotSplitEnabled.checked);
+            greenDotSplitModeRow.classList.toggle('visible', dotSplitActive && !!dotSplitTarget);
+            greenDotSplitModeRow.classList.toggle('disabled', !statsState.greenDotSplitEnabled);
+        }
+        if (redDotSplitModeSelect) {
+            redDotSplitModeSelect.value = normalizeRedDotSplitMode(statsState.redDotSplitMode);
+            redDotSplitModeSelect.setDisabled(!statsState.redDotSplitEnabled);
+        }
+        if (redDotSplitModeRow) {
+            redDotSplitModeRow.classList.toggle('visible', dotSplitActive && !!dotSplitTarget);
+            redDotSplitModeRow.classList.toggle('disabled', !statsState.redDotSplitEnabled);
         }
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
         if (layerToggle) layerToggle.checked = !!statsState.enforceLayerCount;
@@ -5244,6 +5525,8 @@
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
+            redDotSplitEnabled: !!statsState.redDotSplitEnabled,
+            redDotSplitMode: normalizeRedDotSplitMode(statsState.redDotSplitMode),
             punctaLineWidthUnit: normalizeLengthUnit(statsState.punctaLineWidthUnit),
             cenDotDistanceUnit: normalizeLengthUnit(statsState.cenDotDistanceUnit),
             cenDotProximityRadiusUnit: normalizeLengthUnit(statsState.cenDotProximityRadiusUnit),
@@ -5314,6 +5597,8 @@
         statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
         statsState.greenDotSplitEnabled = snapshot.greenDotSplitEnabled !== false;
         statsState.greenDotSplitMode = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
+        statsState.redDotSplitEnabled = snapshot.redDotSplitEnabled !== false;
+        statsState.redDotSplitMode = normalizeRedDotSplitMode(snapshot.redDotSplitMode);
         syncSignalSelectedPlugins();
             if (!statsState.showLegacyPlugins) {
                 statsPlugins.forEach((plugin) => {
@@ -5333,6 +5618,8 @@
             localStorage.setItem(biorientationThresholdKey, String(statsState.biorientationCollinearityThreshold));
             localStorage.setItem(greenDotSplitKey, String(statsState.greenDotSplitEnabled));
             localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
+            localStorage.setItem(redDotSplitKey, String(statsState.redDotSplitEnabled));
+            localStorage.setItem(redDotSplitModeKey, normalizeRedDotSplitMode(statsState.redDotSplitMode));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             persistSignalQuantificationSettings();
@@ -5495,6 +5782,8 @@
                 green_contour_filter_enabled: snapshot.greenContourFilterEnabled,
                 green_dot_split_enabled: snapshot.greenDotSplitEnabled,
                 green_dot_split_mode: snapshot.greenDotSplitMode,
+                red_dot_split_enabled: snapshot.redDotSplitEnabled,
+                red_dot_split_mode: snapshot.redDotSplitMode,
                 alternate_red_detection: snapshot.alternateNucleusDetectionEnabled,
                 puncta_line_width: snapshot.punctaLineWidth,
                 puncta_line_width_unit: snapshot.punctaLineWidthUnit,
@@ -6502,6 +6791,10 @@
                 selectedStatsRequireChannel('channel_green') && statsState.greenDotSplitEnabled
             ));
             prepData.append('greenDotSplitMode', normalizeGreenDotSplitMode(statsState.greenDotSplitMode));
+            prepData.append('redDotSplitEnabled', String(
+                selectedStatsRequireChannel('channel_red') && statsState.redDotSplitEnabled
+            ));
+            prepData.append('redDotSplitMode', normalizeRedDotSplitMode(statsState.redDotSplitMode));
             prepData.append('punctaLineWidth', String(punctaLineWidthPixels));
             prepData.append('cenDotDistance', String(cenDotDistancePixels));
             prepData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));
