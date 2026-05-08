@@ -1017,7 +1017,11 @@
         }
         .cell-actions-menu-item {
             background: transparent;
+            background-color: transparent;
             border: none;
+            box-shadow: none;
+            appearance: none;
+            -webkit-appearance: none;
             color: #f0f4ff;
             text-align: left;
             font-size: 13px;
@@ -1028,8 +1032,8 @@
         }
         .cell-actions-menu-item:hover,
         .cell-actions-menu-item:focus-visible {
-            background: rgba(220, 53, 69, 0.18);
-            color: #ff8a96;
+            background: var(--surface-hover);
+            color: #fff;
             outline: none;
         }
         .cell-actions-menu-item.delete:hover,
@@ -1150,9 +1154,37 @@
         }
         .cell-select-view {
             display: grid;
-            grid-template-rows: auto auto minmax(0, 1fr) auto;
+            grid-template-rows: auto auto auto minmax(0, 1fr) auto;
             gap: 10px;
             min-height: 320px;
+        }
+        .cell-select-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        .cell-select-toggle-all {
+            background: transparent;
+            border: 1px solid var(--panel-border);
+            border-radius: 999px;
+            color: #f0f4ff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: var(--app-font);
+            transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+        }
+        .cell-select-toggle-all:hover,
+        .cell-select-toggle-all:focus-visible {
+            background-color: rgba(51, 153, 255, 0.18);
+            border-color: rgba(90, 170, 255, 0.6);
+            color: #e8f1ff;
+            outline: none;
+        }
+        .cell-select-toggle-all:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .cell-select-view[hidden] {
             display: none !important;
@@ -1172,10 +1204,11 @@
             pointer-events: none;
         }
         .cell-select-list-box {
-            border: 1px solid var(--panel-border);
+            border: none;
             border-radius: 10px;
-            background: var(--surface-muted-alt);
+            background: transparent;
             overflow-y: auto;
+            max-height: min(360px, 50vh);
             padding: 8px;
             scrollbar-color: #7f7f7f transparent;
         }
@@ -1184,19 +1217,77 @@
             margin: 0;
             padding: 0;
             display: grid;
-            gap: 6px;
+            gap: 8px;
             font-size: 13px;
         }
-        .cell-select-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border-radius: 8px;
+        .cell-select-card {
+            position: relative;
+            display: block;
+            padding: 12px 40px 12px 14px;
+            background-color: var(--surface-muted);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
             cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: inherit;
+            transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
         }
-        .cell-select-row:hover {
-            background: rgba(255, 255, 255, 0.06);
+        .cell-select-card:hover {
+            background-color: #3399ff;
+            color: #fff;
+        }
+        .cell-select-card.is-static,
+        .cell-select-card.is-static:hover {
+            cursor: default;
+            background-color: var(--surface-muted);
+            color: inherit;
+        }
+        .cell-select-card.selected {
+            background-color: #007bff;
+            color: #fff;
+            border-color: rgba(90, 170, 255, 0.78);
+            box-shadow: 0 10px 24px rgba(0, 123, 255, 0.18);
+        }
+        .cell-select-card.selected:hover {
+            background-color: #0056b3;
+        }
+        .cell-select-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            height: 0;
+            margin: 0;
+        }
+        .cell-select-check {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: transparent;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.18s ease, border-color 0.18s ease;
+        }
+        .cell-select-check > span {
+            opacity: 0;
+            font-size: 12px;
+            line-height: 1;
+            transition: opacity 0.12s ease;
+        }
+        .cell-select-input:checked ~ .cell-select-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .cell-select-input:checked ~ .cell-select-check > span {
+            opacity: 1;
         }
         .cell-select-empty {
             color: var(--muted);
@@ -2389,6 +2480,9 @@
             <div class="cell-select-view" id="selectCellsView">
                 <h3 id="selectCellsTitle">Select Cells</h3>
                 <p id="selectCellsMessage">Choose the cells to delete from this file.</p>
+                <div class="cell-select-toolbar">
+                    <button class="cell-select-toggle-all" id="selectCellsToggleAllBtn" type="button">Select all</button>
+                </div>
                 <div class="cell-select-list-box">
                     <ul class="cell-select-list" id="selectCellsList"></ul>
                 </div>
@@ -4638,6 +4732,7 @@
             const confirmCellsList = document.getElementById('confirmCellsList');
             const selectCellsBackBtn = document.getElementById('selectCellsBackBtn');
             const selectCellsDeleteBtn = document.getElementById('selectCellsDeleteBtn');
+            const selectCellsToggleAllBtn = document.getElementById('selectCellsToggleAllBtn');
             const confirmCellsBackBtn = document.getElementById('confirmCellsBackBtn');
             const confirmCellsDeleteBtn = document.getElementById('confirmCellsDeleteBtn');
             const confirmCellsMessage = document.getElementById('confirmCellsMessage');
@@ -5025,29 +5120,65 @@
                 }
             }
 
+            function getSelectCellsCheckboxes() {
+                if (!selectCellsList) return [];
+                return Array.from(selectCellsList.querySelectorAll('.cell-select-input'));
+            }
+
+            function updateSelectCellsToggleAllBtn() {
+                if (!selectCellsToggleAllBtn) return;
+                const checkboxes = getSelectCellsCheckboxes();
+                if (!checkboxes.length) {
+                    selectCellsToggleAllBtn.disabled = true;
+                    selectCellsToggleAllBtn.textContent = 'Select all';
+                    return;
+                }
+                selectCellsToggleAllBtn.disabled = false;
+                const allChecked = checkboxes.every((cb) => cb.checked);
+                selectCellsToggleAllBtn.textContent = allChecked ? 'Deselect all' : 'Select all';
+            }
+
             function renderCellListItem(list, cellId, { selectable = false } = {}) {
                 const item = document.createElement('li');
                 if (selectable) {
                     const label = document.createElement('label');
-                    label.className = 'cell-select-row';
+                    label.className = 'cell-select-card';
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
+                    checkbox.className = 'cell-select-input';
                     checkbox.value = String(cellId);
                     checkbox.addEventListener('change', () => {
                         if (checkbox.checked) {
                             selectedCellIds.add(cellId);
+                            label.classList.add('selected');
                         } else {
                             selectedCellIds.delete(cellId);
+                            label.classList.remove('selected');
                         }
                         updateSelectCellsDeleteButton();
+                        updateSelectCellsToggleAllBtn();
                     });
                     const text = document.createElement('span');
+                    text.className = 'cell-select-title';
                     text.textContent = `Cell ${cellId}`;
+                    const check = document.createElement('span');
+                    check.className = 'cell-select-check';
+                    check.setAttribute('aria-hidden', 'true');
+                    const checkMark = document.createElement('span');
+                    checkMark.innerHTML = '&#10003;';
+                    check.appendChild(checkMark);
                     label.appendChild(checkbox);
                     label.appendChild(text);
+                    label.appendChild(check);
                     item.appendChild(label);
                 } else {
-                    item.textContent = `Cell ${cellId}`;
+                    const card = document.createElement('div');
+                    card.className = 'cell-select-card is-static';
+                    const text = document.createElement('span');
+                    text.className = 'cell-select-title';
+                    text.textContent = `Cell ${cellId}`;
+                    card.appendChild(text);
+                    item.appendChild(card);
                 }
                 list.appendChild(item);
             }
@@ -5070,6 +5201,7 @@
                     }));
                 }
                 updateSelectCellsDeleteButton();
+                updateSelectCellsToggleAllBtn();
                 return cellIds;
             }
 
@@ -5172,6 +5304,18 @@
             confirmBtn.addEventListener('click', () => { void handleConfirm(); });
             if (selectCellsBackBtn) {
                 selectCellsBackBtn.addEventListener('click', closeSelectCellsModal);
+            }
+            if (selectCellsToggleAllBtn) {
+                selectCellsToggleAllBtn.addEventListener('click', () => {
+                    const checkboxes = getSelectCellsCheckboxes();
+                    if (!checkboxes.length) return;
+                    const target = !checkboxes.every((cb) => cb.checked);
+                    checkboxes.forEach((cb) => {
+                        if (cb.checked === target) return;
+                        cb.checked = target;
+                        cb.dispatchEvent(new Event('change'));
+                    });
+                });
             }
             if (selectCellsDeleteBtn) {
                 selectCellsDeleteBtn.addEventListener('click', () => {
