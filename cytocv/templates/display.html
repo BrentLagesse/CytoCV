@@ -5,6 +5,7 @@
 
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
+    <script src="{% static 'js/export_selection_modal.js' %}"></script>
     <style>
         .channel-chip.dic { background-color: black; }
         .channel-chip.blue { background-color: blue; }
@@ -1099,6 +1100,13 @@
             justify-content: center;
             z-index: 2200;
         }
+        .save-modal-backdrop.modal-enter {
+            animation: settingsBackdropIn 150ms ease-out both;
+        }
+        .save-modal-backdrop.modal-exit {
+            animation: settingsBackdropOut 120ms ease-in both;
+            pointer-events: none;
+        }
         .save-modal {
             width: min(420px, 92vw);
             background: var(--popup-surface-bg);
@@ -1107,6 +1115,13 @@
             padding: 18px;
             display: grid;
             gap: 10px;
+        }
+        .save-modal.modal-enter {
+            animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .save-modal.modal-exit {
+            animation: settingsModalOut 120ms ease-in both;
+            pointer-events: none;
         }
         .save-modal h3,
         .save-modal p {
@@ -2527,6 +2542,7 @@
             </div>
         </div>
     </div>
+    {% include "partials/export_selection_modal.html" %}
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
     <script>
@@ -3745,11 +3761,14 @@
             return getStatisticsTableRowCount(fileData, renderedRowCount) > 0;
         }
 
-        function buildDisplayExportUrl(fileUUID, format) {
+        function buildDisplayExportUrl(fileUUID, format, selectedColumns = null) {
             const params = new URLSearchParams({
                 _export: format,
                 _unit: getCurrentSpatialUnit(),
             });
+            if (Array.isArray(selectedColumns) && selectedColumns.length > 0) {
+                params.set('_columns', selectedColumns.join(','));
+            }
             return `/experiment/${encodeURIComponent(fileUUID)}/display/?${params.toString()}`;
         }
 
@@ -3773,6 +3792,25 @@
             if (xlsxBtn) {
                 xlsxBtn.href = buildDisplayExportUrl(fileUUID, 'xlsx');
             }
+        }
+
+        if (window.CytoCVExportSelection) {
+            window.CytoCVExportSelection.init({
+                configScriptId: 'exportSelectionConfig',
+                modalId: 'exportSelectionBackdrop',
+                triggerFormats: {
+                    displayDownloadCsvBtn: 'csv',
+                    displayDownloadXlsxBtn: 'xlsx',
+                },
+                getCurrentFileContext: () => {
+                    const fileUUID = fileUUIDs[currentFileIndex];
+                    return {
+                        fileUUID,
+                        fileData: fileUUID ? filesData[fileUUID] : null,
+                    };
+                },
+                buildExportUrl: buildDisplayExportUrl,
+            });
         }
 
         function updateTableState(fileUUID, fileData) {
@@ -3916,6 +3954,7 @@
             }
             return [1, -1, 2, -2];
         }
+
 
         function getCircularWarmQueue(direction = 'initial') {
             const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
@@ -4721,11 +4760,13 @@
             const triggerMenu = document.getElementById('cellActionsMenu');
             const contextMenu = document.getElementById('cellRowContextMenu');
             const modalBackdrop = document.getElementById('deleteCellBackdrop');
+            const modalPanel = modalBackdrop ? modalBackdrop.querySelector('.save-modal, .delete-modal') : null;
             const modalMessage = document.getElementById('deleteCellMessage');
             const cancelBtn = document.getElementById('cancelDeleteCellBtn');
             const confirmBtn = document.getElementById('confirmDeleteCellBtn');
             const tableFileUuid = "{{ table_uuid|escapejs }}";
             const selectCellsBackdrop = document.getElementById('selectCellsBackdrop');
+            const selectCellsPanel = selectCellsBackdrop ? selectCellsBackdrop.querySelector('.save-modal, .delete-modal') : null;
             const selectCellsView = document.getElementById('selectCellsView');
             const confirmCellsView = document.getElementById('confirmCellsView');
             const selectCellsList = document.getElementById('selectCellsList');
@@ -4762,6 +4803,84 @@
                 'anim-exit-forward',
                 'anim-exit-backward',
             ];
+            const MODAL_ENTER_MS = 170;
+            const MODAL_EXIT_MS = 120;
+            const prefersReducedMotion = !!(
+                window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            );
+
+            function createModalAnimator(backdrop, panel) {
+                let enterTimer = null;
+                let exitTimer = null;
+
+                function clearTimers() {
+                    if (enterTimer !== null) {
+                        window.clearTimeout(enterTimer);
+                        enterTimer = null;
+                    }
+                    if (exitTimer !== null) {
+                        window.clearTimeout(exitTimer);
+                        exitTimer = null;
+                    }
+                }
+
+                function clearAnimationClasses() {
+                    if (backdrop) backdrop.classList.remove('modal-enter', 'modal-exit');
+                    if (panel) panel.classList.remove('modal-enter', 'modal-exit');
+                }
+
+                function show() {
+                    if (!backdrop) return;
+                    clearTimers();
+                    clearAnimationClasses();
+                    backdrop.style.display = 'flex';
+                    backdrop.setAttribute('aria-hidden', 'false');
+                    if (prefersReducedMotion) return;
+                    void backdrop.offsetWidth;
+                    backdrop.classList.add('modal-enter');
+                    if (panel) panel.classList.add('modal-enter');
+                    enterTimer = window.setTimeout(() => {
+                        clearAnimationClasses();
+                        enterTimer = null;
+                    }, MODAL_ENTER_MS);
+                }
+
+                function hide(onAfterClose = null) {
+                    if (!backdrop) {
+                        if (typeof onAfterClose === 'function') onAfterClose();
+                        return;
+                    }
+                    clearTimers();
+                    if (prefersReducedMotion || backdrop.style.display !== 'flex') {
+                        clearAnimationClasses();
+                        backdrop.style.display = 'none';
+                        backdrop.setAttribute('aria-hidden', 'true');
+                        if (typeof onAfterClose === 'function') onAfterClose();
+                        return;
+                    }
+                    clearAnimationClasses();
+                    backdrop.classList.add('modal-exit');
+                    if (panel) panel.classList.add('modal-exit');
+                    backdrop.setAttribute('aria-hidden', 'true');
+                    exitTimer = window.setTimeout(() => {
+                        clearAnimationClasses();
+                        backdrop.style.display = 'none';
+                        exitTimer = null;
+                        if (typeof onAfterClose === 'function') onAfterClose();
+                    }, MODAL_EXIT_MS);
+                }
+
+                function isOpen() {
+                    return !!backdrop
+                        && backdrop.style.display === 'flex'
+                        && backdrop.getAttribute('aria-hidden') === 'false';
+                }
+
+                return { show, hide, isOpen };
+            }
+
+            const deleteCellModal = createModalAnimator(modalBackdrop, modalPanel);
+            const selectCellsModal = createModalAnimator(selectCellsBackdrop, selectCellsPanel);
 
             function closeTriggerMenu() {
                 if (!triggerMenu || !trigger) return;
@@ -4870,15 +4989,13 @@
                 if (modalBackdrop.parentElement !== host) {
                     host.appendChild(modalBackdrop);
                 }
-                modalBackdrop.style.display = 'flex';
                 modalBackdrop.style.zIndex = '10000';
-                modalBackdrop.setAttribute('aria-hidden', 'false');
+                deleteCellModal.show();
             }
 
             function closeModal() {
                 pendingDelete = null;
-                modalBackdrop.style.display = 'none';
-                modalBackdrop.setAttribute('aria-hidden', 'true');
+                deleteCellModal.hide();
                 confirmBtn.disabled = false;
             }
 
@@ -4889,8 +5006,7 @@
                 clearCellSelectSwitchTimer();
                 if (selectCellsView) clearCellSelectAnim(selectCellsView);
                 if (confirmCellsView) clearCellSelectAnim(confirmCellsView);
-                selectCellsBackdrop.style.display = 'none';
-                selectCellsBackdrop.setAttribute('aria-hidden', 'true');
+                selectCellsModal.hide();
                 if (selectCellsDeleteBtn) selectCellsDeleteBtn.disabled = true;
                 if (confirmCellsDeleteBtn) confirmCellsDeleteBtn.disabled = false;
             }
@@ -5228,9 +5344,8 @@
                 if (selectCellsBackdrop.parentElement !== host) {
                     host.appendChild(selectCellsBackdrop);
                 }
-                selectCellsBackdrop.style.display = 'flex';
                 selectCellsBackdrop.style.zIndex = '10000';
-                selectCellsBackdrop.setAttribute('aria-hidden', 'false');
+                selectCellsModal.show();
             }
 
             if (trigger && triggerMenu) {
@@ -5375,10 +5490,10 @@
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
                     closeAllMenus();
-                    if (modalBackdrop.style.display === 'flex') {
+                    if (deleteCellModal.isOpen()) {
                         closeModal();
                     }
-                    if (selectCellsBackdrop && selectCellsBackdrop.style.display === 'flex') {
+                    if (selectCellsModal.isOpen()) {
                         if (confirmCellsView && !confirmCellsView.hidden) {
                             switchCellSelectView('select', true);
                         } else {
@@ -5396,13 +5511,13 @@
             window.addEventListener('resize', closeAllMenus);
             document.addEventListener('fullscreenchange', () => {
                 closeAllMenus();
-                if (modalBackdrop.style.display === 'flex') {
+                if (deleteCellModal.isOpen()) {
                     const host = document.fullscreenElement || document.body;
                     if (modalBackdrop.parentElement !== host) {
                         host.appendChild(modalBackdrop);
                     }
                 }
-                if (selectCellsBackdrop && selectCellsBackdrop.style.display === 'flex') {
+                if (selectCellsModal.isOpen()) {
                     const host = document.fullscreenElement || document.body;
                     if (selectCellsBackdrop.parentElement !== host) {
                         host.appendChild(selectCellsBackdrop);

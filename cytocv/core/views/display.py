@@ -44,6 +44,11 @@ from core.services.cell_statistics_payload import serialize_cell_statistics_payl
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
+from core.services.stat_export_selection import (
+    ExportColumnSelectionError,
+    export_exclude_columns,
+    export_selection_config,
+)
 from core.scale import (
     get_scale_context_payload,
     get_scale_sidebar_payload,
@@ -337,6 +342,13 @@ def display(request, uuids):
             export_format = request.GET.get('_export', None)
             export_unit = normalize_spatial_stats_unit(request.GET.get('_unit'), default="px")
             if TableExport.is_valid_format(export_format) and cell_table is not None:
+                try:
+                    exclude_columns = export_exclude_columns(
+                        request.GET.getlist("_columns"),
+                        columns_present="_columns" in request.GET,
+                    )
+                except ExportColumnSelectionError as exc:
+                    return HttpResponse(str(exc), status=400)
                 if first_table_uuid == uuid:
                     cell_table = CellTable(
                         cell_stats_qs,
@@ -345,7 +357,11 @@ def display(request, uuids):
                         spatial_stats_unit=export_unit,
                         scale_context=scale_context,
                     )
-                exporter = TableExport(export_format,cell_table)
+                exporter = TableExport(
+                    export_format,
+                    cell_table,
+                    exclude_columns=exclude_columns,
+                )
                 return exporter.response(
                     _build_export_download_name(
                         image_name,
@@ -400,6 +416,7 @@ def display(request, uuids):
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'main_image_channel': main_image_channel,
+        'export_selection_config': export_selection_config(),
     })
 
 

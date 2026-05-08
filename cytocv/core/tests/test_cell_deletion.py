@@ -559,8 +559,19 @@ class CellDeletionEndpointTests(TestCase):
                 reverse("dashboard"),
                 {"file_uuid": uuid_value, "_export": "xlsx", "_unit": "px"},
             )
+            filtered_csv_response = self.client.get(
+                reverse("dashboard"),
+                {
+                    "file_uuid": uuid_value,
+                    "_export": "csv",
+                    "_unit": "px",
+                    "_columns": "puncta_distance",
+                },
+            )
 
             self.assertEqual(csv_response.status_code, 200)
             self.assertEqual(xlsx_response.status_code, 200)
+            self.assertEqual(filtered_csv_response.status_code, 200)
             self.assertEqual(_csv_cell_ids(csv_response), [1, 4])
             self.assertEqual(_xlsx_cell_ids(xlsx_response), [1, 4])
+            self.assertEqual(_csv_cell_ids(filtered_csv_response), [1, 4])
