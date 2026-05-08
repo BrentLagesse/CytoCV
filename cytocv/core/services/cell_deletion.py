@@ -140,3 +140,64 @@ def delete_single_cell(
             )
 
     return True
+
+
+def delete_multiple_cells(
+    segmented_image: SegmentedImage,
+    cell_ids: list[int],
+) -> list[int]:
+    """Remove multiple cells' DB rows and on-disk artifacts.
+
+    Missing cell IDs are ignored so callers can safely submit stale selections.
+    The parent ``NumCells`` value is reset from the remaining statistics rows.
+    """
+
+    requested_ids = sorted({int(cell_id) for cell_id in cell_ids})
+    if not requested_ids:
+        return []
+
+    run_uuid = str(segmented_image.UUID)
+    image_names_by_cell: dict[int, str] = {}
+
+    with transaction.atomic():
+        rows = list(
+            CellStatistics.objects
+            .select_for_update()
+            .filter(segmented_image=segmented_image, cell_id__in=requested_ids)
+            .order_by("cell_id")
+        )
+        if not rows:
+            return []
+
+        for row in rows:
+            image_names_by_cell[int(row.cell_id)] = row.image_name or ""
+
+        deleted_ids = sorted(image_names_by_cell.keys())
+        CellStatistics.objects.filter(
+            segmented_image=segmented_image,
+            cell_id__in=deleted_ids,
+        ).delete()
+        remaining_count = CellStatistics.objects.filter(
+            segmented_image=segmented_image,
+        ).count()
+        SegmentedImage.objects.filter(pk=segmented_image.pk).update(
+            NumCells=remaining_count,
+        )
+
+    segmented_image.refresh_from_db(fields=["NumCells"])
+
+    for cell_id_int, image_name in image_names_by_cell.items():
+        for path in _collect_artifact_paths(run_uuid, cell_id_int, image_name):
+            try:
+                _safe_remove_path(path)
+            except Exception:
+                logger.exception(
+                    "Failed to remove cell artifact",
+                    extra={
+                        "run_uuid": run_uuid,
+                        "cell_id": cell_id_int,
+                        "path": str(path),
+                    },
+                )
+
+    return sorted(image_names_by_cell.keys())

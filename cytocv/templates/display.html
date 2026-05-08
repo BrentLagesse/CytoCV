@@ -1142,6 +1142,83 @@
             gap: 4px;
             font-size: 12px;
         }
+        .cell-select-modal {
+            width: min(460px, 92vw);
+            min-height: 360px;
+            max-height: min(620px, 88vh);
+            overflow: hidden;
+        }
+        .cell-select-view {
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
+            gap: 10px;
+            min-height: 320px;
+        }
+        .cell-select-view[hidden] {
+            display: none !important;
+        }
+        .cell-select-view.anim-enter-forward {
+            animation: cellSelectEnterForward 150ms ease-out both;
+        }
+        .cell-select-view.anim-enter-backward {
+            animation: cellSelectEnterBackward 150ms ease-out both;
+        }
+        .cell-select-view.anim-exit-forward {
+            animation: cellSelectExitForward 120ms ease-in both;
+            pointer-events: none;
+        }
+        .cell-select-view.anim-exit-backward {
+            animation: cellSelectExitBackward 120ms ease-in both;
+            pointer-events: none;
+        }
+        .cell-select-list-box {
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            background: var(--surface-muted-alt);
+            overflow-y: auto;
+            padding: 8px;
+            scrollbar-color: #7f7f7f transparent;
+        }
+        .cell-select-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 6px;
+            font-size: 13px;
+        }
+        .cell-select-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .cell-select-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .cell-select-empty {
+            color: var(--muted);
+            font-size: 13px;
+            margin: 0;
+        }
+        @keyframes cellSelectEnterForward {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes cellSelectEnterBackward {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes cellSelectExitForward {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(-8px); }
+        }
+        @keyframes cellSelectExitBackward {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(8px); }
+        }
         .save-modal-actions {
             display: flex;
             justify-content: flex-end;
@@ -1982,7 +2059,8 @@
                                                 <span class="cell-actions-dots" aria-hidden="true">&#8942;</span>
                                             </button>
                                             <div class="cell-actions-menu" id="cellActionsMenu" role="menu">
-                                                <button type="button" class="cell-actions-menu-item delete" role="menuitem" data-action="delete-current-cell">Delete</button>
+                                                <button type="button" class="cell-actions-menu-item" role="menuitem" data-action="select-cells">Select Cells</button>
+                                                <button type="button" class="cell-actions-menu-item delete" role="menuitem" data-action="delete-current-cell">Delete Cell</button>
                                             </div>
                                         </div>
                                     </div>
@@ -2306,6 +2384,33 @@
         </div>
     </div>
 
+    <div class="save-modal-backdrop" id="selectCellsBackdrop" aria-hidden="true">
+        <div class="save-modal cell-select-modal" role="dialog" aria-modal="true" aria-labelledby="selectCellsTitle">
+            <div class="cell-select-view" id="selectCellsView">
+                <h3 id="selectCellsTitle">Select Cells</h3>
+                <p id="selectCellsMessage">Choose the cells to delete from this file.</p>
+                <div class="cell-select-list-box">
+                    <ul class="cell-select-list" id="selectCellsList"></ul>
+                </div>
+                <div class="save-modal-actions split">
+                    <button class="save-modal-btn cancel" id="selectCellsBackBtn" type="button">Back</button>
+                    <button class="save-modal-btn confirm danger" id="selectCellsDeleteBtn" type="button" disabled>Delete</button>
+                </div>
+            </div>
+            <div class="cell-select-view" id="confirmCellsView" hidden>
+                <h3 id="confirmCellsTitle">Confirm Delete</h3>
+                <p id="confirmCellsMessage">Delete the selected cells?</p>
+                <div class="cell-select-list-box">
+                    <ul class="cell-select-list" id="confirmCellsList"></ul>
+                </div>
+                <div class="save-modal-actions split">
+                    <button class="save-modal-btn cancel" id="confirmCellsBackBtn" type="button">Back</button>
+                    <button class="save-modal-btn confirm danger" id="confirmCellsDeleteBtn" type="button">Confirm Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="save-modal-backdrop" id="saveFilesBackdrop" aria-hidden="true">
         <div class="save-modal" role="dialog" aria-modal="true" aria-labelledby="saveFilesTitle">
             <h3 id="saveFilesTitle">Save Selection</h3>
@@ -2339,6 +2444,7 @@
         let maxCells;
         const channels = ["dic", "blue", "red", "green"];
         const confirmCellDeletion = {{ confirm_cell_deletion|yesno:"true,false" }};
+        const confirmMultiCellDeletion = {{ confirm_multi_cell_deletion|yesno:"true,false" }};
         let activeChannelRequest = 0;
         const defaultChannelIndexMap = { 0: 'dic', 1: 'blue', 2: 'green', 3: 'red' };
         const noCellPlaceholder =
@@ -4525,6 +4631,16 @@
             const cancelBtn = document.getElementById('cancelDeleteCellBtn');
             const confirmBtn = document.getElementById('confirmDeleteCellBtn');
             const tableFileUuid = "{{ table_uuid|escapejs }}";
+            const selectCellsBackdrop = document.getElementById('selectCellsBackdrop');
+            const selectCellsView = document.getElementById('selectCellsView');
+            const confirmCellsView = document.getElementById('confirmCellsView');
+            const selectCellsList = document.getElementById('selectCellsList');
+            const confirmCellsList = document.getElementById('confirmCellsList');
+            const selectCellsBackBtn = document.getElementById('selectCellsBackBtn');
+            const selectCellsDeleteBtn = document.getElementById('selectCellsDeleteBtn');
+            const confirmCellsBackBtn = document.getElementById('confirmCellsBackBtn');
+            const confirmCellsDeleteBtn = document.getElementById('confirmCellsDeleteBtn');
+            const confirmCellsMessage = document.getElementById('confirmCellsMessage');
 
             if (!modalBackdrop || !modalMessage || !confirmBtn || !cancelBtn) {
                 return;
@@ -4542,6 +4658,15 @@
             }
 
             let pendingDelete = null;
+            let pendingMultiDelete = null;
+            let selectedCellIds = new Set();
+            let cellSelectSwitchTimer = null;
+            const cellSelectAnimClasses = [
+                'anim-enter-forward',
+                'anim-enter-backward',
+                'anim-exit-forward',
+                'anim-exit-backward',
+            ];
 
             function closeTriggerMenu() {
                 if (!triggerMenu || !trigger) return;
@@ -4597,6 +4722,48 @@
                 closeContextMenu();
             }
 
+            function clearCellSelectAnim(view) {
+                if (!view) return;
+                cellSelectAnimClasses.forEach((className) => view.classList.remove(className));
+            }
+
+            function clearCellSelectSwitchTimer() {
+                if (cellSelectSwitchTimer !== null) {
+                    window.clearTimeout(cellSelectSwitchTimer);
+                    cellSelectSwitchTimer = null;
+                }
+            }
+
+            function switchCellSelectView(target, animate = false) {
+                if (!selectCellsView || !confirmCellsView) return;
+                const toView = target === 'confirm' ? confirmCellsView : selectCellsView;
+                const fromView = target === 'confirm' ? selectCellsView : confirmCellsView;
+                clearCellSelectSwitchTimer();
+                clearCellSelectAnim(selectCellsView);
+                clearCellSelectAnim(confirmCellsView);
+
+                if (!animate || fromView.hidden) {
+                    fromView.hidden = true;
+                    toView.hidden = false;
+                    return;
+                }
+
+                fromView.hidden = false;
+                toView.hidden = true;
+                fromView.classList.add(target === 'confirm' ? 'anim-exit-forward' : 'anim-exit-backward');
+                cellSelectSwitchTimer = window.setTimeout(() => {
+                    clearCellSelectAnim(fromView);
+                    fromView.hidden = true;
+                    toView.hidden = false;
+                    void toView.offsetWidth;
+                    toView.classList.add(target === 'confirm' ? 'anim-enter-forward' : 'anim-enter-backward');
+                    cellSelectSwitchTimer = window.setTimeout(() => {
+                        clearCellSelectAnim(toView);
+                        cellSelectSwitchTimer = null;
+                    }, 150);
+                }, 120);
+            }
+
             function openModal({ cellId, fileUuid, fileName, includeAndItsData }) {
                 pendingDelete = { cellId, fileUuid };
                 const safeName = fileName || 'this file';
@@ -4618,6 +4785,19 @@
                 modalBackdrop.style.display = 'none';
                 modalBackdrop.setAttribute('aria-hidden', 'true');
                 confirmBtn.disabled = false;
+            }
+
+            function closeSelectCellsModal() {
+                if (!selectCellsBackdrop) return;
+                pendingMultiDelete = null;
+                selectedCellIds = new Set();
+                clearCellSelectSwitchTimer();
+                if (selectCellsView) clearCellSelectAnim(selectCellsView);
+                if (confirmCellsView) clearCellSelectAnim(confirmCellsView);
+                selectCellsBackdrop.style.display = 'none';
+                selectCellsBackdrop.setAttribute('aria-hidden', 'true');
+                if (selectCellsDeleteBtn) selectCellsDeleteBtn.disabled = true;
+                if (confirmCellsDeleteBtn) confirmCellsDeleteBtn.disabled = false;
             }
 
             function getCurrentFileData() {
@@ -4653,36 +4833,44 @@
                 }
             }
 
-            function updateLocalState(fileUuid, cellId, payload) {
+            function removeTableRows(cellIds) {
+                (cellIds || []).forEach((cellId) => removeTableRow(cellId));
+            }
+
+            function updateLocalStateForDeletedCells(fileUuid, cellIds, payload) {
                 const fileData = filesData[fileUuid];
                 if (!fileData) return;
-                const idStr = String(cellId);
-                if (fileData.CellPairImages) {
-                    delete fileData.CellPairImages[cellId];
-                    delete fileData.CellPairImages[idStr];
-                }
-                if (fileData.Statistics) {
-                    delete fileData.Statistics[cellId];
-                    delete fileData.Statistics[idStr];
-                }
+                (cellIds || []).forEach((cellId) => {
+                    const idStr = String(cellId);
+                    if (fileData.CellPairImages) {
+                        delete fileData.CellPairImages[cellId];
+                        delete fileData.CellPairImages[idStr];
+                    }
+                    if (fileData.Statistics) {
+                        delete fileData.Statistics[cellId];
+                        delete fileData.Statistics[idStr];
+                    }
+                });
                 fileData.NumberOfCells = Number(payload.num_cells || 0);
                 if (typeof fileUUIDs !== 'undefined' && fileUuid === fileUUIDs[currentFileIndex]) {
                     maxCells = fileData.NumberOfCells;
                 }
             }
 
-            async function refreshDisplayedCellAfterDelete(fileUuid, deletedCellId) {
+            async function refreshDisplayedCellsAfterDelete(fileUuid, deletedCellIds) {
                 if (typeof fileUUIDs === 'undefined' || fileUuid !== fileUUIDs[currentFileIndex]) {
                     return;
                 }
                 const fileData = filesData[fileUuid];
                 if (!fileData) return;
                 const sortedIds = getSortedCellIds(fileData);
-                if (typeof currentCellNumber !== 'undefined' && Number(currentCellNumber) === Number(deletedCellId)) {
+                const deletedIdSet = new Set((deletedCellIds || []).map((cellId) => Number(cellId)));
+                const previousCellNumber = Number(currentCellNumber);
+                if (typeof currentCellNumber !== 'undefined' && deletedIdSet.has(previousCellNumber)) {
                     if (sortedIds.length === 0) {
                         currentCellNumber = 0;
                     } else {
-                        const nextLarger = sortedIds.find((id) => id > Number(deletedCellId));
+                        const nextLarger = sortedIds.find((id) => id > previousCellNumber);
                         if (typeof nextLarger === 'number') {
                             currentCellNumber = nextLarger;
                         } else {
@@ -4728,15 +4916,42 @@
                 return response.json();
             }
 
+            async function performBulkDelete(fileUuid, cellIds) {
+                const csrfToken = readCsrfToken();
+                const response = await fetch(`/experiment/${fileUuid}/cells/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || '',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ cell_ids: cellIds }),
+                });
+                if (!response.ok) {
+                    let errorText = 'Failed to delete selected cells.';
+                    try {
+                        const data = await response.json();
+                        if (data && data.error) {
+                            errorText = data.error;
+                        }
+                    } catch (err) {
+                        // ignore JSON parse errors; use default message
+                    }
+                    throw new Error(errorText);
+                }
+                return response.json();
+            }
+
             async function executeDelete(fileUuid, cellId, { fromModal = false } = {}) {
                 if (fromModal) {
                     confirmBtn.disabled = true;
                 }
                 try {
                     const payload = await performDelete(fileUuid, cellId);
-                    updateLocalState(fileUuid, cellId, payload);
+                    updateLocalStateForDeletedCells(fileUuid, [cellId], payload);
                     removeTableRow(cellId);
-                    await refreshDisplayedCellAfterDelete(fileUuid, cellId);
+                    await refreshDisplayedCellsAfterDelete(fileUuid, [cellId]);
                 } catch (err) {
                     reportError(err && err.message ? err.message : 'Failed to delete cell.');
                     if (fromModal) {
@@ -4746,6 +4961,41 @@
                 }
                 if (fromModal) {
                     closeModal();
+                }
+                return true;
+            }
+
+            async function executeBulkDelete(fileUuid, cellIds, { fromSelectModal = false } = {}) {
+                const normalizedIds = (cellIds || [])
+                    .map((cellId) => Number(cellId))
+                    .filter((cellId) => Number.isFinite(cellId) && cellId > 0);
+                if (!normalizedIds.length) return false;
+                if (fromSelectModal) {
+                    if (selectCellsDeleteBtn) selectCellsDeleteBtn.disabled = true;
+                    if (confirmCellsDeleteBtn) confirmCellsDeleteBtn.disabled = true;
+                }
+                try {
+                    const payload = await performBulkDelete(fileUuid, normalizedIds);
+                    const deletedIds = Array.isArray(payload.deleted_cells)
+                        ? payload.deleted_cells.map((cellId) => Number(cellId))
+                        : normalizedIds;
+                    updateLocalStateForDeletedCells(fileUuid, deletedIds, payload);
+                    removeTableRows(deletedIds);
+                    await refreshDisplayedCellsAfterDelete(fileUuid, deletedIds);
+                    const fileData = filesData[fileUuid];
+                    if (typeof updateTableState === 'function' && fileData) {
+                        updateTableState(fileUuid, fileData);
+                    }
+                } catch (err) {
+                    reportError(err && err.message ? err.message : 'Failed to delete selected cells.');
+                    if (fromSelectModal) {
+                        if (selectCellsDeleteBtn) selectCellsDeleteBtn.disabled = selectedCellIds.size === 0;
+                        if (confirmCellsDeleteBtn) confirmCellsDeleteBtn.disabled = false;
+                    }
+                    return false;
+                }
+                if (fromSelectModal) {
+                    closeSelectCellsModal();
                 }
                 return true;
             }
@@ -4765,6 +5015,92 @@
                 void executeDelete(options.fileUuid, options.cellId);
             }
 
+            function selectedCellIdsArray() {
+                return [...selectedCellIds].sort((a, b) => a - b);
+            }
+
+            function updateSelectCellsDeleteButton() {
+                if (selectCellsDeleteBtn) {
+                    selectCellsDeleteBtn.disabled = selectedCellIds.size === 0;
+                }
+            }
+
+            function renderCellListItem(list, cellId, { selectable = false } = {}) {
+                const item = document.createElement('li');
+                if (selectable) {
+                    const label = document.createElement('label');
+                    label.className = 'cell-select-row';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = String(cellId);
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            selectedCellIds.add(cellId);
+                        } else {
+                            selectedCellIds.delete(cellId);
+                        }
+                        updateSelectCellsDeleteButton();
+                    });
+                    const text = document.createElement('span');
+                    text.textContent = `Cell ${cellId}`;
+                    label.appendChild(checkbox);
+                    label.appendChild(text);
+                    item.appendChild(label);
+                } else {
+                    item.textContent = `Cell ${cellId}`;
+                }
+                list.appendChild(item);
+            }
+
+            function renderSelectCellsList(fileData) {
+                if (!selectCellsList) return [];
+                selectCellsList.innerHTML = '';
+                selectedCellIds = new Set();
+                const cellIds = getSortedCellIds(fileData);
+                if (!cellIds.length) {
+                    const item = document.createElement('li');
+                    const empty = document.createElement('p');
+                    empty.className = 'cell-select-empty';
+                    empty.textContent = 'No cells are available to delete.';
+                    item.appendChild(empty);
+                    selectCellsList.appendChild(item);
+                } else {
+                    cellIds.forEach((cellId) => renderCellListItem(selectCellsList, cellId, {
+                        selectable: true,
+                    }));
+                }
+                updateSelectCellsDeleteButton();
+                return cellIds;
+            }
+
+            function renderConfirmCellsList(cellIds) {
+                if (!confirmCellsList) return;
+                confirmCellsList.innerHTML = '';
+                (cellIds || []).forEach((cellId) => renderCellListItem(confirmCellsList, cellId));
+                if (confirmCellsMessage) {
+                    const count = (cellIds || []).length;
+                    confirmCellsMessage.textContent = `Delete ${count} selected ${count === 1 ? 'cell' : 'cells'}?`;
+                }
+            }
+
+            function openSelectCellsModal() {
+                if (!selectCellsBackdrop || !selectCellsView || !confirmCellsView || !selectCellsDeleteBtn) {
+                    return;
+                }
+                const { fileUuid, fileData } = getCurrentFileData();
+                if (!fileUuid || !fileData) return;
+                const cellIds = renderSelectCellsList(fileData);
+                pendingMultiDelete = { fileUuid, fileName: fileData.Image_Name || '', cellIds };
+                switchCellSelectView('select', false);
+                const host = document.fullscreenElement || document.body;
+                if (selectCellsBackdrop.parentElement !== host) {
+                    host.appendChild(selectCellsBackdrop);
+                }
+                selectCellsBackdrop.style.display = 'flex';
+                selectCellsBackdrop.style.zIndex = '10000';
+                selectCellsBackdrop.setAttribute('aria-hidden', 'false');
+            }
+
             if (trigger && triggerMenu) {
                 trigger.addEventListener('click', (event) => {
                     event.stopPropagation();
@@ -4776,6 +5112,12 @@
                     }
                 });
                 triggerMenu.addEventListener('click', (event) => {
+                    const selectTarget = event.target.closest('[data-action="select-cells"]');
+                    if (selectTarget) {
+                        closeTriggerMenu();
+                        openSelectCellsModal();
+                        return;
+                    }
                     const target = event.target.closest('[data-action="delete-current-cell"]');
                     if (!target) return;
                     closeTriggerMenu();
@@ -4828,11 +5170,51 @@
 
             cancelBtn.addEventListener('click', closeModal);
             confirmBtn.addEventListener('click', () => { void handleConfirm(); });
+            if (selectCellsBackBtn) {
+                selectCellsBackBtn.addEventListener('click', closeSelectCellsModal);
+            }
+            if (selectCellsDeleteBtn) {
+                selectCellsDeleteBtn.addEventListener('click', () => {
+                    if (!pendingMultiDelete) return;
+                    const cellIds = selectedCellIdsArray();
+                    if (!cellIds.length) return;
+                    if (confirmMultiCellDeletion) {
+                        renderConfirmCellsList(cellIds);
+                        switchCellSelectView('confirm', true);
+                        return;
+                    }
+                    void executeBulkDelete(pendingMultiDelete.fileUuid, cellIds, {
+                        fromSelectModal: true,
+                    });
+                });
+            }
+            if (confirmCellsBackBtn) {
+                confirmCellsBackBtn.addEventListener('click', () => {
+                    switchCellSelectView('select', true);
+                });
+            }
+            if (confirmCellsDeleteBtn) {
+                confirmCellsDeleteBtn.addEventListener('click', () => {
+                    if (!pendingMultiDelete) return;
+                    const cellIds = selectedCellIdsArray();
+                    if (!cellIds.length) return;
+                    void executeBulkDelete(pendingMultiDelete.fileUuid, cellIds, {
+                        fromSelectModal: true,
+                    });
+                });
+            }
             modalBackdrop.addEventListener('click', (event) => {
                 if (event.target === modalBackdrop) {
                     closeModal();
                 }
             });
+            if (selectCellsBackdrop) {
+                selectCellsBackdrop.addEventListener('click', (event) => {
+                    if (event.target === selectCellsBackdrop) {
+                        closeSelectCellsModal();
+                    }
+                });
+            }
 
             document.addEventListener('click', (event) => {
                 if (triggerMenu && triggerMenu.dataset.open === 'true'
@@ -4852,6 +5234,13 @@
                     if (modalBackdrop.style.display === 'flex') {
                         closeModal();
                     }
+                    if (selectCellsBackdrop && selectCellsBackdrop.style.display === 'flex') {
+                        if (confirmCellsView && !confirmCellsView.hidden) {
+                            switchCellSelectView('select', true);
+                        } else {
+                            closeSelectCellsModal();
+                        }
+                    }
                 }
             });
 
@@ -4867,6 +5256,12 @@
                     const host = document.fullscreenElement || document.body;
                     if (modalBackdrop.parentElement !== host) {
                         host.appendChild(modalBackdrop);
+                    }
+                }
+                if (selectCellsBackdrop && selectCellsBackdrop.style.display === 'flex') {
+                    const host = document.fullscreenElement || document.body;
+                    if (selectCellsBackdrop.parentElement !== host) {
+                        host.appendChild(selectCellsBackdrop);
                     }
                 }
             });

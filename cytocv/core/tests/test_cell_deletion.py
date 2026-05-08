@@ -17,7 +17,7 @@ from PIL import Image
 
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.models import CellStatistics, SegmentedImage, UploadedImage
-from core.services.cell_deletion import delete_single_cell
+from core.services.cell_deletion import delete_multiple_cells, delete_single_cell
 
 
 @contextmanager
@@ -249,6 +249,38 @@ class CellDeletionServiceTests(TestCase):
             with self.assertRaises(CellStatistics.DoesNotExist):
                 delete_single_cell(segmented, cell_id=999)
 
+    def test_delete_multiple_cells_removes_rows_artifacts_and_updates_num_cells(self):
+        with temporary_media_root() as media_root:
+            segmented, artifacts = self._setup_run(media_root, num_cells=4)
+
+            deleted_ids = delete_multiple_cells(segmented, [2, 3, 999])
+
+            self.assertEqual(deleted_ids, [2, 3])
+            segmented.refresh_from_db(fields=["NumCells"])
+            self.assertEqual(segmented.NumCells, 2)
+            remaining_ids = sorted(
+                CellStatistics.objects
+                .filter(segmented_image=segmented)
+                .values_list("cell_id", flat=True)
+            )
+            self.assertEqual(remaining_ids, [1, 4])
+            for deleted_id in (2, 3):
+                for path in artifacts[deleted_id].values():
+                    self.assertFalse(path.exists(), f"{path} should be removed")
+            for keep_id in (1, 4):
+                for path in artifacts[keep_id].values():
+                    self.assertTrue(path.exists(), f"{path} should remain")
+
+    def test_delete_multiple_cells_returns_empty_for_missing_cells(self):
+        with temporary_media_root() as media_root:
+            segmented, _ = self._setup_run(media_root, num_cells=2)
+
+            deleted_ids = delete_multiple_cells(segmented, [99])
+
+            self.assertEqual(deleted_ids, [])
+            segmented.refresh_from_db(fields=["NumCells"])
+            self.assertEqual(segmented.NumCells, 2)
+
 
 class CellDeletionEndpointTests(TestCase):
     def setUp(self):
@@ -339,6 +371,90 @@ class CellDeletionEndpointTests(TestCase):
             response = self.client.post(url)
             self.assertEqual(response.status_code, 404)
 
+    def test_bulk_endpoint_deletes_existing_cells_and_preserves_gaps(self):
+        with temporary_media_root() as media_root:
+            uuid_value, segmented = self._setup_run(media_root, num_cells=4)
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+            url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+
+            response = self.client.post(
+                url,
+                data=json.dumps({"cell_ids": [2, 3, 999]}),
+                content_type="application/json",
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["deleted_cells"], [2, 3])
+            self.assertEqual(payload["num_cells"], 2)
+            self.assertEqual(payload["remaining_cells"], [1, 4])
+            segmented.refresh_from_db(fields=["NumCells"])
+            self.assertEqual(segmented.NumCells, 2)
+            self.assertEqual(
+                list(
+                    CellStatistics.objects
+                    .filter(segmented_image=segmented)
+                    .order_by("cell_id")
+                    .values_list("cell_id", flat=True)
+                ),
+                [1, 4],
+            )
+
+    def test_bulk_endpoint_rejects_invalid_payload(self):
+        with temporary_media_root() as media_root:
+            uuid_value, _ = self._setup_run(media_root, num_cells=2)
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+            url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+
+            response = self.client.post(
+                url,
+                data=json.dumps({"cell_ids": [1, "bad"]}),
+                content_type="application/json",
+            )
+
+            self.assertEqual(response.status_code, 400)
+
+    def test_bulk_endpoint_returns_404_when_no_requested_cells_exist(self):
+        with temporary_media_root() as media_root:
+            uuid_value, _ = self._setup_run(media_root, num_cells=2)
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+            url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+
+            response = self.client.post(
+                url,
+                data=json.dumps({"cell_ids": [99]}),
+                content_type="application/json",
+            )
+
+            self.assertEqual(response.status_code, 404)
+
+    def test_bulk_endpoint_rejects_non_owner(self):
+        with temporary_media_root() as media_root:
+            uuid_value, segmented = self._setup_run(media_root, num_cells=2)
+            self.client.login(
+                email=self.other_user.email, password="TestPass123!"
+            )
+            url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+
+            response = self.client.post(
+                url,
+                data=json.dumps({"cell_ids": [1, 2]}),
+                content_type="application/json",
+            )
+
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(
+                CellStatistics.objects.filter(segmented_image=segmented).count(),
+                2,
+            )
+
     def test_csv_export_excludes_deleted_cell(self):
         with temporary_media_root() as media_root:
             uuid_value, _ = self._setup_run(media_root, num_cells=3)
@@ -375,11 +491,13 @@ class CellDeletionEndpointTests(TestCase):
                 email=self.user.email, password="TestPass123!"
             )
 
-            for cell_id in (2, 3):
-                delete_url = reverse(
-                    "delete_cell", kwargs={"uuid": uuid_value, "cell_id": cell_id}
-                )
-                self.assertEqual(self.client.post(delete_url).status_code, 200)
+            delete_url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+            response = self.client.post(
+                delete_url,
+                data=json.dumps({"cell_ids": [2, 3]}),
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 200)
 
             response = self.client.get(reverse("display", kwargs={"uuids": uuid_value}))
 
@@ -398,11 +516,13 @@ class CellDeletionEndpointTests(TestCase):
                 email=self.user.email, password="TestPass123!"
             )
 
-            for cell_id in (2, 3):
-                delete_url = reverse(
-                    "delete_cell", kwargs={"uuid": uuid_value, "cell_id": cell_id}
-                )
-                self.assertEqual(self.client.post(delete_url).status_code, 200)
+            delete_url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+            response = self.client.post(
+                delete_url,
+                data=json.dumps({"cell_ids": [2, 3]}),
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 200)
 
             response = self.client.get(reverse("dashboard"))
 
@@ -423,11 +543,13 @@ class CellDeletionEndpointTests(TestCase):
                 email=self.user.email, password="TestPass123!"
             )
 
-            for cell_id in (2, 3):
-                delete_url = reverse(
-                    "delete_cell", kwargs={"uuid": uuid_value, "cell_id": cell_id}
-                )
-                self.assertEqual(self.client.post(delete_url).status_code, 200)
+            delete_url = reverse("delete_cells", kwargs={"uuid": uuid_value})
+            response = self.client.post(
+                delete_url,
+                data=json.dumps({"cell_ids": [2, 3]}),
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 200)
 
             csv_response = self.client.get(
                 reverse("dashboard"),

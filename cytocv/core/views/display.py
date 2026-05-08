@@ -39,7 +39,7 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
-from core.services.cell_deletion import delete_single_cell
+from core.services.cell_deletion import delete_multiple_cells, delete_single_cell
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
@@ -206,6 +206,9 @@ def display(request, uuids):
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
     confirm_cell_deletion = bool(preferences.get("confirm_cell_deletion", True))
+    confirm_multi_cell_deletion = bool(
+        preferences.get("confirm_multi_cell_deletion", True)
+    )
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -393,6 +396,7 @@ def display(request, uuids):
         'show_saved_file_scales': show_saved_file_scales,
         'sidebar_starts_open': sidebar_starts_open,
         'confirm_cell_deletion': confirm_cell_deletion,
+        'confirm_multi_cell_deletion': confirm_multi_cell_deletion,
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'main_image_channel': main_image_channel,
@@ -777,6 +781,68 @@ def delete_cell_view(request, uuid, cell_id):
         "ok": True,
         "uuid": str(uuid),
         "cell_id": int(cell_id),
+        "num_cells": int(segmented_image.NumCells or 0),
+        "remaining_cells": remaining_ids,
+    })
+
+
+@require_POST
+def delete_cells_view(request, uuid):
+    """Delete multiple cells' rows and on-disk artifacts for a run."""
+    try:
+        uploaded_image = UploadedImage.objects.get(uuid=uuid)
+    except UploadedImage.DoesNotExist:
+        return HttpResponseNotFound("The uploaded image could not be found.")
+
+    try:
+        segmented_image = SegmentedImage.objects.get(UUID=uuid)
+    except SegmentedImage.DoesNotExist:
+        return HttpResponseNotFound("The segmented results could not be found.")
+
+    if not _can_access_display_uuid(request, uploaded_image, segmented_image):
+        return HttpResponseForbidden("You do not have access to this result.")
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Request body must be valid JSON."}, status=400)
+
+    raw_cell_ids = payload.get("cell_ids")
+    if not isinstance(raw_cell_ids, list) or not raw_cell_ids:
+        return JsonResponse({"error": "Select at least one cell to delete."}, status=400)
+
+    cell_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for raw_cell_id in raw_cell_ids:
+        if isinstance(raw_cell_id, bool):
+            return JsonResponse({"error": "Cell IDs must be positive integers."}, status=400)
+        try:
+            cell_id_int = int(raw_cell_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Cell IDs must be positive integers."}, status=400)
+        if cell_id_int <= 0 or str(raw_cell_id).strip() != str(cell_id_int):
+            return JsonResponse({"error": "Cell IDs must be positive integers."}, status=400)
+        if cell_id_int in seen_ids:
+            continue
+        seen_ids.add(cell_id_int)
+        cell_ids.append(cell_id_int)
+
+    deleted_ids = delete_multiple_cells(segmented_image, cell_ids)
+    if not deleted_ids:
+        return HttpResponseNotFound("Selected cells have already been removed.")
+
+    segmented_image.refresh_from_db(fields=["NumCells"])
+    remaining_ids = list(
+        CellStatistics.objects
+        .filter(segmented_image=segmented_image)
+        .order_by("cell_id")
+        .values_list("cell_id", flat=True)
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "uuid": str(uuid),
+        "deleted_cells": deleted_ids,
         "num_cells": int(segmented_image.NumCells or 0),
         "remaining_cells": remaining_ids,
     })

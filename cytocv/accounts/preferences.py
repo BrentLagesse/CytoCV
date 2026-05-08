@@ -82,6 +82,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "show_saved_file_scales": True,
     "sidebar_starts_open": True,
     "confirm_cell_deletion": True,
+    "confirm_multi_cell_deletion": True,
     "sidebar_spatial_stats_unit": "px",
     "main_image_channel": "",
 }
@@ -448,6 +449,10 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     )
     normalized["confirm_cell_deletion"] = _as_bool(
         raw_payload.get("confirm_cell_deletion"),
+        default=True,
+    )
+    normalized["confirm_multi_cell_deletion"] = _as_bool(
+        raw_payload.get("confirm_multi_cell_deletion"),
         default=True,
     )
     normalized["sidebar_spatial_stats_unit"] = _normalize_unit(

@@ -67,6 +67,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(normalized["show_saved_file_scales"])
         self.assertTrue(normalized["sidebar_starts_open"])
         self.assertTrue(normalized["confirm_cell_deletion"])
+        self.assertTrue(normalized["confirm_multi_cell_deletion"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
         self.assertEqual(normalized["main_image_channel"], "")
 
@@ -96,6 +97,7 @@ class PreferenceNormalizationTests(TestCase):
                 "auto_save_experiments": "off",
                 "show_saved_file_scales": "off",
                 "confirm_cell_deletion": "off",
+                "confirm_multi_cell_deletion": "off",
                 "main_image_channel": "invalid",
             }
         )
@@ -121,6 +123,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertFalse(normalized["confirm_cell_deletion"])
+        self.assertFalse(normalized["confirm_multi_cell_deletion"])
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertFalse(normalized["show_saved_file_scales"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
@@ -885,6 +888,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'data-action="select-cells"', html=False)
+        self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
         self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
         self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
         self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
@@ -924,6 +929,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="displayExportButtons"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'data-action="select-cells"', html=False)
+        self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertContains(response, "const defaultSpatialStatsUnit =", html=False)
         self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
@@ -1046,6 +1053,7 @@ class DisplayManualSaveTests(TestCase):
         )
         preferences = get_user_preferences(self.user)
         preferences["confirm_cell_deletion"] = False
+        preferences["confirm_multi_cell_deletion"] = False
         update_user_preferences(self.user, preferences)
 
         dashboard_response = self.client.get(reverse("dashboard"))
@@ -1059,8 +1067,18 @@ class DisplayManualSaveTests(TestCase):
             html=False,
         )
         self.assertContains(
+            dashboard_response,
+            "const confirmMultiCellDeletion = false;",
+            html=False,
+        )
+        self.assertContains(
             display_response,
             "const confirmCellDeletion = false;",
+            html=False,
+        )
+        self.assertContains(
+            display_response,
+            "const confirmMultiCellDeletion = false;",
             html=False,
         )
 
@@ -2093,6 +2111,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         preferences["show_saved_file_scales"] = False
         preferences["sidebar_starts_open"] = False
         preferences["confirm_cell_deletion"] = False
+        preferences["confirm_multi_cell_deletion"] = False
         preferences["sidebar_spatial_stats_unit"] = "um"
         preferences["main_image_channel"] = "green"
         preferences["experiment_defaults"]["spatial_stats_unit"] = "um"
@@ -2112,6 +2131,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(updated["show_saved_file_scales"])
         self.assertFalse(updated["sidebar_starts_open"])
         self.assertFalse(updated["confirm_cell_deletion"])
+        self.assertFalse(updated["confirm_multi_cell_deletion"])
         self.assertEqual(updated["sidebar_spatial_stats_unit"], "um")
         self.assertEqual(updated["main_image_channel"], "green")
         self.assertEqual(updated["experiment_defaults"]["spatial_stats_unit"], "um")
@@ -2357,12 +2377,48 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(get_user_preferences(self.user)["confirm_cell_deletion"])
 
+    def test_behavior_form_persists_multi_cell_delete_confirmation_preference(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
+                "sidebar_starts_open": "on",
+                "confirm_cell_deletion": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertFalse(get_user_preferences(self.user)["confirm_multi_cell_deletion"])
+
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
+                "sidebar_starts_open": "on",
+                "confirm_cell_deletion": "on",
+                "confirm_multi_cell_deletion": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertTrue(get_user_preferences(self.user)["confirm_multi_cell_deletion"])
+
     def test_preferences_page_renders_cell_delete_confirmation_toggle(self):
         response = self.client.get(reverse("workflow_defaults") + "?section=saving")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="confirm_cell_deletion"', html=False)
+        self.assertContains(response, 'id="confirm_multi_cell_deletion"', html=False)
+        self.assertContains(response, 'data-workflow-card="deletion-preferences"', html=False)
+        self.assertContains(response, "Deletion Preferences")
         self.assertContains(response, "Confirm Before Deleting Cells")
+        self.assertContains(response, "Confirm Before Deleting Multiple Cells")
 
     def test_behavior_form_honors_safe_next_redirect(self):
         response = self.client.post(
