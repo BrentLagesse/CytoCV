@@ -676,17 +676,6 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             uploaded.scale_info,
             manual_default=default_manual_scale,
         )
-        file_list.append(
-            {
-                "uuid": uuid,
-                "name": image_name,
-                "uploaded_date": segmented_image.uploaded_date,
-                "num_cells": segmented_image.NumCells,
-                "detected_channels": detected_channels,
-                "scale": scale_payload,
-            }
-        )
-
         stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
             "cell_id"
         )
@@ -763,13 +752,20 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
 
                 cell_images[str(cell_id)].append(outlined_url)
                 cell_images[str(cell_id)].append(no_outline_url)
-            statistics[str(cell_id)] = _serialize_cell_statistics(cell_stat)
+            if cell_stat is not None:
+                statistics[str(cell_id)] = _serialize_cell_statistics(cell_stat)
 
-        number_of_cells = max(len(cell_ids), int(segmented_image.NumCells or 0))
-        if number_of_cells > 0 and not cell_ids:
-            for cell_id in range(1, number_of_cells + 1):
-                statistics[str(cell_id)] = None
-                cell_images[str(cell_id)] = ["", "", "", "", "", "", "", ""]
+        number_of_cells = len(cell_ids)
+        file_list.append(
+            {
+                "uuid": uuid,
+                "name": image_name,
+                "uploaded_date": segmented_image.uploaded_date,
+                "num_cells": number_of_cells,
+                "detected_channels": detected_channels,
+                "scale": scale_payload,
+            }
+        )
 
         no_cells_warning = None
         if number_of_cells == 0:

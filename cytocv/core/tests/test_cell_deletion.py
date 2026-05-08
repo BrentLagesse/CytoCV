@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from io import BytesIO
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +12,7 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from openpyxl import load_workbook
 from PIL import Image
 
 from core.config import DEFAULT_CHANNEL_CONFIG
@@ -23,6 +26,7 @@ def temporary_media_root():
         with ExitStack() as stack:
             stack.enter_context(override_settings(MEDIA_ROOT=temp_media))
             for target in (
+                "accounts.views.profile.MEDIA_ROOT",
                 "core.config.MEDIA_ROOT",
                 "core.views.display.MEDIA_ROOT",
             ):
@@ -105,6 +109,53 @@ def _make_cell_stats(
         dv_file_path=f"{segmented.UUID}/{dv_name}.dv",
         image_name=f"{dv_name}.dv",
     )
+
+
+def _rendered_table_cell_ids(response) -> list[int]:
+    try:
+        table = response.context["cell_table"]
+        return [int(row.record.cell_id) for row in table.rows]
+    except (AttributeError, KeyError, TypeError, ValueError):
+        pass
+
+    body = response.content.decode("utf-8", errors="ignore")
+    match = re.search(
+        r'<table[^>]*id="celltable"[^>]*>.*?<tbody>(.*?)</tbody>',
+        body,
+        flags=re.S,
+    )
+    if not match:
+        return []
+    return [
+        int(value)
+        for value in re.findall(
+            r"<tr[^>]*>\s*<td[^>]*>\s*(\d+)\s*</td>",
+            match.group(1),
+            flags=re.S,
+        )
+    ]
+
+
+def _csv_cell_ids(response) -> list[int]:
+    body = response.content.decode("utf-8", errors="ignore")
+    ids: list[int] = []
+    for row in body.splitlines()[1:]:
+        first_value = row.split(",", 1)[0].strip()
+        if first_value.isdigit():
+            ids.append(int(first_value))
+    return ids
+
+
+def _xlsx_cell_ids(response) -> list[int]:
+    workbook = load_workbook(BytesIO(response.content))
+    sheet = workbook.active
+    ids: list[int] = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        value = row[0]
+        if value is None:
+            continue
+        ids.append(int(value))
+    return ids
 
 
 class CellDeletionServiceTests(TestCase):
@@ -312,3 +363,82 @@ class CellDeletionEndpointTests(TestCase):
             self.assertNotIn("2", cell_id_column)
             self.assertIn("1", cell_id_column)
             self.assertIn("3", cell_id_column)
+
+            xlsx_response = self.client.get(display_url + "?_export=xlsx&_unit=px")
+            self.assertEqual(xlsx_response.status_code, 200)
+            self.assertEqual(_xlsx_cell_ids(xlsx_response), [1, 3])
+
+    def test_display_page_excludes_deleted_gap_cells_from_table_and_payload(self):
+        with temporary_media_root() as media_root:
+            uuid_value, _ = self._setup_run(media_root, num_cells=4)
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+
+            for cell_id in (2, 3):
+                delete_url = reverse(
+                    "delete_cell", kwargs={"uuid": uuid_value, "cell_id": cell_id}
+                )
+                self.assertEqual(self.client.post(delete_url).status_code, 200)
+
+            response = self.client.get(reverse("display", kwargs={"uuids": uuid_value}))
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(_rendered_table_cell_ids(response), [1, 4])
+            files_data = json.loads(response.context["files_data"])
+            file_data = files_data[uuid_value]
+            self.assertEqual(file_data["NumberOfCells"], 2)
+            self.assertEqual(sorted(file_data["Statistics"].keys()), ["1", "4"])
+            self.assertEqual(sorted(file_data["CellPairImages"].keys()), ["1", "4"])
+
+    def test_dashboard_page_excludes_deleted_gap_cells_from_table_and_payload(self):
+        with temporary_media_root() as media_root:
+            uuid_value, _ = self._setup_run(media_root, num_cells=4)
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+
+            for cell_id in (2, 3):
+                delete_url = reverse(
+                    "delete_cell", kwargs={"uuid": uuid_value, "cell_id": cell_id}
+                )
+                self.assertEqual(self.client.post(delete_url).status_code, 200)
+
+            response = self.client.get(reverse("dashboard"))
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(_rendered_table_cell_ids(response), [1, 4])
+            files_data = json.loads(response.context["files_data_json"])
+            file_data = files_data[uuid_value]
+            self.assertEqual(file_data["NumberOfCells"], 2)
+            self.assertEqual(sorted(file_data["Statistics"].keys()), ["1", "4"])
+            self.assertEqual(sorted(file_data["CellPairImages"].keys()), ["1", "4"])
+            body = response.content.decode("utf-8", errors="ignore")
+            self.assertNotIn("for (let i = 1; i <= totalCells", body)
+
+    def test_dashboard_exports_exclude_deleted_gap_cells(self):
+        with temporary_media_root() as media_root:
+            uuid_value, _ = self._setup_run(media_root, num_cells=4)
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+
+            for cell_id in (2, 3):
+                delete_url = reverse(
+                    "delete_cell", kwargs={"uuid": uuid_value, "cell_id": cell_id}
+                )
+                self.assertEqual(self.client.post(delete_url).status_code, 200)
+
+            csv_response = self.client.get(
+                reverse("dashboard"),
+                {"file_uuid": uuid_value, "_export": "csv", "_unit": "px"},
+            )
+            xlsx_response = self.client.get(
+                reverse("dashboard"),
+                {"file_uuid": uuid_value, "_export": "xlsx", "_unit": "px"},
+            )
+
+            self.assertEqual(csv_response.status_code, 200)
+            self.assertEqual(xlsx_response.status_code, 200)
+            self.assertEqual(_csv_cell_ids(csv_response), [1, 4])
+            self.assertEqual(_xlsx_cell_ids(xlsx_response), [1, 4])

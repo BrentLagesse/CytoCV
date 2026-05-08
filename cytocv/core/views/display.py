@@ -327,7 +327,8 @@ def display(request, uuids):
                     images[str(i)].append(image_url)
                     images[str(i)].append(no_outline)
 
-                statistics[str(i)] = serialize_cell_statistics_payload(cell_stat)
+                if cell_stat is not None:
+                    statistics[str(i)] = serialize_cell_statistics_payload(cell_stat)
 
             export_format = request.GET.get('_export', None)
             export_unit = normalize_spatial_stats_unit(request.GET.get('_unit'), default="px")

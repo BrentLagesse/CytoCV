@@ -2867,7 +2867,7 @@
 
             return {
                 visibleImageUrls,
-                cellId: imageUrls ? cellNumber : (maxCells > 0 ? cellNumber : 0),
+                cellId: (imageUrls || cellStats) ? cellNumber : 0,
                 statVisibility,
                 metricValues: {
                     distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),
@@ -3201,7 +3201,7 @@
             };
         }
 
-        function renderStatisticsTable(statistics, numberOfCells, fileData) {
+        function renderStatisticsTable(statistics, fileData) {
             const table = document.getElementById('celltable');
             if (!table) return 0;
             const tbody = table.querySelector('tbody');
@@ -3217,18 +3217,12 @@
 
             const ids = Object.keys(statistics || {})
                 .map((k) => Number(k))
-                .filter((n) => !Number.isNaN(n))
+                .filter((n) => (
+                    !Number.isNaN(n)
+                    && statistics[String(n)]
+                    && typeof statistics[String(n)] === 'object'
+                ))
                 .sort((a, b) => a - b);
-            const totalCells = Number(numberOfCells) || 0;
-            if (totalCells > 0) {
-                const idSet = new Set(ids);
-                for (let i = 1; i <= totalCells; i += 1) {
-                    if (!idSet.has(i)) {
-                        ids.push(i);
-                    }
-                }
-                ids.sort((a, b) => a - b);
-            }
 
             tbody.innerHTML = '';
             for (const id of ids) {
@@ -3261,12 +3255,12 @@
 
         function getStatisticsTableRowCount(fileData, renderedRowCount = 0) {
             const statistics = fileData?.Statistics || {};
-            const serializedRows = Object.keys(statistics).length;
-            const fileCellCount = Number(fileData?.NumberOfCells || 0);
+            const serializedRows = Object.values(statistics).filter(
+                (row) => row && typeof row === 'object',
+            ).length;
             return Math.max(
                 Number(renderedRowCount) || 0,
                 serializedRows,
-                Number.isFinite(fileCellCount) ? fileCellCount : 0,
             );
         }
 
@@ -3319,11 +3313,7 @@
                 }
             }
 
-            const renderedRowCount = renderStatisticsTable(
-                fileData.Statistics || {},
-                Number(fileData.NumberOfCells || 0),
-                fileData,
-            );
+            const renderedRowCount = renderStatisticsTable(fileData.Statistics || {}, fileData);
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
@@ -3784,17 +3774,25 @@
         }
 
         function getCircularWarmQueue(direction = 'initial') {
-            if (!window.CytoCVOverlayPrefetch || maxCells < 1) {
+            const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
+            if (sortedIds.length < 2) {
                 return [];
             }
-            if (maxCells <= 5) {
-                return window.CytoCVOverlayPrefetch
-                    .buildFullCircularCellOrder(currentCellNumber, maxCells)
-                    .filter((cellNumber) => cellNumber !== currentCellNumber);
-            }
-            return window.CytoCVOverlayPrefetch
-                .buildCircularCellOrder(currentCellNumber, maxCells, getWarmPriorityOffsets(direction))
-                .filter((cellNumber) => cellNumber !== currentCellNumber);
+            const currentIdx = Math.max(0, sortedIds.indexOf(Number(currentCellNumber)));
+            const offsets = sortedIds.length <= 5
+                ? sortedIds.map((_, index) => index).filter((index) => index !== 0)
+                : getWarmPriorityOffsets(direction);
+            const seen = new Set();
+            const ordered = [];
+            offsets.forEach((offset) => {
+                const targetIdx = (currentIdx + offset + sortedIds.length) % sortedIds.length;
+                const cellNumber = sortedIds[targetIdx];
+                if (!seen.has(cellNumber) && cellNumber !== Number(currentCellNumber)) {
+                    seen.add(cellNumber);
+                    ordered.push(cellNumber);
+                }
+            });
+            return ordered;
         }
 
         function markCurrentCellWarm(fileUUID, showContours) {
@@ -3892,6 +3890,19 @@
         }
 
         function getSortedCellIds(fileData) {
+            const statistics = (fileData && fileData.Statistics) || {};
+            const statIds = Object.keys(statistics)
+                .map((key) => Number(key))
+                .filter((value) => (
+                    Number.isFinite(value)
+                    && value > 0
+                    && statistics[String(value)]
+                    && typeof statistics[String(value)] === 'object'
+                ))
+                .sort((a, b) => a - b);
+            if (statIds.length > 0) {
+                return statIds;
+            }
             const pairImages = (fileData && fileData.CellPairImages) || {};
             return Object.keys(pairImages)
                 .map((key) => Number(key))
