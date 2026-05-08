@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from core.models import CellStatistics, SegmentedImage, UploadedImage
 from core.services.overlay_rendering import (
     ensure_overlay_cache_image,
+    find_historical_overlay_cache_image_path,
     find_legacy_debug_image_path,
     normalize_overlay_channel,
 )
@@ -41,14 +42,22 @@ def cell_overlay_image(
     )
     started_at = time.perf_counter()
 
-    try:
-        overlay_path = ensure_overlay_cache_image(
+    def fallback_overlay_path() -> HttpResponse:
+        historical_cache = find_historical_overlay_cache_image_path(
             uuid,
             cell_id,
             normalized_channel,
-            cell_stat=cell_stat,
         )
-    except FileNotFoundError:
+        if historical_cache is not None and historical_cache.exists():
+            logger.info(
+                "Overlay cache event=historical_cache_fallback run_uuid=%s cell_id=%s channel=%s elapsed_ms=%.2f",
+                uuid,
+                int(cell_id),
+                normalized_channel,
+                (time.perf_counter() - started_at) * 1000.0,
+            )
+            return FileResponse(historical_cache.open("rb"), content_type="image/png")
+
         legacy_debug = find_legacy_debug_image_path(uuid, cell_id, normalized_channel)
         if legacy_debug is None or not legacy_debug.exists():
             raise Http404("Overlay not found")
@@ -59,10 +68,23 @@ def cell_overlay_image(
             normalized_channel,
             (time.perf_counter() - started_at) * 1000.0,
         )
-        overlay_path = legacy_debug
+        return FileResponse(legacy_debug.open("rb"), content_type="image/png")
+
+    try:
+        overlay_path = ensure_overlay_cache_image(
+            uuid,
+            cell_id,
+            normalized_channel,
+            cell_stat=cell_stat,
+        )
+    except FileNotFoundError:
+        return fallback_overlay_path()
     except CellStatistics.DoesNotExist as exc:
         raise Http404("Overlay not found") from exc
     except ValueError as exc:
-        raise Http404("Overlay not found") from exc
+        try:
+            return fallback_overlay_path()
+        except Http404 as fallback_exc:
+            raise fallback_exc from exc
 
     return FileResponse(overlay_path.open("rb"), content_type="image/png")

@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 OVERLAY_RENDER_SCHEMA_VERSION = 4
 OVERLAY_RENDER_CONFIG_FILENAME = "overlay-render-config.json"
+OVERLAY_CACHE_DIR_PREFIX = "overlay-cache-v"
 OVERLAY_CACHE_DIRNAME = f"overlay-cache-v{OVERLAY_RENDER_SCHEMA_VERSION}"
 OVERLAY_CHANNEL_LABELS = {
     "red": "Red",
@@ -283,11 +284,67 @@ def overlay_render_config_exists(run_uuid: str) -> bool:
     return overlay_render_config_path(run_uuid).exists()
 
 
+def overlay_render_config_supported(run_uuid: str) -> bool:
+    try:
+        payload = json.loads(
+            overlay_render_config_path(run_uuid).read_text(encoding="utf-8")
+        )
+    except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError, ValueError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    try:
+        schema_version = int(payload.get("schema_version", 0))
+    except (TypeError, ValueError):
+        return False
+    return schema_version == OVERLAY_RENDER_SCHEMA_VERSION
+
+
+def _overlay_cache_dir_version(path: Path) -> int:
+    name = path.name
+    if not name.startswith(OVERLAY_CACHE_DIR_PREFIX):
+        return -1
+    try:
+        return int(name.removeprefix(OVERLAY_CACHE_DIR_PREFIX))
+    except ValueError:
+        return -1
+
+
+def find_historical_overlay_cache_image_path(
+    run_uuid: str,
+    cell_id: int,
+    channel: str,
+) -> Path | None:
+    normalized_channel = normalize_overlay_channel(channel)
+    segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
+    if not segmented_dir.exists():
+        return None
+
+    image_name = f"cell-{int(cell_id)}-{normalized_channel}.png"
+    candidates: list[Path] = []
+    for cache_dir in segmented_dir.glob(f"{OVERLAY_CACHE_DIR_PREFIX}*"):
+        if not cache_dir.is_dir() or cache_dir.name == OVERLAY_CACHE_DIRNAME:
+            continue
+        candidate = cache_dir / image_name
+        if candidate.exists():
+            candidates.append(candidate)
+
+    if not candidates:
+        return None
+    return sorted(
+        candidates,
+        key=lambda path: (_overlay_cache_dir_version(path.parent), path.parent.name),
+        reverse=True,
+    )[0]
+
+
 def overlay_image_available(run_uuid: str, cell_id: int, channel: str) -> bool:
     normalized_channel = normalize_overlay_channel(channel)
-    if overlay_render_config_exists(run_uuid):
-        return True
     if overlay_cache_image_path(run_uuid, cell_id, normalized_channel).exists():
+        return True
+    if find_historical_overlay_cache_image_path(run_uuid, cell_id, normalized_channel) is not None:
+        return True
+    if overlay_render_config_supported(run_uuid):
         return True
     return find_legacy_debug_image_path(run_uuid, cell_id, normalized_channel) is not None
 
