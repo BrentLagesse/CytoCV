@@ -952,19 +952,103 @@
         /* Empty table message */
         .celltable .no-data { text-align: center; padding: 30px; color: #888; font-style: italic; }
 
-        .popup {
-            position: absolute; display: none; background: var(--popup-surface-bg); border-radius: 4px; padding: 5px;
-            font-family: var(--app-font); align-items: center; justify-content: space-around;
+        .cell-actions-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .cell-actions-trigger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            min-height: 32px;
+            padding: 0;
+            margin-left: 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            background: rgba(18, 28, 40, 0.55);
+            color: #d7e6ff;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+        .cell-actions-trigger:hover,
+        .cell-actions-trigger[aria-expanded="true"] {
+            background: rgba(36, 54, 76, 0.85);
+            color: #ffffff;
+            border-color: rgba(var(--glass-border-rgb), 0.55);
+        }
+        .cell-actions-trigger:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .cell-actions-dots {
+            font-size: 18px;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 1px;
+            user-select: none;
+        }
+        .cell-actions-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+        }
+        .cell-row-context-menu {
+            position: fixed;
+        }
+        .cell-actions-menu,
+        .cell-row-context-menu {
+            min-width: 130px;
+            background: var(--popup-surface-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
             z-index: 2300;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
         }
-        .popup a { padding: 5px; font-size: 15px; margin-bottom:20px; }
-        .popup button {
-            font-size: 15px; background-color: red; color: white; text-decoration: none; padding: 5px;
-            border: none; border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin-bottom: 20px;
+        .cell-actions-menu[data-open="true"],
+        .cell-row-context-menu[data-open="true"] {
+            display: flex;
         }
-        .popup .hide { background-color: #007bff; }
-        .popup .hide:hover { background-color: #0056b3; }
-        .popup button:hover { background-color: darkred; color: #fff; }
+        .cell-actions-menu-item {
+            background: transparent;
+            border: none;
+            color: #f0f4ff;
+            text-align: left;
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--app-font);
+        }
+        .cell-actions-menu-item:hover,
+        .cell-actions-menu-item:focus-visible {
+            background: rgba(220, 53, 69, 0.18);
+            color: #ff8a96;
+            outline: none;
+        }
+        .cell-actions-menu-item.delete:hover,
+        .cell-actions-menu-item.delete:focus-visible {
+            background: rgba(220, 53, 69, 0.2);
+            color: #ff8a96;
+        }
+        .save-modal-btn.confirm.danger {
+            background: #d33a3a;
+            color: #ffffff;
+        }
+        .save-modal-btn.confirm.danger:hover,
+        .save-modal-btn.confirm.danger:focus-visible {
+            background: #b32a2a;
+            outline: none;
+        }
+        .save-modal-actions.split {
+            justify-content: space-between;
+        }
 
 
         /* Chrome / Edge / Safari */
@@ -1893,6 +1977,14 @@
                                             </label>
                                         </div>
                                         <div class="cell-id-chip">Cell ID: <span id="cellID">1</span></div>
+                                        <div class="cell-actions-wrapper">
+                                            <button type="button" class="cell-actions-trigger" id="cellActionsTrigger" aria-haspopup="menu" aria-expanded="false" aria-label="Cell actions">
+                                                <span class="cell-actions-dots" aria-hidden="true">&#8942;</span>
+                                            </button>
+                                            <div class="cell-actions-menu" id="cellActionsMenu" role="menu">
+                                                <button type="button" class="cell-actions-menu-item delete" role="menuitem" data-action="delete-current-cell">Delete</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="cell-images-row">
@@ -2180,14 +2272,8 @@
                             {% render_table cell_table %}
                         </div>
                     </div>
-                    <div class="popup">
-                        <p><strong>Cell ID:</strong><span id="popup-id"></span></p>
-                        <form method="post" id="delete_cell">
-                            {% csrf_token %}
-                            <input id="cell_id_input" type="hidden" name="cell_id">
-                            <button name="delete" class="deleteCell" type="submit">Delete</button>
-                        </form>
-                        <button class="hide" onclick="hidePopUp()">Close</button>
+                    <div class="cell-row-context-menu" id="cellRowContextMenu" role="menu">
+                        <button type="button" class="cell-actions-menu-item delete" role="menuitem" data-action="delete-row-cell">Delete</button>
                     </div>
                     <div class="table-toolbar glass-toolbar">
                         <p class="section-eyebrow">Statistics Table</p>
@@ -2208,6 +2294,17 @@
             </div> <!-- end main-content -->
         </div> <!-- end content-wrapper -->
     </div> <!-- end page-container -->
+
+    <div class="save-modal-backdrop" id="deleteCellBackdrop" aria-hidden="true">
+        <div class="save-modal" role="dialog" aria-modal="true" aria-labelledby="deleteCellTitle">
+            <h3 id="deleteCellTitle">Delete Cell</h3>
+            <p id="deleteCellMessage"></p>
+            <div class="save-modal-actions split">
+                <button class="save-modal-btn cancel" id="cancelDeleteCellBtn" type="button">Cancel</button>
+                <button class="save-modal-btn confirm danger" id="confirmDeleteCellBtn" type="button">Delete</button>
+            </div>
+        </div>
+    </div>
 
     <div class="save-modal-backdrop" id="saveFilesBackdrop" aria-hidden="true">
         <div class="save-modal" role="dialog" aria-modal="true" aria-labelledby="saveFilesTitle">
@@ -2824,7 +2921,8 @@
             if (!Number.isFinite(maxCells) || maxCells < 0) {
                 maxCells = 0;
             }
-            currentCellNumber = 1;
+            const initialSortedIds = getSortedCellIds(fileData);
+            currentCellNumber = initialSortedIds.length > 0 ? initialSortedIds[0] : 1;
 
             const defaultMainImagePath = fileData.MainImagePath || noCellPlaceholder;
             const inferredDefaultChannel = primeMainImageWarmState(fileUUID, fileData, defaultMainImagePath);
@@ -3722,16 +3820,30 @@
             await loadFile(nextIndex);
         }
 
+        function getSortedCellIds(fileData) {
+            const pairImages = (fileData && fileData.CellPairImages) || {};
+            return Object.keys(pairImages)
+                .map((key) => Number(key))
+                .filter((value) => Number.isFinite(value) && value > 0)
+                .sort((a, b) => a - b);
+        }
+
         async function nextCell() {
             if (maxCells < 1) {
                 return;
             }
-            currentCellNumber = (currentCellNumber % maxCells) + 1;
             const fileUUID = fileUUIDs[currentFileIndex];
             const fileData = filesData[fileUUID];
             if (!fileData) {
                 return;
             }
+            const sortedIds = getSortedCellIds(fileData);
+            if (sortedIds.length === 0) {
+                return;
+            }
+            const currentIdx = sortedIds.indexOf(Number(currentCellNumber));
+            const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % sortedIds.length;
+            currentCellNumber = sortedIds[nextIdx];
             const showContours = getContourToggleState();
             await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                 blendImages: true,
@@ -3748,12 +3860,20 @@
             if (maxCells < 1) {
                 return;
             }
-            currentCellNumber = (currentCellNumber - 1 > 0) ? (currentCellNumber - 1) : maxCells;
             const fileUUID = fileUUIDs[currentFileIndex];
             const fileData = filesData[fileUUID];
             if (!fileData) {
                 return;
             }
+            const sortedIds = getSortedCellIds(fileData);
+            if (sortedIds.length === 0) {
+                return;
+            }
+            const currentIdx = sortedIds.indexOf(Number(currentCellNumber));
+            const prevIdx = currentIdx === -1
+                ? sortedIds.length - 1
+                : (currentIdx - 1 + sortedIds.length) % sortedIds.length;
+            currentCellNumber = sortedIds[prevIdx];
             const showContours = getContourToggleState();
             await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                 blendImages: true,
@@ -4358,123 +4478,353 @@
     </script>
 
     <script>
-        // table script
-        var table = document.getElementById('celltable');
-        var popup = document.getElementsByClassName('popup');
-        var closebtn = document.getElementsByClassName('hide');
-        var activePopupRow = null;
-
-        function rowListener(e){
-            var row = e.target.closest('tr');
-            if(row && row.parentNode.tagName != 'THEAD'){
-                showPopUp(row,e);
+        // Reload from server when restored from the back-forward cache so the
+        // table reflects the latest CellStatistics state instead of a stale snapshot.
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                window.location.reload();
             }
-        }
+        });
+    </script>
 
-        function getPopupElement(){
-            var popupEl = popup[0];
-            return popupEl || null;
-        }
+    <script>
+        // Cell deletion controller: 3-dot menu + table right-click + confirmation modal.
+        (function () {
+            const table = document.getElementById('celltable');
+            const trigger = document.getElementById('cellActionsTrigger');
+            const triggerMenu = document.getElementById('cellActionsMenu');
+            const contextMenu = document.getElementById('cellRowContextMenu');
+            const modalBackdrop = document.getElementById('deleteCellBackdrop');
+            const modalMessage = document.getElementById('deleteCellMessage');
+            const cancelBtn = document.getElementById('cancelDeleteCellBtn');
+            const confirmBtn = document.getElementById('confirmDeleteCellBtn');
+            const tableFileUuid = "{{ table_uuid|escapejs }}";
 
-        function positionPopupForRow(row){
-            var popupEl = getPopupElement();
-            if (!popupEl || !row || !document.body.contains(row)) {
+            if (!modalBackdrop || !modalMessage || !confirmBtn || !cancelBtn) {
                 return;
             }
-            var rect = row.getBoundingClientRect();
-            var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-            var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-            var margin = 8;
 
-            popupEl.style.visibility = 'hidden';
-            popupEl.style.display = 'block';
-            popupEl.style.left = '0px';
-            popupEl.style.top = '0px';
-
-            var popupRect = popupEl.getBoundingClientRect();
-            var left = rect.right + 10;
-            if (left + popupRect.width + margin > viewportWidth) {
-                left = rect.left - popupRect.width - 10;
+            function readCsrfToken() {
+                let value = null;
+                document.cookie.split(';').forEach((cookie) => {
+                    const item = cookie.trim();
+                    if (item.startsWith('csrftoken=')) {
+                        value = decodeURIComponent(item.slice('csrftoken='.length));
+                    }
+                });
+                return value;
             }
-            left = Math.max(margin, Math.min(left, viewportWidth - popupRect.width - margin));
 
-            var top = rect.top;
-            if (top + popupRect.height + margin > viewportHeight) {
-                top = viewportHeight - popupRect.height - margin;
+            let pendingDelete = null;
+
+            function closeTriggerMenu() {
+                if (!triggerMenu || !trigger) return;
+                triggerMenu.dataset.open = 'false';
+                trigger.setAttribute('aria-expanded', 'false');
             }
-            top = Math.max(margin, top);
 
-            var offsetParent = popupEl.offsetParent || document.body;
-            var parentRect = offsetParent.getBoundingClientRect();
-            var parentScrollLeft = offsetParent === document.body
-                ? (window.pageXOffset || document.documentElement.scrollLeft)
-                : offsetParent.scrollLeft;
-            var parentScrollTop = offsetParent === document.body
-                ? (window.pageYOffset || document.documentElement.scrollTop)
-                : offsetParent.scrollTop;
-            var parentClientLeft = offsetParent.clientLeft || 0;
-            var parentClientTop = offsetParent.clientTop || 0;
-
-            popupEl.style.left = (left - parentRect.left + parentScrollLeft - parentClientLeft) + 'px';
-            popupEl.style.top = (top - parentRect.top + parentScrollTop - parentClientTop) + 'px';
-            popupEl.style.visibility = 'visible';
-        }
-
-        function repositionActivePopup(){
-            var popupEl = getPopupElement();
-            if (!popupEl || !activePopupRow || popupEl.style.display === 'none') {
-                return;
+            function openTriggerMenu() {
+                if (!triggerMenu || !trigger) return;
+                triggerMenu.dataset.open = 'true';
+                trigger.setAttribute('aria-expanded', 'true');
             }
-            if (!document.body.contains(activePopupRow)) {
-                hidePopUp();
-                return;
+
+            function closeContextMenu() {
+                if (!contextMenu) return;
+                contextMenu.dataset.open = 'false';
+                contextMenu.removeAttribute('data-cell-id');
             }
-            positionPopupForRow(activePopupRow);
-        }
 
-        function showPopUp(row,e){
-            var cells = row.getElementsByTagName('td');
-            var cell_id = cells[0].textContent.trim();
-            var popupEl = getPopupElement();
-            if (!popupEl) return;
-
-            document.getElementById('popup-id').textContent = cell_id;
-            activePopupRow = row;
-            positionPopupForRow(row);
-        };
-
-        function hidePopUp(){
-            var popupEl = getPopupElement();
-            if (popupEl) {
-                popupEl.style.display = 'none';
-                popupEl.style.visibility = '';
+            function openContextMenu(clientX, clientY, cellId) {
+                if (!contextMenu) return;
+                const host = document.fullscreenElement || document.body;
+                if (contextMenu.parentElement !== host) {
+                    host.appendChild(contextMenu);
+                }
+                contextMenu.dataset.open = 'true';
+                contextMenu.dataset.cellId = String(cellId);
+                contextMenu.style.position = 'fixed';
+                contextMenu.style.visibility = 'hidden';
+                contextMenu.style.left = '0px';
+                contextMenu.style.top = '0px';
+                const rect = contextMenu.getBoundingClientRect();
+                const margin = 8;
+                const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+                const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                let left = clientX;
+                if (left + rect.width + margin > viewportWidth) {
+                    left = viewportWidth - rect.width - margin;
+                }
+                left = Math.max(margin, left);
+                let top = clientY;
+                if (top + rect.height + margin > viewportHeight) {
+                    top = viewportHeight - rect.height - margin;
+                }
+                top = Math.max(margin, top);
+                contextMenu.style.left = left + 'px';
+                contextMenu.style.top = top + 'px';
+                contextMenu.style.visibility = 'visible';
             }
-            activePopupRow = null;
-        }
 
-        if (table) {
-            table.addEventListener("click", rowListener);
-        }
-        window.addEventListener('resize', repositionActivePopup);
-        window.addEventListener('orientationchange', repositionActivePopup);
-        window.addEventListener('scroll', repositionActivePopup);
-        var tableScrollFrame = document.getElementById('tableScrollFrame');
-        if (tableScrollFrame) {
-            tableScrollFrame.addEventListener('scroll', repositionActivePopup);
-        }
+            function closeAllMenus() {
+                closeTriggerMenu();
+                closeContextMenu();
+            }
 
-        function setCellID(){
-            var cell_id = document.getElementById('popup-id').innerText;
-            document.getElementById('cell_id_input').value = cell_id;
-        }
+            function openModal({ cellId, fileUuid, fileName, includeAndItsData }) {
+                pendingDelete = { cellId, fileUuid };
+                const safeName = fileName || 'this file';
+                modalMessage.textContent = includeAndItsData
+                    ? `Are you sure you want to delete cell ${cellId} and its data from ${safeName}?`
+                    : `Are you sure you want to delete cell ${cellId} from ${safeName}?`;
+                confirmBtn.disabled = false;
+                const host = document.fullscreenElement || document.body;
+                if (modalBackdrop.parentElement !== host) {
+                    host.appendChild(modalBackdrop);
+                }
+                modalBackdrop.style.display = 'flex';
+                modalBackdrop.style.zIndex = '10000';
+                modalBackdrop.setAttribute('aria-hidden', 'false');
+            }
 
-        var deleteBtn = document.querySelector('.deleteCell');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', function (e){
-                setCellID();
-                document.getElementById('delete_cell').submit();
+            function closeModal() {
+                pendingDelete = null;
+                modalBackdrop.style.display = 'none';
+                modalBackdrop.setAttribute('aria-hidden', 'true');
+                confirmBtn.disabled = false;
+            }
+
+            function getCurrentFileData() {
+                if (typeof fileUUIDs === 'undefined' || typeof filesData === 'undefined') {
+                    return { fileUuid: null, fileData: null };
+                }
+                const fileUuid = fileUUIDs[currentFileIndex];
+                return { fileUuid, fileData: fileUuid ? filesData[fileUuid] : null };
+            }
+
+            function reportError(message) {
+                if (window.showGlobalMessage) {
+                    window.showGlobalMessage(message, 'error', {
+                        scope: 'analysis-warning',
+                        top: 'calc(var(--nav-height) + 8px)',
+                        timeoutMs: 6000,
+                    });
+                } else {
+                    window.alert(message);
+                }
+            }
+
+            function removeTableRow(cellId) {
+                if (!table) return;
+                const rows = table.querySelectorAll('tbody tr');
+                for (const row of rows) {
+                    const firstCell = row.cells && row.cells[0];
+                    if (!firstCell) continue;
+                    if (firstCell.textContent.trim() === String(cellId)) {
+                        row.remove();
+                        break;
+                    }
+                }
+            }
+
+            function updateLocalState(fileUuid, cellId, payload) {
+                const fileData = filesData[fileUuid];
+                if (!fileData) return;
+                const idStr = String(cellId);
+                if (fileData.CellPairImages) {
+                    delete fileData.CellPairImages[cellId];
+                    delete fileData.CellPairImages[idStr];
+                }
+                if (fileData.Statistics) {
+                    delete fileData.Statistics[cellId];
+                    delete fileData.Statistics[idStr];
+                }
+                fileData.NumberOfCells = Number(payload.num_cells || 0);
+                if (typeof fileUUIDs !== 'undefined' && fileUuid === fileUUIDs[currentFileIndex]) {
+                    maxCells = fileData.NumberOfCells;
+                }
+            }
+
+            async function refreshDisplayedCellAfterDelete(fileUuid, deletedCellId) {
+                if (typeof fileUUIDs === 'undefined' || fileUuid !== fileUUIDs[currentFileIndex]) {
+                    return;
+                }
+                const fileData = filesData[fileUuid];
+                if (!fileData) return;
+                const sortedIds = getSortedCellIds(fileData);
+                if (typeof currentCellNumber !== 'undefined' && Number(currentCellNumber) === Number(deletedCellId)) {
+                    if (sortedIds.length === 0) {
+                        currentCellNumber = 0;
+                    } else {
+                        const nextLarger = sortedIds.find((id) => id > Number(deletedCellId));
+                        if (typeof nextLarger === 'number') {
+                            currentCellNumber = nextLarger;
+                        } else {
+                            currentCellNumber = sortedIds[sortedIds.length - 1];
+                        }
+                    }
+                }
+                if (typeof updateCellImages === 'function') {
+                    const showContours = typeof getContourToggleState === 'function'
+                        ? getContourToggleState()
+                        : true;
+                    await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                        blendImages: true,
+                        blendText: true,
+                        forceShowContours: showContours,
+                    });
+                }
+            }
+
+            async function performDelete(fileUuid, cellId) {
+                const csrfToken = readCsrfToken();
+                const url = `/experiment/${fileUuid}/cell/${cellId}/delete/`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken || '',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    let errorText = `Failed to delete cell ${cellId}.`;
+                    try {
+                        const data = await response.json();
+                        if (data && data.error) {
+                            errorText = data.error;
+                        }
+                    } catch (err) {
+                        // ignore JSON parse errors; use default message
+                    }
+                    throw new Error(errorText);
+                }
+                return response.json();
+            }
+
+            async function handleConfirm() {
+                if (!pendingDelete) return;
+                const { fileUuid, cellId } = pendingDelete;
+                confirmBtn.disabled = true;
+                try {
+                    const payload = await performDelete(fileUuid, cellId);
+                    updateLocalState(fileUuid, cellId, payload);
+                    removeTableRow(cellId);
+                    await refreshDisplayedCellAfterDelete(fileUuid, cellId);
+                } catch (err) {
+                    reportError(err && err.message ? err.message : 'Failed to delete cell.');
+                    confirmBtn.disabled = false;
+                    return;
+                }
+                closeModal();
+            }
+
+            if (trigger && triggerMenu) {
+                trigger.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    if (triggerMenu.dataset.open === 'true') {
+                        closeTriggerMenu();
+                    } else {
+                        closeContextMenu();
+                        openTriggerMenu();
+                    }
+                });
+                triggerMenu.addEventListener('click', (event) => {
+                    const target = event.target.closest('[data-action="delete-current-cell"]');
+                    if (!target) return;
+                    closeTriggerMenu();
+                    const { fileUuid, fileData } = getCurrentFileData();
+                    if (!fileUuid || !fileData) return;
+                    const cellId = Number(currentCellNumber);
+                    if (!cellId || !Number.isFinite(cellId)) return;
+                    openModal({
+                        cellId,
+                        fileUuid,
+                        fileName: fileData.Image_Name,
+                        includeAndItsData: false,
+                    });
+                });
+            }
+
+            if (table && contextMenu) {
+                table.addEventListener('contextmenu', (event) => {
+                    const row = event.target.closest('tr');
+                    if (!row || row.parentNode.tagName === 'THEAD') return;
+                    const firstCell = row.cells && row.cells[0];
+                    if (!firstCell) return;
+                    const cellIdText = firstCell.textContent.trim();
+                    const cellId = Number(cellIdText);
+                    if (!Number.isFinite(cellId) || cellId <= 0) return;
+                    event.preventDefault();
+                    closeTriggerMenu();
+                    openContextMenu(event.clientX, event.clientY, cellId);
+                });
+                contextMenu.addEventListener('click', (event) => {
+                    const target = event.target.closest('[data-action="delete-row-cell"]');
+                    if (!target) return;
+                    const cellId = Number(contextMenu.dataset.cellId);
+                    closeContextMenu();
+                    if (!Number.isFinite(cellId) || cellId <= 0) return;
+                    // The django table is bound to a single file (table_uuid),
+                    // not the currently-shown cell-pair card file. Always
+                    // route table-row deletes to that table's file.
+                    const fileUuid = tableFileUuid || (getCurrentFileData().fileUuid);
+                    if (!fileUuid) return;
+                    const fileData = (typeof filesData !== 'undefined' && filesData[fileUuid]) || null;
+                    openModal({
+                        cellId,
+                        fileUuid,
+                        fileName: fileData ? fileData.Image_Name : null,
+                        includeAndItsData: true,
+                    });
+                });
+            }
+
+            cancelBtn.addEventListener('click', closeModal);
+            confirmBtn.addEventListener('click', () => { void handleConfirm(); });
+            modalBackdrop.addEventListener('click', (event) => {
+                if (event.target === modalBackdrop) {
+                    closeModal();
+                }
             });
-        }
+
+            document.addEventListener('click', (event) => {
+                if (triggerMenu && triggerMenu.dataset.open === 'true'
+                    && !triggerMenu.contains(event.target)
+                    && event.target !== trigger
+                    && (!trigger || !trigger.contains(event.target))) {
+                    closeTriggerMenu();
+                }
+                if (contextMenu && contextMenu.dataset.open === 'true' && !contextMenu.contains(event.target)) {
+                    closeContextMenu();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeAllMenus();
+                    if (modalBackdrop.style.display === 'flex') {
+                        closeModal();
+                    }
+                }
+            });
+
+            const tableScrollFrame = document.getElementById('tableScrollFrame');
+            if (tableScrollFrame) {
+                tableScrollFrame.addEventListener('scroll', closeContextMenu);
+            }
+            window.addEventListener('scroll', closeContextMenu, true);
+            window.addEventListener('resize', closeAllMenus);
+            document.addEventListener('fullscreenchange', () => {
+                closeAllMenus();
+                if (modalBackdrop.style.display === 'flex') {
+                    const host = document.fullscreenElement || document.body;
+                    if (modalBackdrop.parentElement !== host) {
+                        host.appendChild(modalBackdrop);
+                    }
+                }
+            });
+        })();
     </script>
 
     <script>

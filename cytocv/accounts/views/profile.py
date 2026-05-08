@@ -19,6 +19,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.template.response import TemplateResponse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django_tables2.export.export import TableExport
 
@@ -954,6 +955,7 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 
 
 @login_required
+@never_cache
 def dashboard_view(request: HttpRequest) -> HttpResponse:
     cleanup_summary = sweep_user_run_artifacts(
         request.user,

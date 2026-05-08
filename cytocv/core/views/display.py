@@ -5,8 +5,14 @@ from pathlib import Path
 from uuid import UUID
 
 from django.db import transaction
-from django.http import HttpResponse, JsonResponse
+from django.http import (
+    HttpResponse,
+    HttpResponseForbidden,
+    HttpResponseNotFound,
+    JsonResponse,
+)
 from django.shortcuts import render
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from accounts.preferences import get_user_preferences, normalize_main_image_channel
@@ -33,6 +39,7 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     sweep_user_run_artifacts,
 )
+from core.services.cell_deletion import delete_single_cell
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
@@ -161,6 +168,7 @@ def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
     return uploaded_image.user_id == guest_id and segmented_image.user_id == guest_id
 
 
+@never_cache
 def display(request, uuids):
     """Render cell display data for one or more uploaded image UUIDs.
 
@@ -252,12 +260,7 @@ def display(request, uuids):
             image_index = 0
 
             if request.method == 'POST':
-                if 'delete' in request.POST:
-                    cell_id = request.POST.get('cell_id')
-                    cell_image = SegmentedImage.objects.get(UUID=uuid)
-                    delete_cell = CellStatistics.objects.get(segmented_image=cell_image,cell_id=cell_id)
-                    delete_cell.delete()
-                elif 'green' in request.POST or 'gfp' in request.POST:
+                if 'green' in request.POST or 'gfp' in request.POST:
                     image_index = channel_config.get(CHANNEL_ROLE_GREEN, 2)
                 elif 'red' in request.POST or 'mCherry' in request.POST:
                     image_index = channel_config.get(CHANNEL_ROLE_RED, 3)
@@ -735,4 +738,42 @@ def main_image_channel(request, uuid):
     return JsonResponse({
         'image_url': full_outlined,
         'channel': channel,
+    })
+
+
+@require_POST
+def delete_cell_view(request, uuid, cell_id):
+    """Delete a single cell's row and on-disk artifacts for a run."""
+    try:
+        uploaded_image = UploadedImage.objects.get(uuid=uuid)
+    except UploadedImage.DoesNotExist:
+        return HttpResponseNotFound("The uploaded image could not be found.")
+
+    try:
+        segmented_image = SegmentedImage.objects.get(UUID=uuid)
+    except SegmentedImage.DoesNotExist:
+        return HttpResponseNotFound("The segmented results could not be found.")
+
+    if not _can_access_display_uuid(request, uploaded_image, segmented_image):
+        return HttpResponseForbidden("You do not have access to this result.")
+
+    try:
+        delete_single_cell(segmented_image, int(cell_id))
+    except CellStatistics.DoesNotExist:
+        return HttpResponseNotFound("That cell has already been removed.")
+
+    segmented_image.refresh_from_db(fields=["NumCells"])
+    remaining_ids = list(
+        CellStatistics.objects
+        .filter(segmented_image=segmented_image)
+        .order_by("cell_id")
+        .values_list("cell_id", flat=True)
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "uuid": str(uuid),
+        "cell_id": int(cell_id),
+        "num_cells": int(segmented_image.NumCells or 0),
+        "remaining_cells": remaining_ids,
     })

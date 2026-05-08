@@ -31,6 +31,7 @@ from accounts.views import (
 )
 from core.views.convert_to_image import convert_to_image
 from core.views.display import (
+    delete_cell_view,
     display,
     main_image_channel,
     save_display_files,
@@ -144,6 +145,11 @@ urlpatterns = [
         'experiment/<str:uuid>/cell/<int:cell_id>/overlay/<str:channel>/',
         login_required(cell_overlay_image),
         name='cell_overlay_image',
+    ),
+    path(
+        'experiment/<str:uuid>/cell/<int:cell_id>/delete/',
+        login_required(delete_cell_view),
+        name='delete_cell',
     ),
     path(
         'experiment/display/files/save/',
