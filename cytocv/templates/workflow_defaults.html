@@ -2014,6 +2014,7 @@ main.main > section.panel > form.panel > .card {
         <div class="card" data-workflow-card="saving-preferences">
           <p class="section-eyebrow card-title">Saving Preferences</p>
           <div class="row"><div class="row-copy"><label for="auto_save_experiments">Auto-Save Experiment Files To Account</label><p class="module-help">When enabled, completed experiment runs are saved to the account dashboard. When off, new runs are excluded from dashboard history.</p></div><label class="sw"><input type="checkbox" id="auto_save_experiments" name="auto_save_experiments" {% if preferences.auto_save_experiments %}checked{% endif %}><span class="sl"></span></label></div>
+          <div class="row"><div class="row-copy"><label for="confirm_cell_deletion">Confirm Before Deleting Cells</label><p class="module-help">When enabled, deleting a cell opens a confirmation dialog. When off, cell delete actions run immediately.</p></div><label class="sw"><input type="checkbox" id="confirm_cell_deletion" name="confirm_cell_deletion" {% if preferences.confirm_cell_deletion %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
         <div class="card" data-workflow-card="sidebar-preferences">
           <p class="section-eyebrow card-title">Sidebar Preferences</p>

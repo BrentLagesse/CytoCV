@@ -623,6 +623,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
+    confirm_cell_deletion = bool(preferences.get("confirm_cell_deletion", True))
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
@@ -856,6 +857,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "show_saved_file_channels": show_saved_file_channels,
         "show_saved_file_scales": show_saved_file_scales,
         "sidebar_starts_open": sidebar_starts_open,
+        "confirm_cell_deletion": confirm_cell_deletion,
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
@@ -1371,6 +1373,10 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             next_payload["sidebar_starts_open"] = _post_bool(
                 request,
                 "sidebar_starts_open",
+            )
+            next_payload["confirm_cell_deletion"] = _post_bool(
+                request,
+                "confirm_cell_deletion",
             )
             preferences = update_user_preferences(request.user, next_payload)
             if should_auto_save_experiments(request.user):

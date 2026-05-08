@@ -2363,6 +2363,7 @@
             return match ? decodeURIComponent(match[1]) : '';
         }
         const csrfToken = getCsrfToken();
+        const confirmCellDeletion = {{ confirm_cell_deletion|yesno:"true,false" }};
 
         // Parse JSON file data
         let filesData = {};
@@ -4349,10 +4350,10 @@
                 return response.json();
             }
 
-            async function handleConfirm() {
-                if (!pendingDelete) return;
-                const { fileUuid, cellId } = pendingDelete;
-                confirmBtn.disabled = true;
+            async function executeDelete(fileUuid, cellId, { fromModal = false } = {}) {
+                if (fromModal) {
+                    confirmBtn.disabled = true;
+                }
                 try {
                     const payload = await performDelete(fileUuid, cellId);
                     updateLocalState(fileUuid, cellId, payload);
@@ -4360,10 +4361,30 @@
                     await refreshDisplayedCellAfterDelete(fileUuid, cellId);
                 } catch (err) {
                     reportError(err && err.message ? err.message : 'Failed to delete cell.');
-                    confirmBtn.disabled = false;
+                    if (fromModal) {
+                        confirmBtn.disabled = false;
+                    }
+                    return false;
+                }
+                if (fromModal) {
+                    closeModal();
+                }
+                return true;
+            }
+
+            async function handleConfirm() {
+                if (!pendingDelete) return;
+                const { fileUuid, cellId } = pendingDelete;
+                await executeDelete(fileUuid, cellId, { fromModal: true });
+            }
+
+            function requestCellDelete(options) {
+                if (confirmCellDeletion) {
+                    openModal(options);
                     return;
                 }
-                closeModal();
+                pendingDelete = null;
+                void executeDelete(options.fileUuid, options.cellId);
             }
 
             if (trigger && triggerMenu) {
@@ -4384,7 +4405,7 @@
                     if (!fileUuid || !fileData) return;
                     const cellId = Number(currentCellNumber);
                     if (!cellId || !Number.isFinite(cellId)) return;
-                    openModal({
+                    requestCellDelete({
                         cellId,
                         fileUuid,
                         fileName: fileData.Image_Name,
@@ -4418,7 +4439,7 @@
                     const fileUuid = tableFileUuid || (getCurrentFileData().fileUuid);
                     if (!fileUuid) return;
                     const fileData = (typeof filesData !== 'undefined' && filesData[fileUuid]) || null;
-                    openModal({
+                    requestCellDelete({
                         cellId,
                         fileUuid,
                         fileName: fileData ? fileData.Image_Name : null,
