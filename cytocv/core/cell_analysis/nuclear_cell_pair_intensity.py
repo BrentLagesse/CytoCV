@@ -49,13 +49,16 @@ class NuclearCellPairIntensity(Analysis):
         return props.get("alternate_nucleus_detection_channel")
 
     @staticmethod
-    def _draw_nucleus_contour(red_image, green_image, contour, mode: str) -> None:
-        if contour is None or len(contour) < 2:
+    def _draw_nucleus_contour(red_image, green_image, contour, mode: str, multiple) -> None:
+        if contour is None and (not multiple or len(contour) < 2):
             return
         color = (0, 0, 255) if mode == "red_nucleus" else (0, 255, 0)
         for image in (red_image, green_image):
             if image is not None:
-                cv2.drawContours(image, [contour], -1, color, 1)
+                if not multiple:
+                    cv2.drawContours(image, [contour], -1, color, 1)
+                else:
+                    cv2.drawContours(image, contour, -1, color, 1)
 
     def calculate_statistics(
         self,
@@ -135,11 +138,15 @@ class NuclearCellPairIntensity(Analysis):
 
         nucleus_slot = source_slots[0]
         nucleus_mask = nucleus_slot.mask
-        largest_contour = max(
-            nucleus_slot.contours,
-            key=cv2.contourArea,
-            default=None,
-        )
+        is_alternate = used_contour_source == 'alternate_red_nucleus_slot_1'
+        if not is_alternate:
+            largest_contour = max(
+                nucleus_slot.contours,
+                key=cv2.contourArea,
+                default=None,
+            )
+        else:
+            largest_contour = nucleus_slot.contours
 
         measure_values = measure_img.astype(np.float64, copy=False)
         cell_pixels = measure_values[cell_mask > 0]
@@ -158,5 +165,5 @@ class NuclearCellPairIntensity(Analysis):
         props["nuclear_cell_pair_contour_source"] = used_contour_source
         props["nuclear_cell_pair_status"] = "ok"
         self.cp.properties = props
-
-        self._draw_nucleus_contour(red_image, green_image, largest_contour, mode)
+        
+        self._draw_nucleus_contour(red_image, green_image, largest_contour, mode, is_alternate)
