@@ -59,9 +59,9 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertTrue(defaults["red_dot_split_enabled"])
-        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(normalized["show_saved_file_channels"])
@@ -117,9 +117,9 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 3)
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
-        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertFalse(defaults["red_dot_split_enabled"])
-        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(normalized["auto_save_experiments"])
@@ -3166,7 +3166,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
@@ -3348,9 +3348,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
         self.assertTrue(defaults["green_dot_split_enabled"])
-        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertFalse(defaults["red_dot_split_enabled"])
-        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
 
     def test_advanced_settings_pauses_optional_checks_when_module_disabled(self):
         response = self.client.post(
