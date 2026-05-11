@@ -769,6 +769,30 @@ class DisplayManualSaveTests(TestCase):
         sheet = workbook.active
         return [cell.value for cell in sheet[1]]
 
+    @staticmethod
+    def _xlsx_rows(response) -> list[list]:
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        return [list(row) for row in sheet.iter_rows(values_only=True)]
+
+    def assertExportFilename(
+        self,
+        response,
+        *,
+        scope: str,
+        file_count: int,
+        extension: str,
+    ) -> None:
+        disposition = response["Content-Disposition"]
+        self.assertIn("attachment;", disposition)
+        self.assertRegex(
+            disposition,
+            (
+                rf'filename="cytocv_{scope}_cell-metrics_{file_count}files_'
+                rf'\d{{4}}-\d{{2}}-\d{{2}}_\d{{4}}\.{extension}"'
+            ),
+        )
+
     def test_display_save_endpoint_rejects_invalid_payload(self):
         response = self.client.post(
             reverse("display_save_files"),
@@ -854,9 +878,19 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="celltable"', html=False)
         self.assertContains(response, 'id="exportButtons"', html=False)
-        self.assertContains(response, 'id="downloadCsvBtn"', html=False)
-        self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="downloadStatsBtn"', html=False)
+        self.assertContains(response, 'Download Statistics', html=False)
+        self.assertNotContains(response, 'id="downloadCsvBtn"', html=False)
+        self.assertNotContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="downloadSelectedBtn"', html=False)
         self.assertContains(response, 'id="exportSelectionBackdrop"', html=False)
+        self.assertContains(response, 'id="exportFileSelectionView"', html=False)
+        self.assertContains(response, 'id="exportStatSelectionView"', html=False)
+        self.assertContains(response, 'id="exportFormatToggle"', html=False)
+        self.assertContains(response, 'data-active-format="csv"', html=False)
+        self.assertContains(response, 'data-export-format="csv"', html=False)
+        self.assertContains(response, 'data-export-format="xlsx"', html=False)
+        self.assertContains(response, 'Edit files', html=False)
         self.assertContains(response, 'id="exportSelectionConfig"', html=False)
         self.assertContains(response, "export_selection_modal.js", html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
@@ -878,11 +912,7 @@ class DisplayManualSaveTests(TestCase):
             f'href="/dashboard/?file_uuid={saved_uuid}&amp;_export=csv&amp;_unit=px"',
             html=False,
         )
-        self.assertContains(
-            response,
-            f'href="/dashboard/?file_uuid={saved_uuid}&amp;_export=xlsx&amp;_unit=px"',
-            html=False,
-        )
+        self.assertNotContains(response, "_export=xlsx", html=False)
 
     def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
         self._create_display_file(
@@ -909,8 +939,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
-        self.assertContains(response, 'id="downloadCsvBtn"', html=False)
-        self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="downloadStatsBtn"', html=False)
         self.assertContains(response, 'data-action="select-cells"', html=False)
         self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
         self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
@@ -950,9 +979,19 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="tableScrollFrame"', html=False)
         self.assertContains(response, 'id="celltable"', html=False)
         self.assertContains(response, 'id="displayExportButtons"', html=False)
-        self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
-        self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="displayDownloadStatsBtn"', html=False)
+        self.assertContains(response, 'Download Statistics', html=False)
+        self.assertNotContains(response, 'id="displayDownloadCsvBtn"', html=False)
+        self.assertNotContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="downloadSelectedBtn"', html=False)
         self.assertContains(response, 'id="exportSelectionBackdrop"', html=False)
+        self.assertContains(response, 'id="exportFileSelectionView"', html=False)
+        self.assertContains(response, 'id="exportStatSelectionView"', html=False)
+        self.assertContains(response, 'id="exportFormatToggle"', html=False)
+        self.assertContains(response, 'data-active-format="csv"', html=False)
+        self.assertContains(response, 'data-export-format="csv"', html=False)
+        self.assertContains(response, 'data-export-format="xlsx"', html=False)
+        self.assertContains(response, 'Edit files', html=False)
         self.assertContains(response, 'id="exportSelectionConfig"', html=False)
         self.assertContains(response, "export_selection_modal.js", html=False)
         self.assertContains(response, 'data-action="select-cells"', html=False)
@@ -1129,7 +1168,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="preprocessScaleSummary"', html=False)
         self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
 
-    def test_dashboard_csv_export_for_file_uuid_returns_attachment(self):
+    def test_dashboard_csv_export_for_file_uuid_returns_named_attachment(self):
         file_name = "dashboard_csv_export"
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -1144,8 +1183,12 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"{file_name}.csv", response["Content-Disposition"])
+        self.assertExportFilename(
+            response,
+            scope="all",
+            file_count=1,
+            extension="csv",
+        )
         self.assertIn("text/csv", response["Content-Type"])
         csv_text = response.content.decode("utf-8")
         self.assertIn("Cell ID", csv_text)
@@ -1160,7 +1203,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Cen Dot Location", csv_text)
         self.assertIn("Mother and daughter", csv_text)
 
-    def test_dashboard_xlsx_export_for_file_uuid_returns_attachment(self):
+    def test_dashboard_xlsx_export_for_file_uuid_returns_named_attachment(self):
         file_name = "dashboard_xlsx_export"
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -1175,8 +1218,12 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"{file_name}.xlsx", response["Content-Disposition"])
+        self.assertExportFilename(
+            response,
+            scope="all",
+            file_count=1,
+            extension="xlsx",
+        )
         self.assertIn(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             response["Content-Type"],
@@ -1330,7 +1377,370 @@ class DisplayManualSaveTests(TestCase):
         gfp_dot_col = headers.index("Cen Dot Location") + 1
         self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "Mother and daughter")
 
-    def test_display_csv_export_uses_uploaded_file_name(self):
+    def test_dashboard_combined_csv_export_filters_stats_and_preserves_file_order(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_second",
+        )
+        self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_not_selected",
+        )
+        self._add_cell_stat(first_uuid, cell_id=2)
+        self._add_cell_stat(first_uuid, cell_id=1)
+        self._add_cell_stat(second_uuid, cell_id=1)
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [second_uuid, first_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1", "puncta_distance"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertExportFilename(
+            response,
+            scope="selected",
+            file_count=2,
+            extension="csv",
+        )
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            ["File Name", "Cell ID", "Puncta Distance (px)", "Red In Red Intensity 1"],
+        )
+        self.assertEqual(
+            rows[1:],
+            [
+                ["combined_second", "1", "1.000", "5.000"],
+                ["combined_first", "1", "1.000", "5.000"],
+                ["combined_first", "2", "1.000", "5.000"],
+            ],
+        )
+
+    def test_dashboard_combined_xlsx_export_matches_filtered_headers_and_order(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_xlsx_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_xlsx_second",
+        )
+        self._add_cell_stat(first_uuid)
+        self._add_cell_stat(second_uuid)
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [first_uuid, second_uuid],
+                    "_export": "xlsx",
+                    "_columns": ["red_intensity_1", "measurement_contour_ratio_1"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertExportFilename(
+            response,
+            scope="all",
+            file_count=2,
+            extension="xlsx",
+        )
+        rows = self._xlsx_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "File Name",
+                "Cell ID",
+                "Red In Red Intensity 1",
+                "Measurement/Contour Ratio 1",
+            ],
+        )
+        self.assertEqual(
+            [row[0] for row in rows[1:]],
+            ["combined_xlsx_first", "combined_xlsx_second"],
+        )
+
+    def test_display_combined_csv_export_uses_visible_order_not_request_order(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_second",
+        )
+        self._add_cell_stat(first_uuid)
+        self._add_cell_stat(second_uuid)
+
+        response = self.client.post(
+            reverse("display_export_files"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [first_uuid, second_uuid],
+                    "uuids": [second_uuid, first_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertExportFilename(
+            response,
+            scope="all",
+            file_count=2,
+            extension="csv",
+        )
+        rows = self._csv_rows(response)
+        self.assertEqual(rows[0], ["File Name", "Cell ID", "Red In Red Intensity 1"])
+        self.assertEqual(
+            [row[0] for row in rows[1:]],
+            ["display_combined_first", "display_combined_second"],
+        )
+
+    def test_display_combined_xlsx_export_filters_headers(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_xlsx",
+        )
+        other_visible_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_xlsx_not_selected",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.post(
+            reverse("display_export_files"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [saved_uuid, other_visible_uuid],
+                    "uuids": [saved_uuid],
+                    "_export": "xlsx",
+                    "_columns": ["red_intensity_1"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertExportFilename(
+            response,
+            scope="selected",
+            file_count=1,
+            extension="xlsx",
+        )
+        self.assertEqual(
+            self._xlsx_headers(response),
+            ["File Name", "Cell ID", "Red In Red Intensity 1"],
+        )
+
+    def test_dashboard_combined_csv_export_respects_micron_unit_request(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_um_export",
+        )
+        uploaded = UploadedImage.objects.get(uuid=saved_uuid)
+        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.save(update_fields=["scale_info"])
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [saved_uuid],
+                    "_export": "csv",
+                    "_columns": ["puncta_distance"],
+                    "_unit": "um",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(rows[0], ["File Name", "Cell ID", "Puncta Distance (µm)"])
+        self.assertEqual(rows[1], ["combined_um_export", "1", "0.500"])
+
+    def test_combined_exports_reject_invalid_empty_and_inaccessible_requests(self):
+        owned_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_owned",
+        )
+        foreign_uuid = self._create_display_file(
+            uploaded_owner=self.other_user,
+            segmented_owner_id=self.other_user.id,
+            filename="combined_foreign",
+        )
+        outside_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_outside_visible",
+        )
+        self._add_cell_stat(owned_uuid)
+        self._add_cell_stat(outside_uuid)
+
+        no_files = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {"uuids": [], "_export": "csv", "_columns": ["red_intensity_1"]}
+            ),
+            content_type="application/json",
+        )
+        invalid_columns = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps({"uuids": [owned_uuid], "_export": "csv", "_columns": []}),
+            content_type="application/json",
+        )
+        inaccessible = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [owned_uuid, foreign_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                }
+            ),
+            content_type="application/json",
+        )
+        not_visible = self.client.post(
+            reverse("display_export_files"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [owned_uuid],
+                    "uuids": [outside_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(no_files.status_code, 400)
+        self.assertEqual(invalid_columns.status_code, 400)
+        self.assertEqual(inaccessible.status_code, 403)
+        self.assertEqual(not_visible.status_code, 403)
+
+    def test_combined_export_rejects_files_without_statistics(self):
+        empty_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_empty_stats",
+        )
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [empty_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_combined_export_excludes_deleted_cell_rows(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_deleted_cells",
+        )
+        self._add_cell_stat(saved_uuid, cell_id=1)
+        self._add_cell_stat(saved_uuid, cell_id=2)
+        segmented = SegmentedImage.objects.get(UUID=saved_uuid)
+        CellStatistics.objects.filter(segmented_image=segmented, cell_id=2).delete()
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [saved_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual([row[1] for row in rows[1:]], ["1"])
+
+    def test_combined_nuclear_export_can_include_uncomputed_stats_as_na(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_nuclear_filtered_export",
+        )
+        self._add_cell_stat(
+            saved_uuid,
+            properties={
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "nuclear_cell_pair_status": "ok",
+                "nuclear_cell_pair_contour_source": "canonical_slot_1",
+            },
+        )
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [saved_uuid],
+                    "_export": "csv",
+                    "_columns": ["cell_pair_intensity_sum", "puncta_distance"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "File Name",
+                "Cell ID",
+                "Puncta Distance (px)",
+                "Measured Cell-Pair Intensity",
+            ],
+        )
+        self.assertEqual(rows[1], ["combined_nuclear_filtered_export", "1", "N/A", "4.000"])
+
+    def test_display_csv_export_uses_generated_download_name(self):
         file_name = "display_csv_export_source"
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -1345,11 +1755,15 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"{file_name}.csv", response["Content-Disposition"])
+        self.assertExportFilename(
+            response,
+            scope="all",
+            file_count=1,
+            extension="csv",
+        )
         self.assertIn("text/csv", response["Content-Type"])
 
-    def test_display_xlsx_export_uses_uploaded_file_name(self):
+    def test_display_xlsx_export_uses_generated_download_name(self):
         file_name = "display_xlsx_export_source"
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -1364,8 +1778,12 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"{file_name}.xlsx", response["Content-Disposition"])
+        self.assertExportFilename(
+            response,
+            scope="all",
+            file_count=1,
+            extension="xlsx",
+        )
         self.assertIn(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             response["Content-Type"],

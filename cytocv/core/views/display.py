@@ -41,6 +41,15 @@ from core.services.artifact_storage import (
 )
 from core.services.cell_deletion import delete_multiple_cells, delete_single_cell
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
+from core.services.combined_stat_export import (
+    CombinedStatisticsExportError,
+    StatisticsExportFile,
+    build_combined_statistics_export_response,
+)
+from core.services.export_filenames import (
+    build_statistics_export_filename,
+    export_scope_for_selection,
+)
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
@@ -88,17 +97,6 @@ def _sanitize_for_json(value):
     if isinstance(value, (list, tuple, set)):
         return [_sanitize_for_json(item) for item in value]
     return value
-
-
-def _build_export_download_name(raw_name, export_format, fallback):
-    stem = Path(str(raw_name or "").strip()).stem
-    if not stem:
-        stem = fallback
-    # Keep the uploaded name visible while avoiding header-breaking characters.
-    stem = re.sub(r"[\\/\r\n\t]+", "_", stem).strip()
-    if not stem:
-        stem = fallback
-    return f"{stem}.{export_format}"
 
 
 def _scan_output_frames(uuid: str):
@@ -363,10 +361,13 @@ def display(request, uuids):
                     exclude_columns=exclude_columns,
                 )
                 return exporter.response(
-                    _build_export_download_name(
-                        image_name,
-                        export_format,
-                        fallback="table",
+                    build_statistics_export_filename(
+                        scope=export_scope_for_selection(
+                            selected_count=1,
+                            available_count=len(uuid_list),
+                        ),
+                        file_count=1,
+                        export_format=export_format,
                     )
                 )
 
@@ -724,6 +725,95 @@ def sync_display_file_selection(request):
             "storage_percentage": round(min(100, max(0, (used_storage / total_storage) * 100)), 2),
         }
     )
+
+
+@require_POST
+def export_display_files(request):
+    """Download one combined statistics export for selected visible files."""
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
+
+    visible_uuids = _normalize_uuid_list(payload.get("visible_uuids", []))
+    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    if not requested_uuids:
+        return JsonResponse({"error": "Select at least one file to continue."}, status=400)
+    if not visible_uuids:
+        return JsonResponse(
+            {"error": "Visible files are no longer available. Refresh and try again."},
+            status=400,
+        )
+
+    visible_set = set(visible_uuids)
+    selected_set = set(requested_uuids)
+    if not selected_set.issubset(visible_set):
+        return JsonResponse(
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
+            status=403,
+        )
+    ordered_uuids = [uuid for uuid in visible_uuids if uuid in selected_set]
+
+    uploaded_map = {
+        str(item.uuid): item
+        for item in UploadedImage.objects.filter(
+            user=request.user,
+            uuid__in=ordered_uuids,
+        )
+    }
+    segmented_map = {
+        str(item.UUID): item
+        for item in SegmentedImage.objects.filter(UUID__in=ordered_uuids)
+    }
+    if (
+        len(uploaded_map) != len(set(ordered_uuids))
+        or len(segmented_map) != len(set(ordered_uuids))
+    ):
+        return JsonResponse(
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
+            status=403,
+        )
+
+    sources = []
+    for uuid in ordered_uuids:
+        uploaded = uploaded_map[uuid]
+        segmented = segmented_map[uuid]
+        if not _can_access_display_uuid(request, uploaded, segmented):
+            return JsonResponse(
+                {"error": "One or more selected files are no longer available. Refresh and try again."},
+                status=403,
+            )
+        sources.append(
+            StatisticsExportFile(
+                uuid=uuid,
+                file_name=uploaded.name,
+                segmented_image=segmented,
+                scale_info=uploaded.scale_info,
+            )
+        )
+
+    preferences = get_user_preferences(request.user)
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
+    try:
+        return build_combined_statistics_export_response(
+            sources,
+            export_format=str(payload.get("_export") or ""),
+            raw_columns=payload.get("_columns"),
+            spatial_stats_unit=str(payload.get("_unit") or "px"),
+            default_manual_scale=default_manual_scale,
+            export_scope=export_scope_for_selection(
+                selected_count=len(selected_set),
+                available_count=len(visible_set),
+            ),
+        )
+    except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
 
 
 def main_image_channel(request, uuid):

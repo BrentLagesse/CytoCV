@@ -51,6 +51,18 @@ USER_SELECTABLE_TABLE_FIELDS = _user_selectable_table_fields()
 USER_SELECTABLE_TABLE_FIELD_SET = set(USER_SELECTABLE_TABLE_FIELDS)
 
 
+def export_included_columns(
+    raw_columns: Any,
+    *,
+    columns_present: bool,
+) -> tuple[str, ...] | None:
+    """Return included table fields, including always-included identity columns."""
+
+    if not columns_present:
+        return None
+    return (*ALWAYS_INCLUDED_EXPORT_COLUMNS, *normalize_export_columns(raw_columns))
+
+
 def _client_id_for_table_field(table_field: str) -> str:
     return TABLE_FIELD_CLIENT_IDS.get(table_field, table_field)
 
