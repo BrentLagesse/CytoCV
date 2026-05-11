@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-DEFAULT_DOT_SPLIT_MODE = "balanced"
+DEFAULT_DOT_SPLIT_MODE = "aggressive"
 VALID_DOT_SPLIT_MODES = frozenset({"balanced", "aggressive"})
 
 

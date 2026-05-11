@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from core.services.export_filenames import EXPORT_SCOPE_ALL, EXPORT_SCOPE_SELECTED
 from core.services.stat_applicability import STAT_FIELD_GROUPS
 from core.tables import CellTable
 
@@ -49,6 +50,18 @@ def _user_selectable_table_fields() -> tuple[str, ...]:
 TABLE_FIELD_ORDER = _table_field_order()
 USER_SELECTABLE_TABLE_FIELDS = _user_selectable_table_fields()
 USER_SELECTABLE_TABLE_FIELD_SET = set(USER_SELECTABLE_TABLE_FIELDS)
+
+
+def export_included_columns(
+    raw_columns: Any,
+    *,
+    columns_present: bool,
+) -> tuple[str, ...] | None:
+    """Return included table fields, including always-included identity columns."""
+
+    if not columns_present:
+        return None
+    return (*ALWAYS_INCLUDED_EXPORT_COLUMNS, *normalize_export_columns(raw_columns))
 
 
 def _client_id_for_table_field(table_field: str) -> str:
@@ -172,3 +185,14 @@ def export_exclude_columns(
         for field_name in USER_SELECTABLE_TABLE_FIELDS
         if field_name not in selected_fields
     )
+
+
+def export_metric_scope(raw_columns: Any, *, columns_present: bool) -> str:
+    """Return whether all user-selectable metric columns are included."""
+
+    if not columns_present:
+        return EXPORT_SCOPE_ALL
+    selected_fields = set(normalize_export_columns(raw_columns))
+    if selected_fields == USER_SELECTABLE_TABLE_FIELD_SET:
+        return EXPORT_SCOPE_ALL
+    return EXPORT_SCOPE_SELECTED

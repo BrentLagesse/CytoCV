@@ -5,7 +5,7 @@
 
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
-    <script src="{% static 'js/export_selection_modal.js' %}"></script>
+    <script src="{% static 'js/export_selection_modal.js' %}?v=selectable-export-format-pill-state"></script>
     <style>
         .channel-chip.dic { background-color: black; }
         .channel-chip.blue { background-color: blue; }
@@ -896,13 +896,14 @@
             min-width: 0;
         }
         .sidebar.select-mode .selection-extra {
-            max-width: 240px;
+            max-width: 330px;
             opacity: 1;
             transform: translateX(0);
         }
         .select-mode-btn,
         .select-all-btn,
         .delete-selected-btn,
+        .download-selected-btn,
         .channel-visibility-btn,
         .scale-visibility-btn {
             border: 1px solid var(--panel-border);
@@ -931,7 +932,16 @@
             background: #911b25;
             border-color: #911b25;
         }
-        .delete-selected-btn:disabled {
+        .download-selected-btn {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .download-selected-btn:hover:not(:disabled) {
+            background: #0f70d8;
+            border-color: #0f70d8;
+        }
+        .delete-selected-btn:disabled,
+        .download-selected-btn:disabled {
             opacity: 0.45;
             cursor: not-allowed;
         }
@@ -1158,8 +1168,9 @@
         }
         .cell-select-toolbar {
             display: flex;
-            justify-content: flex-end;
+            justify-content: flex-start;
             align-items: center;
+            gap: 8px;
         }
         .cell-select-toggle-all {
             background: transparent;
@@ -1179,6 +1190,13 @@
             border-color: rgba(90, 170, 255, 0.6);
             color: #e8f1ff;
             outline: none;
+        }
+        .cell-select-toggle-all.active,
+        .cell-select-toggle-all[aria-pressed="true"] {
+            background-color: rgba(0, 123, 255, 0.18);
+            border-color: rgba(0, 123, 255, 0.72);
+            color: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(130, 190, 255, 0.22), var(--btn-shadow);
         }
         .cell-select-toggle-all:disabled {
             opacity: 0.5;
@@ -1242,13 +1260,14 @@
             color: inherit;
         }
         .cell-select-card.selected {
-            background-color: #007bff;
-            color: #fff;
-            border-color: rgba(90, 170, 255, 0.78);
-            box-shadow: 0 10px 24px rgba(0, 123, 255, 0.18);
+            background-color: var(--surface-muted);
+            color: inherit;
+            border-color: var(--panel-border);
+            box-shadow: none;
         }
         .cell-select-card.selected:hover {
-            background-color: #0056b3;
+            background-color: #3399ff;
+            color: #fff;
         }
         .cell-select-input {
             position: absolute;
@@ -2096,6 +2115,15 @@
                     <div class="selection-extra">
                         <button class="select-all-btn" id="selectAllBtn" type="button">Select All</button>
                         <button class="delete-selected-btn" id="deleteSelectedBtn" type="button" disabled>Delete</button>
+                        <button
+                            class="download-selected-btn"
+                            id="downloadSelectedBtn"
+                            type="button"
+                            disabled
+                            title="Select files first."
+                        >
+                            Download
+                        </button>
                     </div>
                 </div>
                 <div class="visibility-controls">
@@ -2502,8 +2530,7 @@
                         </div>
                     </div>
                     <div class="export-buttons" id="exportButtons">
-                        <a class="export_btn" id="downloadCsvBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=csv&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download CSV</a>
-                        <a class="export_btn" id="downloadXlsxBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=xlsx&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download Excel</a>
+                        <a class="export_btn" id="downloadStatsBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=csv&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download Statistics</a>
                     </div>
 
                 </div>
@@ -2535,7 +2562,8 @@
                 <h3 id="selectCellsTitle">Select Cells</h3>
                 <p id="selectCellsMessage">Choose the cells to delete from this file.</p>
                 <div class="cell-select-toolbar">
-                    <button class="cell-select-toggle-all" id="selectCellsToggleAllBtn" type="button">Select all</button>
+                    <button class="cell-select-toggle-all" id="selectCellsToggleAllBtn" type="button">Select</button>
+                    <button class="cell-select-toggle-all" id="selectCellsClearBtn" type="button">Clear</button>
                 </div>
                 <div class="cell-select-list-box">
                     <ul class="cell-select-list" id="selectCellsList"></ul>
@@ -3514,23 +3542,19 @@
                 return;
             }
 
-            const csvBtn = document.getElementById('downloadCsvBtn');
-            const xlsxBtn = document.getElementById('downloadXlsxBtn');
-            if (csvBtn) {
-                csvBtn.href = buildDashboardExportUrl(fileUUID, 'csv');
-            }
-            if (xlsxBtn) {
-                xlsxBtn.href = buildDashboardExportUrl(fileUUID, 'xlsx');
+            const statsBtn = document.getElementById('downloadStatsBtn');
+            if (statsBtn) {
+                statsBtn.href = buildDashboardExportUrl(fileUUID, 'csv');
             }
         }
 
+        let dashboardExportSelectionController = null;
         if (window.CytoCVExportSelection) {
-            window.CytoCVExportSelection.init({
+            dashboardExportSelectionController = window.CytoCVExportSelection.init({
                 configScriptId: 'exportSelectionConfig',
                 modalId: 'exportSelectionBackdrop',
                 triggerFormats: {
-                    downloadCsvBtn: 'csv',
-                    downloadXlsxBtn: 'xlsx',
+                    downloadStatsBtn: 'csv',
                 },
                 getCurrentFileContext: () => {
                     const fileUUID = fileUUIDs[currentFileIndex];
@@ -3540,7 +3564,22 @@
                     };
                 },
                 buildExportUrl: buildDashboardExportUrl,
+                bulkExportUrl: '/dashboard/files/export/',
+                getSelectableFiles: () => fileUUIDs.map((fileUUID) => ({
+                    id: fileUUID,
+                    label: filesData[fileUUID] && filesData[fileUUID].Image_Name
+                        ? filesData[fileUUID].Image_Name
+                        : fileUUID,
+                    fileData: filesData[fileUUID] || null,
+                })),
+                buildBulkExportPayload: ({ fileIds, format, columns }) => ({
+                    uuids: fileIds,
+                    _export: format,
+                    _columns: columns,
+                    _unit: getCurrentSpatialUnit(),
+                }),
             });
+            window.dashboardExportSelectionController = dashboardExportSelectionController;
         }
 
         function updateTableState(fileUUID, fileData) {
@@ -4415,6 +4454,7 @@
             const selectCellsBackBtn = document.getElementById('selectCellsBackBtn');
             const selectCellsDeleteBtn = document.getElementById('selectCellsDeleteBtn');
             const selectCellsToggleAllBtn = document.getElementById('selectCellsToggleAllBtn');
+            const selectCellsClearBtn = document.getElementById('selectCellsClearBtn');
             const confirmCellsBackBtn = document.getElementById('confirmCellsBackBtn');
             const confirmCellsDeleteBtn = document.getElementById('confirmCellsDeleteBtn');
             const confirmCellsMessage = document.getElementById('confirmCellsMessage');
@@ -4887,12 +4927,25 @@
                 const checkboxes = getSelectCellsCheckboxes();
                 if (!checkboxes.length) {
                     selectCellsToggleAllBtn.disabled = true;
-                    selectCellsToggleAllBtn.textContent = 'Select all';
+                    selectCellsToggleAllBtn.classList.remove('active');
+                    selectCellsToggleAllBtn.setAttribute('aria-pressed', 'false');
+                    if (selectCellsClearBtn) {
+                        selectCellsClearBtn.disabled = true;
+                        selectCellsClearBtn.classList.remove('active');
+                        selectCellsClearBtn.setAttribute('aria-pressed', 'false');
+                    }
                     return;
                 }
                 selectCellsToggleAllBtn.disabled = false;
+                if (selectCellsClearBtn) selectCellsClearBtn.disabled = false;
                 const allChecked = checkboxes.every((cb) => cb.checked);
-                selectCellsToggleAllBtn.textContent = allChecked ? 'Deselect all' : 'Select all';
+                const noneChecked = checkboxes.every((cb) => !cb.checked);
+                selectCellsToggleAllBtn.classList.toggle('active', allChecked);
+                selectCellsToggleAllBtn.setAttribute('aria-pressed', allChecked ? 'true' : 'false');
+                if (selectCellsClearBtn) {
+                    selectCellsClearBtn.classList.toggle('active', noneChecked);
+                    selectCellsClearBtn.setAttribute('aria-pressed', noneChecked ? 'true' : 'false');
+                }
             }
 
             function renderCellListItem(list, cellId, { selectable = false } = {}) {
@@ -5065,10 +5118,20 @@
                 selectCellsToggleAllBtn.addEventListener('click', () => {
                     const checkboxes = getSelectCellsCheckboxes();
                     if (!checkboxes.length) return;
-                    const target = !checkboxes.every((cb) => cb.checked);
                     checkboxes.forEach((cb) => {
-                        if (cb.checked === target) return;
-                        cb.checked = target;
+                        if (cb.checked) return;
+                        cb.checked = true;
+                        cb.dispatchEvent(new Event('change'));
+                    });
+                });
+            }
+            if (selectCellsClearBtn) {
+                selectCellsClearBtn.addEventListener('click', () => {
+                    const checkboxes = getSelectCellsCheckboxes();
+                    if (!checkboxes.length) return;
+                    checkboxes.forEach((cb) => {
+                        if (!cb.checked) return;
+                        cb.checked = false;
                         cb.dispatchEvent(new Event('change'));
                     });
                 });
@@ -5320,6 +5383,7 @@
             const selectModeBtn = document.getElementById('selectModeBtn');
             const selectAllBtn = document.getElementById('selectAllBtn');
             const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
             const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
             const scaleVisibilityBtn = document.getElementById('toggleScaleVisibilityBtn');
             const deleteBackdrop = document.getElementById('deleteFilesBackdrop');
@@ -5328,7 +5392,10 @@
             const cancelDeleteFilesBtn = document.getElementById('cancelDeleteFilesBtn');
             const confirmDeleteFilesBtn = document.getElementById('confirmDeleteFilesBtn');
 
-            if (!sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn || !channelVisibilityBtn || !scaleVisibilityBtn) {
+            if (
+                !sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn
+                || !downloadSelectedBtn || !channelVisibilityBtn || !scaleVisibilityBtn
+            ) {
                 return;
             }
 
@@ -5373,6 +5440,10 @@
             function syncSelectionUI() {
                 fileItems.forEach((item) => item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid)));
                 deleteSelectedBtn.disabled = selectedFileUUIDs.size === 0;
+                downloadSelectedBtn.disabled = selectedFileUUIDs.size === 0;
+                downloadSelectedBtn.title = downloadSelectedBtn.disabled
+                    ? 'Select files first.'
+                    : 'Download selected files.';
             }
 
             function setSelectMode(enabled) {
@@ -5499,6 +5570,14 @@
             selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
             selectAllBtn.addEventListener('click', toggleSelectAll);
             deleteSelectedBtn.addEventListener('click', openDeleteModal);
+            downloadSelectedBtn.addEventListener('click', () => {
+                if (!window.dashboardExportSelectionController || selectedFileUUIDs.size === 0) {
+                    return;
+                }
+                window.dashboardExportSelectionController.openFiles(
+                    fileUUIDs.filter((uuid) => selectedFileUUIDs.has(uuid))
+                );
+            });
             channelVisibilityBtn.addEventListener('click', () => {
                 applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
             });

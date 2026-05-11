@@ -94,7 +94,13 @@ Observed output naming patterns include:
 
 ## Export Output
 
-CytoCV exports result tables as CSV and XLSX files. In the current implementation, the download name is usually based on the uploaded image stem.
+CytoCV exports statistics tables as CSV and XLSX files from both Display and Dashboard. Single-file exports contain one statistics table. Multi-file exports contain one combined table with `File Name` as the first column, `Cell ID` as the second column, and selected metric columns after that. In combined exports, `File Name` is written only on the first row for each file group; following rows for the same file leave that cell blank.
+
+Download filenames use:
+
+`cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`
+
+The `all` or `selected` token describes metric scope, not file scope. `all` means every user-selectable cell metric was included. `selected` means the export includes only a subset of cell metrics. The `<number>files` token is the actual number of files included in the export, and the extension is `.csv` or `.xlsx`.
 
 ## Related Documents
 

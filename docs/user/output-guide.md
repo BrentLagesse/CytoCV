@@ -88,14 +88,21 @@ Run metadata also stores contextual information such as:
 
 CytoCV supports CSV and XLSX table exports. Export behavior is available in:
 
-- the display view for the first UUID with statistics
+- the display view for the current statistics table
 - the dashboard for a selected saved file
+- combined statistics downloads for selected files in Display or Dashboard
 
 The on-page statistics tables and the CSV/XLSX exports include both:
 
 - the raw integrated contour intensity sums as the primary table/export values
 - the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
 - canonical contour slot numbering, so size, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
+
+Statistics downloads can include all metrics or a selected subset. Export filenames follow:
+
+`cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`
+
+The `all` or `selected` token describes whether all cell metrics or only selected metrics were exported. The file count separately reflects how many files were included. In combined exports, `File Name` appears only on the first row for each file group, with later rows for that same file left blank until the next file begins.
 
 ## Expected Outputs
 

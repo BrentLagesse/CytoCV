@@ -53,6 +53,14 @@ from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
 )
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
+from core.services.combined_stat_export import (
+    CombinedStatisticsExportError,
+    StatisticsExportFile,
+    build_combined_statistics_export_response,
+)
+from core.services.export_filenames import (
+    build_statistics_export_filename,
+)
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.puncta_line_mode import (
@@ -70,6 +78,7 @@ from core.services.signal_quantification import (
 from core.services.stat_export_selection import (
     ExportColumnSelectionError,
     export_exclude_columns,
+    export_metric_scope,
     export_selection_config,
 )
 from core.scale import (
@@ -144,17 +153,6 @@ def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
 
 def _normalize_puncta_mode(value: Any, default: str = DEFAULT_PUNCTA_LINE_MODE) -> str:
     return normalize_puncta_line_mode(value, default=default)
-
-
-def _build_export_download_name(raw_name: Any, export_format: str, fallback: str) -> str:
-    stem = Path(str(raw_name or "").strip()).stem
-    if not stem:
-        stem = fallback
-    # Keep the source name recognizable while avoiding header-breaking characters.
-    stem = re.sub(r"[\\/\r\n\t]+", "_", stem).strip()
-    if not stem:
-        stem = fallback
-    return f"{stem}.{export_format}"
 
 
 def _preferences_redirect(request: HttpRequest, section: str) -> HttpResponse:
@@ -515,6 +513,24 @@ def _build_cell_table_for_uuid(
         spatial_stats_unit=spatial_stats_unit,
         scale_context=scale_context,
     )
+
+
+def _dashboard_available_export_uuid_set(user: Any) -> set[str]:
+    """Return saved dashboard files that can participate in statistics export."""
+
+    segmented_uuids = {
+        str(value)
+        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
+    }
+    if not segmented_uuids:
+        return set()
+    return {
+        str(value)
+        for value in UploadedImage.objects.filter(
+            user=user,
+            uuid__in=segmented_uuids,
+        ).values_list("uuid", flat=True)
+    }
 
 
 def _resolve_nuclear_cell_pair_mode(stats_iterable: Any) -> str | None:
@@ -976,10 +992,16 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     export_unit = normalize_spatial_stats_unit(request.GET.get("_unit"), default="px")
     if TableExport.is_valid_format(export_format) and export_uuid:
+        raw_columns = request.GET.getlist("_columns")
+        columns_present = "_columns" in request.GET
         try:
             exclude_columns = export_exclude_columns(
-                request.GET.getlist("_columns"),
-                columns_present="_columns" in request.GET,
+                raw_columns,
+                columns_present=columns_present,
+            )
+            metric_scope = export_metric_scope(
+                raw_columns,
+                columns_present=columns_present,
             )
         except ExportColumnSelectionError as exc:
             return HttpResponse(str(exc), status=400)
@@ -988,15 +1010,10 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             export_uuid,
             spatial_stats_unit=export_unit,
         )
-        uploaded_name = (
-            UploadedImage.objects.filter(user=request.user, uuid=export_uuid)
-            .values_list("name", flat=True)
-            .first()
-        )
-        download_name = _build_export_download_name(
-            uploaded_name,
-            export_format,
-            fallback=f"dashboard-{export_uuid}",
+        download_name = build_statistics_export_filename(
+            scope=metric_scope,
+            file_count=1,
+            export_format=export_format,
         )
         exporter = TableExport(
             export_format,
@@ -1051,6 +1068,72 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
             "storage_percentage": round(context["storage_percentage"], 2),
         }
     )
+
+
+@login_required
+@require_POST
+def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Your request could not be processed. Please try again."},
+            status=400,
+        )
+
+    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    if not requested_uuids:
+        return JsonResponse(
+            {"error": "Select at least one saved file to continue."},
+            status=400,
+        )
+
+    uploaded_map = {
+        str(item.uuid): item
+        for item in UploadedImage.objects.filter(
+            user=request.user,
+            uuid__in=requested_uuids,
+        )
+    }
+    segmented_map = {
+        str(item.UUID): item
+        for item in SegmentedImage.objects.filter(
+            user=request.user,
+            UUID__in=requested_uuids,
+        )
+    }
+    if (
+        len(uploaded_map) != len(set(requested_uuids))
+        or len(segmented_map) != len(set(requested_uuids))
+    ):
+        return JsonResponse(
+            {"error": "One or more selected files are no longer available. Refresh and try again."},
+            status=403,
+        )
+
+    preferences = get_user_preferences(request.user)
+    default_manual_scale = (
+        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    )
+    sources = [
+        StatisticsExportFile(
+            uuid=uuid,
+            file_name=uploaded_map[uuid].name,
+            segmented_image=segmented_map[uuid],
+            scale_info=uploaded_map[uuid].scale_info,
+        )
+        for uuid in requested_uuids
+    ]
+    try:
+        return build_combined_statistics_export_response(
+            sources,
+            export_format=str(payload.get("_export") or ""),
+            raw_columns=payload.get("_columns"),
+            spatial_stats_unit=str(payload.get("_unit") or "px"),
+            default_manual_scale=default_manual_scale,
+        )
+    except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
 
 
 @login_required

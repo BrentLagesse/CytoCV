@@ -55,7 +55,9 @@ The dashboard shows saved runs owned by the current user. For each saved run, th
 - detected channel badges
 - scale summary
 - cell count
-- CSV or XLSX statistics-table exports
+- CSV or XLSX statistics-table exports for one saved file or selected saved files
+
+Dashboard statistics downloads can include all cell metrics or a selected metric subset. Download filenames use `cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`, where `all` or `selected` refers to metric selection and the file count reports how many files were exported. Combined exports list `File Name` only on the first row for each exported file group.
 
 The dashboard also reports storage information:
 
