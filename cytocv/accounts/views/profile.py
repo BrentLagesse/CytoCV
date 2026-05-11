@@ -60,7 +60,6 @@ from core.services.combined_stat_export import (
 )
 from core.services.export_filenames import (
     build_statistics_export_filename,
-    export_scope_for_selection,
 )
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
@@ -79,6 +78,7 @@ from core.services.signal_quantification import (
 from core.services.stat_export_selection import (
     ExportColumnSelectionError,
     export_exclude_columns,
+    export_metric_scope,
     export_selection_config,
 )
 from core.scale import (
@@ -992,10 +992,16 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     export_unit = normalize_spatial_stats_unit(request.GET.get("_unit"), default="px")
     if TableExport.is_valid_format(export_format) and export_uuid:
+        raw_columns = request.GET.getlist("_columns")
+        columns_present = "_columns" in request.GET
         try:
             exclude_columns = export_exclude_columns(
-                request.GET.getlist("_columns"),
-                columns_present="_columns" in request.GET,
+                raw_columns,
+                columns_present=columns_present,
+            )
+            metric_scope = export_metric_scope(
+                raw_columns,
+                columns_present=columns_present,
             )
         except ExportColumnSelectionError as exc:
             return HttpResponse(str(exc), status=400)
@@ -1004,12 +1010,8 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             export_uuid,
             spatial_stats_unit=export_unit,
         )
-        available_export_uuids = _dashboard_available_export_uuid_set(request.user)
         download_name = build_statistics_export_filename(
-            scope=export_scope_for_selection(
-                selected_count=1,
-                available_count=len(available_export_uuids),
-            ),
+            scope=metric_scope,
             file_count=1,
             export_format=export_format,
         )
@@ -1086,7 +1088,6 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
-    available_export_uuids = _dashboard_available_export_uuid_set(request.user)
     uploaded_map = {
         str(item.uuid): item
         for item in UploadedImage.objects.filter(
@@ -1130,10 +1131,6 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
-            export_scope=export_scope_for_selection(
-                selected_count=len(sources),
-                available_count=len(available_export_uuids),
-            ),
         )
     except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)

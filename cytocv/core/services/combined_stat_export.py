@@ -18,6 +18,7 @@ from core.scale import (
 from core.services.stat_export_selection import (
     export_exclude_columns,
     export_included_columns,
+    export_metric_scope,
 )
 from core.services.export_filenames import build_statistics_export_filename
 from core.tables import CellTable
@@ -111,7 +112,6 @@ def build_combined_statistics_export_response(
     raw_columns: Any,
     spatial_stats_unit: str,
     default_manual_scale: float,
-    export_scope: str = "selected",
 ) -> HttpResponse:
     """Return one CSV/XLSX attachment for the selected files."""
 
@@ -150,7 +150,7 @@ def build_combined_statistics_export_response(
         )
 
     filename = build_statistics_export_filename(
-        scope=export_scope,
+        scope=export_metric_scope(raw_columns, columns_present=True),
         file_count=len(sources),
         export_format=export_format,
     )

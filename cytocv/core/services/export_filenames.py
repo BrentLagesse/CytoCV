@@ -13,19 +13,6 @@ EXPORT_SCOPES = {EXPORT_SCOPE_ALL, EXPORT_SCOPE_SELECTED}
 EXPORT_FORMAT_EXTENSIONS = {"csv": "csv", "xlsx": "xlsx"}
 
 
-def export_scope_for_selection(*, selected_count: int, available_count: int) -> str:
-    """Return whether an export covers all available files or a selected subset."""
-
-    try:
-        selected = int(selected_count)
-        available = int(available_count)
-    except (TypeError, ValueError):
-        return EXPORT_SCOPE_SELECTED
-    if available > 0 and selected == available:
-        return EXPORT_SCOPE_ALL
-    return EXPORT_SCOPE_SELECTED
-
-
 def build_statistics_export_filename(
     *,
     scope: str,

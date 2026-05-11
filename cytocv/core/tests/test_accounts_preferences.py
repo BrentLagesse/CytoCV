@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import datetime
 from io import BytesIO, StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,6 +15,7 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from openpyxl import load_workbook
 
 from accounts.preferences import (
@@ -36,6 +38,7 @@ from core.services.signal_quantification import (
     resolve_effective_alternate_nucleus_detection,
     resolve_signal_quantification_selection,
 )
+from core.services.stat_export_selection import USER_SELECTABLE_TABLE_FIELDS
 from core.stats_plugins import PLUGIN_DEFINITIONS
 
 
@@ -775,6 +778,17 @@ class DisplayManualSaveTests(TestCase):
         sheet = workbook.active
         return [list(row) for row in sheet.iter_rows(values_only=True)]
 
+    @staticmethod
+    def _fixed_export_time():
+        return timezone.make_aware(
+            datetime(2026, 5, 10, 18, 34),
+            timezone.get_current_timezone(),
+        )
+
+    @staticmethod
+    def _all_metric_columns() -> str:
+        return ",".join(USER_SELECTABLE_TABLE_FIELDS)
+
     def assertExportFilename(
         self,
         response,
@@ -790,6 +804,22 @@ class DisplayManualSaveTests(TestCase):
             (
                 rf'filename="cytocv_{scope}_cell-metrics_{file_count}files_'
                 rf'\d{{4}}-\d{{2}}-\d{{2}}_\d{{4}}\.{extension}"'
+            ),
+        )
+
+    def assertExactExportFilename(
+        self,
+        response,
+        *,
+        scope: str,
+        file_count: int,
+        extension: str,
+    ) -> None:
+        self.assertEqual(
+            response["Content-Disposition"],
+            (
+                f'attachment; filename="cytocv_{scope}_cell-metrics_'
+                f'{file_count}files_2026-05-10_1834.{extension}"'
             ),
         )
 
@@ -1239,6 +1269,71 @@ class DisplayManualSaveTests(TestCase):
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
 
+    def test_dashboard_single_export_filename_scope_tracks_metric_selection(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_filename_metric_scope",
+        )
+        other_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_filename_other_file",
+        )
+        self._add_cell_stat(saved_uuid)
+        self._add_cell_stat(other_uuid)
+
+        cases = [
+            ("csv", {}, "all", "csv"),
+            ("xlsx", {}, "all", "xlsx"),
+            (
+                "csv",
+                {"_columns": self._all_metric_columns()},
+                "all",
+                "csv",
+            ),
+            (
+                "xlsx",
+                {"_columns": self._all_metric_columns()},
+                "all",
+                "xlsx",
+            ),
+            (
+                "csv",
+                {"_columns": "red_intensity_1,puncta_distance"},
+                "selected",
+                "csv",
+            ),
+            (
+                "xlsx",
+                {"_columns": "red_intensity_1,puncta_distance"},
+                "selected",
+                "xlsx",
+            ),
+        ]
+        with patch(
+            "core.services.export_filenames.timezone.now",
+            return_value=self._fixed_export_time(),
+        ):
+            for export_format, extra_params, expected_scope, extension in cases:
+                with self.subTest(export_format=export_format, params=extra_params):
+                    response = self.client.get(
+                        reverse("dashboard"),
+                        {
+                            "file_uuid": saved_uuid,
+                            "_export": export_format,
+                            **extra_params,
+                        },
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    self.assertExactExportFilename(
+                        response,
+                        scope=expected_scope,
+                        file_count=1,
+                        extension=extension,
+                    )
+
     def test_dashboard_csv_export_filters_selected_columns(self):
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -1461,7 +1556,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertExportFilename(
             response,
-            scope="all",
+            scope="selected",
             file_count=2,
             extension="xlsx",
         )
@@ -1479,6 +1574,68 @@ class DisplayManualSaveTests(TestCase):
             [row[0] for row in rows[1:]],
             ["combined_xlsx_first", "combined_xlsx_second"],
         )
+
+    def test_dashboard_combined_export_filename_scope_tracks_metric_selection(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_combined_metric_scope_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_combined_metric_scope_second",
+        )
+        self._add_cell_stat(first_uuid)
+        self._add_cell_stat(second_uuid)
+
+        cases = [
+            ("csv", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
+            ("xlsx", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
+            (
+                "csv",
+                [first_uuid],
+                list(USER_SELECTABLE_TABLE_FIELDS),
+                "all",
+                1,
+            ),
+            (
+                "xlsx",
+                [first_uuid],
+                list(USER_SELECTABLE_TABLE_FIELDS),
+                "all",
+                1,
+            ),
+        ]
+        with patch(
+            "core.services.export_filenames.timezone.now",
+            return_value=self._fixed_export_time(),
+        ):
+            for export_format, uuids, columns, expected_scope, file_count in cases:
+                with self.subTest(
+                    export_format=export_format,
+                    expected_scope=expected_scope,
+                ):
+                    response = self.client.post(
+                        reverse("dashboard_bulk_export"),
+                        data=json.dumps(
+                            {
+                                "uuids": uuids,
+                                "_export": export_format,
+                                "_columns": columns,
+                                "_unit": "px",
+                            }
+                        ),
+                        content_type="application/json",
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    self.assertExactExportFilename(
+                        response,
+                        scope=expected_scope,
+                        file_count=file_count,
+                        extension=export_format,
+                    )
 
     def test_display_combined_csv_export_uses_visible_order_not_request_order(self):
         first_uuid = self._create_display_file(
@@ -1511,7 +1668,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertExportFilename(
             response,
-            scope="all",
+            scope="selected",
             file_count=2,
             extension="csv",
         )
@@ -1560,6 +1717,69 @@ class DisplayManualSaveTests(TestCase):
             self._xlsx_headers(response),
             ["File Name", "Cell ID", "Red In Red Intensity 1"],
         )
+
+    def test_display_combined_export_filename_scope_tracks_metric_selection(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_metric_scope_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_metric_scope_second",
+        )
+        self._add_cell_stat(first_uuid)
+        self._add_cell_stat(second_uuid)
+
+        cases = [
+            ("csv", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
+            ("xlsx", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
+            (
+                "csv",
+                [first_uuid],
+                list(USER_SELECTABLE_TABLE_FIELDS),
+                "all",
+                1,
+            ),
+            (
+                "xlsx",
+                [first_uuid],
+                list(USER_SELECTABLE_TABLE_FIELDS),
+                "all",
+                1,
+            ),
+        ]
+        with patch(
+            "core.services.export_filenames.timezone.now",
+            return_value=self._fixed_export_time(),
+        ):
+            for export_format, uuids, columns, expected_scope, file_count in cases:
+                with self.subTest(
+                    export_format=export_format,
+                    expected_scope=expected_scope,
+                ):
+                    response = self.client.post(
+                        reverse("display_export_files"),
+                        data=json.dumps(
+                            {
+                                "visible_uuids": [first_uuid, second_uuid],
+                                "uuids": uuids,
+                                "_export": export_format,
+                                "_columns": columns,
+                                "_unit": "px",
+                            }
+                        ),
+                        content_type="application/json",
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    self.assertExactExportFilename(
+                        response,
+                        scope=expected_scope,
+                        file_count=file_count,
+                        extension=export_format,
+                    )
 
     def test_dashboard_combined_csv_export_respects_micron_unit_request(self):
         saved_uuid = self._create_display_file(
@@ -1788,6 +2008,70 @@ class DisplayManualSaveTests(TestCase):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             response["Content-Type"],
         )
+
+    def test_display_single_export_filename_scope_tracks_metric_selection(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_filename_metric_scope",
+        )
+        other_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_filename_other_visible",
+        )
+        self._add_cell_stat(saved_uuid)
+        self._add_cell_stat(other_uuid)
+
+        cases = [
+            ("csv", {}, "all", "csv"),
+            ("xlsx", {}, "all", "xlsx"),
+            (
+                "csv",
+                {"_columns": self._all_metric_columns()},
+                "all",
+                "csv",
+            ),
+            (
+                "xlsx",
+                {"_columns": self._all_metric_columns()},
+                "all",
+                "xlsx",
+            ),
+            (
+                "csv",
+                {"_columns": "red_intensity_1,puncta_distance"},
+                "selected",
+                "csv",
+            ),
+            (
+                "xlsx",
+                {"_columns": "red_intensity_1,puncta_distance"},
+                "selected",
+                "xlsx",
+            ),
+        ]
+        with patch(
+            "core.services.export_filenames.timezone.now",
+            return_value=self._fixed_export_time(),
+        ):
+            for export_format, extra_params, expected_scope, extension in cases:
+                with self.subTest(export_format=export_format, params=extra_params):
+                    response = self.client.get(
+                        reverse("display", args=[f"{saved_uuid},{other_uuid}"]),
+                        {
+                            "_export": export_format,
+                            **extra_params,
+                        },
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    self.assertExactExportFilename(
+                        response,
+                        scope=expected_scope,
+                        file_count=1,
+                        extension=extension,
+                    )
 
     def test_display_csv_and_xlsx_exports_filter_selected_columns(self):
         saved_uuid = self._create_display_file(

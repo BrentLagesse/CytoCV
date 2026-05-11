@@ -5,12 +5,14 @@ from django.utils import timezone
 
 from core.services.export_filenames import (
     build_statistics_export_filename,
-    export_scope_for_selection,
 )
 from core.services.stat_export_selection import (
     ExportColumnSelectionError,
+    CLIENT_FIELD_ALIASES,
+    USER_SELECTABLE_TABLE_FIELDS,
     export_exclude_columns,
     export_included_columns,
+    export_metric_scope,
     export_selection_config,
     normalize_export_columns,
 )
@@ -42,15 +44,54 @@ class StatExportSelectionTests(SimpleTestCase):
             "cytocv_all_cell-metrics_24files_2026-05-10_1834.xlsx",
         )
 
-    def test_export_scope_for_selection_distinguishes_all_from_selected(self):
+    def test_export_metric_scope_treats_omitted_columns_as_all_metrics(self):
         self.assertEqual(
-            export_scope_for_selection(selected_count=24, available_count=24),
+            export_metric_scope(None, columns_present=False),
             "all",
         )
+
+    def test_export_metric_scope_detects_all_user_selectable_metrics(self):
         self.assertEqual(
-            export_scope_for_selection(selected_count=8, available_count=24),
+            export_metric_scope(USER_SELECTABLE_TABLE_FIELDS, columns_present=True),
+            "all",
+        )
+
+    def test_export_metric_scope_resolves_aliases_duplicates_and_canonical_fields(self):
+        alias_by_table_field = {
+            table_field: client_field
+            for client_field, table_field in CLIENT_FIELD_ALIASES.items()
+        }
+        raw_columns = [
+            alias_by_table_field.get(table_field, table_field)
+            for table_field in USER_SELECTABLE_TABLE_FIELDS
+        ]
+        raw_columns.extend(
+            [
+                "measurement_contour_ratio_1",
+                "measurement_contour_ratio_2",
+                "puncta_distance",
+            ]
+        )
+
+        self.assertEqual(
+            export_metric_scope(raw_columns, columns_present=True),
+            "all",
+        )
+
+    def test_export_metric_scope_detects_selected_metric_subset(self):
+        self.assertEqual(
+            export_metric_scope(
+                "cytoplasmic_intensity,red_intensity_1,puncta_distance",
+                columns_present=True,
+            ),
             "selected",
         )
+
+    def test_export_metric_scope_uses_existing_validation(self):
+        with self.assertRaises(ExportColumnSelectionError):
+            export_metric_scope("cell_id", columns_present=True)
+        with self.assertRaises(ExportColumnSelectionError):
+            export_metric_scope("unknown_field", columns_present=True)
 
     def test_valid_columns_are_returned_in_table_order(self):
         selected = normalize_export_columns(

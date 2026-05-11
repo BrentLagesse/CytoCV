@@ -88,7 +88,7 @@ The display view provides:
 - one main outlined image per file
 - per-cell image panels in channel order
 - software-generated measurements for each cell
-- CSV and XLSX table export for the current statistics table
+- CSV and XLSX statistics export for the current table, with optional metric selection
 - save, unsave, and selection synchronization actions
 
 Main display frames can be switched by channel, and channel order is based on the stored `channel_config.json`.
@@ -97,7 +97,8 @@ Main display frames can be switched by channel, and channel order is based on th
 
 From display or dashboard, users can:
 
-- export table data as CSV or XLSX
+- export single-file or selected-file statistics as CSV or XLSX
+- choose all metrics or a selected subset of metrics for statistics downloads
 - save transient runs to their account if quota allows
 - unsave retained runs back to transient status
 - bulk-delete saved runs from the dashboard
@@ -106,7 +107,7 @@ From display or dashboard, users can:
 
 - saved or transient segmentation results
 - per-cell software-generated measurements saved with the run
-- exportable tabular summaries
+- exportable tabular summaries with filenames that indicate metric scope, file count, and timestamp
 - dashboard-visible history for retained runs
 
 ## Common Errors
