@@ -5,6 +5,14 @@ from core.services.canonical_contours import (
     get_canonical_green_slots,
     get_canonical_red_slots,
 )
+from core.services.contour_coordinates import (
+    GREEN_CONTOUR_PREFIXES,
+    RED_CONTOUR_PREFIXES,
+    RED_GREEN_CONTOUR_PREFIXES,
+    clear_contour_center_properties,
+    contour_center_context_from_properties,
+    store_contour_slot_centers,
+)
 from core.services.measurement_contour_ratio import (
     normalize_measurement_contour_ratio_mode,
     store_measurement_contour_ratio_triplet,
@@ -55,6 +63,7 @@ class GreenRedIntensity(Analysis):
         mode = normalize_measurement_contour_ratio_mode(mode_source)
         props["measurement_contour_ratio_mode"] = mode
         self.cp.properties = props
+        center_context = contour_center_context_from_properties(props)
         if red_gray is None or green_gray is None:
             self._set_default_triplet("red_intensity")
             self._set_default_triplet("green_intensity")
@@ -65,11 +74,27 @@ class GreenRedIntensity(Analysis):
             self._set_default_red_contour_sizes()
             for idx in range(1, 4):
                 setattr(self.cp, f"green_contour_{idx}_size", 0.0)
+            self.cp.properties = clear_contour_center_properties(
+                self.cp.properties,
+                RED_GREEN_CONTOUR_PREFIXES,
+            )
             return
 
         red_slots = get_canonical_red_slots(contours_data, red_gray.shape, limit=3)
         green_slots = get_canonical_green_slots(contours_data, green_gray.shape, limit=3)
         red_centers = [slot.center for slot in red_slots]
+        self.cp.properties = store_contour_slot_centers(
+            self.cp.properties,
+            RED_CONTOUR_PREFIXES,
+            red_slots,
+            center_context,
+        )
+        self.cp.properties = store_contour_slot_centers(
+            self.cp.properties,
+            GREEN_CONTOUR_PREFIXES,
+            green_slots,
+            center_context,
+        )
 
         self._set_default_triplet("red_intensity")
         self._set_default_triplet("green_intensity")

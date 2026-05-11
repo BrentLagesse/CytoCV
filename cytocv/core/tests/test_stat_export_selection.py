@@ -103,6 +103,23 @@ class StatExportSelectionTests(SimpleTestCase):
             ("puncta_distance", "red_intensity_1", "cytoplasmic_intensity"),
         )
 
+    def test_contour_center_columns_are_selectable_in_table_order(self):
+        selected = normalize_export_columns(
+            "green_contour_1_center_xy,blue_contour_center_xy,"
+            "red_contour_1_center_xy,red_contour_3_size,red_contour_1_size"
+        )
+
+        self.assertEqual(
+            selected,
+            (
+                "blue_contour_center_xy",
+                "red_contour_1_size",
+                "red_contour_3_size",
+                "red_contour_1_center_xy",
+                "green_contour_1_center_xy",
+            ),
+        )
+
     def test_duplicate_fields_collapse_without_changing_order(self):
         selected = normalize_export_columns(
             [
@@ -163,6 +180,7 @@ class StatExportSelectionTests(SimpleTestCase):
         self.assertNotIn("puncta_distance", exclude_columns)
         self.assertNotIn("green_red_intensity_1", exclude_columns)
         self.assertIn("puncta_line_intensity", exclude_columns)
+        self.assertIn("red_contour_1_center_xy", exclude_columns)
         self.assertIn("nucleus_intensity_sum", exclude_columns)
 
     def test_missing_columns_parameter_preserves_full_export(self):
@@ -176,3 +194,6 @@ class StatExportSelectionTests(SimpleTestCase):
         self.assertIn("payloadParam", first_item)
         self.assertEqual(config["payloadParam"], "_columns")
         self.assertEqual(config["alwaysIncluded"][0]["id"], "cell_id")
+        self.assertTrue(
+            any(item["id"] == "red_contour_1_center_xy" for item in config["items"])
+        )

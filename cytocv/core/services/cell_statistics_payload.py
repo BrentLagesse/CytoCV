@@ -6,6 +6,7 @@ from typing import Any
 
 from core.channel_roles import channel_display_label, normalize_channel_role
 from core.models import CellStatistics, get_cen_dot_category_label
+from core.services.contour_coordinates import contour_center_payloads_from_properties
 from core.services.measurement_contour_ratio import (
     build_measurement_contour_ratio_payload,
     normalize_nuclear_cell_pair_mode,
@@ -79,6 +80,7 @@ def serialize_cell_statistics_payload(
                 "measurement_contour_ratio_display_text": "N/A",
             }
         )
+    contour_center_payloads = contour_center_payloads_from_properties(properties)
 
     def stat_value(field_name: str, value: Any) -> Any:
         group_name = stat_group_for_field(field_name)
@@ -104,17 +106,33 @@ def serialize_cell_statistics_payload(
             cell_stat.puncta_line_intensity,
         ),
         "blue_contour_size": stat_value("blue_contour_size", cell_stat.blue_contour_size),
+        "blue_contour_center_xy": stat_value(
+            "blue_contour_center_xy",
+            contour_center_payloads["blue_contour_center_xy"],
+        ),
         "red_contour_1_size": stat_value(
             "red_contour_1_size",
             cell_stat.red_contour_1_size,
+        ),
+        "red_contour_1_center_xy": stat_value(
+            "red_contour_1_center_xy",
+            contour_center_payloads["red_contour_1_center_xy"],
         ),
         "red_contour_2_size": stat_value(
             "red_contour_2_size",
             cell_stat.red_contour_2_size,
         ),
+        "red_contour_2_center_xy": stat_value(
+            "red_contour_2_center_xy",
+            contour_center_payloads["red_contour_2_center_xy"],
+        ),
         "red_contour_3_size": stat_value(
             "red_contour_3_size",
             cell_stat.red_contour_3_size,
+        ),
+        "red_contour_3_center_xy": stat_value(
+            "red_contour_3_center_xy",
+            contour_center_payloads["red_contour_3_center_xy"],
         ),
         "red_intensity_1": stat_value("red_intensity_1", cell_stat.red_intensity_1),
         "red_intensity_2": stat_value("red_intensity_2", cell_stat.red_intensity_2),
@@ -159,13 +177,25 @@ def serialize_cell_statistics_payload(
             "green_contour_1_size",
             cell_stat.green_contour_1_size,
         ),
+        "green_contour_1_center_xy": stat_value(
+            "green_contour_1_center_xy",
+            contour_center_payloads["green_contour_1_center_xy"],
+        ),
         "green_contour_2_size": stat_value(
             "green_contour_2_size",
             cell_stat.green_contour_2_size,
         ),
+        "green_contour_2_center_xy": stat_value(
+            "green_contour_2_center_xy",
+            contour_center_payloads["green_contour_2_center_xy"],
+        ),
         "green_contour_3_size": stat_value(
             "green_contour_3_size",
             cell_stat.green_contour_3_size,
+        ),
+        "green_contour_3_center_xy": stat_value(
+            "green_contour_3_center_xy",
+            contour_center_payloads["green_contour_3_center_xy"],
         ),
         "distance_of_green_from_red_1": stat_value(
             "distance_of_green_from_red_1",

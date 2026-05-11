@@ -145,6 +145,17 @@ Important direct fields include:
 - cell parentage status, mode, method, lobe areas, and label positions
 - scale source and effective scale
 - line width and distance threshold context
+- contour center coordinate metadata:
+  - `contour_center_schema_version`
+  - `contour_center_origin`, currently `main_image_bottom_left`
+  - `contour_center_method`, currently `filled_mask_geometric_centroid`
+  - crop offset and main-image shape values used for the coordinate transform
+- per-contour full-image center coordinates such as:
+  - `blue_contour_center_x_px` and `blue_contour_center_y_px`
+  - `red_contour_1_center_x_px` and `red_contour_1_center_y_px`
+  - `green_contour_1_center_x_px` and `green_contour_1_center_y_px`
+
+Contour center coordinates remain property-backed because they are derived display/export values tied to dynamic contour slots. No migration is required unless a future workflow needs them as queryable model fields.
 
 ## Ownership Model
 

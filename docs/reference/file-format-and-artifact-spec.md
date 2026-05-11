@@ -102,6 +102,16 @@ Download filenames use:
 
 The `all` or `selected` token describes metric scope, not file scope. `all` means every user-selectable cell metric was included. `selected` means the export includes only a subset of cell metrics. The `<number>files` token is the actual number of files included in the export, and the extension is `.csv` or `.xlsx`.
 
+Spatial table and export headers include the active unit. Contour area columns use square units, distance columns use length units, and contour center columns use coordinate length units. Red and Green contour columns are grouped by metric family: all three size columns first, then all three center coordinate columns for that color. Blue keeps its single center column after its single size column. Example order:
+
+- `Blue Contour Size (px^2)` followed by `Blue Contour Center (x,y) (px)`
+- `Red Contour 1 Size (px^2)`, `Red Contour 2 Size (px^2)`, `Red Contour 3 Size (px^2)`
+- `Red Contour 1 Center (x,y) (px)`, `Red Contour 2 Center (x,y) (px)`, `Red Contour 3 Center (x,y) (px)`
+- `Green Contour 1 Size (px^2)`, `Green Contour 2 Size (px^2)`, `Green Contour 3 Size (px^2)`
+- `Green Contour 1 Center (x,y) (px)`, `Green Contour 2 Center (x,y) (px)`, `Green Contour 3 Center (x,y) (px)`
+
+When the spatial unit is pixels, coordinate values are raw full-main-image pixel coordinates formatted as `x, y`. When the unit is micrometers, `x` is converted with the run's x-axis scale and `y` is converted with the run's y-axis scale. Missing or non-calculated contour centers are exported as `N/A`.
+
 ## Related Documents
 
 - [`data-model.md`](data-model.md)

@@ -715,6 +715,12 @@ class DisplayManualSaveTests(TestCase):
             "puncta_distance_delta_y_px": 0.0,
             "distance_of_green_from_red_1_delta_x_px": 6.0,
             "distance_of_green_from_red_1_delta_y_px": 0.0,
+            "red_contour_1_center_x_px": 10.0,
+            "red_contour_1_center_y_px": 20.0,
+            "green_contour_1_center_x_px": 30.0,
+            "green_contour_1_center_y_px": 40.0,
+            "blue_contour_center_x_px": 50.0,
+            "blue_contour_center_y_px": 60.0,
         }
         if properties:
             stat_properties.update(properties)
@@ -1347,7 +1353,10 @@ class DisplayManualSaveTests(TestCase):
             {
                 "file_uuid": saved_uuid,
                 "_export": "csv",
-                "_columns": "cytoplasmic_intensity,red_intensity_1,puncta_distance",
+                "_columns": (
+                    "cytoplasmic_intensity,red_intensity_1,"
+                    "red_contour_1_center_xy,puncta_distance"
+                ),
             },
         )
 
@@ -1358,11 +1367,12 @@ class DisplayManualSaveTests(TestCase):
             [
                 "Cell ID",
                 "Distance Between Red Puncta (px)",
+                "Red Contour 1 Center (x,y) (px)",
                 "Red In Red Intensity 1",
                 "Cytoplasmic Intensity",
             ],
         )
-        self.assertEqual(rows[1], ["1", "1.000", "5.000", "0.000"])
+        self.assertEqual(rows[1], ["1", "1.000", "10.000, 20.000", "5.000", "0.000"])
 
     def test_dashboard_xlsx_export_filters_selected_columns(self):
         saved_uuid = self._create_display_file(
@@ -1498,7 +1508,11 @@ class DisplayManualSaveTests(TestCase):
                 {
                     "uuids": [second_uuid, first_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1", "puncta_distance"],
+                    "_columns": [
+                        "red_intensity_1",
+                        "puncta_distance",
+                        "red_contour_1_center_xy",
+                    ],
                     "_unit": "px",
                 }
             ),
@@ -1515,14 +1529,20 @@ class DisplayManualSaveTests(TestCase):
         rows = self._csv_rows(response)
         self.assertEqual(
             rows[0],
-            ["File Name", "Cell ID", "Puncta Distance (px)", "Red In Red Intensity 1"],
+            [
+                "File Name",
+                "Cell ID",
+                "Puncta Distance (px)",
+                "Red Contour 1 Center (x,y) (px)",
+                "Red In Red Intensity 1",
+            ],
         )
         self.assertEqual(
             rows[1:],
             [
-                ["combined_second", "1", "1.000", "5.000"],
-                ["combined_first", "1", "1.000", "5.000"],
-                ["", "2", "1.000", "5.000"],
+                ["combined_second", "1", "1.000", "10.000, 20.000", "5.000"],
+                ["combined_first", "1", "1.000", "10.000, 20.000", "5.000"],
+                ["", "2", "1.000", "10.000, 20.000", "5.000"],
             ],
         )
 
@@ -2085,14 +2105,20 @@ class DisplayManualSaveTests(TestCase):
             reverse("display", args=[saved_uuid]),
             {
                 "_export": "csv",
-                "_columns": "red_intensity_1,measurement_contour_ratio_1",
+                "_columns": (
+                    "red_intensity_1,red_contour_1_center_xy,"
+                    "measurement_contour_ratio_1"
+                ),
             },
         )
         xlsx_response = self.client.get(
             reverse("display", args=[saved_uuid]),
             {
                 "_export": "xlsx",
-                "_columns": "red_intensity_1,measurement_contour_ratio_1",
+                "_columns": (
+                    "red_intensity_1,red_contour_1_center_xy,"
+                    "measurement_contour_ratio_1"
+                ),
             },
         )
 
@@ -2100,10 +2126,15 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(xlsx_response.status_code, 200)
         expected_headers = [
             "Cell ID",
+            "Red Contour 1 Center (x,y) (px)",
             "Red In Red Intensity 1",
             "Measurement/Contour Ratio 1 (Green/Red)",
         ]
         self.assertEqual(self._csv_rows(csv_response)[0], expected_headers)
+        self.assertEqual(
+            self._csv_rows(csv_response)[1],
+            ["1", "10.000, 20.000", "5.000", "1.200"],
+        )
         self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
 
     def test_filtered_exports_reject_invalid_or_empty_columns(self):

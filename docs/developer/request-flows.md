@@ -89,7 +89,8 @@ Measurement note:
 - the red/green contour plugin stores raw masked pixel sums for each contour-channel combination (`red in red`, `green in red`, `red in green`, `green in green`)
 - modern Red and Green contour families are normalized into canonical ranked slots before plugin execution
 - each canonical slot is built by filling the raw contour, clipping it to the segmented cell mask, extracting the clipped contour geometry, and ranking by clipped area, then center `x`, then center `y`
-- slot numbers are shared across size fields, raw intensity fields, Red-line selection, CEN-dot selection, and modern nucleus measurements
+- slot numbers are shared across size fields, full-main-image center coordinate fields, raw intensity fields, Red-line selection, CEN-dot selection, and modern nucleus measurements
+- contour center coordinates are stored in `CellStatistics.properties` after converting crop-local geometric centroids into full-image bottom-left coordinates
 - `NuclearCellPairIntensity` now uses canonical slot `1` from the selected contour family (`red_nucleus` => Red slot `1`, `green_nucleus` => Green slot `1`)
 - the legacy storage fields `green_red_intensity_*` now persist the public toggle-driven measurement/contour ratio
 - `red_nucleus` mode stores `green in red / red in red`

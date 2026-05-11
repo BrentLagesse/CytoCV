@@ -448,7 +448,7 @@ def convert_distance_pixels_to_display_units(
 def format_spatial_stat_header(label: str, *, spatial_kind: str | None, unit: Any) -> str:
     """Append the active unit marker to a spatial-stat header label."""
 
-    if spatial_kind not in {"distance", "area"}:
+    if spatial_kind not in {"distance", "area", "coordinate"}:
         return label
     normalized_unit = normalize_spatial_stats_unit(unit, default="px")
     if spatial_kind == "area":
