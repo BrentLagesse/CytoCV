@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from io import BytesIO
+import csv
 import json
+from io import BytesIO, StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -696,8 +697,24 @@ class DisplayManualSaveTests(TestCase):
         )
         return str(file_uuid)
 
-    def _add_cell_stat(self, file_uuid: str, *, cell_id: int = 1) -> None:
+    def _add_cell_stat(
+        self,
+        file_uuid: str,
+        *,
+        cell_id: int = 1,
+        properties: dict | None = None,
+    ) -> None:
         segmented = SegmentedImage.objects.get(UUID=file_uuid)
+        stat_properties = {
+            "nuclear_cell_pair_mode": "red_nucleus",
+            "cen_dot_schema_version": 3,
+            "puncta_distance_delta_x_px": 1.0,
+            "puncta_distance_delta_y_px": 0.0,
+            "distance_of_green_from_red_1_delta_x_px": 6.0,
+            "distance_of_green_from_red_1_delta_y_px": 0.0,
+        }
+        if properties:
+            stat_properties.update(properties)
         CellStatistics.objects.create(
             segmented_image=segmented,
             cell_id=cell_id,
@@ -713,14 +730,7 @@ class DisplayManualSaveTests(TestCase):
             green_in_green_intensity_1=8.0,
             green_red_intensity_1=6.0 / 5.0,
             category_cen_dot=1,
-            properties={
-                "nuclear_cell_pair_mode": "red_nucleus",
-                "cen_dot_schema_version": 3,
-                "puncta_distance_delta_x_px": 1.0,
-                "puncta_distance_delta_y_px": 0.0,
-                "distance_of_green_from_red_1_delta_x_px": 6.0,
-                "distance_of_green_from_red_1_delta_y_px": 0.0,
-            },
+            properties=stat_properties,
         )
 
     def _set_transient_uuids(self, uuids: list[str]) -> None:
@@ -748,6 +758,16 @@ class DisplayManualSaveTests(TestCase):
         target = Path(media_root) / uuid_value / "output" / "frame.png"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(b"x" * size)
+
+    @staticmethod
+    def _csv_rows(response) -> list[list[str]]:
+        return list(csv.reader(StringIO(response.content.decode("utf-8"))))
+
+    @staticmethod
+    def _xlsx_headers(response) -> list[str]:
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        return [cell.value for cell in sheet[1]]
 
     def test_display_save_endpoint_rejects_invalid_payload(self):
         response = self.client.post(
@@ -836,6 +856,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="exportButtons"', html=False)
         self.assertContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertContains(response, 'id="downloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="exportSelectionBackdrop"', html=False)
+        self.assertContains(response, 'id="exportSelectionConfig"', html=False)
+        self.assertContains(response, "export_selection_modal.js", html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
 
@@ -929,6 +952,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="displayExportButtons"', html=False)
         self.assertContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertContains(response, 'id="displayDownloadXlsxBtn"', html=False)
+        self.assertContains(response, 'id="exportSelectionBackdrop"', html=False)
+        self.assertContains(response, 'id="exportSelectionConfig"', html=False)
+        self.assertContains(response, "export_selection_modal.js", html=False)
         self.assertContains(response, 'data-action="select-cells"', html=False)
         self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
@@ -1166,6 +1192,63 @@ class DisplayManualSaveTests(TestCase):
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
 
+    def test_dashboard_csv_export_filters_selected_columns(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_filtered_csv",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "csv",
+                "_columns": "cytoplasmic_intensity,red_intensity_1,puncta_distance",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "Cell ID",
+                "Distance Between Red Puncta (px)",
+                "Red In Red Intensity 1",
+                "Cytoplasmic Intensity",
+            ],
+        )
+        self.assertEqual(rows[1], ["1", "1.000", "5.000", "0.000"])
+
+    def test_dashboard_xlsx_export_filters_selected_columns(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_filtered_xlsx",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "xlsx",
+                "_columns": "red_intensity_1,measurement_contour_ratio_1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self._xlsx_headers(response),
+            [
+                "Cell ID",
+                "Red In Red Intensity 1",
+                "Measurement/Contour Ratio 1 (Green/Red)",
+            ],
+        )
+
     def test_dashboard_csv_export_respects_micron_unit_request(self):
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -1190,6 +1273,35 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("0.500", csv_text)
         self.assertIn("2.250", csv_text)
         self.assertIn("3.000", csv_text)
+
+    def test_filtered_dashboard_csv_export_preserves_order_and_spatial_unit(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_filtered_export_um",
+        )
+        uploaded = UploadedImage.objects.get(uuid=saved_uuid)
+        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.save(update_fields=["scale_info"])
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "csv",
+                "_unit": "um",
+                "_columns": "red_intensity_1,puncta_distance",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            ["Cell ID", "Distance Between Red Puncta (µm)", "Red In Red Intensity 1"],
+        )
+        self.assertEqual(rows[1], ["1", "0.500", "5.000"])
 
     def test_dashboard_xlsx_export_respects_micron_unit_request(self):
         saved_uuid = self._create_display_file(
@@ -1258,6 +1370,96 @@ class DisplayManualSaveTests(TestCase):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             response["Content-Type"],
         )
+
+    def test_display_csv_and_xlsx_exports_filter_selected_columns(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_filtered_export",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        csv_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {
+                "_export": "csv",
+                "_columns": "red_intensity_1,measurement_contour_ratio_1",
+            },
+        )
+        xlsx_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {
+                "_export": "xlsx",
+                "_columns": "red_intensity_1,measurement_contour_ratio_1",
+            },
+        )
+
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(xlsx_response.status_code, 200)
+        expected_headers = [
+            "Cell ID",
+            "Red In Red Intensity 1",
+            "Measurement/Contour Ratio 1 (Green/Red)",
+        ]
+        self.assertEqual(self._csv_rows(csv_response)[0], expected_headers)
+        self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
+
+    def test_filtered_exports_reject_invalid_or_empty_columns(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_invalid_columns",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        display_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {"_export": "csv", "_columns": "cell_id,unknown"},
+        )
+        dashboard_response = self.client.get(
+            reverse("dashboard"),
+            {"file_uuid": saved_uuid, "_export": "csv", "_columns": ""},
+        )
+
+        self.assertEqual(display_response.status_code, 400)
+        self.assertEqual(dashboard_response.status_code, 400)
+
+    def test_nuclear_export_can_include_uncomputed_stats_as_na(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="nuclear_filtered_export",
+        )
+        self._add_cell_stat(
+            saved_uuid,
+            properties={
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "nuclear_cell_pair_status": "ok",
+                "nuclear_cell_pair_contour_source": "canonical_slot_1",
+            },
+        )
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "csv",
+                "_columns": "cell_pair_intensity_sum,puncta_distance",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "Cell ID",
+                "Distance Between Red Puncta (px)",
+                "Red Cell-Pair Intensity",
+            ],
+        )
+        self.assertEqual(rows[1], ["1", "N/A", "4.000"])
 
     def test_display_save_endpoint_is_idempotent_for_saved_file(self):
         saved_uuid = self._create_display_file(

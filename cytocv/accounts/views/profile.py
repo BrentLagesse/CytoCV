@@ -67,6 +67,11 @@ from core.services.signal_quantification import (
     resolve_signal_quantification_from_defaults,
     resolve_signal_quantification_selection,
 )
+from core.services.stat_export_selection import (
+    ExportColumnSelectionError,
+    export_exclude_columns,
+    export_selection_config,
+)
 from core.scale import (
     get_scale_context_payload,
     get_scale_sidebar_payload,
@@ -865,6 +870,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
+        "export_selection_config": export_selection_config(),
     }
 
 
@@ -970,6 +976,13 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     export_unit = normalize_spatial_stats_unit(request.GET.get("_unit"), default="px")
     if TableExport.is_valid_format(export_format) and export_uuid:
+        try:
+            exclude_columns = export_exclude_columns(
+                request.GET.getlist("_columns"),
+                columns_present="_columns" in request.GET,
+            )
+        except ExportColumnSelectionError as exc:
+            return HttpResponse(str(exc), status=400)
         table = _build_cell_table_for_uuid(
             request.user,
             export_uuid,
@@ -985,7 +998,11 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             export_format,
             fallback=f"dashboard-{export_uuid}",
         )
-        exporter = TableExport(export_format, table)
+        exporter = TableExport(
+            export_format,
+            table,
+            exclude_columns=exclude_columns,
+        )
         return exporter.response(download_name)
 
     context = _build_dashboard_payload(request.user)
