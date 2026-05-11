@@ -126,3 +126,41 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
         self.assertEqual(payload["off_axis_dots"], 0)
         self.assertIsNone(payload["puncta_distance"])
         self.assertIsNone(payload["cell_pair_intensity_sum"])
+
+    def test_contour_center_payloads_are_serialized_from_properties(self):
+        payload = serialize_cell_statistics_payload(
+            _cell_stat(
+                properties={
+                    "selected_analysis": ["GreenRedIntensity"],
+                    "blue_contour_center_x_px": 1.0,
+                    "blue_contour_center_y_px": 2.0,
+                    "red_contour_1_center_x_px": 3.0,
+                    "red_contour_1_center_y_px": 4.0,
+                    "green_contour_1_center_x_px": 5.0,
+                    "green_contour_1_center_y_px": 6.0,
+                },
+            )
+        )
+
+        self.assertIsNone(payload["blue_contour_center_xy"])
+        self.assertEqual(payload["red_contour_1_center_xy"], {"x_px": 3.0, "y_px": 4.0})
+        self.assertEqual(payload["green_contour_1_center_xy"], {"x_px": 5.0, "y_px": 6.0})
+        self.assertIsNone(payload["red_contour_2_center_xy"])
+
+    def test_disabled_contour_center_groups_are_null(self):
+        payload = serialize_cell_statistics_payload(
+            _cell_stat(
+                properties={
+                    "selected_analysis": ["NuclearCellPairIntensity"],
+                    "nuclear_cell_pair_mode": "green_nucleus",
+                    "nuclear_cell_pair_status": "ok",
+                    "blue_contour_center_x_px": 1.0,
+                    "blue_contour_center_y_px": 2.0,
+                    "red_contour_1_center_x_px": 3.0,
+                    "red_contour_1_center_y_px": 4.0,
+                },
+            )
+        )
+
+        self.assertIsNone(payload["blue_contour_center_xy"])
+        self.assertIsNone(payload["red_contour_1_center_xy"])

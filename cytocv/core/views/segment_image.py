@@ -101,6 +101,13 @@ from core.services.canonical_contours import (
     build_canonical_contour_payload,
     flatten_slot_contours,
 )
+from core.services.contour_coordinates import (
+    BLUE_CONTOUR_PREFIX,
+    apply_contour_center_context,
+    build_contour_center_context,
+    clear_contour_center_properties,
+    store_contour_slot_centers,
+)
 from core.services.pair_refinement import refine_pair_label_image
 from core.services.overlay_rendering import (
     build_overlay_render_config,
@@ -300,6 +307,8 @@ def get_stats(
     cached_images=None,
     cached_measurement_images=None,
     alternate_detection_channel=None,
+    contour_crop_origin=None,
+    contour_main_image_shape=None,
 ):
     # loading configuration
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
@@ -416,6 +425,15 @@ def get_stats(
         return Image.fromarray(blank), Image.fromarray(blank), Image.fromarray(blank)
 
     reference = images[available_image_keys[0]]
+    contour_center_context = build_contour_center_context(
+        crop_origin=contour_crop_origin,
+        main_image_shape=contour_main_image_shape,
+        fallback_shape=reference.shape[:2],
+    )
+    cp.properties = apply_contour_center_context(
+        clear_contour_center_properties(cp.properties),
+        contour_center_context,
+    )
 
     def _canvas_for(channel_key: str) -> np.ndarray:
         base = images.get(channel_key, reference)
@@ -506,6 +524,12 @@ def get_stats(
     canonical_blue_slots = contours_data.get(CANONICAL_BLUE_SLOTS_KEY, [])
     canonical_blue_contours = flatten_slot_contours(canonical_blue_slots)
     cp.blue_contour_size = float(canonical_blue_slots[0].area) if canonical_blue_slots else 0.0
+    cp.properties = store_contour_slot_centers(
+        cp.properties,
+        (BLUE_CONTOUR_PREFIX,),
+        canonical_blue_slots[:1],
+        contour_center_context,
+    )
 
     if canonical_red_contours and suppressed_overlay_channel != CHANNEL_ROLE_RED:
         cv2.drawContours(edit_red_img, canonical_red_contours, -1, (0, 0, 255), 1)
@@ -1589,6 +1613,12 @@ def segment_image(request, uuids):
             cp.properties["puncta_contour_intensity_enabled"] = puncta_contour_intensity_enabled
             cp.properties["alternate_nucleus_detection_enabled"] = effective_alternate_enabled
             cp.properties["alternate_nucleus_detection_channel"] = effective_alternate_channel
+            contour_cache_entry = cell_contour_cache.get(cell_number)
+            contour_crop_origin = (
+                (contour_cache_entry[1], contour_cache_entry[3])
+                if contour_cache_entry is not None
+                else None
+            )
             # Call get_stats to do the real work
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1606,6 +1636,8 @@ def segment_image(request, uuids):
                 cached_images=cell_image_cache.get(cell_number),
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
                 alternate_detection_channel=effective_alternate_channel,
+                contour_crop_origin=contour_crop_origin,
+                contour_main_image_shape=seg.shape,
             )
 
             try:

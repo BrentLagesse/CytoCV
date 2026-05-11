@@ -57,6 +57,16 @@ If a new model field is required:
 - update display and dashboard serializers
 - update tables and reference docs
 
+If the value is dynamic run metadata or a derived display/export field, prefer `CellStatistics.properties` instead of a schema migration. Property-backed statistics still need the full public-output path:
+
+- a small service module for validation, storage, serialization, and formatting
+- serializer support in `core.services.cell_statistics_payload`
+- table columns, header unit handling, and export values in `core.tables`
+- stat visibility mapping in `core.services.stat_applicability`
+- display/dashboard table metadata when the field appears in browser-rendered statistics
+- focused tests for missing values, disabled stat groups, selected exports, combined exports, and unit conversion
+- reference documentation for stored property keys and output columns
+
 ## Preferred Extension Pattern
 
 Use the plugin metadata layer as the single source of truth for user-facing plugin identity and required channels. Avoid scattering plugin registration logic across templates and views.
@@ -74,4 +84,3 @@ Use the plugin metadata layer as the single source of truth for user-facing plug
 - [`testing-guide.md`](testing-guide.md)
 - [`../reference/data-model.md`](../reference/data-model.md)
 - [`../reference/file-format-and-artifact-spec.md`](../reference/file-format-and-artifact-spec.md)
-

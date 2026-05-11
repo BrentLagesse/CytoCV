@@ -404,6 +404,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
 
         self.assertIn("Distance Between Red Puncta (px)", header_row)
         self.assertIn("Blue Contour Size (px²)", header_row)
+        self.assertIn("Blue Contour Center (x,y) (px)", header_row)
         self.assertIn("Distance Of Green From Red 1 (px)", header_row)
 
     def test_spatial_headers_switch_to_microns_when_requested(self):
@@ -419,7 +420,36 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
 
         self.assertIn("Distance Between Red Puncta (µm)", header_row)
         self.assertIn("Blue Contour Size (µm²)", header_row)
+        self.assertIn("Blue Contour Center (x,y) (µm)", header_row)
         self.assertIn("Distance Of Green From Red 1 (µm)", header_row)
+
+    def test_contour_center_columns_follow_grouped_size_columns(self):
+        header_row = list(self.table.as_values())[0]
+
+        self.assertEqual(
+            header_row[
+                header_row.index("Red Contour 1 Size (px²)") :
+                header_row.index("Red In Red Intensity 1")
+            ],
+            [
+                "Red Contour 1 Size (px²)",
+                "Red Contour 2 Size (px²)",
+                "Red Contour 3 Size (px²)",
+                "Red Contour 1 Center (x,y) (px)",
+                "Red Contour 2 Center (x,y) (px)",
+                "Red Contour 3 Center (x,y) (px)",
+                "Green Contour 1 Size (px²)",
+                "Green Contour 2 Size (px²)",
+                "Green Contour 3 Size (px²)",
+                "Green Contour 1 Center (x,y) (px)",
+                "Green Contour 2 Center (x,y) (px)",
+                "Green Contour 3 Center (x,y) (px)",
+            ],
+        )
+        self.assertLess(
+            header_row.index("Blue Contour Size (px²)"),
+            header_row.index("Blue Contour Center (x,y) (px)"),
+        )
 
     def test_rendered_header_html_does_not_include_sort_links(self):
         request = RequestFactory().get("/dashboard/")
@@ -455,6 +485,59 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(table.value_blue_contour_size(10.0, record), "1.250")
         self.assertEqual(table.render_distance_of_green_from_red_1(6.0, record), "3.000")
         self.assertEqual(table.value_distance_of_green_from_red_1(6.0, record), "3.000")
+
+    def test_contour_center_values_convert_for_render_and_export(self):
+        record = _stats_record(
+            properties={
+                "blue_contour_center_x_px": 10.0,
+                "blue_contour_center_y_px": 20.0,
+                "red_contour_1_center_x_px": 12.0,
+                "red_contour_1_center_y_px": 24.0,
+                "green_contour_1_center_x_px": 14.0,
+                "green_contour_1_center_y_px": 28.0,
+            },
+        )
+        table = CellTable(
+            [record],
+            spatial_stats_unit="um",
+            scale_context={
+                "effective_um_per_px": 1.0,
+                "x_um_per_px": 0.5,
+                "y_um_per_px": 0.25,
+            },
+        )
+        values = list(table.as_values())
+        header = values[0]
+
+        self.assertEqual(table.render_blue_contour_center_xy(record), "5.000, 5.000")
+        self.assertEqual(table.value_blue_contour_center_xy(record), "5.000, 5.000")
+        self.assertEqual(
+            values[1][header.index("Red Contour 1 Center (x,y) (µm)")],
+            "6.000, 6.000",
+        )
+        self.assertEqual(
+            values[1][header.index("Green Contour 1 Center (x,y) (µm)")],
+            "7.000, 7.000",
+        )
+
+    def test_contour_center_values_are_na_when_missing_or_group_disabled(self):
+        missing = _stats_record(properties={})
+        disabled = _stats_record(
+            properties={
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "red_contour_1_center_x_px": 12.0,
+                "red_contour_1_center_y_px": 24.0,
+            },
+        )
+
+        self.assertEqual(
+            CellTable([missing]).render_red_contour_1_center_xy(missing),
+            "N/A",
+        )
+        self.assertEqual(
+            CellTable([disabled]).render_red_contour_1_center_xy(disabled),
+            "N/A",
+        )
 
     def test_distance_conversion_falls_back_to_scalar_scale_for_legacy_rows(self):
         record = SimpleNamespace(puncta_distance=8.0, properties={})

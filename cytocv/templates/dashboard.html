@@ -2679,12 +2679,19 @@
         const spatialFieldKinds = {
             puncta_distance: 'distance',
             blue_contour_size: 'area',
+            blue_contour_center_xy: 'coordinate',
             red_contour_1_size: 'area',
             red_contour_2_size: 'area',
             red_contour_3_size: 'area',
+            red_contour_1_center_xy: 'coordinate',
+            red_contour_2_center_xy: 'coordinate',
+            red_contour_3_center_xy: 'coordinate',
             green_contour_1_size: 'area',
             green_contour_2_size: 'area',
             green_contour_3_size: 'area',
+            green_contour_1_center_xy: 'coordinate',
+            green_contour_2_center_xy: 'coordinate',
+            green_contour_3_center_xy: 'coordinate',
             distance_of_green_from_red_1: 'distance',
             distance_of_green_from_red_2: 'distance',
             distance_of_green_from_red_3: 'distance',
@@ -2694,12 +2701,19 @@
             'puncta_distance',
             'puncta_line_intensity',
             'blue_contour_size',
+            'blue_contour_center_xy',
             'red_contour_1_size',
             'red_contour_2_size',
             'red_contour_3_size',
+            'red_contour_1_center_xy',
+            'red_contour_2_center_xy',
+            'red_contour_3_center_xy',
             'green_contour_1_size',
             'green_contour_2_size',
             'green_contour_3_size',
+            'green_contour_1_center_xy',
+            'green_contour_2_center_xy',
+            'green_contour_3_center_xy',
             'red_intensity_1',
             'red_intensity_2',
             'red_intensity_3',
@@ -2729,14 +2743,20 @@
         ];
         const statFieldGroups = {
             puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
-            legacy_blue_intensity: ['blue_contour_size'],
+            legacy_blue_intensity: ['blue_contour_size', 'blue_contour_center_xy'],
             red_green_intensity: [
                 'red_contour_1_size',
                 'red_contour_2_size',
                 'red_contour_3_size',
+                'red_contour_1_center_xy',
+                'red_contour_2_center_xy',
+                'red_contour_3_center_xy',
                 'green_contour_1_size',
                 'green_contour_2_size',
                 'green_contour_3_size',
+                'green_contour_1_center_xy',
+                'green_contour_2_center_xy',
+                'green_contour_3_center_xy',
                 'red_intensity_1',
                 'red_intensity_2',
                 'red_intensity_3',
@@ -2767,12 +2787,19 @@
         };
         const spatialHeaderBaseLabels = {
             blue_contour_size: 'Blue Contour Size',
+            blue_contour_center_xy: 'Blue Contour Center (x,y)',
             red_contour_1_size: 'Red Contour 1 Size',
+            red_contour_1_center_xy: 'Red Contour 1 Center (x,y)',
             red_contour_2_size: 'Red Contour 2 Size',
+            red_contour_2_center_xy: 'Red Contour 2 Center (x,y)',
             red_contour_3_size: 'Red Contour 3 Size',
+            red_contour_3_center_xy: 'Red Contour 3 Center (x,y)',
             green_contour_1_size: 'Green Contour 1 Size',
+            green_contour_1_center_xy: 'Green Contour 1 Center (x,y)',
             green_contour_2_size: 'Green Contour 2 Size',
+            green_contour_2_center_xy: 'Green Contour 2 Center (x,y)',
             green_contour_3_size: 'Green Contour 3 Size',
+            green_contour_3_center_xy: 'Green Contour 3 Center (x,y)',
             distance_of_green_from_red_1: 'Distance Of Green From Red 1',
             distance_of_green_from_red_2: 'Distance Of Green From Red 2',
             distance_of_green_from_red_3: 'Distance Of Green From Red 3',
@@ -3315,6 +3342,9 @@
             if (spatialFieldKinds[fieldName] === 'distance') {
                 return normalizedUnit === 'um' ? 'µm' : 'px';
             }
+            if (spatialFieldKinds[fieldName] === 'coordinate') {
+                return normalizedUnit === 'um' ? '\u00B5m' : 'px';
+            }
             return '';
         }
 
@@ -3324,6 +3354,25 @@
                 return label;
             }
             return `${String(label || '').replace(/\s+\((?:px|µm|px²|µm²)\)$/u, '')} (${suffix})`;
+        }
+
+        function formatCoordinateValue(value, scaleContext, unit) {
+            if (!value || typeof value !== 'object') {
+                return 'N/A';
+            }
+            let xValue = Number(value.x_px);
+            let yValue = Number(value.y_px);
+            if (!Number.isFinite(xValue) || !Number.isFinite(yValue)) {
+                return 'N/A';
+            }
+            if (normalizeSpatialUnit(unit) === 'um') {
+                const effectiveScale = Number(scaleContext?.effective_um_per_px || 0.1);
+                const xScale = Number(scaleContext?.x_um_per_px || effectiveScale || 0.1);
+                const yScale = Number(scaleContext?.y_um_per_px || effectiveScale || 0.1);
+                xValue *= xScale;
+                yValue *= yScale;
+            }
+            return `${xValue.toFixed(3)}, ${yValue.toFixed(3)}`;
         }
 
         function convertSpatialValue(fieldName, value, cellStats, scaleContext, unit) {
@@ -3353,6 +3402,9 @@
 
         function formatFieldValue(fieldName, value, cellStats, scaleContext) {
             if (Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
+                if (spatialFieldKinds[fieldName] === 'coordinate') {
+                    return formatCoordinateValue(value, scaleContext, getCurrentSpatialUnit());
+                }
                 return formatStatValue(
                     convertSpatialValue(
                         fieldName,

@@ -20,6 +20,12 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
+from core.services.contour_coordinates import (
+    BLUE_CONTOUR_PREFIX,
+    GREEN_CONTOUR_PREFIXES,
+    RED_CONTOUR_PREFIXES,
+    format_contour_center_from_properties,
+)
 from core.services.stat_applicability import (
     STAT_FIELD_GROUPS,
     is_field_applicable,
@@ -91,12 +97,19 @@ class CellTable(tables.Table):
     SPATIAL_FIELDS = {
         "puncta_distance": "distance",
         "blue_contour_size": "area",
+        "blue_contour_center_xy": "coordinate",
         "red_contour_1_size": "area",
         "red_contour_2_size": "area",
         "red_contour_3_size": "area",
+        "red_contour_1_center_xy": "coordinate",
+        "red_contour_2_center_xy": "coordinate",
+        "red_contour_3_center_xy": "coordinate",
         "green_contour_1_size": "area",
         "green_contour_2_size": "area",
         "green_contour_3_size": "area",
+        "green_contour_1_center_xy": "coordinate",
+        "green_contour_2_center_xy": "coordinate",
+        "green_contour_3_center_xy": "coordinate",
         "distance_of_green_from_red_1": "distance",
         "distance_of_green_from_red_2": "distance",
         "distance_of_green_from_red_3": "distance",
@@ -107,14 +120,42 @@ class CellTable(tables.Table):
     puncta_distance = NumberColumn(verbose_name="Distance Between Red Puncta")
     puncta_line_intensity = NumberColumn(verbose_name="Green Intensity Over Red Line")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
+    blue_contour_center_xy = tables.Column(
+        verbose_name="Blue Contour Center (x,y)",
+        empty_values=(),
+    )
 
     red_contour_1_size = NumberColumn(verbose_name="Red Contour 1 Size")
+    red_contour_1_center_xy = tables.Column(
+        verbose_name="Red Contour 1 Center (x,y)",
+        empty_values=(),
+    )
     red_contour_2_size = NumberColumn(verbose_name="Red Contour 2 Size")
+    red_contour_2_center_xy = tables.Column(
+        verbose_name="Red Contour 2 Center (x,y)",
+        empty_values=(),
+    )
     red_contour_3_size = NumberColumn(verbose_name="Red Contour 3 Size")
+    red_contour_3_center_xy = tables.Column(
+        verbose_name="Red Contour 3 Center (x,y)",
+        empty_values=(),
+    )
 
     green_contour_1_size = NumberColumn(verbose_name="Green Contour 1 Size")
+    green_contour_1_center_xy = tables.Column(
+        verbose_name="Green Contour 1 Center (x,y)",
+        empty_values=(),
+    )
     green_contour_2_size = NumberColumn(verbose_name="Green Contour 2 Size")
+    green_contour_2_center_xy = tables.Column(
+        verbose_name="Green Contour 2 Center (x,y)",
+        empty_values=(),
+    )
     green_contour_3_size = NumberColumn(verbose_name="Green Contour 3 Size")
+    green_contour_3_center_xy = tables.Column(
+        verbose_name="Green Contour 3 Center (x,y)",
+        empty_values=(),
+    )
 
     red_intensity_1 = NumberColumn(verbose_name="Red In Red Intensity 1")
     red_intensity_2 = NumberColumn(verbose_name="Red In Red Intensity 2")
@@ -165,12 +206,19 @@ class CellTable(tables.Table):
             "puncta_distance",
             "puncta_line_intensity",
             "blue_contour_size",
+            "blue_contour_center_xy",
             "red_contour_1_size",
             "red_contour_2_size",
             "red_contour_3_size",
+            "red_contour_1_center_xy",
+            "red_contour_2_center_xy",
+            "red_contour_3_center_xy",
             "green_contour_1_size",
             "green_contour_2_size",
             "green_contour_3_size",
+            "green_contour_1_center_xy",
+            "green_contour_2_center_xy",
+            "green_contour_3_center_xy",
             "red_intensity_1",
             "red_intensity_2",
             "red_intensity_3",
@@ -348,6 +396,22 @@ class CellTable(tables.Table):
             return "N/A"
         return self._format_number(self._converted_spatial_value(field_name, value, record))
 
+    def _render_contour_center_value(
+        self,
+        field_name: str,
+        contour_prefix: str,
+        record: CellStatistics,
+    ) -> str:
+        if not self._field_is_applicable(record, field_name):
+            return "N/A"
+        return format_contour_center_from_properties(
+            getattr(record, "properties", {}) or {},
+            contour_prefix,
+            unit=self._spatial_stats_unit,
+            x_um_per_px=self._scale_context["x_um_per_px"],
+            y_um_per_px=self._scale_context["y_um_per_px"],
+        )
+
     def _render_nuclear_cell_pair_value(self, record: CellStatistics, value: float) -> str:
         if not self._field_is_applicable(record, "cell_pair_intensity_sum"):
             return "N/A"
@@ -443,11 +507,31 @@ class CellTable(tables.Table):
     def value_blue_contour_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("blue_contour_size", value, record)
 
+    def render_blue_contour_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "blue_contour_center_xy",
+            BLUE_CONTOUR_PREFIX,
+            record,
+        )
+
+    def value_blue_contour_center_xy(self, record: CellStatistics) -> str:
+        return self.render_blue_contour_center_xy(record)
+
     def render_red_contour_1_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("red_contour_1_size", value, record)
 
     def value_red_contour_1_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("red_contour_1_size", value, record)
+
+    def render_red_contour_1_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "red_contour_1_center_xy",
+            RED_CONTOUR_PREFIXES[0],
+            record,
+        )
+
+    def value_red_contour_1_center_xy(self, record: CellStatistics) -> str:
+        return self.render_red_contour_1_center_xy(record)
 
     def render_red_contour_2_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("red_contour_2_size", value, record)
@@ -455,11 +539,31 @@ class CellTable(tables.Table):
     def value_red_contour_2_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("red_contour_2_size", value, record)
 
+    def render_red_contour_2_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "red_contour_2_center_xy",
+            RED_CONTOUR_PREFIXES[1],
+            record,
+        )
+
+    def value_red_contour_2_center_xy(self, record: CellStatistics) -> str:
+        return self.render_red_contour_2_center_xy(record)
+
     def render_red_contour_3_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("red_contour_3_size", value, record)
 
     def value_red_contour_3_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("red_contour_3_size", value, record)
+
+    def render_red_contour_3_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "red_contour_3_center_xy",
+            RED_CONTOUR_PREFIXES[2],
+            record,
+        )
+
+    def value_red_contour_3_center_xy(self, record: CellStatistics) -> str:
+        return self.render_red_contour_3_center_xy(record)
 
     def render_green_contour_1_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("green_contour_1_size", value, record)
@@ -467,17 +571,47 @@ class CellTable(tables.Table):
     def value_green_contour_1_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("green_contour_1_size", value, record)
 
+    def render_green_contour_1_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "green_contour_1_center_xy",
+            GREEN_CONTOUR_PREFIXES[0],
+            record,
+        )
+
+    def value_green_contour_1_center_xy(self, record: CellStatistics) -> str:
+        return self.render_green_contour_1_center_xy(record)
+
     def render_green_contour_2_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("green_contour_2_size", value, record)
 
     def value_green_contour_2_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("green_contour_2_size", value, record)
 
+    def render_green_contour_2_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "green_contour_2_center_xy",
+            GREEN_CONTOUR_PREFIXES[1],
+            record,
+        )
+
+    def value_green_contour_2_center_xy(self, record: CellStatistics) -> str:
+        return self.render_green_contour_2_center_xy(record)
+
     def render_green_contour_3_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("green_contour_3_size", value, record)
 
     def value_green_contour_3_size(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("green_contour_3_size", value, record)
+
+    def render_green_contour_3_center_xy(self, record: CellStatistics) -> str:
+        return self._render_contour_center_value(
+            "green_contour_3_center_xy",
+            GREEN_CONTOUR_PREFIXES[2],
+            record,
+        )
+
+    def value_green_contour_3_center_xy(self, record: CellStatistics) -> str:
+        return self.render_green_contour_3_center_xy(record)
 
     def render_distance_of_green_from_red_1(self, value: float, record: CellStatistics) -> str:
         return self._render_spatial_value("distance_of_green_from_red_1", value, record)
