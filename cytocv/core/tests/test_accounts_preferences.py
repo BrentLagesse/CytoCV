@@ -1427,7 +1427,7 @@ class DisplayManualSaveTests(TestCase):
             [
                 ["combined_second", "1", "1.000", "5.000"],
                 ["combined_first", "1", "1.000", "5.000"],
-                ["combined_first", "2", "1.000", "5.000"],
+                ["", "2", "1.000", "5.000"],
             ],
         )
 

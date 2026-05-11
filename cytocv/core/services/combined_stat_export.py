@@ -139,8 +139,9 @@ def build_combined_statistics_export_response(
             spatial_stats_unit=unit,
             default_manual_scale=default_manual_scale,
         )
-        for row in rows:
-            dataset.append([source.file_name, *row])
+        for row_index, row in enumerate(rows):
+            file_name_cell = source.file_name if row_index == 0 else ""
+            dataset.append([file_name_cell, *row])
             row_count += 1
 
     if row_count == 0:
