@@ -1166,6 +1166,9 @@
             gap: 10px;
             min-height: 320px;
         }
+        #confirmCellsView {
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
+        }
         .cell-select-toolbar {
             display: flex;
             justify-content: flex-start;
@@ -1329,6 +1332,7 @@
         }
         .delete-modal-actions {
             display: flex;
+            align-items: center;
             justify-content: flex-end;
             gap: 10px;
         }
