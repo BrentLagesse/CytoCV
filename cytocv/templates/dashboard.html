@@ -1336,6 +1336,15 @@
             justify-content: flex-end;
             gap: 10px;
         }
+        .delete-modal-status {
+            min-height: 18px;
+            color: var(--muted);
+            font-size: 12px;
+            display: none;
+        }
+        .delete-modal-status.is-visible {
+            display: block;
+        }
         .delete-modal-btn {
             border: none;
             border-radius: 8px;
@@ -1343,6 +1352,33 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 92px;
+            line-height: 1.2;
+        }
+        .delete-modal-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.72;
+        }
+        .delete-modal-btn.loading {
+            cursor: wait;
+        }
+        .delete-modal-btn .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-right-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            display: none;
+            flex: 0 0 auto;
+        }
+        .delete-modal-btn.loading .spinner {
+            display: inline-block;
         }
         .delete-modal-btn.cancel {
             background: var(--surface-muted-alt);
@@ -2598,9 +2634,13 @@
             <div class="delete-preview-box">
                 <ul class="delete-preview-list" id="deleteFilesList"></ul>
             </div>
+            <p class="delete-modal-status" id="deleteFilesStatus" aria-live="polite"></p>
             <div class="delete-modal-actions">
                 <button type="button" class="delete-modal-btn cancel" id="cancelDeleteFilesBtn">Cancel</button>
-                <button type="button" class="delete-modal-btn confirm" id="confirmDeleteFilesBtn">Confirm Delete</button>
+                <button type="button" class="delete-modal-btn confirm" id="confirmDeleteFilesBtn">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span class="btn-label">Confirm Delete</span>
+                </button>
             </div>
         </div>
     </div>
@@ -5445,6 +5485,7 @@
             const deleteBackdrop = document.getElementById('deleteFilesBackdrop');
             const deleteMessage = document.getElementById('deleteFilesMessage');
             const deleteList = document.getElementById('deleteFilesList');
+            const deleteStatus = document.getElementById('deleteFilesStatus');
             const cancelDeleteFilesBtn = document.getElementById('cancelDeleteFilesBtn');
             const confirmDeleteFilesBtn = document.getElementById('confirmDeleteFilesBtn');
 
@@ -5460,6 +5501,7 @@
             const csrfToken = getCookie('csrftoken');
             let channelLabelFadeTimer = null;
             let scaleLabelFadeTimer = null;
+            let isDeletingFiles = false;
 
             function getCookie(name) {
                 let value = null;
@@ -5570,7 +5612,32 @@
                 }
             }
 
+            function setDeleteLoading(isLoading) {
+                isDeletingFiles = isLoading;
+                if (confirmDeleteFilesBtn) {
+                    const label = confirmDeleteFilesBtn.querySelector('.btn-label');
+                    confirmDeleteFilesBtn.disabled = isLoading;
+                    confirmDeleteFilesBtn.classList.toggle('loading', isLoading);
+                    if (isLoading) {
+                        confirmDeleteFilesBtn.setAttribute('aria-busy', 'true');
+                    } else {
+                        confirmDeleteFilesBtn.removeAttribute('aria-busy');
+                    }
+                    if (label) {
+                        label.textContent = isLoading ? 'Deleting' : 'Confirm Delete';
+                    }
+                }
+                if (cancelDeleteFilesBtn) {
+                    cancelDeleteFilesBtn.disabled = isLoading;
+                }
+                if (deleteStatus) {
+                    deleteStatus.textContent = isLoading ? 'Deleting selected files...' : '';
+                    deleteStatus.classList.toggle('is-visible', isLoading);
+                }
+            }
+
             function closeDeleteModal() {
+                if (isDeletingFiles) return;
                 if (!deleteBackdrop) return;
                 deleteBackdrop.style.display = 'none';
                 deleteBackdrop.setAttribute('aria-hidden', 'true');
@@ -5578,6 +5645,7 @@
 
             function openDeleteModal() {
                 if (!deleteBackdrop || !deleteMessage || !deleteList) return;
+                setDeleteLoading(false);
                 const selected = fileUUIDs.filter((uuid) => selectedFileUUIDs.has(uuid)).map((uuid) => {
                     const row = fileItems.find((item) => item.dataset.uuid === uuid);
                     const title = row ? row.querySelector('.file-title') : null;
@@ -5598,9 +5666,10 @@
             }
 
             async function deleteSelectedFiles() {
+                if (isDeletingFiles) return;
                 const uuids = Array.from(selectedFileUUIDs);
                 if (!uuids.length) return;
-                confirmDeleteFilesBtn.disabled = true;
+                setDeleteLoading(true);
                 try {
                     const response = await fetch('/dashboard/files/delete/', {
                         method: 'POST',
@@ -5617,9 +5686,8 @@
                     }
                     window.location.reload();
                 } catch (err) {
+                    setDeleteLoading(false);
                     showMessage(err.message || 'Unable to delete selected files.');
-                    confirmDeleteFilesBtn.disabled = false;
-                    closeDeleteModal();
                 }
             }
 
@@ -5672,10 +5740,12 @@
             if (confirmDeleteFilesBtn) confirmDeleteFilesBtn.addEventListener('click', deleteSelectedFiles);
             if (deleteBackdrop) {
                 deleteBackdrop.addEventListener('click', (event) => {
+                    if (isDeletingFiles) return;
                     if (event.target === deleteBackdrop) closeDeleteModal();
                 });
             }
             document.addEventListener('keydown', (event) => {
+                if (isDeletingFiles) return;
                 if (event.key === 'Escape' && deleteBackdrop && deleteBackdrop.style.display === 'flex') {
                     closeDeleteModal();
                 }

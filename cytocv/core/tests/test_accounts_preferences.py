@@ -929,6 +929,13 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'Edit files', html=False)
         self.assertContains(response, 'id="exportSelectionConfig"', html=False)
         self.assertContains(response, "export_selection_modal.js", html=False)
+        self.assertContains(response, 'id="deleteFilesStatus" aria-live="polite"', html=False)
+        self.assertContains(response, '<span class="spinner" aria-hidden="true"></span>', html=False)
+        self.assertContains(response, '<span class="btn-label">Confirm Delete</span>', html=False)
+        self.assertContains(response, "let isDeletingFiles = false;", html=False)
+        self.assertContains(response, "function setDeleteLoading(isLoading)", html=False)
+        self.assertContains(response, "Deleting selected files...", html=False)
+        self.assertContains(response, "if (isDeletingFiles) return;", html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
 
