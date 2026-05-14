@@ -2310,9 +2310,16 @@ def _alternate_channel_contour_family(
 
     if bright_image is not None:
         blurred_bright = cv2.GaussianBlur(bright_image, (9, 9), 0)
-        _, bright_thresh = cv2.threshold(
+        cv2.fastNlMeansDenoising(blurred_bright, blurred_bright, 4)
+        bright_ret, _ = cv2.threshold(
             blurred_bright,
             5,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        _, bright_thresh = cv2.threshold(
+            blurred_bright,
+            bright_ret * 0.7,
             255,
             cv2.THRESH_BINARY,
         )
@@ -2323,9 +2330,15 @@ def _alternate_channel_contour_family(
         )
 
     if bright_thresh is not None and base_image is not None:
-        _, thresh = cv2.threshold(
+        ret, _ = cv2.threshold(
             base_image,
             5,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        _, thresh = cv2.threshold(
+            base_image,
+            ret * 0.7,
             255,
             cv2.THRESH_BINARY,
         )
@@ -2335,6 +2348,7 @@ def _alternate_channel_contour_family(
             cv2.RETR_EXTERNAL,
             cv2.CHAIN_APPROX_SIMPLE,
         )
+
         best_contours = get_largest(contours)
         best_contours_bright = get_largest(contours_bright)
 
@@ -2362,6 +2376,7 @@ def _alternate_channel_contour_family(
                 cv2.RETR_EXTERNAL,
                 cv2.CHAIN_APPROX_SIMPLE,
             )
+
             best_contours = get_largest(contours)
             best_contours_bright = get_largest(contours_bright)
 
