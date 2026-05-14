@@ -24,7 +24,7 @@ class DotSplitConfigTests(SimpleTestCase):
     def test_analysis_snapshot_defaults_invalid_green_dot_split_mode(self):
         normalized = normalize_analysis_config_snapshot({"greenDotSplitMode": "bad"})
 
-        self.assertEqual(normalized["greenDotSplitMode"], "balanced")
+        self.assertEqual(normalized["greenDotSplitMode"], "aggressive")
 
     def test_analysis_snapshot_preserves_red_dot_split_mode(self):
         normalized = normalize_analysis_config_snapshot(
@@ -40,7 +40,7 @@ class DotSplitConfigTests(SimpleTestCase):
     def test_analysis_snapshot_defaults_invalid_red_dot_split_mode(self):
         normalized = normalize_analysis_config_snapshot({"redDotSplitMode": "bad"})
 
-        self.assertEqual(normalized["redDotSplitMode"], "balanced")
+        self.assertEqual(normalized["redDotSplitMode"], "aggressive")
 
     def test_analysis_snapshot_derives_puncta_without_contour_intensity(self):
         normalized = normalize_analysis_config_snapshot(

@@ -113,11 +113,14 @@ The nuclear or cell-pair mode currently supports:
 For the modern red/green measurements, CytoCV uses canonical contour slots across the shared statistics path. Each detected Red or Green contour is filled, clipped to the segmented cell, and ranked by clipped area, then center `x`, then center `y`. Slot numbers therefore stay consistent across:
 
 - contour size outputs
+- full-main-image contour center coordinate outputs
 - raw integrated contour intensity outputs
 - Red-line and CEN-dot puncta selection
 - nucleus measurements in `red_nucleus` and `green_nucleus` mode
 
 In `red_nucleus`, nuclear intensity uses canonical Red slot `1`. In `green_nucleus`, nuclear intensity uses canonical Green slot `1`.
+
+Contour center coordinates use the same canonical slots as the size and intensity fields. Coordinates are reported relative to the full main image with a bottom-left origin, and the display/export unit toggle converts them from raw pixels to micrometers when requested.
 
 ## Expected Outputs
 

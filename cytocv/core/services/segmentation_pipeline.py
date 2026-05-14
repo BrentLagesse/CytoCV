@@ -1233,9 +1233,8 @@ def run_segmentation_batch(
             cp.properties["alternate_nucleus_detection_enabled"] = effective_alternate_enabled
             cp.properties["alternate_nucleus_detection_channel"] = effective_alternate_channel
 
-            cp.properties["neck_split"] = _build_neck_split_properties(
-                pair_geometry_cache.get(cell_number)
-            )
+            pair_entry = pair_geometry_cache.get(cell_number)
+            cp.properties["neck_split"] = _build_neck_split_properties(pair_entry)
 
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1253,6 +1252,10 @@ def run_segmentation_batch(
                 cached_images=cell_image_cache.get(cell_number),
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
                 alternate_detection_channel=effective_alternate_channel,
+                contour_crop_origin=(
+                    (pair_entry.min_x, pair_entry.min_y) if pair_entry is not None else None
+                ),
+                contour_main_image_shape=seg.shape,
             )
             rendered_overlay_images = {
                 "red": debug_red,

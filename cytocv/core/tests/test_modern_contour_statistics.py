@@ -116,6 +116,8 @@ class ModernContourStatisticsTests(SimpleTestCase):
         alternate_enabled: bool = False,
         alternate_channel: str | None = None,
         signal_quantification_mode: str | None = None,
+        contour_crop_origin=None,
+        contour_main_image_shape=None,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -167,6 +169,8 @@ class ModernContourStatisticsTests(SimpleTestCase):
                     cen_dot_distance=cen_dot_distance,
                     alternate_red_detection=alternate_enabled,
                     alternate_detection_channel=alternate_channel,
+                    contour_crop_origin=contour_crop_origin,
+                    contour_main_image_shape=contour_main_image_shape,
                 )
 
         return cp, np.array(debug_red), np.array(debug_green), np.array(debug_blue)
@@ -416,6 +420,70 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertAlmostEqual(cp.puncta_distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4)
         self.assertEqual(cp.category_cen_dot, 4)
         self.assertEqual(cp.properties["cen_dot_location"]["status"], "too_many_reds")
+
+    def test_contour_centers_use_same_ranked_slots_and_full_image_bottom_left_origin(self):
+        shape = (30, 30)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        small_red = self._rect_contour(2, 3, 5, 6)
+        large_red = self._rect_contour(10, 4, 18, 12)
+        small_green = self._rect_contour(3, 20, 6, 23)
+        large_green = self._rect_contour(14, 16, 22, 24)
+        red_gray[3:13, 2:19] = 10
+        green_gray[16:25, 14:23] = 10
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["GreenRedIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data={
+                "dot_contours": [small_red, large_red],
+                "contours_green": [small_green, large_green],
+            },
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            contour_crop_origin=(40, 50),
+            contour_main_image_shape=(120, 140),
+        )
+
+        self.assertGreater(cp.red_contour_1_size, cp.red_contour_2_size)
+        self.assertGreater(cp.green_contour_1_size, cp.green_contour_2_size)
+        self.assertAlmostEqual(cp.properties["red_contour_1_center_x_px"], 64.0, places=4)
+        self.assertAlmostEqual(cp.properties["red_contour_1_center_y_px"], 71.0, places=4)
+        self.assertAlmostEqual(cp.properties["green_contour_1_center_x_px"], 68.0, places=4)
+        self.assertAlmostEqual(cp.properties["green_contour_1_center_y_px"], 59.0, places=4)
+        self.assertEqual(cp.properties["contour_center_origin"], "main_image_bottom_left")
+        self.assertEqual(
+            cp.properties["contour_center_method"],
+            "filled_mask_geometric_centroid",
+        )
+
+    def test_blue_contour_center_uses_same_slot_as_blue_size(self):
+        shape = (60, 60)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        blue_contour = self._rect_contour(10, 12, 20, 22)
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["GreenRedIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data={
+                "dot_contours": [],
+                "contours_green": [],
+                "contours_blue": [blue_contour],
+            },
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            contour_crop_origin=(4, 6),
+            contour_main_image_shape=(80, 90),
+        )
+
+        self.assertGreater(cp.blue_contour_size, 0.0)
+        self.assertAlmostEqual(cp.properties["blue_contour_center_x_px"], 21.0, places=4)
+        self.assertAlmostEqual(cp.properties["blue_contour_center_y_px"], 58.0, places=4)
 
     def test_best_effort_parentage_can_be_identified_when_cen_dot_is_na(self):
         shape = (60, 60)

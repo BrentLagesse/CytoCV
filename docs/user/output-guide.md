@@ -45,6 +45,7 @@ Important stored measurement families include:
 
 - puncta distance and puncta-line intensity
 - raw red/green contour intensity sums, including cross-channel contour measurements
+- full-main-image contour center coordinates for the same canonical contour slots
 - nuclear, cell-pair, and cytoplasmic intensity summaries
 - legacy Blue-derived outputs when legacy plugins are enabled
 - CEN dot location and classification outputs
@@ -63,8 +64,11 @@ For the modern red/green statistics, contour slots `1/2/3` are canonical ranked 
 
 - `red_contour_1_size`, `red_intensity_1`, and `green_intensity_1` all refer to the same clipped Red contour slot
 - `green_contour_1_size`, `red_in_green_intensity_1`, and `green_in_green_intensity_1` all refer to the same clipped Green contour slot
+- `red_contour_1_center_xy` and `green_contour_1_center_xy` report the center of those same slot `1` masks
 - in `red_nucleus` mode, `nucleus_intensity_sum` uses Red slot `1`
 - in `green_nucleus` mode, `nucleus_intensity_sum` uses Green slot `1`
+
+Contour center coordinates are measured relative to the full main image, not the cropped cell-pair image. They use a bottom-left origin: the bottom-left pixel center is `(0, 0)`, `x` increases to the right, and `y` increases upward. The center is the filled-contour geometric centroid after clipping to the segmented cell mask, so it is shape-based rather than brightness-weighted.
 
 As a result, when one contour defines the selected nucleus family, the matching nuclear measurement and cross-channel contour measurement can match exactly because they come from the same canonical contour slot:
 
@@ -88,14 +92,24 @@ Run metadata also stores contextual information such as:
 
 CytoCV supports CSV and XLSX table exports. Export behavior is available in:
 
-- the display view for the first UUID with statistics
+- the display view for the current statistics table
 - the dashboard for a selected saved file
+- combined statistics downloads for selected files in Display or Dashboard
 
 The on-page statistics tables and the CSV/XLSX exports include both:
 
 - the raw integrated contour intensity sums as the primary table/export values
+- the full-main-image contour center coordinate columns after the matching Red or Green size group
 - the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
-- canonical contour slot numbering, so size, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
+- canonical contour slot numbering, so size, center-coordinate, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
+
+When the statistics unit toggle is set to pixels, coordinate columns show full-image pixel coordinates. When the unit is set to micrometers, `x` and `y` are converted with the file's per-axis scale metadata or manual fallback scale.
+
+Statistics downloads can include all metrics or a selected subset. Export filenames follow:
+
+`cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`
+
+The `all` or `selected` token describes whether all cell metrics or only selected metrics were exported. The file count separately reflects how many files were included. In combined exports, `File Name` appears only on the first row for each file group, with later rows for that same file left blank until the next file begins.
 
 ## Expected Outputs
 

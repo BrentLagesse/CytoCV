@@ -23,6 +23,7 @@ from accounts.views import (
     auth_login,
     auth_logout,
     dashboard_bulk_delete_view,
+    dashboard_bulk_export_view,
     dashboard_channel_visibility_view,
     dashboard_view,
     oauth_verification_status,
@@ -34,6 +35,7 @@ from core.views.display import (
     delete_cell_view,
     delete_cells_view,
     display,
+    export_display_files,
     main_image_channel,
     save_display_files,
     sync_display_file_selection,
@@ -89,6 +91,11 @@ urlpatterns = [
         'dashboard/files/delete/',
         login_required(dashboard_bulk_delete_view),
         name="dashboard_bulk_delete",
+    ),
+    path(
+        'dashboard/files/export/',
+        login_required(dashboard_bulk_export_view),
+        name="dashboard_bulk_export",
     ),
     path(
         'dashboard/preferences/channels/',
@@ -171,6 +178,11 @@ urlpatterns = [
         'experiment/display/files/sync-selection/',
         login_required(sync_display_file_selection),
         name='display_sync_file_selection',
+    ),
+    path(
+        'experiment/display/files/export/',
+        login_required(export_display_files),
+        name='display_export_files',
     ),
     path(
         'experiment/<str:uuid>/main-channel/',

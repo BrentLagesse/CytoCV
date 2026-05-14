@@ -61,9 +61,9 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_red_max_distance": 37,
         "biorientation_collinearity_threshold": DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
         "green_dot_split_enabled": True,
-        "green_dot_split_mode": "balanced",
+        "green_dot_split_mode": "aggressive",
         "red_dot_split_enabled": True,
-        "red_dot_split_mode": "balanced",
+        "red_dot_split_mode": "aggressive",
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "green_contour_filter_enabled": False,
@@ -635,7 +635,7 @@ def build_experiment_defaults_from_popup_payload(
         allowed={"balanced", "aggressive"},
     )
     red_dot_split_mode = _strict_mode(
-        raw_payload.get("red_dot_split_mode", current.get("red_dot_split_mode", "balanced")),
+        raw_payload.get("red_dot_split_mode", current.get("red_dot_split_mode", "aggressive")),
         field="red_dot_split_mode",
         allowed={"balanced", "aggressive"},
     )

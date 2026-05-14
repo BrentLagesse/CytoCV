@@ -5,6 +5,7 @@
 
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
+    <script src="{% static 'js/export_selection_modal.js' %}?v=selectable-export-format-pill-state"></script>
     <style>
         .channel-chip.dic { background-color: black; }
         .channel-chip.blue { background-color: blue; }
@@ -895,13 +896,14 @@
             min-width: 0;
         }
         .sidebar.select-mode .selection-extra {
-            max-width: 240px;
+            max-width: 330px;
             opacity: 1;
             transform: translateX(0);
         }
         .select-mode-btn,
         .select-all-btn,
         .delete-selected-btn,
+        .download-selected-btn,
         .channel-visibility-btn,
         .scale-visibility-btn {
             border: 1px solid var(--panel-border);
@@ -930,7 +932,16 @@
             background: #911b25;
             border-color: #911b25;
         }
-        .delete-selected-btn:disabled {
+        .download-selected-btn {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .download-selected-btn:hover:not(:disabled) {
+            background: #0f70d8;
+            border-color: #0f70d8;
+        }
+        .delete-selected-btn:disabled,
+        .download-selected-btn:disabled {
             opacity: 0.45;
             cursor: not-allowed;
         }
@@ -1095,6 +1106,13 @@
             justify-content: center;
             z-index: 2200;
         }
+        .delete-modal-backdrop.modal-enter {
+            animation: settingsBackdropIn 150ms ease-out both;
+        }
+        .delete-modal-backdrop.modal-exit {
+            animation: settingsBackdropOut 120ms ease-in both;
+            pointer-events: none;
+        }
         .delete-modal {
             width: min(420px, 92vw);
             background: var(--popup-surface-bg);
@@ -1103,6 +1121,13 @@
             padding: 18px;
             display: grid;
             gap: 10px;
+        }
+        .delete-modal.modal-enter {
+            animation: settingsModalIn 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .delete-modal.modal-exit {
+            animation: settingsModalOut 120ms ease-in both;
+            pointer-events: none;
         }
         .delete-modal h3,
         .delete-modal p {
@@ -1141,10 +1166,14 @@
             gap: 10px;
             min-height: 320px;
         }
+        #confirmCellsView {
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
+        }
         .cell-select-toolbar {
             display: flex;
-            justify-content: flex-end;
+            justify-content: flex-start;
             align-items: center;
+            gap: 8px;
         }
         .cell-select-toggle-all {
             background: transparent;
@@ -1164,6 +1193,13 @@
             border-color: rgba(90, 170, 255, 0.6);
             color: #e8f1ff;
             outline: none;
+        }
+        .cell-select-toggle-all.active,
+        .cell-select-toggle-all[aria-pressed="true"] {
+            background-color: rgba(0, 123, 255, 0.18);
+            border-color: rgba(0, 123, 255, 0.72);
+            color: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(130, 190, 255, 0.22), var(--btn-shadow);
         }
         .cell-select-toggle-all:disabled {
             opacity: 0.5;
@@ -1227,13 +1263,14 @@
             color: inherit;
         }
         .cell-select-card.selected {
-            background-color: #007bff;
-            color: #fff;
-            border-color: rgba(90, 170, 255, 0.78);
-            box-shadow: 0 10px 24px rgba(0, 123, 255, 0.18);
+            background-color: var(--surface-muted);
+            color: inherit;
+            border-color: var(--panel-border);
+            box-shadow: none;
         }
         .cell-select-card.selected:hover {
-            background-color: #0056b3;
+            background-color: #3399ff;
+            color: #fff;
         }
         .cell-select-input {
             position: absolute;
@@ -1295,8 +1332,18 @@
         }
         .delete-modal-actions {
             display: flex;
+            align-items: center;
             justify-content: flex-end;
             gap: 10px;
+        }
+        .delete-modal-status {
+            min-height: 18px;
+            color: var(--muted);
+            font-size: 12px;
+            display: none;
+        }
+        .delete-modal-status.is-visible {
+            display: block;
         }
         .delete-modal-btn {
             border: none;
@@ -1305,6 +1352,33 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 92px;
+            line-height: 1.2;
+        }
+        .delete-modal-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.72;
+        }
+        .delete-modal-btn.loading {
+            cursor: wait;
+        }
+        .delete-modal-btn .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-right-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            display: none;
+            flex: 0 0 auto;
+        }
+        .delete-modal-btn.loading .spinner {
+            display: inline-block;
         }
         .delete-modal-btn.cancel {
             background: var(--surface-muted-alt);
@@ -2081,6 +2155,15 @@
                     <div class="selection-extra">
                         <button class="select-all-btn" id="selectAllBtn" type="button">Select All</button>
                         <button class="delete-selected-btn" id="deleteSelectedBtn" type="button" disabled>Delete</button>
+                        <button
+                            class="download-selected-btn"
+                            id="downloadSelectedBtn"
+                            type="button"
+                            disabled
+                            title="Select files first."
+                        >
+                            Download
+                        </button>
                     </div>
                 </div>
                 <div class="visibility-controls">
@@ -2487,8 +2570,7 @@
                         </div>
                     </div>
                     <div class="export-buttons" id="exportButtons">
-                        <a class="export_btn" id="downloadCsvBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=csv&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download CSV</a>
-                        <a class="export_btn" id="downloadXlsxBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=xlsx&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download Excel</a>
+                        <a class="export_btn" id="downloadStatsBtn" href="{% if table_uuid %}{% url 'dashboard' %}?file_uuid={{ table_uuid|urlencode }}&amp;_export=csv&amp;_unit={{ sidebar_spatial_stats_unit|urlencode }}{% else %}#{% endif %}">Download Statistics</a>
                     </div>
 
                 </div>
@@ -2520,7 +2602,8 @@
                 <h3 id="selectCellsTitle">Select Cells</h3>
                 <p id="selectCellsMessage">Choose the cells to delete from this file.</p>
                 <div class="cell-select-toolbar">
-                    <button class="cell-select-toggle-all" id="selectCellsToggleAllBtn" type="button">Select all</button>
+                    <button class="cell-select-toggle-all" id="selectCellsToggleAllBtn" type="button">Select</button>
+                    <button class="cell-select-toggle-all" id="selectCellsClearBtn" type="button">Clear</button>
                 </div>
                 <div class="cell-select-list-box">
                     <ul class="cell-select-list" id="selectCellsList"></ul>
@@ -2551,13 +2634,18 @@
             <div class="delete-preview-box">
                 <ul class="delete-preview-list" id="deleteFilesList"></ul>
             </div>
+            <p class="delete-modal-status" id="deleteFilesStatus" aria-live="polite"></p>
             <div class="delete-modal-actions">
                 <button type="button" class="delete-modal-btn cancel" id="cancelDeleteFilesBtn">Cancel</button>
-                <button type="button" class="delete-modal-btn confirm" id="confirmDeleteFilesBtn">Confirm Delete</button>
+                <button type="button" class="delete-modal-btn confirm" id="confirmDeleteFilesBtn">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span class="btn-label">Confirm Delete</span>
+                </button>
             </div>
         </div>
     </div>
 
+    {% include "partials/export_selection_modal.html" %}
     <script id="dashboardFilesData" type="application/json">{{ files_data_json|safe }}</script>
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
@@ -2635,12 +2723,19 @@
         const spatialFieldKinds = {
             puncta_distance: 'distance',
             blue_contour_size: 'area',
+            blue_contour_center_xy: 'coordinate',
             red_contour_1_size: 'area',
             red_contour_2_size: 'area',
             red_contour_3_size: 'area',
+            red_contour_1_center_xy: 'coordinate',
+            red_contour_2_center_xy: 'coordinate',
+            red_contour_3_center_xy: 'coordinate',
             green_contour_1_size: 'area',
             green_contour_2_size: 'area',
             green_contour_3_size: 'area',
+            green_contour_1_center_xy: 'coordinate',
+            green_contour_2_center_xy: 'coordinate',
+            green_contour_3_center_xy: 'coordinate',
             distance_of_green_from_red_1: 'distance',
             distance_of_green_from_red_2: 'distance',
             distance_of_green_from_red_3: 'distance',
@@ -2650,12 +2745,19 @@
             'puncta_distance',
             'puncta_line_intensity',
             'blue_contour_size',
+            'blue_contour_center_xy',
             'red_contour_1_size',
             'red_contour_2_size',
             'red_contour_3_size',
+            'red_contour_1_center_xy',
+            'red_contour_2_center_xy',
+            'red_contour_3_center_xy',
             'green_contour_1_size',
             'green_contour_2_size',
             'green_contour_3_size',
+            'green_contour_1_center_xy',
+            'green_contour_2_center_xy',
+            'green_contour_3_center_xy',
             'red_intensity_1',
             'red_intensity_2',
             'red_intensity_3',
@@ -2685,14 +2787,20 @@
         ];
         const statFieldGroups = {
             puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
-            legacy_blue_intensity: ['blue_contour_size'],
+            legacy_blue_intensity: ['blue_contour_size', 'blue_contour_center_xy'],
             red_green_intensity: [
                 'red_contour_1_size',
                 'red_contour_2_size',
                 'red_contour_3_size',
+                'red_contour_1_center_xy',
+                'red_contour_2_center_xy',
+                'red_contour_3_center_xy',
                 'green_contour_1_size',
                 'green_contour_2_size',
                 'green_contour_3_size',
+                'green_contour_1_center_xy',
+                'green_contour_2_center_xy',
+                'green_contour_3_center_xy',
                 'red_intensity_1',
                 'red_intensity_2',
                 'red_intensity_3',
@@ -2723,12 +2831,19 @@
         };
         const spatialHeaderBaseLabels = {
             blue_contour_size: 'Blue Contour Size',
+            blue_contour_center_xy: 'Blue Contour Center (x,y)',
             red_contour_1_size: 'Red Contour 1 Size',
+            red_contour_1_center_xy: 'Red Contour 1 Center (x,y)',
             red_contour_2_size: 'Red Contour 2 Size',
+            red_contour_2_center_xy: 'Red Contour 2 Center (x,y)',
             red_contour_3_size: 'Red Contour 3 Size',
+            red_contour_3_center_xy: 'Red Contour 3 Center (x,y)',
             green_contour_1_size: 'Green Contour 1 Size',
+            green_contour_1_center_xy: 'Green Contour 1 Center (x,y)',
             green_contour_2_size: 'Green Contour 2 Size',
+            green_contour_2_center_xy: 'Green Contour 2 Center (x,y)',
             green_contour_3_size: 'Green Contour 3 Size',
+            green_contour_3_center_xy: 'Green Contour 3 Center (x,y)',
             distance_of_green_from_red_1: 'Distance Of Green From Red 1',
             distance_of_green_from_red_2: 'Distance Of Green From Red 2',
             distance_of_green_from_red_3: 'Distance Of Green From Red 3',
@@ -3271,6 +3386,9 @@
             if (spatialFieldKinds[fieldName] === 'distance') {
                 return normalizedUnit === 'um' ? 'µm' : 'px';
             }
+            if (spatialFieldKinds[fieldName] === 'coordinate') {
+                return normalizedUnit === 'um' ? '\u00B5m' : 'px';
+            }
             return '';
         }
 
@@ -3280,6 +3398,25 @@
                 return label;
             }
             return `${String(label || '').replace(/\s+\((?:px|µm|px²|µm²)\)$/u, '')} (${suffix})`;
+        }
+
+        function formatCoordinateValue(value, scaleContext, unit) {
+            if (!value || typeof value !== 'object') {
+                return 'N/A';
+            }
+            let xValue = Number(value.x_px);
+            let yValue = Number(value.y_px);
+            if (!Number.isFinite(xValue) || !Number.isFinite(yValue)) {
+                return 'N/A';
+            }
+            if (normalizeSpatialUnit(unit) === 'um') {
+                const effectiveScale = Number(scaleContext?.effective_um_per_px || 0.1);
+                const xScale = Number(scaleContext?.x_um_per_px || effectiveScale || 0.1);
+                const yScale = Number(scaleContext?.y_um_per_px || effectiveScale || 0.1);
+                xValue *= xScale;
+                yValue *= yScale;
+            }
+            return `${xValue.toFixed(3)}, ${yValue.toFixed(3)}`;
         }
 
         function convertSpatialValue(fieldName, value, cellStats, scaleContext, unit) {
@@ -3309,6 +3446,9 @@
 
         function formatFieldValue(fieldName, value, cellStats, scaleContext) {
             if (Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
+                if (spatialFieldKinds[fieldName] === 'coordinate') {
+                    return formatCoordinateValue(value, scaleContext, getCurrentSpatialUnit());
+                }
                 return formatStatValue(
                     convertSpatialValue(
                         fieldName,
@@ -3474,12 +3614,15 @@
             return getStatisticsTableRowCount(fileData, renderedRowCount) > 0;
         }
 
-        function buildDashboardExportUrl(fileUUID, format) {
+        function buildDashboardExportUrl(fileUUID, format, selectedColumns = null) {
             const params = new URLSearchParams({
                 file_uuid: fileUUID,
                 _export: format,
                 _unit: getCurrentSpatialUnit(),
             });
+            if (Array.isArray(selectedColumns) && selectedColumns.length > 0) {
+                params.set('_columns', selectedColumns.join(','));
+            }
             return `/dashboard/?${params.toString()}`;
         }
 
@@ -3495,14 +3638,44 @@
                 return;
             }
 
-            const csvBtn = document.getElementById('downloadCsvBtn');
-            const xlsxBtn = document.getElementById('downloadXlsxBtn');
-            if (csvBtn) {
-                csvBtn.href = buildDashboardExportUrl(fileUUID, 'csv');
+            const statsBtn = document.getElementById('downloadStatsBtn');
+            if (statsBtn) {
+                statsBtn.href = buildDashboardExportUrl(fileUUID, 'csv');
             }
-            if (xlsxBtn) {
-                xlsxBtn.href = buildDashboardExportUrl(fileUUID, 'xlsx');
-            }
+        }
+
+        let dashboardExportSelectionController = null;
+        if (window.CytoCVExportSelection) {
+            dashboardExportSelectionController = window.CytoCVExportSelection.init({
+                configScriptId: 'exportSelectionConfig',
+                modalId: 'exportSelectionBackdrop',
+                triggerFormats: {
+                    downloadStatsBtn: 'csv',
+                },
+                getCurrentFileContext: () => {
+                    const fileUUID = fileUUIDs[currentFileIndex];
+                    return {
+                        fileUUID,
+                        fileData: fileUUID ? filesData[fileUUID] : null,
+                    };
+                },
+                buildExportUrl: buildDashboardExportUrl,
+                bulkExportUrl: '/dashboard/files/export/',
+                getSelectableFiles: () => fileUUIDs.map((fileUUID) => ({
+                    id: fileUUID,
+                    label: filesData[fileUUID] && filesData[fileUUID].Image_Name
+                        ? filesData[fileUUID].Image_Name
+                        : fileUUID,
+                    fileData: filesData[fileUUID] || null,
+                })),
+                buildBulkExportPayload: ({ fileIds, format, columns }) => ({
+                    uuids: fileIds,
+                    _export: format,
+                    _columns: columns,
+                    _unit: getCurrentSpatialUnit(),
+                }),
+            });
+            window.dashboardExportSelectionController = dashboardExportSelectionController;
         }
 
         function updateTableState(fileUUID, fileData) {
@@ -3979,6 +4152,19 @@
             return [1, -1, 2, -2];
         }
 
+        function buildFullCircularCellOrder(activeCellNumber, totalCells) {
+            const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
+            if (sortedIds.length < 2 || Number(totalCells || 0) < 1) {
+                return [];
+            }
+            const currentIdx = Math.max(0, sortedIds.indexOf(Number(activeCellNumber)));
+            const ordered = [];
+            for (let offset = 1; offset < sortedIds.length; offset += 1) {
+                ordered.push(sortedIds[(currentIdx + offset) % sortedIds.length]);
+            }
+            return ordered;
+        }
+
         function getCircularWarmQueue(direction = 'initial') {
             const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
             if (sortedIds.length < 2) {
@@ -3986,7 +4172,9 @@
             }
             const currentIdx = Math.max(0, sortedIds.indexOf(Number(currentCellNumber)));
             const offsets = sortedIds.length <= 5
-                ? sortedIds.map((_, index) => index).filter((index) => index !== 0)
+                ? buildFullCircularCellOrder(currentCellNumber, maxCells).map((cellNumber) => (
+                    (sortedIds.indexOf(cellNumber) - currentIdx + sortedIds.length) % sortedIds.length
+                ))
                 : getWarmPriorityOffsets(direction);
             const seen = new Set();
             const ordered = [];
@@ -4348,11 +4536,13 @@
             const triggerMenu = document.getElementById('cellActionsMenu');
             const contextMenu = document.getElementById('cellRowContextMenu');
             const modalBackdrop = document.getElementById('deleteCellBackdrop');
+            const modalPanel = modalBackdrop ? modalBackdrop.querySelector('.save-modal, .delete-modal') : null;
             const modalMessage = document.getElementById('deleteCellMessage');
             const cancelBtn = document.getElementById('cancelDeleteCellBtn');
             const confirmBtn = document.getElementById('confirmDeleteCellBtn');
             const tableFileUuid = "{{ table_uuid|escapejs }}";
             const selectCellsBackdrop = document.getElementById('selectCellsBackdrop');
+            const selectCellsPanel = selectCellsBackdrop ? selectCellsBackdrop.querySelector('.save-modal, .delete-modal') : null;
             const selectCellsView = document.getElementById('selectCellsView');
             const confirmCellsView = document.getElementById('confirmCellsView');
             const selectCellsList = document.getElementById('selectCellsList');
@@ -4360,6 +4550,7 @@
             const selectCellsBackBtn = document.getElementById('selectCellsBackBtn');
             const selectCellsDeleteBtn = document.getElementById('selectCellsDeleteBtn');
             const selectCellsToggleAllBtn = document.getElementById('selectCellsToggleAllBtn');
+            const selectCellsClearBtn = document.getElementById('selectCellsClearBtn');
             const confirmCellsBackBtn = document.getElementById('confirmCellsBackBtn');
             const confirmCellsDeleteBtn = document.getElementById('confirmCellsDeleteBtn');
             const confirmCellsMessage = document.getElementById('confirmCellsMessage');
@@ -4389,6 +4580,84 @@
                 'anim-exit-forward',
                 'anim-exit-backward',
             ];
+            const MODAL_ENTER_MS = 170;
+            const MODAL_EXIT_MS = 120;
+            const prefersReducedMotion = !!(
+                window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            );
+
+            function createModalAnimator(backdrop, panel) {
+                let enterTimer = null;
+                let exitTimer = null;
+
+                function clearTimers() {
+                    if (enterTimer !== null) {
+                        window.clearTimeout(enterTimer);
+                        enterTimer = null;
+                    }
+                    if (exitTimer !== null) {
+                        window.clearTimeout(exitTimer);
+                        exitTimer = null;
+                    }
+                }
+
+                function clearAnimationClasses() {
+                    if (backdrop) backdrop.classList.remove('modal-enter', 'modal-exit');
+                    if (panel) panel.classList.remove('modal-enter', 'modal-exit');
+                }
+
+                function show() {
+                    if (!backdrop) return;
+                    clearTimers();
+                    clearAnimationClasses();
+                    backdrop.style.display = 'flex';
+                    backdrop.setAttribute('aria-hidden', 'false');
+                    if (prefersReducedMotion) return;
+                    void backdrop.offsetWidth;
+                    backdrop.classList.add('modal-enter');
+                    if (panel) panel.classList.add('modal-enter');
+                    enterTimer = window.setTimeout(() => {
+                        clearAnimationClasses();
+                        enterTimer = null;
+                    }, MODAL_ENTER_MS);
+                }
+
+                function hide(onAfterClose = null) {
+                    if (!backdrop) {
+                        if (typeof onAfterClose === 'function') onAfterClose();
+                        return;
+                    }
+                    clearTimers();
+                    if (prefersReducedMotion || backdrop.style.display !== 'flex') {
+                        clearAnimationClasses();
+                        backdrop.style.display = 'none';
+                        backdrop.setAttribute('aria-hidden', 'true');
+                        if (typeof onAfterClose === 'function') onAfterClose();
+                        return;
+                    }
+                    clearAnimationClasses();
+                    backdrop.classList.add('modal-exit');
+                    if (panel) panel.classList.add('modal-exit');
+                    backdrop.setAttribute('aria-hidden', 'true');
+                    exitTimer = window.setTimeout(() => {
+                        clearAnimationClasses();
+                        backdrop.style.display = 'none';
+                        exitTimer = null;
+                        if (typeof onAfterClose === 'function') onAfterClose();
+                    }, MODAL_EXIT_MS);
+                }
+
+                function isOpen() {
+                    return !!backdrop
+                        && backdrop.style.display === 'flex'
+                        && backdrop.getAttribute('aria-hidden') === 'false';
+                }
+
+                return { show, hide, isOpen };
+            }
+
+            const deleteCellModal = createModalAnimator(modalBackdrop, modalPanel);
+            const selectCellsModal = createModalAnimator(selectCellsBackdrop, selectCellsPanel);
 
             function closeTriggerMenu() {
                 if (!triggerMenu || !trigger) return;
@@ -4497,15 +4766,13 @@
                 if (modalBackdrop.parentElement !== host) {
                     host.appendChild(modalBackdrop);
                 }
-                modalBackdrop.style.display = 'flex';
                 modalBackdrop.style.zIndex = '10000';
-                modalBackdrop.setAttribute('aria-hidden', 'false');
+                deleteCellModal.show();
             }
 
             function closeModal() {
                 pendingDelete = null;
-                modalBackdrop.style.display = 'none';
-                modalBackdrop.setAttribute('aria-hidden', 'true');
+                deleteCellModal.hide();
                 confirmBtn.disabled = false;
             }
 
@@ -4516,8 +4783,7 @@
                 clearCellSelectSwitchTimer();
                 if (selectCellsView) clearCellSelectAnim(selectCellsView);
                 if (confirmCellsView) clearCellSelectAnim(confirmCellsView);
-                selectCellsBackdrop.style.display = 'none';
-                selectCellsBackdrop.setAttribute('aria-hidden', 'true');
+                selectCellsModal.hide();
                 if (selectCellsDeleteBtn) selectCellsDeleteBtn.disabled = true;
                 if (confirmCellsDeleteBtn) confirmCellsDeleteBtn.disabled = false;
             }
@@ -4757,12 +5023,25 @@
                 const checkboxes = getSelectCellsCheckboxes();
                 if (!checkboxes.length) {
                     selectCellsToggleAllBtn.disabled = true;
-                    selectCellsToggleAllBtn.textContent = 'Select all';
+                    selectCellsToggleAllBtn.classList.remove('active');
+                    selectCellsToggleAllBtn.setAttribute('aria-pressed', 'false');
+                    if (selectCellsClearBtn) {
+                        selectCellsClearBtn.disabled = true;
+                        selectCellsClearBtn.classList.remove('active');
+                        selectCellsClearBtn.setAttribute('aria-pressed', 'false');
+                    }
                     return;
                 }
                 selectCellsToggleAllBtn.disabled = false;
+                if (selectCellsClearBtn) selectCellsClearBtn.disabled = false;
                 const allChecked = checkboxes.every((cb) => cb.checked);
-                selectCellsToggleAllBtn.textContent = allChecked ? 'Deselect all' : 'Select all';
+                const noneChecked = checkboxes.every((cb) => !cb.checked);
+                selectCellsToggleAllBtn.classList.toggle('active', allChecked);
+                selectCellsToggleAllBtn.setAttribute('aria-pressed', allChecked ? 'true' : 'false');
+                if (selectCellsClearBtn) {
+                    selectCellsClearBtn.classList.toggle('active', noneChecked);
+                    selectCellsClearBtn.setAttribute('aria-pressed', noneChecked ? 'true' : 'false');
+                }
             }
 
             function renderCellListItem(list, cellId, { selectable = false } = {}) {
@@ -4855,9 +5134,8 @@
                 if (selectCellsBackdrop.parentElement !== host) {
                     host.appendChild(selectCellsBackdrop);
                 }
-                selectCellsBackdrop.style.display = 'flex';
                 selectCellsBackdrop.style.zIndex = '10000';
-                selectCellsBackdrop.setAttribute('aria-hidden', 'false');
+                selectCellsModal.show();
             }
 
             if (trigger && triggerMenu) {
@@ -4936,10 +5214,20 @@
                 selectCellsToggleAllBtn.addEventListener('click', () => {
                     const checkboxes = getSelectCellsCheckboxes();
                     if (!checkboxes.length) return;
-                    const target = !checkboxes.every((cb) => cb.checked);
                     checkboxes.forEach((cb) => {
-                        if (cb.checked === target) return;
-                        cb.checked = target;
+                        if (cb.checked) return;
+                        cb.checked = true;
+                        cb.dispatchEvent(new Event('change'));
+                    });
+                });
+            }
+            if (selectCellsClearBtn) {
+                selectCellsClearBtn.addEventListener('click', () => {
+                    const checkboxes = getSelectCellsCheckboxes();
+                    if (!checkboxes.length) return;
+                    checkboxes.forEach((cb) => {
+                        if (!cb.checked) return;
+                        cb.checked = false;
                         cb.dispatchEvent(new Event('change'));
                     });
                 });
@@ -5002,10 +5290,10 @@
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
                     closeAllMenus();
-                    if (modalBackdrop.style.display === 'flex') {
+                    if (deleteCellModal.isOpen()) {
                         closeModal();
                     }
-                    if (selectCellsBackdrop && selectCellsBackdrop.style.display === 'flex') {
+                    if (selectCellsModal.isOpen()) {
                         if (confirmCellsView && !confirmCellsView.hidden) {
                             switchCellSelectView('select', true);
                         } else {
@@ -5023,13 +5311,13 @@
             window.addEventListener('resize', closeAllMenus);
             document.addEventListener('fullscreenchange', () => {
                 closeAllMenus();
-                if (modalBackdrop.style.display === 'flex') {
+                if (deleteCellModal.isOpen()) {
                     const host = document.fullscreenElement || document.body;
                     if (modalBackdrop.parentElement !== host) {
                         host.appendChild(modalBackdrop);
                     }
                 }
-                if (selectCellsBackdrop && selectCellsBackdrop.style.display === 'flex') {
+                if (selectCellsModal.isOpen()) {
                     const host = document.fullscreenElement || document.body;
                     if (selectCellsBackdrop.parentElement !== host) {
                         host.appendChild(selectCellsBackdrop);
@@ -5191,15 +5479,20 @@
             const selectModeBtn = document.getElementById('selectModeBtn');
             const selectAllBtn = document.getElementById('selectAllBtn');
             const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
             const channelVisibilityBtn = document.getElementById('toggleChannelVisibilityBtn');
             const scaleVisibilityBtn = document.getElementById('toggleScaleVisibilityBtn');
             const deleteBackdrop = document.getElementById('deleteFilesBackdrop');
             const deleteMessage = document.getElementById('deleteFilesMessage');
             const deleteList = document.getElementById('deleteFilesList');
+            const deleteStatus = document.getElementById('deleteFilesStatus');
             const cancelDeleteFilesBtn = document.getElementById('cancelDeleteFilesBtn');
             const confirmDeleteFilesBtn = document.getElementById('confirmDeleteFilesBtn');
 
-            if (!sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn || !channelVisibilityBtn || !scaleVisibilityBtn) {
+            if (
+                !sidebar || !selectModeBtn || !selectAllBtn || !deleteSelectedBtn
+                || !downloadSelectedBtn || !channelVisibilityBtn || !scaleVisibilityBtn
+            ) {
                 return;
             }
 
@@ -5208,6 +5501,7 @@
             const csrfToken = getCookie('csrftoken');
             let channelLabelFadeTimer = null;
             let scaleLabelFadeTimer = null;
+            let isDeletingFiles = false;
 
             function getCookie(name) {
                 let value = null;
@@ -5244,6 +5538,10 @@
             function syncSelectionUI() {
                 fileItems.forEach((item) => item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid)));
                 deleteSelectedBtn.disabled = selectedFileUUIDs.size === 0;
+                downloadSelectedBtn.disabled = selectedFileUUIDs.size === 0;
+                downloadSelectedBtn.title = downloadSelectedBtn.disabled
+                    ? 'Select files first.'
+                    : 'Download selected files.';
             }
 
             function setSelectMode(enabled) {
@@ -5314,7 +5612,32 @@
                 }
             }
 
+            function setDeleteLoading(isLoading) {
+                isDeletingFiles = isLoading;
+                if (confirmDeleteFilesBtn) {
+                    const label = confirmDeleteFilesBtn.querySelector('.btn-label');
+                    confirmDeleteFilesBtn.disabled = isLoading;
+                    confirmDeleteFilesBtn.classList.toggle('loading', isLoading);
+                    if (isLoading) {
+                        confirmDeleteFilesBtn.setAttribute('aria-busy', 'true');
+                    } else {
+                        confirmDeleteFilesBtn.removeAttribute('aria-busy');
+                    }
+                    if (label) {
+                        label.textContent = isLoading ? 'Deleting' : 'Confirm Delete';
+                    }
+                }
+                if (cancelDeleteFilesBtn) {
+                    cancelDeleteFilesBtn.disabled = isLoading;
+                }
+                if (deleteStatus) {
+                    deleteStatus.textContent = isLoading ? 'Deleting selected files...' : '';
+                    deleteStatus.classList.toggle('is-visible', isLoading);
+                }
+            }
+
             function closeDeleteModal() {
+                if (isDeletingFiles) return;
                 if (!deleteBackdrop) return;
                 deleteBackdrop.style.display = 'none';
                 deleteBackdrop.setAttribute('aria-hidden', 'true');
@@ -5322,6 +5645,7 @@
 
             function openDeleteModal() {
                 if (!deleteBackdrop || !deleteMessage || !deleteList) return;
+                setDeleteLoading(false);
                 const selected = fileUUIDs.filter((uuid) => selectedFileUUIDs.has(uuid)).map((uuid) => {
                     const row = fileItems.find((item) => item.dataset.uuid === uuid);
                     const title = row ? row.querySelector('.file-title') : null;
@@ -5342,9 +5666,10 @@
             }
 
             async function deleteSelectedFiles() {
+                if (isDeletingFiles) return;
                 const uuids = Array.from(selectedFileUUIDs);
                 if (!uuids.length) return;
-                confirmDeleteFilesBtn.disabled = true;
+                setDeleteLoading(true);
                 try {
                     const response = await fetch('/dashboard/files/delete/', {
                         method: 'POST',
@@ -5361,15 +5686,22 @@
                     }
                     window.location.reload();
                 } catch (err) {
+                    setDeleteLoading(false);
                     showMessage(err.message || 'Unable to delete selected files.');
-                    confirmDeleteFilesBtn.disabled = false;
-                    closeDeleteModal();
                 }
             }
 
             selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
             selectAllBtn.addEventListener('click', toggleSelectAll);
             deleteSelectedBtn.addEventListener('click', openDeleteModal);
+            downloadSelectedBtn.addEventListener('click', () => {
+                if (!window.dashboardExportSelectionController || selectedFileUUIDs.size === 0) {
+                    return;
+                }
+                window.dashboardExportSelectionController.openFiles(
+                    fileUUIDs.filter((uuid) => selectedFileUUIDs.has(uuid))
+                );
+            });
             channelVisibilityBtn.addEventListener('click', () => {
                 applyChannelVisibility(sidebar.classList.contains('channels-hidden'), true);
             });
@@ -5408,10 +5740,12 @@
             if (confirmDeleteFilesBtn) confirmDeleteFilesBtn.addEventListener('click', deleteSelectedFiles);
             if (deleteBackdrop) {
                 deleteBackdrop.addEventListener('click', (event) => {
+                    if (isDeletingFiles) return;
                     if (event.target === deleteBackdrop) closeDeleteModal();
                 });
             }
             document.addEventListener('keydown', (event) => {
+                if (isDeletingFiles) return;
                 if (event.key === 'Escape' && deleteBackdrop && deleteBackdrop.style.display === 'flex') {
                     closeDeleteModal();
                 }

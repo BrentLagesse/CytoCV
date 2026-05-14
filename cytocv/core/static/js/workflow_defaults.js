@@ -1044,8 +1044,8 @@
   };
 
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
-  const normalizeGreenDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
-  const normalizeRedDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
+  const normalizeGreenDotSplitMode = (value) => (value === 'balanced' ? 'balanced' : 'aggressive');
+  const normalizeRedDotSplitMode = (value) => (value === 'balanced' ? 'balanced' : 'aggressive');
   const normalizeDotSplitTarget = (value) => {
     if (value === 'red' || value === 'green' || value === 'both') return value;
     return 'both';
