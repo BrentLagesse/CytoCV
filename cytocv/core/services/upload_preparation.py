@@ -11,10 +11,10 @@ from uuid import UUID
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.metadata_processing.dv_scale_parser import extract_dv_scale_metadata
 from core.metadata_processing.error_handling import (
-    DVValidationOptions,
-    DVValidationResult,
-    build_dv_error_messages,
-    validate_dv_file,
+    SourceImageValidationOptions,
+    SourceImageValidationResult,
+    build_source_image_error_messages,
+    validate_source_image_file,
 )
 from core.models import UploadedImage, UploadPreparationJob
 from core.scale import DEFAULT_MICRONS_PER_PIXEL, build_scale_info
@@ -28,7 +28,10 @@ from core.services.artifact_storage import (
     run_media_path,
 )
 from core.services.analysis_progress import normalize_progress_detail
-from core.services.upload_preparation_jobs import finalize_upload_preparation_job
+from core.services.upload_preparation_jobs import (
+    TERMINAL_UPLOAD_PREPARATION_STATUSES,
+    finalize_upload_preparation_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +69,11 @@ def _normalize_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, 
     return payload
 
 
-def _validation_options_from_snapshot(snapshot: dict[str, object]) -> DVValidationOptions:
+def _validation_options_from_snapshot(snapshot: dict[str, object]) -> SourceImageValidationOptions:
     validation = snapshot.get("validation_options") or {}
     if not isinstance(validation, dict):
         validation = {}
-    return DVValidationOptions(
+    return SourceImageValidationOptions(
         enforce_layer_count=bool(validation.get("enforce_layer_count", False)),
         enforce_wavelengths=bool(validation.get("enforce_wavelengths", False)),
         required_channels={str(channel) for channel in validation.get("required_channels", []) if str(channel)},
@@ -122,8 +125,8 @@ def _set_phase(
     job.progress_detail = progress_detail
 
 
-def _missing_upload_result(required_channels: set[str]) -> DVValidationResult:
-    return DVValidationResult(
+def _missing_upload_result(required_channels: set[str]) -> SourceImageValidationResult:
+    return SourceImageValidationResult(
         is_valid=False,
         layer_count=None,
         missing_channels=set(),
@@ -138,8 +141,8 @@ def _prepare_one_upload(
     manual_um_per_px: float,
     prefer_metadata_scale: bool,
 ) -> None:
-    dv_file_path = _media_path_for_uploaded(uploaded)
-    metadata_scale = extract_dv_scale_metadata(dv_file_path)
+    source_image_path = _media_path_for_uploaded(uploaded)
+    metadata_scale = extract_dv_scale_metadata(source_image_path)
     uploaded.scale_info = build_scale_info(
         manual_um_per_px=manual_um_per_px,
         prefer_metadata=prefer_metadata_scale,
@@ -152,7 +155,7 @@ def _prepare_one_upload(
     )
     uploaded.save(update_fields=["scale_info"])
 
-    channel_config = extract_channel_config(dv_file_path)
+    channel_config = extract_channel_config(source_image_path)
     _write_channel_config(str(uploaded.uuid), channel_config)
     generate_preview_assets(uploaded, expected_layers=4)
 
@@ -160,12 +163,16 @@ def _prepare_one_upload(
 def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJob:
     """Run validation, metadata extraction, channel config, and preview work."""
 
+    job.refresh_from_db(fields=["status"])
+    if job.status in TERMINAL_UPLOAD_PREPARATION_STATUSES:
+        return job
+
     snapshot = _normalize_config_snapshot(job.config_snapshot)
     validation_options = _validation_options_from_snapshot(snapshot)
     manual_um_per_px = float(snapshot["manual_um_per_px"])
     prefer_metadata_scale = bool(snapshot["prefer_metadata_scale"])
     owner_filter = _owner_filter_for_job(job)
-    failures: list[tuple[str, DVValidationResult]] = []
+    failures: list[tuple[str, SourceImageValidationResult]] = []
     valid_run_uuids: list[str] = []
     new_run_uuids = [str(UUID(str(value))) for value in job.new_run_uuids if str(value)]
     restored_run_uuids = [str(UUID(str(value))) for value in job.restored_run_uuids if str(value)]
@@ -198,10 +205,10 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                     delete_uploaded_run_by_uuid(run_uuid)
                 continue
 
-            dv_file_path = _media_path_for_uploaded(uploaded)
-            validation_result = validate_dv_file(dv_file_path, validation_options)
+            source_image_path = _media_path_for_uploaded(uploaded)
+            validation_result = validate_source_image_file(source_image_path, validation_options)
             if not validation_result.is_valid:
-                failures.append((uploaded.name, validation_result))
+                failures.append((_display_file_name(uploaded, run_uuid), validation_result))
                 if run_uuid in new_run_uuids:
                     delete_uploaded_run(uploaded)
                 continue
@@ -209,10 +216,10 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             valid_run_uuids.append(run_uuid)
 
         if not valid_run_uuids:
-            error_lines = build_dv_error_messages(failures, validation_options)
+            error_lines = build_source_image_error_messages(failures, validation_options)
             if not error_lines:
                 error_lines = [
-                    "No valid DV files were uploaded. Please upload files that pass the selected checks."
+                    "No valid supported image files were uploaded. Please upload files that pass the selected checks."
                 ]
             return finalize_upload_preparation_job(
                 job,
@@ -243,7 +250,7 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                 prefer_metadata_scale=prefer_metadata_scale,
             )
 
-        error_lines = build_dv_error_messages(failures, validation_options)
+        error_lines = build_source_image_error_messages(failures, validation_options)
         return finalize_upload_preparation_job(
             job,
             status=UploadPreparationJob.Status.SUCCEEDED,

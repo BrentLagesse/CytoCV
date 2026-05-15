@@ -1,8 +1,8 @@
-from .dv_validation import (
-    DVValidationOptions,
-    DVValidationResult,
+from .source_image_validation import (
     EXPECTED_LAYER_COUNT,
     REQUIRED_CHANNELS,
-    build_dv_error_messages,
-    validate_dv_file,
+    SourceImageValidationOptions,
+    SourceImageValidationResult,
+    build_source_image_error_messages,
+    validate_source_image_file,
 )

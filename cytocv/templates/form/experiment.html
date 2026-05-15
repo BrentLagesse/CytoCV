@@ -1973,7 +1973,7 @@
                         <div class="toggle-row subtoggle" id="layerCheckRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
-                                    <span class="toggle-label">Enforce 4-Image DV Files</span>
+                                    <span class="toggle-label">Enforce 4-Layer Files</span>
                                     <button
                                         type="button"
                                         class="info-dot compact advanced-info-dot"
@@ -2076,7 +2076,7 @@
         <div class="buttons-container">
             <label class="upload-btn">
                 Upload Files
-                <input type="file" id="fileInput" accept=".dv" multiple>
+                <input type="file" id="fileInput" accept=".dv,.tif,.tiff" multiple>
             </label>
             <label class="upload-btn">
                 Upload Folders
@@ -2597,13 +2597,13 @@
         ]),
         optionalChecksInfoDot: buildInfoSections([
             'Controls the optional metadata and file validation checks below. When off, saved optional channel and layer requirements are paused, but channels required by selected statistics are still enforced.',
-            'Enforce 4-Image DV Files: requires exactly four DV layers before preprocessing.',
+            'Enforce 4-Layer Files: requires exactly four image layers before preprocessing.',
             'Require All Channels: requires DIC, Blue, Red, and Green for every upload.',
             'Manual channel toggles: require individual channels even when selected statistics do not need them.',
             'Required channels: DIC is always required; optional checks can also require Blue, Red, and Green.',
         ]),
         layerCheckInfoDot: buildInfoSections([
-            'Requires each DV file to have exactly four image layers before preprocessing. Use this to catch incomplete acquisitions or files exported with missing layers.',
+            'Requires each source image file to have exactly four image layers before preprocessing. Use this to catch incomplete acquisitions or files exported with missing layers.',
             'Required channels: not channel-specific.',
         ]),
         wavelengthCheckInfoDot: buildInfoSections([
@@ -6325,6 +6325,14 @@
         });
     }
 
+    const SUPPORTED_UPLOAD_EXTENSIONS = ['.dv', '.tif', '.tiff'];
+    const SUPPORTED_UPLOAD_EXTENSIONS_LABEL = '.dv, .tif, .tiff';
+
+    function isSupportedUploadFileName(fileName) {
+        const normalizedName = String(fileName || '').toLowerCase();
+        return SUPPORTED_UPLOAD_EXTENSIONS.some(extension => normalizedName.endsWith(extension));
+    }
+
     function openFolderIssueModal({ validCount, duplicateFiles, invalidFiles }) {
         const backdrop = document.getElementById('folderIssueBackdrop');
         const panel = backdrop ? backdrop.querySelector('.folder-issue-modal') : null;
@@ -6342,23 +6350,23 @@
 
         if (validCount > 0) {
             const plural = validCount === 1 ? '' : 's';
-            body.textContent = `Some files in this folder cannot be added. Add ${validCount} valid .dv file${plural} to the queue?`;
+            body.textContent = `Some files in this folder cannot be added. Add ${validCount} supported image file${plural} to the queue?`;
         } else {
-            body.textContent = 'No new DeltaVision .dv files are available to add from this folder.';
+            body.textContent = 'No new supported image files are available to add from this folder.';
         }
 
         list.innerHTML = '';
         if (duplicateCount > 0) {
             const plural = duplicateCount === 1 ? '' : 's';
             const item = document.createElement('li');
-            item.textContent = `${duplicateCount} duplicate .dv file${plural} already in queue`;
+            item.textContent = `${duplicateCount} duplicate supported image file${plural} already in queue`;
             list.appendChild(item);
         }
         if (invalidCount > 0) {
             const item = document.createElement('li');
             item.textContent = invalidCount === 1
-                ? '1 file is not .dv'
-                : `${invalidCount} files are not .dv`;
+                ? `1 file is not a supported image file (${SUPPORTED_UPLOAD_EXTENSIONS_LABEL})`
+                : `${invalidCount} files are not supported image files (${SUPPORTED_UPLOAD_EXTENSIONS_LABEL})`;
             list.appendChild(item);
         }
 
@@ -6416,7 +6424,7 @@
         files.forEach(file => {
             const fileName = file.name;
 
-            if (!file.name.endsWith('.dv')) {
+            if (!isSupportedUploadFileName(file.name)) {
                 invalidFiles.push(file.name);
                 return;
             }
@@ -6451,7 +6459,7 @@
             const queueIssues = [];
             if (invalidFiles.length > 0) {
                 queueIssues.push(
-                    `Unsupported files detected (only DeltaVision .dv files are allowed): ${formatFileListForError(invalidFiles)}`
+                    `Unsupported files detected (only supported image files (${SUPPORTED_UPLOAD_EXTENSIONS_LABEL}) are allowed): ${formatFileListForError(invalidFiles)}`
                 );
             }
             if (duplicateFiles.length > 0) {
@@ -6725,7 +6733,7 @@
             const queuedCount = getQueuedCount();
             if (queuedCount === 0) {
                 showErrors([
-                    'No files selected. Upload at least one DeltaVision .dv file before preprocessing.',
+                    'No files selected. Upload at least one supported image file before preprocessing.',
                 ]);
                 return;
             }
