@@ -45,7 +45,7 @@ def get_channel_config_for_uuid(uuid: str) -> dict[str, Any]:
     """Load per-file channel mapping or fall back to defaults.
 
     Args:
-        uuid: UUID for the uploaded DV file directory.
+        uuid: UUID for the uploaded source image directory.
 
     Returns:
         Channel mapping for the given UUID.

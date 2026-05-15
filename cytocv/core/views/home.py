@@ -345,7 +345,7 @@ ABOUT_TECHNICAL_PAGE = {
     "page_title": "Technical Overview",
     "show_doc_overview": False,
     "page_intro": (
-        "CytoCV is organized as a web application that moves from DeltaVision upload "
+        "CytoCV is organized as a web application that moves from supported source-image upload "
         "through export, with supporting documentation for workflow stages, major "
         "dependencies, outputs, and repository references."
     ),
@@ -385,7 +385,7 @@ ABOUT_TECHNICAL_PAGE = {
             "eyebrow": "Pipeline",
             "title": "End-to-end workflow from upload to export",
             "paragraphs": (
-                "A typical run begins with DeltaVision `.dv` upload, channel validation, preview generation, and scale extraction. After that, the workflow advances through preprocess review, segmentation, per-cell measurement, display review, and export.",
+                "A typical run begins with supported `.dv`, `.tif`, or `.tiff` upload, channel validation, preview generation, and scale extraction. After that, the workflow advances through preprocess review, segmentation, per-cell measurement, display review, and export.",
                 "Each stage keeps the run configuration, channel interpretation, and produced outputs connected so researchers can review what happened at each point in the pipeline instead of only seeing a final spreadsheet.",
             ),
             "highlights": (
@@ -709,11 +709,11 @@ RESEARCH_SECTIONS = (
         "summary": (
             "CytoCV is documented as a web-based analysis system for DeltaVision microscopy "
             "of yeast cells. The active implementation combines authenticated web "
-            "workflows, DeltaVision-specific metadata parsing, Mask R-CNN-based segmentation, "
+            "workflows, source-image metadata parsing, Mask R-CNN-based segmentation, "
             "plugin-scoped per-cell quantification, and retention-aware result management."
         ),
         "highlights": (
-            "DeltaVision .dv ingestion stays connected to channel interpretation, scale context, and measurement output.",
+            "Supported source-image ingestion stays connected to channel interpretation, scale context, and measurement output.",
             "The computational path moves from upload and preview generation into DIC-driven segmentation and per-cell quantification.",
             "The platform is described as a domain-specific research workflow rather than a generic microscopy framework.",
         ),

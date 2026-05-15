@@ -1,4 +1,4 @@
-﻿"""Integration tests for upload-time per-file scale initialization."""
+"""Integration tests for upload-time per-file scale initialization."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from core.metadata_processing.error_handling.dv_validation import DVValidationResult
+from core.metadata_processing.error_handling.source_image_validation import SourceImageValidationResult
 from core.models import UploadedImage, UploadPreparationJob
 from core.services.upload_preparation import run_upload_preparation_job
 
@@ -43,7 +43,7 @@ class UploadScaleInitializationTests(TestCase):
             b"fake-dv-data",
             content_type="application/octet-stream",
         )
-        valid_result = DVValidationResult(
+        valid_result = SourceImageValidationResult(
             is_valid=True,
             layer_count=4,
             missing_channels=set(),
@@ -53,7 +53,7 @@ class UploadScaleInitializationTests(TestCase):
         with TemporaryDirectory() as temp_media:
             with override_settings(MEDIA_ROOT=temp_media):
                 with patch(
-                    "core.services.upload_preparation.validate_dv_file",
+                    "core.services.upload_preparation.validate_source_image_file",
                     return_value=valid_result,
                 ):
                     with patch(

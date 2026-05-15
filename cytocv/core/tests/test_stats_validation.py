@@ -1,9 +1,11 @@
-﻿from django.test import SimpleTestCase
+from django.test import SimpleTestCase
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 import cv2
 import numpy as np
+import tifffile
 
 from core.cell_analysis import (
     BlueNucleusIntensity,
@@ -12,13 +14,14 @@ from core.cell_analysis import (
     PunctaDistance,
     RedBlueIntensity,
 )
+from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
-from core.metadata_processing.error_handling.dv_validation import (
-    DVValidationOptions,
-    DVValidationResult,
-    build_dv_error_messages,
+from core.metadata_processing.error_handling.source_image_validation import (
+    SourceImageValidationOptions,
+    SourceImageValidationResult,
+    build_source_image_error_messages,
     get_effective_required_channels,
-    validate_dv_file,
+    validate_source_image_file,
 )
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.stats_plugins import build_plugin_ui_payload, build_requirement_summary, normalize_selected_plugins
@@ -64,27 +67,27 @@ class StatsRequirementTests(SimpleTestCase):
         self.assertIn("opposite", description)
 
 
-class DVErrorMessageTests(SimpleTestCase):
+class SourceImageErrorMessageTests(SimpleTestCase):
     def test_missing_channels_are_grouped_by_combination(self):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=True,
             enforce_wavelengths=False,
             required_channels={"DIC", "channel_blue"},
         )
         failures = [
-            ("file_a", DVValidationResult(False, 4, {"channel_blue"}, required_channels={"DIC", "channel_blue"})),
-            ("file_b", DVValidationResult(False, 4, {"channel_blue"}, required_channels={"DIC", "channel_blue"})),
-            ("file_c", DVValidationResult(False, 4, {"DIC", "channel_blue"}, required_channels={"DIC", "channel_blue"})),
+            ("file_a", SourceImageValidationResult(False, 4, {"channel_blue"}, required_channels={"DIC", "channel_blue"})),
+            ("file_b", SourceImageValidationResult(False, 4, {"channel_blue"}, required_channels={"DIC", "channel_blue"})),
+            ("file_c", SourceImageValidationResult(False, 4, {"DIC", "channel_blue"}, required_channels={"DIC", "channel_blue"})),
         ]
 
-        lines = build_dv_error_messages(failures, options)
+        lines = build_source_image_error_messages(failures, options)
         message_blob = "\n".join(lines)
         self.assertIn("The following wavelengths are required: DIC, Blue.", message_blob)
         self.assertIn("- file_a.dv, file_b.dv: missing Blue", message_blob)
         self.assertIn("- file_c.dv: missing all required wavelengths", message_blob)
 
     def test_effective_required_channels_include_advanced_full_toggle(self):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=True,
             enforce_wavelengths=True,
             required_channels={"DIC"},
@@ -93,67 +96,67 @@ class DVErrorMessageTests(SimpleTestCase):
         self.assertEqual(required, {"DIC", "channel_blue", "channel_red", "channel_green"})
 
     def test_layer_count_errors_not_reported_when_layer_enforcement_is_disabled(self):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
             required_channels={"DIC", "channel_green"},
         )
         failures = [
-            ("file_a", DVValidationResult(False, 1, {"channel_green"}, required_channels={"DIC", "channel_green"})),
+            ("file_a", SourceImageValidationResult(False, 1, {"channel_green"}, required_channels={"DIC", "channel_green"})),
         ]
 
-        lines = build_dv_error_messages(failures, options)
+        lines = build_source_image_error_messages(failures, options)
         message_blob = "\n".join(lines)
         self.assertIn("missing required wavelengths", message_blob)
         self.assertNotIn("invalid layer counts", message_blob)
 
     def test_single_required_channel_message_does_not_use_all_required_phrase(self):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
             required_channels={"DIC"},
         )
         failures = [
-            ("file_a", DVValidationResult(False, 1, {"DIC"}, required_channels={"DIC"})),
+            ("file_a", SourceImageValidationResult(False, 1, {"DIC"}, required_channels={"DIC"})),
         ]
-        lines = build_dv_error_messages(failures, options)
+        lines = build_source_image_error_messages(failures, options)
         message_blob = "\n".join(lines)
         self.assertIn("- file_a.dv: missing DIC", message_blob)
         self.assertNotIn("missing all required wavelengths", message_blob)
 
 
-class DVValidationPresenceTests(SimpleTestCase):
-    @patch("core.metadata_processing.error_handling.dv_validation.is_recognized_dv_file", return_value=True)
-    @patch("core.metadata_processing.error_handling.dv_validation.get_dv_layer_count", return_value=1)
+class SourceImageValidationPresenceTests(SimpleTestCase):
+    @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=1)
     @patch(
-        "core.metadata_processing.error_handling.dv_validation.extract_channel_config",
+        "core.metadata_processing.error_handling.source_image_validation.extract_channel_config",
         return_value={"DIC": 0, "mCherry": 1, "GFP": 2},
     )
     def test_required_channels_must_exist_in_actual_layer_indices(self, _cfg, _layers, _recognized):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
             required_channels={"DIC", "channel_red", "channel_green"},
         )
 
-        result = validate_dv_file(Path("dummy.dv"), options)
+        result = validate_source_image_file(Path("dummy.dv"), options)
         self.assertFalse(result.is_valid)
         self.assertEqual(result.missing_channels, {"channel_red", "channel_green"})
 
-    @patch("core.metadata_processing.error_handling.dv_validation.is_recognized_dv_file", return_value=True)
-    @patch("core.metadata_processing.error_handling.dv_validation.get_dv_layer_count", return_value=3)
+    @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=3)
     @patch(
-        "core.metadata_processing.error_handling.dv_validation.extract_channel_config",
+        "core.metadata_processing.error_handling.source_image_validation.extract_channel_config",
         return_value={"DIC": 0, "red": 1, "GFP": 2},
     )
     def test_channel_name_aliases_are_accepted(self, _cfg, _layers, _recognized):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
             required_channels={"DIC", "channel_red", "channel_green"},
         )
 
-        result = validate_dv_file(Path("dummy.dv"), options)
+        result = validate_source_image_file(Path("dummy.dv"), options)
         self.assertTrue(result.is_valid)
         self.assertEqual(result.missing_channels, set())
 
@@ -186,22 +189,62 @@ class DVChannelParserTests(SimpleTestCase):
             },
         )
 
-    @patch("core.metadata_processing.error_handling.dv_validation.is_recognized_dv_file", return_value=True)
-    @patch("core.metadata_processing.error_handling.dv_validation.get_dv_layer_count", return_value=1)
+    @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=1)
     @patch(
-        "core.metadata_processing.error_handling.dv_validation.extract_channel_config",
+        "core.metadata_processing.error_handling.source_image_validation.extract_channel_config",
         return_value={"w1DIC": 0},
     )
     def test_dic_name_variants_are_accepted(self, _cfg, _layers, _recognized):
-        options = DVValidationOptions(
+        options = SourceImageValidationOptions(
             enforce_layer_count=False,
             enforce_wavelengths=False,
             required_channels={"DIC"},
         )
 
-        result = validate_dv_file(Path("dummy.dv"), options)
+        result = validate_source_image_file(Path("dummy.dv"), options)
         self.assertTrue(result.is_valid)
         self.assertEqual(result.missing_channels, set())
+
+    def test_tiff_uses_default_channel_mapping_for_required_channels(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "default_channels.tif"
+            tifffile.imwrite(
+                path,
+                np.ones((4, 5, 6), dtype=np.uint16),
+                photometric="minisblack",
+            )
+            options = SourceImageValidationOptions(
+                enforce_layer_count=False,
+                enforce_wavelengths=False,
+                required_channels={"DIC", "channel_blue", "channel_red", "channel_green"},
+            )
+
+            config = extract_channel_config(path)
+            result = validate_source_image_file(path, options)
+
+        self.assertEqual(config, DEFAULT_CHANNEL_CONFIG)
+        self.assertTrue(result.is_valid)
+        self.assertEqual(result.missing_channels, set())
+
+    def test_tiff_layer_count_enforcement_uses_stack_pages(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "three_layers.tiff"
+            tifffile.imwrite(
+                path,
+                np.ones((3, 5, 6), dtype=np.uint16),
+                photometric="minisblack",
+            )
+            options = SourceImageValidationOptions(
+                enforce_layer_count=True,
+                enforce_wavelengths=False,
+                required_channels=set(),
+            )
+
+            result = validate_source_image_file(path, options)
+
+        self.assertFalse(result.is_valid)
+        self.assertEqual(result.layer_count, 3)
 
 
 class AnalysisRegressionTests(SimpleTestCase):

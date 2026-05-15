@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.config import DEFAULT_CHANNEL_CONFIG
-from core.metadata_processing.error_handling import DVValidationResult
+from core.metadata_processing.error_handling import SourceImageValidationResult
 from core.models import AnalysisJob, UploadedImage, UploadPreparationJob
 from core.services.analysis_jobs import enqueue_analysis_job
 from core.services.upload_preparation import (
@@ -68,8 +68,8 @@ class UploadPreparationTestCase(TestCase):
         )
 
     @staticmethod
-    def _valid_result() -> DVValidationResult:
-        return DVValidationResult(
+    def _valid_result() -> SourceImageValidationResult:
+        return SourceImageValidationResult(
             is_valid=True,
             layer_count=4,
             missing_channels=set(),
@@ -77,8 +77,8 @@ class UploadPreparationTestCase(TestCase):
         )
 
     @staticmethod
-    def _invalid_result(message: str = "not a recognized DV file") -> DVValidationResult:
-        return DVValidationResult(
+    def _invalid_result(message: str = "not a recognized supported image file") -> SourceImageValidationResult:
+        return SourceImageValidationResult(
             is_valid=False,
             layer_count=None,
             missing_channels=set(),
@@ -109,7 +109,7 @@ class UploadPreparationTestCase(TestCase):
             )
 
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 return_value=self._valid_result(),
             ), patch(
                 "core.services.upload_preparation.extract_dv_scale_metadata",
@@ -148,7 +148,7 @@ class UploadPreparationTestCase(TestCase):
             )
 
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 return_value=self._invalid_result(),
             ):
                 run_upload_preparation_job(job)
@@ -173,7 +173,7 @@ class UploadPreparationTestCase(TestCase):
                 return self._invalid_result() if "invalid_restored" in str(path) else self._valid_result()
 
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 side_effect=validate_side_effect,
             ), patch(
                 "core.services.upload_preparation.extract_dv_scale_metadata",
@@ -204,7 +204,7 @@ class UploadPreparationTestCase(TestCase):
             )
 
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 return_value=self._valid_result(),
             ), patch(
                 "core.services.upload_preparation.extract_dv_scale_metadata",
@@ -233,6 +233,31 @@ class UploadPreparationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertFalse(UploadedImage.objects.exists())
+
+    def test_upload_batch_endpoint_accepts_tiff_files(self):
+        with temporary_media_root():
+            response = self.client.post(
+                reverse("experiment_upload_batch"),
+                {"files": [SimpleUploadedFile("sample.tiff", b"tiff")]},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(UploadedImage.objects.count(), 1)
+        uploaded = UploadedImage.objects.get()
+        self.assertTrue(str(uploaded.file_location.name).endswith(".tiff"))
+
+    def test_legacy_experiment_post_accepts_tif_file(self):
+        with temporary_media_root():
+            response = self.client.post(
+                reverse("experiment"),
+                {"files": [SimpleUploadedFile("queued.tif", b"tiff")]},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(UploadedImage.objects.count(), 1)
+        self.assertEqual(UploadPreparationJob.objects.count(), 1)
 
     def test_upload_preparation_status_forbids_other_user(self):
         job = enqueue_upload_preparation_job(
@@ -358,7 +383,7 @@ class UploadPreparationTestCase(TestCase):
             uploaded = self._create_uploaded_image(media_root, name="sync_ready")
 
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 return_value=self._valid_result(),
             ), patch(
                 "core.services.upload_preparation.extract_dv_scale_metadata",
@@ -394,7 +419,7 @@ class UploadPreparationTestCase(TestCase):
             uploaded = self._create_uploaded_image(media_root, name="sync_invalid")
 
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 return_value=self._invalid_result(),
             ):
                 response = self.client.post(
