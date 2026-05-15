@@ -8,6 +8,14 @@ from core.channel_roles import (
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
 )
+from core.image_sources import (
+    DV_IMAGE_EXTENSION,
+    TIFF_IMAGE_EXTENSIONS,
+    get_image_layer_count,
+    is_recognized_image_file,
+    source_image_extension,
+)
+from core.metadata_processing.tiff_channel_parser import extract_tiff_channel_config
 
 
 def _safe_float(value):
@@ -81,11 +89,18 @@ def _extract_from_dv_header(dv_file_path):
 
 def extract_channel_config(dv_file_path):
     """
-    Reads a DV file and returns a channel-name -> channel-index mapping.
+    Reads a source image file and returns a channel-name -> channel-index mapping.
 
     Primary source: structured DV metadata header (nc + wave1..waveN).
     Fallback source: XML snippets in the DV header text.
+    TIFF uploads use dedicated TIFF metadata parsing with default fallback.
     """
+    extension = source_image_extension(dv_file_path)
+    if extension in TIFF_IMAGE_EXTENSIONS:
+        return extract_tiff_channel_config(dv_file_path)
+    if extension != DV_IMAGE_EXTENSION:
+        return {}
+
     header_config = _extract_from_dv_header(dv_file_path)
     if header_config:
         return header_config
@@ -131,43 +146,16 @@ def extract_channel_config(dv_file_path):
 
 def is_recognized_dv_file(dv_file_path):
     """
-    Returns True if the file can be opened as a DV file.
+    Returns True if the file can be opened as a supported source image file.
     """
-    dv = None
-    try:
-        dv = DVFile(dv_file_path)
-        return True
-    except Exception:
-        return False
-    finally:
-        if dv is not None:
-            dv.close()
+    return is_recognized_image_file(dv_file_path)
 
 
 def get_dv_layer_count(dv_file_path):
     """
-    Returns the number of image layers/channels in the DV file.
+    Returns the number of image layers/channels in the source image file.
     """
-    dv = DVFile(dv_file_path)
-    try:
-        sizes = getattr(dv, "sizes", {}) or {}
-        c_count = sizes.get("C")
-        if c_count is not None:
-            try:
-                return int(c_count)
-            except (TypeError, ValueError):
-                pass
-
-        arr = dv.asarray()
-        if arr.ndim == 2:
-            return 1
-        if arr.ndim == 3:
-            return min(arr.shape)
-        if arr.ndim > 3:
-            return max(1, min(arr.shape[:-2]))
-        return 0
-    finally:
-        dv.close()
+    return get_image_layer_count(dv_file_path)
 
 
 def is_valid_dv_file(dv_file_path):

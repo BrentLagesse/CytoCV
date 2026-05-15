@@ -9,6 +9,12 @@ from typing import Any
 
 from mrc import DVFile
 
+from core.image_sources import (
+    TIFF_IMAGE_EXTENSIONS,
+    source_image_extension,
+)
+from core.metadata_processing.tiff_scale_parser import extract_tiff_scale_metadata
+
 
 def _safe_float(value: Any) -> float | None:
     try:
@@ -24,10 +30,8 @@ def _valid_scale_value(value: float | None) -> bool:
     return value is not None and value > 0
 
 
-def extract_dv_scale_metadata(dv_file_path: str | Path) -> dict[str, Any]:
-    """Extract um/px scale metadata from DV header fields (dx/dy/dz)."""
-
-    result = {
+def _empty_scale_result() -> dict[str, Any]:
+    return {
         "metadata_um_per_px": None,
         "status": "missing",
         "dx": None,
@@ -35,6 +39,15 @@ def extract_dv_scale_metadata(dv_file_path: str | Path) -> dict[str, Any]:
         "dz": None,
         "note": "",
     }
+
+
+def extract_dv_scale_metadata(dv_file_path: str | Path) -> dict[str, Any]:
+    """Extract um/px scale metadata from supported source image metadata."""
+
+    if source_image_extension(dv_file_path) in TIFF_IMAGE_EXTENSIONS:
+        return extract_tiff_scale_metadata(dv_file_path)
+
+    result = _empty_scale_result()
 
     dv_file = None
     try:
