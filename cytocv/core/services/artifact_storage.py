@@ -14,10 +14,10 @@ import skimage.exposure
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
-from mrc import DVFile
 from PIL import Image
 
 from core.artifact_constants import PRE_PROCESS_FOLDER_NAME, PREVIEW_FOLDER_NAME
+from core.image_sources import load_image_stack
 from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
 
 logger = logging.getLogger(__name__)
@@ -382,7 +382,7 @@ def _media_path_from_field(field_value: object) -> Path | None:
 
 
 def resolve_uploaded_file_path(uploaded_image: UploadedImage) -> Path:
-    """Return the on-disk path for an uploaded source DV file."""
+    """Return the on-disk path for an uploaded source image file."""
 
     file_field = uploaded_image.file_location
     if not file_field:
@@ -397,7 +397,7 @@ def resolve_uploaded_file_path(uploaded_image: UploadedImage) -> Path:
 
     if not dv_path.exists():
         raise FileNotFoundError(
-            f"Stored DV file not found for upload {uploaded_image.pk}: {dv_path}"
+            f"Stored source image file not found for upload {uploaded_image.pk}: {dv_path}"
         )
 
     return dv_path
@@ -468,21 +468,10 @@ def optimize_png_file(path: Path) -> bool:
     return True
 
 
-def _load_dv_layers(dv_path: Path) -> np.ndarray:
-    """Load a DV file and return a channel-first layer stack."""
+def _load_source_layers(source_path: Path) -> np.ndarray:
+    """Load a source image file and return a channel-first layer stack."""
 
-    dv_file = DVFile(dv_path)
-    try:
-        array = dv_file.asarray()
-    finally:
-        dv_file.close()
-
-    if array.ndim == 2:
-        return np.expand_dims(array, axis=0)
-    if array.ndim == 3:
-        z_axis = int(np.argmin(array.shape))
-        return np.moveaxis(array, z_axis, 0)
-    raise ValueError(f"Unexpected DV array rank {array.ndim} for {dv_path}")
+    return load_image_stack(source_path)
 
 
 def _build_preview_rgb_image(layer: np.ndarray) -> Image.Image:
@@ -535,10 +524,10 @@ def generate_preview_assets(
     *,
     expected_layers: int = 4,
 ) -> list[DVLayerTifPreview]:
-    """Generate browser preview images for a DV upload."""
+    """Generate browser preview images for a source image upload."""
 
-    dv_path = resolve_uploaded_file_path(uploaded_image)
-    layers = _load_dv_layers(dv_path)
+    source_path = resolve_uploaded_file_path(uploaded_image)
+    layers = _load_source_layers(source_path)
     layer_count = min(expected_layers, int(layers.shape[0]))
 
     delete_preview_assets(uploaded_image)

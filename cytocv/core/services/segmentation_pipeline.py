@@ -20,7 +20,6 @@ from PIL import Image, ImageDraw, ImageFont
 from cv2_rolling_ball import subtract_background_rolling_ball
 from django.conf import settings
 from django.db import transaction
-from mrc import DVFile
 
 from core.channel_roles import (
     CHANNEL_ROLE_BLUE,
@@ -30,6 +29,7 @@ from core.channel_roles import (
 )
 from core.config import DEFAULT_CHANNEL_CONFIG, DEFAULT_PROCESS_CONFIG, input_dir
 from core.contour_processing import get_contour_center, get_neighbor_count
+from core.image_sources import load_image_stack
 from core.image_processing.dashed_line import draw_dashed_line
 from core.models import CellStatistics, SegmentedImage, UploadedImage, get_guest_user
 from core.scale import (
@@ -506,6 +506,7 @@ def run_segmentation_batch(
         uploaded_image = UploadedImage.objects.get(pk=uuid, **owner_filter)
         dv_name = uploaded_image.name
         file_name = _display_file_name(uploaded_image)
+        source_image_name = Path(file_name).name or f"{dv_name}.dv"
         segment_phase = _phase_with_run_count(
             "Segmenting Cell-Pairs",
             index=run_index,
@@ -530,11 +531,7 @@ def run_segmentation_batch(
             logger.debug("Fell back to default channel config for %s", uuid)
         layer_channel_lookup = _build_layer_channel_lookup(channel_config)
 
-        dv_file = DVFile(dv_path)
-        try:
-            image_stack = dv_file.asarray()
-        finally:
-            dv_file.close()
+        image_stack = load_image_stack(dv_path)
         if image_stack.ndim == 2:
             image_stack = np.expand_dims(image_stack, axis=0)
 
@@ -588,12 +585,8 @@ def run_segmentation_batch(
 
             resolve_cells_using_spc110 = False
             if resolve_cells_using_spc110:
-                dv_file = DVFile(dv_path)
-                try:
-                    red_index = channel_config.get(CHANNEL_ROLE_RED)
-                    red_image = dv_file.asarray()[red_index]
-                finally:
-                    dv_file.close()
+                red_index = channel_config.get(CHANNEL_ROLE_RED)
+                red_image = image_stack[red_index]
 
                 red_image = np.round(red_image * 255).astype(np.uint8)
                 if len(red_image.shape) != 3 or red_image.shape[2] != 3:
@@ -701,7 +694,7 @@ def run_segmentation_batch(
         pair_geometry_cache = _build_pair_geometry_cache(seg)
         _write_neck_split_manifest_for_run(
             os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
-            image_name=f"{dv_name}.dv",
+            image_name=source_image_name,
             pair_geometry_cache=pair_geometry_cache,
             use_cache=use_cache,
         )
@@ -755,11 +748,7 @@ def run_segmentation_batch(
                 profile=PNG_PROFILE_ANALYSIS_FAST,
             )
 
-        dv_file = DVFile(dv_path)
-        try:
-            cell_stack = dv_file.asarray()
-        finally:
-            dv_file.close()
+        cell_stack = image_stack
         cell_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
         cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
         if cell_stack.ndim == 2:
@@ -1183,7 +1172,7 @@ def run_segmentation_batch(
                     "green_red_intensity_2": 0.0,
                     "green_red_intensity_3": 0.0,
                     "dv_file_path": str(dv_path),
-                    "image_name": dv_name + ".dv",
+                    "image_name": source_image_name,
                 },
             )
 

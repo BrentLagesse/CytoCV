@@ -6,14 +6,17 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 import skimage.exposure
-from mrc import DVFile
 import logging
 
-from cytocv.settings import MEDIA_ROOT
 from core.artifact_constants import PRE_PROCESS_FOLDER_NAME
 from core.config import get_channel_config_for_uuid
+from core.image_sources import load_image_stack
 from core.models import UploadedImage
-from core.services.artifact_storage import PNG_PROFILE_ANALYSIS_FAST, save_png_image
+from core.services.artifact_storage import (
+    PNG_PROFILE_ANALYSIS_FAST,
+    resolve_uploaded_file_path,
+    save_png_image,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,41 +70,15 @@ def preprocess_images(
     # constants, easily can be changed 
     logger.debug("Preprocess output directory: %s", output_dir)
     
-    #converts windows file path to linux path and joins 
-    image_path = Path(MEDIA_ROOT, str(uploaded_image.file_location)) #.replace("/", "\\")
-    f = DVFile(image_path)
-    try:
-        image_stack = f.asarray()
-    finally:
-        f.close()
+    image_path = resolve_uploaded_file_path(uploaded_image)
+    image_stack = load_image_stack(image_path)
 
-    # gets raw image from uploaded dv file
+    # gets raw image from uploaded source file
     channel_config = get_channel_config_for_uuid(str(uuid))
     dic_index = channel_config.get("DIC", 3)
     image = _select_dic_image_layer(image_stack, dic_index)
     if image is None:
         return None
-    # fileSize = os.path.getsize(uploaded_image.file_location)
-    # if fileSize > 8230000:
-        #File is a live cell imaging that has more than 4 images
-    #     f = DVFile(uploaded_image)
-    #     image = f.asarray()[0]
-    # if extspl[1] == '.dv':
-    #     f = DVFile(uploaded_image)
-    #     image = f.asarray()[0]
-        #if we don't have .dv files, see if there are tifs in the directory with the proper name structure
-
-        # elif len(extspl) != 2 or extspl[1] != '.tif':  # ignore files that aren't tifs
-        #     continue
-        # else:
-        #     image = np.array(Image.open(inputdirectory + imagename))
-    # try:
-        # if verbose:
-        # print ("Preprocessing ", imagename)
-        # existing_files = os.listdir(mask_dir)
-        # if imagename in existing_files and use_cache:   #skip this if we have a mask already
-            # continue
-    # outputdirectory = imagePath
     # grabs only file name
  
     height = image.shape[0]
