@@ -1572,7 +1572,7 @@
     );
     pushToggleChange(
       changes,
-      'Enforce 4-Image DV Files',
+      'Enforce 4-Layer Files',
       fromSnapshot.enforceLayerCount,
       toSnapshot.enforceLayerCount
     );

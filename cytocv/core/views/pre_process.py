@@ -56,8 +56,11 @@ from .utils import (
     prune_experiment_session_state,
     sync_transient_run_session_state,
 )
-from core.channel_roles import CHANNEL_ROLE_ORDER, channel_display_label
+from core.channel_roles import CHANNEL_ROLE_ORDER, channel_display_label, normalize_channel_role
+from core.config import DEFAULT_CHANNEL_CONFIG
+from core.image_sources import TIFF_IMAGE_EXTENSIONS, source_image_extension
 from core.metadata_processing.dv_channel_parser import extract_channel_config
+from core.metadata_processing.tiff_channel_parser import extract_tiff_metadata_channel_config
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 
@@ -88,6 +91,53 @@ PROCESSING_STORAGE_FULL_MESSAGE = (
     "Files could not be saved because storage is full. Free up space and try again."
 )
 logger = logging.getLogger(__name__)
+
+
+def _normalize_channel_config(config: dict[str, object]) -> dict[str, int]:
+    normalized: dict[str, int] = {}
+    for channel, index in (config or {}).items():
+        role = normalize_channel_role(channel)
+        if role is None:
+            continue
+        try:
+            normalized[role] = int(index)
+        except (TypeError, ValueError):
+            continue
+    return normalized
+
+
+def _write_channel_config(path: Path, config: dict[str, int]) -> None:
+    path.write_text(json.dumps(config), encoding="utf-8")
+
+
+def _refresh_default_tiff_channel_config(
+    uploaded: UploadedImage,
+    config_path: Path,
+    config: dict[str, object],
+) -> dict[str, int]:
+    """Refresh old default TIFF configs when complete metadata is available."""
+
+    normalized_config = _normalize_channel_config(config)
+    if normalized_config != DEFAULT_CHANNEL_CONFIG:
+        return normalized_config
+
+    source_path = Path(MEDIA_ROOT) / str(uploaded.file_location)
+    if source_image_extension(source_path) not in TIFF_IMAGE_EXTENSIONS:
+        return normalized_config
+
+    metadata_config = extract_tiff_metadata_channel_config(source_path)
+    if metadata_config is None or metadata_config == normalized_config:
+        return normalized_config
+
+    _write_channel_config(config_path, metadata_config)
+    return metadata_config
+
+
+def _channel_labels_from_config(config: dict[str, int]) -> list[str]:
+    return [
+        channel_display_label(channel)
+        for channel, _ in sorted(config.items(), key=lambda item: item[1])
+    ]
 PROGRESS_BATCH_SESSION_KEY = "authorized_progress_batches"
 
 
@@ -387,18 +437,14 @@ def pre_process(request, uuids):
         cfg_path = Path(MEDIA_ROOT) / uid / 'channel_config.json'
         if cfg_path.exists():
             cfg = json.loads(cfg_path.read_text())
-            detected_channels = [
-                channel_display_label(ch) for ch, _ in sorted(cfg.items(), key=lambda t: t[1])
-            ]
+            cfg = _refresh_default_tiff_channel_config(uploaded, cfg_path, cfg)
+            detected_channels = _channel_labels_from_config(cfg)
         else:
-            # fallback: parse header of first .dv file
-            dv_files = list((Path(MEDIA_ROOT) / uid).glob('*.dv'))
-            if dv_files:
-                cfg = extract_channel_config(str(dv_files[0]))
-                detected_channels = [
-                    channel_display_label(ch)
-                    for ch, _ in sorted(cfg.items(), key=lambda t: t[1])
-                ]
+            # fallback: parse the stored source image file
+            source_path = Path(MEDIA_ROOT) / str(uploaded.file_location)
+            if source_path.exists():
+                cfg = extract_channel_config(str(source_path))
+                detected_channels = _channel_labels_from_config(cfg)
             else:
                 detected_channels = []
 
@@ -924,20 +970,30 @@ def cancel_progress(request, uuids):
 @require_POST
 @csrf_exempt
 def update_channel_order(request, uuid):
-    """
-    POST {order: ["DIC","channel_blue","channel_red","channel_green"]}
-    → overwrite channel_config.json in MEDIA_ROOT/<uuid>/
-    """
+    """Persist a user-selected channel order for one uploaded source image."""
+
     try:
         data = json.loads(request.body)
         new_order = data.get('order', [])
-        expected = set(CHANNEL_ROLE_ORDER)
-        if set(new_order) != expected:
+        if not isinstance(new_order, list):
             return JsonResponse({'error': 'Invalid channel order.'}, status=400)
 
-        # new: 0–3 mapping to match your layer filenames
-        mapping = {ch: i for i, ch in enumerate(new_order)}
+        normalized_order = [
+            normalize_channel_role(channel)
+            for channel in new_order
+        ]
+        expected = set(CHANNEL_ROLE_ORDER)
+        if (
+            any(channel is None for channel in normalized_order)
+            or len(normalized_order) != len(CHANNEL_ROLE_ORDER)
+            or set(normalized_order) != expected
+        ):
+            return JsonResponse({'error': 'Invalid channel order.'}, status=400)
 
+        mapping = {
+            str(channel): index
+            for index, channel in enumerate(normalized_order)
+        }
 
         cfg_path = Path(MEDIA_ROOT) / uuid / 'channel_config.json'
         if not cfg_path.exists():
@@ -946,8 +1002,7 @@ def update_channel_order(request, uuid):
                 status=404,
             )
 
-        # SAVE: overwrite the JSON file with new mapping
-        cfg_path.write_text(json.dumps(mapping))
+        _write_channel_config(cfg_path, mapping)
         return JsonResponse({'status': 'ok'})
 
     except Exception:

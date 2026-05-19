@@ -1,8 +1,13 @@
 ﻿"""Unit tests for upload-length conversion helpers."""
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from django.test import SimpleTestCase
 from unittest.mock import patch
+
+import numpy as np
+import tifffile
 
 from core.cell_analysis import CENDot
 from core.metadata_processing.dv_scale_parser import extract_dv_scale_metadata
@@ -340,3 +345,20 @@ class DVScaleMetadataParserTests(SimpleTestCase):
         payload = extract_dv_scale_metadata("dummy.dv")
         self.assertEqual(payload["status"], "invalid")
         self.assertIsNone(payload["metadata_um_per_px"])
+
+    def test_extract_tiff_scale_metadata_from_resolution_tags(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "scaled.tif"
+            tifffile.imwrite(
+                path,
+                np.ones((4, 5, 6), dtype=np.uint16),
+                resolution=(10000, 10000),
+                resolutionunit="CENTIMETER",
+            )
+
+            payload = extract_dv_scale_metadata(path)
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertAlmostEqual(payload["metadata_um_per_px"], 1.0, places=6)
+        self.assertAlmostEqual(payload["dx"], 1.0, places=6)
+        self.assertAlmostEqual(payload["dy"], 1.0, places=6)

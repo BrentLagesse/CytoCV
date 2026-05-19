@@ -33,6 +33,10 @@ from core.scale import (
     normalize_length_unit,
     parse_microns_per_pixel,
 )
+from core.image_sources import (
+    SUPPORTED_IMAGE_EXTENSIONS_LABEL,
+    is_supported_image_filename,
+)
 from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
 )
@@ -777,11 +781,15 @@ def experiment(request):
         _persist_experiment_session(request, session_values)
 
         invalid_names = [
-            file.name for file in files if Path(str(file.name)).suffix.lower() != ".dv"
+            file.name for file in files if not is_supported_image_filename(file.name)
         ]
         if invalid_names:
             return JsonResponse(
-                {"errors": ["Only DeltaVision .dv files can be uploaded."]},
+                {
+                    "errors": [
+                        f"Only supported image files ({SUPPORTED_IMAGE_EXTENSIONS_LABEL}) can be uploaded."
+                    ]
+                },
                 status=400,
             )
 
@@ -947,7 +955,7 @@ def save_experiment_workflow_defaults(request):
 
 @require_POST
 def upload_file_batch(request):
-    """Save a small batch of DV files and return queued upload UUIDs."""
+    """Save a small batch of source image files and return queued upload UUIDs."""
 
     files = request.FILES.getlist("files")
     if not files:
@@ -968,11 +976,15 @@ def upload_file_batch(request):
     created_uuids: list[str] = []
     uploaded_items: list[dict[str, str]] = []
     invalid_names = [
-        file.name for file in files if Path(str(file.name)).suffix.lower() != ".dv"
+        file.name for file in files if not is_supported_image_filename(file.name)
     ]
     if invalid_names:
         return JsonResponse(
-            {"errors": ["Only DeltaVision .dv files can be uploaded."]},
+            {
+                "errors": [
+                    f"Only supported image files ({SUPPORTED_IMAGE_EXTENSIONS_LABEL}) can be uploaded."
+                ]
+            },
             status=400,
         )
 

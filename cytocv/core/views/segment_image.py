@@ -32,7 +32,6 @@ import numpy as np
 import skimage
 from PIL import Image
 from cv2_rolling_ball import subtract_background_rolling_ball
-from mrc import DVFile
 from scipy.spatial.distance import euclidean
 from skimage import io
 
@@ -62,6 +61,7 @@ from core.config import (
     input_dir,
     output_dir,
 )
+from core.image_sources import load_image_stack
 from core.models import CellStatistics, Contour, SegmentedImage, UploadedImage, get_guest_user
 from core.image_processing import (
     ensure_3channel_bgr,
@@ -673,18 +673,15 @@ def segment_image(request, uuids):
         uploaded_image = get_object_or_404(UploadedImage, pk=uuid, **owner_filter)
         DV_Name = uploaded_image.name
         DV_path = _resolve_uploaded_dv_path(uploaded_image)
+        source_image_name = Path(str(uploaded_image.file_location.name or "")).name or f"{DV_Name}.dv"
         channel_config = get_channel_config_for_uuid(uuid)
         layer_channel_lookup = _build_layer_channel_lookup(channel_config)
         image_dict = dict()
         image_dict[DV_Name] = list()
 
-        # Need to grab the original DV file
+        # Need to grab the original source image file
         # Load the original raw image and rescale its intensity values
-        f = DVFile(DV_path)
-        try:
-            im = f.asarray()
-        finally:
-            f.close()
+        im = load_image_stack(DV_path)
         if im.ndim == 2:
             im = np.expand_dims(im, axis=0)
 
@@ -766,20 +763,15 @@ def segment_image(request, uuids):
             lines_to_draw = dict()
             if resolve_cells_using_spc110:
 
-                # Open the red channel from the DV stack.
+                # Open the red channel from the source image stack.
 
                 # basename = image_name.split('_R3D_REF')[0]
                 # red_dir = input_dir + basename + '_PRJ_TIFFS/'
                 # red_image_name = basename + '_PRJ' + '_w625' + '.tif'
                 # red_image = np.array(Image.open(red_dir + red_image_name))
 
-                # Which file are we trying to find here?
-                f = DVFile(DV_path)
-                try:
-                    red_index = channel_config.get(CHANNEL_ROLE_RED)
-                    red_image = f.asarray()[red_index]
-                finally:
-                    f.close()
+                red_index = channel_config.get(CHANNEL_ROLE_RED)
+                red_image = im[red_index]
 
                 red_image = np.round(red_image * 255).astype(np.uint8)
 
@@ -977,11 +969,6 @@ def segment_image(request, uuids):
         #if os.path.isdir(to_open):
         #    continue
         #image = np.array(Image.open(to_open))
-        f = DVFile(DV_path)
-        try:
-            im = f.asarray()
-        finally:
-            f.close()
         if im.ndim == 2:
             im = np.expand_dims(im, axis=0)
 
@@ -1087,11 +1074,7 @@ def segment_image(request, uuids):
             if is_storage_full_error(exc):
                 return storage_full_response(exc)
             raise
-        f = DVFile(DV_path)
-        try:
-            image_stack = f.asarray()
-        finally:
-            f.close()
+        image_stack = im
         cell_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
         cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
 
@@ -1564,7 +1547,7 @@ def segment_image(request, uuids):
 
                     # Store file path information
                     'dv_file_path': str(DV_path),
-                    'image_name': DV_Name + '.dv',
+                    'image_name': source_image_name,
                 }
             )
 

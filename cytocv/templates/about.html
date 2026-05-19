@@ -272,7 +272,7 @@
                 <h2 class="about-card-title">What CytoCV Is</h2>
             </div>
             <div class="about-copy">
-                <p>CytoCV is a browser-based analysis workflow for DeltaVision <code>.dv</code> microscopy of yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one place.</p>
+                <p>CytoCV is a browser-based analysis workflow for supported <code>.dv</code>, <code>.tif</code>, and <code>.tiff</code> microscopy files of yeast cells. It is designed to keep image files, channel interpretation, scale context, and measurement outputs connected in one place.</p>
                 <p>The platform supports a modern default analysis path centered on structural segmentation plus red and green fluorescence measurements, while keeping older Blue-based workflows available as legacy paths when they are needed.</p>
             </div>
             <ul class="about-channel-list" aria-label="Channel roles">
@@ -324,7 +324,7 @@
                 <h2 class="about-card-title">How the Workflow Works</h2>
             </div>
             <div class="about-copy">
-                <p>Researchers upload DeltaVision <code>.dv</code> files, and CytoCV validates the channels required for the selected workflow before analysis proceeds. Preview images are generated first so the file can be checked before segmentation and measurement begin.</p>
+                <p>Researchers upload supported <code>.dv</code>, <code>.tif</code>, or <code>.tiff</code> files, and CytoCV validates the channels required for the selected workflow before analysis proceeds. Preview images are generated first so the file can be checked before segmentation and measurement begin.</p>
                 <p>The platform then uses <code>DIC</code>, a structural brightfield-like channel, as the input for Mask R-CNN-based cell segmentation. After cells are segmented, CytoCV computes software-generated per-cell measurements and presents the results for review and export.</p>
             </div>
             <p class="about-output-label">Workflow outputs</p>
@@ -370,13 +370,13 @@
                 <h2 class="about-card-title">What Image Inputs CytoCV Expects</h2>
             </div>
             <div class="about-copy">
-                <p>CytoCV is built for DeltaVision <code>.dv</code> microscopy files from yeast imaging workflows. The platform expects image stacks that preserve the channel context needed for validation, preview generation, segmentation, and downstream measurement.</p>
+                <p>CytoCV is built for single-file microscopy stacks from yeast imaging workflows. The platform accepts <code>.dv</code>, <code>.tif</code>, and <code>.tiff</code> files that preserve the channel context needed for validation, preview generation, segmentation, and downstream measurement.</p>
                 <p>In the current workflow, <code>DIC</code> provides the structural input for cell segmentation, while <code>Red</code> and <code>Green</code> channels provide the main fluorescence measurements. <code>Blue</code> remains relevant for older legacy analyses when that path is needed. Biology-facing names such as DAPI, mCherry, and GFP commonly map to the logical Blue, Red, and Green roles.</p>
             </div>
             <ul class="about-detail-list" aria-label="Image input expectations">
                 <li>
                     <strong>File format</strong>
-                    <span>DeltaVision <code>.dv</code> image stacks are the expected upload format.</span>
+                    <span><code>.dv</code>, <code>.tif</code>, and <code>.tiff</code> image stacks are supported upload formats.</span>
                 </li>
                 <li>
                     <strong>Structural input</strong>

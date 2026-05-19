@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 from enum import Enum
 
@@ -11,10 +10,10 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Q
-from mrc import DVFile
 from PIL import Image
 
 from core.config import get_channel_config_for_uuid
+from core.image_sources import is_supported_image_filename, load_image_stack
 
 
 def get_guest_user() -> int:
@@ -206,7 +205,7 @@ class UploadPreparationJob(models.Model):
 
 
 class DVLayerTifPreview(models.Model):
-    """Stores a single channel preview for a DV file."""
+    """Stores a single channel preview for a source image file."""
 
     wavelength = models.CharField(max_length=30)
     uploaded_image_uuid = models.ForeignKey(UploadedImage, on_delete=models.CASCADE)
@@ -368,7 +367,7 @@ class CellStatistics(models.Model):
             outline: Whether to include the outline suffix for filenames.
 
         Returns:
-            A PIL Image when reading from a DV file, or a filename string.
+            A PIL Image when reading from a source image file, or a filename string.
         """
         channel_config = get_channel_config_for_uuid(self.segmented_image.UUID)
         image_channel = channel_config.get(channel)
@@ -378,12 +377,9 @@ class CellStatistics(models.Model):
             outlinestr = "-no_outline"
         if use_id:
             return f"{self.get_base_name()}_PRJ-{image_channel}-{self.cell_id}{outlinestr}.png"
-        extspl = os.path.splitext(self.image_name)
-        if extspl[1] == ".dv":
-            f = DVFile(self.dv_file_path)
-            image = f.asarray()
-            img = Image.fromarray(image[image_channel])
-            return img
+        if is_supported_image_filename(self.image_name):
+            image_stack = load_image_stack(self.dv_file_path)
+            return Image.fromarray(image_stack[image_channel])
         return f"{self.get_base_name()}_PRJ-{image_channel}{outlinestr}.png"
 
 

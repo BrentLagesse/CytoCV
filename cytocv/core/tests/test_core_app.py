@@ -13,6 +13,7 @@ from uuid import uuid4
 from unittest.mock import patch
 
 import numpy as np
+import tifffile
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -136,6 +137,23 @@ class RouteSurfaceRefactorTests(TestCase):
             uuid=uuid_value,
             name=name,
             file_location=f"{uuid_value}/{name}.dv",
+        )
+
+    @staticmethod
+    def _write_labeled_tiff(path: Path):
+        labels = [
+            "sample_PRJ_w625.tif",
+            "sample_PRJ_w435.tif",
+            "sample_PRJ_w525.tif",
+            "sample_R3D_REF.tif",
+        ]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tifffile.imwrite(
+            path,
+            np.ones((4, 5, 6), dtype=np.uint16),
+            photometric="minisblack",
+            imagej=True,
+            metadata={"Labels": labels, "mode": "composite"},
         )
 
     def _create_segmented_image(self, uuid_value: str, name: str = "sample") -> SegmentedImage:
@@ -539,7 +557,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             home_response,
-            "CytoCV helps researchers upload DeltaVision",
+            "CytoCV helps researchers upload supported",
         )
         self.assertContains(
             home_response,
@@ -884,6 +902,115 @@ class RouteSurfaceRefactorTests(TestCase):
             update_channel_response.content.decode("utf-8"),
             {"error": "Channel information for this file could not be loaded."},
         )
+
+    def test_update_channel_order_accepts_display_labels(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            response = self.client.post(
+                reverse("update_channel_order", args=[uuid_value]),
+                data=json.dumps({"order": ["Red", "Blue", "Green", "DIC"]}),
+                content_type="application/json",
+            )
+            payload = json.loads((media_root / uuid_value / "channel_config.json").read_text())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            payload,
+            {
+                "channel_red": 0,
+                "channel_blue": 1,
+                "channel_green": 2,
+                "DIC": 3,
+            },
+        )
+
+    def test_update_channel_order_accepts_canonical_keys(self):
+        uuid_value = str(uuid4())
+        order = ["channel_red", "channel_blue", "channel_green", "DIC"]
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            response = self.client.post(
+                reverse("update_channel_order", args=[uuid_value]),
+                data=json.dumps({"order": order}),
+                content_type="application/json",
+            )
+            payload = json.loads((media_root / uuid_value / "channel_config.json").read_text())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload, {channel: index for index, channel in enumerate(order)})
+
+    def test_update_channel_order_rejects_duplicate_display_labels(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            response = self.client.post(
+                reverse("update_channel_order", args=[uuid_value]),
+                data=json.dumps({"order": ["Red", "Red", "Green", "DIC"]}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Invalid channel order."},
+        )
+
+    def test_pre_process_refreshes_default_tiff_channel_config_from_metadata(self):
+        uuid_value = str(uuid4())
+        image_name = "metadata_channels"
+        with temporary_media_root() as media_root:
+            source_path = media_root / uuid_value / f"{image_name}.tif"
+            self._write_labeled_tiff(source_path)
+            self._write_channel_config(media_root, uuid_value)
+            UploadedImage.objects.create(
+                user=self.user,
+                uuid=uuid_value,
+                name=image_name,
+                file_location=f"{uuid_value}/{image_name}.tif",
+            )
+
+            response = self.client.get(reverse("pre_process", args=[uuid_value]))
+            payload = json.loads((media_root / uuid_value / "channel_config.json").read_text())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            payload,
+            {
+                "channel_red": 0,
+                "channel_blue": 1,
+                "channel_green": 2,
+                "DIC": 3,
+            },
+        )
+
+    def test_pre_process_preserves_user_edited_tiff_channel_config(self):
+        uuid_value = str(uuid4())
+        image_name = "user_channels"
+        user_config = {
+            "channel_blue": 0,
+            "DIC": 1,
+            "channel_green": 2,
+            "channel_red": 3,
+        }
+        with temporary_media_root() as media_root:
+            source_path = media_root / uuid_value / f"{image_name}.tif"
+            self._write_labeled_tiff(source_path)
+            config_path = media_root / uuid_value / "channel_config.json"
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text(json.dumps(user_config), encoding="utf-8")
+            UploadedImage.objects.create(
+                user=self.user,
+                uuid=uuid_value,
+                name=image_name,
+                file_location=f"{uuid_value}/{image_name}.tif",
+            )
+
+            response = self.client.get(reverse("pre_process", args=[uuid_value]))
+            payload = json.loads(config_path.read_text())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload, user_config)
 
     def test_pre_process_uses_renamed_template_and_routes(self):
         uuid_value = str(uuid4())

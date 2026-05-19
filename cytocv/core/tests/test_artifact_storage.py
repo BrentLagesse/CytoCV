@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import errno
 import json
@@ -74,7 +74,6 @@ def temporary_media_root():
             for target in (
                 "accounts.views.profile.MEDIA_ROOT",
                 "core.config.MEDIA_ROOT",
-                "core.mrcnn.preprocess_images.MEDIA_ROOT",
                 "core.views.convert_to_image.MEDIA_ROOT",
                 "core.views.display.MEDIA_ROOT",
                 "core.views.pre_process.MEDIA_ROOT",
@@ -188,7 +187,7 @@ class PreviewArtifactTests(ArtifactStorageTestCase):
 
             layer_stack = np.arange(4 * 5 * 5, dtype=np.uint16).reshape(4, 5, 5)
             with patch(
-                "core.services.artifact_storage._load_dv_layers",
+                "core.services.artifact_storage._load_source_layers",
                 return_value=layer_stack,
             ):
                 preview_rows = generate_preview_assets(uploaded, expected_layers=4)
@@ -211,7 +210,7 @@ class PreviewArtifactTests(ArtifactStorageTestCase):
 
             layer_stack = np.ones((2, 4, 4), dtype=np.uint16)
             with patch(
-                "core.services.artifact_storage._load_dv_layers",
+                "core.services.artifact_storage._load_source_layers",
                 return_value=layer_stack,
             ):
                 preview_rows = ensure_preview_assets(uploaded, expected_layers=4)
@@ -229,8 +228,10 @@ class PreprocessEncodingTests(ArtifactStorageTestCase):
             uploaded = self._create_uploaded_image(media_root, name="preprocess_png")
             self._write_channel_config(media_root, str(uploaded.uuid))
 
-            with patch("core.mrcnn.preprocess_images.DVFile") as dv_file_cls:
-                dv_file_cls.return_value.asarray.return_value = np.ones((4, 8, 8), dtype=np.uint16)
+            with patch(
+                "core.mrcnn.preprocess_images.load_image_stack",
+                return_value=np.ones((4, 8, 8), dtype=np.uint16),
+            ):
                 artifact = preprocess_images(
                     str(uploaded.uuid),
                     uploaded,
@@ -661,7 +662,7 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 },
             )()
             with patch(
-                "core.services.upload_preparation.validate_dv_file",
+                "core.services.upload_preparation.validate_source_image_file",
                 return_value=invalid_result,
             ):
                 response = self.client.post(
@@ -738,7 +739,7 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 },
             )()
 
-            with patch("core.services.upload_preparation.validate_dv_file", return_value=valid_result), patch(
+            with patch("core.services.upload_preparation.validate_source_image_file", return_value=valid_result), patch(
                 "core.services.upload_preparation.extract_channel_config",
                 return_value=DEFAULT_CHANNEL_CONFIG,
             ), patch(
@@ -869,17 +870,10 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 format="TIFF",
             )
 
-            class DummyDVFile:
-                def __init__(self, *_args, **_kwargs):
-                    self._array = np.ones((1, 4, 4), dtype=np.uint8)
-
-                def asarray(self):
-                    return self._array
-
-                def close(self):
-                    return None
-
-            with patch("core.views.segment_image.DVFile", DummyDVFile), patch(
+            with patch(
+                "core.views.segment_image.load_image_stack",
+                return_value=np.ones((1, 4, 4), dtype=np.uint8),
+            ), patch(
                 "matplotlib.figure.Figure.savefig",
                 side_effect=OSError(errno.ENOSPC, "No space left on device"),
             ):

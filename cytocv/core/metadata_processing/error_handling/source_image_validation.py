@@ -10,7 +10,8 @@ from ...channel_roles import (
     channel_display_label,
     normalize_channel_role,
 )
-from ..dv_channel_parser import extract_channel_config, get_dv_layer_count, is_recognized_dv_file
+from ...image_sources import get_image_layer_count, is_recognized_image_file
+from ..dv_channel_parser import extract_channel_config
 from ...stats_plugins import CHANNEL_ORDER
 
 EXPECTED_LAYER_COUNT = 4
@@ -45,7 +46,7 @@ def _available_channels_from_config(channel_config: dict, layer_count: int) -> S
 
 
 @dataclass(frozen=True)
-class DVValidationOptions:
+class SourceImageValidationOptions:
     """Control which metadata checks run before preprocessing."""
 
     enforce_layer_count: bool = False
@@ -54,8 +55,8 @@ class DVValidationOptions:
 
 
 @dataclass(frozen=True)
-class DVValidationResult:
-    """Hold metadata validation results for a single DV file."""
+class SourceImageValidationResult:
+    """Hold metadata validation results for a single source image file."""
 
     is_valid: bool
     layer_count: int | None
@@ -64,7 +65,7 @@ class DVValidationResult:
     error_message: str | None = None
 
 
-def get_effective_required_channels(options: DVValidationOptions) -> Set[str]:
+def get_effective_required_channels(options: SourceImageValidationOptions) -> Set[str]:
     """Return the full set of required channels for this validation run."""
 
     required = set(options.required_channels or set())
@@ -73,34 +74,37 @@ def get_effective_required_channels(options: DVValidationOptions) -> Set[str]:
     return required
 
 
-def validate_dv_file(dv_file_path: Path, options: DVValidationOptions) -> DVValidationResult:
-    """Run metadata validation and return the results for the DV file."""
+def validate_source_image_file(
+    source_image_path: Path,
+    options: SourceImageValidationOptions,
+) -> SourceImageValidationResult:
+    """Run metadata validation and return results for a source image file."""
 
     required_channels = get_effective_required_channels(options)
 
-    if not is_recognized_dv_file(str(dv_file_path)):
-        return DVValidationResult(
+    if not is_recognized_image_file(str(source_image_path)):
+        return SourceImageValidationResult(
             is_valid=False,
             layer_count=None,
             missing_channels=set(),
             required_channels=required_channels,
-            error_message="not a recognized DV file",
+            error_message="not a recognized supported image file",
         )
 
     layer_count = None
     if options.enforce_layer_count:
         try:
-            layer_count = get_dv_layer_count(str(dv_file_path))
+            layer_count = get_image_layer_count(str(source_image_path))
         except Exception:
-            return DVValidationResult(
+            return SourceImageValidationResult(
                 is_valid=False,
                 layer_count=None,
                 missing_channels=set(),
                 required_channels=required_channels,
-                error_message="not a recognized DV file",
+                error_message="not a recognized supported image file",
             )
         if layer_count != EXPECTED_LAYER_COUNT:
-            return DVValidationResult(
+            return SourceImageValidationResult(
                 is_valid=False,
                 layer_count=layer_count,
                 missing_channels=set(),
@@ -108,30 +112,30 @@ def validate_dv_file(dv_file_path: Path, options: DVValidationOptions) -> DVVali
             )
 
     if required_channels:
-        channel_config = extract_channel_config(dv_file_path)
+        channel_config = extract_channel_config(source_image_path)
         if layer_count is None:
             try:
-                layer_count = get_dv_layer_count(str(dv_file_path))
+                layer_count = get_image_layer_count(str(source_image_path))
             except Exception:
-                return DVValidationResult(
+                return SourceImageValidationResult(
                     is_valid=False,
                     layer_count=None,
                     missing_channels=set(),
                     required_channels=required_channels,
-                    error_message="not a recognized DV file",
+                    error_message="not a recognized supported image file",
                 )
 
         available_channels = _available_channels_from_config(channel_config, layer_count)
         missing_channels = set(required_channels) - available_channels
         if missing_channels:
-            return DVValidationResult(
+            return SourceImageValidationResult(
                 is_valid=False,
                 layer_count=layer_count,
                 missing_channels=missing_channels,
                 required_channels=required_channels,
             )
 
-    return DVValidationResult(
+    return SourceImageValidationResult(
         is_valid=True,
         layer_count=layer_count,
         missing_channels=set(),
@@ -157,9 +161,16 @@ def _sorted_channel_labels(channels: Set[str]) -> list[str]:
     return [channel_display_label(channel) for channel in _sorted_channels(channels)]
 
 
-def build_dv_error_messages(
-    failures: Iterable[Tuple[str, DVValidationResult]],
-    options: DVValidationOptions,
+def _failure_file_name(name: object) -> str:
+    file_name = Path(str(name or "")).name
+    if Path(file_name).suffix:
+        return file_name
+    return f"{file_name}.dv"
+
+
+def build_source_image_error_messages(
+    failures: Iterable[Tuple[str, SourceImageValidationResult]],
+    options: SourceImageValidationOptions,
 ) -> list[str]:
     """Create user-facing error messages based on the enabled checks."""
 
@@ -169,7 +180,7 @@ def build_dv_error_messages(
     required_channels = get_effective_required_channels(options)
 
     for name, result in failures:
-        file_name = f"{name}.dv"
+        file_name = _failure_file_name(name)
         if result.error_message:
             invalid_file_errors.append(f"- {file_name} is {result.error_message}")
             continue
@@ -199,7 +210,7 @@ def build_dv_error_messages(
         messages.extend(items)
 
     append_section(
-        "Could not process the following files because they are not recognized DV files:",
+        "Could not process the following files because they are not recognized supported image files:",
         invalid_file_errors,
     )
     append_section(
