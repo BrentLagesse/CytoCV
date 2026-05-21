@@ -13,23 +13,26 @@ This guide lists common user-visible failures and the expected corrective action
 
 ### Symptom
 
-The upload page reports invalid DV files or rejects files immediately.
+The upload page reports invalid source image files or rejects files immediately.
 
 ### Likely Causes
 
-- the file does not parse as a valid DeltaVision stack
+- the file does not parse as a valid supported `.dv`, `.tif`, or `.tiff` stack
 - the file does not satisfy enforced layer-count requirements
 - required wavelengths are missing
 - a selected plugin requires a channel that is not present
+- separate single-channel TIFFs were uploaded with the expectation that CytoCV would combine them into one multi-channel file
 
 ### Corrective Action
 
-- verify the file is a supported `.dv` file
+- verify the file is a supported `.dv`, `.tif`, or `.tiff` file
 - verify the current plugin selection
 - disable unneeded validation controls
 - confirm that `DIC` is present
 - confirm that any plugin-required channels are present
 - if all-wavelength enforcement is enabled, confirm that all four logical channel roles are present
+- for TIFF workflows, use a TIFF stack that contains the needed channels; CytoCV does not assemble separate wavelength TIFF files into one run by filename
+- if TIFF channel order looks wrong, check for ImageJ labels such as `w625`, `w525`, `w435`, and `R3D_REF`, or adjust the channel mapping before analysis
 
 ### Symptom
 
