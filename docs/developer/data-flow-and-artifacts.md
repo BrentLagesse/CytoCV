@@ -6,12 +6,14 @@ This document tracks how files and persisted state move through the system from 
 
 ## Upload Intake
 
-Input enters through the `experiment` view as a browser-uploaded `.dv` file.
+Input enters through the `experiment` view as one or more browser-uploaded source image files. Supported source extensions are `.dv`, `.tif`, and `.tiff`.
 
 Primary persisted outputs at request-time intake:
 
-- one `UploadedImage` row
-- one source DV file under the run UUID namespace
+- one `UploadedImage` row per uploaded source file
+- one source file under each run UUID namespace
+
+Each selected source file becomes an independent run. The upload flow does not combine separate per-wavelength TIFF files into one stack by matching filenames.
 
 Upload preparation then runs through `UploadPreparationJob`. In `sync` mode the
 request thread executes that job inline; in `worker` mode the background worker
@@ -22,6 +24,11 @@ Upload-prep outputs are:
 - one `channel_config.json`
 - preview PNG assets
 - `scale_info` metadata saved on `UploadedImage`
+
+Channel configuration is derived by source format:
+
+- `.dv`: DV header metadata is read first, then legacy XML-like header snippets are used as fallback.
+- `.tif` and `.tiff`: ImageJ `Labels` metadata is read when available. Complete and unambiguous softWoRx-style labels such as `*_w625.tif`, `*_w525.tif`, `*_w435.tif`, and `*_R3D_REF.tif` map to Red, Green, Blue, and DIC respectively. Missing or ambiguous TIFF labels fall back to the default channel order.
 
 The worker deletes invalid newly uploaded files, skips invalid restored files, and preserves safe user-facing validation errors on the job.
 

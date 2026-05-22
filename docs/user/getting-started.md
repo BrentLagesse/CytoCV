@@ -14,7 +14,7 @@ This page is for people running CytoCV locally for development, evaluation, or m
 - the project dependencies from `requirements.txt`
 - a configured `.env` file at the repository root
 - the required Mask R-CNN weights file under `cytocv/core/weights`
-- at least one supported DeltaVision `.dv` file
+- at least one supported `.dv`, `.tif`, or `.tiff` source image file
 
 ## Browser Support
 
@@ -36,6 +36,8 @@ Only `DIC` is universally required because the segmentation and CNN preprocessin
 - manual required channels are added only when the validation module is enabled
 - exact four-layer enforcement occurs only when `enforce_layer_count` is enabled
 - all-four-role enforcement occurs only when `enforce_wavelengths` is enabled
+
+Supported TIFF files are treated as stack files. If you upload several TIFF files at once, CytoCV processes them as several independent runs; it does not combine separate Red, Green, Blue, and DIC TIFF files by filename. For TIFF channel detection, CytoCV uses ImageJ label metadata when it is present and complete. softWoRx-style labels containing `w625`, `w525`, `w435`, and `R3D_REF` map to Red, Green, Blue, and DIC. If those labels are unavailable or ambiguous, CytoCV uses its default channel order.
 
 ## Local Startup Procedure
 
@@ -65,7 +67,7 @@ python manage.py runserver
 ## First Successful Run
 
 1. Open the `Experiment` page.
-2. Upload one or more `.dv` files.
+2. Upload one or more supported `.dv`, `.tif`, or `.tiff` files.
 3. Leave the default modern workflow enabled unless you are intentionally testing a reduced plugin set or a legacy Blue workflow. The default set includes `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`.
 4. Confirm that the file provides `DIC` plus any channels required by the selected plugin set.
 5. Review scale settings and, if needed, advanced validation toggles.

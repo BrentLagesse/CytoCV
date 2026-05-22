@@ -6,18 +6,63 @@ This document defines the key input assumptions and generated artifact patterns 
 
 ## Input File Assumptions
 
-Primary input format:
+Supported input formats:
 
 - DeltaVision `.dv`
+- TIFF `.tif`
+- TIFF `.tiff`
 
 Current workflow assumptions:
 
-- the upload can be interpreted as a channel stack
+- each uploaded file is interpreted as one independent run-level channel stack
 - CytoCV supports four logical channel roles: `DIC`, `Blue`, `Red`, and `Green`
 - only `DIC` is universally required
 - additional required channels are derived from the selected plugin set and optional validation settings
 - channel order can be remapped through `channel_config.json`
 - exact four-layer enforcement occurs only when `enforce_layer_count` is enabled
+
+CytoCV does not group multiple separate TIFF files into one multi-channel run based on filename similarity. When a user selects several source files, each file is saved, validated, previewed, processed, and displayed as its own run with its own UUID and `channel_config.json`.
+
+## TIFF Channel Detection
+
+TIFF uploads are expected to be stack files when more than one channel is needed. The stack can be a multi-page or otherwise channel-axis TIFF that `tifffile` can normalize into a channel-first image stack.
+
+TIFF channel order is resolved in this order:
+
+1. Read ImageJ metadata labels from `Labels` or `labels`.
+2. If the labels form a complete, unambiguous four-channel set, build `channel_config.json` from those labels.
+3. If metadata labels are missing, incomplete, duplicated, or ambiguous, fall back to the default channel order.
+
+The recognized TIFF label patterns are:
+
+- Red: a wavelength token near `w625`, within 12 nm of 625
+- Green: a wavelength token near `w525`, within 12 nm of 525
+- Blue: a wavelength token near `w435`, within 12 nm of 435
+- DIC: labels containing `DIC`, `brightfield`, `transmission`, `r3dref`, `_ref`, or ending in `ref.tif`
+
+The wavelength token matcher accepts `w625`, `w_625`, `w-625`, and `w 625` when the token is separated from surrounding letters or digits. Example softWoRx/ImageJ label metadata that maps successfully:
+
+```text
+sample_PRJ_w625.tif
+sample_PRJ_w435.tif
+sample_PRJ_w525.tif
+sample_R3D_REF.tif
+```
+
+In that example, the source upload is still one TIFF stack. The filenames above are metadata labels inside the TIFF, not separate files that CytoCV assembles.
+
+Default fallback order is:
+
+```json
+{
+  "channel_red": 3,
+  "channel_green": 2,
+  "channel_blue": 1,
+  "DIC": 0
+}
+```
+
+Because required-channel validation checks the mapped channel index against the actual layer count, a one-layer TIFF with fallback mapping only provides `DIC` for validation purposes. It will fail workflows that require Red, Green, or Blue unless those channels are present in the stack and mapped by metadata or manual channel configuration.
 
 ## Channel Roles
 
@@ -62,9 +107,9 @@ Full four-role example:
 ```json
 {
   "DIC": 0,
-  "Blue": 1,
-  "Red": 2,
-  "Green": 3
+  "channel_blue": 1,
+  "channel_red": 2,
+  "channel_green": 3
 }
 ```
 
