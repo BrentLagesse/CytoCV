@@ -18,6 +18,18 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY,
+    NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
+from core.services.red_nucleus_speckle_mask import (
+    RED_NUCLEUS_DEBUG_PAYLOAD_KEY,
+    RED_NUCLEUS_MASK_PAYLOAD_KEY,
+    build_red_nucleus_speckle_mask,
+    contours_to_mask,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -2393,6 +2405,8 @@ def find_contours(
     skip_standard_contour_channels=None,
     red_dot_split_enabled: bool = True,
     red_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
+    nuclear_cell_pair_contour_mode: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    cell_mask: np.ndarray | None = None,
 ):
     """
     Find red dot contours, blue nucleus contours, and green signal contours.
@@ -2407,6 +2421,9 @@ def find_contours(
     gray_green_no_bg = images.get_image("green_no_bg")
     green_dot_split_mode = normalize_dot_split_mode(green_dot_split_mode)
     red_dot_split_mode = normalize_dot_split_mode(red_dot_split_mode)
+    nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+        nuclear_cell_pair_contour_mode
+    )
 
     dot_contours = []
     contours = []
@@ -2415,6 +2432,10 @@ def find_contours(
     best_contours_red = []
     alternate_nucleus_contours_red = []
     alternate_nucleus_contours_green = []
+    alternate_nucleus_mask_red = None
+    alternate_nucleus_debug_red = None
+    alternate_nucleus_base_contours_red = []
+    alternate_nucleus_mask_green = None
     normalized_alternate_channel = normalize_channel_role(alternate_detection_channel)
     legacy_alternate_red_detection = (
         bool(alternate_red_detection) and normalized_alternate_channel is None
@@ -2509,11 +2530,25 @@ def find_contours(
         )
 
     if normalized_alternate_channel == CHANNEL_ROLE_RED and not legacy_alternate_red_detection:
-        alternate_nucleus_contours_red = _alternate_nucleus_contours_from_family(
+        alternate_nucleus_base_contours_red = _alternate_nucleus_contours_from_family(
             bright_image=gray_red_3,
             base_image=gray_red,
             bridge_contours=_should_bridge_alternate_contours(gray_blue),
         )
+        if nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE:
+            red_source = gray_red_no_bg if gray_red_no_bg is not None else gray_red_3
+            if red_source is None:
+                red_source = gray_red
+            alternate_nucleus_debug_red = build_red_nucleus_speckle_mask(
+                red_source,
+                cell_mask=cell_mask,
+                original_image=gray_red_3 if gray_red_3 is not None else gray_red,
+                base_contours=alternate_nucleus_base_contours_red,
+            )
+            alternate_nucleus_mask_red = alternate_nucleus_debug_red.final_mask
+            alternate_nucleus_contours_red = list(alternate_nucleus_debug_red.contours)
+        else:
+            alternate_nucleus_contours_red = alternate_nucleus_base_contours_red
 
 
     contours_blue = []
@@ -2616,6 +2651,15 @@ def find_contours(
             base_image=gray_green_no_bg if gray_green_no_bg is not None else gray_green,
             bridge_contours=_should_bridge_alternate_contours(gray_blue),
         )
+        if (
+            nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE
+            and gray_green is not None
+        ):
+            alternate_nucleus_mask_green = contours_to_mask(
+                alternate_nucleus_contours_green,
+                gray_green.shape[:2],
+                cell_mask=cell_mask,
+            )
 
     return {
         "best_contours": best_contours,
@@ -2630,6 +2674,9 @@ def find_contours(
         "contours_green": contours_green,
         "alternate_nucleus_contours_red": alternate_nucleus_contours_red,
         "alternate_nucleus_contours_green": alternate_nucleus_contours_green,
+        RED_NUCLEUS_MASK_PAYLOAD_KEY: alternate_nucleus_mask_red,
+        RED_NUCLEUS_DEBUG_PAYLOAD_KEY: alternate_nucleus_debug_red,
+        NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY: alternate_nucleus_mask_green,
     }
 
 

@@ -100,6 +100,7 @@ from core.services.canonical_contours import (
     CELL_PARENTAGE_KEY,
     build_canonical_contour_payload,
     flatten_slot_contours,
+    load_cell_mask,
 )
 from core.services.contour_coordinates import (
     BLUE_CONTOUR_PREFIX,
@@ -126,6 +127,11 @@ from core.services.puncta_line_mode import (
 from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
+)
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE,
+    normalize_nuclear_cell_pair_contour_mode,
 )
 from core.services.signal_quantification import (
     BIORIENTATION_PLUGIN,
@@ -309,10 +315,16 @@ def get_stats(
     alternate_detection_channel=None,
     contour_crop_origin=None,
     contour_main_image_shape=None,
+    nuclear_cell_pair_contour_mode=None,
 ):
     # loading configuration
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(conf)
     nuclear_cell_pair_mode = conf.get("nuclear_cell_pair_mode", "green_nucleus")
+    nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+        nuclear_cell_pair_contour_mode
+        or conf.get("nuclear_cell_pair_contour_mode")
+        or conf.get("nuclearCellPairContourMode")
+    )
     puncta_line_metadata = get_puncta_line_mode_metadata(conf.get("puncta_line_mode"))
     green_dot_split_mode = normalize_dot_split_mode(
         green_dot_split_mode
@@ -332,6 +344,7 @@ def get_stats(
     )
     cp.properties = dict(cp.properties or {})
     cp.properties["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
+    cp.properties["nuclear_cell_pair_contour_mode"] = nuclear_cell_pair_contour_mode
     cp.properties["puncta_line_mode"] = puncta_line_metadata["mode"]
     cp.properties["puncta_line_source_channel"] = puncta_line_metadata["source_channel"]
     cp.properties["puncta_line_measurement_channel"] = puncta_line_metadata["measurement_channel"]
@@ -499,6 +512,19 @@ def get_stats(
             "alternate_nucleus_detection_channel"
         ),
     )
+    alternate_cell_mask = None
+    if (
+        effective_alternate_enabled
+        and nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE
+        and effective_alternate_channel in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}
+    ):
+        alternate_cell_mask = load_cell_mask(
+            cp.image_name,
+            cp.cell_id,
+            output_dir,
+            reference.shape[:2],
+        )
+
     contours_data = find_contours(
         preprocessed_images,
         green_contour_filter_enabled,
@@ -509,6 +535,8 @@ def get_stats(
         skip_standard_contour_channels=skipped_standard_contour_channels,
         red_dot_split_enabled=red_dot_split_enabled,
         red_dot_split_mode=red_dot_split_mode,
+        nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
+        cell_mask=alternate_cell_mask,
     )
     contours_data = build_canonical_contour_payload(
         contours_data,
@@ -1426,6 +1454,12 @@ def segment_image(request, uuids):
             "nuclear_cell_pair_mode",
             request.session.get("nuclear_cellular_mode", "green_nucleus"),
         )
+        nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+            request.session.get(
+                "nuclear_cell_pair_contour_mode",
+                DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+            )
+        )
         effective_alternate_enabled, effective_alternate_channel = (
             resolve_effective_alternate_nucleus_detection(
                 signal_quantification_enabled=signal_quantification_enabled,
@@ -1456,6 +1490,7 @@ def segment_image(request, uuids):
                 default=DEFAULT_PUNCTA_LINE_MODE,
             ),
             'nuclear_cell_pair_mode': nuclear_cell_pair_mode,
+            'nuclear_cell_pair_contour_mode': nuclear_cell_pair_contour_mode,
             'green_contour_filter_enabled': green_contour_filter_enabled,
             'alternate_red_detection': effective_alternate_enabled,
             'signal_quantification_enabled': signal_quantification_enabled,
@@ -1562,6 +1597,7 @@ def segment_image(request, uuids):
                 "nuclear_cell_pair_mode",
                 request.session.get("nuclear_cellular_mode", "green_nucleus"),
             )
+            cp.properties["nuclear_cell_pair_contour_mode"] = nuclear_cell_pair_contour_mode
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
             cp.properties["scale_status"] = scale_info.get("status", "missing")
