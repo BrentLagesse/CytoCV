@@ -2360,6 +2360,7 @@ def _origin_main_alternate_channel_contour_family(
             cv2.RETR_EXTERNAL,
             cv2.CHAIN_APPROX_SIMPLE,
         )
+
         best_contours = get_largest(contours)
         best_contours_bright = get_largest(contours_bright)
 
@@ -2387,6 +2388,7 @@ def _origin_main_alternate_channel_contour_family(
                 cv2.RETR_EXTERNAL,
                 cv2.CHAIN_APPROX_SIMPLE,
             )
+
             best_contours = get_largest(contours)
             best_contours_bright = get_largest(contours_bright)
 
