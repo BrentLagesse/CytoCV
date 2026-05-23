@@ -42,6 +42,20 @@ class DotSplitConfigTests(SimpleTestCase):
 
         self.assertEqual(normalized["redDotSplitMode"], "aggressive")
 
+    def test_analysis_snapshot_preserves_nuclear_cell_pair_contour_mode(self):
+        normalized = normalize_analysis_config_snapshot(
+            {"nuclear_cell_pair_contour_mode": "aggressive"}
+        )
+
+        self.assertEqual(normalized["nuclear_cell_pair_contour_mode"], "aggressive")
+
+    def test_analysis_snapshot_defaults_invalid_nuclear_cell_pair_contour_mode(self):
+        normalized = normalize_analysis_config_snapshot(
+            {"nuclear_cell_pair_contour_mode": "bad"}
+        )
+
+        self.assertEqual(normalized["nuclear_cell_pair_contour_mode"], "balanced")
+
     def test_analysis_snapshot_derives_puncta_without_contour_intensity(self):
         normalized = normalize_analysis_config_snapshot(
             {
@@ -93,9 +107,11 @@ class DotSplitConfigTests(SimpleTestCase):
             green_dot_split_mode="aggressive",
             red_dot_split_enabled=False,
             red_dot_split_mode="aggressive",
+            nuclear_cell_pair_contour_mode="aggressive",
         )
 
         self.assertTrue(config["green_dot_split_enabled"])
         self.assertEqual(config["green_dot_split_mode"], "aggressive")
         self.assertFalse(config["red_dot_split_enabled"])
         self.assertEqual(config["red_dot_split_mode"], "aggressive")
+        self.assertEqual(config["nuclear_cell_pair_contour_mode"], "aggressive")

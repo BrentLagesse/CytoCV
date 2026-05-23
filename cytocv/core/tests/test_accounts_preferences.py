@@ -61,6 +61,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertTrue(defaults["red_dot_split_enabled"])
@@ -89,6 +90,7 @@ class PreferenceNormalizationTests(TestCase):
                     "cen_dot_collinearity_threshold": "-1",
                     "puncta_line_mode": "bad_mode",
                     "nuclear_cell_pair_mode": "bad_mode",
+                    "nuclear_cell_pair_contour_mode": "bad_mode",
                     "green_dot_split_mode": "bad_mode",
                     "red_dot_split_enabled": "off",
                     "red_dot_split_mode": "bad_mode",
@@ -120,6 +122,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 3)
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertFalse(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
@@ -2823,6 +2826,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             "biorientation_collinearity_threshold": 77,
             "puncta_line_mode": "green_puncta",
             "nuclear_cell_pair_mode": "red_nucleus",
+            "nuclear_cell_pair_contour_mode": "aggressive",
             "microns_per_pixel": 0.25,
             "use_metadata_scale": False,
         }
@@ -2864,6 +2868,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="signal_quantification_mode"', html=False)
         self.assertContains(response, "Red/Green Contour Intensities")
         self.assertContains(response, "Alternate Nucleus Detection")
+        self.assertContains(response, "Nucleus Contour Mode")
+        self.assertContains(response, 'id="nuclear_cell_pair_contour_mode"', html=False)
+        self.assertContains(response, 'id="nuclearContourModeRow"', html=False)
+        self.assertContains(response, "nuclear-contour-mode-child")
+        self.assertContains(response, 'id="nuclear_cell_pair_contour_mode_value"', html=False)
         self.assertContains(
             response,
             "Controls the primary Red/Green signal measurement workflow for this experiment. Choose one primary mode: Puncta Distance or Nuclear, Cell-Pair Intensity.",
@@ -2900,6 +2909,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         measurement_scale_index = html.index('<div class="card" data-workflow-card="measurement-scale"')
         self.assertLess(plugin_defaults_index, dot_detection_index)
         self.assertLess(dot_detection_index, measurement_scale_index)
+        alternate_detection_index = html.index('id="alternate_nucleus_detection_enabled"')
+        contour_mode_row_index = html.index('id="nuclearContourModeRow"')
+        self.assertLess(alternate_detection_index, contour_mode_row_index)
         advanced_plugin_behavior = html[
             html.index('<div class="card" data-workflow-card="advanced-plugin-behavior"'):
             html.index('<div class="card" data-workflow-card="validation-enforcement"')
@@ -2931,6 +2943,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(
             response,
             "If disabled, the standard nucleus contour path is used.",
+        )
+        self.assertContains(
+            response,
+            "Aggressive uses tighter speckle-derived alternate nucleus masks",
         )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
         self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
@@ -2983,8 +2999,29 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertContains(
             response,
+            "Nucleus Contour Mode: Balanced keeps the current alternate nucleus contour behavior",
+        )
+        self.assertContains(response, "nuclear-contour-mode-child")
+        self.assertContains(
+            response,
+            "nuclearContourModeSelect.setDisabled(!statsState.alternateNucleusDetectionEnabled)",
+        )
+        self.assertNotContains(
+            response,
+            "Only affects Nuclear, Cell-Pair Intensity and uses the alternate contour detection path on the selected nucleus source channel only.",
+        )
+        self.assertNotContains(
+            response,
+            "Alternate Nucleus Detection: only affects Nuclear, Cell-Pair Intensity",
+        )
+        self.assertNotContains(
+            response,
             "Alternate Nucleus Detection changes only the Nuclear, Cell-Pair nucleus contour path.",
         )
+        html = response.content.decode()
+        alternate_detection_js_index = html.index("alternateLabel.textContent = 'Alternate Nucleus Detection';")
+        contour_mode_js_index = html.index("contourModeLabel.textContent = 'Nucleus Contour Mode:'")
+        self.assertLess(alternate_detection_js_index, contour_mode_js_index)
         self.assertContains(response, "Required channels: Red and Green.")
         self.assertContains(response, "All other stat modules enabled in Puncta Distance mode.")
         self.assertContains(
@@ -3042,6 +3079,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["biorientation_collinearity_threshold"], 77)
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
+        self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "aggressive")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
@@ -3084,6 +3122,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             {"selected_plugins": ["UnknownPlugin"]},
             {"puncta_line_width_unit": "bad"},
             {"green_dot_split_mode": "invalid"},
+            {"nuclear_cell_pair_contour_mode": "invalid"},
             {"manual_required_channels": ["DIC"]},
         )
 
@@ -3115,6 +3154,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(rendered_defaults["cen_dot_proximity_radius"], 6.5)
         self.assertEqual(rendered_defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "red_nucleus")
+        self.assertEqual(rendered_defaults["nuclear_cell_pair_contour_mode"], "aggressive")
 
     def test_experiment_page_restores_saved_nuclear_signal_quantification_defaults(self):
         payload = self._build_experiment_workflow_defaults_payload()

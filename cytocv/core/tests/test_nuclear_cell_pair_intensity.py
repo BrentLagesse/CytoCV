@@ -10,6 +10,9 @@ from core.cell_analysis import NuclearCellPairIntensity
 from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
 from core.image_processing import GrayImage
 from core.services.canonical_contours import build_canonical_contour_payload
+from core.services.nuclear_cell_pair_contour_mode import (
+    NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY,
+)
 
 
 class NuclearCellPairIntensityPluginTests(SimpleTestCase):
@@ -110,6 +113,7 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.properties["nuclear_cell_pair_contour_channel"], "Red")
         self.assertEqual(cp.properties["nuclear_cell_pair_measurement_channel"], "Green")
         self.assertEqual(cp.properties["nuclear_cell_pair_mode"], "red_nucleus")
+        self.assertEqual(cp.properties["nuclear_cell_pair_contour_mode"], "balanced")
         self.assertEqual(cp.properties["nuclear_cell_pair_status"], "ok")
         self.assertEqual(cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
 
@@ -118,6 +122,7 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.properties["nuclear_cell_pair_contour_channel"], "Green")
         self.assertEqual(cp.properties["nuclear_cell_pair_measurement_channel"], "Red")
         self.assertEqual(cp.properties["nuclear_cell_pair_mode"], "green_nucleus")
+        self.assertEqual(cp.properties["nuclear_cell_pair_contour_mode"], "balanced")
         self.assertEqual(cp.properties["nuclear_cell_pair_status"], "ok")
         self.assertEqual(cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
 
@@ -286,3 +291,138 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
 
         self.assertEqual(cp.nucleus_intensity_sum, float(np.sum(raw_red[nucleus_mask > 0])))
         self.assertEqual(cp.cell_pair_intensity_sum, float(np.sum(raw_red[cell_mask > 0])))
+        self.assertEqual(
+            cp.cytoplasmic_intensity,
+            cp.cell_pair_intensity_sum - cp.nucleus_intensity_sum,
+        )
+
+    def test_alternate_mask_slot_draws_and_measures_all_components_together(self):
+        plugin = NuclearCellPairIntensity()
+        shape = (24, 24)
+        red_measurement = np.zeros(shape, dtype=np.uint16)
+        red_measurement[4:20, 4:20] = 10
+        red_measurement[7:10, 7:10] = 100
+        red_measurement[15:18, 15:18] = 200
+        green_contour = np.zeros(shape, dtype=np.uint8)
+        green_contour[7:10, 7:10] = 255
+        green_contour[15:18, 15:18] = 255
+        mask = np.zeros(shape, dtype=np.uint8)
+        mask[7:10, 7:10] = 255
+        mask[15:18, 15:18] = 255
+        preprocessed = GrayImage(
+            img={
+                "green_no_bg": green_contour,
+                "green": green_contour,
+                "red_no_bg": red_measurement.astype(np.uint8),
+                "gray_red": red_measurement.astype(np.uint8),
+                "raw_red": red_measurement,
+            }
+        )
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "alternate_nucleus_detection_enabled": True,
+                "alternate_nucleus_detection_channel": CHANNEL_ROLE_GREEN,
+                "nuclear_cell_pair_contour_mode": "aggressive",
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            self._write_outline(output_dir)
+            contours_data = build_canonical_contour_payload(
+                {
+                    "contours_green": [],
+                    "dot_contours": [],
+                    NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY: mask,
+                },
+                image_name="test.dv",
+                cell_id=1,
+                output_dir=str(output_dir),
+                shape=shape,
+            )
+            red_debug = np.zeros((*shape, 3), dtype=np.uint8)
+            green_debug = np.zeros((*shape, 3), dtype=np.uint8)
+            plugin.setting_up(cp, preprocessed, str(output_dir))
+            plugin.calculate_statistics(
+                {},
+                contours_data,
+                red_debug,
+                green_debug,
+                1,
+                37,
+            )
+
+        self.assertEqual(
+            cp.properties["nuclear_cell_pair_contour_source"],
+            "alternate_green_nucleus_slot_1",
+        )
+        self.assertEqual(cp.properties["nuclear_cell_pair_contour_mode"], "aggressive")
+        self.assertEqual(cp.nucleus_intensity_sum, float(np.sum(red_measurement[mask > 0])))
+        green_pixels = np.array([0, 255, 0], dtype=np.uint8)
+        self.assertTrue(np.any(np.all(red_debug[7:10, 7:10] == green_pixels, axis=2)))
+        self.assertTrue(np.any(np.all(red_debug[15:18, 15:18] == green_pixels, axis=2)))
+
+    def test_final_nucleus_mask_is_clipped_to_cell_mask_before_statistics(self):
+        plugin = NuclearCellPairIntensity()
+        shape = (24, 24)
+        measurement = np.zeros(shape, dtype=np.uint16)
+        measurement[2:22, 2:22] = 5
+        measurement[2:6, 2:6] = 100
+        contour_image = np.zeros(shape, dtype=np.uint8)
+        contour_image[2:22, 2:22] = 255
+        cell_mask = np.zeros(shape, dtype=np.uint8)
+        cell_mask[8:20, 8:20] = 255
+        nucleus_mask = np.zeros(shape, dtype=np.uint8)
+        nucleus_mask[2:18, 2:18] = 255
+        contours, _ = cv2.findContours(
+            nucleus_mask.copy(),
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        preprocessed = GrayImage(
+            img={
+                "green_no_bg": contour_image,
+                "green": contour_image,
+                "red_no_bg": measurement.astype(np.uint8),
+                "gray_red": measurement.astype(np.uint8),
+                "raw_red": measurement,
+            }
+        )
+        cp = SimpleNamespace(
+            image_name="test.dv",
+            cell_id=1,
+            properties={"nuclear_cell_pair_mode": "green_nucleus"},
+        )
+        slot = SimpleNamespace(mask=nucleus_mask, contours=tuple(contours))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            plugin.setting_up(cp, preprocessed, str(output_dir))
+            plugin.calculate_statistics(
+                {},
+                {
+                    "cell_mask": cell_mask,
+                    "canonical_green_slots": [slot],
+                },
+                np.zeros((*shape, 3), dtype=np.uint8),
+                np.zeros((*shape, 3), dtype=np.uint8),
+                1,
+                37,
+            )
+
+        clipped_nucleus = cv2.bitwise_and(nucleus_mask, cell_mask)
+        self.assertEqual(
+            cp.nucleus_intensity_sum,
+            float(np.sum(measurement[clipped_nucleus > 0])),
+        )
+        self.assertEqual(
+            cp.cell_pair_intensity_sum,
+            float(np.sum(measurement[cell_mask > 0])),
+        )
+        self.assertEqual(
+            cp.cytoplasmic_intensity,
+            cp.cell_pair_intensity_sum - cp.nucleus_intensity_sum,
+        )
