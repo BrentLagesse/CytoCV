@@ -133,6 +133,10 @@ from core.services.nuclear_cell_pair_contour_mode import (
     NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE,
     normalize_nuclear_cell_pair_contour_mode,
 )
+from core.services.red_nucleus_speckle_mask import (
+    RED_NUCLEUS_DEBUG_PAYLOAD_KEY,
+    save_red_nucleus_debug_artifacts,
+)
 from core.services.signal_quantification import (
     BIORIENTATION_PLUGIN,
     CEN_DOT_PLUGIN,
@@ -546,6 +550,31 @@ def get_stats(
         shape=reference.shape[:2],
     )
     cp.properties["cell_parentage"] = contours_data.get(CELL_PARENTAGE_KEY)
+    if (
+        settings.SEGMENT_SAVE_DEBUG_ARTIFACTS
+        and effective_alternate_enabled
+        and effective_alternate_channel == CHANNEL_ROLE_RED
+        and nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE
+    ):
+        red_nucleus_debug = contours_data.get(RED_NUCLEUS_DEBUG_PAYLOAD_KEY)
+        if red_nucleus_debug is not None:
+            red_debug_source = preprocessed_images.get_image("gray_red_3")
+            if red_debug_source is None:
+                red_debug_source = preprocessed_images.get_image("gray_red")
+            green_debug_source = preprocessed_images.get_image("green_no_bg")
+            if green_debug_source is None:
+                green_debug_source = preprocessed_images.get_image("green")
+            try:
+                save_red_nucleus_debug_artifacts(
+                    red_nucleus_debug,
+                    output_dir=output_dir,
+                    image_name=cp.image_name,
+                    cell_id=cp.cell_id,
+                    red_image=red_debug_source,
+                    green_image=green_debug_source,
+                )
+            except OSError:
+                logger.exception("Failed to save alternate Red nucleus debug artifacts")
     canonical_red_contours = flatten_slot_contours(contours_data.get("canonical_red_slots", []))
     canonical_green_contours = flatten_slot_contours(contours_data.get("canonical_green_slots", []))
 
@@ -1518,6 +1547,7 @@ def segment_image(request, uuids):
                     default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
                 nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+                nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
                 puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
                 green_contour_filter_enabled=(
@@ -1657,6 +1687,7 @@ def segment_image(request, uuids):
                 alternate_detection_channel=effective_alternate_channel,
                 contour_crop_origin=contour_crop_origin,
                 contour_main_image_shape=seg.shape,
+                nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
             )
 
             try:

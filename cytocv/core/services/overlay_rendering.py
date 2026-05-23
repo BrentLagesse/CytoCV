@@ -37,6 +37,10 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
     resolve_effective_alternate_nucleus_detection,
@@ -116,6 +120,12 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
         normalized.get(
             "red_dot_split_mode",
             normalized.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE),
+        )
+    )
+    normalized["nuclear_cell_pair_contour_mode"] = normalize_nuclear_cell_pair_contour_mode(
+        normalized.get(
+            "nuclear_cell_pair_contour_mode",
+            normalized.get("nuclearCellPairContourMode"),
         )
     )
     if "stats_mcherry_width_unit" in normalized and "stats_puncta_line_width_unit" not in normalized:
@@ -201,6 +211,7 @@ def build_overlay_render_config(
     green_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
     red_dot_split_enabled: bool = True,
     red_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
+    nuclear_cell_pair_contour_mode: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
 ) -> dict[str, object]:
     effective_alternate_enabled, effective_alternate_channel = (
         resolve_effective_alternate_nucleus_detection(
@@ -230,6 +241,9 @@ def build_overlay_render_config(
         "arrested": str(arrested),
         "puncta_line_mode": normalize_puncta_line_mode(puncta_line_mode),
         "nuclear_cell_pair_mode": str(nuclear_cell_pair_mode),
+        "nuclear_cell_pair_contour_mode": normalize_nuclear_cell_pair_contour_mode(
+            nuclear_cell_pair_contour_mode
+        ),
         "puncta_line_width_px": int(puncta_line_width_px),
         "cen_dot_distance_value_used": float(cen_dot_distance_value_used),
         "biorientation_collinearity_threshold": int(biorientation_collinearity_threshold),
@@ -406,6 +420,9 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
         render_config.get("signal_quantification_mode", SIGNAL_MODE_PUNCTA_DISTANCE)
     )
     nuclear_cell_pair_mode = str(render_config.get("nuclear_cell_pair_mode", "green_nucleus"))
+    nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+        render_config.get("nuclear_cell_pair_contour_mode")
+    )
     effective_alternate_enabled, effective_alternate_channel = (
         resolve_effective_alternate_nucleus_detection(
             signal_quantification_enabled=signal_quantification_enabled,
@@ -433,6 +450,7 @@ def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict
             default=DEFAULT_PUNCTA_LINE_MODE,
         ),
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+        "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
         "green_contour_filter_enabled": bool(
             render_config.get("green_contour_filter_enabled", False)
         ),
@@ -555,6 +573,9 @@ def render_overlay_images_for_cell(
     render_cp.properties["alternate_nucleus_detection_channel"] = overlay_conf[
         "alternate_nucleus_detection_channel"
     ]
+    render_cp.properties["nuclear_cell_pair_contour_mode"] = overlay_conf[
+        "nuclear_cell_pair_contour_mode"
+    ]
     debug_red, debug_green, debug_blue = get_stats(
         render_cp,
         overlay_conf,
@@ -579,6 +600,7 @@ def render_overlay_images_for_cell(
         ),
         cached_images=images_to_use,
         alternate_detection_channel=overlay_conf["alternate_nucleus_detection_channel"],
+        nuclear_cell_pair_contour_mode=overlay_conf["nuclear_cell_pair_contour_mode"],
     )
     return {
         "red": debug_red,

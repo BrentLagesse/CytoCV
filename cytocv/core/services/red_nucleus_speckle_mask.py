@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterable
 
 import cv2
 import numpy as np
+from PIL import Image
+
 from core.services.nuclear_cell_pair_contour_mode import (
     NUCLEAR_CELL_PAIR_ALTERNATE_RED_MASK_KEY,
 )
@@ -105,6 +108,21 @@ def _empty_result(
         base_contour_mask=contours_to_mask(base_contours, shape, cell_mask=cell_mask),
         metrics={"status": reason, "final_area_px": 0},
     )
+
+
+def _scale_to_uint8(image: np.ndarray, *, support: np.ndarray | None = None) -> np.ndarray:
+    values = _masked_values(image, support) if support is not None else image[np.isfinite(image)]
+    if values.size == 0:
+        return np.zeros(image.shape[:2], dtype=np.uint8)
+    low = float(np.percentile(values, 1.0))
+    high = float(np.percentile(values, 99.5))
+    if high <= low:
+        high = float(np.max(values))
+        low = float(np.min(values))
+    if high <= low:
+        return np.zeros(image.shape[:2], dtype=np.uint8)
+    scaled = (image.astype(np.float32, copy=False) - low) * (255.0 / (high - low))
+    return np.clip(scaled, 0, 255).astype(np.uint8)
 
 
 def _otsu_threshold_abs(image: np.ndarray, support: np.ndarray) -> float:
@@ -341,3 +359,117 @@ def build_red_nucleus_speckle_mask(
         base_contour_mask=base_contour_mask,
         metrics=metrics,
     )
+
+
+def _rgb_gray_tint(image: np.ndarray, color: tuple[int, int, int]) -> np.ndarray:
+    gray = _as_gray_float(image)
+    if gray is None:
+        gray = np.zeros((1, 1), dtype=np.float32)
+    scaled = _scale_to_uint8(gray)
+    rgb = np.zeros((*scaled.shape, 3), dtype=np.uint8)
+    for channel, value in enumerate(color):
+        if value:
+            rgb[..., channel] = ((scaled.astype(np.float32) * value) / 255.0).astype(np.uint8)
+    return rgb
+
+
+def _mask_rgb(mask: np.ndarray, color: tuple[int, int, int]) -> np.ndarray:
+    rgb = np.zeros((*mask.shape, 3), dtype=np.uint8)
+    for channel, value in enumerate(color):
+        if value:
+            rgb[..., channel] = np.where(mask > 0, value, 0).astype(np.uint8)
+    return rgb
+
+
+def _overlay_mask(
+    base: np.ndarray,
+    mask: np.ndarray,
+    color: tuple[int, int, int],
+    *,
+    alpha: float = 0.45,
+) -> np.ndarray:
+    rgb = np.array(base, copy=True)
+    selector = mask > 0
+    if not np.any(selector):
+        return rgb
+    overlay = np.array(color, dtype=np.float32)
+    rgb[selector] = np.clip(
+        rgb[selector].astype(np.float32) * (1.0 - alpha) + overlay * alpha,
+        0,
+        255,
+    ).astype(np.uint8)
+    return rgb
+
+
+def _draw_mask_contours(rgb: np.ndarray, mask: np.ndarray | None, color: tuple[int, int, int]) -> np.ndarray:
+    if mask is None or not np.any(mask):
+        return rgb
+    contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(rgb, contours, -1, color, 1)
+    return rgb
+
+
+def render_red_nucleus_debug_images(
+    result: RedNucleusSpeckleMaskResult,
+    *,
+    red_image: np.ndarray | None = None,
+    green_image: np.ndarray | None = None,
+) -> dict[str, Image.Image]:
+    """Render visual checkpoints for the alternate Red nucleus mask."""
+
+    red_source = red_image if red_image is not None else result.original_image
+    red_rgb = _rgb_gray_tint(red_source, (255, 0, 0))
+    green_rgb = _rgb_gray_tint(green_image, (0, 255, 0)) if green_image is not None else red_rgb.copy()
+
+    threshold_rgb = _mask_rgb(result.threshold_mask, (90, 90, 90))
+    threshold_rgb = _overlay_mask(threshold_rgb, result.seed_mask, (255, 0, 0), alpha=0.8)
+
+    accepted_rgb = _overlay_mask(red_rgb, result.accepted_components_mask, (0, 255, 0), alpha=0.55)
+    rejected_rgb = _overlay_mask(red_rgb, result.rejected_components_mask, (255, 0, 255), alpha=0.55)
+    final_rgb = _overlay_mask(red_rgb, result.final_mask, (255, 255, 0), alpha=0.45)
+    _draw_mask_contours(final_rgb, result.final_mask, (255, 255, 0))
+
+    gfp_overlay = _draw_mask_contours(green_rgb.copy(), result.final_mask, (255, 0, 0))
+
+    comparison = red_rgb.copy()
+    _draw_mask_contours(comparison, result.base_contour_mask, (0, 128, 255))
+    _draw_mask_contours(comparison, result.final_mask, (255, 255, 0))
+
+    images = {
+        "original_red": red_rgb,
+        "processed_red": _scale_to_uint8(result.processed_image),
+        "threshold_mask": threshold_rgb,
+        "accepted_components": accepted_rgb,
+        "rejected_components": rejected_rgb,
+        "final_mask": final_rgb,
+        "gfp_overlay": gfp_overlay,
+        "old_vs_new": comparison,
+    }
+    return {
+        name: Image.fromarray(array if array.ndim == 3 else array.astype(np.uint8))
+        for name, array in images.items()
+    }
+
+
+def save_red_nucleus_debug_artifacts(
+    result: RedNucleusSpeckleMaskResult,
+    *,
+    output_dir: str | Path,
+    image_name: str,
+    cell_id: int,
+    red_image: np.ndarray | None = None,
+    green_image: np.ndarray | None = None,
+) -> dict[str, Path]:
+    """Persist alternate Red nucleus debug images under the segmented folder."""
+
+    from core.services.artifact_storage import PNG_PROFILE_ANALYSIS_FAST, save_png_image
+
+    image_stem = Path(str(image_name)).stem
+    destination_dir = Path(output_dir) / "segmented"
+    prefix = f"{image_stem}-{int(cell_id)}-alternate_red_nucleus"
+    rendered = render_red_nucleus_debug_images(result, red_image=red_image, green_image=green_image)
+    written: dict[str, Path] = {}
+    for name, image in rendered.items():
+        path = destination_dir / f"{prefix}_{name}.png"
+        written[name] = save_png_image(image, path, profile=PNG_PROFILE_ANALYSIS_FAST)
+    return written
