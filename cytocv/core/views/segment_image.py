@@ -72,7 +72,6 @@ from core.contour_processing import (
     find_contours,
     get_contour_center,
     get_neighbor_count,
-    merge_contour,
 )
 from core.stats_plugins import StatsExecutionPlan, build_stats_execution_plan
 from accounts.preferences import should_auto_save_experiments

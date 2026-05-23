@@ -2305,13 +2305,13 @@ def _should_bridge_alternate_contours(gray_blue: np.ndarray | None) -> bool:
     return len(blue_blur_contours) < 2
 
 
-def _alternate_channel_contour_family(
+def _origin_main_alternate_channel_contour_family(
     *,
     bright_image: np.ndarray | None,
     base_image: np.ndarray | None,
     bridge_contours: bool,
 ) -> tuple[list[np.ndarray], list[np.ndarray], list[int], list[np.ndarray], list[int]]:
-    """Return alternate dot/base contour sets using the legacy low-threshold path."""
+    """Return alternate dot/base contour sets using origin/main's NCP alternate path."""
 
     dot_contours: list[np.ndarray] = []
     contours: list[np.ndarray] = []
@@ -2322,9 +2322,16 @@ def _alternate_channel_contour_family(
 
     if bright_image is not None:
         blurred_bright = cv2.GaussianBlur(bright_image, (9, 9), 0)
-        _, bright_thresh = cv2.threshold(
+        cv2.fastNlMeansDenoising(blurred_bright, blurred_bright, 4)
+        bright_ret, _ = cv2.threshold(
             blurred_bright,
             5,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        _, bright_thresh = cv2.threshold(
+            blurred_bright,
+            bright_ret * 0.7,
             255,
             cv2.THRESH_BINARY,
         )
@@ -2335,9 +2342,15 @@ def _alternate_channel_contour_family(
         )
 
     if bright_thresh is not None and base_image is not None:
-        _, thresh = cv2.threshold(
+        ret, _ = cv2.threshold(
             base_image,
             5,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        _, thresh = cv2.threshold(
+            base_image,
+            ret * 0.7,
             255,
             cv2.THRESH_BINARY,
         )
@@ -2386,7 +2399,7 @@ def _alternate_nucleus_contours_from_family(
     base_image: np.ndarray | None,
     bridge_contours: bool,
 ) -> list[np.ndarray]:
-    dot_contours, contours, _, _, _ = _alternate_channel_contour_family(
+    dot_contours, contours, _, _, _ = _origin_main_alternate_channel_contour_family(
         bright_image=bright_image,
         base_image=base_image,
         bridge_contours=bridge_contours,
@@ -2523,7 +2536,7 @@ def find_contours(
             best_contours,
             contours_red,
             best_contours_red,
-        ) = _alternate_channel_contour_family(
+        ) = _origin_main_alternate_channel_contour_family(
             bright_image=gray_red_3,
             base_image=gray_red,
             bridge_contours=_should_bridge_alternate_contours(gray_blue),
@@ -2678,62 +2691,6 @@ def find_contours(
         RED_NUCLEUS_DEBUG_PAYLOAD_KEY: alternate_nucleus_debug_red,
         NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY: alternate_nucleus_mask_green,
     }
-
-
-def merge_contour(bestContours, contours):
-    """
-    This function merges contours into a single contour.
-    :param bestContours: List of best contours
-    :param contours: List of contours
-    :return: bestContours merged list
-    """
-    best_contour = None
-    if len(bestContours) == 2:
-        c1 = contours[bestContours[0]]
-        c2 = contours[bestContours[1]]
-        MERGE_CLOSEST = True
-        if MERGE_CLOSEST:
-            smallest_distance = 999999999
-            second_smallest_distance = 999999999
-            smallest_pair = (-1, -1)
-
-            for pt1 in c1:
-                for i, pt2 in enumerate(c2):
-                    d = math.sqrt((pt1[0][0] - pt2[0][0]) ** 2 + (pt1[0][1] - pt2[0][1]) ** 2)
-                    if d < smallest_distance:
-                        second_smallest_distance = smallest_distance
-                        second_smallest_pair = smallest_pair
-                        smallest_distance = d
-                        smallest_pair = (pt1, pt2, i)
-                    elif d < second_smallest_distance:
-                        second_smallest_distance = d
-                        second_smallest_pair = (pt1, pt2, i)
-
-            best_contour = []
-            for pt1 in c1:
-                best_contour.append(pt1)
-                if pt1[0].tolist() != smallest_pair[0][0].tolist():
-                    continue
-                start_loc = smallest_pair[2]
-                finish_loc = start_loc - 1
-                if start_loc == 0:
-                    finish_loc = len(c2) - 1
-                current_loc = start_loc
-                while current_loc != finish_loc:
-                    best_contour.append(c2[current_loc])
-                    current_loc += 1
-                    if current_loc >= len(c2):
-                        current_loc = 0
-                best_contour.append(c2[finish_loc])
-
-            best_contour = np.array(best_contour).reshape((-1, 1, 2)).astype(np.int32)
-
-    if len(bestContours) == 1:
-        best_contour = contours[bestContours[0]]
-
-    if len(bestContours) == 1:
-        logger.debug("Only one contour found while merging contour candidates")
-    return best_contour
 
 
 def _closed_open_ratio(contour: np.ndarray) -> float | None:
