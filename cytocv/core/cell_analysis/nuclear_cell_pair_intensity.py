@@ -9,6 +9,9 @@ from core.services.canonical_contours import (
     load_cell_mask,
 )
 from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
+from core.services.nuclear_cell_pair_contour_mode import (
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from .analysis import Analysis
 
 
@@ -49,13 +52,18 @@ class NuclearCellPairIntensity(Analysis):
         return props.get("alternate_nucleus_detection_channel")
 
     @staticmethod
-    def _draw_nucleus_contour(red_image, green_image, contour, mode: str) -> None:
-        if contour is None or len(contour) < 2:
+    def _draw_nucleus_contours(red_image, green_image, contours, mode: str) -> None:
+        if not contours:
             return
         color = (0, 0, 255) if mode == "red_nucleus" else (0, 255, 0)
+        contour_list = [
+            contour for contour in contours if contour is not None and len(contour) >= 3
+        ]
+        if not contour_list:
+            return
         for image in (red_image, green_image):
             if image is not None:
-                cv2.drawContours(image, [contour], -1, color, 1)
+                cv2.drawContours(image, contour_list, -1, color, 1)
 
     def calculate_statistics(
         self,
@@ -71,6 +79,9 @@ class NuclearCellPairIntensity(Analysis):
         mode = props.get("nuclear_cell_pair_mode", "green_nucleus")
         if mode not in self._MODE_CONFIG:
             mode = "green_nucleus"
+        contour_mode = normalize_nuclear_cell_pair_contour_mode(
+            props.get("nuclear_cell_pair_contour_mode")
+        )
 
         contour_keys, measure_keys, contour_channel, measurement_channel = self._MODE_CONFIG[mode]
         contour_img = self._first_available_image(contour_keys)
@@ -81,6 +92,7 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.cell_pair_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
             props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_mode"] = contour_mode
             props["nuclear_cell_pair_contour_channel"] = contour_channel
             props["nuclear_cell_pair_measurement_channel"] = measurement_channel
             props["nuclear_cell_pair_status"] = "missing_channel"
@@ -97,6 +109,7 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.cell_pair_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
             props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_mode"] = contour_mode
             props["nuclear_cell_pair_contour_channel"] = contour_channel
             props["nuclear_cell_pair_measurement_channel"] = measurement_channel
             props["nuclear_cell_pair_status"] = "no_cell_points"
@@ -126,6 +139,7 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.cell_pair_intensity_sum = 0.0
             self.cp.cytoplasmic_intensity = 0.0
             props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_mode"] = contour_mode
             props["nuclear_cell_pair_contour_channel"] = contour_channel
             props["nuclear_cell_pair_measurement_channel"] = measurement_channel
             props["nuclear_cell_pair_contour_source"] = used_contour_source
@@ -134,12 +148,34 @@ class NuclearCellPairIntensity(Analysis):
             return
 
         nucleus_slot = source_slots[0]
-        nucleus_mask = nucleus_slot.mask
-        largest_contour = max(
-            nucleus_slot.contours,
-            key=cv2.contourArea,
-            default=None,
+        cell_mask = np.where(cell_mask > 0, 255, 0).astype(np.uint8)
+        nucleus_mask = np.asarray(nucleus_slot.mask)
+        if nucleus_mask.ndim == 3:
+            nucleus_mask = cv2.cvtColor(nucleus_mask, cv2.COLOR_BGR2GRAY)
+        nucleus_mask = np.where(nucleus_mask > 0, 255, 0).astype(np.uint8)
+        nucleus_mask = cv2.bitwise_and(nucleus_mask, cell_mask)
+        clipped_nucleus_contours, _ = cv2.findContours(
+            nucleus_mask.copy(),
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
         )
+        clipped_nucleus_contours = tuple(
+            contour
+            for contour in clipped_nucleus_contours
+            if contour is not None and len(contour) >= 3
+        )
+        if not clipped_nucleus_contours:
+            self.cp.nucleus_intensity_sum = 0.0
+            self.cp.cell_pair_intensity_sum = 0.0
+            self.cp.cytoplasmic_intensity = 0.0
+            props["nuclear_cell_pair_mode"] = mode
+            props["nuclear_cell_pair_contour_mode"] = contour_mode
+            props["nuclear_cell_pair_contour_channel"] = contour_channel
+            props["nuclear_cell_pair_measurement_channel"] = measurement_channel
+            props["nuclear_cell_pair_contour_source"] = used_contour_source
+            props["nuclear_cell_pair_status"] = "no_nucleus_contour"
+            self.cp.properties = props
+            return
 
         measure_values = measure_img.astype(np.float64, copy=False)
         cell_pixels = measure_values[cell_mask > 0]
@@ -153,10 +189,11 @@ class NuclearCellPairIntensity(Analysis):
         self.cp.cytoplasmic_intensity = cell_intensity - nucleus_intensity
 
         props["nuclear_cell_pair_mode"] = mode
+        props["nuclear_cell_pair_contour_mode"] = contour_mode
         props["nuclear_cell_pair_contour_channel"] = contour_channel
         props["nuclear_cell_pair_measurement_channel"] = measurement_channel
         props["nuclear_cell_pair_contour_source"] = used_contour_source
         props["nuclear_cell_pair_status"] = "ok"
         self.cp.properties = props
 
-        self._draw_nucleus_contour(red_image, green_image, largest_contour, mode)
+        self._draw_nucleus_contours(red_image, green_image, clipped_nucleus_contours, mode)
