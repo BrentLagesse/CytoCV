@@ -76,6 +76,10 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
     resolve_effective_alternate_nucleus_detection,
@@ -969,6 +973,15 @@ def run_segmentation_batch(
             "nuclear_cell_pair_mode",
             config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
         )
+        nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+            config_snapshot.get(
+                "nuclear_cell_pair_contour_mode",
+                config_snapshot.get(
+                    "nuclearCellPairContourMode",
+                    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+                ),
+            )
+        )
         puncta_contour_intensity_enabled = bool(
             config_snapshot.get(
                 "punctaContourIntensityEnabled",
@@ -1068,6 +1081,7 @@ def run_segmentation_batch(
                 default=DEFAULT_PUNCTA_LINE_MODE,
             ),
             "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+            "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
             "green_contour_filter_enabled": green_contour_filter_enabled,
             "alternate_red_detection": effective_alternate_enabled,
             "signal_quantification_enabled": signal_quantification_enabled,
@@ -1095,6 +1109,7 @@ def run_segmentation_batch(
                     default=DEFAULT_PUNCTA_LINE_MODE,
                 ),
                 nuclear_cell_pair_mode=nuclear_cell_pair_mode,
+                nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
                 puncta_line_width_px=puncta_line_width,
                 cen_dot_distance_value_used=cen_dot_distance,
                 green_contour_filter_enabled=bool(green_contour_filter_enabled),
@@ -1185,6 +1200,7 @@ def run_segmentation_batch(
                 "nuclear_cell_pair_mode",
                 config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
             )
+            cp.properties["nuclear_cell_pair_contour_mode"] = nuclear_cell_pair_contour_mode
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
             cp.properties["scale_status"] = scale_info.get("status", "missing")
@@ -1245,6 +1261,7 @@ def run_segmentation_batch(
                     (pair_entry.min_x, pair_entry.min_y) if pair_entry is not None else None
                 ),
                 contour_main_image_shape=seg.shape,
+                nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
             )
             rendered_overlay_images = {
                 "red": debug_red,

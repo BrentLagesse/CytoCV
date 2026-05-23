@@ -20,6 +20,10 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
     resolve_effective_alternate_nucleus_detection,
@@ -55,6 +59,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "stats_biorientation_red_max_distance_value": 37.0,
     "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
     "nuclear_cell_pair_mode": "green_nucleus",
+    "nuclear_cell_pair_contour_mode": DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
     "greenContourFilterEnabled": False,
     "alternateRedDetection": False,
     "auto_save_experiments": True,
@@ -160,6 +165,12 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
     ).strip()
     if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
         nuclear_cell_pair_mode = DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cell_pair_mode"]
+    nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+        payload.get(
+            "nuclear_cell_pair_contour_mode",
+            payload.get("nuclearCellPairContourMode"),
+        )
+    )
     puncta_line_mode = normalize_puncta_line_mode(
         payload.get(
             "puncta_line_mode",
@@ -315,6 +326,7 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
         ),
         "puncta_line_mode": puncta_line_mode,
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+        "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
         "greenContourFilterEnabled": _parse_bool(
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
@@ -421,6 +433,13 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         "nuclear_cell_pair_mode": request.session.get(
             "nuclear_cell_pair_mode",
             request.session.get("nuclear_cellular_mode", "green_nucleus"),
+        ),
+        "nuclear_cell_pair_contour_mode": request.session.get(
+            "nuclear_cell_pair_contour_mode",
+            request.session.get(
+                "nuclearCellPairContourMode",
+                DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+            ),
         ),
         "greenContourFilterEnabled": request.session.get("greenContourFilterEnabled", request.session.get("gfpFilterEnabled", False)),
         "alternateRedDetection": request.session.get("alternateRedDetection", request.session.get("alternateMCherryDetection", False)),

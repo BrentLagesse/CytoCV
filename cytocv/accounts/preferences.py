@@ -17,6 +17,11 @@ from core.services.puncta_line_mode import (
 from core.services.dot_split import (
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    NUCLEAR_CELL_PAIR_CONTOUR_MODES,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     DEFAULT_SIGNAL_SELECTED_PLUGINS,
     SIGNAL_MODE_PUNCTA_DISTANCE,
@@ -66,6 +71,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "red_dot_split_mode": "aggressive",
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
+        "nuclear_cell_pair_contour_mode": DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
         "puncta_line_width_unit": "px",
@@ -404,6 +410,14 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     if mode not in NUCLEAR_CELL_PAIR_MODES:
         mode = "green_nucleus"
     normalized["experiment_defaults"]["nuclear_cell_pair_mode"] = mode
+    normalized["experiment_defaults"]["nuclear_cell_pair_contour_mode"] = (
+        normalize_nuclear_cell_pair_contour_mode(
+            defaults_payload.get(
+                "nuclear_cell_pair_contour_mode",
+                defaults_payload.get("nuclearCellPairContourMode"),
+            )
+        )
+    )
 
     signal_selection = resolve_signal_quantification_selection(
         payload=defaults_payload,
@@ -506,6 +520,7 @@ def build_experiment_defaults_from_popup_payload(
         "biorientation_collinearity_threshold",
         "puncta_line_mode",
         "nuclear_cell_pair_mode",
+        "nuclear_cell_pair_contour_mode",
         "microns_per_pixel",
         "use_metadata_scale",
     }
@@ -628,6 +643,17 @@ def build_experiment_defaults_from_popup_payload(
         raw_payload.get("nuclear_cell_pair_mode"),
         field="nuclear_cell_pair_mode",
         allowed=NUCLEAR_CELL_PAIR_MODES,
+    )
+    nuclear_cell_pair_contour_mode = _strict_mode(
+        raw_payload.get(
+            "nuclear_cell_pair_contour_mode",
+            current.get(
+                "nuclear_cell_pair_contour_mode",
+                DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+            ),
+        ),
+        field="nuclear_cell_pair_contour_mode",
+        allowed=set(NUCLEAR_CELL_PAIR_CONTOUR_MODES),
     )
     green_dot_split_mode = _strict_mode(
         raw_payload.get("green_dot_split_mode"),
@@ -753,6 +779,7 @@ def build_experiment_defaults_from_popup_payload(
             "biorientation_collinearity_threshold": biorientation_collinearity_threshold,
             "puncta_line_mode": puncta_line_mode,
             "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+            "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
             "microns_per_pixel": microns_per_pixel,
             "use_metadata_scale": _strict_bool(
                 raw_payload.get("use_metadata_scale"),

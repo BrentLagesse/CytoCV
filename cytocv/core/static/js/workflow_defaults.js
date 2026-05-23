@@ -424,6 +424,20 @@
       panel.classList.toggle('is-active', active);
       panel.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
+    const contourModeInput = document.getElementById('nuclear_cell_pair_contour_mode');
+    const contourModeHiddenInput = document.getElementById('nuclear_cell_pair_contour_mode_value');
+    const contourModeRow = document.getElementById('nuclearContourModeRow');
+    const alternateNucleusActive = !!(alternateNucleusDetectionInput && alternateNucleusDetectionInput.checked);
+    if (contourModeHiddenInput && contourModeInput) {
+      contourModeHiddenInput.value = contourModeInput.value;
+    }
+    if (contourModeInput) {
+      contourModeInput.disabled = !alternateNucleusActive;
+      refreshCustomSelect(contourModeInput);
+    }
+    if (contourModeRow) {
+      contourModeRow.classList.toggle('disabled', !alternateNucleusActive);
+    }
     syncSignalModeNotice(enabled, mode);
   };
 
@@ -798,6 +812,7 @@
     alternateNucleusDetectionInput,
     document.getElementById('puncta_line_mode'),
     document.getElementById('nuclear_cell_pair_mode'),
+    document.getElementById('nuclear_cell_pair_contour_mode'),
   ].forEach((input) => {
     if (!input) return;
     input.addEventListener('change', () => {
@@ -997,6 +1012,7 @@
   const biorientationCollinearityThresholdInput = document.getElementById('biorientation_collinearity_threshold');
   const punctaLineModeInput = document.getElementById('puncta_line_mode');
   const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
+  const nuclearCellPairContourModeInput = document.getElementById('nuclear_cell_pair_contour_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
@@ -1046,6 +1062,7 @@
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
   const normalizeGreenDotSplitMode = (value) => (value === 'balanced' ? 'balanced' : 'aggressive');
   const normalizeRedDotSplitMode = (value) => (value === 'balanced' ? 'balanced' : 'aggressive');
+  const normalizeNuclearContourMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
   const normalizeDotSplitTarget = (value) => {
     if (value === 'red' || value === 'green' || value === 'both') return value;
     return 'both';
@@ -1236,6 +1253,8 @@
     value === 'red_nucleus'
       ? 'Red Nucleus (Measure Green)'
       : 'Green Nucleus (Measure Red)';
+  const nuclearContourModeLabel = (value) =>
+    normalizeNuclearContourMode(value) === 'aggressive' ? 'Aggressive' : 'Balanced';
   const signalModeLabel = (value) =>
     normalizeSignalMode(value) === 'nuclear_cell_pair'
       ? 'Nuclear, Cell-Pair Intensity'
@@ -1380,6 +1399,7 @@
     biorientationCollinearityThreshold: captureNumericField(biorientationCollinearityThresholdInput),
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
+    nuclearCellPairContourMode: normalizeNuclearContourMode(valueOrEmpty(nuclearCellPairContourModeInput)),
     greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
     greenDotSplitEnabled: truthyHiddenValue(greenDotSplitEnabledInput),
     greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
@@ -1493,6 +1513,11 @@
     if (fromSnapshot.nuclearCellPairMode !== toSnapshot.nuclearCellPairMode) {
       changes.push(
         `Nucleus Contour Source: ${nucleusModeLabel(fromSnapshot.nuclearCellPairMode)} -> ${nucleusModeLabel(toSnapshot.nuclearCellPairMode)}`
+      );
+    }
+    if (normalizeNuclearContourMode(fromSnapshot.nuclearCellPairContourMode) !== normalizeNuclearContourMode(toSnapshot.nuclearCellPairContourMode)) {
+      changes.push(
+        `Nucleus Contour Mode: ${nuclearContourModeLabel(fromSnapshot.nuclearCellPairContourMode)} -> ${nuclearContourModeLabel(toSnapshot.nuclearCellPairContourMode)}`
       );
     }
     pushToggleChange(
@@ -1717,6 +1742,9 @@
     if (biorientationCollinearityThresholdInput) biorientationCollinearityThresholdInput.value = snapshot.biorientationCollinearityThreshold.raw;
     if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
+    if (nuclearCellPairContourModeInput) {
+      nuclearCellPairContourModeInput.value = normalizeNuclearContourMode(snapshot.nuclearCellPairContourMode);
+    }
     if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
     setHiddenBoolValue(greenDotSplitEnabledInput, snapshot.greenDotSplitEnabled);
     setHiddenBoolValue(redDotSplitEnabledInput, snapshot.redDotSplitEnabled);

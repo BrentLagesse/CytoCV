@@ -1374,6 +1374,15 @@
             overflow: visible;
             transition: none;
         }
+        .signal-mode-panel .nuclear-mode-inline.nuclear-contour-mode-child {
+            box-sizing: border-box;
+            margin-left: 10px;
+            padding-left: 10px;
+            border-left: 2px solid rgba(255, 255, 255, 0.14);
+        }
+        .signal-mode-panel .nuclear-mode-inline.disabled {
+            opacity: var(--settings-module-disabled-opacity);
+        }
         .stats-inline-toggle {
             flex: 1 1 100%;
             width: 100%;
@@ -2205,6 +2214,7 @@
     const signalQuantificationKey = 'cytocv.signal_quantification.v1';
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
     const nuclearModeKey = 'cytocv.nuclear_cell_pair_mode.v3';
+    const nuclearContourModeKey = 'cytocv.nuclear_cell_pair_contour_mode.v1';
     const legacyLengthUnitKey = 'cytocv.stats_length_unit.v2';
     const punctaLineWidthUnitKey = 'cytocv.puncta_line_width_unit.v3';
     const cenDotDistanceUnitKey = 'cytocv.cen_dot_distance_unit.v2';
@@ -2277,6 +2287,7 @@
         redDotSplitMode: 'aggressive',
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
+        nuclearCellPairContourMode: 'balanced',
         greenContourFilterEnabled: false,
         punctaLineWidthUnit: 'px',
         cenDotDistanceUnit: 'px',
@@ -2325,6 +2336,8 @@
     let alternateNucleusDetectionRow = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
+    let nuclearContourModeSelect = null;
+    let nuclearContourModeRow = null;
     let dotSplitTargetSelect = null;
     let greenDotSplitModeSelect = null;
     let redDotSplitModeSelect = null;
@@ -2338,6 +2351,10 @@
 
     function normalizeRedDotSplitMode(value) {
         return value === 'balanced' ? 'balanced' : 'aggressive';
+    }
+
+    function normalizeNuclearContourMode(value) {
+        return value === 'aggressive' ? 'aggressive' : 'balanced';
     }
 
     function normalizeDotSplitTarget(value) {
@@ -2422,7 +2439,7 @@
         ],
         NuclearCellPairIntensity: [
             'Nucleus Contour Source: chooses which channel supplies the nucleus contour. Green Nucleus measures Red signal; Red Nucleus measures Green signal.',
-            'Alternate Nucleus Detection: only affects Nuclear, Cell-Pair Intensity and uses the alternate contour detection path on the selected nucleus source channel.',
+            'Nucleus Contour Mode: Balanced keeps the current alternate nucleus contour behavior; Aggressive uses tighter speckle-derived alternate nucleus masks for the selected nucleus source channel.',
         ],
     };
 
@@ -2446,7 +2463,6 @@
     const signalQuantificationNuclearInfo = [
         'Nuclear, Cell-Pair Intensity measures signal from the selected measurement channel inside the selected nucleus contour and inside the full DIC cell-pair mask. Results include nucleus contour channel, measurement channel, nuclear intensity, cell-pair intensity, cytoplasmic intensity, and nuclear status.',
         'Nucleus Contour Source chooses which channel supplies the nucleus contour and which opposite channel is measured. Green Nucleus uses the Green contour as the nucleus and measures Red signal; Red Nucleus uses the Red contour as the nucleus and measures Green signal.',
-        'Alternate Nucleus Detection changes only the Nuclear, Cell-Pair nucleus contour path. When enabled, the alternate detection path is used for the selected nucleus source channel only: Red Nucleus uses alternate Red detection, and Green Nucleus uses alternate Green detection. If disabled, the standard nucleus contour path is used.',
     ];
 
     function buildSignalQuantificationInfoText(mode = statsState.signalQuantificationMode) {
@@ -2726,6 +2742,10 @@
         localStorage.setItem(greenDotSplitModeKey, normalizeGreenDotSplitMode(serverPreferenceDefaults.green_dot_split_mode));
         localStorage.setItem(redDotSplitKey, String(rawRedDotSplitDefault !== false));
         localStorage.setItem(redDotSplitModeKey, normalizeRedDotSplitMode(serverPreferenceDefaults.red_dot_split_mode));
+        localStorage.setItem(
+            nuclearContourModeKey,
+            normalizeNuclearContourMode(serverPreferenceDefaults.nuclear_cell_pair_contour_mode)
+        );
         localStorage.setItem(
             micronsPerPixelKey,
             Number.isFinite(micronsPerPixel) && micronsPerPixel > 0
@@ -3774,6 +3794,7 @@
         loadStoredBiorientationSettings();
         loadStoredPunctaMode();
         loadStoredNuclearMode();
+        loadStoredNuclearContourMode();
         if (!statsState.showLegacyPlugins) {
             statsPlugins.forEach((plugin) => {
                 if (plugin.is_legacy) {
@@ -4001,10 +4022,6 @@
         alternateLabel.className = 'toggle-label';
         alternateLabel.textContent = 'Alternate Nucleus Detection';
         alternateText.appendChild(alternateLabel);
-        const alternateHelp = document.createElement('span');
-        alternateHelp.className = 'toggle-help-text';
-        alternateHelp.textContent = 'Only affects Nuclear, Cell-Pair Intensity and uses the alternate contour detection path on the selected nucleus source channel only.';
-        alternateText.appendChild(alternateHelp);
         alternateNucleusDetectionRow.appendChild(alternateText);
         const alternateSwitch = document.createElement('label');
         alternateSwitch.className = 'switch';
@@ -4022,6 +4039,29 @@
         alternateSwitch.appendChild(alternateSlider);
         alternateNucleusDetectionRow.appendChild(alternateSwitch);
         signalNuclearPanel.appendChild(alternateNucleusDetectionRow);
+
+        const contourModeRow = document.createElement('div');
+        contourModeRow.className = 'nuclear-mode-inline nuclear-contour-mode-child';
+        const contourModeTop = document.createElement('div');
+        contourModeTop.className = 'nuclear-mode-row';
+        const contourModeLabel = document.createElement('label');
+        contourModeLabel.textContent = 'Nucleus Contour Mode:';
+        contourModeTop.appendChild(contourModeLabel);
+        nuclearContourModeSelect = buildCustomModeSelect(
+            [
+                { value: 'balanced', text: 'Balanced' },
+                { value: 'aggressive', text: 'Aggressive' },
+            ],
+            normalizeNuclearContourMode(statsState.nuclearCellPairContourMode),
+            (nextMode) => {
+                statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(nextMode);
+                localStorage.setItem(nuclearContourModeKey, statsState.nuclearCellPairContourMode);
+            },
+        );
+        contourModeTop.appendChild(nuclearContourModeSelect.root);
+        contourModeRow.appendChild(contourModeTop);
+        signalNuclearPanel.appendChild(contourModeRow);
+        nuclearContourModeRow = contourModeRow;
         signalPanelStack.appendChild(signalNuclearPanel);
         row.appendChild(signalPanelStack);
 
@@ -4064,6 +4104,8 @@
         alternateNucleusDetectionRow = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
+        nuclearContourModeSelect = null;
+        nuclearContourModeRow = null;
         syncSignalSelectedPlugins();
         renderSignalQuantificationModule(list);
 
@@ -4945,6 +4987,12 @@
         statsState.nuclearCellPairMode = raw === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
     }
 
+    function loadStoredNuclearContourMode() {
+        statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(
+            localStorage.getItem(nuclearContourModeKey)
+        );
+    }
+
     function persistSelectedPlugins() {
         localStorage.setItem(selectionKey, JSON.stringify([...statsState.selectedPlugins]));
         localStorage.setItem(initializedKey, '1');
@@ -5166,6 +5214,14 @@
         }
         if (nuclearModeRow) {
             nuclearModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellPairIntensity'));
+        }
+        if (nuclearContourModeSelect) {
+            nuclearContourModeSelect.value = normalizeNuclearContourMode(statsState.nuclearCellPairContourMode);
+            nuclearContourModeSelect.setDisabled(!statsState.alternateNucleusDetectionEnabled);
+        }
+        if (nuclearContourModeRow) {
+            nuclearContourModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellPairIntensity'));
+            nuclearContourModeRow.classList.toggle('disabled', !statsState.alternateNucleusDetectionEnabled);
         }
         if (greenContourFilterEnabled) {
             greenContourFilterEnabled.checked = !!statsState.greenContourFilterEnabled;
@@ -5446,6 +5502,10 @@
                 : 'green_nucleus';
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
         }
+        if (nuclearContourModeSelect) {
+            statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(nuclearContourModeSelect.value);
+            localStorage.setItem(nuclearContourModeKey, statsState.nuclearCellPairContourMode);
+        }
 
         const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
             || statsState.cenDotDistanceUnit === 'um'
@@ -5522,6 +5582,7 @@
             biorientationCollinearityThreshold: Number.isFinite(Number(statsState.biorientationCollinearityThreshold)) ? Number(statsState.biorientationCollinearityThreshold) : 3,
             punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
+            nuclearCellPairContourMode: normalizeNuclearContourMode(statsState.nuclearCellPairContourMode),
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
@@ -5588,6 +5649,7 @@
             statsState.biorientationCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 3;
             statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
+            statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(snapshot.nuclearCellPairContourMode);
             statsState.signalQuantificationEnabled = snapshot.signalQuantificationEnabled !== false;
             statsState.signalQuantificationMode = normalizeSignalMode(snapshot.signalQuantificationMode);
             statsState.punctaContourIntensityEnabled = snapshot.punctaContourIntensityEnabled !== false;
@@ -5622,6 +5684,7 @@
             localStorage.setItem(redDotSplitModeKey, normalizeRedDotSplitMode(statsState.redDotSplitMode));
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
+            localStorage.setItem(nuclearContourModeKey, statsState.nuclearCellPairContourMode);
             persistSignalQuantificationSettings();
             persistLengthUnitSettings();
             syncStatsUI();
@@ -5798,6 +5861,7 @@
                 biorientation_collinearity_threshold: snapshot.biorientationCollinearityThreshold,
                 puncta_line_mode: snapshot.punctaLineMode,
                 nuclear_cell_pair_mode: snapshot.nuclearCellPairMode,
+                nuclear_cell_pair_contour_mode: snapshot.nuclearCellPairContourMode,
                 microns_per_pixel: snapshot.micronsPerPixel,
                 use_metadata_scale: snapshot.useMetadataScale,
             };
@@ -6808,6 +6872,7 @@
             prepData.append('cenDotProximityRadius', String(cenDotProximityRadiusPixels));
             prepData.append('puncta_line_mode', statsState.punctaLineMode);
             prepData.append('nuclear_cell_pair_mode', statsState.nuclearCellPairMode);
+            prepData.append('nuclear_cell_pair_contour_mode', normalizeNuclearContourMode(statsState.nuclearCellPairContourMode));
             prepData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
             prepData.append('alternateRedDetection', String(statsState.alternateNucleusDetectionEnabled));
             const allUnitsMatch = statsState.punctaLineWidthUnit === statsState.cenDotDistanceUnit
