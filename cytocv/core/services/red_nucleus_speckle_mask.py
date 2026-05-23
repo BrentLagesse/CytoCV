@@ -140,6 +140,64 @@ def _robust_noise_sigma(values: np.ndarray) -> float:
     return max(sigma, 1.0)
 
 
+def _component_centers(mask: np.ndarray) -> list[tuple[int, float, float]]:
+    count, labels, stats, centroids = cv2.connectedComponentsWithStats((mask > 0).astype(np.uint8), 8)
+    centers: list[tuple[int, float, float]] = []
+    for label in range(1, count):
+        if int(stats[label, cv2.CC_STAT_AREA]) > 0:
+            centers.append((label, float(centroids[label][0]), float(centroids[label][1])))
+    return centers
+
+
+def _try_add_minimal_bridges(
+    accepted_mask: np.ndarray,
+    processed: np.ndarray,
+    support: np.ndarray,
+    *,
+    support_threshold: float,
+    bridge_distance_px: float,
+    max_expansion_ratio: float,
+) -> np.ndarray:
+    if bridge_distance_px <= 0 or not np.any(accepted_mask):
+        return accepted_mask
+
+    count, _, _, _ = cv2.connectedComponentsWithStats((accepted_mask > 0).astype(np.uint8), 8)
+    if count <= 2:
+        return accepted_mask
+
+    centers = _component_centers(accepted_mask)
+    proposed = accepted_mask.copy()
+    bridge_threshold = max(float(support_threshold) * 0.75, 1.0)
+    for index, (_, x1, y1) in enumerate(centers):
+        for _, x2, y2 in centers[index + 1 :]:
+            distance = float(np.hypot(x1 - x2, y1 - y2))
+            if distance > bridge_distance_px:
+                continue
+            line_mask = np.zeros(accepted_mask.shape, dtype=np.uint8)
+            cv2.line(
+                line_mask,
+                (int(round(x1)), int(round(y1))),
+                (int(round(x2)), int(round(y2))),
+                255,
+                thickness=1,
+            )
+            line_mask = cv2.bitwise_and(line_mask, support)
+            line_values = processed[line_mask > 0]
+            if line_values.size == 0:
+                continue
+            if float(np.percentile(line_values, 50.0)) < bridge_threshold:
+                continue
+            proposed = cv2.bitwise_or(proposed, line_mask)
+
+    proposed = cv2.bitwise_and(proposed, support)
+    original_area = int(np.count_nonzero(accepted_mask))
+    proposed_area = int(np.count_nonzero(proposed))
+    allowed_area = max(int(original_area * max_expansion_ratio), original_area + 8)
+    if proposed_area <= allowed_area:
+        return proposed
+    return accepted_mask
+
+
 def build_red_nucleus_speckle_mask(
     red_image: np.ndarray | None,
     *,
@@ -148,6 +206,8 @@ def build_red_nucleus_speckle_mask(
     base_contours: Iterable[np.ndarray] | None = None,
     min_component_area_px: int = 3,
     max_component_area_fraction: float = 0.35,
+    bridge_distance_px: float = 4.0,
+    max_expansion_ratio: float = 1.25,
 ) -> RedNucleusSpeckleMaskResult:
     """Build a minimal Red-speckle-derived alternate nucleus mask."""
 
@@ -241,7 +301,15 @@ def build_red_nucleus_speckle_mask(
             }
         )
 
-    final_mask = cv2.bitwise_and(accepted, support)
+    final_mask = _try_add_minimal_bridges(
+        accepted,
+        processed,
+        support,
+        support_threshold=support_threshold,
+        bridge_distance_px=bridge_distance_px,
+        max_expansion_ratio=max_expansion_ratio,
+    )
+    final_mask = cv2.bitwise_and(final_mask, support)
     contours, _ = cv2.findContours(final_mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = tuple(contour for contour in contours if contour is not None and len(contour) >= 3)
 
@@ -273,4 +341,3 @@ def build_red_nucleus_speckle_mask(
         base_contour_mask=base_contour_mask,
         metrics=metrics,
     )
-

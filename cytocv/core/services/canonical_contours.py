@@ -17,6 +17,10 @@ from core.services.neck_split import (
     read_neck_split,
     sidecar_path,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY,
+)
+from core.services.red_nucleus_speckle_mask import RED_NUCLEUS_MASK_PAYLOAD_KEY
 
 
 CELL_MASK_KEY = "cell_mask"
@@ -166,6 +170,39 @@ def build_canonical_contour_slots(
     return slots[:limit]
 
 
+def build_canonical_contour_slot_from_mask(
+    raw_mask: np.ndarray | None,
+    cell_mask: np.ndarray,
+    shape: tuple[int, int] | Iterable[int],
+    *,
+    source_index: int = 0,
+) -> CanonicalContourSlot | None:
+    """Return one canonical slot from a precomputed mask."""
+
+    if raw_mask is None:
+        return None
+    height_width = _shape_tuple(shape)
+    mask = np.asarray(raw_mask)
+    if mask.shape[:2] != height_width:
+        return None
+    if mask.ndim == 3:
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    binary_mask = np.where(mask > 0, 255, 0).astype(np.uint8)
+    clipped_mask = cv2.bitwise_and(binary_mask, cell_mask)
+    if not np.any(clipped_mask):
+        return None
+    clipped_contours = _extract_mask_contours(clipped_mask)
+    if not clipped_contours:
+        return None
+    return CanonicalContourSlot(
+        source_index=source_index,
+        mask=clipped_mask,
+        contours=clipped_contours,
+        area=_mask_area_from_contours(clipped_contours),
+        center=_mask_center(clipped_mask),
+    )
+
+
 def _select_raw_blue_contours(contours_data: dict, shape: tuple[int, int]) -> list:
     """Select and area-filter blue contours, preferring the 3-channel source."""
 
@@ -220,14 +257,28 @@ def build_canonical_contour_payload(
         height_width,
         limit=limit,
     )
-    if payload.get("alternate_nucleus_contours_red") is not None:
+    if payload.get(RED_NUCLEUS_MASK_PAYLOAD_KEY) is not None:
+        slot = build_canonical_contour_slot_from_mask(
+            payload.get(RED_NUCLEUS_MASK_PAYLOAD_KEY),
+            cell_mask,
+            height_width,
+        )
+        payload[CANONICAL_ALTERNATE_RED_SLOTS_KEY] = [slot] if slot is not None else []
+    elif payload.get("alternate_nucleus_contours_red") is not None:
         payload[CANONICAL_ALTERNATE_RED_SLOTS_KEY] = build_canonical_contour_slots(
             payload.get("alternate_nucleus_contours_red", []),
             cell_mask,
             height_width,
             limit=limit,
         )
-    if payload.get("alternate_nucleus_contours_green") is not None:
+    if payload.get(NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY) is not None:
+        slot = build_canonical_contour_slot_from_mask(
+            payload.get(NUCLEAR_CELL_PAIR_ALTERNATE_GREEN_MASK_KEY),
+            cell_mask,
+            height_width,
+        )
+        payload[CANONICAL_ALTERNATE_GREEN_SLOTS_KEY] = [slot] if slot is not None else []
+    elif payload.get("alternate_nucleus_contours_green") is not None:
         payload[CANONICAL_ALTERNATE_GREEN_SLOTS_KEY] = build_canonical_contour_slots(
             payload.get("alternate_nucleus_contours_green", []),
             cell_mask,
