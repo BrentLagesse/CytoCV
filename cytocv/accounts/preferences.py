@@ -15,6 +15,7 @@ from core.services.puncta_line_mode import (
     normalize_puncta_line_mode,
 )
 from core.services.dot_split import (
+    DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
 from core.services.nuclear_cell_pair_contour_mode import (
@@ -66,9 +67,9 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "biorientation_red_max_distance": 37,
         "biorientation_collinearity_threshold": DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
         "green_dot_split_enabled": True,
-        "green_dot_split_mode": "aggressive",
+        "green_dot_split_mode": DEFAULT_DOT_SPLIT_MODE,
         "red_dot_split_enabled": True,
-        "red_dot_split_mode": "aggressive",
+        "red_dot_split_mode": DEFAULT_DOT_SPLIT_MODE,
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "nuclear_cell_pair_contour_mode": DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
@@ -661,7 +662,10 @@ def build_experiment_defaults_from_popup_payload(
         allowed={"balanced", "aggressive"},
     )
     red_dot_split_mode = _strict_mode(
-        raw_payload.get("red_dot_split_mode", current.get("red_dot_split_mode", "aggressive")),
+        raw_payload.get(
+            "red_dot_split_mode",
+            current.get("red_dot_split_mode", DEFAULT_DOT_SPLIT_MODE),
+        ),
         field="red_dot_split_mode",
         allowed={"balanced", "aggressive"},
     )

@@ -1060,8 +1060,8 @@
   };
 
   const normalizeLengthUnit = (value) => (value === 'um' ? 'um' : 'px');
-  const normalizeGreenDotSplitMode = (value) => (value === 'balanced' ? 'balanced' : 'aggressive');
-  const normalizeRedDotSplitMode = (value) => (value === 'balanced' ? 'balanced' : 'aggressive');
+  const normalizeGreenDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
+  const normalizeRedDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
   const normalizeNuclearContourMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
   const normalizeDotSplitTarget = (value) => {
     if (value === 'red' || value === 'green' || value === 'both') return value;

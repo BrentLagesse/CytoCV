@@ -2282,9 +2282,9 @@
         punctaContourIntensityEnabled: true,
         alternateNucleusDetectionEnabled: false,
         greenDotSplitEnabled: true,
-        greenDotSplitMode: 'aggressive',
+        greenDotSplitMode: 'balanced',
         redDotSplitEnabled: true,
-        redDotSplitMode: 'aggressive',
+        redDotSplitMode: 'balanced',
         punctaLineMode: 'red_puncta',
         nuclearCellPairMode: 'green_nucleus',
         nuclearCellPairContourMode: 'balanced',
@@ -2346,11 +2346,11 @@
     let activeInfoAnchor = null;
 
     function normalizeGreenDotSplitMode(value) {
-        return value === 'balanced' ? 'balanced' : 'aggressive';
+        return value === 'aggressive' ? 'aggressive' : 'balanced';
     }
 
     function normalizeRedDotSplitMode(value) {
-        return value === 'balanced' ? 'balanced' : 'aggressive';
+        return value === 'aggressive' ? 'aggressive' : 'balanced';
     }
 
     function normalizeNuclearContourMode(value) {
