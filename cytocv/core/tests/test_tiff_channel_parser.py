@@ -78,6 +78,30 @@ class TiffChannelParserTests(SimpleTestCase):
 
         self.assertEqual(config, DEFAULT_CHANNEL_CONFIG)
 
+    def test_unlabeled_tiff_uses_configured_fallback_channel_order(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "unlabeled.tif"
+            tifffile.imwrite(
+                path,
+                np.ones((4, 5, 6), dtype=np.uint16),
+                photometric="minisblack",
+            )
+
+            config = extract_tiff_channel_config(
+                path,
+                fallback_order=["Green", "DIC", "Red", "Blue"],
+            )
+
+        self.assertEqual(
+            config,
+            {
+                "channel_green": 0,
+                "DIC": 1,
+                "channel_red": 2,
+                "channel_blue": 3,
+            },
+        )
+
     def test_imagej_label_metadata_is_read_from_tiff(self):
         labels = [
             "sample_PRJ_w625.tif",
@@ -104,5 +128,38 @@ class TiffChannelParserTests(SimpleTestCase):
                 "channel_blue": 1,
                 "channel_green": 2,
                 "DIC": 3,
+            },
+        )
+
+    def test_tiff_skips_metadata_when_disabled(self):
+        labels = [
+            "sample_PRJ_w625.tif",
+            "sample_PRJ_w435.tif",
+            "sample_PRJ_w525.tif",
+            "sample_R3D_REF.tif",
+        ]
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "labeled.tif"
+            tifffile.imwrite(
+                path,
+                np.ones((4, 5, 6), dtype=np.uint16),
+                photometric="minisblack",
+                imagej=True,
+                metadata={"Labels": labels, "mode": "composite"},
+            )
+
+            config = extract_tiff_channel_config(
+                path,
+                prefer_metadata=False,
+                fallback_order=["Green", "DIC", "Red", "Blue"],
+            )
+
+        self.assertEqual(
+            config,
+            {
+                "channel_green": 0,
+                "DIC": 1,
+                "channel_red": 2,
+                "channel_blue": 3,
             },
         )

@@ -33,6 +33,7 @@ from core.scale import (
     normalize_length_unit,
     parse_microns_per_pixel,
 )
+from core.channel_ordering import DEFAULT_FALLBACK_CHANNEL_ORDER, normalize_channel_order
 from core.image_sources import (
     SUPPORTED_IMAGE_EXTENSIONS_LABEL,
     is_supported_image_filename,
@@ -473,6 +474,13 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         default=DEFAULT_MICRONS_PER_PIXEL,
     )
     default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
+    default_use_metadata_channel_order = bool(
+        experiment_defaults.get("use_metadata_channel_order", True)
+    )
+    default_fallback_channel_order = normalize_channel_order(
+        experiment_defaults.get("fallback_channel_order"),
+        default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+    )
 
     has_selected_analysis_payload = _has_payload_key(payload, "selected_analysis")
     raw_selected_analysis = normalize_selected_plugins(_getlist(payload, "selected_analysis"))
@@ -484,6 +492,14 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     stats_use_metadata_scale = _parse_bool(
         payload.get("stats_use_metadata_scale"),
         default=default_use_metadata_scale,
+    )
+    prefer_metadata_channel_order = _parse_bool(
+        payload.get("stats_use_metadata_channel_order"),
+        default=default_use_metadata_channel_order,
+    )
+    fallback_channel_order = normalize_channel_order(
+        _getlist(payload, "stats_fallback_channel_order"),
+        default=default_fallback_channel_order,
     )
     puncta_line_width_unit = _normalize_length_unit(
         payload.get(
@@ -708,6 +724,8 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         "stats_cen_dot_proximity_radius_unit": cen_dot_proximity_radius_unit,
         "stats_microns_per_pixel": posted_microns_per_pixel,
         "stats_use_metadata_scale": stats_use_metadata_scale,
+        "stats_use_metadata_channel_order": prefer_metadata_channel_order,
+        "stats_fallback_channel_order": fallback_channel_order,
         "stats_puncta_line_width_value": puncta_line_width_value,
         "stats_cen_dot_distance_value": cen_dot_distance_value,
         "stats_cen_dot_proximity_radius_value": cen_dot_proximity_radius_value,
@@ -738,6 +756,8 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         "selected_analysis": requirement_summary["selected_plugins"],
         "manual_um_per_px": posted_microns_per_pixel,
         "prefer_metadata_scale": stats_use_metadata_scale,
+        "prefer_metadata_channel_order": prefer_metadata_channel_order,
+        "fallback_channel_order": fallback_channel_order,
         "validation_options": {
             "enforce_layer_count": enforce_layer_count,
             "enforce_wavelengths": enforce_wavelengths,

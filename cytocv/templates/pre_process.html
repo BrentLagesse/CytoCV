@@ -592,6 +592,17 @@
         max-height: 36px;
         transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
       }
+      .channel-plane-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        text-align: center;
+        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+      }
       .channel-chip {
         background-color: var(--panel-border); color: #fff;
         border: 1px solid var(--border-contrast);
@@ -601,6 +612,7 @@
         flex: 1; box-sizing: border-box; text-align: center;
       }
       .channel-chip:active { cursor: grabbing; }
+      .sidebar.channels-hidden .channel-plane-row,
       .sidebar.channels-hidden .channel-bar {
         opacity: 0;
         max-height: 0;
@@ -1236,6 +1248,12 @@
             <li>
               <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                 <div class="file-title">{{ file.name }}</div>
+                <div class="channel-plane-row" aria-hidden="true">
+                  <span>Image 1</span>
+                  <span>Image 2</span>
+                  <span>Image 3</span>
+                  <span>Image 4</span>
+                </div>
                 <div class="channel-bar">
                   {% for channel in file.detected_channels %}
                   <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>

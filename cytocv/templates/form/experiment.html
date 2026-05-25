@@ -836,6 +836,7 @@
             background: transparent;
         }
         .measurement-scale-row {
+            position: relative;
             display: grid;
             grid-template-columns: minmax(0, 1fr) var(--stats-popup-control-width);
             align-items: flex-start;
@@ -862,8 +863,13 @@
             opacity: var(--settings-module-off-control-opacity);
         }
         .measurement-scale-row > .switch {
+            position: relative;
             justify-self: end;
             align-self: start;
+            z-index: 5;
+        }
+        .measurement-scale-row.channel-order-fallback-row {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 392px);
         }
         .measurement-scale-text {
             display: grid;
@@ -905,6 +911,28 @@
             line-height: 1.35;
             min-height: 2.7em;
         }
+        .measurement-scale-fallback.is-metadata-enabled {
+            color: #9fd5af;
+        }
+        .measurement-scale-fallback.is-metadata-off {
+            color: #d7c68a;
+        }
+        .channel-order-status {
+            will-change: opacity, transform;
+        }
+        .channel-order-status.is-fading-down {
+            animation: channelOrderStatusFadeDown 0.18s ease-out;
+        }
+        @keyframes channelOrderStatusFadeDown {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
         .measurement-scale-input-group {
             margin-left: 0;
             justify-self: end;
@@ -935,6 +963,127 @@
             background: var(--surface-input);
             filter: grayscale(1) brightness(0.68);
         }
+        .channel-order-control {
+            --channel-order-track-width: 260px;
+            --channel-order-slot-min: 58px;
+            --channel-order-gap: 4px;
+            --channel-order-plane-offset-x: -6px;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
+            row-gap: 6px;
+            justify-self: end;
+            width: min(100%, var(--channel-order-track-width));
+        }
+        .channel-order-control .channel-plane-row {
+            box-sizing: border-box;
+            display: flex;
+            gap: 0;
+            grid-column: 1;
+            grid-row: 1;
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.2;
+            overflow: hidden;
+            pointer-events: none;
+            text-align: center;
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+            width: calc(100% - (var(--channel-order-gap) * 3));
+            justify-self: center;
+            transform: translateX(var(--channel-order-plane-offset-x));
+            white-space: nowrap;
+        }
+        .channel-order-control .channel-plane-row span {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .channel-order-control .channel-bar {
+            box-sizing: border-box;
+            display: flex;
+            align-items: stretch;
+            gap: var(--channel-order-gap);
+            grid-column: 1;
+            grid-row: 2;
+            margin-top: 6px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            max-height: 36px;
+            min-width: 0;
+            transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+            scrollbar-gutter: stable;
+            scrollbar-width: auto;
+        }
+        .channel-order-control .channel-bar::-webkit-scrollbar {
+            height: 10px;
+        }
+        .channel-order-control .channel-bar::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+        }
+        .channel-order-control .channel-bar::-webkit-scrollbar-track {
+            background: var(--card-bg);
+        }
+        .channel-order-control .channel-bar::-webkit-scrollbar-button {
+            display: none;
+        }
+        .channel-order-label {
+            color: #cfcfcf;
+            font-size: 11px;
+            font-weight: 400;
+            line-height: 1.2;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .channel-order-drag-help {
+            color: var(--muted);
+            font-size: 10px;
+            line-height: 1.25;
+            margin: -1px 0 0;
+            text-align: left;
+        }
+        .channel-order-control .channel-chip {
+            background-color: var(--panel-border);
+            border: none;
+            box-sizing: border-box;
+            color: #fff;
+            cursor: grab;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--app-font);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.1;
+            min-height: 30px;
+            min-width: var(--channel-order-slot-min);
+            overflow: hidden;
+            padding: 7px 0;
+            border-radius: 6px;
+            flex: 1;
+            text-align: center;
+            text-overflow: ellipsis;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .channel-order-control .channel-chip:active {
+            cursor: grabbing;
+        }
+        .channel-order-control .channel-chip.sortable-chosen,
+        .channel-order-control .channel-chip.sortable-ghost {
+            opacity: 0.78;
+        }
+        .channel-order-control .channel-chip.dic { background-color: black; }
+        .channel-order-control .channel-chip.blue { background-color: blue; }
+        .channel-order-control .channel-chip.red { background-color: red; }
+        .channel-order-control .channel-chip.green { background-color: green; }
+        .channel-order-control .channel-chip.dic:hover { background-color: var(--panel-border); }
+        .channel-order-control .channel-chip.blue:hover { background-color: #4d4dff; }
+        .channel-order-control .channel-chip.red:hover { background-color: #ff6b6b; }
+        .channel-order-control .channel-chip.green:hover { background-color: #3bbf3b; }
         .stats-toggle-row {
             display: flex;
             align-items: flex-start;
@@ -1749,6 +1898,7 @@
             background-color: var(--surface-toggle-off);
             border-radius: 999px;
             transition: background-color 0.2s ease;
+            z-index: 1;
         }
         .slider:before {
             content: "";
@@ -1760,6 +1910,7 @@
             background-color: #f2f2f2;
             border-radius: 50%;
             transition: transform 0.2s ease;
+            z-index: 2;
         }
         .switch input:checked + .slider {
             background-color: #2f8f4e;
@@ -1794,6 +1945,31 @@
             }
             .measurement-scale-row {
                 grid-template-columns: 1fr;
+            }
+            .measurement-scale-row.channel-order-fallback-row {
+                grid-template-columns: 1fr;
+            }
+            .channel-order-control {
+                grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
+                justify-self: stretch;
+                width: min(100%, var(--channel-order-track-width));
+            }
+        }
+        @media (max-width: 420px) {
+            .channel-order-control {
+                --channel-order-track-width: 100%;
+                grid-template-columns: 1fr;
+                width: 100%;
+            }
+            .channel-order-control .channel-plane-row,
+            .channel-order-control .channel-bar {
+                grid-column: 1;
+            }
+            .channel-order-control .channel-plane-row {
+                grid-row: 1;
+            }
+            .channel-order-control .channel-bar {
+                grid-row: 2;
             }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -1924,6 +2100,9 @@
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Measurement Scale</div>
                     <div class="measurement-scale-card" id="measurementScaleGroup"></div>
+                    <div class="stats-divider"></div>
+                    <div class="stats-view-title">Wavelength Channel Assignment</div>
+                    <div class="measurement-scale-card" id="wavelengthChannelOrderGroup"></div>
                 </div>
                 <div class="stats-view-footer">
                     <button
@@ -2112,6 +2291,7 @@
 <script id="uploadQuotaProjection" type="application/json">{{ upload_quota_payload_json|safe }}</script>
 <script id="uploadAccessPolicy" type="application/json">{{ upload_access_policy_payload_json|safe }}</script>
 <script id="uploadResumePayload" type="application/json">{{ upload_resume_payload_json|safe }}</script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
@@ -2143,7 +2323,7 @@
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="saveWorkflowDefaultsTitle">
         <div class="nav-exit-title" id="saveWorkflowDefaultsTitle">Save as workflow default?</div>
         <div class="nav-exit-body" id="saveWorkflowDefaultsBody">
-            Use the current plugin, advanced-setting, and measurement-scale configuration as the default for future experiments? This does not start analysis or change saved results.
+            Use the current plugin, advanced-setting, measurement-scale, and wavelength-assignment configuration as the default for future experiments? This does not start analysis or change saved results.
         </div>
         <div class="nav-exit-actions">
             <button type="button" class="nav-exit-btn confirm" id="saveWorkflowDefaultsCancel">Cancel</button>
@@ -2223,6 +2403,9 @@
     const biorientationRedMaxDistanceUnitKey = 'cytocv.biorientation_red_max_distance_unit.v1';
     const micronsPerPixelKey = 'cytocv.stats_microns_per_pixel.v2';
     const useMetadataScaleKey = 'cytocv.use_metadata_scale.v2';
+    const useMetadataChannelOrderKey = 'cytocv.use_metadata_channel_order.v1';
+    const fallbackChannelOrderKey = 'cytocv.fallback_channel_order.v1';
+    const DEFAULT_FALLBACK_CHANNEL_ORDER = ['DIC', 'channel_blue', 'channel_green', 'channel_red'];
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
     const UPLOAD_BATCH_TARGET_BYTES = {{ upload_batch_target_bytes|default:83886080 }};
     const UPLOAD_PREPARATION_EXECUTION_MODE = "{{ upload_preparation_execution_mode|default:'worker'|escapejs }}";
@@ -2296,6 +2479,8 @@
         biorientationRedMaxDistanceUnit: 'px',
         micronsPerPixel: DEFAULT_MICRONS_PER_PIXEL,
         useMetadataScale: true,
+        useMetadataChannelOrder: true,
+        fallbackChannelOrder: [...DEFAULT_FALLBACK_CHANNEL_ORDER],
     };
 
     const statToggleElements = new Map();
@@ -2314,6 +2499,9 @@
     let biorientationRow = null;
     let micronsPerPixelInput = null;
     let useMetadataScaleInput = null;
+    let useMetadataChannelOrderInput = null;
+    let wavelengthChannelOrderStatus = null;
+    let fallbackChannelOrderBar = null;
     let measurementScalePxPerUmValue = null;
     let measurementScaleUmPerPxValue = null;
     let measurementScaleExampleHint = null;
@@ -2668,6 +2856,21 @@
         ]);
     }
 
+    function normalizeChannelOrder(order) {
+        const values = Array.isArray(order) ? order.filter(Boolean) : [];
+        const expectedOrder = channelOrder.length ? channelOrder : DEFAULT_FALLBACK_CHANNEL_ORDER;
+        if (values.length !== expectedOrder.length) return [...DEFAULT_FALLBACK_CHANNEL_ORDER];
+        const expected = new Set(expectedOrder);
+        const seen = new Set();
+        const normalized = [];
+        values.forEach((channel) => {
+            if (!expected.has(channel) || seen.has(channel)) return;
+            seen.add(channel);
+            normalized.push(channel);
+        });
+        return normalized.length === expectedOrder.length ? normalized : [...DEFAULT_FALLBACK_CHANNEL_ORDER];
+    }
+
     function applyServerPreferenceDefaults() {
         if (!serverPreferenceDefaults || typeof serverPreferenceDefaults !== 'object') {
             return;
@@ -2755,6 +2958,14 @@
         localStorage.setItem(
             useMetadataScaleKey,
             String(serverPreferenceDefaults.use_metadata_scale !== false)
+        );
+        localStorage.setItem(
+            useMetadataChannelOrderKey,
+            String(serverPreferenceDefaults.use_metadata_channel_order !== false)
+        );
+        localStorage.setItem(
+            fallbackChannelOrderKey,
+            JSON.stringify(normalizeChannelOrder(serverPreferenceDefaults.fallback_channel_order))
         );
 
         const nuclearMode = serverPreferenceDefaults.nuclear_cell_pair_mode === 'red_nucleus'
@@ -3374,6 +3585,11 @@
         localStorage.setItem(useMetadataScaleKey, String(!!statsState.useMetadataScale));
     }
 
+    function persistChannelOrderSettings() {
+        localStorage.setItem(useMetadataChannelOrderKey, String(!!statsState.useMetadataChannelOrder));
+        localStorage.setItem(fallbackChannelOrderKey, JSON.stringify(normalizeChannelOrder(statsState.fallbackChannelOrder)));
+    }
+
     function convertLengthValueToUnit(value, fromUnit, toUnit) {
         const normalizedFrom = normalizeLengthUnit(fromUnit);
         const normalizedTo = normalizeLengthUnit(toUnit);
@@ -3788,6 +4004,7 @@
         loadStoredLengthUnits();
         loadStoredMicronsPerPixel();
         loadStoredUseMetadataScale();
+        loadStoredChannelOrderSettings();
         loadStoredWidth();
         loadStoredDistance();
         loadStoredProximityRadius();
@@ -4536,6 +4753,152 @@
         measurementScaleExampleHint = example;
         measurementScaleFallbackHint = fallback;
         updateMeasurementScaleHints();
+        renderWavelengthChannelOrderSettings();
+    }
+
+    function channelSlugClass(channel) {
+        if (channel === 'DIC') return 'dic';
+        if (channel === 'channel_blue') return 'blue';
+        if (channel === 'channel_red') return 'red';
+        if (channel === 'channel_green') return 'green';
+        return '';
+    }
+
+    function channelOrderFromBar(bar) {
+        if (!bar) return normalizeChannelOrder(statsState.fallbackChannelOrder);
+        return normalizeChannelOrder(
+            [...bar.querySelectorAll('[data-channel-role]')].map((chip) => chip.dataset.channelRole)
+        );
+    }
+
+    function syncWavelengthChannelOrderStatus(animate = false) {
+        if (!wavelengthChannelOrderStatus || !useMetadataChannelOrderInput) return;
+        const metadataEnabled = useMetadataChannelOrderInput.checked;
+        const nextText = useMetadataChannelOrderInput.checked
+            ? 'Metadata mode enabled'
+            : 'Fallback-only mode enabled';
+        wavelengthChannelOrderStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
+        wavelengthChannelOrderStatus.classList.toggle('is-metadata-off', !metadataEnabled);
+        if (wavelengthChannelOrderStatus.textContent === nextText) return;
+        wavelengthChannelOrderStatus.textContent = nextText;
+        if (!animate) return;
+        wavelengthChannelOrderStatus.classList.remove('is-fading-down');
+        void wavelengthChannelOrderStatus.offsetWidth;
+        wavelengthChannelOrderStatus.classList.add('is-fading-down');
+    }
+
+    function setupChannelOrderDrag(bar) {
+        if (!bar) return;
+        if (!window.Sortable || typeof window.Sortable.create !== 'function') return;
+        window.Sortable.create(bar, {
+            animation: 150,
+            onEnd() {
+                statsState.fallbackChannelOrder = channelOrderFromBar(bar);
+                persistChannelOrderSettings();
+            },
+        });
+    }
+
+    function renderWavelengthChannelOrderSettings() {
+        const container = document.getElementById('wavelengthChannelOrderGroup');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const metadataRow = document.createElement('div');
+        metadataRow.className = 'measurement-scale-row measurement-scale-toggle-row';
+        const metadataText = document.createElement('div');
+        metadataText.className = 'measurement-scale-text';
+        const metadataTitleRow = document.createElement('div');
+        metadataTitleRow.className = 'measurement-scale-title-row';
+        const metadataTitle = document.createElement('span');
+        metadataTitle.className = 'measurement-scale-title';
+        metadataTitle.textContent = 'Use Metadata Wavelength Order Per File';
+        metadataTitleRow.appendChild(metadataTitle);
+        const metadataInfo = buildInfoDot(
+            'When enabled, each DV or TIFF file uses metadata-derived wavelength ordering when the file stores usable channel metadata.\n\nIf metadata is unavailable or invalid, the selected default fallback order is used. Turn this off to apply the fallback order to every new file.'
+        );
+        metadataInfo.classList.add('compact');
+        metadataTitleRow.appendChild(metadataInfo);
+        metadataText.appendChild(metadataTitleRow);
+        wavelengthChannelOrderStatus = document.createElement('p');
+        wavelengthChannelOrderStatus.className = 'measurement-scale-fallback channel-order-status';
+        metadataText.appendChild(wavelengthChannelOrderStatus);
+        metadataRow.appendChild(metadataText);
+
+        const metadataSwitch = document.createElement('label');
+        metadataSwitch.className = 'switch';
+        useMetadataChannelOrderInput = document.createElement('input');
+        useMetadataChannelOrderInput.type = 'checkbox';
+        useMetadataChannelOrderInput.id = 'statsUseMetadataChannelOrder';
+        useMetadataChannelOrderInput.checked = !!statsState.useMetadataChannelOrder;
+        useMetadataChannelOrderInput.addEventListener('change', () => {
+            statsState.useMetadataChannelOrder = useMetadataChannelOrderInput.checked;
+            persistChannelOrderSettings();
+            metadataRow.classList.toggle('is-off', !useMetadataChannelOrderInput.checked);
+            syncWavelengthChannelOrderStatus(true);
+        });
+        const metadataSlider = document.createElement('span');
+        metadataSlider.className = 'slider';
+        metadataSwitch.appendChild(useMetadataChannelOrderInput);
+        metadataSwitch.appendChild(metadataSlider);
+        metadataRow.appendChild(metadataSwitch);
+        metadataRow.classList.toggle('is-off', !useMetadataChannelOrderInput.checked);
+        wavelengthChannelOrderStatus.addEventListener('animationend', () => {
+            wavelengthChannelOrderStatus.classList.remove('is-fading-down');
+        });
+
+        const fallbackRow = document.createElement('div');
+        fallbackRow.className = 'measurement-scale-row channel-order-fallback-row';
+        const fallbackText = document.createElement('div');
+        fallbackText.className = 'measurement-scale-text';
+        const fallbackTitleRow = document.createElement('div');
+        fallbackTitleRow.className = 'measurement-scale-title-row';
+        const fallbackTitle = document.createElement('span');
+        fallbackTitle.className = 'measurement-scale-title';
+        fallbackTitle.textContent = 'Default Fallback Order';
+        fallbackTitleRow.appendChild(fallbackTitle);
+        const fallbackInfo = buildInfoDot(
+            'Sets the channel order CytoCV should use when a file does not include usable wavelength information, or when metadata ordering is turned off.\n\nTo change the order, select a channel box and drag it to the image plane where it belongs. For example, if image 1 is Blue and image 2 is Green, drag Blue into the first position and Green into the second.\n\nThis gives new uploads a starting channel order. You can still adjust a single file later on the preprocess page if one image is different.'
+        );
+        fallbackInfo.classList.add('compact');
+        fallbackTitleRow.appendChild(fallbackInfo);
+        fallbackText.appendChild(fallbackTitleRow);
+        const orderLabel = document.createElement('span');
+        orderLabel.className = 'channel-order-label';
+        orderLabel.textContent = 'Select wavelength order:';
+        fallbackText.appendChild(orderLabel);
+        const orderHelp = document.createElement('p');
+        orderHelp.className = 'channel-order-drag-help';
+        orderHelp.textContent = 'Drag and drop boxes to edit order.';
+        fallbackText.appendChild(orderHelp);
+        fallbackRow.appendChild(fallbackText);
+
+        const orderControl = document.createElement('div');
+        orderControl.className = 'channel-order-control';
+        const planeRow = document.createElement('div');
+        planeRow.className = 'channel-plane-row';
+        ['Image 1', 'Image 2', 'Image 3', 'Image 4'].forEach((label) => {
+            const span = document.createElement('span');
+            span.textContent = label;
+            planeRow.appendChild(span);
+        });
+        fallbackChannelOrderBar = document.createElement('div');
+        fallbackChannelOrderBar.className = 'channel-bar';
+        normalizeChannelOrder(statsState.fallbackChannelOrder).forEach((channel) => {
+            const chip = document.createElement('span');
+            chip.className = `channel-chip ${channelSlugClass(channel)}`.trim();
+            chip.dataset.channelRole = channel;
+            chip.textContent = displayChannelLabel(channel);
+            fallbackChannelOrderBar.appendChild(chip);
+        });
+        orderControl.appendChild(planeRow);
+        orderControl.appendChild(fallbackChannelOrderBar);
+        fallbackRow.appendChild(orderControl);
+
+        container.appendChild(metadataRow);
+        container.appendChild(fallbackRow);
+        setupChannelOrderDrag(fallbackChannelOrderBar);
+        syncWavelengthChannelOrderStatus();
     }
 
     function setSmoothText(element, nextText) {
@@ -4628,11 +4991,13 @@
         );
 
         if (measurementScaleFallbackHint) {
+            measurementScaleFallbackHint.classList.toggle('is-metadata-enabled', !!statsState.useMetadataScale);
+            measurementScaleFallbackHint.classList.toggle('is-metadata-off', !statsState.useMetadataScale);
             setSlideInText(
                 measurementScaleFallbackHint,
                 statsState.useMetadataScale
-                    ? 'Metadata mode enabled: each file uses DV header dx/dy when valid, and falls back to this manual µm/px if metadata is missing or invalid.'
-                    : 'Metadata mode disabled: manual µm/px is applied to every file in this run.'
+                    ? 'Metadata mode enabled'
+                    : 'Metadata mode disabled'
             );
         }
     }
@@ -4938,6 +5303,23 @@
         statsState.useMetadataScale = !['0', 'false', 'off', 'no'].includes(normalized);
     }
 
+    function loadStoredChannelOrderSettings() {
+        const rawMetadataMode = localStorage.getItem(useMetadataChannelOrderKey);
+        if (rawMetadataMode === null) {
+            statsState.useMetadataChannelOrder = true;
+        } else {
+            const normalized = String(rawMetadataMode).trim().toLowerCase();
+            statsState.useMetadataChannelOrder = !['0', 'false', 'off', 'no'].includes(normalized);
+        }
+        try {
+            statsState.fallbackChannelOrder = normalizeChannelOrder(
+                JSON.parse(localStorage.getItem(fallbackChannelOrderKey) || '[]')
+            );
+        } catch (err) {
+            statsState.fallbackChannelOrder = [...DEFAULT_FALLBACK_CHANNEL_ORDER];
+        }
+    }
+
     function loadStoredWidth() {
         const raw = localStorage.getItem(widthKey);
         const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
@@ -5208,6 +5590,20 @@
         if (useMetadataScaleInput) {
             useMetadataScaleInput.checked = !!statsState.useMetadataScale;
         }
+        if (useMetadataChannelOrderInput) {
+            useMetadataChannelOrderInput.checked = !!statsState.useMetadataChannelOrder;
+            useMetadataChannelOrderInput.closest('.measurement-scale-row')?.classList.toggle(
+                'is-off',
+                !useMetadataChannelOrderInput.checked
+            );
+        }
+        if (fallbackChannelOrderBar) {
+            normalizeChannelOrder(statsState.fallbackChannelOrder).forEach((channel) => {
+                const chip = fallbackChannelOrderBar.querySelector(`[data-channel-role="${channel}"]`);
+                if (chip) fallbackChannelOrderBar.appendChild(chip);
+            });
+        }
+        syncWavelengthChannelOrderStatus();
         updateMeasurementScaleHints();
         if (nuclearModeSelect) {
             nuclearModeSelect.value = statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
@@ -5413,6 +5809,11 @@
             statsState.useMetadataScale = !!useMetadataScaleInput.checked;
             localStorage.setItem(useMetadataScaleKey, String(statsState.useMetadataScale));
         }
+        if (useMetadataChannelOrderInput) {
+            statsState.useMetadataChannelOrder = !!useMetadataChannelOrderInput.checked;
+        }
+        statsState.fallbackChannelOrder = channelOrderFromBar(fallbackChannelOrderBar);
+        persistChannelOrderSettings();
         if (punctaLineWidthInput) {
             const fallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
             const minimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
@@ -5595,6 +5996,8 @@
             biorientationRedMaxDistanceUnit: normalizeLengthUnit(statsState.biorientationRedMaxDistanceUnit),
             micronsPerPixel: sanitizeMicronsPerPixel(statsState.micronsPerPixel),
             useMetadataScale: !!statsState.useMetadataScale,
+            useMetadataChannelOrder: !!statsState.useMetadataChannelOrder,
+            fallbackChannelOrder: normalizeChannelOrder(statsState.fallbackChannelOrder),
         });
         const snapshotToKey = (snapshot) => JSON.stringify(snapshot || {});
         const hasModalChanges = () => {
@@ -5626,6 +6029,8 @@
             statsState.biorientationRedMaxDistanceUnit = normalizeLengthUnit(snapshot.biorientationRedMaxDistanceUnit);
             statsState.micronsPerPixel = sanitizeMicronsPerPixel(snapshot.micronsPerPixel);
             statsState.useMetadataScale = !!snapshot.useMetadataScale;
+            statsState.useMetadataChannelOrder = snapshot.useMetadataChannelOrder !== false;
+            statsState.fallbackChannelOrder = normalizeChannelOrder(snapshot.fallbackChannelOrder);
             const widthMinimum = statsState.punctaLineWidthUnit === 'um' ? 0.01 : 1;
             const widthFallback = defaultWidthForUnit(statsState.punctaLineWidthUnit);
             statsState.punctaLineWidth = parseLengthValue(snapshot.punctaLineWidth, statsState.punctaLineWidthUnit, widthFallback, widthMinimum);
@@ -5687,6 +6092,7 @@
             localStorage.setItem(nuclearContourModeKey, statsState.nuclearCellPairContourMode);
             persistSignalQuantificationSettings();
             persistLengthUnitSettings();
+            persistChannelOrderSettings();
             syncStatsUI();
         };
 
@@ -5864,6 +6270,8 @@
                 nuclear_cell_pair_contour_mode: snapshot.nuclearCellPairContourMode,
                 microns_per_pixel: snapshot.micronsPerPixel,
                 use_metadata_scale: snapshot.useMetadataScale,
+                use_metadata_channel_order: snapshot.useMetadataChannelOrder,
+                fallback_channel_order: snapshot.fallbackChannelOrder,
             };
         };
 
@@ -6892,6 +7300,10 @@
             prepData.append('stats_biorientation_red_max_distance_unit', statsState.biorientationRedMaxDistanceUnit);
             prepData.append('stats_microns_per_pixel', String(statsState.micronsPerPixel));
             prepData.append('stats_use_metadata_scale', statsState.useMetadataScale ? '1' : '0');
+            prepData.append('stats_use_metadata_channel_order', statsState.useMetadataChannelOrder ? '1' : '0');
+            normalizeChannelOrder(statsState.fallbackChannelOrder).forEach((channel) => {
+                prepData.append('stats_fallback_channel_order', channel);
+            });
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             const uploadController = new AbortController();

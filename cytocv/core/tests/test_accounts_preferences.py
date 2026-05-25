@@ -24,7 +24,12 @@ from accounts.preferences import (
     should_auto_save_experiments,
     update_user_preferences,
 )
-from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED
+from core.channel_roles import (
+    CHANNEL_ROLE_BLUE,
+    CHANNEL_ROLE_DIC,
+    CHANNEL_ROLE_GREEN,
+    CHANNEL_ROLE_RED,
+)
 from core.models import (
     CellStatistics,
     DVLayerTifPreview,
@@ -68,6 +73,11 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
+        self.assertTrue(defaults["use_metadata_channel_order"])
+        self.assertEqual(
+            defaults["fallback_channel_order"],
+            [CHANNEL_ROLE_DIC, CHANNEL_ROLE_BLUE, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED],
+        )
         self.assertTrue(normalized["show_saved_file_channels"])
         self.assertTrue(normalized["show_saved_file_scales"])
         self.assertTrue(normalized["sidebar_starts_open"])
@@ -98,6 +108,13 @@ class PreferenceNormalizationTests(TestCase):
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
                     "use_metadata_scale": "off",
+                    "use_metadata_channel_order": "off",
+                    "fallback_channel_order": [
+                        "Green",
+                        "DIC",
+                        "Red",
+                        "Blue",
+                    ],
                     "spatial_stats_unit": "bad_unit",
                 },
                 "auto_save_experiments": "off",
@@ -128,6 +145,11 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
+        self.assertFalse(defaults["use_metadata_channel_order"])
+        self.assertEqual(
+            defaults["fallback_channel_order"],
+            [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
+        )
         self.assertFalse(normalized["auto_save_experiments"])
         self.assertFalse(normalized["confirm_cell_deletion"])
         self.assertFalse(normalized["confirm_multi_cell_deletion"])
@@ -2829,6 +2851,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
             "nuclear_cell_pair_contour_mode": "aggressive",
             "microns_per_pixel": 0.25,
             "use_metadata_scale": False,
+            "use_metadata_channel_order": False,
+            "fallback_channel_order": [
+                "channel_green",
+                "DIC",
+                "channel_red",
+                "channel_blue",
+            ],
         }
 
     def test_preferences_page_renders_review_modal_and_form_review_hooks(self):
@@ -2860,6 +2889,15 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="green_dot_split_mode"', html=False)
         self.assertContains(response, 'id="red_dot_split_enabled"', html=False)
         self.assertContains(response, 'id="red_dot_split_mode"', html=False)
+        self.assertContains(response, "Wavelength Channel Assignment")
+        self.assertContains(response, 'id="use_metadata_channel_order"', html=False)
+        self.assertContains(response, 'id="prefsFallbackChannelOrder"', html=False)
+        self.assertContains(response, '<div class="channel-plane-row" aria-hidden="true">', html=False)
+        self.assertContains(response, '<div class="channel-bar" id="prefsFallbackChannelOrder"', html=False)
+        self.assertContains(response, '<span class="channel-chip', html=False)
+        self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
+        self.assertNotContains(response, "channel-order-chip")
+        self.assertNotContains(response, "channel-order-bar")
         self.assertContains(response, "Split Merged Dots")
         self.assertNotContains(response, "Split Merged Green Dots")
         self.assertNotContains(response, "Split Merged Red Dots")
@@ -2976,6 +3014,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Keep New Changes")
         self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
         self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
+        self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
+        self.assertContains(response, "fallbackChannelOrderBar.className = 'channel-bar';")
+        self.assertContains(response, "planeRow.className = 'channel-plane-row';")
+        self.assertContains(response, "chip.className = `channel-chip")
+        self.assertContains(response, "window.Sortable.create(bar,")
+        self.assertNotContains(response, "channel-order-chip")
+        self.assertNotContains(response, "channel-order-bar")
 
     def test_experiment_page_contains_mode_aware_signal_quantification_info_text(self):
         response = self.client.get(reverse("experiment"))
@@ -3082,6 +3127,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "aggressive")
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertFalse(defaults["use_metadata_scale"])
+        self.assertFalse(defaults["use_metadata_channel_order"])
+        self.assertEqual(
+            defaults["fallback_channel_order"],
+            [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
+        )
         self.assertEqual(defaults["spatial_stats_unit"], "px")
 
     def test_experiment_workflow_defaults_endpoint_preserves_non_popup_preferences(self):
@@ -3124,6 +3174,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
             {"green_dot_split_mode": "invalid"},
             {"nuclear_cell_pair_contour_mode": "invalid"},
             {"manual_required_channels": ["DIC"]},
+            {"fallback_channel_order": ["DIC", "DIC", "channel_red", "channel_green"]},
         )
 
         for overrides in cases:
@@ -3155,6 +3206,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(rendered_defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "red_nucleus")
         self.assertEqual(rendered_defaults["nuclear_cell_pair_contour_mode"], "aggressive")
+        self.assertFalse(rendered_defaults["use_metadata_channel_order"])
+        self.assertEqual(
+            rendered_defaults["fallback_channel_order"],
+            [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
+        )
 
     def test_experiment_page_restores_saved_nuclear_signal_quantification_defaults(self):
         payload = self._build_experiment_workflow_defaults_payload()
@@ -3554,6 +3610,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "microns_per_pixel": "0.25",
                 "use_metadata_scale": "on",
                 "spatial_stats_unit": "um",
+                "use_metadata_channel_order": "0",
+                "fallback_channel_order": [
+                    "channel_green",
+                    "DIC",
+                    "channel_red",
+                    "channel_blue",
+                ],
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -3581,6 +3644,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
+        self.assertFalse(defaults["use_metadata_channel_order"])
+        self.assertEqual(
+            defaults["fallback_channel_order"],
+            [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
+        )
 
     def test_plugin_settings_form_preserves_paused_secondary_plugins_in_nuclear_mode(self):
         response = self.client.post(
@@ -3635,6 +3703,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "microns_per_pixel": 0.33,
                 "use_metadata_scale": False,
                 "spatial_stats_unit": "um",
+                "use_metadata_channel_order": False,
+                "fallback_channel_order": [
+                    CHANNEL_ROLE_GREEN,
+                    CHANNEL_ROLE_DIC,
+                    CHANNEL_ROLE_RED,
+                    CHANNEL_ROLE_BLUE,
+                ],
             }
         )
         update_user_preferences(self.user, payload)
@@ -3671,6 +3746,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["microns_per_pixel"], 0.33)
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")
+        self.assertFalse(defaults["use_metadata_channel_order"])
+        self.assertEqual(
+            defaults["fallback_channel_order"],
+            [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
+        )
 
     def test_plugin_settings_form_persists_dot_split_defaults(self):
         response = self.client.post(

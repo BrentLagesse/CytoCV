@@ -38,6 +38,7 @@ from core.channel_roles import (
     channel_display_label,
     channel_slug,
 )
+from core.channel_ordering import DEFAULT_FALLBACK_CHANNEL_ORDER, normalize_channel_order
 from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
 from core.models import (
     CellStatistics,
@@ -231,6 +232,13 @@ def _extract_measurement_defaults(
         minimum=0.0001,
     )
     current_use_metadata_scale = bool(defaults.get("use_metadata_scale", True))
+    current_use_metadata_channel_order = bool(
+        defaults.get("use_metadata_channel_order", True)
+    )
+    current_fallback_channel_order = normalize_channel_order(
+        defaults.get("fallback_channel_order"),
+        default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+    )
     current_spatial_stats_unit = normalize_spatial_stats_unit(
         defaults.get("spatial_stats_unit"),
         default="px",
@@ -274,6 +282,25 @@ def _extract_measurement_defaults(
             "on",
             "yes",
         }
+    raw_use_metadata_channel_order = post_data.get("use_metadata_channel_order")
+    if raw_use_metadata_channel_order is None:
+        use_metadata_channel_order = current_use_metadata_channel_order
+    else:
+        use_metadata_channel_order = str(raw_use_metadata_channel_order).strip().lower() in {
+            "1",
+            "true",
+            "on",
+            "yes",
+        }
+    raw_fallback_channel_order = (
+        post_data.getlist("fallback_channel_order")
+        if hasattr(post_data, "getlist")
+        else post_data.get("fallback_channel_order")
+    )
+    fallback_channel_order = normalize_channel_order(
+        raw_fallback_channel_order,
+        default=current_fallback_channel_order,
+    )
     return {
         "puncta_line_width": _parse_positive_float(
             post_data.get("puncta_line_width", post_data.get("red_line_width")),
@@ -326,6 +353,8 @@ def _extract_measurement_defaults(
             post_data.get("spatial_stats_unit"),
             default=current_spatial_stats_unit,
         ),
+        "use_metadata_channel_order": use_metadata_channel_order,
+        "fallback_channel_order": fallback_channel_order,
     }
 
 
@@ -1543,6 +1572,17 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
         list(effective_selected_plugins),
     )
     plugin_dependency_payload = build_plugin_ui_payload()
+    fallback_channel_order_rows = [
+        {
+            "channel": channel,
+            "label": channel_display_label(channel),
+            "slug": channel_slug(channel),
+        }
+        for channel in normalize_channel_order(
+            defaults.get("fallback_channel_order"),
+            default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+        )
+    ]
 
     return TemplateResponse(
         request,
@@ -1555,5 +1595,6 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             "required_channel_rows": required_channel_rows,
             "required_channels_by_plugins": plugin_requirement_summary["required_channels"],
             "plugin_dependency_payload_json": json.dumps(plugin_dependency_payload),
+            "fallback_channel_order_rows": fallback_channel_order_rows,
         },
     )

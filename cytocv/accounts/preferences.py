@@ -7,6 +7,11 @@ import math
 from typing import Any
 
 from core.channel_roles import CHANNEL_ROLE_ORDER, channel_role_from_slug, channel_slug
+from core.channel_ordering import (
+    DEFAULT_FALLBACK_CHANNEL_ORDER,
+    normalize_channel_order,
+    validate_channel_order,
+)
 from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
 )
@@ -83,6 +88,8 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
         "spatial_stats_unit": "px",
+        "use_metadata_channel_order": True,
+        "fallback_channel_order": list(DEFAULT_FALLBACK_CHANNEL_ORDER),
     },
     "auto_save_experiments": True,
     "show_saved_file_channels": True,
@@ -198,6 +205,17 @@ def _strict_mode(
     return mode
 
 
+def _strict_channel_order(value: Any, *, field: str) -> list[str]:
+    if not isinstance(value, list):
+        raise PreferenceValidationError(f"{field} must be a list.")
+    normalized = validate_channel_order(value)
+    if normalized is None:
+        raise PreferenceValidationError(
+            f"{field} must contain DIC, Blue, Red, and Green exactly once."
+        )
+    return normalized
+
+
 def _first_present(*values: Any) -> Any:
     for value in values:
         if value is not None:
@@ -297,6 +315,14 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     normalized["experiment_defaults"]["spatial_stats_unit"] = _normalize_unit(
         defaults_payload.get("spatial_stats_unit"),
         default="px",
+    )
+    normalized["experiment_defaults"]["use_metadata_channel_order"] = _as_bool(
+        defaults_payload.get("use_metadata_channel_order"),
+        default=True,
+    )
+    normalized["experiment_defaults"]["fallback_channel_order"] = normalize_channel_order(
+        defaults_payload.get("fallback_channel_order"),
+        default=DEFAULT_FALLBACK_CHANNEL_ORDER,
     )
     width_minimum = (
         1
@@ -524,6 +550,8 @@ def build_experiment_defaults_from_popup_payload(
         "nuclear_cell_pair_contour_mode",
         "microns_per_pixel",
         "use_metadata_scale",
+        "use_metadata_channel_order",
+        "fallback_channel_order",
     }
     unknown_fields = sorted(set(raw_payload.keys()) - allowed_fields)
     if unknown_fields:
@@ -788,6 +816,14 @@ def build_experiment_defaults_from_popup_payload(
             "use_metadata_scale": _strict_bool(
                 raw_payload.get("use_metadata_scale"),
                 field="use_metadata_scale",
+            ),
+            "use_metadata_channel_order": _strict_bool(
+                raw_payload.get("use_metadata_channel_order"),
+                field="use_metadata_channel_order",
+            ),
+            "fallback_channel_order": _strict_channel_order(
+                raw_payload.get("fallback_channel_order"),
+                field="fallback_channel_order",
             ),
         }
     )

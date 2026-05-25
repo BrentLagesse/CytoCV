@@ -1014,6 +1014,9 @@
   const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
   const nuclearCellPairContourModeInput = document.getElementById('nuclear_cell_pair_contour_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
+  const useMetadataChannelOrderInput = document.getElementById('use_metadata_channel_order');
+  const prefsChannelOrderModeStatus = document.getElementById('prefsChannelOrderModeStatus');
+  const prefsFallbackChannelOrderBar = document.getElementById('prefsFallbackChannelOrder');
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
   const enforceWavelengthsInput = document.getElementById('enforce_wavelengths');
@@ -1052,6 +1055,7 @@
   }
   const pluginOrder = pluginCatalog.map((plugin) => plugin.id);
   const channelOrder = payload.channel_order || [];
+  const defaultFallbackChannelOrder = ['DIC', 'channel_blue', 'channel_green', 'channel_red'];
 
   const sanitizePositive = (value, fallback) => {
     const parsed = Number(value);
@@ -1085,6 +1089,54 @@
     if (target === 'red') return 'Red';
     if (target === 'green') return 'Green';
     return 'Both';
+  };
+
+  const normalizeChannelOrder = (order) => {
+    const values = Array.isArray(order) ? order.filter(Boolean) : [];
+    const expectedOrder = channelOrder.length ? channelOrder : defaultFallbackChannelOrder;
+    if (values.length !== expectedOrder.length) return [...defaultFallbackChannelOrder];
+    const expected = new Set(expectedOrder);
+    const seen = new Set();
+    const normalized = [];
+    values.forEach((value) => {
+      if (!expected.has(value) || seen.has(value)) return;
+      seen.add(value);
+      normalized.push(value);
+    });
+    return normalized.length === expectedOrder.length ? normalized : [...defaultFallbackChannelOrder];
+  };
+
+  const channelOrderFromBar = (bar) =>
+    normalizeChannelOrder([...((bar || {}).querySelectorAll?.('[data-channel-role]') || [])].map((chip) => chip.dataset.channelRole));
+
+  const channelOrderLabelList = (order) =>
+    normalizeChannelOrder(order).map((channel) => displayChannelLabel(channel)).join(', ');
+
+  const syncChannelOrderStatus = () => {
+    if (!prefsChannelOrderModeStatus || !useMetadataChannelOrderInput) return;
+    prefsChannelOrderModeStatus.textContent = useMetadataChannelOrderInput.checked
+      ? 'Metadata mode enabled'
+      : 'Fallback-only mode enabled';
+  };
+
+  const orderChannelBar = (bar, order) => {
+    if (!bar) return;
+    const normalized = normalizeChannelOrder(order);
+    const chipsByChannel = new Map(
+      [...bar.querySelectorAll('[data-channel-role]')].map((chip) => [chip.dataset.channelRole, chip])
+    );
+    normalized.forEach((channel) => {
+      const chip = chipsByChannel.get(channel);
+      if (chip) bar.appendChild(chip);
+    });
+  };
+
+  const setupChannelOrderDrag = (bar) => {
+    if (!bar) return;
+    if (!window.Sortable || typeof window.Sortable.create !== 'function') return;
+    window.Sortable.create(bar, {
+      animation: 150,
+    });
   };
   const dotSplitTargetAllowed = (target, greenAllowed, redAllowed) => {
     if (target === 'green') return greenAllowed;
@@ -1407,6 +1459,8 @@
     redDotSplitMode: normalizeRedDotSplitMode(valueOrEmpty(redDotSplitModeInput)),
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
+    useMetadataChannelOrder: !!(useMetadataChannelOrderInput && useMetadataChannelOrderInput.checked),
+    fallbackChannelOrder: channelOrderFromBar(prefsFallbackChannelOrderBar),
   });
 
   const captureAdvancedSnapshot = () => ({
@@ -1565,6 +1619,17 @@
       fromSnapshot.useMetadataScale,
       toSnapshot.useMetadataScale
     );
+    pushToggleChange(
+      changes,
+      'Use Metadata Wavelength Order Per File',
+      fromSnapshot.useMetadataChannelOrder,
+      toSnapshot.useMetadataChannelOrder
+    );
+    if (JSON.stringify(fromSnapshot.fallbackChannelOrder || []) !== JSON.stringify(toSnapshot.fallbackChannelOrder || [])) {
+      changes.push(
+        `Default Fallback Order: ${channelOrderLabelList(fromSnapshot.fallbackChannelOrder)} -> ${channelOrderLabelList(toSnapshot.fallbackChannelOrder)}`
+      );
+    }
     return changes;
   };
 
@@ -1765,8 +1830,11 @@
     }
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
+    if (useMetadataChannelOrderInput) useMetadataChannelOrderInput.checked = snapshot.useMetadataChannelOrder;
+    orderChannelBar(prefsFallbackChannelOrderBar, snapshot.fallbackChannelOrder);
     syncRows();
     updateMeasurementScaleHelp();
+    syncChannelOrderStatus();
   };
 
   const restoreAdvancedSnapshot = (snapshot) => {
@@ -1901,6 +1969,10 @@
     el.addEventListener('input', updateMeasurementScaleHelp);
     el.addEventListener('change', updateMeasurementScaleHelp);
   });
+  if (useMetadataChannelOrderInput) {
+    useMetadataChannelOrderInput.addEventListener('change', syncChannelOrderStatus);
+  }
+  setupChannelOrderDrag(prefsFallbackChannelOrderBar);
   const disclosureButtons = [...document.querySelectorAll('.measurement-disclosure-toggle[data-disclosure-target]')];
   disclosureButtons.forEach((button) => {
     const panelId = button.dataset.disclosureTarget;
@@ -2094,5 +2166,6 @@
   syncPluginToggles();
   syncRows();
   updateMeasurementScaleHelp();
+  syncChannelOrderStatus();
   captureBaselineSnapshots();
 })();

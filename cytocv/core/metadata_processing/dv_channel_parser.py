@@ -8,6 +8,7 @@ from core.channel_roles import (
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
 )
+from core.channel_ordering import resolve_channel_config
 from core.image_sources import (
     DV_IMAGE_EXTENSION,
     TIFF_IMAGE_EXTENSIONS,
@@ -87,20 +88,13 @@ def _extract_from_dv_header(dv_file_path):
             dv.close()
 
 
-def extract_channel_config(dv_file_path):
+def extract_dv_metadata_channel_config(dv_file_path):
     """
-    Reads a source image file and returns a channel-name -> channel-index mapping.
+    Return DV metadata-derived channel config, or an empty mapping when unavailable.
 
     Primary source: structured DV metadata header (nc + wave1..waveN).
-    Fallback source: XML snippets in the DV header text.
-    TIFF uploads use dedicated TIFF metadata parsing with default fallback.
+    Secondary source: XML snippets in the DV header text.
     """
-    extension = source_image_extension(dv_file_path)
-    if extension in TIFF_IMAGE_EXTENSIONS:
-        return extract_tiff_channel_config(dv_file_path)
-    if extension != DV_IMAGE_EXTENSION:
-        return {}
-
     header_config = _extract_from_dv_header(dv_file_path)
     if header_config:
         return header_config
@@ -142,6 +136,37 @@ def extract_channel_config(dv_file_path):
         except (TypeError, ValueError):
             continue
     return config
+
+
+def extract_channel_config(
+    dv_file_path,
+    *,
+    prefer_metadata: bool = True,
+    fallback_order: list[str] | tuple[str, ...] | None = None,
+):
+    """
+    Reads a source image file and returns a channel-name -> channel-index mapping.
+
+    Metadata-derived order is used when available and enabled. Otherwise, the
+    configured fallback image-plane order is used for supported source images.
+    TIFF uploads use dedicated TIFF metadata parsing with the same fallback.
+    """
+    extension = source_image_extension(dv_file_path)
+    if extension in TIFF_IMAGE_EXTENSIONS:
+        return extract_tiff_channel_config(
+            dv_file_path,
+            prefer_metadata=prefer_metadata,
+            fallback_order=fallback_order,
+        )
+    if extension != DV_IMAGE_EXTENSION:
+        return {}
+
+    metadata_config = extract_dv_metadata_channel_config(dv_file_path) if prefer_metadata else {}
+    return resolve_channel_config(
+        metadata_config,
+        prefer_metadata=prefer_metadata,
+        fallback_order=fallback_order,
+    )
 
 
 def is_recognized_dv_file(dv_file_path):
