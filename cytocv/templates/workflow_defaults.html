@@ -1124,9 +1124,14 @@ main.main > section.panel > form.panel > .card {
 
 .row.channel-order-fallback-row {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
   align-items: flex-start;
+  column-gap: 10px;
   row-gap: 4px;
+}
+
+.row.channel-order-fallback-row > .channel-order-copy {
+  grid-column: 1 / -1;
 }
 
 .channel-order-control {
@@ -1187,25 +1192,25 @@ main.main > section.panel > form.panel > .card {
   color: #cfcfcf;
   font-size: 11px;
   font-weight: 400;
+  grid-column: 1;
+  grid-row: 2;
   line-height: 1.2;
   text-align: left;
   white-space: nowrap;
 }
 
 .channel-order-selector-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
-  align-items: start;
-  column-gap: 10px;
-  row-gap: 0;
-  min-height: 52px;
-  min-width: 0;
+  display: contents;
 }
 
 .channel-order-description {
   display: grid;
   gap: 4px;
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 0;
   min-width: 0;
+  padding-top: 18px;
 }
 
 .channel-order-control .channel-bar {
@@ -1717,11 +1722,26 @@ main.main > section.panel > form.panel > .card {
   }
 
   .channel-order-selector-row {
+    display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .channel-order-description {
+    grid-column: auto;
+    grid-row: auto;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .channel-order-label {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .channel-order-control {
     grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
+    grid-column: auto;
+    grid-row: auto;
     justify-self: stretch;
     transform: none;
     width: min(100%, var(--channel-order-track-width));
