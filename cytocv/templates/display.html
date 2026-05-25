@@ -513,6 +513,34 @@
             font-size: 13px;
             line-height: 1.1;
             flex: 1; box-sizing: border-box; text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            container-type: inline-size;
+        }
+        .channel-chip-grip {
+            color: rgba(255, 255, 255, 0.72);
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: clamp(8px, 20cqi, 12px);
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+            pointer-events: none;
+        }
+        .channel-chip-label {
+            display: inline-block;
+            font-size: clamp(8px, 22cqi, 13px);
+            line-height: 1;
+            min-width: 0;
+            overflow: hidden;
+            pointer-events: none;
+            text-overflow: clip;
+            white-space: nowrap;
         }
         .channel-chip:active { cursor: grabbing; }
         .sidebar.channels-hidden .channel-bar {
@@ -2125,7 +2153,10 @@
                                 {% endif %}
                                 <div class="channel-bar">
                                     {% for channel in file.detected_channels %}
-                                        <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>
+                                        <span class="channel-chip {{ channel|lower }}" data-channel-label="{{ channel }}">
+                                            <span class="channel-chip-grip" aria-hidden="true">⋮⋮</span>
+                                            <span class="channel-chip-label">{{ channel }}</span>
+                                        </span>
                                     {% endfor %}
                                 </div>
                             </div>
