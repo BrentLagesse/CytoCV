@@ -1064,6 +1064,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 4px;
             font-family: var(--app-font);
             font-size: 13px;
             font-weight: 700;
@@ -1078,6 +1079,16 @@
             text-overflow: ellipsis;
             user-select: none;
             white-space: nowrap;
+        }
+        .channel-order-control .channel-chip-grip {
+            color: rgba(255, 255, 255, 0.72);
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+            pointer-events: none;
         }
         .channel-order-control .channel-chip:active {
             cursor: grabbing;
@@ -4898,7 +4909,14 @@
             const chip = document.createElement('span');
             chip.className = `channel-chip ${channelSlugClass(channel)}`.trim();
             chip.dataset.channelRole = channel;
-            chip.textContent = displayChannelLabel(channel);
+            const grip = document.createElement('span');
+            grip.className = 'channel-chip-grip';
+            grip.setAttribute('aria-hidden', 'true');
+            grip.textContent = '⋮⋮';
+            const label = document.createElement('span');
+            label.textContent = displayChannelLabel(channel);
+            chip.appendChild(grip);
+            chip.appendChild(label);
             fallbackChannelOrderBar.appendChild(chip);
         });
         orderControl.appendChild(planeRow);
