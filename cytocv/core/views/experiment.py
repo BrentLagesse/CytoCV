@@ -48,6 +48,10 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
 )
@@ -617,6 +621,18 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         payload.get("nuclear_cell_pair_mode", payload.get("nuclear_cellular_mode")),
         default="green_nucleus",
     )
+    nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+        payload.get(
+            "nuclear_cell_pair_contour_mode",
+            payload.get(
+                "nuclearCellPairContourMode",
+                experiment_defaults.get(
+                    "nuclear_cell_pair_contour_mode",
+                    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+                ),
+            ),
+        )
+    )
     signal_selection = resolve_signal_quantification_selection(
         payload={
             "signal_quantification_enabled": payload.get(
@@ -708,6 +724,7 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         "stats_biorientation_red_max_distance_unit": biorientation_red_max_distance_unit,
         "puncta_line_mode": puncta_line_mode,
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+        "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
         "greenContourFilterEnabled": green_contour_filter_enabled,
         "alternateRedDetection": signal_selection.alternate_nucleus_detection_enabled,
         "alternateNucleusDetectionEnabled": signal_selection.alternate_nucleus_detection_enabled,

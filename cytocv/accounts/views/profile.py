@@ -71,6 +71,10 @@ from core.services.puncta_line_mode import (
 from core.services.dot_split import (
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     resolve_signal_quantification_from_defaults,
     resolve_signal_quantification_selection,
@@ -149,6 +153,13 @@ def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
     if mode not in NUCLEAR_CELL_PAIR_MODES:
         return default
     return mode
+
+
+def _normalize_nuclear_contour_mode(
+    value: Any,
+    default: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+) -> str:
+    return normalize_nuclear_cell_pair_contour_mode(value, default=default)
 
 
 def _normalize_puncta_mode(value: Any, default: str = DEFAULT_PUNCTA_LINE_MODE) -> str:
@@ -232,6 +243,9 @@ def _extract_measurement_defaults(
         defaults.get("nuclear_cell_pair_mode", defaults.get("nuclear_cellular_mode")),
         default="green_nucleus",
     )
+    current_nuclear_contour_mode = _normalize_nuclear_contour_mode(
+        defaults.get("nuclear_cell_pair_contour_mode"),
+    )
 
     puncta_line_width_unit = _normalize_unit(
         post_data.get("puncta_line_width_unit", post_data.get("red_line_width_unit")),
@@ -293,6 +307,10 @@ def _extract_measurement_defaults(
         "nuclear_cell_pair_mode": _normalize_nuclear_mode(
             post_data.get("nuclear_cell_pair_mode", post_data.get("nuclear_cellular_mode")),
             default=current_nuclear_mode,
+        ),
+        "nuclear_cell_pair_contour_mode": _normalize_nuclear_contour_mode(
+            post_data.get("nuclear_cell_pair_contour_mode"),
+            default=current_nuclear_contour_mode,
         ),
         "puncta_line_width_unit": puncta_line_width_unit,
         "cen_dot_distance_unit": cen_dot_distance_unit,

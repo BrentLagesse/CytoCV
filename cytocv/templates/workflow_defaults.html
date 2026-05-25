@@ -413,6 +413,17 @@ main.main > section.panel > form.panel > .card {
   padding: 10px 12px;
 }
 
+.plugin-measure-line.nuclear-contour-mode-child {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.14);
+}
+
+.plugin-measure-line.nuclear-contour-mode-child.disabled {
+  opacity: var(--workflow-module-disabled-opacity);
+  pointer-events: none;
+}
+
 .plugin-measure-line + .plugin-measure-line::before {
   content: "";
   position: absolute;
@@ -1677,6 +1688,16 @@ main.main > section.panel > form.panel > .card {
                   <div class="plugin-measure-right compact-control">
                     <input type="hidden" name="alternate_nucleus_detection_enabled" value="0">
                     <label class="sw"><input type="checkbox" id="alternate_nucleus_detection_enabled" name="alternate_nucleus_detection_enabled" value="1" {% if preferences.experiment_defaults.alternate_nucleus_detection_enabled %}checked{% endif %}><span class="sl"></span></label>
+                  </div>
+                </div>
+                <div class="plugin-measure-line nuclear-contour-mode-child{% if not preferences.experiment_defaults.alternate_nucleus_detection_enabled %} disabled{% endif %}" id="nuclearContourModeRow">
+                  <div class="plugin-measure-copy">
+                    <label for="nuclear_cell_pair_contour_mode">Nucleus Contour Mode:</label>
+                    <p class="module-help">Balanced keeps the current alternate nucleus behavior. Aggressive uses tighter speckle-derived alternate nucleus masks for the selected nucleus source channel when Alternate Nucleus Detection is enabled.</p>
+                  </div>
+                  <div class="mode-select-group plugin-measure-right">
+                    <input type="hidden" id="nuclear_cell_pair_contour_mode_value" name="nuclear_cell_pair_contour_mode" value="{% if preferences.experiment_defaults.nuclear_cell_pair_contour_mode == 'aggressive' %}aggressive{% else %}balanced{% endif %}">
+                    <select id="nuclear_cell_pair_contour_mode" name="nuclear_cell_pair_contour_mode" {% if not preferences.experiment_defaults.alternate_nucleus_detection_enabled %}disabled{% endif %}><option value="balanced" {% if preferences.experiment_defaults.nuclear_cell_pair_contour_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.nuclear_cell_pair_contour_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select>
                   </div>
                 </div>
               </div>

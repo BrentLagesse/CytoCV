@@ -48,6 +48,10 @@ from core.services.dot_split import (
     DEFAULT_DOT_SPLIT_MODE,
     normalize_dot_split_mode,
 )
+from core.services.nuclear_cell_pair_contour_mode import (
+    DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    normalize_nuclear_cell_pair_contour_mode,
+)
 from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
 )
@@ -603,6 +607,18 @@ def pre_process(request, uuids):
         )
         if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
             nuclear_cell_pair_mode = "green_nucleus"
+        nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
+            request.POST.get(
+                "nuclear_cell_pair_contour_mode",
+                request.POST.get(
+                    "nuclearCellPairContourMode",
+                    request.session.get(
+                        "nuclear_cell_pair_contour_mode",
+                        DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+                    ),
+                ),
+            )
+        )
         green_contour_filter_enabled_raw = request.POST.get(
             'greenContourFilterEnabled',
             request.session.get('greenContourFilterEnabled', request.session.get('gfpFilterEnabled', 'False')),
@@ -736,6 +752,7 @@ def pre_process(request, uuids):
         request.session['redDotSplitMode'] = red_dot_split_mode
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
+        request.session["nuclear_cell_pair_contour_mode"] = nuclear_cell_pair_contour_mode
         request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
         request.session['alternateRedDetection'] = signal_selection.alternate_nucleus_detection_enabled
         request.session['alternateNucleusDetectionEnabled'] = (
