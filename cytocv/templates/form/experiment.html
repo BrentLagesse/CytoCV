@@ -971,9 +971,19 @@
             box-sizing: border-box;
             display: grid;
             grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
-            row-gap: 6px;
+            row-gap: 5px;
             justify-self: end;
             width: min(100%, var(--channel-order-track-width));
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: var(--surface-input);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            padding: 7px 6px 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .channel-order-control:focus-within {
+            border-color: rgba(86, 147, 220, 0.75);
+            box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
         .channel-order-control .channel-plane-row {
             box-sizing: border-box;
@@ -981,7 +991,7 @@
             gap: 0;
             grid-column: 1;
             grid-row: 1;
-            margin-top: 8px;
+            margin-top: 0;
             color: var(--muted);
             font-size: 10px;
             font-weight: 700;
@@ -1008,7 +1018,7 @@
             gap: var(--channel-order-gap);
             grid-column: 1;
             grid-row: 2;
-            margin-top: 6px;
+            margin-top: 2px;
             flex-wrap: nowrap;
             overflow-x: auto;
             max-height: 36px;

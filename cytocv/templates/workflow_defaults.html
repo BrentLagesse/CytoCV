@@ -1137,11 +1137,22 @@ main.main > section.panel > form.panel > .card {
   box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
-  row-gap: 6px;
+  row-gap: 5px;
   align-self: start;
   justify-self: end;
   transform: translateY(-10px);
   width: min(100%, var(--channel-order-track-width));
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--surface-input);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  padding: 7px 6px 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.channel-order-control:focus-within {
+  border-color: rgba(86, 147, 220, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
 }
 
 .channel-order-control .channel-plane-row {
@@ -1204,7 +1215,7 @@ main.main > section.panel > form.panel > .card {
   gap: var(--channel-order-gap);
   grid-column: 1;
   grid-row: 2;
-  margin-top: 6px;
+  margin-top: 2px;
   flex-wrap: nowrap;
   overflow-x: auto;
   max-height: 36px;
@@ -2190,9 +2201,34 @@ main.main > section.panel > form.panel > .card {
               </div>
             </div>
             <div class="channel-order-description">
-              <p class="module-help">Sets the channel order CytoCV should use when a file does not include usable wavelength information, or when metadata ordering is turned off.</p>
-              <p class="module-help">To change the order, select a channel box and drag it to the image plane where it belongs. For example, if image 1 is Blue and image 2 is Green, drag Blue into the first position and Green into the second.</p>
-              <p class="module-help">This gives new uploads a starting channel order. You can still adjust a single file later on the preprocess page if one image is different.</p>
+              <div class="measurement-disclosure-stack">
+                <div class="measurement-disclosure">
+                  <button type="button" class="measurement-disclosure-toggle" data-disclosure-target="prefsFallbackOrderPurposePanel" aria-expanded="false">
+                    <span class="measurement-scale-subhead">What It Does</span>
+                    <span class="measurement-disclosure-meta">
+                      <span data-disclosure-state>Show</span>
+                      <span class="measurement-disclosure-chevron">&#9662;</span>
+                    </span>
+                  </button>
+                  <div class="measurement-disclosure-panel" id="prefsFallbackOrderPurposePanel" hidden>
+                    <p class="module-help">Sets the channel order CytoCV should use when a file does not include usable wavelength information, or when metadata ordering is turned off.</p>
+                    <p class="module-help">This gives new uploads a starting channel order. You can still adjust a single file later on the preprocess page if one image is different.</p>
+                  </div>
+                </div>
+                <div class="measurement-disclosure">
+                  <button type="button" class="measurement-disclosure-toggle" data-disclosure-target="prefsFallbackOrderHowToPanel" aria-expanded="false">
+                    <span class="measurement-scale-subhead">How To Use</span>
+                    <span class="measurement-disclosure-meta">
+                      <span data-disclosure-state>Show</span>
+                      <span class="measurement-disclosure-chevron">&#9662;</span>
+                    </span>
+                  </button>
+                  <div class="measurement-disclosure-panel" id="prefsFallbackOrderHowToPanel" hidden>
+                    <p class="module-help">Match the channel boxes to the image planes in your microscope file. To change the order, select a channel box and drag it to the image plane where it belongs.</p>
+                    <p class="module-help">For example, if image 1 is Blue and image 2 is Green, drag Blue into the first position and Green into the second.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
