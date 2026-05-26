@@ -1103,6 +1103,25 @@ main.main > section.panel > form.panel > .card {
   color: #b8c8db !important;
 }
 
+.measurement-scale-status {
+  margin: 4px 0 0;
+  color: #e5c558;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.measurement-scale-status.is-metadata-enabled {
+  color: #9fd5af;
+}
+
+.measurement-scale-status.is-metadata-off {
+  color: #e5c558;
+}
+
+.measurement-scale-status.is-fading-down {
+  animation: channelOrderActionFadeDown 0.18s ease-out;
+}
+
 .measurement-scale-input-group {
   display: inline-flex;
   align-items: stretch;
@@ -2262,6 +2281,13 @@ main.main > section.panel > form.panel > .card {
             <div class="row-copy">
               <label for="use_metadata_scale">Use Metadata Scale Per File</label>
               <p class="module-help">When enabled, each file uses DV header dx/dy scale. If unavailable, workflow falls back to manual &micro;m/px.</p>
+              <p class="measurement-scale-status" id="prefsScaleModeStatus" aria-live="polite">
+                {% if preferences.experiment_defaults.use_metadata_scale %}
+                Metadata mode enabled
+                {% else %}
+                Fallback-only mode enabled
+                {% endif %}
+              </p>
             </div>
             <label class="sw">
               <input type="hidden" name="use_metadata_scale" value="0">

@@ -999,6 +999,7 @@
   const prefsScaleInput = document.getElementById('microns_per_pixel');
   const prefsScaleLive = document.getElementById('prefsScaleLive');
   const prefsScaleExample = document.getElementById('prefsScaleExample');
+  const prefsScaleModeStatus = document.getElementById('prefsScaleModeStatus');
   const redWidthInput = document.getElementById('puncta_line_width');
   const redWidthUnit = document.getElementById('puncta_line_width_unit');
   const cenDotDistanceInput = document.getElementById('cen_dot_distance');
@@ -1122,6 +1123,23 @@
   const channelOrderActionLockMs = 260;
   const fallbackChannelOrderUndoStack = [];
   let fallbackChannelOrderActionLocked = false;
+
+  const syncScaleMetadataStatus = (animate = false) => {
+    if (!prefsScaleModeStatus || !useMetadataScaleInput) return;
+    const metadataEnabled = useMetadataScaleInput.checked;
+    const nextText = metadataEnabled ? 'Metadata mode enabled' : 'Fallback-only mode enabled';
+    let changed = false;
+    prefsScaleModeStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
+    prefsScaleModeStatus.classList.toggle('is-metadata-off', !metadataEnabled);
+    if (prefsScaleModeStatus.textContent.trim() !== nextText) {
+      prefsScaleModeStatus.textContent = nextText;
+      changed = true;
+    }
+    if (!animate || !changed) return;
+    prefsScaleModeStatus.classList.remove('is-fading-down');
+    void prefsScaleModeStatus.offsetWidth;
+    prefsScaleModeStatus.classList.add('is-fading-down');
+  };
 
   const syncChannelOrderStatus = (animate = false) => {
     if (!useMetadataChannelOrderInput) return;
@@ -1957,6 +1975,7 @@
     if (useMetadataChannelOrderInput) useMetadataChannelOrderInput.checked = snapshot.useMetadataChannelOrder;
     applyFallbackChannelOrder(snapshot.fallbackChannelOrder, { clearHistory: true });
     syncRows();
+    syncScaleMetadataStatus();
     updateMeasurementScaleHelp();
     syncChannelOrderStatus();
   };
@@ -2095,6 +2114,9 @@
     el.addEventListener('input', updateMeasurementScaleHelp);
     el.addEventListener('change', updateMeasurementScaleHelp);
   });
+  if (useMetadataScaleInput) {
+    useMetadataScaleInput.addEventListener('change', () => syncScaleMetadataStatus(true));
+  }
   if (useMetadataChannelOrderInput) {
     useMetadataChannelOrderInput.addEventListener('change', () => syncChannelOrderStatus(true));
   }
@@ -2311,6 +2333,7 @@
   syncPluginToggles();
   syncRows();
   updateMeasurementScaleHelp();
+  syncScaleMetadataStatus();
   syncChannelOrderStatus();
   captureBaselineSnapshots();
 })();
