@@ -14,6 +14,11 @@ from core.cell_analysis import (
     PunctaDistance,
     RedBlueIntensity,
 )
+from core.channel_ordering import (
+    channel_order_to_config,
+    normalize_channel_order,
+    validate_channel_order,
+)
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
 from core.metadata_processing.error_handling.source_image_validation import (
@@ -25,6 +30,28 @@ from core.metadata_processing.error_handling.source_image_validation import (
 )
 from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.stats_plugins import build_plugin_ui_payload, build_requirement_summary, normalize_selected_plugins
+
+
+class ChannelOrderingHelperTests(SimpleTestCase):
+    def test_normalize_channel_order_accepts_display_labels(self):
+        self.assertEqual(
+            normalize_channel_order(["Green", "DIC", "Red", "Blue"]),
+            ["channel_green", "DIC", "channel_red", "channel_blue"],
+        )
+
+    def test_validate_channel_order_rejects_duplicates(self):
+        self.assertIsNone(validate_channel_order(["DIC", "Blue", "Blue", "Red"]))
+
+    def test_channel_order_to_config_maps_image_plane_indices(self):
+        self.assertEqual(
+            channel_order_to_config(["DIC", "Blue", "Green", "Red"]),
+            {
+                "DIC": 0,
+                "channel_blue": 1,
+                "channel_green": 2,
+                "channel_red": 3,
+            },
+        )
 
 
 class StatsRequirementTests(SimpleTestCase):
@@ -188,6 +215,34 @@ class DVChannelParserTests(SimpleTestCase):
                 "DIC": 3,
             },
         )
+
+    @patch("core.metadata_processing.dv_channel_parser.extract_dv_metadata_channel_config", return_value={})
+    def test_dv_uses_fallback_order_when_metadata_unavailable(self, _metadata_config):
+        config = extract_channel_config(
+            Path("dummy.dv"),
+            fallback_order=["Green", "DIC", "Red", "Blue"],
+        )
+
+        self.assertEqual(
+            config,
+            {
+                "channel_green": 0,
+                "DIC": 1,
+                "channel_red": 2,
+                "channel_blue": 3,
+            },
+        )
+
+    @patch("core.metadata_processing.dv_channel_parser.extract_dv_metadata_channel_config")
+    def test_dv_skips_metadata_when_disabled(self, metadata_config):
+        config = extract_channel_config(
+            Path("dummy.dv"),
+            prefer_metadata=False,
+            fallback_order=["DIC", "Blue", "Green", "Red"],
+        )
+
+        metadata_config.assert_not_called()
+        self.assertEqual(config, DEFAULT_CHANNEL_CONFIG)
 
     @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
     @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=1)

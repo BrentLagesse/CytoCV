@@ -16,6 +16,10 @@ from core.metadata_processing.error_handling import (
     build_source_image_error_messages,
     validate_source_image_file,
 )
+from core.channel_ordering import (
+    DEFAULT_FALLBACK_CHANNEL_ORDER,
+    normalize_channel_order,
+)
 from core.models import UploadedImage, UploadPreparationJob
 from core.scale import DEFAULT_MICRONS_PER_PIXEL, build_scale_info
 from core.services.artifact_storage import (
@@ -66,6 +70,13 @@ def _normalize_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, 
         payload.get("manual_um_per_px") or DEFAULT_MICRONS_PER_PIXEL
     )
     payload["prefer_metadata_scale"] = bool(payload.get("prefer_metadata_scale", True))
+    payload["prefer_metadata_channel_order"] = bool(
+        payload.get("prefer_metadata_channel_order", True)
+    )
+    payload["fallback_channel_order"] = normalize_channel_order(
+        payload.get("fallback_channel_order"),
+        default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+    )
     return payload
 
 
@@ -140,6 +151,8 @@ def _prepare_one_upload(
     uploaded: UploadedImage,
     manual_um_per_px: float,
     prefer_metadata_scale: bool,
+    prefer_metadata_channel_order: bool,
+    fallback_channel_order: list[str],
 ) -> None:
     source_image_path = _media_path_for_uploaded(uploaded)
     metadata_scale = extract_dv_scale_metadata(source_image_path)
@@ -155,7 +168,11 @@ def _prepare_one_upload(
     )
     uploaded.save(update_fields=["scale_info"])
 
-    channel_config = extract_channel_config(source_image_path)
+    channel_config = extract_channel_config(
+        source_image_path,
+        prefer_metadata=prefer_metadata_channel_order,
+        fallback_order=fallback_channel_order,
+    )
     _write_channel_config(str(uploaded.uuid), channel_config)
     generate_preview_assets(uploaded, expected_layers=4)
 
@@ -171,6 +188,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
     validation_options = _validation_options_from_snapshot(snapshot)
     manual_um_per_px = float(snapshot["manual_um_per_px"])
     prefer_metadata_scale = bool(snapshot["prefer_metadata_scale"])
+    prefer_metadata_channel_order = bool(snapshot["prefer_metadata_channel_order"])
+    fallback_channel_order = list(snapshot["fallback_channel_order"])
     owner_filter = _owner_filter_for_job(job)
     failures: list[tuple[str, SourceImageValidationResult]] = []
     valid_run_uuids: list[str] = []
@@ -248,6 +267,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                 uploaded=uploaded,
                 manual_um_per_px=manual_um_per_px,
                 prefer_metadata_scale=prefer_metadata_scale,
+                prefer_metadata_channel_order=prefer_metadata_channel_order,
+                fallback_channel_order=fallback_channel_order,
             )
 
         error_lines = build_source_image_error_messages(failures, validation_options)

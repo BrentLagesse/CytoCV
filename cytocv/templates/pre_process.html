@@ -573,7 +573,9 @@
         .image-container,
         .preprocess-blend-target,
         .preprocess-blend-overlay,
-        .image-container-overlay {
+        .image-container-overlay,
+        .channel-chip,
+        .channel-chip-grip {
           transition: none !important;
           transform: none !important;
         }
@@ -592,6 +594,17 @@
         max-height: 36px;
         transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
       }
+      .channel-plane-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        text-align: center;
+        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+      }
       .channel-chip {
         background-color: var(--panel-border); color: #fff;
         border: 1px solid var(--border-contrast);
@@ -599,8 +612,50 @@
         font-size: 13px;
         line-height: 1.1;
         flex: 1; box-sizing: border-box; text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        container-type: inline-size;
+        transition: gap 0.16s ease;
+      }
+      .channel-chip-grip {
+        color: rgba(255, 255, 255, 0.72);
+        display: inline-flex;
+        flex: 0 0 auto;
+        font-size: clamp(8px, 20cqi, 12px);
+        font-weight: 800;
+        letter-spacing: -1px;
+        line-height: 1;
+        max-width: 18px;
+        opacity: 1;
+        pointer-events: none;
+        overflow: hidden;
+        transition: opacity 0.16s ease, max-width 0.16s ease;
+      }
+      .analysis-locked .channel-chip {
+        cursor: default;
+        gap: 0;
+      }
+      .analysis-locked .channel-chip-grip {
+        max-width: 0;
+        opacity: 0;
+      }
+      .channel-chip-label {
+        display: inline-block;
+        font-size: clamp(8px, 22cqi, 13px);
+        line-height: 1;
+        min-width: 0;
+        overflow: hidden;
+        pointer-events: none;
+        text-overflow: clip;
+        white-space: nowrap;
       }
       .channel-chip:active { cursor: grabbing; }
+      .sidebar.channels-hidden .channel-plane-row,
       .sidebar.channels-hidden .channel-bar {
         opacity: 0;
         max-height: 0;
@@ -1236,9 +1291,18 @@
             <li>
               <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                 <div class="file-title">{{ file.name }}</div>
+                <div class="channel-plane-row" aria-hidden="true">
+                  <span>Image 1</span>
+                  <span>Image 2</span>
+                  <span>Image 3</span>
+                  <span>Image 4</span>
+                </div>
                 <div class="channel-bar">
                   {% for channel in file.detected_channels %}
-                  <span class="channel-chip {{ channel|lower }}">{{ channel }}</span>
+                  <span class="channel-chip {{ channel|lower }}" data-channel-label="{{ channel }}">
+                    <span class="channel-chip-grip" aria-hidden="true">⋮⋮</span>
+                    <span class="channel-chip-label">{{ channel }}</span>
+                  </span>
                   {% endfor %}
                 </div>
                 <div class="scale-row">
@@ -2599,7 +2663,11 @@
         Sortable.create(bar, {
           animation: 150,
           onEnd() {
-            const newOrder = Array.from(bar.children).map((chip) => chip.textContent);
+            const newOrder = Array.from(bar.children).map((chip) => (
+              chip.dataset.channelLabel ||
+              chip.querySelector(".channel-chip-label")?.textContent?.trim() ||
+              chip.textContent.trim()
+            ));
             fetch(`/api/update-channel-order/${uuid}/`, {
               method: "POST",
               headers: {

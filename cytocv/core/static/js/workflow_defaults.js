@@ -999,6 +999,7 @@
   const prefsScaleInput = document.getElementById('microns_per_pixel');
   const prefsScaleLive = document.getElementById('prefsScaleLive');
   const prefsScaleExample = document.getElementById('prefsScaleExample');
+  const prefsScaleModeStatus = document.getElementById('prefsScaleModeStatus');
   const redWidthInput = document.getElementById('puncta_line_width');
   const redWidthUnit = document.getElementById('puncta_line_width_unit');
   const cenDotDistanceInput = document.getElementById('cen_dot_distance');
@@ -1014,6 +1015,12 @@
   const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
   const nuclearCellPairContourModeInput = document.getElementById('nuclear_cell_pair_contour_mode');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
+  const useMetadataChannelOrderInput = document.getElementById('use_metadata_channel_order');
+  const prefsChannelOrderModeStatus = document.getElementById('prefsChannelOrderModeStatus');
+  const prefsFallbackChannelOrderBar = document.getElementById('prefsFallbackChannelOrder');
+  const prefsFallbackChannelOrderModeLabel = document.getElementById('prefsFallbackChannelOrderModeLabel');
+  const prefsFallbackChannelOrderBack = document.getElementById('prefsFallbackChannelOrderBack');
+  const prefsFallbackChannelOrderReset = document.getElementById('prefsFallbackChannelOrderReset');
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
   const enforceWavelengthsInput = document.getElementById('enforce_wavelengths');
@@ -1052,6 +1059,7 @@
   }
   const pluginOrder = pluginCatalog.map((plugin) => plugin.id);
   const channelOrder = payload.channel_order || [];
+  const defaultFallbackChannelOrder = ['DIC', 'channel_blue', 'channel_green', 'channel_red'];
 
   const sanitizePositive = (value, fallback) => {
     const parsed = Number(value);
@@ -1085,6 +1093,192 @@
     if (target === 'red') return 'Red';
     if (target === 'green') return 'Green';
     return 'Both';
+  };
+
+  const normalizeChannelOrder = (order) => {
+    const values = Array.isArray(order) ? order.filter(Boolean) : [];
+    const expectedOrder = channelOrder.length ? channelOrder : defaultFallbackChannelOrder;
+    if (values.length !== expectedOrder.length) return [...defaultFallbackChannelOrder];
+    const expected = new Set(expectedOrder);
+    const seen = new Set();
+    const normalized = [];
+    values.forEach((value) => {
+      if (!expected.has(value) || seen.has(value)) return;
+      seen.add(value);
+      normalized.push(value);
+    });
+    return normalized.length === expectedOrder.length ? normalized : [...defaultFallbackChannelOrder];
+  };
+
+  const channelOrderFromBar = (bar) =>
+    normalizeChannelOrder([...((bar || {}).querySelectorAll?.('[data-channel-role]') || [])].map((chip) => chip.dataset.channelRole));
+
+  const channelOrderLabelList = (order) =>
+    normalizeChannelOrder(order).map((channel) => displayChannelLabel(channel)).join(', ');
+
+  const sameChannelOrder = (first, second) =>
+    JSON.stringify(normalizeChannelOrder(first)) === JSON.stringify(normalizeChannelOrder(second));
+
+  const channelOrderAnimationMs = 220;
+  const channelOrderActionLockMs = 260;
+  const fallbackChannelOrderUndoStack = [];
+  let fallbackChannelOrderActionLocked = false;
+
+  const syncScaleMetadataStatus = (animate = false) => {
+    if (!prefsScaleModeStatus || !useMetadataScaleInput) return;
+    const metadataEnabled = useMetadataScaleInput.checked;
+    const nextText = metadataEnabled ? 'Metadata mode enabled' : 'Fallback-only mode enabled';
+    let changed = false;
+    prefsScaleModeStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
+    prefsScaleModeStatus.classList.toggle('is-metadata-off', !metadataEnabled);
+    if (prefsScaleModeStatus.textContent.trim() !== nextText) {
+      prefsScaleModeStatus.textContent = nextText;
+      changed = true;
+    }
+    if (!animate || !changed) return;
+    prefsScaleModeStatus.classList.remove('is-fading-down');
+    void prefsScaleModeStatus.offsetWidth;
+    prefsScaleModeStatus.classList.add('is-fading-down');
+  };
+
+  const syncChannelOrderStatus = (animate = false) => {
+    if (!useMetadataChannelOrderInput) return;
+    const metadataEnabled = useMetadataChannelOrderInput.checked;
+    const nextStatusText = metadataEnabled ? 'Metadata mode enabled' : 'Fallback-only mode enabled';
+    const nextModeText = metadataEnabled ? 'Backup order' : 'Primary order';
+    let changed = false;
+    if (prefsChannelOrderModeStatus) {
+      prefsChannelOrderModeStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
+      prefsChannelOrderModeStatus.classList.toggle('is-metadata-off', !metadataEnabled);
+      if (prefsChannelOrderModeStatus.textContent.trim() !== nextStatusText) {
+        prefsChannelOrderModeStatus.textContent = nextStatusText;
+        changed = true;
+      }
+    }
+    if (prefsFallbackChannelOrderModeLabel) {
+      prefsFallbackChannelOrderModeLabel.classList.toggle('is-backup', metadataEnabled);
+      prefsFallbackChannelOrderModeLabel.classList.toggle('is-primary', !metadataEnabled);
+      if (prefsFallbackChannelOrderModeLabel.textContent !== nextModeText) {
+        prefsFallbackChannelOrderModeLabel.textContent = nextModeText;
+        changed = true;
+      }
+    }
+    if (!animate || !changed) return;
+    [prefsChannelOrderModeStatus, prefsFallbackChannelOrderModeLabel].forEach((element) => {
+      if (!element) return;
+      element.classList.remove('is-fading-down');
+      void element.offsetWidth;
+      element.classList.add('is-fading-down');
+    });
+  };
+
+  const orderChannelBar = (bar, order, options = {}) => {
+    if (!bar) return;
+    const normalized = normalizeChannelOrder(order);
+    const chipsByChannel = new Map(
+      [...bar.querySelectorAll('[data-channel-role]')].map((chip) => [chip.dataset.channelRole, chip])
+    );
+    const shouldAnimate = options.animate
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const firstRects = shouldAnimate
+      ? new Map([...chipsByChannel].map(([channel, chip]) => [channel, chip.getBoundingClientRect()]))
+      : null;
+    normalized.forEach((channel) => {
+      const chip = chipsByChannel.get(channel);
+      if (chip) bar.appendChild(chip);
+    });
+    if (!shouldAnimate) return;
+    normalized.forEach((channel) => {
+      const chip = chipsByChannel.get(channel);
+      const firstRect = firstRects.get(channel);
+      if (!chip || !firstRect) return;
+      const lastRect = chip.getBoundingClientRect();
+      const deltaX = firstRect.left - lastRect.left;
+      const deltaY = firstRect.top - lastRect.top;
+      const moved = Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5;
+      const startTransform = moved ? `translate(${deltaX}px, ${deltaY}px)` : 'translate(0, 0)';
+      if (typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function') {
+        chip.animate(
+          [
+            { transform: startTransform, opacity: moved ? 0.64 : 0.82 },
+            { transform: 'translate(0, 0)', opacity: 1 },
+          ],
+          { duration: channelOrderAnimationMs, easing: 'cubic-bezier(0.2, 0, 0.2, 1)' }
+        );
+        return;
+      }
+      chip.style.transition = 'none';
+      chip.style.transform = startTransform;
+      chip.style.opacity = moved ? '0.64' : '0.82';
+      chip.style.willChange = 'transform, opacity';
+      chip.getBoundingClientRect();
+      window.requestAnimationFrame(() => {
+        chip.style.transition = `transform ${channelOrderAnimationMs}ms cubic-bezier(0.2, 0, 0.2, 1), opacity ${channelOrderAnimationMs}ms ease`;
+        chip.style.transform = 'translate(0, 0)';
+        chip.style.opacity = '1';
+      });
+      window.setTimeout(() => {
+        chip.style.transition = '';
+        chip.style.transform = '';
+        chip.style.opacity = '';
+        chip.style.willChange = '';
+      }, channelOrderAnimationMs + 60);
+    });
+  };
+
+  const syncFallbackChannelOrderActions = () => {
+    const currentOrder = channelOrderFromBar(prefsFallbackChannelOrderBar);
+    if (prefsFallbackChannelOrderBack) {
+      prefsFallbackChannelOrderBack.disabled = fallbackChannelOrderActionLocked || fallbackChannelOrderUndoStack.length === 0;
+    }
+    if (prefsFallbackChannelOrderReset) {
+      const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
+      prefsFallbackChannelOrderReset.disabled = fallbackChannelOrderActionLocked || sameChannelOrder(currentOrder, baselineOrder);
+    }
+  };
+
+  const lockFallbackChannelOrderActions = () => {
+    fallbackChannelOrderActionLocked = true;
+    syncFallbackChannelOrderActions();
+    window.setTimeout(() => {
+      fallbackChannelOrderActionLocked = false;
+      syncFallbackChannelOrderActions();
+    }, channelOrderActionLockMs);
+  };
+
+  const applyFallbackChannelOrder = (order, options = {}) => {
+    orderChannelBar(prefsFallbackChannelOrderBar, order, { animate: options.animate });
+    if (options.clearHistory) {
+      fallbackChannelOrderUndoStack.length = 0;
+    }
+    syncFallbackChannelOrderActions();
+  };
+
+  const pushFallbackChannelOrderUndo = (order) => {
+    fallbackChannelOrderUndoStack.push(normalizeChannelOrder(order));
+    if (fallbackChannelOrderUndoStack.length > 20) {
+      fallbackChannelOrderUndoStack.shift();
+    }
+  };
+
+  const setupChannelOrderDrag = (bar) => {
+    if (!bar) return;
+    if (!window.Sortable || typeof window.Sortable.create !== 'function') return;
+    window.Sortable.create(bar, {
+      animation: 150,
+      onStart() {
+        bar.dataset.previousChannelOrder = JSON.stringify(channelOrderFromBar(bar));
+      },
+      onEnd() {
+        const previousOrder = normalizeChannelOrder(JSON.parse(bar.dataset.previousChannelOrder || '[]'));
+        const nextOrder = channelOrderFromBar(bar);
+        delete bar.dataset.previousChannelOrder;
+        if (!sameChannelOrder(previousOrder, nextOrder)) {
+          pushFallbackChannelOrderUndo(previousOrder);
+        }
+        syncFallbackChannelOrderActions();
+      },
+    });
   };
   const dotSplitTargetAllowed = (target, greenAllowed, redAllowed) => {
     if (target === 'green') return greenAllowed;
@@ -1407,6 +1601,8 @@
     redDotSplitMode: normalizeRedDotSplitMode(valueOrEmpty(redDotSplitModeInput)),
     micronsPerPixel: captureNumericField(prefsScaleInput),
     useMetadataScale: !!(useMetadataScaleInput && useMetadataScaleInput.checked),
+    useMetadataChannelOrder: !!(useMetadataChannelOrderInput && useMetadataChannelOrderInput.checked),
+    fallbackChannelOrder: channelOrderFromBar(prefsFallbackChannelOrderBar),
   });
 
   const captureAdvancedSnapshot = () => ({
@@ -1556,15 +1752,26 @@
     );
     if (fromSnapshot.micronsPerPixel.normalized !== toSnapshot.micronsPerPixel.normalized) {
       changes.push(
-        `Micrometers Per Pixel (\u00b5m/px): ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
+        `Manual Scale Fallback: ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
       );
     }
     pushToggleChange(
       changes,
-      'Use Metadata Scale Per File',
+      'Auto-Detect Scale From File',
       fromSnapshot.useMetadataScale,
       toSnapshot.useMetadataScale
     );
+    pushToggleChange(
+      changes,
+      'Auto-Detect Channels From File',
+      fromSnapshot.useMetadataChannelOrder,
+      toSnapshot.useMetadataChannelOrder
+    );
+    if (JSON.stringify(fromSnapshot.fallbackChannelOrder || []) !== JSON.stringify(toSnapshot.fallbackChannelOrder || [])) {
+      changes.push(
+        `Manual Channel Fallback Order: ${channelOrderLabelList(fromSnapshot.fallbackChannelOrder)} -> ${channelOrderLabelList(toSnapshot.fallbackChannelOrder)}`
+      );
+    }
     return changes;
   };
 
@@ -1765,8 +1972,12 @@
     }
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
+    if (useMetadataChannelOrderInput) useMetadataChannelOrderInput.checked = snapshot.useMetadataChannelOrder;
+    applyFallbackChannelOrder(snapshot.fallbackChannelOrder, { clearHistory: true });
     syncRows();
+    syncScaleMetadataStatus();
     updateMeasurementScaleHelp();
+    syncChannelOrderStatus();
   };
 
   const restoreAdvancedSnapshot = (snapshot) => {
@@ -1798,6 +2009,8 @@
     baselineSnapshots.plugins = capturePluginSnapshot();
     baselineSnapshots.advanced = captureAdvancedSnapshot();
     baselineSnapshots.saving = captureSavingSnapshot();
+    fallbackChannelOrderUndoStack.length = 0;
+    syncFallbackChannelOrderActions();
   };
 
   const closeReviewModal = (onAfterClose = null) => {
@@ -1901,6 +2114,32 @@
     el.addEventListener('input', updateMeasurementScaleHelp);
     el.addEventListener('change', updateMeasurementScaleHelp);
   });
+  if (useMetadataScaleInput) {
+    useMetadataScaleInput.addEventListener('change', () => syncScaleMetadataStatus(true));
+  }
+  if (useMetadataChannelOrderInput) {
+    useMetadataChannelOrderInput.addEventListener('change', () => syncChannelOrderStatus(true));
+  }
+  if (prefsFallbackChannelOrderBack) {
+    prefsFallbackChannelOrderBack.addEventListener('click', () => {
+      if (fallbackChannelOrderActionLocked) return;
+      const previousOrder = fallbackChannelOrderUndoStack.pop();
+      if (!previousOrder) return;
+      lockFallbackChannelOrderActions();
+      applyFallbackChannelOrder(previousOrder, { animate: true });
+    });
+  }
+  if (prefsFallbackChannelOrderReset) {
+    prefsFallbackChannelOrderReset.addEventListener('click', () => {
+      if (fallbackChannelOrderActionLocked) return;
+      const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
+      if (sameChannelOrder(channelOrderFromBar(prefsFallbackChannelOrderBar), baselineOrder)) return;
+      lockFallbackChannelOrderActions();
+      applyFallbackChannelOrder(baselineOrder, { clearHistory: true, animate: true });
+    });
+  }
+  setupChannelOrderDrag(prefsFallbackChannelOrderBar);
+  syncFallbackChannelOrderActions();
   const disclosureButtons = [...document.querySelectorAll('.measurement-disclosure-toggle[data-disclosure-target]')];
   disclosureButtons.forEach((button) => {
     const panelId = button.dataset.disclosureTarget;
@@ -2094,5 +2333,7 @@
   syncPluginToggles();
   syncRows();
   updateMeasurementScaleHelp();
+  syncScaleMetadataStatus();
+  syncChannelOrderStatus();
   captureBaselineSnapshots();
 })();

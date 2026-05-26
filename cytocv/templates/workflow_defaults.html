@@ -929,6 +929,10 @@ main.main > section.panel > form.panel > .card {
   max-width: var(--workflow-module-control-width);
 }
 
+#pluginForm [data-workflow-card="wavelength-channel-assignment"] > .row:first-of-type > .sw {
+  align-self: flex-start;
+}
+
 #pluginForm [data-workflow-card="measurement-scale"] .compact-control,
 .plugin-inline .compact-control.plugin-measure-right,
 #advancedForm #dotSplitTargetRow .compact-control.plugin-measure-right,
@@ -1099,6 +1103,25 @@ main.main > section.panel > form.panel > .card {
   color: #b8c8db !important;
 }
 
+.measurement-scale-status {
+  margin: 4px 0 0;
+  color: #e5c558;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.measurement-scale-status.is-metadata-enabled {
+  color: #9fd5af;
+}
+
+.measurement-scale-status.is-metadata-off {
+  color: #e5c558;
+}
+
+.measurement-scale-status.is-fading-down {
+  animation: channelOrderActionFadeDown 0.18s ease-out;
+}
+
 .measurement-scale-input-group {
   display: inline-flex;
   align-items: stretch;
@@ -1108,6 +1131,344 @@ main.main > section.panel > form.panel > .card {
 .measurement-scale-input-group input[type="number"] {
   width: 86px;
 }
+
+.channel-order-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.channel-order-status {
+  margin: 4px 0 0;
+  color: #e5c558;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.channel-order-status.is-metadata-enabled {
+  color: #9fd5af;
+}
+
+.channel-order-status.is-metadata-off {
+  color: #e5c558;
+}
+
+.channel-order-status.is-fading-down {
+  animation: channelOrderActionFadeDown 0.18s ease-out;
+}
+
+.row.channel-order-fallback-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+  align-items: flex-start;
+  column-gap: 10px;
+  row-gap: 4px;
+}
+
+.row.channel-order-fallback-row > .channel-order-copy {
+  grid-column: 1 / -1;
+}
+
+.channel-order-control {
+  --channel-order-track-width: 260px;
+  --channel-order-slot-min: 58px;
+  --channel-order-gap: 4px;
+  --channel-order-plane-offset-x: -6px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
+  row-gap: 5px;
+  align-self: start;
+  justify-self: end;
+  position: relative;
+  transform: translateY(-24px);
+  width: min(100%, var(--channel-order-track-width));
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--surface-input);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  padding: 17px 6px 7px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.channel-order-control:focus-within {
+  border-color: rgba(86, 147, 220, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
+}
+
+.channel-order-control .channel-plane-row {
+  box-sizing: border-box;
+  display: flex;
+  gap: 0;
+  grid-column: 1;
+  grid-row: 1;
+  margin-top: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  pointer-events: none;
+  text-align: center;
+  transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+  width: calc(100% - (var(--channel-order-gap) * 3));
+  justify-self: center;
+  transform: translate(var(--channel-order-plane-offset-x), 16px);
+  white-space: nowrap;
+}
+
+.channel-order-control .channel-plane-row span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-order-label {
+  color: #cfcfcf;
+  font-size: 11px;
+  font-weight: 400;
+  grid-column: 1;
+  grid-row: 2;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.channel-order-selector-row {
+  display: contents;
+}
+
+.channel-order-description {
+  display: grid;
+  gap: 4px;
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 0;
+  min-width: 0;
+  padding-top: 18px;
+}
+
+.channel-order-control .channel-bar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--channel-order-gap);
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 18px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-height: 36px;
+  min-width: 0;
+  transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar {
+  height: 10px;
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar-track {
+  background: var(--card-bg);
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar-button {
+  display: none;
+}
+
+.channel-order-control .channel-order-actions {
+  box-sizing: border-box;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  min-width: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+}
+
+.channel-order-action-copy {
+  align-items: center;
+  color: #cfcfcf;
+  display: inline-flex;
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  height: 16px;
+  line-height: 1;
+  opacity: 1;
+  padding-left: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.channel-order-action-copy.is-backup {
+  color: #e5c558;
+}
+
+.channel-order-action-copy.is-primary {
+  color: #9fd5af;
+}
+
+.channel-order-action-copy.is-fading-down {
+  animation: channelOrderActionFadeDown 0.18s ease-out;
+  will-change: opacity, transform;
+}
+
+@keyframes channelOrderActionFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.channel-order-action-group {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.channel-order-action-divider {
+  background: var(--panel-border);
+  display: block;
+  height: 1px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 24px;
+}
+
+.channel-order-action-btn {
+  align-items: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none;
+  border-radius: 4px;
+  box-shadow: none !important;
+  box-sizing: border-box;
+  color: #cfcfcf;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  gap: 3px;
+  height: 16px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 0;
+  padding: 0 5px;
+  pointer-events: auto;
+  transition: color 0.18s ease, opacity 0.18s ease;
+  width: auto;
+  white-space: nowrap;
+}
+
+.channel-order-action-icon {
+  display: inline-flex;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.channel-order-action-label {
+  display: inline-flex;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.channel-order-action-btn:hover:not(:disabled),
+.channel-order-action-btn:active,
+.channel-order-action-btn:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.channel-order-action-btn:hover:not(:disabled),
+.channel-order-action-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #fff;
+  outline: none;
+}
+
+.channel-order-action-btn:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.channel-order-control .channel-chip {
+  background-color: var(--panel-border);
+  border: none;
+  box-sizing: border-box;
+  color: #fff;
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: var(--app-font);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  min-height: 30px;
+  min-width: var(--channel-order-slot-min);
+  overflow: hidden;
+  padding: 7px 0;
+  border-radius: 6px;
+  flex: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.channel-order-control .channel-chip-grip {
+  color: rgba(255, 255, 255, 0.72);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.channel-order-control .channel-chip:active {
+  cursor: grabbing;
+}
+
+.channel-order-control .channel-chip.sortable-chosen,
+.channel-order-control .channel-chip.sortable-ghost {
+  opacity: 0.78;
+}
+
+.channel-order-control .channel-chip.dic { background-color: black; }
+.channel-order-control .channel-chip.blue { background-color: blue; }
+.channel-order-control .channel-chip.red { background-color: red; }
+.channel-order-control .channel-chip.green { background-color: green; }
+.channel-order-control .channel-chip.dic:hover { background-color: var(--panel-border); }
+.channel-order-control .channel-chip.blue:hover { background-color: #4d4dff; }
+.channel-order-control .channel-chip.red:hover { background-color: #ff6b6b; }
+.channel-order-control .channel-chip.green:hover { background-color: #3bbf3b; }
 
 .measurement-disclosure-stack {
   display: grid;
@@ -1534,6 +1895,37 @@ main.main > section.panel > form.panel > .card {
     width: 100%;
     min-width: 0;
   }
+
+  .row.channel-order-fallback-row {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+
+  .channel-order-selector-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .channel-order-description {
+    grid-column: auto;
+    grid-row: auto;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .channel-order-label {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .channel-order-control {
+    grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: stretch;
+    transform: none;
+    width: min(100%, var(--channel-order-track-width));
+  }
 }
 
 @media (max-width: 520px) {
@@ -1561,6 +1953,25 @@ main.main > section.panel > form.panel > .card {
 
   .plugin-measure-line {
     padding-inline: 0;
+  }
+
+  .channel-order-control {
+    --channel-order-track-width: 100%;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .channel-order-control .channel-plane-row,
+  .channel-order-control .channel-bar {
+    grid-column: 1;
+  }
+
+  .channel-order-control .channel-plane-row {
+    grid-row: 1;
+  }
+
+  .channel-order-control .channel-bar {
+    grid-row: 2;
   }
 
   .review-actions,
@@ -1868,8 +2279,15 @@ main.main > section.panel > form.panel > .card {
           <p class="section-eyebrow card-title">Measurement Scale</p>
           <div class="row">
             <div class="row-copy">
-              <label for="use_metadata_scale">Use Metadata Scale Per File</label>
+              <label for="use_metadata_scale">Auto-Detect Scale From File</label>
               <p class="module-help">When enabled, each file uses DV header dx/dy scale. If unavailable, workflow falls back to manual &micro;m/px.</p>
+              <p class="measurement-scale-status" id="prefsScaleModeStatus" aria-live="polite">
+                {% if preferences.experiment_defaults.use_metadata_scale %}
+                Metadata mode enabled
+                {% else %}
+                Fallback-only mode enabled
+                {% endif %}
+              </p>
             </div>
             <label class="sw">
               <input type="hidden" name="use_metadata_scale" value="0">
@@ -1885,7 +2303,7 @@ main.main > section.panel > form.panel > .card {
           </div>
           <div class="row">
             <div class="measurement-scale-copy">
-              <label for="microns_per_pixel">Micrometers Per Pixel (&micro;m/px)</label>
+              <label for="microns_per_pixel">Manual Scale Fallback</label>
               <p class="measurement-scale-fallback">Fallback manual scale used when metadata dx/dy is unavailable or invalid.</p>
               <p class="measurement-scale-live" id="prefsScaleLive" aria-live="polite"></p>
               <p class="measurement-scale-example" id="prefsScaleExample" aria-live="polite"></p>
@@ -1929,7 +2347,7 @@ main.main > section.panel > form.panel > .card {
           </div>
           <div class="row">
             <div class="measurement-scale-copy">
-              <label for="spatial_stats_unit">Preferred Spatial Stat Display Unit</label>
+              <label for="spatial_stats_unit">Default Measurement Display Unit</label>
               <p>Sets the default px or &micro;m view used when display and dashboard first render. Page-level toggles can still override each file without changing this workflow default.</p>
             </div>
             <div class="mode-select-group plugin-measure-right compact-control">
@@ -1937,6 +2355,96 @@ main.main > section.panel > form.panel > .card {
                 <option value="px" {% if preferences.experiment_defaults.spatial_stats_unit == 'px' %}selected{% endif %}>px</option>
                 <option value="um" {% if preferences.experiment_defaults.spatial_stats_unit == 'um' %}selected{% endif %}>&micro;m</option>
               </select>
+            </div>
+          </div>
+        </div>
+        <div class="card" data-workflow-card="wavelength-channel-assignment">
+          <p class="section-eyebrow card-title">Wavelength Channel Assignment</p>
+          <div class="row">
+            <div class="channel-order-copy">
+              <label for="use_metadata_channel_order">Auto-Detect Channels From File</label>
+              <p class="module-help">When enabled, each DV or TIFF file uses metadata-derived wavelength ordering when the file stores usable channel metadata. If metadata is unavailable, the workflow uses the manual channel fallback order below.</p>
+              <p class="channel-order-status" id="prefsChannelOrderModeStatus" aria-live="polite">
+                {% if preferences.experiment_defaults.use_metadata_channel_order %}
+                Metadata mode enabled
+                {% else %}
+                Fallback-only mode enabled
+                {% endif %}
+              </p>
+            </div>
+            <label class="sw">
+              <input type="hidden" name="use_metadata_channel_order" value="0">
+              <input
+                type="checkbox"
+                id="use_metadata_channel_order"
+                name="use_metadata_channel_order"
+                value="1"
+                {% if preferences.experiment_defaults.use_metadata_channel_order %}checked{% endif %}
+              >
+              <span class="sl"></span>
+            </label>
+          </div>
+          <div class="row channel-order-fallback-row">
+            <div class="channel-order-copy">
+              <label>Manual Channel Fallback Order</label>
+            </div>
+            <div class="channel-order-selector-row">
+              <span class="channel-order-label">Select wavelength order:</span>
+              <div class="channel-order-control">
+                <div class="channel-plane-row" aria-hidden="true">
+                  <span>Image 1</span>
+                  <span>Image 2</span>
+                  <span>Image 3</span>
+                  <span>Image 4</span>
+                </div>
+                <div class="channel-bar" id="prefsFallbackChannelOrder">
+                  {% for item in fallback_channel_order_rows %}
+                  <span class="channel-chip {{ item.slug }}" data-channel-role="{{ item.channel }}">
+                    <span class="channel-chip-grip" aria-hidden="true">⋮⋮</span>
+                    <span>{{ item.label }}</span>
+                    <input type="hidden" name="fallback_channel_order" value="{{ item.channel }}">
+                  </span>
+                  {% endfor %}
+                </div>
+                <div class="channel-order-actions" aria-label="Fallback channel order actions">
+                  <span class="channel-order-action-copy" id="prefsFallbackChannelOrderModeLabel" aria-live="polite"></span>
+                  <div class="channel-order-action-group">
+                    <button class="channel-order-action-btn" id="prefsFallbackChannelOrderBack" type="button" aria-label="Back" title="Back"><span class="channel-order-action-icon" aria-hidden="true">↶</span><span class="channel-order-action-label">Back</span></button>
+                    <button class="channel-order-action-btn" id="prefsFallbackChannelOrderReset" type="button" aria-label="Reset" title="Reset"><span class="channel-order-action-icon" aria-hidden="true">↻</span><span class="channel-order-action-label">Reset</span></button>
+                  </div>
+                </div>
+                <span class="channel-order-action-divider" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="channel-order-description">
+              <div class="measurement-disclosure-stack">
+                <div class="measurement-disclosure">
+                  <button type="button" class="measurement-disclosure-toggle" data-disclosure-target="prefsFallbackOrderPurposePanel" aria-expanded="false">
+                    <span class="measurement-scale-subhead">What It Does</span>
+                    <span class="measurement-disclosure-meta">
+                      <span data-disclosure-state>Show</span>
+                      <span class="measurement-disclosure-chevron">&#9662;</span>
+                    </span>
+                  </button>
+                  <div class="measurement-disclosure-panel" id="prefsFallbackOrderPurposePanel" hidden>
+                    <p class="module-help">Sets the channel order CytoCV should use when a file does not include usable wavelength information, or when metadata ordering is turned off.</p>
+                    <p class="module-help">This gives new uploads a starting channel order. You can still adjust a single file later on the preprocess page if one image is different.</p>
+                  </div>
+                </div>
+                <div class="measurement-disclosure">
+                  <button type="button" class="measurement-disclosure-toggle" data-disclosure-target="prefsFallbackOrderHowToPanel" aria-expanded="false">
+                    <span class="measurement-scale-subhead">How To Use</span>
+                    <span class="measurement-disclosure-meta">
+                      <span data-disclosure-state>Show</span>
+                      <span class="measurement-disclosure-chevron">&#9662;</span>
+                    </span>
+                  </button>
+                  <div class="measurement-disclosure-panel" id="prefsFallbackOrderHowToPanel" hidden>
+                    <p class="module-help">Match the channel boxes to the image planes in your microscope file. To change the order, select a channel box and drag it to the image plane where it belongs.</p>
+                    <p class="module-help">For example, if image 1 is Blue and image 2 is Green, drag Blue into the first position and Green into the second.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2096,7 +2604,8 @@ main.main > section.panel > form.panel > .card {
 </div>
 
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
-<script src="{% static 'js/workflow_defaults.js' %}?v=signal-status-20260504" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{% static 'js/workflow_defaults.js' %}?v=channel-order-actions-20260525" defer></script>
 </div>
 {% endblock content %}
 

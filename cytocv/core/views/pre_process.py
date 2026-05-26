@@ -61,6 +61,7 @@ from .utils import (
     sync_transient_run_session_state,
 )
 from core.channel_roles import CHANNEL_ROLE_ORDER, channel_display_label, normalize_channel_role
+from core.channel_ordering import DEFAULT_FALLBACK_CHANNEL_ORDER, normalize_channel_order
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_sources import TIFF_IMAGE_EXTENSIONS, source_image_extension
 from core.metadata_processing.dv_channel_parser import extract_channel_config
@@ -118,10 +119,14 @@ def _refresh_default_tiff_channel_config(
     uploaded: UploadedImage,
     config_path: Path,
     config: dict[str, object],
+    *,
+    prefer_metadata: bool = True,
 ) -> dict[str, int]:
     """Refresh old default TIFF configs when complete metadata is available."""
 
     normalized_config = _normalize_channel_config(config)
+    if not prefer_metadata:
+        return normalized_config
     if normalized_config != DEFAULT_CHANNEL_CONFIG:
         return normalized_config
 
@@ -418,6 +423,13 @@ def pre_process(request, uuids):
     default_manual_scale = (
         preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
     )
+    prefer_metadata_channel_order = bool(
+        preferences.get("experiment_defaults", {}).get("use_metadata_channel_order", True)
+    )
+    fallback_channel_order = normalize_channel_order(
+        preferences.get("experiment_defaults", {}).get("fallback_channel_order"),
+        default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+    )
     default_spatial_stats_unit = normalize_spatial_stats_unit(
         preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
         default="px",
@@ -441,13 +453,22 @@ def pre_process(request, uuids):
         cfg_path = Path(MEDIA_ROOT) / uid / 'channel_config.json'
         if cfg_path.exists():
             cfg = json.loads(cfg_path.read_text())
-            cfg = _refresh_default_tiff_channel_config(uploaded, cfg_path, cfg)
+            cfg = _refresh_default_tiff_channel_config(
+                uploaded,
+                cfg_path,
+                cfg,
+                prefer_metadata=prefer_metadata_channel_order,
+            )
             detected_channels = _channel_labels_from_config(cfg)
         else:
             # fallback: parse the stored source image file
             source_path = Path(MEDIA_ROOT) / str(uploaded.file_location)
             if source_path.exists():
-                cfg = extract_channel_config(str(source_path))
+                cfg = extract_channel_config(
+                    str(source_path),
+                    prefer_metadata=prefer_metadata_channel_order,
+                    fallback_order=fallback_channel_order,
+                )
                 detected_channels = _channel_labels_from_config(cfg)
             else:
                 detected_channels = []
@@ -1011,6 +1032,15 @@ def update_channel_order(request, uuid):
             str(channel): index
             for index, channel in enumerate(normalized_order)
         }
+
+        if not UploadedImage.objects.filter(
+            uuid=uuid,
+            **_current_owner_filter(request),
+        ).exists():
+            return JsonResponse(
+                {'error': 'Channel information for this file could not be loaded.'},
+                status=404,
+            )
 
         cfg_path = Path(MEDIA_ROOT) / uuid / 'channel_config.json'
         if not cfg_path.exists():

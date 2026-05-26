@@ -14,9 +14,13 @@ from core.channel_roles import (
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
 )
-from core.config import DEFAULT_CHANNEL_CONFIG
+from core.channel_ordering import (
+    DEFAULT_FALLBACK_CHANNEL_ORDER,
+    fallback_channel_config,
+    resolve_channel_config,
+)
 
-_CHANNEL_ROLES = frozenset(DEFAULT_CHANNEL_CONFIG)
+_CHANNEL_ROLES = frozenset(DEFAULT_FALLBACK_CHANNEL_ORDER)
 _WAVELENGTH_PATTERN = re.compile(r"(?i)(?:^|[^a-z0-9])w[_\s-]*(\d{3,4})(?=[^a-z0-9]|$)")
 
 
@@ -96,7 +100,17 @@ def extract_tiff_metadata_channel_config(path: str | Path) -> dict[str, int] | N
         return None
 
 
-def extract_tiff_channel_config(path: str | Path) -> dict[str, int]:
-    """Return TIFF channel config, falling back to the existing default order."""
+def extract_tiff_channel_config(
+    path: str | Path,
+    *,
+    prefer_metadata: bool = True,
+    fallback_order: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, int]:
+    """Return TIFF channel config, falling back to the configured default order."""
 
-    return extract_tiff_metadata_channel_config(path) or dict(DEFAULT_CHANNEL_CONFIG)
+    metadata_config = extract_tiff_metadata_channel_config(path) if prefer_metadata else None
+    return resolve_channel_config(
+        metadata_config,
+        prefer_metadata=prefer_metadata,
+        fallback_order=fallback_order,
+    )

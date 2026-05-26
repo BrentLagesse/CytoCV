@@ -907,6 +907,7 @@ class RouteSurfaceRefactorTests(TestCase):
         uuid_value = str(uuid4())
         with temporary_media_root() as media_root:
             self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value)
             response = self.client.post(
                 reverse("update_channel_order", args=[uuid_value]),
                 data=json.dumps({"order": ["Red", "Blue", "Green", "DIC"]}),
@@ -930,6 +931,7 @@ class RouteSurfaceRefactorTests(TestCase):
         order = ["channel_red", "channel_blue", "channel_green", "DIC"]
         with temporary_media_root() as media_root:
             self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value)
             response = self.client.post(
                 reverse("update_channel_order", args=[uuid_value]),
                 data=json.dumps({"order": order}),
@@ -944,6 +946,7 @@ class RouteSurfaceRefactorTests(TestCase):
         uuid_value = str(uuid4())
         with temporary_media_root() as media_root:
             self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value)
             response = self.client.post(
                 reverse("update_channel_order", args=[uuid_value]),
                 data=json.dumps({"order": ["Red", "Red", "Green", "DIC"]}),
@@ -954,6 +957,33 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertJSONEqual(
             response.content.decode("utf-8"),
             {"error": "Invalid channel order."},
+        )
+
+    def test_update_channel_order_rejects_unowned_file(self):
+        user_model = get_user_model()
+        other_user = user_model.objects.create_user(
+            email="other-channel-owner@example.com",
+            password="TestPass123!",
+        )
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            UploadedImage.objects.create(
+                user=other_user,
+                uuid=uuid_value,
+                name="other",
+                file_location=f"{uuid_value}/other.dv",
+            )
+            response = self.client.post(
+                reverse("update_channel_order", args=[uuid_value]),
+                data=json.dumps({"order": ["Red", "Blue", "Green", "DIC"]}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Channel information for this file could not be loaded."},
         )
 
     def test_pre_process_refreshes_default_tiff_channel_config_from_metadata(self):

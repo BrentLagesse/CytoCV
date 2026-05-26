@@ -91,6 +91,8 @@ class UploadPreparationTestCase(TestCase):
         return {
             "manual_um_per_px": 0.2,
             "prefer_metadata_scale": True,
+            "prefer_metadata_channel_order": True,
+            "fallback_channel_order": ["DIC", "channel_blue", "channel_green", "channel_red"],
             "validation_options": {
                 "enforce_layer_count": False,
                 "enforce_wavelengths": False,
@@ -136,6 +138,60 @@ class UploadPreparationTestCase(TestCase):
             self.assertEqual(job.valid_run_uuids, [str(uploaded.uuid)])
             self.assertEqual(uploaded.scale_info.get("source"), "metadata")
             self.assertTrue((media_root / str(uploaded.uuid) / "channel_config.json").exists())
+
+    def test_upload_preparation_passes_channel_order_snapshot_to_extractor(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="custom_order")
+            job = enqueue_upload_preparation_job(
+                user_id=self.user.id,
+                new_run_uuids=[str(uploaded.uuid)],
+                restored_run_uuids=[],
+                config_snapshot={
+                    **self._config_snapshot(),
+                    "prefer_metadata_channel_order": False,
+                    "fallback_channel_order": ["channel_green", "DIC", "channel_red", "channel_blue"],
+                },
+            )
+
+            with patch(
+                "core.services.upload_preparation.validate_source_image_file",
+                return_value=self._valid_result(),
+            ), patch(
+                "core.services.upload_preparation.extract_dv_scale_metadata",
+                return_value={},
+            ), patch(
+                "core.services.upload_preparation.extract_channel_config",
+                return_value={
+                    "channel_green": 0,
+                    "DIC": 1,
+                    "channel_red": 2,
+                    "channel_blue": 3,
+                },
+            ) as extract_config, patch(
+                "core.services.upload_preparation.generate_preview_assets",
+                return_value=[],
+            ):
+                run_upload_preparation_job(job)
+
+            extract_config.assert_called_once()
+            _, kwargs = extract_config.call_args
+            self.assertFalse(kwargs["prefer_metadata"])
+            self.assertEqual(
+                kwargs["fallback_order"],
+                ["channel_green", "DIC", "channel_red", "channel_blue"],
+            )
+            payload = json.loads(
+                (media_root / str(uploaded.uuid) / "channel_config.json").read_text()
+            )
+            self.assertEqual(
+                payload,
+                {
+                    "channel_green": 0,
+                    "DIC": 1,
+                    "channel_red": 2,
+                    "channel_blue": 3,
+                },
+            )
 
     def test_invalid_new_upload_is_deleted(self):
         with temporary_media_root() as media_root:

@@ -14,6 +14,7 @@ from core.channel_roles import (
     CHANNEL_ROLE_RED,
     normalize_channel_role,
 )
+from core.channel_ordering import fallback_channel_config
 
 input_dir = ""
 output_dir = ""
@@ -54,9 +55,10 @@ def get_channel_config_for_uuid(uuid: str) -> dict[str, Any]:
     if os.path.exists(config_path):
         with open(config_path, "r") as f:
             payload = json.load(f)
-        return {
+        config = {
             normalize_channel_role(channel_name) or channel_name: int(channel_index)
             for channel_name, channel_index in payload.items()
             if channel_index is not None
         }
+        return config or fallback_channel_config()
     return DEFAULT_CHANNEL_CONFIG
