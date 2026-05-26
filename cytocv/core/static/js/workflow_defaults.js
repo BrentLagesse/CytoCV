@@ -1117,7 +1117,8 @@
   const sameChannelOrder = (first, second) =>
     JSON.stringify(normalizeChannelOrder(first)) === JSON.stringify(normalizeChannelOrder(second));
 
-  const channelOrderActionLockMs = 220;
+  const channelOrderAnimationMs = 220;
+  const channelOrderActionLockMs = 260;
   const fallbackChannelOrderUndoStack = [];
   let fallbackChannelOrderActionLocked = false;
 
@@ -1135,9 +1136,7 @@
       [...bar.querySelectorAll('[data-channel-role]')].map((chip) => [chip.dataset.channelRole, chip])
     );
     const shouldAnimate = options.animate
-      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      && typeof Element !== 'undefined'
-      && typeof Element.prototype.animate === 'function';
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const firstRects = shouldAnimate
       ? new Map([...chipsByChannel].map(([channel, chip]) => [channel, chip.getBoundingClientRect()]))
       : null;
@@ -1153,14 +1152,34 @@
       const lastRect = chip.getBoundingClientRect();
       const deltaX = firstRect.left - lastRect.left;
       const deltaY = firstRect.top - lastRect.top;
-      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
-      chip.animate(
-        [
-          { transform: `translate(${deltaX}px, ${deltaY}px)`, opacity: 0.72 },
-          { transform: 'translate(0, 0)', opacity: 1 },
-        ],
-        { duration: 180, easing: 'cubic-bezier(0.2, 0, 0.2, 1)' }
-      );
+      const moved = Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5;
+      const startTransform = moved ? `translate(${deltaX}px, ${deltaY}px)` : 'translate(0, 0)';
+      if (typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function') {
+        chip.animate(
+          [
+            { transform: startTransform, opacity: moved ? 0.64 : 0.82 },
+            { transform: 'translate(0, 0)', opacity: 1 },
+          ],
+          { duration: channelOrderAnimationMs, easing: 'cubic-bezier(0.2, 0, 0.2, 1)' }
+        );
+        return;
+      }
+      chip.style.transition = 'none';
+      chip.style.transform = startTransform;
+      chip.style.opacity = moved ? '0.64' : '0.82';
+      chip.style.willChange = 'transform, opacity';
+      chip.getBoundingClientRect();
+      window.requestAnimationFrame(() => {
+        chip.style.transition = `transform ${channelOrderAnimationMs}ms cubic-bezier(0.2, 0, 0.2, 1), opacity ${channelOrderAnimationMs}ms ease`;
+        chip.style.transform = 'translate(0, 0)';
+        chip.style.opacity = '1';
+      });
+      window.setTimeout(() => {
+        chip.style.transition = '';
+        chip.style.transform = '';
+        chip.style.opacity = '';
+        chip.style.willChange = '';
+      }, channelOrderAnimationMs + 60);
     });
   };
 

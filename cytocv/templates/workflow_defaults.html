@@ -1146,7 +1146,7 @@ main.main > section.panel > form.panel > .card {
   align-self: start;
   justify-self: end;
   position: relative;
-  transform: translateY(-10px);
+  transform: translateY(-24px);
   width: min(100%, var(--channel-order-track-width));
   border: 1px solid var(--panel-border);
   border-radius: 8px;
@@ -1178,7 +1178,7 @@ main.main > section.panel > form.panel > .card {
   transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
   width: calc(100% - (var(--channel-order-gap) * 3));
   justify-self: center;
-  transform: translate(var(--channel-order-plane-offset-x), 6px);
+  transform: translate(var(--channel-order-plane-offset-x), 16px);
   white-space: nowrap;
 }
 
@@ -1221,7 +1221,7 @@ main.main > section.panel > form.panel > .card {
   gap: var(--channel-order-gap);
   grid-column: 1;
   grid-row: 2;
-  margin-top: 8px;
+  margin-top: 18px;
   flex-wrap: nowrap;
   overflow-x: auto;
   max-height: 36px;
@@ -1251,43 +1251,101 @@ main.main > section.panel > form.panel > .card {
 .channel-order-control .channel-order-actions {
   box-sizing: border-box;
   display: flex;
+  gap: 6px;
   justify-content: space-between;
   min-width: 0;
   pointer-events: none;
   position: absolute;
-  top: 4px;
+  top: 5px;
   left: 4px;
   right: 4px;
   z-index: 2;
+}
+
+.channel-order-action-copy {
+  align-items: center;
+  color: #cfcfcf;
+  display: inline-flex;
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  height: 16px;
+  line-height: 1;
+  opacity: 0.82;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.channel-order-action-group {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.channel-order-action-divider {
+  background: var(--panel-border);
+  display: block;
+  height: 1px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 24px;
 }
 
 .channel-order-action-btn {
   align-items: center;
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
+  background: transparent !important;
+  background-color: transparent !important;
   border: none;
   border-radius: 4px;
+  box-shadow: none !important;
   box-sizing: border-box;
   color: #cfcfcf;
   cursor: pointer;
   display: inline-flex;
   font-family: var(--app-font);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
-  height: 12px;
+  gap: 3px;
+  height: 16px;
   justify-content: center;
   line-height: 1;
-  min-width: 14px;
-  padding: 0;
+  min-width: 0;
+  padding: 0 5px;
   pointer-events: auto;
-  transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
-  width: 14px;
+  transition: color 0.18s ease, opacity 0.18s ease;
+  width: auto;
+  white-space: nowrap;
+}
+
+.channel-order-action-icon {
+  display: inline-flex;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.channel-order-action-label {
+  display: inline-flex;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.channel-order-action-btn:hover:not(:disabled),
+.channel-order-action-btn:active,
+.channel-order-action-btn:disabled {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .channel-order-action-btn:hover:not(:disabled),
 .channel-order-action-btn:focus-visible {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
   color: #fff;
   outline: none;
 }
@@ -2282,9 +2340,13 @@ main.main > section.panel > form.panel > .card {
                   {% endfor %}
                 </div>
                 <div class="channel-order-actions" aria-label="Fallback channel order actions">
-                  <button class="channel-order-action-btn" id="prefsFallbackChannelOrderBack" type="button" aria-label="Back" title="Back">↶</button>
-                  <button class="channel-order-action-btn" id="prefsFallbackChannelOrderReset" type="button" aria-label="Reset" title="Reset">↻</button>
+                  <span class="channel-order-action-copy">Drag &amp; Drop</span>
+                  <div class="channel-order-action-group">
+                    <button class="channel-order-action-btn" id="prefsFallbackChannelOrderBack" type="button" aria-label="Back" title="Back"><span class="channel-order-action-icon" aria-hidden="true">↶</span><span class="channel-order-action-label">Back</span></button>
+                    <button class="channel-order-action-btn" id="prefsFallbackChannelOrderReset" type="button" aria-label="Reset" title="Reset"><span class="channel-order-action-icon" aria-hidden="true">↻</span><span class="channel-order-action-label">Reset</span></button>
+                  </div>
                 </div>
+                <span class="channel-order-action-divider" aria-hidden="true"></span>
               </div>
             </div>
             <div class="channel-order-description">
@@ -2476,7 +2538,7 @@ main.main > section.panel > form.panel > .card {
 
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="{% static 'js/workflow_defaults.js' %}?v=signal-status-20260504" defer></script>
+<script src="{% static 'js/workflow_defaults.js' %}?v=channel-order-actions-20260525" defer></script>
 </div>
 {% endblock content %}
 
