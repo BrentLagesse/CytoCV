@@ -4774,10 +4774,10 @@
         metadataTitleRow.className = 'measurement-scale-title-row';
         const metadataTitle = document.createElement('span');
         metadataTitle.className = 'measurement-scale-title';
-        metadataTitle.textContent = 'Use Metadata Scale Per File';
+        metadataTitle.textContent = 'Auto-Detect Scale From File';
         metadataTitleRow.appendChild(metadataTitle);
         const metadataInfo = buildInfoDot(
-            'When enabled, each file uses DV header dx/dy scale when valid. If metadata is missing or invalid, the manual micrometers-per-pixel fallback below is used.\n\nTurn this off to apply the manual fallback scale to every file in this run.'
+            'When enabled, each file uses DV header dx/dy scale when valid. If metadata is missing or invalid, the manual scale fallback below is used.\n\nTurn this off to apply the manual scale fallback to every file in this run.'
         );
         metadataInfo.classList.add('compact');
         metadataTitleRow.appendChild(metadataInfo);
@@ -4821,11 +4821,11 @@
 
         const scaleTitle = document.createElement('span');
         scaleTitle.className = 'measurement-scale-title';
-        scaleTitle.textContent = 'Micrometers Per Pixel (\u00b5m/px)';
+        scaleTitle.textContent = 'Manual Scale Fallback';
         scaleTitleRow.appendChild(scaleTitle);
 
         const scaleInfo = buildInfoDot(
-            'Enter image scale as \u00b5m/px (how many micrometers one pixel represents).\n\nEnter \u00b5m/px, not px/\u00b5m. Example: if 1 pixel = 0.1 \u00b5m, enter 0.1.\nFormula: pixels = micrometers / (\u00b5m/px).\n\nWhen metadata mode is enabled and dx/dy are anisotropic, distance checks use:\ndistance in \u00b5m = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy \u00b5m/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is \u00b5m.'
+            'Enter the manual scale fallback as \u00b5m/px (how many micrometers one pixel represents).\n\nEnter \u00b5m/px, not px/\u00b5m. Example: if 1 pixel = 0.1 \u00b5m, enter 0.1.\nFormula: pixels = micrometers / (\u00b5m/px).\n\nWhen auto-detect scale is enabled and dx/dy are anisotropic, distance checks use:\ndistance in \u00b5m = sqrt((DeltaX_px * dx)^2 + (DeltaY_px * dy)^2).\n\nFor single-width operations (like line thickness), conversion uses a geometric proxy:\nproxy \u00b5m/px = sqrt(dx * dy).\n\nUsed for all plugin length settings when unit is \u00b5m.'
         );
         scaleInfo.classList.add('compact');
         scaleTitleRow.appendChild(scaleInfo);
@@ -5051,10 +5051,10 @@
         metadataTitleRow.className = 'measurement-scale-title-row';
         const metadataTitle = document.createElement('span');
         metadataTitle.className = 'measurement-scale-title';
-        metadataTitle.textContent = 'Use Metadata Wavelength Order Per File';
+        metadataTitle.textContent = 'Auto-Detect Channels From File';
         metadataTitleRow.appendChild(metadataTitle);
         const metadataInfo = buildInfoDot(
-            'When enabled, each DV or TIFF file uses metadata-derived wavelength ordering when the file stores usable channel metadata.\n\nIf metadata is unavailable or invalid, the selected default fallback order is used. Turn this off to apply the fallback order to every new file.'
+            'When enabled, each DV or TIFF file uses metadata-derived wavelength ordering when the file stores usable channel metadata.\n\nIf metadata is unavailable or invalid, the selected manual channel fallback order is used. Turn this off to apply the manual channel fallback order to every new file.'
         );
         metadataInfo.classList.add('compact');
         metadataTitleRow.appendChild(metadataInfo);
@@ -5094,10 +5094,10 @@
         fallbackTitleRow.className = 'measurement-scale-title-row';
         const fallbackTitle = document.createElement('span');
         fallbackTitle.className = 'measurement-scale-title';
-        fallbackTitle.textContent = 'Default Fallback Order';
+        fallbackTitle.textContent = 'Manual Channel Fallback Order';
         fallbackTitleRow.appendChild(fallbackTitle);
         const fallbackInfo = buildInfoDot(
-            'Sets the channel order CytoCV should use when a file does not include usable wavelength information, or when metadata ordering is turned off.\n\nTo change the order, select a channel box and drag it to the image plane where it belongs. For example, if image 1 is Blue and image 2 is Green, drag Blue into the first position and Green into the second.\n\nThis gives new uploads a starting channel order. You can still adjust a single file later on the preprocess page if one image is different.'
+            'Sets the manual channel fallback order CytoCV should use when a file does not include usable wavelength information, or when channel auto-detection is turned off.\n\nTo change the order, select a channel box and drag it to the image plane where it belongs. For example, if image 1 is Blue and image 2 is Green, drag Blue into the first position and Green into the second.\n\nThis gives new uploads a starting channel order. You can still adjust a single file later on the preprocess page if one image is different.'
         );
         fallbackInfo.classList.add('compact');
         fallbackTitleRow.appendChild(fallbackInfo);

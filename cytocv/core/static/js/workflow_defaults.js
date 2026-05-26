@@ -1752,24 +1752,24 @@
     );
     if (fromSnapshot.micronsPerPixel.normalized !== toSnapshot.micronsPerPixel.normalized) {
       changes.push(
-        `Micrometers Per Pixel (\u00b5m/px): ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
+        `Manual Scale Fallback: ${numericDisplay(fromSnapshot.micronsPerPixel)} -> ${numericDisplay(toSnapshot.micronsPerPixel)}`
       );
     }
     pushToggleChange(
       changes,
-      'Use Metadata Scale Per File',
+      'Auto-Detect Scale From File',
       fromSnapshot.useMetadataScale,
       toSnapshot.useMetadataScale
     );
     pushToggleChange(
       changes,
-      'Use Metadata Wavelength Order Per File',
+      'Auto-Detect Channels From File',
       fromSnapshot.useMetadataChannelOrder,
       toSnapshot.useMetadataChannelOrder
     );
     if (JSON.stringify(fromSnapshot.fallbackChannelOrder || []) !== JSON.stringify(toSnapshot.fallbackChannelOrder || [])) {
       changes.push(
-        `Default Fallback Order: ${channelOrderLabelList(fromSnapshot.fallbackChannelOrder)} -> ${channelOrderLabelList(toSnapshot.fallbackChannelOrder)}`
+        `Manual Channel Fallback Order: ${channelOrderLabelList(fromSnapshot.fallbackChannelOrder)} -> ${channelOrderLabelList(toSnapshot.fallbackChannelOrder)}`
       );
     }
     return changes;

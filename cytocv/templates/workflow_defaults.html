@@ -2279,7 +2279,7 @@ main.main > section.panel > form.panel > .card {
           <p class="section-eyebrow card-title">Measurement Scale</p>
           <div class="row">
             <div class="row-copy">
-              <label for="use_metadata_scale">Use Metadata Scale Per File</label>
+              <label for="use_metadata_scale">Auto-Detect Scale From File</label>
               <p class="module-help">When enabled, each file uses DV header dx/dy scale. If unavailable, workflow falls back to manual &micro;m/px.</p>
               <p class="measurement-scale-status" id="prefsScaleModeStatus" aria-live="polite">
                 {% if preferences.experiment_defaults.use_metadata_scale %}
@@ -2303,7 +2303,7 @@ main.main > section.panel > form.panel > .card {
           </div>
           <div class="row">
             <div class="measurement-scale-copy">
-              <label for="microns_per_pixel">Micrometers Per Pixel (&micro;m/px)</label>
+              <label for="microns_per_pixel">Manual Scale Fallback</label>
               <p class="measurement-scale-fallback">Fallback manual scale used when metadata dx/dy is unavailable or invalid.</p>
               <p class="measurement-scale-live" id="prefsScaleLive" aria-live="polite"></p>
               <p class="measurement-scale-example" id="prefsScaleExample" aria-live="polite"></p>
@@ -2347,7 +2347,7 @@ main.main > section.panel > form.panel > .card {
           </div>
           <div class="row">
             <div class="measurement-scale-copy">
-              <label for="spatial_stats_unit">Preferred Spatial Stat Display Unit</label>
+              <label for="spatial_stats_unit">Default Measurement Display Unit</label>
               <p>Sets the default px or &micro;m view used when display and dashboard first render. Page-level toggles can still override each file without changing this workflow default.</p>
             </div>
             <div class="mode-select-group plugin-measure-right compact-control">
@@ -2362,8 +2362,8 @@ main.main > section.panel > form.panel > .card {
           <p class="section-eyebrow card-title">Wavelength Channel Assignment</p>
           <div class="row">
             <div class="channel-order-copy">
-              <label for="use_metadata_channel_order">Use Metadata Wavelength Order Per File</label>
-              <p class="module-help">When enabled, each DV or TIFF file uses metadata-derived wavelength ordering when the file stores usable channel metadata. If metadata is unavailable, the workflow uses the default fallback order below.</p>
+              <label for="use_metadata_channel_order">Auto-Detect Channels From File</label>
+              <p class="module-help">When enabled, each DV or TIFF file uses metadata-derived wavelength ordering when the file stores usable channel metadata. If metadata is unavailable, the workflow uses the manual channel fallback order below.</p>
               <p class="channel-order-status" id="prefsChannelOrderModeStatus" aria-live="polite">
                 {% if preferences.experiment_defaults.use_metadata_channel_order %}
                 Metadata mode enabled
@@ -2386,7 +2386,7 @@ main.main > section.panel > form.panel > .card {
           </div>
           <div class="row channel-order-fallback-row">
             <div class="channel-order-copy">
-              <label>Default Fallback Order</label>
+              <label>Manual Channel Fallback Order</label>
             </div>
             <div class="channel-order-selector-row">
               <span class="channel-order-label">Select wavelength order:</span>
