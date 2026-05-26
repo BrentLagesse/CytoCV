@@ -522,16 +522,6 @@
             white-space: nowrap;
             container-type: inline-size;
         }
-        .channel-chip-grip {
-            color: rgba(255, 255, 255, 0.72);
-            display: inline-flex;
-            flex: 0 0 auto;
-            font-size: clamp(8px, 20cqi, 12px);
-            font-weight: 800;
-            letter-spacing: -1px;
-            line-height: 1;
-            pointer-events: none;
-        }
         .channel-chip-label {
             display: inline-block;
             font-size: clamp(8px, 22cqi, 13px);
@@ -2154,7 +2144,6 @@
                                 <div class="channel-bar">
                                     {% for channel in file.detected_channels %}
                                         <span class="channel-chip {{ channel|lower }}" data-channel-label="{{ channel }}">
-                                            <span class="channel-chip-grip" aria-hidden="true">⋮⋮</span>
                                             <span class="channel-chip-label">{{ channel }}</span>
                                         </span>
                                     {% endfor %}

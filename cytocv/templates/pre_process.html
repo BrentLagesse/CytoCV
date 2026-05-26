@@ -573,7 +573,9 @@
         .image-container,
         .preprocess-blend-target,
         .preprocess-blend-overlay,
-        .image-container-overlay {
+        .image-container-overlay,
+        .channel-chip,
+        .channel-chip-grip {
           transition: none !important;
           transform: none !important;
         }
@@ -618,6 +620,7 @@
         overflow: hidden;
         white-space: nowrap;
         container-type: inline-size;
+        transition: gap 0.16s ease;
       }
       .channel-chip-grip {
         color: rgba(255, 255, 255, 0.72);
@@ -627,7 +630,19 @@
         font-weight: 800;
         letter-spacing: -1px;
         line-height: 1;
+        max-width: 18px;
+        opacity: 1;
         pointer-events: none;
+        overflow: hidden;
+        transition: opacity 0.16s ease, max-width 0.16s ease;
+      }
+      .analysis-locked .channel-chip {
+        cursor: default;
+        gap: 0;
+      }
+      .analysis-locked .channel-chip-grip {
+        max-width: 0;
+        opacity: 0;
       }
       .channel-chip-label {
         display: inline-block;
