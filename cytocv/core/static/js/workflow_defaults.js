@@ -1129,9 +1129,13 @@
     const nextStatusText = metadataEnabled ? 'Metadata mode enabled' : 'Fallback-only mode enabled';
     const nextModeText = metadataEnabled ? 'Backup order' : 'Primary order';
     let changed = false;
-    if (prefsChannelOrderModeStatus && prefsChannelOrderModeStatus.textContent.trim() !== nextStatusText) {
-      prefsChannelOrderModeStatus.textContent = nextStatusText;
-      changed = true;
+    if (prefsChannelOrderModeStatus) {
+      prefsChannelOrderModeStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
+      prefsChannelOrderModeStatus.classList.toggle('is-metadata-off', !metadataEnabled);
+      if (prefsChannelOrderModeStatus.textContent.trim() !== nextStatusText) {
+        prefsChannelOrderModeStatus.textContent = nextStatusText;
+        changed = true;
+      }
     }
     if (prefsFallbackChannelOrderModeLabel) {
       prefsFallbackChannelOrderModeLabel.classList.toggle('is-backup', metadataEnabled);
