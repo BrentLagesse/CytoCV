@@ -1063,9 +1063,20 @@
             font-weight: 600;
             height: 16px;
             line-height: 1;
-            opacity: 0.82;
+            opacity: 1;
+            padding-left: 4px;
             pointer-events: none;
             white-space: nowrap;
+        }
+        .channel-order-action-copy.is-backup {
+            color: #e5c558;
+        }
+        .channel-order-action-copy.is-primary {
+            color: #9fd5af;
+        }
+        .channel-order-action-copy.is-fading-down {
+            animation: channelOrderStatusFadeDown 0.18s ease-out;
+            will-change: opacity, transform;
         }
         .channel-order-action-group {
             align-items: center;
@@ -2611,6 +2622,7 @@
     let useMetadataChannelOrderInput = null;
     let wavelengthChannelOrderStatus = null;
     let fallbackChannelOrderBar = null;
+    let fallbackChannelOrderModeLabel = null;
     let fallbackChannelOrderBackButton = null;
     let fallbackChannelOrderResetButton = null;
     let fallbackChannelOrderResetBaseline = [...DEFAULT_FALLBACK_CHANNEL_ORDER];
@@ -4974,19 +4986,36 @@
     }
 
     function syncWavelengthChannelOrderStatus(animate = false) {
-        if (!wavelengthChannelOrderStatus || !useMetadataChannelOrderInput) return;
+        if (!useMetadataChannelOrderInput) return;
         const metadataEnabled = useMetadataChannelOrderInput.checked;
         const nextText = useMetadataChannelOrderInput.checked
             ? 'Metadata mode enabled'
             : 'Fallback-only mode enabled';
-        wavelengthChannelOrderStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
-        wavelengthChannelOrderStatus.classList.toggle('is-metadata-off', !metadataEnabled);
-        if (wavelengthChannelOrderStatus.textContent === nextText) return;
-        wavelengthChannelOrderStatus.textContent = nextText;
-        if (!animate) return;
-        wavelengthChannelOrderStatus.classList.remove('is-fading-down');
-        void wavelengthChannelOrderStatus.offsetWidth;
-        wavelengthChannelOrderStatus.classList.add('is-fading-down');
+        const nextModeText = metadataEnabled ? 'Backup order' : 'Primary order';
+        let changed = false;
+        if (wavelengthChannelOrderStatus) {
+            wavelengthChannelOrderStatus.classList.toggle('is-metadata-enabled', metadataEnabled);
+            wavelengthChannelOrderStatus.classList.toggle('is-metadata-off', !metadataEnabled);
+            if (wavelengthChannelOrderStatus.textContent !== nextText) {
+                wavelengthChannelOrderStatus.textContent = nextText;
+                changed = true;
+            }
+        }
+        if (fallbackChannelOrderModeLabel) {
+            fallbackChannelOrderModeLabel.classList.toggle('is-backup', metadataEnabled);
+            fallbackChannelOrderModeLabel.classList.toggle('is-primary', !metadataEnabled);
+            if (fallbackChannelOrderModeLabel.textContent !== nextModeText) {
+                fallbackChannelOrderModeLabel.textContent = nextModeText;
+                changed = true;
+            }
+        }
+        if (!animate || !changed) return;
+        [wavelengthChannelOrderStatus, fallbackChannelOrderModeLabel].forEach((element) => {
+            if (!element) return;
+            element.classList.remove('is-fading-down');
+            void element.offsetWidth;
+            element.classList.add('is-fading-down');
+        });
     }
 
     function setupChannelOrderDrag(bar) {
@@ -5115,7 +5144,7 @@
         actionRow.setAttribute('aria-label', 'Fallback channel order actions');
         const actionCopy = document.createElement('span');
         actionCopy.className = 'channel-order-action-copy';
-        actionCopy.textContent = 'Drag & Drop';
+        fallbackChannelOrderModeLabel = actionCopy;
         const actionGroup = document.createElement('div');
         actionGroup.className = 'channel-order-action-group';
         fallbackChannelOrderBackButton = document.createElement('button');

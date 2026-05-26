@@ -1122,6 +1122,10 @@ main.main > section.panel > form.panel > .card {
   line-height: 1.3;
 }
 
+.channel-order-status.is-fading-down {
+  animation: channelOrderActionFadeDown 0.18s ease-out;
+}
+
 .row.channel-order-fallback-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
@@ -1271,9 +1275,34 @@ main.main > section.panel > form.panel > .card {
   font-weight: 600;
   height: 16px;
   line-height: 1;
-  opacity: 0.82;
+  opacity: 1;
+  padding-left: 4px;
   pointer-events: none;
   white-space: nowrap;
+}
+
+.channel-order-action-copy.is-backup {
+  color: #e5c558;
+}
+
+.channel-order-action-copy.is-primary {
+  color: #9fd5af;
+}
+
+.channel-order-action-copy.is-fading-down {
+  animation: channelOrderActionFadeDown 0.18s ease-out;
+  will-change: opacity, transform;
+}
+
+@keyframes channelOrderActionFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .channel-order-action-group {
@@ -2340,7 +2369,7 @@ main.main > section.panel > form.panel > .card {
                   {% endfor %}
                 </div>
                 <div class="channel-order-actions" aria-label="Fallback channel order actions">
-                  <span class="channel-order-action-copy">Drag &amp; Drop</span>
+                  <span class="channel-order-action-copy" id="prefsFallbackChannelOrderModeLabel" aria-live="polite"></span>
                   <div class="channel-order-action-group">
                     <button class="channel-order-action-btn" id="prefsFallbackChannelOrderBack" type="button" aria-label="Back" title="Back"><span class="channel-order-action-icon" aria-hidden="true">↶</span><span class="channel-order-action-label">Back</span></button>
                     <button class="channel-order-action-btn" id="prefsFallbackChannelOrderReset" type="button" aria-label="Reset" title="Reset"><span class="channel-order-action-icon" aria-hidden="true">↻</span><span class="channel-order-action-label">Reset</span></button>

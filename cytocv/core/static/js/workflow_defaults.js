@@ -1017,6 +1017,7 @@
   const useMetadataChannelOrderInput = document.getElementById('use_metadata_channel_order');
   const prefsChannelOrderModeStatus = document.getElementById('prefsChannelOrderModeStatus');
   const prefsFallbackChannelOrderBar = document.getElementById('prefsFallbackChannelOrder');
+  const prefsFallbackChannelOrderModeLabel = document.getElementById('prefsFallbackChannelOrderModeLabel');
   const prefsFallbackChannelOrderBack = document.getElementById('prefsFallbackChannelOrderBack');
   const prefsFallbackChannelOrderReset = document.getElementById('prefsFallbackChannelOrderReset');
   const moduleEnabledInput = document.getElementById('module_enabled');
@@ -1122,11 +1123,31 @@
   const fallbackChannelOrderUndoStack = [];
   let fallbackChannelOrderActionLocked = false;
 
-  const syncChannelOrderStatus = () => {
-    if (!prefsChannelOrderModeStatus || !useMetadataChannelOrderInput) return;
-    prefsChannelOrderModeStatus.textContent = useMetadataChannelOrderInput.checked
-      ? 'Metadata mode enabled'
-      : 'Fallback-only mode enabled';
+  const syncChannelOrderStatus = (animate = false) => {
+    if (!useMetadataChannelOrderInput) return;
+    const metadataEnabled = useMetadataChannelOrderInput.checked;
+    const nextStatusText = metadataEnabled ? 'Metadata mode enabled' : 'Fallback-only mode enabled';
+    const nextModeText = metadataEnabled ? 'Backup order' : 'Primary order';
+    let changed = false;
+    if (prefsChannelOrderModeStatus && prefsChannelOrderModeStatus.textContent.trim() !== nextStatusText) {
+      prefsChannelOrderModeStatus.textContent = nextStatusText;
+      changed = true;
+    }
+    if (prefsFallbackChannelOrderModeLabel) {
+      prefsFallbackChannelOrderModeLabel.classList.toggle('is-backup', metadataEnabled);
+      prefsFallbackChannelOrderModeLabel.classList.toggle('is-primary', !metadataEnabled);
+      if (prefsFallbackChannelOrderModeLabel.textContent !== nextModeText) {
+        prefsFallbackChannelOrderModeLabel.textContent = nextModeText;
+        changed = true;
+      }
+    }
+    if (!animate || !changed) return;
+    [prefsChannelOrderModeStatus, prefsFallbackChannelOrderModeLabel].forEach((element) => {
+      if (!element) return;
+      element.classList.remove('is-fading-down');
+      void element.offsetWidth;
+      element.classList.add('is-fading-down');
+    });
   };
 
   const orderChannelBar = (bar, order, options = {}) => {
@@ -2071,7 +2092,7 @@
     el.addEventListener('change', updateMeasurementScaleHelp);
   });
   if (useMetadataChannelOrderInput) {
-    useMetadataChannelOrderInput.addEventListener('change', syncChannelOrderStatus);
+    useMetadataChannelOrderInput.addEventListener('change', () => syncChannelOrderStatus(true));
   }
   if (prefsFallbackChannelOrderBack) {
     prefsFallbackChannelOrderBack.addEventListener('click', () => {
