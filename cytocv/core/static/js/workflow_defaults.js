@@ -1117,7 +1117,9 @@
   const sameChannelOrder = (first, second) =>
     JSON.stringify(normalizeChannelOrder(first)) === JSON.stringify(normalizeChannelOrder(second));
 
+  const channelOrderActionLockMs = 220;
   const fallbackChannelOrderUndoStack = [];
+  let fallbackChannelOrderActionLocked = false;
 
   const syncChannelOrderStatus = () => {
     if (!prefsChannelOrderModeStatus || !useMetadataChannelOrderInput) return;
@@ -1165,12 +1167,21 @@
   const syncFallbackChannelOrderActions = () => {
     const currentOrder = channelOrderFromBar(prefsFallbackChannelOrderBar);
     if (prefsFallbackChannelOrderBack) {
-      prefsFallbackChannelOrderBack.disabled = fallbackChannelOrderUndoStack.length === 0;
+      prefsFallbackChannelOrderBack.disabled = fallbackChannelOrderActionLocked || fallbackChannelOrderUndoStack.length === 0;
     }
     if (prefsFallbackChannelOrderReset) {
       const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
-      prefsFallbackChannelOrderReset.disabled = sameChannelOrder(currentOrder, baselineOrder);
+      prefsFallbackChannelOrderReset.disabled = fallbackChannelOrderActionLocked || sameChannelOrder(currentOrder, baselineOrder);
     }
+  };
+
+  const lockFallbackChannelOrderActions = () => {
+    fallbackChannelOrderActionLocked = true;
+    syncFallbackChannelOrderActions();
+    window.setTimeout(() => {
+      fallbackChannelOrderActionLocked = false;
+      syncFallbackChannelOrderActions();
+    }, channelOrderActionLockMs);
   };
 
   const applyFallbackChannelOrder = (order, options = {}) => {
@@ -2045,14 +2056,19 @@
   }
   if (prefsFallbackChannelOrderBack) {
     prefsFallbackChannelOrderBack.addEventListener('click', () => {
+      if (fallbackChannelOrderActionLocked) return;
       const previousOrder = fallbackChannelOrderUndoStack.pop();
       if (!previousOrder) return;
+      lockFallbackChannelOrderActions();
       applyFallbackChannelOrder(previousOrder, { animate: true });
     });
   }
   if (prefsFallbackChannelOrderReset) {
     prefsFallbackChannelOrderReset.addEventListener('click', () => {
+      if (fallbackChannelOrderActionLocked) return;
       const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
+      if (sameChannelOrder(channelOrderFromBar(prefsFallbackChannelOrderBar), baselineOrder)) return;
+      lockFallbackChannelOrderActions();
       applyFallbackChannelOrder(baselineOrder, { clearHistory: true, animate: true });
     });
   }

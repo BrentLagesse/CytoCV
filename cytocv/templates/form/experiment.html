@@ -2572,7 +2572,9 @@
     let fallbackChannelOrderBackButton = null;
     let fallbackChannelOrderResetButton = null;
     let fallbackChannelOrderResetBaseline = [...DEFAULT_FALLBACK_CHANNEL_ORDER];
+    const fallbackChannelOrderActionLockMs = 220;
     const fallbackChannelOrderUndoStack = [];
+    let fallbackChannelOrderActionLocked = false;
     let measurementScalePxPerUmValue = null;
     let measurementScaleUmPerPxValue = null;
     let measurementScaleExampleHint = null;
@@ -4886,11 +4888,20 @@
     function syncFallbackChannelOrderActions() {
         const currentOrder = channelOrderFromBar(fallbackChannelOrderBar);
         if (fallbackChannelOrderBackButton) {
-            fallbackChannelOrderBackButton.disabled = fallbackChannelOrderUndoStack.length === 0;
+            fallbackChannelOrderBackButton.disabled = fallbackChannelOrderActionLocked || fallbackChannelOrderUndoStack.length === 0;
         }
         if (fallbackChannelOrderResetButton) {
-            fallbackChannelOrderResetButton.disabled = sameChannelOrder(currentOrder, fallbackChannelOrderResetBaseline);
+            fallbackChannelOrderResetButton.disabled = fallbackChannelOrderActionLocked || sameChannelOrder(currentOrder, fallbackChannelOrderResetBaseline);
         }
+    }
+
+    function lockFallbackChannelOrderActions() {
+        fallbackChannelOrderActionLocked = true;
+        syncFallbackChannelOrderActions();
+        window.setTimeout(() => {
+            fallbackChannelOrderActionLocked = false;
+            syncFallbackChannelOrderActions();
+        }, fallbackChannelOrderActionLockMs);
     }
 
     function setFallbackChannelOrder(order, options = {}) {
@@ -5067,8 +5078,10 @@
         fallbackChannelOrderBackButton.title = 'Back';
         fallbackChannelOrderBackButton.textContent = '↶';
         fallbackChannelOrderBackButton.addEventListener('click', () => {
+            if (fallbackChannelOrderActionLocked) return;
             const previousOrder = fallbackChannelOrderUndoStack.pop();
             if (!previousOrder) return;
+            lockFallbackChannelOrderActions();
             setFallbackChannelOrder(previousOrder, { animate: true });
         });
         fallbackChannelOrderResetButton = document.createElement('button');
@@ -5078,6 +5091,9 @@
         fallbackChannelOrderResetButton.title = 'Reset';
         fallbackChannelOrderResetButton.textContent = '↻';
         fallbackChannelOrderResetButton.addEventListener('click', () => {
+            if (fallbackChannelOrderActionLocked) return;
+            if (sameChannelOrder(channelOrderFromBar(fallbackChannelOrderBar), fallbackChannelOrderResetBaseline)) return;
+            lockFallbackChannelOrderActions();
             setFallbackChannelOrder(fallbackChannelOrderResetBaseline, { clearHistory: true, animate: true });
         });
         actionRow.appendChild(fallbackChannelOrderBackButton);
