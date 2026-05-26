@@ -1017,6 +1017,8 @@
   const useMetadataChannelOrderInput = document.getElementById('use_metadata_channel_order');
   const prefsChannelOrderModeStatus = document.getElementById('prefsChannelOrderModeStatus');
   const prefsFallbackChannelOrderBar = document.getElementById('prefsFallbackChannelOrder');
+  const prefsFallbackChannelOrderBack = document.getElementById('prefsFallbackChannelOrderBack');
+  const prefsFallbackChannelOrderReset = document.getElementById('prefsFallbackChannelOrderReset');
   const moduleEnabledInput = document.getElementById('module_enabled');
   const enforceLayerCountInput = document.getElementById('enforce_layer_count');
   const enforceWavelengthsInput = document.getElementById('enforce_wavelengths');
@@ -1112,6 +1114,11 @@
   const channelOrderLabelList = (order) =>
     normalizeChannelOrder(order).map((channel) => displayChannelLabel(channel)).join(', ');
 
+  const sameChannelOrder = (first, second) =>
+    JSON.stringify(normalizeChannelOrder(first)) === JSON.stringify(normalizeChannelOrder(second));
+
+  const fallbackChannelOrderUndoStack = [];
+
   const syncChannelOrderStatus = () => {
     if (!prefsChannelOrderModeStatus || !useMetadataChannelOrderInput) return;
     prefsChannelOrderModeStatus.textContent = useMetadataChannelOrderInput.checked
@@ -1131,11 +1138,49 @@
     });
   };
 
+  const syncFallbackChannelOrderActions = () => {
+    const currentOrder = channelOrderFromBar(prefsFallbackChannelOrderBar);
+    if (prefsFallbackChannelOrderBack) {
+      prefsFallbackChannelOrderBack.disabled = fallbackChannelOrderUndoStack.length === 0;
+    }
+    if (prefsFallbackChannelOrderReset) {
+      const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
+      prefsFallbackChannelOrderReset.disabled = sameChannelOrder(currentOrder, baselineOrder);
+    }
+  };
+
+  const applyFallbackChannelOrder = (order, options = {}) => {
+    orderChannelBar(prefsFallbackChannelOrderBar, order);
+    if (options.clearHistory) {
+      fallbackChannelOrderUndoStack.length = 0;
+    }
+    syncFallbackChannelOrderActions();
+  };
+
+  const pushFallbackChannelOrderUndo = (order) => {
+    fallbackChannelOrderUndoStack.push(normalizeChannelOrder(order));
+    if (fallbackChannelOrderUndoStack.length > 20) {
+      fallbackChannelOrderUndoStack.shift();
+    }
+  };
+
   const setupChannelOrderDrag = (bar) => {
     if (!bar) return;
     if (!window.Sortable || typeof window.Sortable.create !== 'function') return;
     window.Sortable.create(bar, {
       animation: 150,
+      onStart() {
+        bar.dataset.previousChannelOrder = JSON.stringify(channelOrderFromBar(bar));
+      },
+      onEnd() {
+        const previousOrder = normalizeChannelOrder(JSON.parse(bar.dataset.previousChannelOrder || '[]'));
+        const nextOrder = channelOrderFromBar(bar);
+        delete bar.dataset.previousChannelOrder;
+        if (!sameChannelOrder(previousOrder, nextOrder)) {
+          pushFallbackChannelOrderUndo(previousOrder);
+        }
+        syncFallbackChannelOrderActions();
+      },
     });
   };
   const dotSplitTargetAllowed = (target, greenAllowed, redAllowed) => {
@@ -1831,7 +1876,7 @@
     if (prefsScaleInput) prefsScaleInput.value = snapshot.micronsPerPixel.raw;
     if (useMetadataScaleInput) useMetadataScaleInput.checked = snapshot.useMetadataScale;
     if (useMetadataChannelOrderInput) useMetadataChannelOrderInput.checked = snapshot.useMetadataChannelOrder;
-    orderChannelBar(prefsFallbackChannelOrderBar, snapshot.fallbackChannelOrder);
+    applyFallbackChannelOrder(snapshot.fallbackChannelOrder, { clearHistory: true });
     syncRows();
     updateMeasurementScaleHelp();
     syncChannelOrderStatus();
@@ -1866,6 +1911,8 @@
     baselineSnapshots.plugins = capturePluginSnapshot();
     baselineSnapshots.advanced = captureAdvancedSnapshot();
     baselineSnapshots.saving = captureSavingSnapshot();
+    fallbackChannelOrderUndoStack.length = 0;
+    syncFallbackChannelOrderActions();
   };
 
   const closeReviewModal = (onAfterClose = null) => {
@@ -1972,7 +2019,21 @@
   if (useMetadataChannelOrderInput) {
     useMetadataChannelOrderInput.addEventListener('change', syncChannelOrderStatus);
   }
+  if (prefsFallbackChannelOrderBack) {
+    prefsFallbackChannelOrderBack.addEventListener('click', () => {
+      const previousOrder = fallbackChannelOrderUndoStack.pop();
+      if (!previousOrder) return;
+      applyFallbackChannelOrder(previousOrder);
+    });
+  }
+  if (prefsFallbackChannelOrderReset) {
+    prefsFallbackChannelOrderReset.addEventListener('click', () => {
+      const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
+      applyFallbackChannelOrder(baselineOrder, { clearHistory: true });
+    });
+  }
   setupChannelOrderDrag(prefsFallbackChannelOrderBar);
+  syncFallbackChannelOrderActions();
   const disclosureButtons = [...document.querySelectorAll('.measurement-disclosure-toggle[data-disclosure-target]')];
   disclosureButtons.forEach((button) => {
     const panelId = button.dataset.disclosureTarget;

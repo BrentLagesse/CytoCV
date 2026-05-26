@@ -1145,13 +1145,14 @@ main.main > section.panel > form.panel > .card {
   row-gap: 5px;
   align-self: start;
   justify-self: end;
+  position: relative;
   transform: translateY(-10px);
   width: min(100%, var(--channel-order-track-width));
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--surface-input);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-  padding: 7px 6px 8px;
+  padding: 17px 6px 7px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1177,7 +1178,7 @@ main.main > section.panel > form.panel > .card {
   transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
   width: calc(100% - (var(--channel-order-gap) * 3));
   justify-self: center;
-  transform: translateX(var(--channel-order-plane-offset-x));
+  transform: translate(var(--channel-order-plane-offset-x), 6px);
   white-space: nowrap;
 }
 
@@ -1220,7 +1221,7 @@ main.main > section.panel > form.panel > .card {
   gap: var(--channel-order-gap);
   grid-column: 1;
   grid-row: 2;
-  margin-top: 2px;
+  margin-top: 8px;
   flex-wrap: nowrap;
   overflow-x: auto;
   max-height: 36px;
@@ -1245,6 +1246,55 @@ main.main > section.panel > form.panel > .card {
 
 .channel-order-control .channel-bar::-webkit-scrollbar-button {
   display: none;
+}
+
+.channel-order-control .channel-order-actions {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  min-width: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+}
+
+.channel-order-action-btn {
+  align-items: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #cfcfcf;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--app-font);
+  font-size: 12px;
+  font-weight: 600;
+  height: 12px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 14px;
+  padding: 0;
+  pointer-events: auto;
+  transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+  width: 14px;
+}
+
+.channel-order-action-btn:hover:not(:disabled),
+.channel-order-action-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  outline: none;
+}
+
+.channel-order-action-btn:disabled {
+  cursor: default;
+  opacity: 0.42;
 }
 
 .channel-order-control .channel-chip {
@@ -2230,6 +2280,10 @@ main.main > section.panel > form.panel > .card {
                     <input type="hidden" name="fallback_channel_order" value="{{ item.channel }}">
                   </span>
                   {% endfor %}
+                </div>
+                <div class="channel-order-actions" aria-label="Fallback channel order actions">
+                  <button class="channel-order-action-btn" id="prefsFallbackChannelOrderBack" type="button" aria-label="Back" title="Back">↶</button>
+                  <button class="channel-order-action-btn" id="prefsFallbackChannelOrderReset" type="button" aria-label="Reset" title="Reset">↻</button>
                 </div>
               </div>
             </div>
