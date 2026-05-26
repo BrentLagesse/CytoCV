@@ -4846,11 +4846,40 @@
         return JSON.stringify(normalizeChannelOrder(first)) === JSON.stringify(normalizeChannelOrder(second));
     }
 
-    function orderFallbackChannelBar(order) {
+    function orderFallbackChannelBar(order, options = {}) {
         if (!fallbackChannelOrderBar) return;
-        normalizeChannelOrder(order).forEach((channel) => {
+        const normalized = normalizeChannelOrder(order);
+        const chipsByChannel = new Map(
+            [...fallbackChannelOrderBar.querySelectorAll('[data-channel-role]')]
+                .map((chip) => [chip.dataset.channelRole, chip])
+        );
+        const shouldAnimate = options.animate
+            && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            && typeof Element !== 'undefined'
+            && typeof Element.prototype.animate === 'function';
+        const firstRects = shouldAnimate
+            ? new Map([...chipsByChannel].map(([channel, chip]) => [channel, chip.getBoundingClientRect()]))
+            : null;
+        normalized.forEach((channel) => {
             const chip = fallbackChannelOrderBar.querySelector(`[data-channel-role="${channel}"]`);
             if (chip) fallbackChannelOrderBar.appendChild(chip);
+        });
+        if (!shouldAnimate) return;
+        normalized.forEach((channel) => {
+            const chip = chipsByChannel.get(channel);
+            const firstRect = firstRects.get(channel);
+            if (!chip || !firstRect) return;
+            const lastRect = chip.getBoundingClientRect();
+            const deltaX = firstRect.left - lastRect.left;
+            const deltaY = firstRect.top - lastRect.top;
+            if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+            chip.animate(
+                [
+                    { transform: `translate(${deltaX}px, ${deltaY}px)`, opacity: 0.72 },
+                    { transform: 'translate(0, 0)', opacity: 1 },
+                ],
+                { duration: 180, easing: 'cubic-bezier(0.2, 0, 0.2, 1)' }
+            );
         });
     }
 
@@ -4867,7 +4896,7 @@
     function setFallbackChannelOrder(order, options = {}) {
         const normalized = normalizeChannelOrder(order);
         statsState.fallbackChannelOrder = normalized;
-        orderFallbackChannelBar(normalized);
+        orderFallbackChannelBar(normalized, { animate: options.animate });
         if (options.clearHistory) {
             fallbackChannelOrderUndoStack.length = 0;
         }
@@ -5040,7 +5069,7 @@
         fallbackChannelOrderBackButton.addEventListener('click', () => {
             const previousOrder = fallbackChannelOrderUndoStack.pop();
             if (!previousOrder) return;
-            setFallbackChannelOrder(previousOrder);
+            setFallbackChannelOrder(previousOrder, { animate: true });
         });
         fallbackChannelOrderResetButton = document.createElement('button');
         fallbackChannelOrderResetButton.type = 'button';
@@ -5049,7 +5078,7 @@
         fallbackChannelOrderResetButton.title = 'Reset';
         fallbackChannelOrderResetButton.textContent = '↻';
         fallbackChannelOrderResetButton.addEventListener('click', () => {
-            setFallbackChannelOrder(fallbackChannelOrderResetBaseline, { clearHistory: true });
+            setFallbackChannelOrder(fallbackChannelOrderResetBaseline, { clearHistory: true, animate: true });
         });
         actionRow.appendChild(fallbackChannelOrderBackButton);
         actionRow.appendChild(fallbackChannelOrderResetButton);

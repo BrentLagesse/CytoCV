@@ -1126,15 +1126,39 @@
       : 'Fallback-only mode enabled';
   };
 
-  const orderChannelBar = (bar, order) => {
+  const orderChannelBar = (bar, order, options = {}) => {
     if (!bar) return;
     const normalized = normalizeChannelOrder(order);
     const chipsByChannel = new Map(
       [...bar.querySelectorAll('[data-channel-role]')].map((chip) => [chip.dataset.channelRole, chip])
     );
+    const shouldAnimate = options.animate
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      && typeof Element !== 'undefined'
+      && typeof Element.prototype.animate === 'function';
+    const firstRects = shouldAnimate
+      ? new Map([...chipsByChannel].map(([channel, chip]) => [channel, chip.getBoundingClientRect()]))
+      : null;
     normalized.forEach((channel) => {
       const chip = chipsByChannel.get(channel);
       if (chip) bar.appendChild(chip);
+    });
+    if (!shouldAnimate) return;
+    normalized.forEach((channel) => {
+      const chip = chipsByChannel.get(channel);
+      const firstRect = firstRects.get(channel);
+      if (!chip || !firstRect) return;
+      const lastRect = chip.getBoundingClientRect();
+      const deltaX = firstRect.left - lastRect.left;
+      const deltaY = firstRect.top - lastRect.top;
+      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+      chip.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)`, opacity: 0.72 },
+          { transform: 'translate(0, 0)', opacity: 1 },
+        ],
+        { duration: 180, easing: 'cubic-bezier(0.2, 0, 0.2, 1)' }
+      );
     });
   };
 
@@ -1150,7 +1174,7 @@
   };
 
   const applyFallbackChannelOrder = (order, options = {}) => {
-    orderChannelBar(prefsFallbackChannelOrderBar, order);
+    orderChannelBar(prefsFallbackChannelOrderBar, order, { animate: options.animate });
     if (options.clearHistory) {
       fallbackChannelOrderUndoStack.length = 0;
     }
@@ -2023,13 +2047,13 @@
     prefsFallbackChannelOrderBack.addEventListener('click', () => {
       const previousOrder = fallbackChannelOrderUndoStack.pop();
       if (!previousOrder) return;
-      applyFallbackChannelOrder(previousOrder);
+      applyFallbackChannelOrder(previousOrder, { animate: true });
     });
   }
   if (prefsFallbackChannelOrderReset) {
     prefsFallbackChannelOrderReset.addEventListener('click', () => {
       const baselineOrder = baselineSnapshots.plugins?.fallbackChannelOrder || defaultFallbackChannelOrder;
-      applyFallbackChannelOrder(baselineOrder, { clearHistory: true });
+      applyFallbackChannelOrder(baselineOrder, { clearHistory: true, animate: true });
     });
   }
   setupChannelOrderDrag(prefsFallbackChannelOrderBar);
