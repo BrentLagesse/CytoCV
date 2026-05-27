@@ -9,7 +9,7 @@ from email.utils import parseaddr
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
@@ -28,6 +28,7 @@ from accounts.email_content import (
     build_auth_email_logo_src,
     build_password_recovery_email,
 )
+from accounts.email_lookup import find_user_by_email, normalize_auth_email
 from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import (
     build_rate_limit_keys,
@@ -47,6 +48,9 @@ RECOVERY_CODE_TTL_SECONDS = VERIFY_CODE_TTL_SECONDS
 RECOVERY_CODE_MAX_ATTEMPTS = VERIFY_CODE_MAX_ATTEMPTS
 RECOVERY_CODE_RESEND_SECONDS = VERIFY_CODE_RESEND_SECONDS
 AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
+ACCOUNT_CANNOT_SIGN_IN_MESSAGE = (
+    "This account cannot sign in right now. Contact support if you need help."
+)
 logger = logging.getLogger(__name__)
 
 
@@ -66,7 +70,7 @@ def oauth_verification_status(request: HttpRequest) -> JsonResponse:
 
 def _normalize_email(email: str) -> str:
     """Normalize user-provided email input."""
-    return email.strip().lower()
+    return normalize_auth_email(email)
 
 
 def _generate_recovery_code() -> str:
@@ -144,6 +148,12 @@ def _recovery_reply_to_list() -> list[str] | None:
 def _add_error(errors: dict[str, list[str]], field: str, message: str) -> None:
     """Append a field-level error message."""
     errors.setdefault(field, []).append(message)
+
+
+def _clear_recovery_email_state(request: HttpRequest, values: dict[str, str]) -> None:
+    """Clear recovery email state after an account-level recovery failure."""
+    values["email"] = ""
+    request.session.pop("recovery_email", None)
 
 
 def _summarize_password_errors(messages: list[str]) -> str:
@@ -312,7 +322,6 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
     if _should_reset_recovery(request):
         _clear_recovery_session(request)
 
-    user_model = get_user_model()
     session = request.session
     step_total = 3
     step = int(session.get("recovery_step", 1))
@@ -367,14 +376,9 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             recaptcha_error=overrides.get("recaptcha_error", recaptcha_error),
         )
 
-    def send_code_email(email: str, code: str) -> bool:
+    def send_code_email(email: str, code: str, user) -> bool:
         """Send a password recovery code email."""
-        recipient_name = (
-            user_model.objects.filter(email__iexact=email)
-            .values_list("first_name", flat=True)
-            .first()
-            or ""
-        )
+        recipient_name = getattr(user, "first_name", "") or ""
         from_email = _recovery_sender_email()
         email_content = build_password_recovery_email(
             code=code,
@@ -395,6 +399,34 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
         except Exception:
             logger.exception("Failed to send password recovery verification email.")
             return False
+
+    def add_recovery_account_error(user) -> bool:
+        """Add a safe recovery account error when the user cannot proceed."""
+        nonlocal page_error
+        if user is None:
+            message = "We couldn't find an account for that email address."
+        elif not user.is_active:
+            message = ACCOUNT_CANNOT_SIGN_IN_MESSAGE
+        else:
+            return False
+        _add_error(errors, "email", message)
+        page_error = message
+        _clear_recovery_email_state(request, values)
+        return True
+
+    def find_active_recovery_user(email: str):
+        """Return an active account for recovery, adding safe errors otherwise."""
+        user = find_user_by_email(email)
+        if add_recovery_account_error(user):
+            return None
+        return user
+
+    def return_to_recovery_email_step() -> HttpResponse:
+        """Return to the first recovery step after account resolution fails."""
+        nonlocal step
+        session["recovery_step"] = 1
+        step = 1
+        return render_current()
 
     if request.method == "POST":
         # Navigation controls do not perform field validation.
@@ -418,6 +450,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             session["recovery_email"] = values["email"]
             session.pop("recovery_code_verified", None)
             session.pop("recovery_verify_code_locked", None)
+            recovery_user = None
 
             if not values["email"]:
                 _add_error(errors, "email", "Enter a valid email address")
@@ -427,11 +460,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 except ValidationError:
                     _add_error(errors, "email", "Enter a valid email address")
                 else:
-                    if not user_model.objects.filter(email__iexact=values["email"]).exists():
-                        _add_error(errors, "email", "We couldn't find an account for that email address.")
-                        page_error = "We couldn't find an account for that email address."
-                        values["email"] = ""
-                        session.pop("recovery_email", None)
+                    recovery_user = find_active_recovery_user(values["email"])
 
             if errors:
                 step = 1
@@ -444,7 +473,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_recovery_code()
-            if not send_code_email(values["email"], verify_code):
+            if not send_code_email(values["email"], verify_code, recovery_user):
                 page_error = "We couldn't send a recovery code right now. Try again."
                 step = 1
                 return render_current()
@@ -476,7 +505,11 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_recovery_code()
-            if not send_code_email(values["email"], verify_code):
+            recovery_user = find_user_by_email(values["email"])
+            if add_recovery_account_error(recovery_user):
+                return return_to_recovery_email_step()
+
+            if not send_code_email(values["email"], verify_code, recovery_user):
                 page_error = "We couldn't resend the recovery code right now. Try again."
                 step = 2
                 return render_current()
@@ -579,16 +612,9 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 step = 1
                 return render_current()
 
-            try:
-                user = user_model.objects.get(email__iexact=email)
-            except user_model.DoesNotExist:
-                _add_error(errors, "email", "We couldn't find an account for that email address.")
-                page_error = "We couldn't find an account for that email address."
-                values["email"] = ""
-                session.pop("recovery_email", None)
-                session["recovery_step"] = 1
-                step = 1
-                return render_current()
+            user = find_user_by_email(email)
+            if add_recovery_account_error(user):
+                return return_to_recovery_email_step()
 
             password = request.POST.get("password") or ""
             verify_password = request.POST.get("verify_password") or ""
@@ -724,7 +750,7 @@ def auth_login(request: HttpRequest) -> HttpResponse:
 
     if request.method == "POST":
         # Normalize user input to keep rate-limit keys and auth consistent.
-        email = (request.POST.get("email") or "").strip()
+        email = normalize_auth_email(request.POST.get("email") or "")
         password = request.POST.get("password") or ""
 
         keys = build_rate_limit_keys(ip, email)

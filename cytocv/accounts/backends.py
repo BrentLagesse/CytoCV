@@ -7,6 +7,8 @@ from typing import Any
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
 
+from accounts.email_lookup import find_user_by_email, normalize_auth_email
+
 
 class EmailBackend(ModelBackend):
     """Authenticate users using their email address."""
@@ -33,11 +35,11 @@ class EmailBackend(ModelBackend):
         identifier = email
         if identifier is None:
             identifier = kwargs.get(user_model.USERNAME_FIELD)
+        identifier = normalize_auth_email(identifier)
         if not identifier or password is None:
             return None
-        try:
-            user = user_model.objects.get(email__iexact=identifier)
-        except user_model.DoesNotExist:
+        user = find_user_by_email(identifier)
+        if user is None:
             return None
         if user.check_password(password) and self.user_can_authenticate(user):
             return user

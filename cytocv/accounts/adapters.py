@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.mail import EmailMultiAlternatives
 from django.http import HttpRequest
 from django.shortcuts import redirect
@@ -21,6 +20,11 @@ from accounts.email_content import (
     build_auth_email_logo_src,
     build_email_confirmation_email,
     normalize_recipient_name,
+)
+from accounts.email_lookup import (
+    find_user_by_email,
+    normalize_auth_email,
+    resolve_user_by_email,
 )
 
 
@@ -89,14 +93,21 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     @staticmethod
     def _normalized_social_email(sociallogin) -> str:
         """Return the best available social email in normalized form."""
-        email = (sociallogin.user.email or "").strip().lower()
+        email = normalize_auth_email(sociallogin.user.email)
         if email:
             return email
         for addr in getattr(sociallogin, "email_addresses", []):
-            candidate = (getattr(addr, "email", "") or "").strip().lower()
+            candidate = normalize_auth_email(getattr(addr, "email", ""))
             if candidate:
                 return candidate
         return ""
+
+    def save_user(self, request: HttpRequest, sociallogin, form=None):
+        """Persist new social users with normalized email fields."""
+        sociallogin.user.email = normalize_auth_email(sociallogin.user.email)
+        for addr in getattr(sociallogin, "email_addresses", []):
+            addr.email = normalize_auth_email(getattr(addr, "email", ""))
+        return super().save_user(request, sociallogin, form)
 
     def pre_social_login(self, request: HttpRequest, sociallogin) -> None:
         """Connect a social login to an existing user by email."""
@@ -107,18 +118,20 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         if not email:
             return
 
-        # Match a local account by email to avoid duplicate signups.
-        user_model = get_user_model()
-        try:
-            user = user_model.objects.get(email__iexact=email)
-        except user_model.DoesNotExist:
+        # Match an existing account by primary email or verified email alias.
+        user = find_user_by_email(email)
+        if user is None:
             return
 
         sociallogin.connect(request, user)
 
     def is_auto_signup_allowed(self, request: HttpRequest, sociallogin) -> bool:
         """Allow automatic signup when the provider supplies any email."""
-        return bool(self._normalized_social_email(sociallogin))
+        email = self._normalized_social_email(sociallogin)
+        if not email:
+            return False
+        lookup = resolve_user_by_email(email)
+        return not lookup.ambiguous
 
     def on_authentication_error(
         self,
