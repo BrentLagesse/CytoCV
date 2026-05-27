@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from allauth.account.internal.stagekit import LOGIN_SESSION_KEY
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC, Login
@@ -20,7 +21,7 @@ from accounts.email_content import (
     normalize_recipient_name,
     _formatted_email_date,
 )
-from accounts.adapters import CustomAccountAdapter
+from accounts.adapters import CustomAccountAdapter, CustomSocialAccountAdapter
 from accounts.views.login import _recovery_sender_email
 from accounts.views.login import _recovery_sender_display_email
 from accounts.views.login import _build_recovery_email
@@ -422,7 +423,7 @@ class AuthEmailViewSendTests(TestCase):
         )
         content = response.content.decode()
         self.assertIn("from <strong>cytocv-noreply@uw.edu</strong>", content)
-        self.assertIn("This code expires in 5 minutes.", content)
+        self.assertIn("The code expires in 5 minutes.", content)
         self.assertNotIn("This code expires in 30 minutes.", content)
         self.assertNotIn("CytoCV&lt;cytocv-noreply@uw.edu&gt;", content)
         self.assertEqual(len(message.alternatives), 1)
@@ -439,6 +440,193 @@ class AuthEmailViewSendTests(TestCase):
         self.assertIn("Department of Computing &amp; Software Systems", html_body)
         self.assertIn("Do not share this email", html_body)
         self.assertNotIn("18115 Campus Way NE", html_body)
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    RECAPTCHA_ENABLED=False,
+)
+class AuthEmailResolutionTests(TestCase):
+    def test_direct_login_normalizes_email_case_and_spaces(self):
+        get_user_model().objects.create_user(
+            email="researcher@uw.edu",
+            password="TestPass123!",
+        )
+
+        response = self.client.post(
+            reverse("signin"),
+            {
+                "email": "  Researcher@UW.EDU  ",
+                "password": "TestPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard"))
+
+    def test_recovery_finds_verified_provider_email_alias(self):
+        user = get_user_model().objects.create_user(
+            email="provider-primary@example.com",
+            password=None,
+            first_name="Pat",
+        )
+        EmailAddress.objects.create(
+            user=user,
+            email="Pat.Researcher@UW.EDU",
+            verified=True,
+        )
+
+        response = self.client.post(
+            f"{reverse('signin')}?recover=1",
+            {
+                "flow": "recovery",
+                "send_code": "1",
+                "email": "  pat.researcher@uw.edu  ",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn(
+            "We couldn't find an account for that email address.",
+            response.content.decode(),
+        )
+        self.assertEqual(self.client.session["recovery_email"], "pat.researcher@uw.edu")
+
+    def test_recovery_ignores_unverified_provider_email_alias(self):
+        user = get_user_model().objects.create_user(
+            email="unverified-primary@example.com",
+            password=None,
+        )
+        EmailAddress.objects.create(
+            user=user,
+            email="unverified-alias@uw.edu",
+            verified=False,
+        )
+
+        response = self.client.post(
+            f"{reverse('signin')}?recover=1",
+            {
+                "flow": "recovery",
+                "send_code": "1",
+                "email": "unverified-alias@uw.edu",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertContains(
+            response,
+            "We couldn&#x27;t find an account for that email address.",
+        )
+
+    def test_oauth_only_account_is_not_treated_as_nonexistent_in_recovery(self):
+        user = get_user_model().objects.create_user(
+            email="oauth-only@uw.edu",
+            password=None,
+        )
+        self.assertFalse(user.has_usable_password())
+        EmailAddress.objects.create(
+            user=user,
+            email="oauth-only@uw.edu",
+            verified=True,
+        )
+
+        response = self.client.post(
+            f"{reverse('signin')}?recover=1",
+            {
+                "flow": "recovery",
+                "send_code": "1",
+                "email": "OAUTH-ONLY@UW.EDU",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn(
+            "We couldn't find an account for that email address.",
+            response.content.decode(),
+        )
+
+    def test_signup_rejects_duplicate_email_differing_only_by_case(self):
+        get_user_model().objects.create_user(
+            email="CaseSensitive@uw.edu",
+            password="TestPass123!",
+        )
+
+        response = self.client.post(
+            f"{reverse('signup')}?fresh=1",
+            {
+                "send_code": "1",
+                "email": "casesensitive@UW.EDU",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertContains(response, "That email is already in use. Sign In instead.")
+
+    def test_social_pre_login_links_existing_user_case_insensitively(self):
+        existing_user = get_user_model().objects.create_user(
+            email="linked-user@uw.edu",
+            password="TestPass123!",
+        )
+
+        class FakeSocialLogin:
+            is_existing = False
+
+            def __init__(self):
+                self.user = get_user_model()(email="  LINKED-USER@UW.EDU  ")
+                self.email_addresses = []
+                self.connected_user = None
+
+            def connect(self, request, user):
+                self.connected_user = user
+
+        sociallogin = FakeSocialLogin()
+
+        CustomSocialAccountAdapter().pre_social_login(
+            RequestFactory().get("/signin/oauth/"),
+            sociallogin,
+        )
+
+        self.assertEqual(sociallogin.connected_user, existing_user)
+        self.assertEqual(
+            get_user_model().objects.filter(email__iexact="linked-user@uw.edu").count(),
+            1,
+        )
+
+    def test_inactive_recovery_account_is_not_reset_or_logged_in(self):
+        user = get_user_model().objects.create_user(
+            email="inactive@uw.edu",
+            password="OldPass123!",
+            is_active=False,
+        )
+        session = self.client.session
+        session["recovery_step"] = 3
+        session["recovery_email"] = "inactive@uw.edu"
+        session["recovery_code_verified"] = True
+        session["recovery_verify_code_sent_at"] = int(timezone.now().timestamp())
+        session.save()
+
+        response = self.client.post(
+            f"{reverse('signin')}?recover=1",
+            {
+                "flow": "recovery",
+                "reset_password": "1",
+                "password": "NewPass123!",
+                "verify_password": "NewPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "This account cannot sign in right now. Contact support if you need help.",
+        )
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("OldPass123!"))
+        self.assertNotIn("_auth_user_id", self.client.session)
 
 
 @override_settings(

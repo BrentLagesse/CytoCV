@@ -13,6 +13,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.validators import EmailValidator, RegexValidator, ValidationError
 from django.forms import models
 
+from accounts.email_lookup import email_matches_existing_account, normalize_auth_email
+
 
 class SignupForm(models.ModelForm):
     """Signup form with email and password validation.
@@ -49,10 +51,9 @@ class SignupForm(models.ModelForm):
 
     def clean_email(self) -> str:
         """Ensure the email is unique."""
-        UserModel = get_user_model()
-        email = self.cleaned_data.get('email')
+        email = normalize_auth_email(self.cleaned_data.get('email'))
         # Validate uniqueness for email-based login flows.
-        if UserModel.objects.filter(email=email).exists():
+        if email_matches_existing_account(email):
             raise forms.ValidationError("Email already in use.")
         return email
 

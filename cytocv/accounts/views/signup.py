@@ -25,6 +25,7 @@ from accounts.email_content import (
     build_auth_email_logo_src,
     build_signup_verification_email,
 )
+from accounts.email_lookup import email_matches_existing_account, normalize_auth_email
 from accounts.security.recaptcha import recaptcha_enabled, verify_recaptcha_response
 from core.security.rate_limit import get_client_ip
 
@@ -137,7 +138,7 @@ def _code_sent_flag(request: HttpRequest) -> bool:
 
 def _normalize_email(email: str) -> str:
     """Normalize user-provided email input."""
-    return email.strip()
+    return normalize_auth_email(email)
 
 
 def _should_reset_signup(request: HttpRequest) -> bool:
@@ -452,7 +453,7 @@ def signup(request: HttpRequest) -> HttpResponse:
 
         if "send_code" in request.POST:
             # Step 2: validate email, then send a new verification code.
-            values["email"] = _normalize_email(request.POST.get("email") or "").lower()
+            values["email"] = _normalize_email(request.POST.get("email") or "")
             session["signup_email"] = values["email"]
             session.pop("signup_code_verified", None)
             session.pop("verify_code_locked", None)
@@ -464,7 +465,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 except ValidationError:
                     _add_error(errors, "email", "Enter a valid email address")
                     return
-                if user_model.objects.filter(email__iexact=email).exists():
+                if email_matches_existing_account(email):
                     _add_error(errors, "email", "That email is already in use. Sign In instead.")
 
             if not values["email"]:
@@ -673,6 +674,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 )
 
             try:
+                values["email"] = _normalize_email(values["email"])
+                session["signup_email"] = values["email"]
                 EmailValidator()(values["email"])
             except ValidationError:
                 _add_error(errors, "email", "Enter a valid email address")
@@ -680,7 +683,7 @@ def signup(request: HttpRequest) -> HttpResponse:
                 session["signup_step"] = 2
                 return render_current()
 
-            if user_model.objects.filter(email__iexact=values["email"]).exists():
+            if email_matches_existing_account(values["email"]):
                 _add_error(errors, "email", "That email is already in use. Sign In instead.")
                 step = 2
                 session["signup_step"] = 2
