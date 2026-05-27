@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -46,6 +46,32 @@ def _log_ambiguous_email_lookup(normalized_email: str, *, source: str) -> None:
     )
 
 
+def _ambiguous_result(normalized_email: str, *, source: str) -> EmailLookupResult:
+    """Return an ambiguous lookup result and emit safe diagnostics."""
+    _log_ambiguous_email_lookup(normalized_email, source=source)
+    return EmailLookupResult(
+        normalized_email=normalized_email,
+        exists=True,
+        ambiguous=True,
+        source=source,
+    )
+
+
+def _matched_result(
+    normalized_email: str,
+    *,
+    user: Any,
+    source: str,
+) -> EmailLookupResult:
+    """Return a successful single-account lookup result."""
+    return EmailLookupResult(
+        normalized_email=normalized_email,
+        user=user,
+        exists=True,
+        source=source,
+    )
+
+
 def resolve_user_by_email(
     email: str | None,
     *,
@@ -68,18 +94,11 @@ def resolve_user_by_email(
         )[:2]
     )
     if len(direct_matches) > 1:
-        _log_ambiguous_email_lookup(normalized_email, source="custom_user")
-        return EmailLookupResult(
-            normalized_email=normalized_email,
-            exists=True,
-            ambiguous=True,
-            source="custom_user",
-        )
+        return _ambiguous_result(normalized_email, source="custom_user")
     if direct_matches:
-        return EmailLookupResult(
-            normalized_email=normalized_email,
+        return _matched_result(
+            normalized_email,
             user=direct_matches[0],
-            exists=True,
             source="custom_user",
         )
 
@@ -89,7 +108,7 @@ def resolve_user_by_email(
     try:
         from allauth.account.models import EmailAddress
     except Exception:
-        logger.exception("Unable to import allauth EmailAddress for email lookup.")
+        logger.exception("Unable to import allauth EmailAddress for account lookup.")
         return EmailLookupResult(normalized_email=normalized_email)
 
     verified_aliases = list(
@@ -109,18 +128,11 @@ def resolve_user_by_email(
             users_by_id[alias.user_id] = alias.user
 
     if len(users_by_id) > 1:
-        _log_ambiguous_email_lookup(normalized_email, source="verified_email_alias")
-        return EmailLookupResult(
-            normalized_email=normalized_email,
-            exists=True,
-            ambiguous=True,
-            source="verified_email_alias",
-        )
+        return _ambiguous_result(normalized_email, source="verified_email_alias")
 
-    return EmailLookupResult(
-        normalized_email=normalized_email,
+    return _matched_result(
+        normalized_email,
         user=next(iter(users_by_id.values())),
-        exists=True,
         source="verified_email_alias",
     )
 

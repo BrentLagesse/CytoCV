@@ -150,6 +150,12 @@ def _add_error(errors: dict[str, list[str]], field: str, message: str) -> None:
     errors.setdefault(field, []).append(message)
 
 
+def _clear_recovery_email_state(request: HttpRequest, values: dict[str, str]) -> None:
+    """Clear recovery email state after an account-level recovery failure."""
+    values["email"] = ""
+    request.session.pop("recovery_email", None)
+
+
 def _summarize_password_errors(messages: list[str]) -> str:
     """Combine password validation messages into a single sentence."""
     flags: set[str] = set()
@@ -394,6 +400,34 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
             logger.exception("Failed to send password recovery verification email.")
             return False
 
+    def add_recovery_account_error(user) -> bool:
+        """Add a safe recovery account error when the user cannot proceed."""
+        nonlocal page_error
+        if user is None:
+            message = "We couldn't find an account for that email address."
+        elif not user.is_active:
+            message = ACCOUNT_CANNOT_SIGN_IN_MESSAGE
+        else:
+            return False
+        _add_error(errors, "email", message)
+        page_error = message
+        _clear_recovery_email_state(request, values)
+        return True
+
+    def find_active_recovery_user(email: str):
+        """Return an active account for recovery, adding safe errors otherwise."""
+        user = find_user_by_email(email)
+        if add_recovery_account_error(user):
+            return None
+        return user
+
+    def return_to_recovery_email_step() -> HttpResponse:
+        """Return to the first recovery step after account resolution fails."""
+        nonlocal step
+        session["recovery_step"] = 1
+        step = 1
+        return render_current()
+
     if request.method == "POST":
         # Navigation controls do not perform field validation.
         if "cancel_recovery" in request.POST:
@@ -426,17 +460,7 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 except ValidationError:
                     _add_error(errors, "email", "Enter a valid email address")
                 else:
-                    recovery_user = find_user_by_email(values["email"])
-                    if recovery_user is None:
-                        _add_error(errors, "email", "We couldn't find an account for that email address.")
-                        page_error = "We couldn't find an account for that email address."
-                        values["email"] = ""
-                        session.pop("recovery_email", None)
-                    elif not recovery_user.is_active:
-                        _add_error(errors, "email", ACCOUNT_CANNOT_SIGN_IN_MESSAGE)
-                        page_error = ACCOUNT_CANNOT_SIGN_IN_MESSAGE
-                        values["email"] = ""
-                        session.pop("recovery_email", None)
+                    recovery_user = find_active_recovery_user(values["email"])
 
             if errors:
                 step = 1
@@ -482,22 +506,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
 
             verify_code = _generate_recovery_code()
             recovery_user = find_user_by_email(values["email"])
-            if recovery_user is None:
-                _add_error(errors, "email", "We couldn't find an account for that email address.")
-                page_error = "We couldn't find an account for that email address."
-                values["email"] = ""
-                session.pop("recovery_email", None)
-                session["recovery_step"] = 1
-                step = 1
-                return render_current()
-            if not recovery_user.is_active:
-                _add_error(errors, "email", ACCOUNT_CANNOT_SIGN_IN_MESSAGE)
-                page_error = ACCOUNT_CANNOT_SIGN_IN_MESSAGE
-                values["email"] = ""
-                session.pop("recovery_email", None)
-                session["recovery_step"] = 1
-                step = 1
-                return render_current()
+            if add_recovery_account_error(recovery_user):
+                return return_to_recovery_email_step()
 
             if not send_code_email(values["email"], verify_code, recovery_user):
                 page_error = "We couldn't resend the recovery code right now. Try again."
@@ -603,22 +613,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             user = find_user_by_email(email)
-            if user is None:
-                _add_error(errors, "email", "We couldn't find an account for that email address.")
-                page_error = "We couldn't find an account for that email address."
-                values["email"] = ""
-                session.pop("recovery_email", None)
-                session["recovery_step"] = 1
-                step = 1
-                return render_current()
-            if not user.is_active:
-                _add_error(errors, "email", ACCOUNT_CANNOT_SIGN_IN_MESSAGE)
-                page_error = ACCOUNT_CANNOT_SIGN_IN_MESSAGE
-                values["email"] = ""
-                session.pop("recovery_email", None)
-                session["recovery_step"] = 1
-                step = 1
-                return render_current()
+            if add_recovery_account_error(user):
+                return return_to_recovery_email_step()
 
             password = request.POST.get("password") or ""
             verify_password = request.POST.get("verify_password") or ""
