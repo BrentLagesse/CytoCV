@@ -7314,6 +7314,8 @@
         if (!btnText || !phase) return;
         if (phase === 'Validating Files') {
             btnText.textContent = 'Validating Files';
+        } else if (phase === 'Extracting Image Metadata') {
+            btnText.textContent = 'Extracting Image Metadata';
         } else if (phase === 'Preparing Previews') {
             btnText.textContent = 'Preparing Previews';
         } else {
@@ -7682,12 +7684,12 @@
 
                 uploadedRunUuids.forEach((uuid) => prepData.append('new_run_uuids', uuid));
                 const uploadPrepUsesWorker = UPLOAD_PREPARATION_EXECUTION_MODE === 'worker';
-                applyUploadPhaseText(btnText, uploadPrepUsesWorker ? 'Queued' : 'Preparing Files');
+                applyUploadPhaseText(btnText, uploadPrepUsesWorker ? 'Queued' : 'Preparing Upload');
                 setUploadProgressForButton(submitBtn, {
-                    phase: uploadPrepUsesWorker ? 'Queued' : 'Preparing Files',
+                    phase: uploadPrepUsesWorker ? 'Queued' : 'Preparing Upload',
                     message: uploadPrepUsesWorker
                         ? 'Waiting for upload-preparation worker.'
-                        : 'Preparing upload in this request.',
+                        : 'Validating files, extracting metadata, and preparing previews in this request.',
                 });
                 const prepResponse = await fetch('{% url "experiment_upload_prepare" %}', {
                     method: 'POST',

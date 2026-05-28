@@ -17,6 +17,7 @@ from django.utils import timezone
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.metadata_processing.error_handling import SourceImageValidationResult
 from core.models import AnalysisJob, UploadedImage, UploadPreparationJob
+from core.services import upload_preparation as upload_preparation_service
 from core.services.analysis_jobs import enqueue_analysis_job
 from core.services.upload_preparation import (
     UPLOAD_PREPARATION_STORAGE_FULL_MESSAGE,
@@ -138,6 +139,60 @@ class UploadPreparationTestCase(TestCase):
             self.assertEqual(job.valid_run_uuids, [str(uploaded.uuid)])
             self.assertEqual(uploaded.scale_info.get("source"), "metadata")
             self.assertTrue((media_root / str(uploaded.uuid) / "channel_config.json").exists())
+
+    def test_upload_preparation_job_reports_metadata_before_previews(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="phase_order")
+            job = enqueue_upload_preparation_job(
+                user_id=self.user.id,
+                new_run_uuids=[str(uploaded.uuid)],
+                restored_run_uuids=[],
+                config_snapshot=self._config_snapshot(),
+            )
+            phase_calls = []
+            original_set_phase = upload_preparation_service._set_phase
+
+            def record_phase(job_arg, phase, *, detail=None):
+                phase_calls.append((phase, dict(detail or {})))
+                return original_set_phase(job_arg, phase, detail=detail)
+
+            with patch(
+                "core.services.upload_preparation.validate_source_image_file",
+                return_value=self._valid_result(),
+            ), patch(
+                "core.services.upload_preparation.extract_dv_scale_metadata",
+                return_value={},
+            ), patch(
+                "core.services.upload_preparation.extract_channel_config",
+                return_value=DEFAULT_CHANNEL_CONFIG,
+            ), patch(
+                "core.services.upload_preparation.generate_preview_assets",
+                return_value=[],
+            ), patch(
+                "core.services.upload_preparation._set_phase",
+                side_effect=record_phase,
+            ):
+                run_upload_preparation_job(job)
+
+            job.refresh_from_db()
+            self.assertEqual(
+                [phase for phase, _detail in phase_calls] + [job.current_phase],
+                [
+                    "Validating Files",
+                    "Validating Files",
+                    "Extracting Image Metadata",
+                    "Preparing Previews",
+                    "Completed",
+                ],
+            )
+            self.assertEqual(
+                phase_calls[2][1]["message"],
+                "Reading scale calibration and channel assignments.",
+            )
+            self.assertEqual(
+                phase_calls[3][1]["message"],
+                "Rendering browser preview assets.",
+            )
 
     def test_upload_preparation_passes_channel_order_snapshot_to_extractor(self):
         with temporary_media_root() as media_root:
@@ -338,12 +393,12 @@ class UploadPreparationTestCase(TestCase):
         )
         UploadPreparationJob.objects.filter(pk=job.pk).update(
             status=UploadPreparationJob.Status.RUNNING,
-            current_phase="Preparing Previews",
+            current_phase="Extracting Image Metadata",
             progress_detail={
                 "fileIndex": 2,
                 "fileTotal": 4,
-                "fileName": "../preview_detail.dv",
-                "message": "Preview generation is running.",
+                "fileName": "../metadata_detail.dv",
+                "message": "Reading scale calibration and channel assignments.",
                 "unsafe": "ignored",
             },
         )
@@ -354,12 +409,12 @@ class UploadPreparationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["phase"], "Preparing Previews")
+        self.assertEqual(payload["phase"], "Extracting Image Metadata")
         self.assertEqual(
             payload["detail"],
             {
-                "fileName": "preview_detail.dv",
-                "message": "Preview generation is running.",
+                "fileName": "metadata_detail.dv",
+                "message": "Reading scale calibration and channel assignments.",
                 "fileIndex": 2,
                 "fileTotal": 4,
             },
