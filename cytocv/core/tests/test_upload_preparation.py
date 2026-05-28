@@ -186,6 +186,10 @@ class UploadPreparationTestCase(TestCase):
                 ],
             )
             self.assertEqual(
+                phase_calls[1][1]["message"],
+                "Checking file format, layer count, and required channels.",
+            )
+            self.assertEqual(
                 phase_calls[2][1]["message"],
                 "Reading scale calibration and channel assignments.",
             )

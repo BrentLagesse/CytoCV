@@ -214,6 +214,7 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                     "fileIndex": index,
                     "fileTotal": requested_total,
                     "fileName": _display_file_name(uploaded, run_uuid),
+                    "message": "Checking file format, layer count, and required channels.",
                 },
             )
             if uploaded is None:
