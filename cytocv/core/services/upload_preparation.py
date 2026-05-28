@@ -146,7 +146,7 @@ def _missing_upload_result(required_channels: set[str]) -> SourceImageValidation
     )
 
 
-def _prepare_one_upload(
+def _extract_upload_metadata(
     *,
     uploaded: UploadedImage,
     manual_um_per_px: float,
@@ -174,6 +174,9 @@ def _prepare_one_upload(
         fallback_order=fallback_channel_order,
     )
     _write_channel_config(str(uploaded.uuid), channel_config)
+
+
+def _prepare_upload_preview(*, uploaded: UploadedImage) -> None:
     generate_preview_assets(uploaded, expected_layers=4)
 
 
@@ -249,11 +252,28 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                 failure_summary="\n".join(error_lines),
             )
 
-        _set_phase(job, "Preparing Previews")
         valid_total = len(valid_run_uuids)
         for index, run_uuid in enumerate(valid_run_uuids, start=1):
             _raise_if_cancelled(job)
             uploaded = UploadedImage.objects.get(uuid=run_uuid, **owner_filter)
+            _set_phase(
+                job,
+                "Extracting Image Metadata",
+                detail={
+                    "fileIndex": index,
+                    "fileTotal": valid_total,
+                    "fileName": _display_file_name(uploaded, run_uuid),
+                    "message": "Reading scale calibration and channel assignments.",
+                },
+            )
+            _extract_upload_metadata(
+                uploaded=uploaded,
+                manual_um_per_px=manual_um_per_px,
+                prefer_metadata_scale=prefer_metadata_scale,
+                prefer_metadata_channel_order=prefer_metadata_channel_order,
+                fallback_channel_order=fallback_channel_order,
+            )
+            _raise_if_cancelled(job)
             _set_phase(
                 job,
                 "Preparing Previews",
@@ -261,15 +281,10 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                     "fileIndex": index,
                     "fileTotal": valid_total,
                     "fileName": _display_file_name(uploaded, run_uuid),
+                    "message": "Rendering browser preview assets.",
                 },
             )
-            _prepare_one_upload(
-                uploaded=uploaded,
-                manual_um_per_px=manual_um_per_px,
-                prefer_metadata_scale=prefer_metadata_scale,
-                prefer_metadata_channel_order=prefer_metadata_channel_order,
-                fallback_channel_order=fallback_channel_order,
-            )
+            _prepare_upload_preview(uploaded=uploaded)
 
         error_lines = build_source_image_error_messages(failures, validation_options)
         return finalize_upload_preparation_job(

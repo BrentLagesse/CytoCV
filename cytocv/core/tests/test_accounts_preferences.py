@@ -48,6 +48,40 @@ from core.stats_plugins import PLUGIN_DEFINITIONS
 
 
 class PreferenceNormalizationTests(TestCase):
+    def test_new_account_preferences_default_signal_modes_to_balanced(self):
+        user = get_user_model().objects.create_user(
+            email="new-balanced-defaults@example.com",
+            password="TestPass123!",
+        )
+
+        defaults = get_user_preferences(user)["experiment_defaults"]
+
+        self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
+        self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["red_dot_split_mode"], "balanced")
+
+    def test_existing_account_aggressive_signal_modes_are_preserved(self):
+        user = get_user_model().objects.create_user(
+            email="existing-aggressive-defaults@example.com",
+            password="TestPass123!",
+        )
+        user.config = {
+            "preferences": {
+                "experiment_defaults": {
+                    "nuclear_cell_pair_contour_mode": "aggressive",
+                    "green_dot_split_mode": "aggressive",
+                    "red_dot_split_mode": "aggressive",
+                }
+            }
+        }
+        user.save(update_fields=["config"])
+
+        defaults = get_user_preferences(user)["experiment_defaults"]
+
+        self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "aggressive")
+        self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
+
     def test_default_payload_uses_expected_plugin_defaults(self):
         normalized = normalize_preferences_payload({})
         defaults = normalized["experiment_defaults"]
