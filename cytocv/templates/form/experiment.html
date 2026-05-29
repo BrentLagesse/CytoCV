@@ -7281,6 +7281,8 @@
     }
 
     const UPLOAD_PREPARATION_TIMEOUT_MS = 1800000;
+    const UPLOAD_PREPARATION_POLL_INITIAL_DELAY_MS = 50;
+    const UPLOAD_PREPARATION_POLL_MAX_DELAY_MS = 500;
     const UPLOAD_CONTROL_SELECTOR = '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .workflow-default-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn';
 
     function getUploadSubmitParts() {
@@ -7421,7 +7423,7 @@
 
     async function pollUploadPreparationJob(jobUuid, { signal, deadline, submitBtn, btnText }) {
         const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-        let delay = 800;
+        let delay = UPLOAD_PREPARATION_POLL_INITIAL_DELAY_MS;
         while (Date.now() < deadline) {
             const statusResponse = await fetch(`/api/experiment/upload-prep/${encodeURIComponent(jobUuid)}/`, {
                 cache: 'no-store',
@@ -7440,7 +7442,7 @@
                 return;
             }
             await wait(delay);
-            delay = Math.min(2000, Math.round(delay * 1.25));
+            delay = Math.min(UPLOAD_PREPARATION_POLL_MAX_DELAY_MS, Math.round(delay * 1.15));
         }
         throw new DOMException('Upload timed out.', 'AbortError');
     }
