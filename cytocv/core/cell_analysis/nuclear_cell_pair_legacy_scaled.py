@@ -37,13 +37,22 @@ def select_legacy_exact_cell_pair_mask(
     fallback_mask: np.ndarray,
     shape: tuple[int, int],
 ) -> tuple[np.ndarray, bool]:
-    """Return the exact label-pixel cell-pair mask when one is available."""
+    """Return a valid exact label-pixel cell-pair mask or the current fallback.
+
+    The exact label-pixel mask exists only for the hybrid legacy mode. It matches
+    YeastAnalysisTool's cell-pair summing support more closely while keeping
+    CytoCV's modern nucleus contours and channel identity.
+    """
 
     candidate = contours_data.get(LEGACY_EXACT_CELL_PAIR_MASK_KEY)
     if candidate is None:
-        return fallback_mask, False
+        return fallback_mask, True
     mask = np.asarray(candidate)
+    if mask.shape[:2] != shape:
+        return fallback_mask, True
     if mask.ndim == 3:
         mask = mask[:, :, 0]
     mask = np.where(mask > 0, 255, 0).astype(np.uint8)
+    if not np.any(mask):
+        return fallback_mask, True
     return mask, False
