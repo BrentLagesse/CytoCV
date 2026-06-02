@@ -173,7 +173,7 @@ class NuclearCellPairIntensity(Analysis):
         if nucleus_mask.ndim == 3:
             nucleus_mask = cv2.cvtColor(nucleus_mask, cv2.COLOR_BGR2GRAY)
         nucleus_mask = np.where(nucleus_mask > 0, 255, 0).astype(np.uint8)
-        nucleus_mask = cv2.bitwise_and(nucleus_mask, cell_mask)
+        nucleus_mask = cv2.bitwise_and(nucleus_mask, cell_measurement_mask)
         clipped_nucleus_contours, _ = cv2.findContours(
             nucleus_mask.copy(),
             cv2.RETR_EXTERNAL,
