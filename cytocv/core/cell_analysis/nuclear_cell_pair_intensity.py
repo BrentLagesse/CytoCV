@@ -13,6 +13,10 @@ from core.services.nuclear_cell_pair_contour_mode import (
     normalize_nuclear_cell_pair_contour_mode,
 )
 from .analysis import Analysis
+from .nuclear_cell_pair_legacy_scaled import (
+    legacy_scaled_measurement_keys,
+    truthy_legacy_flag,
+)
 
 
 class NuclearCellPairIntensity(Analysis):
@@ -84,6 +88,11 @@ class NuclearCellPairIntensity(Analysis):
         )
 
         contour_keys, measure_keys, contour_channel, measurement_channel = self._MODE_CONFIG[mode]
+        use_legacy_scaled_measurement = truthy_legacy_flag(
+            props.get("use_legacy_nuclear_cell_pair_pipeline")
+        )
+        if use_legacy_scaled_measurement:
+            measure_keys = legacy_scaled_measurement_keys(mode)
         contour_img = self._first_available_image(contour_keys)
         measure_img = self._first_available_image(measure_keys)
 
