@@ -15,6 +15,7 @@ from core.services.nuclear_cell_pair_contour_mode import (
 from .analysis import Analysis
 from .nuclear_cell_pair_legacy_scaled import (
     legacy_scaled_measurement_keys,
+    select_legacy_exact_cell_pair_mask,
     truthy_legacy_flag,
 )
 
@@ -158,6 +159,16 @@ class NuclearCellPairIntensity(Analysis):
 
         nucleus_slot = source_slots[0]
         cell_mask = np.where(cell_mask > 0, 255, 0).astype(np.uint8)
+        cell_measurement_mask = cell_mask
+        legacy_cell_mask_fallback = False
+        if use_legacy_scaled_measurement:
+            cell_measurement_mask, legacy_cell_mask_fallback = (
+                select_legacy_exact_cell_pair_mask(
+                    slot_payload,
+                    cell_mask,
+                    (h, w),
+                )
+            )
         nucleus_mask = np.asarray(nucleus_slot.mask)
         if nucleus_mask.ndim == 3:
             nucleus_mask = cv2.cvtColor(nucleus_mask, cv2.COLOR_BGR2GRAY)
@@ -187,7 +198,7 @@ class NuclearCellPairIntensity(Analysis):
             return
 
         measure_values = measure_img.astype(np.float64, copy=False)
-        cell_pixels = measure_values[cell_mask > 0]
+        cell_pixels = measure_values[cell_measurement_mask > 0]
         nucleus_pixels = measure_values[nucleus_mask > 0]
 
         cell_intensity = float(np.sum(cell_pixels)) if cell_pixels.size else 0.0
