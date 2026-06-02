@@ -2595,6 +2595,10 @@
                                                 <span class="metric-label">Cytoplasmic Intensity</span>
                                                 <span class="metric-value" id="cytoplasmicIntensity"></span>
                                             </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Nuclear / Cytoplasmic Ratio</span>
+                                                <span class="metric-value" id="nuclearCytoplasmicRatio"></span>
+                                            </div>
                                         </div>
                                         <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
@@ -2971,6 +2975,7 @@
             'nucleusIntensitySum',
             'cellPairIntensitySum',
             'cytoplasmicIntensity',
+            'nuclearCytoplasmicRatio',
             'cellParentage',
             'cenDot',
             'colinearDots',
@@ -3042,6 +3047,7 @@
             'cell_pair_intensity_sum',
             'nucleus_intensity_sum',
             'cytoplasmic_intensity',
+            'nuclear_cytoplasmic_ratio',
             'cell_parentage',
             'category_cen_dot',
             'colinear_dots',
@@ -3087,6 +3093,7 @@
                 'cell_pair_intensity_sum',
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
+                'nuclear_cytoplasmic_ratio',
             ],
             cen_dot: ['cell_parentage', 'category_cen_dot'],
             biorientation: ['colinear_dots', 'off_axis_dots'],
@@ -3487,6 +3494,7 @@
                     nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
                     cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
                     cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
+                    nuclearCytoplasmicRatio: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nuclear_cytoplasmic_ratio),
                     cellParentage,
                     cenDot: category,
                     colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),
@@ -4159,6 +4167,7 @@
                 'cell_pair_intensity_sum',
                 'nucleus_intensity_sum',
                 'cytoplasmic_intensity',
+                'nuclear_cytoplasmic_ratio',
             ]);
             const scaleContext = getScaleContext(fileData);
             updateSpatialUnitControls(fileData);
