@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 import django_tables2 as tables
 from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
@@ -38,6 +40,7 @@ NUCLEAR_CELL_PAIR_LABELS = {
     "green_nucleus": ("Red Cell-Pair Intensity", "Red Nuclear Intensity"),
 }
 FALLBACK_NUCLEAR_CELL_PAIR_LABELS = ("Measured Cell-Pair Intensity", "Measured Nuclear Intensity")
+EXPORT_DECIMAL_PLACES = Decimal("0.001")
 
 
 class NumberColumn(tables.Column):
@@ -313,9 +316,6 @@ class CellTable(tables.Table):
                 unit=self._spatial_stats_unit,
             )
 
-    def as_values(self, exclude_columns=None):
-        yield from super().as_values(exclude_columns=exclude_columns)
-
     @classmethod
     def _resolve_stat_visibility(
         cls,
@@ -351,6 +351,125 @@ class CellTable(tables.Table):
             return "{:0.3f}".format(float(value))
         except (TypeError, ValueError):
             return "N/A"
+
+    @staticmethod
+    def _export_decimal(value: float) -> Decimal | str:
+        try:
+            decimal_value = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return "N/A"
+        if not decimal_value.is_finite():
+            return "N/A"
+        return decimal_value.quantize(EXPORT_DECIMAL_PLACES)
+
+    @staticmethod
+    def _export_int(value: int) -> int | str:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return "N/A"
+
+    def _export_spatial_value(
+        self,
+        field_name: str,
+        value: float,
+        record: CellStatistics,
+    ) -> Decimal | str:
+        if not self._field_is_applicable(record, field_name):
+            return "N/A"
+        return self._export_decimal(
+            self._converted_spatial_value(field_name, value, record)
+        )
+
+    def _export_nuclear_cell_pair_value(
+        self,
+        record: CellStatistics,
+        value: float,
+    ) -> Decimal | str:
+        if not self._field_is_applicable(record, "cell_pair_intensity_sum"):
+            return "N/A"
+        if self._has_no_nucleus_contour(record):
+            return "N/A"
+        return self._export_decimal(value)
+
+    def _export_measurement_contour_ratio_value(
+        self,
+        record: CellStatistics,
+        index: int,
+        field_name: str,
+    ) -> Decimal | str:
+        if not self._field_is_applicable(record, field_name):
+            return "N/A"
+        return self._export_decimal(self._measurement_contour_ratio_value(record, index))
+
+    def _export_generic_number(
+        self,
+        field_name: str,
+        value: float,
+        record: CellStatistics,
+    ) -> Decimal | str:
+        column = self.columns[field_name].column
+        if (
+            isinstance(column, NumberColumn)
+            and column.stat_field
+            and not self._field_is_applicable(record, column.stat_field)
+        ):
+            return "N/A"
+        return self._export_decimal(value)
+
+    def _export_cell_value(self, field_name: str, row, record: CellStatistics):
+        if field_name == "cell_id":
+            return self._export_int(getattr(record, field_name, None))
+
+        if (
+            field_name in self.SPATIAL_FIELDS
+            and self.SPATIAL_FIELDS[field_name] != "coordinate"
+        ):
+            return self._export_spatial_value(
+                field_name,
+                getattr(record, field_name, None),
+                record,
+            )
+
+        if field_name in {
+            "cell_pair_intensity_sum",
+            "nucleus_intensity_sum",
+            "cytoplasmic_intensity",
+            "nuclear_cytoplasmic_ratio",
+        }:
+            return self._export_nuclear_cell_pair_value(
+                record,
+                getattr(record, field_name, None),
+            )
+
+        ratio_fields = {
+            "green_red_intensity_1": 1,
+            "green_red_intensity_2": 2,
+            "green_red_intensity_3": 3,
+        }
+        if field_name in ratio_fields:
+            return self._export_measurement_contour_ratio_value(
+                record,
+                ratio_fields[field_name],
+                field_name,
+            )
+
+        if field_name in {"colinear_dots", "off_axis_dots"}:
+            if not self._field_is_applicable(record, field_name):
+                return "N/A"
+            return self._export_int(getattr(record, field_name, None))
+
+        if field_name in self.columns and isinstance(
+            self.columns[field_name].column,
+            NumberColumn,
+        ):
+            return self._export_generic_number(
+                field_name,
+                getattr(record, field_name, None),
+                record,
+            )
+
+        return row.get_cell_value(field_name)
 
     def render_cell_parentage(self, record: CellStatistics) -> str:
         if not self._field_is_applicable(record, "cell_parentage"):
@@ -652,6 +771,24 @@ class CellTable(tables.Table):
 
     def value_off_axis_dots(self, value: int, record: CellStatistics) -> str:
         return self.render_off_axis_dots(value, record)
+
+    def as_values(self, exclude_columns=None):
+        if exclude_columns is None:
+            exclude_columns = ()
+
+        columns = [
+            column
+            for column in self.columns.iterall()
+            if not (column.column.exclude_from_export or column.name in exclude_columns)
+        ]
+
+        yield [str(column.header) for column in columns]
+
+        for row in self.rows:
+            yield [
+                self._export_cell_value(column.name, row, row.record)
+                for column in columns
+            ]
 
 class CellTableView(ExportMixin, SingleTableView):
     """Table view with CSV/XLSX export support for cell statistics."""

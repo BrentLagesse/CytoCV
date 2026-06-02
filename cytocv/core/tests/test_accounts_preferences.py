@@ -1340,6 +1340,16 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Green In Green Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
+        self.assertEqual(sheet.cell(row=2, column=1).value, 1)
+        self.assertEqual(sheet.cell(row=2, column=1).data_type, "n")
+        red_intensity_col = headers.index("Red In Red Intensity 1") + 1
+        red_intensity_cell = sheet.cell(row=2, column=red_intensity_col)
+        self.assertEqual(red_intensity_cell.value, 5)
+        self.assertEqual(red_intensity_cell.data_type, "n")
+        cen_dot_col = headers.index("Cen Dot Location") + 1
+        cen_dot_cell = sheet.cell(row=2, column=cen_dot_col)
+        self.assertEqual(cen_dot_cell.value, "Mother and daughter")
+        self.assertEqual(cen_dot_cell.data_type, "s")
 
     def test_dashboard_single_export_filename_scope_tracks_metric_selection(self):
         saved_uuid = self._create_display_file(
@@ -1660,6 +1670,13 @@ class DisplayManualSaveTests(TestCase):
             [row[0] for row in rows[1:]],
             ["combined_xlsx_first", "combined_xlsx_second"],
         )
+        workbook = load_workbook(BytesIO(response.content))
+        sheet = workbook.active
+        red_intensity_cell = sheet.cell(row=2, column=3)
+        ratio_cell = sheet.cell(row=2, column=4)
+        self.assertEqual(red_intensity_cell.value, 5)
+        self.assertEqual(red_intensity_cell.data_type, "n")
+        self.assertEqual(ratio_cell.data_type, "n")
 
     def test_dashboard_combined_export_filename_scope_tracks_metric_selection(self):
         first_uuid = self._create_display_file(
