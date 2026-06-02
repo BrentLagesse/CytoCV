@@ -191,6 +191,7 @@ class CellTable(tables.Table):
     cell_pair_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[0])
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
+    nuclear_cytoplasmic_ratio = NumberColumn(verbose_name="Nuclear / Cytoplasmic Ratio")
 
     cell_parentage = tables.Column(verbose_name="Cell Parentage", empty_values=())
     category_cen_dot = ChoiceLabelColumn(
@@ -244,6 +245,7 @@ class CellTable(tables.Table):
             "cell_pair_intensity_sum",
             "nucleus_intensity_sum",
             "cytoplasmic_intensity",
+            "nuclear_cytoplasmic_ratio",
             "cell_parentage",
             "category_cen_dot",
             "colinear_dots",
@@ -570,6 +572,12 @@ class CellTable(tables.Table):
         return self._render_nuclear_cell_pair_value(record, value)
 
     def value_cytoplasmic_intensity(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cell_pair_value(record, value)
+
+    def render_nuclear_cytoplasmic_ratio(self, value: float, record: CellStatistics) -> str:
+        return self._render_nuclear_cell_pair_value(record, value)
+
+    def value_nuclear_cytoplasmic_ratio(self, value: float, record: CellStatistics) -> str:
         return self._render_nuclear_cell_pair_value(record, value)
 
     def _measurement_contour_ratio_value(self, record: CellStatistics, index: int) -> float:
