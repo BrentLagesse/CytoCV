@@ -2023,6 +2023,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 nucleus_intensity_sum=30.0,
                 cell_pair_intensity_sum=40.0,
                 cytoplasmic_intensity=10.0,
+                nuclear_cytoplasmic_ratio=3.0,
                 colinear_dots=0,
                 off_axis_dots=0,
                 properties={
@@ -2050,6 +2051,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertIsNone(payload["colinear_dots"])
         self.assertEqual(payload["nucleus_intensity_sum"], 30.0)
         self.assertEqual(payload["cell_pair_intensity_sum"], 40.0)
+        self.assertEqual(payload["nuclear_cytoplasmic_ratio"], 3.0)
 
     def test_dashboard_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
         uuid_value = str(uuid4())
@@ -2072,6 +2074,7 @@ class RouteSurfaceRefactorTests(TestCase):
                 nucleus_intensity_sum=30.0,
                 cell_pair_intensity_sum=40.0,
                 cytoplasmic_intensity=10.0,
+                nuclear_cytoplasmic_ratio=3.0,
                 colinear_dots=0,
                 off_axis_dots=0,
                 properties={
@@ -2096,6 +2099,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertIsNone(payload["colinear_dots"])
         self.assertEqual(payload["nuclear_cell_pair_contour_source"], "canonical_slot_1")
         self.assertEqual(payload["cell_pair_intensity_sum"], 40.0)
+        self.assertEqual(payload["nuclear_cytoplasmic_ratio"], 3.0)
 
     def test_display_csv_export_includes_ratio_columns_after_raw_intensity_sums(self):
         uuid_value = str(uuid4())

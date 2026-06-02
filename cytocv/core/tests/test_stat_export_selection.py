@@ -136,6 +136,16 @@ class StatExportSelectionTests(SimpleTestCase):
 
         self.assertEqual(selected, ("nucleus_intensity_sum",))
 
+    def test_nuclear_cytoplasmic_ratio_is_selectable(self):
+        selected = normalize_export_columns(
+            "nuclear_cytoplasmic_ratio,cytoplasmic_intensity"
+        )
+
+        self.assertEqual(
+            selected,
+            ("cytoplasmic_intensity", "nuclear_cytoplasmic_ratio"),
+        )
+
     def test_invalid_only_columns_raise_validation_error(self):
         with self.assertRaises(ExportColumnSelectionError):
             normalize_export_columns("unknown_field,cell_id")

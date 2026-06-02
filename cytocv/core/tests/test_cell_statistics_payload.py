@@ -34,6 +34,7 @@ def _cell_stat(**overrides):
         "nucleus_intensity_sum": 100.0,
         "cell_pair_intensity_sum": 150.0,
         "cytoplasmic_intensity": 50.0,
+        "nuclear_cytoplasmic_ratio": 2.0,
         "red_blue_intensity_1": 1.0,
         "red_blue_intensity_2": 2.0,
         "red_blue_intensity_3": 3.0,
@@ -89,6 +90,7 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
         self.assertIsNone(payload["blue_contour_size"])
         self.assertEqual(payload["cell_pair_intensity_sum"], 150.0)
         self.assertEqual(payload["nucleus_intensity_sum"], 100.0)
+        self.assertEqual(payload["nuclear_cytoplasmic_ratio"], 2.0)
         self.assertEqual(payload["nuclear_cell_pair_contour_source"], "canonical_slot_1")
 
     def test_puncta_plus_contour_payload_keeps_computed_zero_ratios(self):
@@ -109,6 +111,7 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
         self.assertEqual(payload["red_intensity_1"], 2.0)
         self.assertEqual(payload["measurement_contour_ratio_3"], 0.0)
         self.assertIsNone(payload["cell_pair_intensity_sum"])
+        self.assertIsNone(payload["nuclear_cytoplasmic_ratio"])
         self.assertEqual(payload["nuclear_cell_pair_status"], "N/A")
         self.assertIsNone(payload["category_cen_dot"])
         self.assertIsNone(payload["colinear_dots"])

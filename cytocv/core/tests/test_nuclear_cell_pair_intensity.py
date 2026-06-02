@@ -274,6 +274,7 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertEqual(cp.nucleus_intensity_sum, 0.0)
         self.assertEqual(cp.cell_pair_intensity_sum, 0.0)
         self.assertEqual(cp.cytoplasmic_intensity, 0.0)
+        self.assertIsNone(cp.nuclear_cytoplasmic_ratio)
         self.assertFalse(np.any(red_debug > 0))
         self.assertFalse(np.any(green_debug > 0))
 
@@ -329,6 +330,10 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertEqual(
             cp.cytoplasmic_intensity,
             cp.cell_pair_intensity_sum - cp.nucleus_intensity_sum,
+        )
+        self.assertEqual(
+            cp.nuclear_cytoplasmic_ratio,
+            cp.nucleus_intensity_sum / cp.cytoplasmic_intensity,
         )
 
     def test_legacy_scaled_mode_uses_processed_measurement_with_cytocv_masks(self):
@@ -407,6 +412,10 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         )
         self.assertTrue(cp.properties["legacy_cell_pair_mask_fallback"])
         self.assertTrue(cp.properties["legacy_uses_filled_cell_mask"])
+        self.assertEqual(
+            cp.nuclear_cytoplasmic_ratio,
+            cp.nucleus_intensity_sum / cp.cytoplasmic_intensity,
+        )
 
     def test_legacy_scaled_mode_uses_exact_label_mask_for_cell_pair_sum(self):
         plugin = NuclearCellPairIntensity()
@@ -472,6 +481,10 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
         self.assertEqual(
             cp.nucleus_intensity_sum,
             float(np.sum(measurement[expected_nucleus_mask > 0])),
+        )
+        self.assertEqual(
+            cp.nuclear_cytoplasmic_ratio,
+            cp.nucleus_intensity_sum / cp.cytoplasmic_intensity,
         )
         self.assertNotEqual(
             cp.cell_pair_intensity_sum,
@@ -735,6 +748,10 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
             cp.cytoplasmic_intensity,
             cp.cell_pair_intensity_sum - cp.nucleus_intensity_sum,
         )
+        self.assertEqual(
+            cp.nuclear_cytoplasmic_ratio,
+            cp.nucleus_intensity_sum / cp.cytoplasmic_intensity,
+        )
 
     def test_ratio_is_none_when_cytoplasmic_intensity_is_zero(self):
         plugin = NuclearCellPairIntensity()
@@ -775,3 +792,4 @@ class NuclearCellPairIntensityPluginTests(SimpleTestCase):
 
         self.assertEqual(cp.cell_pair_intensity_sum, cp.nucleus_intensity_sum)
         self.assertEqual(cp.cytoplasmic_intensity, 0.0)
+        self.assertIsNone(cp.nuclear_cytoplasmic_ratio)
