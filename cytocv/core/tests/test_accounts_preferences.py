@@ -82,6 +82,19 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(defaults["red_dot_split_mode"], "aggressive")
 
+    def test_existing_account_legacy_scaled_nuclear_mode_is_preserved(self):
+        normalized = normalize_preferences_payload(
+            {
+                "experiment_defaults": {
+                    "use_legacy_nuclear_cell_pair_pipeline": "true",
+                }
+            }
+        )
+
+        self.assertTrue(
+            normalized["experiment_defaults"]["use_legacy_nuclear_cell_pair_pipeline"]
+        )
+
     def test_default_payload_uses_expected_plugin_defaults(self):
         normalized = normalize_preferences_payload({})
         defaults = normalized["experiment_defaults"]
@@ -101,6 +114,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
+        self.assertFalse(defaults["use_legacy_nuclear_cell_pair_pipeline"])
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["red_dot_split_enabled"])
@@ -174,6 +188,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["puncta_line_mode"], "red_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
+        self.assertFalse(defaults["use_legacy_nuclear_cell_pair_pipeline"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertFalse(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
@@ -320,7 +335,9 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(enabled)
         self.assertIsNone(channel)
 
-    def test_analysis_snapshot_disables_operational_alternate_detection_in_puncta_mode(self):
+    def test_analysis_snapshot_disables_operational_alternate_detection_in_puncta_mode(
+        self,
+    ):
         normalized = normalize_analysis_config_snapshot(
             {
                 "selected_analysis": ["PunctaDistance"],
@@ -336,6 +353,18 @@ class PreferenceNormalizationTests(TestCase):
         self.assertIsNone(normalized["alternateNucleusDetectionChannel"])
         self.assertFalse(normalized["alternateRedDetection"])
 
+    def test_analysis_snapshot_preserves_legacy_scaled_nuclear_flag(self):
+        normalized = normalize_analysis_config_snapshot(
+            {
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "signalQuantificationEnabled": True,
+                "signalQuantificationMode": "nuclear_cell_pair",
+                "use_legacy_nuclear_cell_pair_pipeline": "true",
+            }
+        )
+
+        self.assertTrue(normalized["use_legacy_nuclear_cell_pair_pipeline"])
+
     def test_signal_quantification_applies_alternate_detection_in_nuclear_mode(self):
         selection = resolve_signal_quantification_selection(
             payload={
@@ -348,7 +377,9 @@ class PreferenceNormalizationTests(TestCase):
         )
 
         self.assertTrue(selection.alternate_nucleus_detection_enabled)
-        self.assertEqual(selection.alternate_nucleus_detection_channel, CHANNEL_ROLE_GREEN)
+        self.assertEqual(
+            selection.alternate_nucleus_detection_channel, CHANNEL_ROLE_GREEN
+        )
 
     def test_effective_alternate_detection_derives_channel_in_nuclear_mode(self):
         enabled, channel = resolve_effective_alternate_nucleus_detection(
@@ -362,7 +393,9 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(enabled)
         self.assertEqual(channel, CHANNEL_ROLE_RED)
 
-    def test_signal_quantification_nuclear_mode_preserves_configured_secondary_plugins(self):
+    def test_signal_quantification_nuclear_mode_preserves_configured_secondary_plugins(
+        self,
+    ):
         selection = resolve_signal_quantification_selection(
             payload={
                 "signal_quantification_enabled": True,
@@ -519,10 +552,14 @@ class AccountDeletionIntegrationTests(TestCase):
         )
         self.assertTrue(UploadedImage.objects.filter(pk=uploaded.pk).exists())
         self.assertTrue(SegmentedImage.objects.filter(pk=segmented.pk).exists())
-        self.assertTrue(CellStatistics.objects.filter(segmented_image=segmented).exists())
+        self.assertTrue(
+            CellStatistics.objects.filter(segmented_image=segmented).exists()
+        )
         return str(file_uuid)
 
-    def _create_media_artifacts(self, media_root: str, file_uuid: str, stem: str) -> tuple[Path, Path]:
+    def _create_media_artifacts(
+        self, media_root: str, file_uuid: str, stem: str
+    ) -> tuple[Path, Path]:
         uuid_dir = Path(media_root) / file_uuid
         user_uuid_dir = Path(media_root) / f"user_{file_uuid}"
         paths = [
@@ -626,7 +663,9 @@ class AccountDeletionIntegrationTests(TestCase):
 
             self.assertEqual(response.status_code, 302)
             self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
-            self.assertTrue(get_user_model().objects.filter(pk=self.other_user.pk).exists())
+            self.assertTrue(
+                get_user_model().objects.filter(pk=self.other_user.pk).exists()
+            )
 
             self.assertFalse(UploadedImage.objects.filter(uuid=owned_uuid).exists())
             self.assertFalse(SegmentedImage.objects.filter(UUID=owned_uuid).exists())
@@ -974,7 +1013,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="celltable"', html=False)
         self.assertContains(response, 'id="exportButtons"', html=False)
         self.assertContains(response, 'id="downloadStatsBtn"', html=False)
-        self.assertContains(response, 'Download Statistics', html=False)
+        self.assertContains(response, "Download Statistics", html=False)
         self.assertNotContains(response, 'id="downloadCsvBtn"', html=False)
         self.assertNotContains(response, 'id="downloadXlsxBtn"', html=False)
         self.assertContains(response, 'id="downloadSelectedBtn"', html=False)
@@ -985,14 +1024,22 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'data-active-format="csv"', html=False)
         self.assertContains(response, 'data-export-format="csv"', html=False)
         self.assertContains(response, 'data-export-format="xlsx"', html=False)
-        self.assertContains(response, 'Edit files', html=False)
+        self.assertContains(response, "Edit files", html=False)
         self.assertContains(response, 'id="exportSelectionConfig"', html=False)
         self.assertContains(response, "export_selection_modal.js", html=False)
-        self.assertContains(response, 'id="deleteFilesStatus" aria-live="polite"', html=False)
-        self.assertContains(response, '<span class="spinner" aria-hidden="true"></span>', html=False)
-        self.assertContains(response, '<span class="btn-label">Confirm Delete</span>', html=False)
+        self.assertContains(
+            response, 'id="deleteFilesStatus" aria-live="polite"', html=False
+        )
+        self.assertContains(
+            response, '<span class="spinner" aria-hidden="true"></span>', html=False
+        )
+        self.assertContains(
+            response, '<span class="btn-label">Confirm Delete</span>', html=False
+        )
         self.assertContains(response, "let isDeletingFiles = false;", html=False)
-        self.assertContains(response, "function setDeleteLoading(isLoading)", html=False)
+        self.assertContains(
+            response, "function setDeleteLoading(isLoading)", html=False
+        )
         self.assertContains(response, "Deleting selected files...", html=False)
         self.assertContains(response, "if (isDeletingFiles) return;", html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
@@ -1025,15 +1072,21 @@ class DisplayManualSaveTests(TestCase):
 
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-ui-region="dashboard-main-shell"', html=False)
-        self.assertContains(response, 'data-ui-region="dashboard-content-stack"', html=False)
+        self.assertContains(
+            response, 'data-ui-region="dashboard-main-shell"', html=False
+        )
+        self.assertContains(
+            response, 'data-ui-region="dashboard-content-stack"', html=False
+        )
         self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
         self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
         self.assertContains(response, 'data-ui-region="cell-metrics-strip"', html=False)
         self.assertContains(response, 'data-ui-region="stats-table-card"', html=False)
         self.assertContains(response, 'class="content-wrapper glass-shell"', html=False)
         self.assertContains(response, 'class="main-content glass-shell"', html=False)
-        self.assertContains(response, 'class="storage-card glass-card glass-section"', html=False)
+        self.assertContains(
+            response, 'class="storage-card glass-card glass-section"', html=False
+        )
         self.assertContains(response, 'id="viewerPanel"', html=False)
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
         self.assertContains(response, 'id="toggleContours"', html=False)
@@ -1044,16 +1097,25 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="downloadStatsBtn"', html=False)
         self.assertContains(response, 'data-action="select-cells"', html=False)
         self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
-        self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
-        self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
-        self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
-        self.assertContains(response, 'CEN Dot Measurements')
-        self.assertContains(response, 'Red In Red Raw Sums')
-        self.assertContains(response, 'Green In Red Raw Sums')
-        self.assertContains(response, 'Red In Green Raw Sums')
-        self.assertContains(response, 'Green In Green Raw Sums')
-        self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
-        self.assertNotContains(response, 'Intensity + Green Output')
+        self.assertContains(
+            response, "const initialSidebarSpatialStatsUnit =", html=False
+        )
+        self.assertContains(
+            response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False
+        )
+        self.assertContains(
+            response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False
+        )
+        self.assertContains(response, "CEN Dot Measurements")
+        self.assertContains(response, "Red In Red Raw Sums")
+        self.assertContains(response, "Green In Red Raw Sums")
+        self.assertContains(response, "Red In Green Raw Sums")
+        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(
+            response,
+            "Raw Green-channel intensity summed inside each ranked Green contour slot",
+        )
+        self.assertNotContains(response, "Intensity + Green Output")
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
         saved_uuid = self._create_display_file(
@@ -1065,7 +1127,9 @@ class DisplayManualSaveTests(TestCase):
         response = self.client.get(reverse("display", args=[saved_uuid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-ui-region="display-main-shell"', html=False)
-        self.assertContains(response, 'data-ui-region="display-content-stack"', html=False)
+        self.assertContains(
+            response, 'data-ui-region="display-content-stack"', html=False
+        )
         self.assertContains(response, 'data-ui-region="top-stage-card"', html=False)
         self.assertContains(response, 'data-ui-region="cell-pairs-card"', html=False)
         self.assertContains(response, 'data-ui-region="cell-metrics-strip"', html=False)
@@ -1082,7 +1146,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="celltable"', html=False)
         self.assertContains(response, 'id="displayExportButtons"', html=False)
         self.assertContains(response, 'id="displayDownloadStatsBtn"', html=False)
-        self.assertContains(response, 'Download Statistics', html=False)
+        self.assertContains(response, "Download Statistics", html=False)
         self.assertNotContains(response, 'id="displayDownloadCsvBtn"', html=False)
         self.assertNotContains(response, 'id="displayDownloadXlsxBtn"', html=False)
         self.assertContains(response, 'id="downloadSelectedBtn"', html=False)
@@ -1093,27 +1157,36 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'data-active-format="csv"', html=False)
         self.assertContains(response, 'data-export-format="csv"', html=False)
         self.assertContains(response, 'data-export-format="xlsx"', html=False)
-        self.assertContains(response, 'Edit files', html=False)
+        self.assertContains(response, "Edit files", html=False)
         self.assertContains(response, 'id="exportSelectionConfig"', html=False)
         self.assertContains(response, "export_selection_modal.js", html=False)
         self.assertContains(response, 'data-action="select-cells"', html=False)
         self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertContains(response, "const defaultSpatialStatsUnit =", html=False)
-        self.assertContains(response, "const initialSidebarSpatialStatsUnit =", html=False)
-        self.assertContains(response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False)
-        self.assertContains(response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False)
+        self.assertContains(
+            response, "const initialSidebarSpatialStatsUnit =", html=False
+        )
+        self.assertContains(
+            response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False
+        )
+        self.assertContains(
+            response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False
+        )
         self.assertContains(response, 'id="dic_form"', html=False)
         self.assertContains(response, 'id="blue_form"', html=False)
         self.assertContains(response, 'id="red_form"', html=False)
         self.assertContains(response, 'id="green_form"', html=False)
-        self.assertContains(response, 'CEN Dot Measurements')
-        self.assertContains(response, 'Red In Red Raw Sums')
-        self.assertContains(response, 'Green In Red Raw Sums')
-        self.assertContains(response, 'Red In Green Raw Sums')
-        self.assertContains(response, 'Green In Green Raw Sums')
-        self.assertContains(response, 'Raw Green-channel intensity summed inside each ranked Green contour slot')
-        self.assertNotContains(response, 'Intensity + Green Output')
+        self.assertContains(response, "CEN Dot Measurements")
+        self.assertContains(response, "Red In Red Raw Sums")
+        self.assertContains(response, "Green In Red Raw Sums")
+        self.assertContains(response, "Red In Green Raw Sums")
+        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(
+            response,
+            "Raw Green-channel intensity summed inside each ranked Green contour slot",
+        )
+        self.assertNotContains(response, "Intensity + Green Output")
 
     def test_display_export_buttons_are_not_bound_to_initial_table_uuid(self):
         first_uuid = self._create_display_file(
@@ -1129,7 +1202,9 @@ class DisplayManualSaveTests(TestCase):
         self._add_cell_stat(first_uuid)
         self._add_cell_stat(second_uuid)
 
-        response = self.client.get(reverse("display", args=[f"{first_uuid},{second_uuid}"]))
+        response = self.client.get(
+            reverse("display", args=[f"{first_uuid},{second_uuid}"])
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "function syncDisplayExportButtons", html=False)
@@ -1212,7 +1287,9 @@ class DisplayManualSaveTests(TestCase):
             html=False,
         )
 
-    def test_dashboard_and_display_templates_expose_cell_delete_confirmation_preference(self):
+    def test_dashboard_and_display_templates_expose_cell_delete_confirmation_preference(
+        self,
+    ):
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
             segmented_owner_id=self.user.id,
@@ -1250,12 +1327,18 @@ class DisplayManualSaveTests(TestCase):
         )
 
     def test_preprocess_template_renders_glass_layout_and_existing_hooks(self):
-        preprocess_uuid = self._create_preprocess_file(filename="preprocess_glass_layout")
+        preprocess_uuid = self._create_preprocess_file(
+            filename="preprocess_glass_layout"
+        )
 
         response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-ui-region="preprocess-main-shell"', html=False)
-        self.assertContains(response, 'data-ui-region="preprocess-content-stack"', html=False)
+        self.assertContains(
+            response, 'data-ui-region="preprocess-main-shell"', html=False
+        )
+        self.assertContains(
+            response, 'data-ui-region="preprocess-content-stack"', html=False
+        )
         self.assertContains(response, 'data-ui-region="file-context-card"', html=False)
         self.assertContains(response, 'data-ui-region="main-image-stage"', html=False)
         self.assertNotContains(response, 'data-ui-region="actions-card"', html=False)
@@ -1484,7 +1567,9 @@ class DisplayManualSaveTests(TestCase):
             filename="dashboard_csv_export_um",
         )
         uploaded = UploadedImage.objects.get(uuid=saved_uuid)
-        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.scale_info = build_scale_info(
+            manual_um_per_px=0.5, prefer_metadata=False
+        )
         uploaded.save(update_fields=["scale_info"])
         self._add_cell_stat(saved_uuid)
 
@@ -1509,7 +1594,9 @@ class DisplayManualSaveTests(TestCase):
             filename="dashboard_filtered_export_um",
         )
         uploaded = UploadedImage.objects.get(uuid=saved_uuid)
-        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.scale_info = build_scale_info(
+            manual_um_per_px=0.5, prefer_metadata=False
+        )
         uploaded.save(update_fields=["scale_info"])
         self._add_cell_stat(saved_uuid)
 
@@ -1538,7 +1625,9 @@ class DisplayManualSaveTests(TestCase):
             filename="dashboard_xlsx_export_um",
         )
         uploaded = UploadedImage.objects.get(uuid=saved_uuid)
-        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.scale_info = build_scale_info(
+            manual_um_per_px=0.5, prefer_metadata=False
+        )
         uploaded.save(update_fields=["scale_info"])
         self._add_cell_stat(saved_uuid)
 
@@ -1556,7 +1645,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("Distance Of Green From Red 1 (µm)", headers)
         self.assertIn("Cen Dot Location", headers)
         gfp_dot_col = headers.index("Cen Dot Location") + 1
-        self.assertEqual(sheet.cell(row=2, column=gfp_dot_col).value, "Mother and daughter")
+        self.assertEqual(
+            sheet.cell(row=2, column=gfp_dot_col).value, "Mother and daughter"
+        )
 
     def test_dashboard_combined_csv_export_filters_stats_and_preserves_file_order(self):
         first_uuid = self._create_display_file(
@@ -1891,7 +1982,9 @@ class DisplayManualSaveTests(TestCase):
             filename="combined_um_export",
         )
         uploaded = UploadedImage.objects.get(uuid=saved_uuid)
-        uploaded.scale_info = build_scale_info(manual_um_per_px=0.5, prefer_metadata=False)
+        uploaded.scale_info = build_scale_info(
+            manual_um_per_px=0.5, prefer_metadata=False
+        )
         uploaded.save(update_fields=["scale_info"])
         self._add_cell_stat(saved_uuid)
 
@@ -2061,7 +2154,9 @@ class DisplayManualSaveTests(TestCase):
                 "Measured Cell-Pair Intensity",
             ],
         )
-        self.assertEqual(rows[1], ["combined_nuclear_filtered_export", "1", "N/A", "4.000"])
+        self.assertEqual(
+            rows[1], ["combined_nuclear_filtered_export", "1", "N/A", "4.000"]
+        )
 
     def test_display_csv_export_uses_generated_download_name(self):
         file_name = "display_csv_export_source"
@@ -2428,7 +2523,9 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(SegmentedImage.objects.get(UUID=saved_uuid).user_id, self.user.id)
+        self.assertEqual(
+            SegmentedImage.objects.get(UUID=saved_uuid).user_id, self.user.id
+        )
 
     def test_display_unsave_endpoint_is_idempotent_for_already_unsaved_file(self):
         transient_uuid = self._create_display_file(
@@ -2642,7 +2739,9 @@ class DisplayManualSaveTests(TestCase):
             SegmentedImage.objects.get(UUID=saved_uuid).user_id,
             self.user.id,
         )
-        transient_session = set(self.client.session.get("transient_experiment_uuids", []))
+        transient_session = set(
+            self.client.session.get("transient_experiment_uuids", [])
+        )
         self.assertIn(transient_uuid, transient_session)
         self.assertNotIn(saved_uuid, transient_session)
 
@@ -2713,7 +2812,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, "Show Scale")
 
     def test_preprocess_view_respects_scale_visibility_preference(self):
-        preprocess_uuid = self._create_preprocess_file(filename="scale_visibility_preprocess")
+        preprocess_uuid = self._create_preprocess_file(
+            filename="scale_visibility_preprocess"
+        )
         prefs = get_user_preferences(self.user)
         prefs["show_saved_file_scales"] = False
         update_user_preferences(self.user, prefs)
@@ -2729,18 +2830,30 @@ class DisplayManualSaveTests(TestCase):
             segmented_owner_id=self.user.id,
             filename="sidebar_unit_saved",
         )
-        preprocess_uuid = self._create_preprocess_file(filename="sidebar_unit_preprocess")
+        preprocess_uuid = self._create_preprocess_file(
+            filename="sidebar_unit_preprocess"
+        )
         prefs = get_user_preferences(self.user)
         prefs["sidebar_spatial_stats_unit"] = "um"
         update_user_preferences(self.user, prefs)
 
         display_response = self.client.get(reverse("display", args=[saved_uuid]))
         dashboard_response = self.client.get(reverse("dashboard"))
-        preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
+        preprocess_response = self.client.get(
+            reverse("pre_process", args=[preprocess_uuid])
+        )
 
-        self.assertContains(display_response, 'const initialSidebarSpatialStatsUnit = "um";', html=False)
-        self.assertContains(dashboard_response, 'const initialSidebarSpatialStatsUnit = "um";', html=False)
-        self.assertContains(preprocess_response, 'let currentSpatialStatsUnit = "um";', html=False)
+        self.assertContains(
+            display_response, 'const initialSidebarSpatialStatsUnit = "um";', html=False
+        )
+        self.assertContains(
+            dashboard_response,
+            'const initialSidebarSpatialStatsUnit = "um";',
+            html=False,
+        )
+        self.assertContains(
+            preprocess_response, 'let currentSpatialStatsUnit = "um";', html=False
+        )
 
     def test_preprocess_post_rejects_tampered_scale_uuid_map(self):
         preprocess_uuid = self._create_preprocess_file(filename="tamper_preprocess")
@@ -2755,8 +2868,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_preprocess_post_rejects_tampered_scale_revert_uuid_map(self):
-        preprocess_uuid = self._create_preprocess_file(filename="tamper_revert_preprocess")
-        outside_uuid = self._create_preprocess_file(filename="outside_revert_preprocess")
+        preprocess_uuid = self._create_preprocess_file(
+            filename="tamper_revert_preprocess"
+        )
+        outside_uuid = self._create_preprocess_file(
+            filename="outside_revert_preprocess"
+        )
 
         response = self.client.post(
             reverse("pre_process", args=[preprocess_uuid]),
@@ -2774,7 +2891,9 @@ class DisplayManualSaveTests(TestCase):
         self,
         mock_run_analysis_batch,
     ):
-        preprocess_uuid = self._create_preprocess_file(filename="scale_override_preprocess")
+        preprocess_uuid = self._create_preprocess_file(
+            filename="scale_override_preprocess"
+        )
 
         response = self.client.post(
             reverse("pre_process", args=[preprocess_uuid]),
@@ -2783,12 +2902,16 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["redirect"], reverse("display", args=[preprocess_uuid]))
+        self.assertEqual(
+            response.json()["redirect"], reverse("display", args=[preprocess_uuid])
+        )
         mock_run_analysis_batch.assert_called_once()
         uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
         scale_info = uploaded.scale_info or {}
         self.assertEqual(scale_info.get("source"), "manual_override")
-        self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.27, places=6)
+        self.assertAlmostEqual(
+            float(scale_info.get("effective_um_per_px", 0)), 0.27, places=6
+        )
 
     @patch(
         "core.views.pre_process.run_analysis_batch",
@@ -2798,7 +2921,9 @@ class DisplayManualSaveTests(TestCase):
         self,
         mock_run_analysis_batch,
     ):
-        preprocess_uuid = self._create_preprocess_file(filename="scale_revert_preprocess")
+        preprocess_uuid = self._create_preprocess_file(
+            filename="scale_revert_preprocess"
+        )
         uploaded = UploadedImage.objects.get(uuid=preprocess_uuid)
         uploaded.scale_info = apply_manual_override_scale(
             build_scale_info(
@@ -2818,12 +2943,16 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["redirect"], reverse("display", args=[preprocess_uuid]))
+        self.assertEqual(
+            response.json()["redirect"], reverse("display", args=[preprocess_uuid])
+        )
         mock_run_analysis_batch.assert_called_once()
         uploaded.refresh_from_db()
         scale_info = uploaded.scale_info or {}
         self.assertEqual(scale_info.get("source"), "metadata")
-        self.assertAlmostEqual(float(scale_info.get("effective_um_per_px", 0)), 0.11, places=6)
+        self.assertAlmostEqual(
+            float(scale_info.get("effective_um_per_px", 0)), 0.11, places=6
+        )
 
 
 class ChannelVisibilityPreferenceTests(TestCase):
@@ -2859,7 +2988,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         return str(file_uuid)
 
-    def _create_preprocess_sidebar_file(self, filename: str = "sidebar_preprocess") -> str:
+    def _create_preprocess_sidebar_file(
+        self, filename: str = "sidebar_preprocess"
+    ) -> str:
         file_uuid = uuid4()
         uploaded = UploadedImage.objects.create(
             user=self.user,
@@ -2916,15 +3047,31 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="workflowDefaultsNav"', html=False)
         self.assertContains(response, "Workflow Defaults")
-        self.assertContains(response, 'id="pluginForm" data-review-section="plugins"', html=False)
-        self.assertContains(response, 'id="advancedForm" data-review-section="advanced"', html=False)
-        self.assertContains(response, 'id="savingForm" data-review-section="saving"', html=False)
-        self.assertContains(response, 'data-workflow-card="plugin-required-channels"', html=False)
-        self.assertContains(response, 'data-workflow-card="validation-enforcement"', html=False)
-        self.assertContains(response, 'data-workflow-card="saving-preferences"', html=False)
-        self.assertContains(response, 'data-workflow-card="sidebar-preferences"', html=False)
+        self.assertContains(
+            response, 'id="pluginForm" data-review-section="plugins"', html=False
+        )
+        self.assertContains(
+            response, 'id="advancedForm" data-review-section="advanced"', html=False
+        )
+        self.assertContains(
+            response, 'id="savingForm" data-review-section="saving"', html=False
+        )
+        self.assertContains(
+            response, 'data-workflow-card="plugin-required-channels"', html=False
+        )
+        self.assertContains(
+            response, 'data-workflow-card="validation-enforcement"', html=False
+        )
+        self.assertContains(
+            response, 'data-workflow-card="saving-preferences"', html=False
+        )
+        self.assertContains(
+            response, 'data-workflow-card="sidebar-preferences"', html=False
+        )
         self.assertContains(response, 'data-workflow-action-card="plugins"', html=False)
-        self.assertContains(response, 'data-workflow-action-card="advanced"', html=False)
+        self.assertContains(
+            response, 'data-workflow-action-card="advanced"', html=False
+        )
         self.assertContains(response, 'data-workflow-action-card="saving"', html=False)
         self.assertContains(response, 'id="advancedOptionalChecksNote"', html=False)
         self.assertContains(response, 'id="advancedOptionalChecksGroup"', html=False)
@@ -2943,8 +3090,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Wavelength Channel Assignment")
         self.assertContains(response, 'id="use_metadata_channel_order"', html=False)
         self.assertContains(response, 'id="prefsFallbackChannelOrder"', html=False)
-        self.assertContains(response, '<div class="channel-plane-row" aria-hidden="true">', html=False)
-        self.assertContains(response, '<div class="channel-bar" id="prefsFallbackChannelOrder"', html=False)
+        self.assertContains(
+            response, '<div class="channel-plane-row" aria-hidden="true">', html=False
+        )
+        self.assertContains(
+            response,
+            '<div class="channel-bar" id="prefsFallbackChannelOrder"',
+            html=False,
+        )
         self.assertContains(response, '<span class="channel-chip', html=False)
         self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
         self.assertNotContains(response, "channel-order-chip")
@@ -2961,7 +3114,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'id="nuclear_cell_pair_contour_mode"', html=False)
         self.assertContains(response, 'id="nuclearContourModeRow"', html=False)
         self.assertContains(response, "nuclear-contour-mode-child")
-        self.assertContains(response, 'id="nuclear_cell_pair_contour_mode_value"', html=False)
+        self.assertContains(
+            response, 'id="nuclear_cell_pair_contour_mode_value"', html=False
+        )
         self.assertContains(
             response,
             "Controls the primary Red/Green signal measurement workflow for this experiment. Choose one primary mode: Puncta Distance or Nuclear, Cell-Pair Intensity.",
@@ -2986,24 +3141,41 @@ class ChannelVisibilityPreferenceTests(TestCase):
             response,
             "All other stat modules enabled in Puncta Distance mode.",
         )
-        self.assertContains(response, 'id="alternate_nucleus_detection_enabled"', html=False)
+        self.assertContains(
+            response, 'id="alternate_nucleus_detection_enabled"', html=False
+        )
         self.assertNotContains(response, 'id="cell_parentage_mode"', html=False)
         self.assertNotContains(response, "Mother/Daughter Mode")
-        self.assertNotContains(response, 'id="biorientation_green_split_enabled"', html=False)
+        self.assertNotContains(
+            response, 'id="biorientation_green_split_enabled"', html=False
+        )
         self.assertNotContains(response, 'id="alternate_red_detection"', html=False)
-        self.assertNotContains(response, 'data-workflow-card="channel-requirements"', html=False)
+        self.assertNotContains(
+            response, 'data-workflow-card="channel-requirements"', html=False
+        )
         html = response.content.decode()
-        plugin_defaults_index = html.index('<div class="card" data-workflow-card="plugin-defaults"')
-        dot_detection_index = html.index('<div class="card" data-workflow-card="dot-detection"')
-        measurement_scale_index = html.index('<div class="card" data-workflow-card="measurement-scale"')
+        plugin_defaults_index = html.index(
+            '<div class="card" data-workflow-card="plugin-defaults"'
+        )
+        dot_detection_index = html.index(
+            '<div class="card" data-workflow-card="dot-detection"'
+        )
+        measurement_scale_index = html.index(
+            '<div class="card" data-workflow-card="measurement-scale"'
+        )
         self.assertLess(plugin_defaults_index, dot_detection_index)
         self.assertLess(dot_detection_index, measurement_scale_index)
-        alternate_detection_index = html.index('id="alternate_nucleus_detection_enabled"')
+        alternate_detection_index = html.index(
+            'id="alternate_nucleus_detection_enabled"'
+        )
         contour_mode_row_index = html.index('id="nuclearContourModeRow"')
         self.assertLess(alternate_detection_index, contour_mode_row_index)
         advanced_plugin_behavior = html[
-            html.index('<div class="card" data-workflow-card="advanced-plugin-behavior"'):
-            html.index('<div class="card" data-workflow-card="validation-enforcement"')
+            html.index(
+                '<div class="card" data-workflow-card="advanced-plugin-behavior"'
+            ) : html.index(
+                '<div class="card" data-workflow-card="validation-enforcement"'
+            )
         ]
         self.assertIn("Show Legacy Blue-Channel Plugins", advanced_plugin_behavior)
         self.assertNotIn("Filter Green Contours", advanced_plugin_behavior)
@@ -3038,7 +3210,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             "Aggressive uses tighter speckle-derived alternate nucleus masks",
         )
         self.assertContains(response, 'id="reviewChangesBackdrop"', html=False)
-        self.assertContains(response, 'class="review-backdrop popup-backdrop"', html=False)
+        self.assertContains(
+            response, 'class="review-backdrop popup-backdrop"', html=False
+        )
         self.assertContains(response, 'class="review-modal popup-surface"', html=False)
         self.assertContains(response, 'id="reviewKeepOld"', html=False)
         self.assertContains(response, 'id="reviewConfirmChanges"', html=False)
@@ -3066,7 +3240,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
         self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
         self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
-        self.assertContains(response, "fallbackChannelOrderBar.className = 'channel-bar';")
+        self.assertContains(
+            response, "fallbackChannelOrderBar.className = 'channel-bar';"
+        )
         self.assertContains(response, "planeRow.className = 'channel-plane-row';")
         self.assertContains(response, "chip.className = `channel-chip")
         self.assertContains(response, "window.Sortable.create(bar,")
@@ -3115,11 +3291,17 @@ class ChannelVisibilityPreferenceTests(TestCase):
             "Alternate Nucleus Detection changes only the Nuclear, Cell-Pair nucleus contour path.",
         )
         html = response.content.decode()
-        alternate_detection_js_index = html.index("alternateLabel.textContent = 'Alternate Nucleus Detection';")
-        contour_mode_js_index = html.index("contourModeLabel.textContent = 'Nucleus Contour Mode:'")
+        alternate_detection_js_index = html.index(
+            "alternateLabel.textContent = 'Alternate Nucleus Detection';"
+        )
+        contour_mode_js_index = html.index(
+            "contourModeLabel.textContent = 'Nucleus Contour Mode:'"
+        )
         self.assertLess(alternate_detection_js_index, contour_mode_js_index)
         self.assertContains(response, "Required channels: Red and Green.")
-        self.assertContains(response, "All other stat modules enabled in Puncta Distance mode.")
+        self.assertContains(
+            response, "All other stat modules enabled in Puncta Distance mode."
+        )
         self.assertContains(
             response,
             "Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.",
@@ -3151,7 +3333,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
-        self.assertEqual(defaults["selected_plugins"], ["PunctaDistance", "GreenRedIntensity"])
+        self.assertEqual(
+            defaults["selected_plugins"], ["PunctaDistance", "GreenRedIntensity"]
+        )
         self.assertTrue(defaults["module_enabled"])
         self.assertTrue(defaults["enforce_layer_count"])
         self.assertFalse(defaults["enforce_wavelengths"])
@@ -3185,7 +3369,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
         self.assertEqual(defaults["spatial_stats_unit"], "px")
 
-    def test_experiment_workflow_defaults_endpoint_preserves_non_popup_preferences(self):
+    def test_experiment_workflow_defaults_endpoint_preserves_non_popup_preferences(
+        self,
+    ):
         preferences = get_user_preferences(self.user)
         preferences["auto_save_experiments"] = False
         preferences["show_saved_file_channels"] = False
@@ -3251,19 +3437,28 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         experiment_response = self.client.get(reverse("experiment"))
         self.assertEqual(experiment_response.status_code, 200)
-        rendered_defaults = json.loads(experiment_response.context["user_preference_defaults_json"])
-        self.assertEqual(rendered_defaults["selected_plugins"], ["PunctaDistance", "GreenRedIntensity"])
+        rendered_defaults = json.loads(
+            experiment_response.context["user_preference_defaults_json"]
+        )
+        self.assertEqual(
+            rendered_defaults["selected_plugins"],
+            ["PunctaDistance", "GreenRedIntensity"],
+        )
         self.assertEqual(rendered_defaults["cen_dot_proximity_radius"], 6.5)
         self.assertEqual(rendered_defaults["green_dot_split_mode"], "aggressive")
         self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "red_nucleus")
-        self.assertEqual(rendered_defaults["nuclear_cell_pair_contour_mode"], "aggressive")
+        self.assertEqual(
+            rendered_defaults["nuclear_cell_pair_contour_mode"], "aggressive"
+        )
         self.assertFalse(rendered_defaults["use_metadata_channel_order"])
         self.assertEqual(
             rendered_defaults["fallback_channel_order"],
             [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
         )
 
-    def test_experiment_page_restores_saved_nuclear_signal_quantification_defaults(self):
+    def test_experiment_page_restores_saved_nuclear_signal_quantification_defaults(
+        self,
+    ):
         payload = self._build_experiment_workflow_defaults_payload()
         payload.update(
             {
@@ -3286,13 +3481,17 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         experiment_response = self.client.get(reverse("experiment"))
         self.assertEqual(experiment_response.status_code, 200)
-        rendered_defaults = json.loads(experiment_response.context["user_preference_defaults_json"])
+        rendered_defaults = json.loads(
+            experiment_response.context["user_preference_defaults_json"]
+        )
         self.assertEqual(
             rendered_defaults["selected_plugins"],
             ["CENDot", "NuclearCellPairIntensity"],
         )
         self.assertTrue(rendered_defaults["signal_quantification_enabled"])
-        self.assertEqual(rendered_defaults["signal_quantification_mode"], "nuclear_cell_pair")
+        self.assertEqual(
+            rendered_defaults["signal_quantification_mode"], "nuclear_cell_pair"
+        )
         self.assertFalse(rendered_defaults["puncta_contour_intensity_enabled"])
         self.assertTrue(rendered_defaults["alternate_nucleus_detection_enabled"])
         self.assertEqual(rendered_defaults["nuclear_cell_pair_mode"], "green_nucleus")
@@ -3302,7 +3501,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '"required_plugins"', html=False)
         self.assertContains(response, '"exclusive_group"', html=False)
-        self.assertContains(response, '"exclusive_group": "nuclear_cell_pair"', html=False)
+        self.assertContains(
+            response, '"exclusive_group": "nuclear_cell_pair"', html=False
+        )
 
     def test_advanced_settings_override_reports_and_removes_dependent_plugins(self):
         response = self.client.post(
@@ -3314,7 +3515,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             follow=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Advanced settings saved. Removed dependent plugins:")
+        self.assertContains(
+            response, "Advanced settings saved. Removed dependent plugins:"
+        )
         for plugin_id in (
             "PunctaDistance",
             "CENDot",
@@ -3379,7 +3582,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
 
-    def test_dashboard_sidebar_spatial_unit_persists_without_changing_workflow_default(self):
+    def test_dashboard_sidebar_spatial_unit_persists_without_changing_workflow_default(
+        self,
+    ):
         prefs = get_user_preferences(self.user)
         prefs["experiment_defaults"]["spatial_stats_unit"] = "px"
         update_user_preferences(self.user, prefs)
@@ -3417,7 +3622,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=saving")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=saving"
+        )
         self.user.refresh_from_db()
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_channels"])
         self.assertFalse(get_user_preferences(self.user)["show_saved_file_scales"])
@@ -3504,7 +3711,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="confirm_cell_deletion"', html=False)
         self.assertContains(response, 'id="confirm_multi_cell_deletion"', html=False)
-        self.assertContains(response, 'data-workflow-card="deletion-preferences"', html=False)
+        self.assertContains(
+            response, 'data-workflow-card="deletion-preferences"', html=False
+        )
         self.assertContains(response, "Deletion Preferences")
         self.assertContains(response, "Confirm Before Deleting Cells")
         self.assertContains(response, "Confirm Before Deleting Multiple Cells")
@@ -3529,7 +3738,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=saving")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=saving"
+        )
 
     def test_behavior_form_disables_auto_save_when_toggle_is_off(self):
         response = self.client.post(
@@ -3590,33 +3801,49 @@ class ChannelVisibilityPreferenceTests(TestCase):
 
         dashboard_response = self.client.get(reverse("dashboard"))
         display_response = self.client.get(reverse("display", args=[saved_uuid]))
-        preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
+        preprocess_response = self.client.get(
+            reverse("pre_process", args=[preprocess_uuid])
+        )
 
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertEqual(display_response.status_code, 200)
         self.assertEqual(preprocess_response.status_code, 200)
-        self.assertNotContains(dashboard_response, 'class="sidebar collapsed"', html=False)
-        self.assertNotContains(display_response, 'class="sidebar collapsed"', html=False)
-        self.assertNotContains(preprocess_response, 'class="sidebar collapsed"', html=False)
+        self.assertNotContains(
+            dashboard_response, 'class="sidebar collapsed"', html=False
+        )
+        self.assertNotContains(
+            display_response, 'class="sidebar collapsed"', html=False
+        )
+        self.assertNotContains(
+            preprocess_response, 'class="sidebar collapsed"', html=False
+        )
 
-    def test_dashboard_display_and_preprocess_sidebars_render_collapsed_when_preference_is_off(self):
+    def test_dashboard_display_and_preprocess_sidebars_render_collapsed_when_preference_is_off(
+        self,
+    ):
         prefs = get_user_preferences(self.user)
         prefs["sidebar_starts_open"] = False
         update_user_preferences(self.user, prefs)
 
         saved_uuid = self._create_saved_sidebar_file(filename="sidebar_saved_closed")
-        preprocess_uuid = self._create_preprocess_sidebar_file(filename="sidebar_preprocess_closed")
+        preprocess_uuid = self._create_preprocess_sidebar_file(
+            filename="sidebar_preprocess_closed"
+        )
 
         dashboard_response = self.client.get(reverse("dashboard"))
         display_response = self.client.get(reverse("display", args=[saved_uuid]))
-        preprocess_response = self.client.get(reverse("pre_process", args=[preprocess_uuid]))
+        preprocess_response = self.client.get(
+            reverse("pre_process", args=[preprocess_uuid])
+        )
 
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertEqual(display_response.status_code, 200)
         self.assertEqual(preprocess_response.status_code, 200)
         self.assertContains(dashboard_response, 'class="sidebar collapsed"', html=False)
         self.assertContains(display_response, 'class="sidebar collapsed"', html=False)
-        self.assertContains(preprocess_response, 'class="sidebar collapsed"', html=False)
+        self.assertContains(
+            preprocess_response, 'class="sidebar collapsed"', html=False
+        )
 
     def test_new_user_has_default_selected_plugins(self):
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -3671,7 +3898,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=plugins")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=plugins"
+        )
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -3701,7 +3930,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
         )
 
-    def test_plugin_settings_form_preserves_paused_secondary_plugins_in_nuclear_mode(self):
+    def test_plugin_settings_form_preserves_paused_secondary_plugins_in_nuclear_mode(
+        self,
+    ):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
@@ -3775,7 +4006,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=advanced"
+        )
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -3816,7 +4049,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=plugins")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=plugins"
+        )
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -3855,7 +4090,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=advanced"
+        )
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]
@@ -3863,23 +4100,35 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(defaults["enforce_layer_count"])
         self.assertTrue(defaults["enforce_wavelengths"])
 
-    def test_workflow_defaults_summary_marks_manual_channels_active_in_both_sections(self):
+    def test_workflow_defaults_summary_marks_manual_channels_active_in_both_sections(
+        self,
+    ):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = True
-        preferences["experiment_defaults"]["manual_required_channels"] = ["channel_blue"]
+        preferences["experiment_defaults"]["manual_required_channels"] = [
+            "channel_blue"
+        ]
         update_user_preferences(self.user, preferences)
 
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Required manually<"), 2)
-        self.assertIn('data-req-row="channel_blue" data-summary-scope="plugins"', content)
-        self.assertIn('data-req-row="channel_blue" data-summary-scope="advanced"', content)
+        self.assertIn(
+            'data-req-row="channel_blue" data-summary-scope="plugins"', content
+        )
+        self.assertIn(
+            'data-req-row="channel_blue" data-summary-scope="advanced"', content
+        )
 
-    def test_workflow_defaults_summary_marks_manual_channels_paused_in_both_sections(self):
+    def test_workflow_defaults_summary_marks_manual_channels_paused_in_both_sections(
+        self,
+    ):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = False
-        preferences["experiment_defaults"]["manual_required_channels"] = ["channel_blue"]
+        preferences["experiment_defaults"]["manual_required_channels"] = [
+            "channel_blue"
+        ]
         update_user_preferences(self.user, preferences)
 
         response = self.client.get(reverse("workflow_defaults"))
@@ -3891,7 +4140,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, 'data-channel="channel_blue"', html=False)
         self.assertContains(response, "checked disabled", html=False)
 
-    def test_workflow_defaults_summary_marks_paused_all_wavelengths_in_both_sections(self):
+    def test_workflow_defaults_summary_marks_paused_all_wavelengths_in_both_sections(
+        self,
+    ):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = False
         preferences["experiment_defaults"]["enforce_wavelengths"] = True
@@ -3902,25 +4153,35 @@ class ChannelVisibilityPreferenceTests(TestCase):
         content = response.content.decode("utf-8")
         self.assertEqual(content.count(">Paused by all-channels<"), 2)
 
-    def test_workflow_defaults_renders_optional_validation_controls_disabled_when_module_is_off(self):
+    def test_workflow_defaults_renders_optional_validation_controls_disabled_when_module_is_off(
+        self,
+    ):
         preferences = get_user_preferences(self.user)
         preferences["experiment_defaults"]["module_enabled"] = False
         preferences["experiment_defaults"]["enforce_layer_count"] = True
         preferences["experiment_defaults"]["enforce_wavelengths"] = True
-        preferences["experiment_defaults"]["manual_required_channels"] = ["channel_blue"]
+        preferences["experiment_defaults"]["manual_required_channels"] = [
+            "channel_blue"
+        ]
         update_user_preferences(self.user, preferences)
 
         response = self.client.get(reverse("workflow_defaults"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="advancedOptionalChecksGroup"', html=False)
-        self.assertContains(response, 'id="enforce_layer_count" checked disabled', html=False)
-        self.assertContains(response, 'id="enforce_wavelengths" checked disabled', html=False)
+        self.assertContains(
+            response, 'id="enforce_layer_count" checked disabled', html=False
+        )
+        self.assertContains(
+            response, 'id="enforce_wavelengths" checked disabled', html=False
+        )
         self.assertContains(response, 'id="manual_channel_blue"', html=False)
         self.assertContains(response, 'value="channel_blue"', html=False)
         self.assertContains(response, 'data-channel="channel_blue"', html=False)
         self.assertContains(response, "checked disabled", html=False)
 
-    def test_advanced_settings_save_preserves_manual_required_channels_when_module_is_off(self):
+    def test_advanced_settings_save_preserves_manual_required_channels_when_module_is_off(
+        self,
+    ):
         response = self.client.post(
             reverse("workflow_defaults"),
             {
@@ -3930,7 +4191,9 @@ class ChannelVisibilityPreferenceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], f"{reverse('workflow_defaults')}?section=advanced")
+        self.assertEqual(
+            response["Location"], f"{reverse('workflow_defaults')}?section=advanced"
+        )
 
         self.user.refresh_from_db()
         defaults = get_user_preferences(self.user)["experiment_defaults"]

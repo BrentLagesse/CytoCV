@@ -39,11 +39,19 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
     @staticmethod
     def _dominant_red_pixel_count(image: np.ndarray) -> int:
-        return int(np.count_nonzero((image[:, :, 0] > image[:, :, 1]) & (image[:, :, 0] > image[:, :, 2])))
+        return int(
+            np.count_nonzero(
+                (image[:, :, 0] > image[:, :, 1]) & (image[:, :, 0] > image[:, :, 2])
+            )
+        )
 
     @staticmethod
     def _dominant_green_pixel_count(image: np.ndarray) -> int:
-        return int(np.count_nonzero((image[:, :, 1] > image[:, :, 0]) & (image[:, :, 1] > image[:, :, 2])))
+        return int(
+            np.count_nonzero(
+                (image[:, :, 1] > image[:, :, 0]) & (image[:, :, 1] > image[:, :, 2])
+            )
+        )
 
     @staticmethod
     def _colored_outline_pixel_count(
@@ -57,7 +65,14 @@ class ModernContourStatisticsTests(SimpleTestCase):
         return int(np.count_nonzero((mask > 0) & np.all(image == color, axis=2)))
 
     @staticmethod
-    def _write_outline(output_dir: Path, *, image_stem: str = "test", cell_id: int = 1, y_range=range(0), x_range=range(0)) -> None:
+    def _write_outline(
+        output_dir: Path,
+        *,
+        image_stem: str = "test",
+        cell_id: int = 1,
+        y_range=range(0),
+        x_range=range(0),
+    ) -> None:
         output_path = output_dir / "output"
         output_path.mkdir(parents=True, exist_ok=True)
         outline_path = output_path / f"{image_stem}-{cell_id}.outline"
@@ -85,6 +100,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
         puncta_line_mode: str = "red_puncta",
         signal_quantification_mode: str | None = None,
         nuclear_cell_pair_contour_mode: str = "balanced",
+        use_legacy_nuclear_cell_pair_pipeline: bool = False,
     ) -> dict:
         conf = {
             "input_dir": output_dir,
@@ -97,6 +113,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
             "puncta_line_mode": puncta_line_mode,
             "nuclear_cell_pair_mode": mode,
             "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
+            "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
         }
         if signal_quantification_mode is not None:
             conf["signal_quantification_mode"] = signal_quantification_mode
@@ -121,6 +138,8 @@ class ModernContourStatisticsTests(SimpleTestCase):
         signal_quantification_mode: str | None = None,
         contour_crop_origin=None,
         contour_main_image_shape=None,
+        use_legacy_nuclear_cell_pair_pipeline: bool = False,
+        legacy_exact_cell_pair_mask=None,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -136,7 +155,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             img={
                 "red_no_bg": red_gray,
                 "gray_red": red_gray,
-                "green_no_bg": green_gray if green_no_bg_gray is None else green_no_bg_gray,
+                "green_no_bg": (
+                    green_gray if green_no_bg_gray is None else green_no_bg_gray
+                ),
                 "green": green_gray,
                 "gray_blue": np.zeros_like(red_gray),
                 "gray_blue_3": np.zeros_like(red_gray),
@@ -151,7 +172,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
                 y_range=y_range,
                 x_range=x_range,
             )
-            with patch("core.views.segment_image.load_image", return_value=images), patch(
+            with patch(
+                "core.views.segment_image.load_image", return_value=images
+            ), patch(
                 "core.views.segment_image.preprocess_image_to_gray",
                 return_value=preprocessed,
             ), patch(
@@ -167,6 +190,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
                         puncta_line_mode=puncta_line_mode,
                         signal_quantification_mode=signal_quantification_mode,
                         nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
+                        use_legacy_nuclear_cell_pair_pipeline=(
+                            use_legacy_nuclear_cell_pair_pipeline
+                        ),
                     ),
                     execution_plan,
                     puncta_line_width=1,
@@ -176,6 +202,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
                     nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
                     contour_crop_origin=contour_crop_origin,
                     contour_main_image_shape=contour_main_image_shape,
+                    legacy_exact_cell_pair_mask=legacy_exact_cell_pair_mask,
                 )
 
         return cp, np.array(debug_red), np.array(debug_green), np.array(debug_blue)
@@ -216,7 +243,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
                 y_range=y_range,
                 x_range=x_range,
             )
-            with patch("core.views.segment_image.load_image", return_value=images), patch(
+            with patch(
+                "core.views.segment_image.load_image", return_value=images
+            ), patch(
                 "core.views.segment_image.preprocess_image_to_gray",
                 return_value=preprocessed,
             ):
@@ -240,7 +269,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
         return cp, np.array(debug_red), np.array(debug_green), np.array(debug_blue)
 
     @staticmethod
-    def _build_live_alternate_detection_images(shape: tuple[int, int] = (40, 40)) -> GrayImage:
+    def _build_live_alternate_detection_images(
+        shape: tuple[int, int] = (40, 40)
+    ) -> GrayImage:
         red_gray = np.zeros(shape, dtype=np.uint8)
         green_gray = np.zeros(shape, dtype=np.uint8)
         raw_red = np.zeros(shape, dtype=np.uint16)
@@ -301,18 +332,18 @@ class ModernContourStatisticsTests(SimpleTestCase):
     ) -> tuple[np.ndarray, np.ndarray]:
         y_grid, x_grid = np.mgrid[0 : shape[0], 0 : shape[1]]
 
-        def pair(*, sigma: float, bridge_intensity: float, amplitude_a: float, amplitude_b: float):
+        def pair(
+            *,
+            sigma: float,
+            bridge_intensity: float,
+            amplitude_a: float,
+            amplitude_b: float,
+        ):
             dot_a = amplitude_a * np.exp(
-                -(
-                    ((x_grid - 46) ** 2 + (y_grid - 48) ** 2)
-                    / (2.0 * sigma * sigma)
-                )
+                -(((x_grid - 46) ** 2 + (y_grid - 48) ** 2) / (2.0 * sigma * sigma))
             )
             dot_b = amplitude_b * np.exp(
-                -(
-                    ((x_grid - 66) ** 2 + (y_grid - 48) ** 2)
-                    / (2.0 * sigma * sigma)
-                )
+                -(((x_grid - 66) ** 2 + (y_grid - 48) ** 2) / (2.0 * sigma * sigma))
             )
             image = np.maximum(dot_a, dot_b)
             cv2.line(image, (46, 48), (66, 48), bridge_intensity, 3)
@@ -332,7 +363,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
         )
         return support, tightening
 
-    def test_red_nucleus_uses_same_clipped_slot_for_green_in_red_and_green_nuclear(self):
+    def test_red_nucleus_uses_same_clipped_slot_for_green_in_red_and_green_nuclear(
+        self,
+    ):
         shape = (16, 16)
         red_gray = np.zeros(shape, dtype=np.uint8)
         green_gray = np.zeros(shape, dtype=np.uint8)
@@ -355,9 +388,15 @@ class ModernContourStatisticsTests(SimpleTestCase):
         expected_green = float(np.sum(green_gray[raw_mask > 0]))
         self.assertEqual(cp.green_intensity_1, expected_green)
         self.assertEqual(cp.nucleus_intensity_sum, expected_green)
-        self.assertEqual(cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
-        self.assertTrue(np.array_equal(debug_red[2, 5], np.array([0, 0, 0], dtype=np.uint8)))
-        self.assertTrue(np.array_equal(debug_red[4, 5], np.array([255, 0, 0], dtype=np.uint8)))
+        self.assertEqual(
+            cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1"
+        )
+        self.assertTrue(
+            np.array_equal(debug_red[2, 5], np.array([0, 0, 0], dtype=np.uint8))
+        )
+        self.assertTrue(
+            np.array_equal(debug_red[4, 5], np.array([255, 0, 0], dtype=np.uint8))
+        )
 
     def test_green_nucleus_ranks_green_slots_and_matches_red_nuclear_to_slot_one(self):
         shape = (20, 20)
@@ -389,7 +428,51 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(cp.nucleus_intensity_sum, expected_red)
         self.assertLess(cp.red_in_green_intensity_2, cp.red_in_green_intensity_1)
 
-    def test_reversed_red_contour_order_aligns_sizes_intensities_line_distance_and_cen_dot(self):
+    def test_get_stats_passes_legacy_exact_cell_pair_mask_to_nuclear_cell_pair(self):
+        shape = (20, 20)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        red_gray[2:18, 2:18] = 3
+        red_gray[8:16, 8:16] = 11
+        green_gray[6:17, 6:17] = 255
+        green_contour = self._rect_contour(6, 6, 16, 16)
+        exact_label_mask = np.zeros(shape, dtype=np.uint8)
+        exact_label_mask[2:10, 2:18] = 255
+        exact_label_mask[13:18, 5:15] = 255
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["NuclearCellPairIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data={"contours_green": [green_contour]},
+            y_range=range(2, 18),
+            x_range=range(2, 18),
+            signal_quantification_mode=SIGNAL_MODE_NUCLEAR_CELL_PAIR,
+            use_legacy_nuclear_cell_pair_pipeline=True,
+            legacy_exact_cell_pair_mask=exact_label_mask,
+        )
+
+        nucleus_mask = np.zeros(shape, dtype=np.uint8)
+        cv2.drawContours(nucleus_mask, [green_contour], 0, 255, -1)
+        expected_nucleus_mask = cv2.bitwise_and(nucleus_mask, exact_label_mask)
+        self.assertEqual(
+            cp.cell_pair_intensity_sum,
+            float(np.sum(red_gray[exact_label_mask > 0])),
+        )
+        self.assertEqual(
+            cp.nucleus_intensity_sum,
+            float(np.sum(red_gray[expected_nucleus_mask > 0])),
+        )
+        self.assertEqual(
+            cp.properties["legacy_cell_pair_pixel_support"],
+            "segmentation_label_pixels",
+        )
+        self.assertFalse(cp.properties["legacy_cell_pair_mask_fallback"])
+
+    def test_reversed_red_contour_order_aligns_sizes_intensities_line_distance_and_cen_dot(
+        self,
+    ):
         shape = (80, 80)
         red_gray = np.zeros(shape, dtype=np.uint8)
         green_gray = np.zeros(shape, dtype=np.uint8)
@@ -425,11 +508,15 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertGreater(cp.red_contour_2_size, cp.red_contour_3_size)
         self.assertGreater(cp.red_intensity_1, cp.red_intensity_2)
         self.assertGreater(cp.red_intensity_2, cp.red_intensity_3)
-        self.assertAlmostEqual(cp.puncta_distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4)
+        self.assertAlmostEqual(
+            cp.puncta_distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4
+        )
         self.assertEqual(cp.category_cen_dot, 4)
         self.assertEqual(cp.properties["cen_dot_location"]["status"], "too_many_reds")
 
-    def test_contour_centers_use_same_ranked_slots_and_full_image_bottom_left_origin(self):
+    def test_contour_centers_use_same_ranked_slots_and_full_image_bottom_left_origin(
+        self,
+    ):
         shape = (30, 30)
         red_gray = np.zeros(shape, dtype=np.uint8)
         green_gray = np.zeros(shape, dtype=np.uint8)
@@ -457,11 +544,21 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         self.assertGreater(cp.red_contour_1_size, cp.red_contour_2_size)
         self.assertGreater(cp.green_contour_1_size, cp.green_contour_2_size)
-        self.assertAlmostEqual(cp.properties["red_contour_1_center_x_px"], 64.0, places=4)
-        self.assertAlmostEqual(cp.properties["red_contour_1_center_y_px"], 71.0, places=4)
-        self.assertAlmostEqual(cp.properties["green_contour_1_center_x_px"], 68.0, places=4)
-        self.assertAlmostEqual(cp.properties["green_contour_1_center_y_px"], 59.0, places=4)
-        self.assertEqual(cp.properties["contour_center_origin"], "main_image_bottom_left")
+        self.assertAlmostEqual(
+            cp.properties["red_contour_1_center_x_px"], 64.0, places=4
+        )
+        self.assertAlmostEqual(
+            cp.properties["red_contour_1_center_y_px"], 71.0, places=4
+        )
+        self.assertAlmostEqual(
+            cp.properties["green_contour_1_center_x_px"], 68.0, places=4
+        )
+        self.assertAlmostEqual(
+            cp.properties["green_contour_1_center_y_px"], 59.0, places=4
+        )
+        self.assertEqual(
+            cp.properties["contour_center_origin"], "main_image_bottom_left"
+        )
         self.assertEqual(
             cp.properties["contour_center_method"],
             "filled_mask_geometric_centroid",
@@ -490,8 +587,12 @@ class ModernContourStatisticsTests(SimpleTestCase):
         )
 
         self.assertGreater(cp.blue_contour_size, 0.0)
-        self.assertAlmostEqual(cp.properties["blue_contour_center_x_px"], 21.0, places=4)
-        self.assertAlmostEqual(cp.properties["blue_contour_center_y_px"], 58.0, places=4)
+        self.assertAlmostEqual(
+            cp.properties["blue_contour_center_x_px"], 21.0, places=4
+        )
+        self.assertAlmostEqual(
+            cp.properties["blue_contour_center_y_px"], 58.0, places=4
+        )
 
     def test_best_effort_parentage_can_be_identified_when_cen_dot_is_na(self):
         shape = (60, 60)
@@ -521,8 +622,12 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(cp.properties["cell_parentage"]["status"], "identified")
         self.assertEqual(cp.properties["cell_parentage"]["mode"], "best_effort")
         self.assertEqual(cp.category_cen_dot, 4)
-        self.assertEqual(cp.properties["cen_dot_location"]["status"], "reds_below_threshold")
-        self.assertEqual(cp.properties["cen_dot_location"]["cell_parentage_status"], "identified")
+        self.assertEqual(
+            cp.properties["cen_dot_location"]["status"], "reds_below_threshold"
+        )
+        self.assertEqual(
+            cp.properties["cen_dot_location"]["cell_parentage_status"], "identified"
+        )
 
     def test_green_puncta_mode_measures_red_intensity_over_green_line(self):
         shape = (16, 16)
@@ -549,11 +654,15 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         self.assertEqual(cp.properties["puncta_line_mode"], "green_puncta")
         self.assertEqual(cp.properties["puncta_line_source_channel"], "channel_green")
-        self.assertEqual(cp.properties["puncta_line_measurement_channel"], "channel_red")
+        self.assertEqual(
+            cp.properties["puncta_line_measurement_channel"], "channel_red"
+        )
         self.assertAlmostEqual(cp.puncta_distance, 6.0, places=4)
         self.assertEqual(cp.puncta_line_intensity, 14.0)
 
-    def test_live_nuclear_mode_red_nucleus_alternate_detection_uses_alternate_red_source(self):
+    def test_live_nuclear_mode_red_nucleus_alternate_detection_uses_alternate_red_source(
+        self,
+    ):
         preprocessed = self._build_live_alternate_detection_images()
         cp_off, debug_red_off, _, _ = self._run_live_get_stats(
             mode="red_nucleus",
@@ -574,11 +683,17 @@ class ModernContourStatisticsTests(SimpleTestCase):
             alternate_channel=CHANNEL_ROLE_RED,
         )
 
-        self.assertEqual(cp_on.properties["selected_analysis"], ["NuclearCellPairIntensity"])
+        self.assertEqual(
+            cp_on.properties["selected_analysis"], ["NuclearCellPairIntensity"]
+        )
         self.assertTrue(cp_on.properties["alternate_nucleus_detection_enabled"])
-        self.assertEqual(cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED)
+        self.assertEqual(
+            cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED
+        )
         self.assertEqual(cp_on.properties["nuclear_cell_pair_contour_mode"], "balanced")
-        self.assertEqual(cp_off.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
+        self.assertEqual(
+            cp_off.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1"
+        )
         self.assertEqual(
             cp_on.properties["nuclear_cell_pair_contour_source"],
             "alternate_red_nucleus_slot_1",
@@ -589,7 +704,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             self._dominant_red_pixel_count(debug_red_off),
         )
 
-    def test_live_nuclear_mode_red_nucleus_aggressive_mode_tightens_alternate_mask(self):
+    def test_live_nuclear_mode_red_nucleus_aggressive_mode_tightens_alternate_mask(
+        self,
+    ):
         preprocessed = self._build_live_alternate_detection_images()
         cp_balanced, _, _, _ = self._run_live_get_stats(
             mode="red_nucleus",
@@ -616,10 +733,16 @@ class ModernContourStatisticsTests(SimpleTestCase):
             cp_aggressive.properties["nuclear_cell_pair_contour_source"],
             "alternate_red_nucleus_slot_1",
         )
-        self.assertEqual(cp_aggressive.properties["nuclear_cell_pair_contour_mode"], "aggressive")
-        self.assertLess(cp_aggressive.nucleus_intensity_sum, cp_balanced.nucleus_intensity_sum)
+        self.assertEqual(
+            cp_aggressive.properties["nuclear_cell_pair_contour_mode"], "aggressive"
+        )
+        self.assertLess(
+            cp_aggressive.nucleus_intensity_sum, cp_balanced.nucleus_intensity_sum
+        )
 
-    def test_nuclear_contour_mode_has_no_effect_when_alternate_detection_is_disabled(self):
+    def test_nuclear_contour_mode_has_no_effect_when_alternate_detection_is_disabled(
+        self,
+    ):
         preprocessed = self._build_live_alternate_detection_images()
         cp_balanced, _, _, _ = self._run_live_get_stats(
             mode="red_nucleus",
@@ -642,10 +765,20 @@ class ModernContourStatisticsTests(SimpleTestCase):
             nuclear_cell_pair_contour_mode="aggressive",
         )
 
-        self.assertEqual(cp_balanced.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
-        self.assertEqual(cp_aggressive.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
-        self.assertEqual(cp_aggressive.properties["nuclear_cell_pair_contour_mode"], "aggressive")
-        self.assertEqual(cp_balanced.nucleus_intensity_sum, cp_aggressive.nucleus_intensity_sum)
+        self.assertEqual(
+            cp_balanced.properties["nuclear_cell_pair_contour_source"],
+            "canonical_slot_1",
+        )
+        self.assertEqual(
+            cp_aggressive.properties["nuclear_cell_pair_contour_source"],
+            "canonical_slot_1",
+        )
+        self.assertEqual(
+            cp_aggressive.properties["nuclear_cell_pair_contour_mode"], "aggressive"
+        )
+        self.assertEqual(
+            cp_balanced.nucleus_intensity_sum, cp_aggressive.nucleus_intensity_sum
+        )
 
     def test_live_nuclear_mode_derives_alternate_channel_from_nucleus_source(self):
         preprocessed = self._build_live_alternate_detection_images()
@@ -660,13 +793,17 @@ class ModernContourStatisticsTests(SimpleTestCase):
         )
 
         self.assertTrue(cp_on.properties["alternate_nucleus_detection_enabled"])
-        self.assertEqual(cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED)
+        self.assertEqual(
+            cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED
+        )
         self.assertEqual(
             cp_on.properties["nuclear_cell_pair_contour_source"],
             "alternate_red_nucleus_slot_1",
         )
 
-    def test_live_nuclear_mode_green_nucleus_alternate_detection_uses_alternate_green_source(self):
+    def test_live_nuclear_mode_green_nucleus_alternate_detection_uses_alternate_green_source(
+        self,
+    ):
         preprocessed = self._build_live_alternate_detection_images()
         cp_off, debug_red_off, _, _ = self._run_live_get_stats(
             mode="green_nucleus",
@@ -687,11 +824,17 @@ class ModernContourStatisticsTests(SimpleTestCase):
             alternate_channel=CHANNEL_ROLE_GREEN,
         )
 
-        self.assertEqual(cp_on.properties["selected_analysis"], ["NuclearCellPairIntensity"])
+        self.assertEqual(
+            cp_on.properties["selected_analysis"], ["NuclearCellPairIntensity"]
+        )
         self.assertTrue(cp_on.properties["alternate_nucleus_detection_enabled"])
-        self.assertEqual(cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_GREEN)
+        self.assertEqual(
+            cp_on.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_GREEN
+        )
         self.assertEqual(cp_on.properties["nuclear_cell_pair_contour_mode"], "balanced")
-        self.assertEqual(cp_off.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1")
+        self.assertEqual(
+            cp_off.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1"
+        )
         self.assertEqual(
             cp_on.properties["nuclear_cell_pair_contour_source"],
             "alternate_green_nucleus_slot_1",
@@ -702,7 +845,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             self._dominant_green_pixel_count(debug_red_off),
         )
 
-    def test_live_nuclear_mode_green_nucleus_aggressive_mode_uses_green_selected_path(self):
+    def test_live_nuclear_mode_green_nucleus_aggressive_mode_uses_green_selected_path(
+        self,
+    ):
         preprocessed = self._build_live_alternate_detection_images()
         cp_balanced, _, _, _ = self._run_live_get_stats(
             mode="green_nucleus",
@@ -729,7 +874,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             cp_aggressive.properties["nuclear_cell_pair_contour_source"],
             "alternate_green_nucleus_slot_1",
         )
-        self.assertEqual(cp_aggressive.properties["nuclear_cell_pair_contour_mode"], "aggressive")
+        self.assertEqual(
+            cp_aggressive.properties["nuclear_cell_pair_contour_mode"], "aggressive"
+        )
         self.assertGreater(cp_aggressive.nucleus_intensity_sum, 0.0)
         self.assertEqual(
             cp_balanced.properties["nuclear_cell_pair_contour_source"],
@@ -834,8 +981,12 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         with TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
-            self._write_outline(output_dir, y_range=range(0, shape[0]), x_range=range(0, shape[1]))
-            with patch("core.views.segment_image.load_image", return_value=images), patch(
+            self._write_outline(
+                output_dir, y_range=range(0, shape[0]), x_range=range(0, shape[1])
+            )
+            with patch(
+                "core.views.segment_image.load_image", return_value=images
+            ), patch(
                 "core.views.segment_image.preprocess_image_to_gray",
                 return_value=preprocessed,
             ), patch(
@@ -866,11 +1017,19 @@ class ModernContourStatisticsTests(SimpleTestCase):
             {CHANNEL_ROLE_RED},
         )
         self.assertTrue(find_mock.call_args.args[2])
-        self.assertEqual(find_mock.call_args.kwargs["alternate_detection_channel"], CHANNEL_ROLE_RED)
-        self.assertEqual(find_mock.call_args.kwargs["nuclear_cell_pair_contour_mode"], "balanced")
-        self.assertEqual(cp.properties["signal_quantification_mode"], SIGNAL_MODE_NUCLEAR_CELL_PAIR)
+        self.assertEqual(
+            find_mock.call_args.kwargs["alternate_detection_channel"], CHANNEL_ROLE_RED
+        )
+        self.assertEqual(
+            find_mock.call_args.kwargs["nuclear_cell_pair_contour_mode"], "balanced"
+        )
+        self.assertEqual(
+            cp.properties["signal_quantification_mode"], SIGNAL_MODE_NUCLEAR_CELL_PAIR
+        )
         self.assertTrue(cp.properties["alternate_nucleus_detection_enabled"])
-        self.assertEqual(cp.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED)
+        self.assertEqual(
+            cp.properties["alternate_nucleus_detection_channel"], CHANNEL_ROLE_RED
+        )
 
     def test_nuclear_only_alternate_green_requests_standard_green_skip(self):
         shape = (32, 32)
@@ -903,7 +1062,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
                 y_range=range(0, shape[0]),
                 x_range=range(0, shape[1]),
             )
-            with patch("core.views.segment_image.load_image", return_value=images), patch(
+            with patch(
+                "core.views.segment_image.load_image", return_value=images
+            ), patch(
                 "core.views.segment_image.preprocess_image_to_gray",
                 return_value=preprocessed,
             ), patch(
@@ -961,8 +1122,12 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         with TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
-            self._write_outline(output_dir, y_range=range(0, shape[0]), x_range=range(0, shape[1]))
-            with patch("core.views.segment_image.load_image", return_value=images), patch(
+            self._write_outline(
+                output_dir, y_range=range(0, shape[0]), x_range=range(0, shape[1])
+            )
+            with patch(
+                "core.views.segment_image.load_image", return_value=images
+            ), patch(
                 "core.views.segment_image.preprocess_image_to_gray",
                 return_value=preprocessed,
             ), patch(
@@ -992,7 +1157,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             cp.properties["nuclear_cell_pair_contour_source"],
             "alternate_red_nucleus_slot_1",
         )
-        self.assertEqual(cp.properties["selected_analysis"], ["CENDot", "NuclearCellPairIntensity"])
+        self.assertEqual(
+            cp.properties["selected_analysis"], ["CENDot", "NuclearCellPairIntensity"]
+        )
         self.assertEqual(
             set(find_mock.call_args.kwargs["skip_standard_contour_channels"]),
             set(),
@@ -1027,7 +1194,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             "alternate_red_nucleus_slot_1",
         )
         self.assertGreater(
-            self._colored_outline_pixel_count(debug_red, alternate_contour, (255, 0, 0)),
+            self._colored_outline_pixel_count(
+                debug_red, alternate_contour, (255, 0, 0)
+            ),
             0,
         )
         self.assertEqual(
@@ -1108,7 +1277,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             "alternate_green_nucleus_slot_1",
         )
         self.assertGreater(
-            self._colored_outline_pixel_count(debug_red, alternate_contour, (0, 255, 0)),
+            self._colored_outline_pixel_count(
+                debug_red, alternate_contour, (0, 255, 0)
+            ),
             0,
         )
         self.assertEqual(
@@ -1160,7 +1331,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
             float(np.sum(red_gray[standard_mask > 0])),
         )
 
-    def test_live_puncta_mode_is_unchanged_by_alternate_nucleus_detection_and_gates_red_green_intensity(self):
+    def test_live_puncta_mode_is_unchanged_by_alternate_nucleus_detection_and_gates_red_green_intensity(
+        self,
+    ):
         preprocessed = self._build_live_puncta_images()
         cp_off, _, _, _ = self._run_live_get_stats(
             mode="red_nucleus",
@@ -1201,9 +1374,15 @@ class ModernContourStatisticsTests(SimpleTestCase):
         )
 
         self.assertAlmostEqual(cp_off.puncta_distance, cp_on.puncta_distance, places=4)
-        self.assertAlmostEqual(cp_off.puncta_line_intensity, cp_on.puncta_line_intensity, places=4)
-        self.assertAlmostEqual(cp_on.puncta_distance, cp_aggressive.puncta_distance, places=4)
-        self.assertAlmostEqual(cp_on.puncta_line_intensity, cp_aggressive.puncta_line_intensity, places=4)
+        self.assertAlmostEqual(
+            cp_off.puncta_line_intensity, cp_on.puncta_line_intensity, places=4
+        )
+        self.assertAlmostEqual(
+            cp_on.puncta_distance, cp_aggressive.puncta_distance, places=4
+        )
+        self.assertAlmostEqual(
+            cp_on.puncta_line_intensity, cp_aggressive.puncta_line_intensity, places=4
+        )
         self.assertNotIn("nuclear_cell_pair_contour_source", cp_on.properties)
         self.assertNotIn("nuclear_cell_pair_contour_source", cp_aggressive.properties)
         self.assertEqual(getattr(cp_on, "red_intensity_1", 0.0), 0.0)
@@ -1211,12 +1390,16 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertGreater(getattr(cp_with_intensity, "red_intensity_1", 0.0), 0.0)
         self.assertGreater(getattr(cp_with_intensity, "green_intensity_1", 0.0), 0.0)
 
-    def test_live_puncta_mode_with_alternate_enabled_does_not_use_legacy_alternate_red_detection(self):
+    def test_live_puncta_mode_with_alternate_enabled_does_not_use_legacy_alternate_red_detection(
+        self,
+    ):
         preprocessed = self._build_live_puncta_images()
 
         with patch(
             "core.contour_processing.contour_operations._origin_main_alternate_channel_contour_family",
-            side_effect=AssertionError("alternate contour family should stay nuclear-only"),
+            side_effect=AssertionError(
+                "alternate contour family should stay nuclear-only"
+            ),
         ):
             cp, _, _, _ = self._run_live_get_stats(
                 mode="red_nucleus",
@@ -1231,12 +1414,16 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertFalse(cp.properties["alternate_nucleus_detection_enabled"])
         self.assertIsNone(cp.properties["alternate_nucleus_detection_channel"])
         self.assertGreater(cp.puncta_distance, 0.0)
-        self.assertEqual(cp.properties["signal_quantification_mode"], SIGNAL_MODE_PUNCTA_DISTANCE)
+        self.assertEqual(
+            cp.properties["signal_quantification_mode"], SIGNAL_MODE_PUNCTA_DISTANCE
+        )
 
     def test_aggressive_tightened_green_slots_drive_stats_and_debug_contours(self):
         shape = (96, 128)
         red_gray = np.zeros(shape, dtype=np.uint8)
-        support_green, tightening_green = self._tightening_support_and_core_images(shape)
+        support_green, tightening_green = self._tightening_support_and_core_images(
+            shape
+        )
         preprocessed = GrayImage(
             img={
                 "red_no_bg": red_gray,
@@ -1285,8 +1472,12 @@ class ModernContourStatisticsTests(SimpleTestCase):
             )
 
         self.assertEqual(len(expected_slots), 2)
-        self.assertAlmostEqual(cp.green_contour_1_size, float(expected_slots[0].area), places=4)
-        self.assertAlmostEqual(cp.green_contour_2_size, float(expected_slots[1].area), places=4)
+        self.assertAlmostEqual(
+            cp.green_contour_1_size, float(expected_slots[0].area), places=4
+        )
+        self.assertAlmostEqual(
+            cp.green_contour_2_size, float(expected_slots[1].area), places=4
+        )
 
         expected_debug_green = self._rgb(support_green)
         cv2.drawContours(expected_debug_green, expected_contours, -1, (0, 255, 0), 1)
@@ -1329,7 +1520,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
                 y_range=range(0, shape[0]),
                 x_range=range(0, shape[1]),
             )
-            with patch("core.views.segment_image.load_image", return_value=images), patch(
+            with patch(
+                "core.views.segment_image.load_image", return_value=images
+            ), patch(
                 "core.views.segment_image.find_contours",
                 return_value=contours_data,
             ):
