@@ -32,6 +32,22 @@ def legacy_scaled_measurement_keys(mode: str) -> tuple[str, ...]:
     return ("red_no_bg",)
 
 
+def apply_legacy_scaled_provenance(props: dict[str, Any]) -> dict[str, Any]:
+    """Annotate results that measured from legacy-scaled pixels."""
+
+    props["nuclear_cell_pair_measurement_mode"] = LEGACY_SCALED_MEASUREMENT_MODE
+    props["intensity_pixel_source"] = "legacy_scaled_8bit_crop"
+    props["intensity_display_scaled"] = True
+    props["intensity_background_subtracted"] = True
+    props["legacy_preserves_channel_identity"] = True
+    props["legacy_preserves_cytocv_cell_mask"] = True
+    props["legacy_preserves_cytocv_contours"] = True
+    props["legacy_copies_yat_channel_collision"] = False
+    props["legacy_copies_yat_outline_summing"] = False
+    props["legacy_copies_yat_contour_selection"] = False
+    return props
+
+
 def select_legacy_exact_cell_pair_mask(
     contours_data: dict[str, Any],
     fallback_mask: np.ndarray,
@@ -56,3 +72,20 @@ def select_legacy_exact_cell_pair_mask(
     if not np.any(mask):
         return fallback_mask, True
     return mask, False
+
+
+def apply_legacy_cell_pair_mask_provenance(
+    props: dict[str, Any],
+    *,
+    fallback_used: bool,
+) -> dict[str, Any]:
+    """Annotate the cell-pair pixel support used by hybrid legacy mode."""
+
+    props["legacy_cell_pair_pixel_support"] = (
+        "filled_cytocv_cell_mask_fallback"
+        if fallback_used
+        else "segmentation_label_pixels"
+    )
+    props["legacy_cell_pair_mask_fallback"] = bool(fallback_used)
+    props["legacy_uses_filled_cell_mask"] = bool(fallback_used)
+    return props

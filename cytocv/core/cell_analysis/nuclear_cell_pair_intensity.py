@@ -14,6 +14,8 @@ from core.services.nuclear_cell_pair_contour_mode import (
 )
 from .analysis import Analysis
 from .nuclear_cell_pair_legacy_scaled import (
+    apply_legacy_cell_pair_mask_provenance,
+    apply_legacy_scaled_provenance,
     legacy_scaled_measurement_keys,
     select_legacy_exact_cell_pair_mask,
     truthy_legacy_flag,
@@ -214,6 +216,12 @@ class NuclearCellPairIntensity(Analysis):
         props["nuclear_cell_pair_measurement_channel"] = measurement_channel
         props["nuclear_cell_pair_contour_source"] = used_contour_source
         props["nuclear_cell_pair_status"] = "ok"
+        if use_legacy_scaled_measurement:
+            props = apply_legacy_scaled_provenance(props)
+            props = apply_legacy_cell_pair_mask_provenance(
+                props,
+                fallback_used=legacy_cell_mask_fallback,
+            )
         self.cp.properties = props
 
         self._draw_nucleus_contours(red_image, green_image, clipped_nucleus_contours, mode)
