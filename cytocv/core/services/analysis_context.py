@@ -60,6 +60,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
     "nuclear_cell_pair_mode": "green_nucleus",
     "nuclear_cell_pair_contour_mode": DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+    "use_legacy_nuclear_cell_pair_pipeline": False,
     "greenContourFilterEnabled": False,
     "alternateRedDetection": False,
     "auto_save_experiments": True,
@@ -96,7 +97,9 @@ def _parse_int(value: object, *, default: int, minimum: int | None = None) -> in
     return parsed
 
 
-def _parse_float(value: object, *, default: float, minimum: float | None = None) -> float:
+def _parse_float(
+    value: object, *, default: float, minimum: float | None = None
+) -> float:
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -142,7 +145,9 @@ def normalize_execution_mode(value: object | None = None) -> str:
     return candidate
 
 
-def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, object]:
+def normalize_analysis_config_snapshot(
+    snapshot: dict[str, object] | None,
+) -> dict[str, object]:
     """Normalize a persisted analysis snapshot back into safe runtime values."""
 
     source_snapshot = snapshot if isinstance(snapshot, dict) else {}
@@ -152,7 +157,9 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
 
     selected_analysis = payload.get("selected_analysis") or []
     if not isinstance(selected_analysis, list):
-        selected_analysis = list(selected_analysis) if isinstance(selected_analysis, tuple) else []
+        selected_analysis = (
+            list(selected_analysis) if isinstance(selected_analysis, tuple) else []
+        )
 
     nuclear_cell_pair_mode = str(
         payload.get(
@@ -164,7 +171,9 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
         )
     ).strip()
     if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
-        nuclear_cell_pair_mode = DEFAULT_ANALYSIS_CONFIG_SNAPSHOT["nuclear_cell_pair_mode"]
+        nuclear_cell_pair_mode = DEFAULT_ANALYSIS_CONFIG_SNAPSHOT[
+            "nuclear_cell_pair_mode"
+        ]
     nuclear_cell_pair_contour_mode = normalize_nuclear_cell_pair_contour_mode(
         payload.get(
             "nuclear_cell_pair_contour_mode",
@@ -196,7 +205,9 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
         nuclear_cell_pair_mode=nuclear_cell_pair_mode,
         puncta_line_mode=puncta_line_mode,
         default_alternate_nucleus_detection_enabled=_parse_bool(
-            payload.get("alternateNucleusDetectionEnabled", payload.get("alternateRedDetection")),
+            payload.get(
+                "alternateNucleusDetectionEnabled", payload.get("alternateRedDetection")
+            ),
             default=False,
         ),
     )
@@ -275,33 +286,61 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
         "redDotSplitMode": normalize_dot_split_mode(
             payload.get("redDotSplitMode", payload.get("red_dot_split_mode"))
         ),
-        "stats_biorientation_red_min_distance_unit": "um"
-        if str(payload.get("stats_biorientation_red_min_distance_unit", "px")).strip().lower() == "um"
-        else "px",
+        "stats_biorientation_red_min_distance_unit": (
+            "um"
+            if str(payload.get("stats_biorientation_red_min_distance_unit", "px"))
+            .strip()
+            .lower()
+            == "um"
+            else "px"
+        ),
         "stats_biorientation_red_min_distance_value": _parse_float(
             payload.get("stats_biorientation_red_min_distance_value"),
             default=0.0,
             minimum=0.0,
         ),
-        "stats_biorientation_red_max_distance_unit": "um"
-        if str(payload.get("stats_biorientation_red_max_distance_unit", "px")).strip().lower() == "um"
-        else "px",
+        "stats_biorientation_red_max_distance_unit": (
+            "um"
+            if str(payload.get("stats_biorientation_red_max_distance_unit", "px"))
+            .strip()
+            .lower()
+            == "um"
+            else "px"
+        ),
         "stats_biorientation_red_max_distance_value": _parse_float(
             payload.get("stats_biorientation_red_max_distance_value"),
             default=37.0,
             minimum=0.0,
         ),
-        "stats_puncta_line_width_unit": "um"
-        if str(
-            payload.get(
-                "stats_puncta_line_width_unit",
-                payload.get("stats_red_line_width_unit", payload.get("stats_mcherry_width_unit", "px")),
+        "stats_puncta_line_width_unit": (
+            "um"
+            if str(
+                payload.get(
+                    "stats_puncta_line_width_unit",
+                    payload.get(
+                        "stats_red_line_width_unit",
+                        payload.get("stats_mcherry_width_unit", "px"),
+                    ),
+                )
             )
-        ).strip().lower() == "um"
-        else "px",
-        "stats_cen_dot_distance_unit": "um"
-        if str(payload.get("stats_cen_dot_distance_unit", payload.get("stats_gfp_distance_unit", "px"))).strip().lower() == "um"
-        else "px",
+            .strip()
+            .lower()
+            == "um"
+            else "px"
+        ),
+        "stats_cen_dot_distance_unit": (
+            "um"
+            if str(
+                payload.get(
+                    "stats_cen_dot_distance_unit",
+                    payload.get("stats_gfp_distance_unit", "px"),
+                )
+            )
+            .strip()
+            .lower()
+            == "um"
+            else "px"
+        ),
         "stats_microns_per_pixel": _parse_float(
             payload.get("stats_microns_per_pixel"),
             default=0.1,
@@ -314,19 +353,28 @@ def normalize_analysis_config_snapshot(snapshot: dict[str, object] | None) -> di
         "stats_puncta_line_width_value": _parse_float(
             payload.get(
                 "stats_puncta_line_width_value",
-                payload.get("stats_red_line_width_value", payload.get("stats_mcherry_width_value")),
+                payload.get(
+                    "stats_red_line_width_value",
+                    payload.get("stats_mcherry_width_value"),
+                ),
             ),
             default=1.0,
             minimum=0.0,
         ),
         "stats_cen_dot_distance_value": _parse_float(
-            payload.get("stats_cen_dot_distance_value", payload.get("stats_gfp_distance_value")),
+            payload.get(
+                "stats_cen_dot_distance_value", payload.get("stats_gfp_distance_value")
+            ),
             default=37.0,
             minimum=0.0,
         ),
         "puncta_line_mode": puncta_line_mode,
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
         "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
+        "use_legacy_nuclear_cell_pair_pipeline": _parse_bool(
+            payload.get("use_legacy_nuclear_cell_pair_pipeline"),
+            default=False,
+        ),
         "greenContourFilterEnabled": _parse_bool(
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
@@ -352,7 +400,9 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         ),
         "signalQuantificationMode": request.session.get(
             "signalQuantificationMode",
-            request.session.get("signal_quantification_mode", SIGNAL_MODE_PUNCTA_DISTANCE),
+            request.session.get(
+                "signal_quantification_mode", SIGNAL_MODE_PUNCTA_DISTANCE
+            ),
         ),
         "punctaContourIntensityEnabled": request.session.get(
             "punctaContourIntensityEnabled",
@@ -373,19 +423,35 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
             "punctaLineWidth",
             request.session.get("redLineWidth", request.session.get("mCherryWidth", 1)),
         ),
-        "cenDotDistance": request.session.get("cenDotDistance", request.session.get("distance", 37)),
+        "cenDotDistance": request.session.get(
+            "cenDotDistance", request.session.get("distance", 37)
+        ),
         "stats_puncta_line_width_unit": request.session.get(
             "stats_puncta_line_width_unit",
-            request.session.get("stats_red_line_width_unit", request.session.get("stats_mcherry_width_unit", "px")),
+            request.session.get(
+                "stats_red_line_width_unit",
+                request.session.get("stats_mcherry_width_unit", "px"),
+            ),
         ),
-        "stats_cen_dot_distance_unit": request.session.get("stats_cen_dot_distance_unit", request.session.get("stats_gfp_distance_unit", "px")),
+        "stats_cen_dot_distance_unit": request.session.get(
+            "stats_cen_dot_distance_unit",
+            request.session.get("stats_gfp_distance_unit", "px"),
+        ),
         "stats_microns_per_pixel": request.session.get("stats_microns_per_pixel", 0.1),
-        "stats_use_metadata_scale": request.session.get("stats_use_metadata_scale", True),
+        "stats_use_metadata_scale": request.session.get(
+            "stats_use_metadata_scale", True
+        ),
         "stats_puncta_line_width_value": request.session.get(
             "stats_puncta_line_width_value",
-            request.session.get("stats_red_line_width_value", request.session.get("stats_mcherry_width_value", 1.0)),
+            request.session.get(
+                "stats_red_line_width_value",
+                request.session.get("stats_mcherry_width_value", 1.0),
+            ),
         ),
-        "stats_cen_dot_distance_value": request.session.get("stats_cen_dot_distance_value", request.session.get("stats_gfp_distance_value", 37.0)),
+        "stats_cen_dot_distance_value": request.session.get(
+            "stats_cen_dot_distance_value",
+            request.session.get("stats_gfp_distance_value", 37.0),
+        ),
         "biorientationRedMinDistance": request.session.get(
             "biorientationRedMinDistance",
             request.session.get("stats_biorientation_red_min_distance_value", 0),
@@ -429,7 +495,9 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         "stats_biorientation_red_max_distance_value": request.session.get(
             "stats_biorientation_red_max_distance_value", 37.0
         ),
-        "puncta_line_mode": request.session.get("puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE),
+        "puncta_line_mode": request.session.get(
+            "puncta_line_mode", DEFAULT_PUNCTA_LINE_MODE
+        ),
         "nuclear_cell_pair_mode": request.session.get(
             "nuclear_cell_pair_mode",
             request.session.get("nuclear_cellular_mode", "green_nucleus"),
@@ -441,17 +509,30 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
                 DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
             ),
         ),
-        "greenContourFilterEnabled": request.session.get("greenContourFilterEnabled", request.session.get("gfpFilterEnabled", False)),
-        "alternateRedDetection": request.session.get("alternateRedDetection", request.session.get("alternateMCherryDetection", False)),
-        "auto_save_experiments": should_auto_save_experiments(request.user)
-        if getattr(request.user, "is_authenticated", False)
-        else True,
+        "use_legacy_nuclear_cell_pair_pipeline": request.session.get(
+            "use_legacy_nuclear_cell_pair_pipeline",
+            False,
+        ),
+        "greenContourFilterEnabled": request.session.get(
+            "greenContourFilterEnabled", request.session.get("gfpFilterEnabled", False)
+        ),
+        "alternateRedDetection": request.session.get(
+            "alternateRedDetection",
+            request.session.get("alternateMCherryDetection", False),
+        ),
+        "auto_save_experiments": (
+            should_auto_save_experiments(request.user)
+            if getattr(request.user, "is_authenticated", False)
+            else True
+        ),
         "execution_mode": normalize_execution_mode(),
     }
     return normalize_analysis_config_snapshot(snapshot)
 
 
-def build_analysis_batch_context(request, raw_uuids: Iterable[object] | str) -> AnalysisBatchContext:
+def build_analysis_batch_context(
+    request, raw_uuids: Iterable[object] | str
+) -> AnalysisBatchContext:
     """Build the immutable runtime context for a request-scoped batch."""
 
     run_uuids = normalize_uuid_list(raw_uuids)

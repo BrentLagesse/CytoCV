@@ -33,7 +33,10 @@ from core.scale import (
     normalize_length_unit,
     parse_microns_per_pixel,
 )
-from core.channel_ordering import DEFAULT_FALLBACK_CHANNEL_ORDER, normalize_channel_order
+from core.channel_ordering import (
+    DEFAULT_FALLBACK_CHANNEL_ORDER,
+    normalize_channel_order,
+)
 from core.image_sources import (
     SUPPORTED_IMAGE_EXTENSIONS_LABEL,
     is_supported_image_filename,
@@ -104,7 +107,9 @@ def _upload_job_detail(job: UploadPreparationJob) -> dict[str, object]:
 def _recent_upload_preparation_job_uuids(request) -> list[str]:
     """Return the normalized recent upload-preparation job UUID list for this session."""
 
-    return _parse_restore_uuids(request.session.get(RECENT_UPLOAD_PREPARATION_SESSION_KEY, []))
+    return _parse_restore_uuids(
+        request.session.get(RECENT_UPLOAD_PREPARATION_SESSION_KEY, [])
+    )
 
 
 def _set_recent_upload_preparation_job_uuids(request, job_uuids: list[str]) -> None:
@@ -123,7 +128,11 @@ def _set_recent_upload_preparation_job_uuids(request, job_uuids: list[str]) -> N
 def _remember_upload_preparation_job(request, job_uuid: str) -> None:
     """Append one upload-preparation job UUID to the recent session list."""
 
-    existing = [value for value in _recent_upload_preparation_job_uuids(request) if value != job_uuid]
+    existing = [
+        value
+        for value in _recent_upload_preparation_job_uuids(request)
+        if value != job_uuid
+    ]
     existing.append(job_uuid)
     _set_recent_upload_preparation_job_uuids(request, existing)
 
@@ -269,7 +278,9 @@ def _parse_channels(raw_values) -> set[str]:
     return {value for value in values if value in allowed}
 
 
-def _parse_nuclear_cell_pair_mode(value: str | None, default: str = "green_nucleus") -> str:
+def _parse_nuclear_cell_pair_mode(
+    value: str | None, default: str = "green_nucleus"
+) -> str:
     """Parse nucleus contour mode for Nuclear/Cell-Pair intensity analysis."""
 
     raw = str(value or "").strip()
@@ -343,9 +354,13 @@ def _upload_view_context(
         "restored_queue_payload_json": json.dumps(restored_queue_items or []),
         "user_preference_defaults_json": json.dumps(user_preference_defaults or {}),
         "upload_quota_payload_json": json.dumps(upload_quota_payload or {}),
-        "upload_access_policy_payload_json": json.dumps(upload_access_policy_payload or {}),
+        "upload_access_policy_payload_json": json.dumps(
+            upload_access_policy_payload or {}
+        ),
         "upload_resume_payload_json": json.dumps(upload_resume_payload or {}),
-        "upload_batch_target_bytes": int(getattr(settings, "UPLOAD_BATCH_TARGET_BYTES", 80 * 1024 * 1024)),
+        "upload_batch_target_bytes": int(
+            getattr(settings, "UPLOAD_BATCH_TARGET_BYTES", 80 * 1024 * 1024)
+        ),
         "upload_preparation_execution_mode": normalize_execution_mode(),
     }
     if error:
@@ -391,7 +406,9 @@ def _track_active_upload_preparation_job(request, job: UploadPreparationJob) -> 
         _forget_upload_preparation_job(request, str(job.job_uuid))
 
 
-def _build_upload_quota_payload(user, user_preferences: dict | None = None) -> dict[str, object]:
+def _build_upload_quota_payload(
+    user, user_preferences: dict | None = None
+) -> dict[str, object]:
     """Build predictive autosave quota data for the upload queue UI."""
 
     preferences = user_preferences or {}
@@ -465,7 +482,9 @@ def _has_payload_key(payload, key: str) -> bool:
         return False
 
 
-def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[str, object], dict[str, object]]:
+def _parse_experiment_submission(
+    payload, user_preferences: dict
+) -> tuple[dict[str, object], dict[str, object]]:
     """Parse upload settings once for session persistence and worker execution."""
 
     experiment_defaults = user_preferences.get("experiment_defaults", {})
@@ -473,7 +492,9 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         experiment_defaults.get("microns_per_pixel"),
         default=DEFAULT_MICRONS_PER_PIXEL,
     )
-    default_use_metadata_scale = bool(experiment_defaults.get("use_metadata_scale", True))
+    default_use_metadata_scale = bool(
+        experiment_defaults.get("use_metadata_scale", True)
+    )
     default_use_metadata_channel_order = bool(
         experiment_defaults.get("use_metadata_channel_order", True)
     )
@@ -483,7 +504,9 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     )
 
     has_selected_analysis_payload = _has_payload_key(payload, "selected_analysis")
-    raw_selected_analysis = normalize_selected_plugins(_getlist(payload, "selected_analysis"))
+    raw_selected_analysis = normalize_selected_plugins(
+        _getlist(payload, "selected_analysis")
+    )
 
     posted_microns_per_pixel = parse_microns_per_pixel(
         payload.get("stats_microns_per_pixel"),
@@ -504,12 +527,16 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     puncta_line_width_unit = _normalize_length_unit(
         payload.get(
             "stats_puncta_line_width_unit",
-            payload.get("stats_red_line_width_unit", payload.get("stats_mcherry_width_unit")),
+            payload.get(
+                "stats_red_line_width_unit", payload.get("stats_mcherry_width_unit")
+            ),
         ),
         default="px",
     )
     cen_dot_distance_unit = _normalize_length_unit(
-        payload.get("stats_cen_dot_distance_unit", payload.get("stats_gfp_distance_unit")),
+        payload.get(
+            "stats_cen_dot_distance_unit", payload.get("stats_gfp_distance_unit")
+        ),
         default="px",
     )
     cen_dot_proximity_radius_unit = _normalize_length_unit(
@@ -527,16 +554,23 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         or "stats_gfp_distance_value" in payload
     )
     has_raw_cen_dot_proximity_radius = "stats_cen_dot_proximity_radius_value" in payload
-    puncta_line_source_unit = puncta_line_width_unit if has_raw_puncta_line_width else "px"
+    puncta_line_source_unit = (
+        puncta_line_width_unit if has_raw_puncta_line_width else "px"
+    )
     cen_dot_source_unit = cen_dot_distance_unit if has_raw_cen_dot_distance else "px"
-    cen_dot_proximity_radius_source_unit = cen_dot_proximity_radius_unit if has_raw_cen_dot_proximity_radius else "px"
+    cen_dot_proximity_radius_source_unit = (
+        cen_dot_proximity_radius_unit if has_raw_cen_dot_proximity_radius else "px"
+    )
 
     puncta_line_width_value = _parse_positive_float(
         payload.get(
             "stats_puncta_line_width_value",
             payload.get(
                 "stats_red_line_width_value",
-                payload.get("punctaLineWidth", payload.get("redLineWidth", payload.get("mCherryWidth", "1"))),
+                payload.get(
+                    "punctaLineWidth",
+                    payload.get("redLineWidth", payload.get("mCherryWidth", "1")),
+                ),
             ),
         ),
         default=1,
@@ -545,7 +579,10 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
     cen_dot_distance_value = _parse_positive_float(
         payload.get(
             "stats_cen_dot_distance_value",
-            payload.get("stats_gfp_distance_value", payload.get("cenDotDistance", payload.get("distance", "37"))),
+            payload.get(
+                "stats_gfp_distance_value",
+                payload.get("cenDotDistance", payload.get("distance", "37")),
+            ),
         ),
         default=37,
         minimum=0,
@@ -588,8 +625,12 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
             return default
         return parsed if parsed >= 0 else default
 
-    biorientation_red_min_distance_value = _parse_float_value("biorientationRedMinDistance", 0.0)
-    biorientation_red_max_distance_value = _parse_float_value("biorientationRedMaxDistance", 37.0)
+    biorientation_red_min_distance_value = _parse_float_value(
+        "biorientationRedMinDistance", 0.0
+    )
+    biorientation_red_max_distance_value = _parse_float_value(
+        "biorientationRedMaxDistance", 37.0
+    )
     biorientation_red_min_distance_unit = _normalize_length_unit(
         payload.get("biorientationRedMinDistanceUnit", "px")
     )
@@ -604,12 +645,18 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
             )
         )
     except (TypeError, ValueError):
-        biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+        biorientation_collinearity_threshold = (
+            DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+        )
     if biorientation_collinearity_threshold < 0:
-        biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+        biorientation_collinearity_threshold = (
+            DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+        )
 
     green_dot_split_enabled = _parse_bool(
-        payload.get("greenDotSplitEnabled", payload.get("biorientationGreenSplitEnabled")),
+        payload.get(
+            "greenDotSplitEnabled", payload.get("biorientationGreenSplitEnabled")
+        ),
         default=True,
     )
     green_dot_split_mode = normalize_dot_split_mode(
@@ -648,6 +695,13 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
                 ),
             ),
         )
+    )
+    use_legacy_nuclear_cell_pair_pipeline = _parse_bool(
+        payload.get(
+            "use_legacy_nuclear_cell_pair_pipeline",
+            experiment_defaults.get("use_legacy_nuclear_cell_pair_pipeline", False),
+        ),
+        default=False,
     )
     signal_selection = resolve_signal_quantification_selection(
         payload={
@@ -709,7 +763,9 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         payload.get("enforce_wavelengths"),
         default=False,
     )
-    extra_required_channels = _parse_channels(_getlist(payload, "extra_required_channels"))
+    extra_required_channels = _parse_channels(
+        _getlist(payload, "extra_required_channels")
+    )
     required_channels = set(requirement_summary["required_channels"])
     if module_enabled:
         required_channels.update(extra_required_channels)
@@ -743,6 +799,7 @@ def _parse_experiment_submission(payload, user_preferences: dict) -> tuple[dict[
         "puncta_line_mode": puncta_line_mode,
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
         "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
+        "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
         "greenContourFilterEnabled": green_contour_filter_enabled,
         "alternateRedDetection": signal_selection.alternate_nucleus_detection_enabled,
         "alternateNucleusDetectionEnabled": signal_selection.alternate_nucleus_detection_enabled,
@@ -790,9 +847,9 @@ def experiment(request):
     if request.method == "POST":
         logger.debug("POST request received")
 
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
-        files = request.FILES.getlist('files')
+        files = request.FILES.getlist("files")
         existing_uuids = _parse_restore_uuids(request.POST.getlist("existing_uuids"))
         if not files and not existing_uuids:
             logger.debug("No files received")
@@ -800,14 +857,20 @@ def experiment(request):
                 return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
             return render(
                 request,
-                'form/experiment.html',
+                "form/experiment.html",
                 _upload_view_context(
                     form=UploadImageForm(),
                     progress_key=progress_key,
-                    error='No files were uploaded.',
-                    user_preference_defaults=user_preferences.get("experiment_defaults", {}),
-                    upload_quota_payload=_build_upload_quota_payload(request.user, user_preferences),
-                    upload_access_policy_payload=_build_upload_access_policy_payload(request.user),
+                    error="No files were uploaded.",
+                    user_preference_defaults=user_preferences.get(
+                        "experiment_defaults", {}
+                    ),
+                    upload_quota_payload=_build_upload_quota_payload(
+                        request.user, user_preferences
+                    ),
+                    upload_access_policy_payload=_build_upload_access_policy_payload(
+                        request.user
+                    ),
                 ),
             )
 
@@ -867,12 +930,16 @@ def experiment(request):
                     exc=exc,
                 )
                 if is_ajax:
-                    return JsonResponse({"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507)
+                    return JsonResponse(
+                        {"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507
+                    )
                 messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
                 return redirect(request.path)
             logger.exception("Experiment upload save failed")
             if is_ajax:
-                return JsonResponse({"errors": ["Upload failed. Please try again."]}, status=500)
+                return JsonResponse(
+                    {"errors": ["Upload failed. Please try again."]}, status=500
+                )
             messages.error(request, "Upload failed. Please try again.")
             return redirect(request.path)
 
@@ -889,7 +956,11 @@ def experiment(request):
             for cleanup_uuid in new_upload_uuids:
                 delete_uploaded_run_by_uuid(cleanup_uuid)
             return JsonResponse(
-                {"errors": ["One or more files are no longer available. Refresh and try again."]},
+                {
+                    "errors": [
+                        "One or more files are no longer available. Refresh and try again."
+                    ]
+                },
                 status=403,
             )
 
@@ -903,18 +974,24 @@ def experiment(request):
         payload = _build_upload_preparation_payload(request, job)
         if is_ajax:
             return JsonResponse(payload)
-        if job.status == UploadPreparationJob.Status.SUCCEEDED and payload.get("redirect"):
+        if job.status == UploadPreparationJob.Status.SUCCEEDED and payload.get(
+            "redirect"
+        ):
             messages.info(request, "Files uploaded and prepared.")
             return redirect(payload["redirect"])
         if job.status == UploadPreparationJob.Status.FAILED:
-            for line in payload.get("errors") or ["Upload preparation failed. Please try again."]:
+            for line in payload.get("errors") or [
+                "Upload preparation failed. Please try again."
+            ]:
                 messages.error(request, line)
             return redirect(request.path)
         messages.info(request, "Files uploaded and queued for preparation.")
         return redirect("experiment")
     else:
         form = UploadImageForm()
-        upload_quota_payload = _build_upload_quota_payload(request.user, user_preferences)
+        upload_quota_payload = _build_upload_quota_payload(
+            request.user, user_preferences
+        )
         upload_access_policy_payload = _build_upload_access_policy_payload(request.user)
         restore_param = request.GET.get("restore", "")
         restore_uuids = _parse_restore_uuids(restore_param)
@@ -927,7 +1004,9 @@ def experiment(request):
         sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
         restored_map = {
             str(item.uuid): item
-            for item in UploadedImage.objects.filter(uuid__in=restore_uuids, **owner_filter)
+            for item in UploadedImage.objects.filter(
+                uuid__in=restore_uuids, **owner_filter
+            )
         }
         restored_queue_items = []
         for uid in restore_uuids:
@@ -943,15 +1022,19 @@ def experiment(request):
         upload_resume_payload = _resolve_upload_preparation_resume_payload(request)
     return render(
         request,
-        'form/experiment.html',
+        "form/experiment.html",
         _upload_view_context(
             form=form,
             progress_key=progress_key,
-            restored_queue_items=restored_queue_items if request.method != "POST" else None,
+            restored_queue_items=(
+                restored_queue_items if request.method != "POST" else None
+            ),
             user_preference_defaults=user_preferences.get("experiment_defaults", {}),
             upload_quota_payload=upload_quota_payload,
             upload_access_policy_payload=upload_access_policy_payload,
-            upload_resume_payload=upload_resume_payload if request.method != "POST" else None,
+            upload_resume_payload=(
+                upload_resume_payload if request.method != "POST" else None
+            ),
         ),
     )
 
@@ -998,7 +1081,10 @@ def upload_file_batch(request):
     if not files:
         return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
     access_policy = get_access_policy_for_user(request.user)
-    if access_policy.upload_max_files is not None and len(files) > access_policy.upload_max_files:
+    if (
+        access_policy.upload_max_files is not None
+        and len(files) > access_policy.upload_max_files
+    ):
         return JsonResponse(
             {
                 "errors": build_upload_limit_error_lines(
@@ -1048,9 +1134,13 @@ def upload_file_batch(request):
                 uuids=created_uuids,
                 exc=exc,
             )
-            return JsonResponse({"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507)
+            return JsonResponse(
+                {"errors": [PROCESSING_STORAGE_FULL_MESSAGE]}, status=507
+            )
         logger.exception("Upload batch save failed")
-        return JsonResponse({"errors": ["Upload failed. Please try again."]}, status=500)
+        return JsonResponse(
+            {"errors": ["Upload failed. Please try again."]}, status=500
+        )
 
     return JsonResponse({"uploads": uploaded_items})
 
@@ -1086,7 +1176,11 @@ def enqueue_upload_preparation(request):
             if cleanup_uuid in owned_uuids:
                 delete_uploaded_run_by_uuid(cleanup_uuid)
         return JsonResponse(
-            {"errors": ["One or more files are no longer available. Refresh and try again."]},
+            {
+                "errors": [
+                    "One or more files are no longer available. Refresh and try again."
+                ]
+            },
             status=403,
         )
     access_policy = get_access_policy_for_user(request.user)
@@ -1127,7 +1221,9 @@ def upload_preparation_status(request, job_uuid):
     )
     if job is None:
         _forget_upload_preparation_job(request, str(job_uuid))
-        return JsonResponse({"errors": ["That upload session is no longer available."]}, status=404)
+        return JsonResponse(
+            {"errors": ["That upload session is no longer available."]}, status=404
+        )
     stale_state = get_stale_upload_preparation_terminal_state(job)
     payload = _build_upload_preparation_payload(
         request,
@@ -1153,7 +1249,9 @@ def cancel_upload_preparation(request, job_uuid):
         job_uuid=job_uuid,
     )
     if job is None:
-        return JsonResponse({"errors": ["That upload session is no longer available."]}, status=404)
+        return JsonResponse(
+            {"errors": ["That upload session is no longer available."]}, status=404
+        )
     if job.status in {
         UploadPreparationJob.Status.SUCCEEDED,
         UploadPreparationJob.Status.FAILED,

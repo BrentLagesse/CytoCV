@@ -2534,6 +2534,7 @@
     const punctaModeKey = 'cytocv.puncta_line_mode.v1';
     const nuclearModeKey = 'cytocv.nuclear_cell_pair_mode.v3';
     const nuclearContourModeKey = 'cytocv.nuclear_cell_pair_contour_mode.v1';
+    const legacyNuclearCellPairModeKey = 'cytocv.use_legacy_nuclear_cell_pair_pipeline.v1';
     const legacyLengthUnitKey = 'cytocv.stats_length_unit.v2';
     const punctaLineWidthUnitKey = 'cytocv.puncta_line_width_unit.v3';
     const cenDotDistanceUnitKey = 'cytocv.cen_dot_distance_unit.v2';
@@ -2603,6 +2604,7 @@
         signalQuantificationMode: 'puncta_distance',
         punctaContourIntensityEnabled: true,
         alternateNucleusDetectionEnabled: false,
+        useLegacyNuclearCellPairPipeline: false,
         greenDotSplitEnabled: true,
         greenDotSplitMode: 'balanced',
         redDotSplitEnabled: true,
@@ -2668,6 +2670,8 @@
     let punctaContourIntensityRow = null;
     let alternateNucleusDetectionToggle = null;
     let alternateNucleusDetectionRow = null;
+    let legacyNuclearCellPairToggle = null;
+    let legacyNuclearCellPairRow = null;
     let nuclearModeSelect = null;
     let nuclearModeRow = null;
     let nuclearContourModeSelect = null;
@@ -2774,6 +2778,7 @@
         NuclearCellPairIntensity: [
             'Nucleus Contour Source: chooses which channel supplies the nucleus contour. Green Nucleus measures Red signal; Red Nucleus measures Green signal.',
             'Nucleus Contour Mode: Balanced keeps the current alternate nucleus contour behavior; Aggressive uses tighter speckle-derived alternate nucleus masks for the selected nucleus source channel.',
+            'Legacy Measurement Compatibility: measures the selected channel from YeastAnalysisTool-style 8-bit scaled crops while preserving CytoCV masks, contours, and channel identity.',
         ],
     };
 
@@ -2797,6 +2802,7 @@
     const signalQuantificationNuclearInfo = [
         'Nuclear, Cell-Pair Intensity measures signal from the selected measurement channel inside the selected nucleus contour and inside the full DIC cell-pair mask. Results include nucleus contour channel, measurement channel, nuclear intensity, cell-pair intensity, cytoplasmic intensity, and nuclear status.',
         'Nucleus Contour Source chooses which channel supplies the nucleus contour and which opposite channel is measured. Green Nucleus uses the Green contour as the nucleus and measures Red signal; Red Nucleus uses the Red contour as the nucleus and measures Green signal.',
+        'Legacy Measurement Compatibility changes only the measurement pixel source to 8-bit scaled crops for publication comparison. CytoCV channel identity, nucleus clipping, contours, and cell-pair masks are preserved.',
     ];
 
     function buildSignalQuantificationInfoText(mode = statsState.signalQuantificationMode) {
@@ -2830,6 +2836,7 @@
             mode: normalizeSignalMode(statsState.signalQuantificationMode),
             punctaContourIntensityEnabled: !!statsState.punctaContourIntensityEnabled,
             alternateNucleusDetectionEnabled: !!statsState.alternateNucleusDetectionEnabled,
+            useLegacyNuclearCellPairPipeline: !!statsState.useLegacyNuclearCellPairPipeline,
         }));
     }
 
@@ -3060,6 +3067,7 @@
                 serverPreferenceDefaults.alternate_nucleus_detection_enabled ||
                 serverPreferenceDefaults.alternate_red_detection
             ),
+            useLegacyNuclearCellPairPipeline: !!serverPreferenceDefaults.use_legacy_nuclear_cell_pair_pipeline,
         }));
 
         const widthUnit = (serverPreferenceDefaults.puncta_line_width_unit === 'um') ? 'um' : 'px';
@@ -3094,6 +3102,10 @@
         localStorage.setItem(
             nuclearContourModeKey,
             normalizeNuclearContourMode(serverPreferenceDefaults.nuclear_cell_pair_contour_mode)
+        );
+        localStorage.setItem(
+            legacyNuclearCellPairModeKey,
+            String(!!serverPreferenceDefaults.use_legacy_nuclear_cell_pair_pipeline)
         );
         localStorage.setItem(
             micronsPerPixelKey,
@@ -4425,6 +4437,33 @@
         contourModeRow.appendChild(contourModeTop);
         signalNuclearPanel.appendChild(contourModeRow);
         nuclearContourModeRow = contourModeRow;
+
+        legacyNuclearCellPairRow = document.createElement('div');
+        legacyNuclearCellPairRow.className = 'toggle-row stats-inline-toggle';
+        const legacyText = document.createElement('div');
+        legacyText.className = 'toggle-text';
+        const legacyLabel = document.createElement('span');
+        legacyLabel.className = 'toggle-label';
+        legacyLabel.textContent = 'Legacy Measurement Compatibility';
+        legacyText.appendChild(legacyLabel);
+        legacyNuclearCellPairRow.appendChild(legacyText);
+        const legacySwitch = document.createElement('label');
+        legacySwitch.className = 'switch';
+        legacyNuclearCellPairToggle = document.createElement('input');
+        legacyNuclearCellPairToggle.type = 'checkbox';
+        legacyNuclearCellPairToggle.checked = !!statsState.useLegacyNuclearCellPairPipeline;
+        legacyNuclearCellPairToggle.addEventListener('change', () => {
+            statsState.useLegacyNuclearCellPairPipeline = legacyNuclearCellPairToggle.checked;
+            localStorage.setItem(legacyNuclearCellPairModeKey, String(statsState.useLegacyNuclearCellPairPipeline));
+            persistSignalQuantificationSettings();
+            syncStatsUI();
+        });
+        const legacySlider = document.createElement('span');
+        legacySlider.className = 'slider';
+        legacySwitch.appendChild(legacyNuclearCellPairToggle);
+        legacySwitch.appendChild(legacySlider);
+        legacyNuclearCellPairRow.appendChild(legacySwitch);
+        signalNuclearPanel.appendChild(legacyNuclearCellPairRow);
         signalPanelStack.appendChild(signalNuclearPanel);
         row.appendChild(signalPanelStack);
 
@@ -4465,6 +4504,8 @@
         punctaContourIntensityRow = null;
         alternateNucleusDetectionToggle = null;
         alternateNucleusDetectionRow = null;
+        legacyNuclearCellPairToggle = null;
+        legacyNuclearCellPairRow = null;
         nuclearModeSelect = null;
         nuclearModeRow = null;
         nuclearContourModeSelect = null;
@@ -5574,6 +5615,9 @@
         statsState.alternateNucleusDetectionEnabled = typeof stored.alternateNucleusDetectionEnabled === 'boolean'
             ? stored.alternateNucleusDetectionEnabled
             : !!legacyAlternateRedDetection;
+        statsState.useLegacyNuclearCellPairPipeline = typeof stored.useLegacyNuclearCellPairPipeline === 'boolean'
+            ? stored.useLegacyNuclearCellPairPipeline
+            : localStorage.getItem(legacyNuclearCellPairModeKey) === 'true';
         if (!selectionsInitializedBeforeLoad) {
             statsState.selectedPlugins.add('CENDot');
             statsState.selectedPlugins.add('Biorientation');
@@ -5925,6 +5969,12 @@
             nuclearContourModeRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellPairIntensity'));
             nuclearContourModeRow.classList.toggle('disabled', !statsState.alternateNucleusDetectionEnabled);
         }
+        if (legacyNuclearCellPairToggle) {
+            legacyNuclearCellPairToggle.checked = !!statsState.useLegacyNuclearCellPairPipeline;
+        }
+        if (legacyNuclearCellPairRow) {
+            legacyNuclearCellPairRow.classList.toggle('visible', statsState.selectedPlugins.has('NuclearCellPairIntensity'));
+        }
         if (greenContourFilterEnabled) {
             greenContourFilterEnabled.checked = !!statsState.greenContourFilterEnabled;
             const greenUsed = isChannelUsed('channel_green');
@@ -6213,6 +6263,10 @@
             statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(nuclearContourModeSelect.value);
             localStorage.setItem(nuclearContourModeKey, statsState.nuclearCellPairContourMode);
         }
+        if (legacyNuclearCellPairToggle) {
+            statsState.useLegacyNuclearCellPairPipeline = !!legacyNuclearCellPairToggle.checked;
+            localStorage.setItem(legacyNuclearCellPairModeKey, String(statsState.useLegacyNuclearCellPairPipeline));
+        }
 
         const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
             || statsState.cenDotDistanceUnit === 'um'
@@ -6290,6 +6344,7 @@
             punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             nuclearCellPairContourMode: normalizeNuclearContourMode(statsState.nuclearCellPairContourMode),
+            useLegacyNuclearCellPairPipeline: !!statsState.useLegacyNuclearCellPairPipeline,
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
@@ -6361,6 +6416,7 @@
             statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(snapshot.nuclearCellPairContourMode);
+            statsState.useLegacyNuclearCellPairPipeline = !!snapshot.useLegacyNuclearCellPairPipeline;
             statsState.signalQuantificationEnabled = snapshot.signalQuantificationEnabled !== false;
             statsState.signalQuantificationMode = normalizeSignalMode(snapshot.signalQuantificationMode);
             statsState.punctaContourIntensityEnabled = snapshot.punctaContourIntensityEnabled !== false;
@@ -6396,6 +6452,7 @@
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
             localStorage.setItem(nuclearModeKey, statsState.nuclearCellPairMode);
             localStorage.setItem(nuclearContourModeKey, statsState.nuclearCellPairContourMode);
+            localStorage.setItem(legacyNuclearCellPairModeKey, String(statsState.useLegacyNuclearCellPairPipeline));
             persistSignalQuantificationSettings();
             persistLengthUnitSettings();
             persistChannelOrderSettings();
@@ -6574,6 +6631,7 @@
                 puncta_line_mode: snapshot.punctaLineMode,
                 nuclear_cell_pair_mode: snapshot.nuclearCellPairMode,
                 nuclear_cell_pair_contour_mode: snapshot.nuclearCellPairContourMode,
+                use_legacy_nuclear_cell_pair_pipeline: snapshot.useLegacyNuclearCellPairPipeline,
                 microns_per_pixel: snapshot.micronsPerPixel,
                 use_metadata_scale: snapshot.useMetadataScale,
                 use_metadata_channel_order: snapshot.useMetadataChannelOrder,
@@ -7594,6 +7652,7 @@
             prepData.append('puncta_line_mode', statsState.punctaLineMode);
             prepData.append('nuclear_cell_pair_mode', statsState.nuclearCellPairMode);
             prepData.append('nuclear_cell_pair_contour_mode', normalizeNuclearContourMode(statsState.nuclearCellPairContourMode));
+            prepData.append('use_legacy_nuclear_cell_pair_pipeline', String(statsState.useLegacyNuclearCellPairPipeline));
             prepData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
             prepData.append('alternateRedDetection', String(statsState.alternateNucleusDetectionEnabled));
             const allUnitsMatch = statsState.punctaLineWidthUnit === statsState.cenDotDistanceUnit

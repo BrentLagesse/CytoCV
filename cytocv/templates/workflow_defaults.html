@@ -2111,6 +2111,16 @@ main.main > section.panel > form.panel > .card {
                     <select id="nuclear_cell_pair_contour_mode" name="nuclear_cell_pair_contour_mode" {% if not preferences.experiment_defaults.alternate_nucleus_detection_enabled %}disabled{% endif %}><option value="balanced" {% if preferences.experiment_defaults.nuclear_cell_pair_contour_mode != 'aggressive' %}selected{% endif %}>Balanced</option><option value="aggressive" {% if preferences.experiment_defaults.nuclear_cell_pair_contour_mode == 'aggressive' %}selected{% endif %}>Aggressive</option></select>
                   </div>
                 </div>
+                <div class="plugin-measure-line">
+                  <div class="plugin-measure-copy">
+                    <label for="use_legacy_nuclear_cell_pair_pipeline">Legacy-Scaled Measurement Compatibility:</label>
+                    <p class="module-help">Uses YeastAnalysisTool-style 8-bit scaled measurement pixels while preserving CytoCV channel identity, contours, nucleus clipping, and cell-pair masks.</p>
+                  </div>
+                  <div class="plugin-measure-right compact-control">
+                    <input type="hidden" name="use_legacy_nuclear_cell_pair_pipeline" value="0">
+                    <label class="sw"><input type="checkbox" id="use_legacy_nuclear_cell_pair_pipeline" name="use_legacy_nuclear_cell_pair_pipeline" value="1" {% if preferences.experiment_defaults.use_legacy_nuclear_cell_pair_pipeline %}checked{% endif %}><span class="sl"></span></label>
+                  </div>
+                </div>
               </div>
               </div>
             </div>

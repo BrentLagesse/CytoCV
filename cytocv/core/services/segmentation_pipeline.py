@@ -221,7 +221,9 @@ def _mask_centroid(mask: np.ndarray) -> tuple[int, int] | None:
     points = np.column_stack(np.nonzero(binary))
     if points.size == 0:
         return None
-    return int(round(float(np.mean(points[:, 1])))), int(round(float(np.mean(points[:, 0]))))
+    return int(round(float(np.mean(points[:, 1])))), int(
+        round(float(np.mean(points[:, 0])))
+    )
 
 
 def _draw_centered_label(
@@ -253,7 +255,9 @@ def _draw_centered_label(
             continue
     if font is None:
         font = ImageFont.load_default()
-    x0, y0, x1, y1 = draw.textbbox((0, 0), label, font=font, stroke_width=int(stroke_width))
+    x0, y0, x1, y1 = draw.textbbox(
+        (0, 0), label, font=font, stroke_width=int(stroke_width)
+    )
     text_width = x1 - x0
     text_height = y1 - y0
     x = int(round(center[0] - (text_width / 2.0) - x0))
@@ -476,10 +480,14 @@ def _finalize_segmented_run_batch_for_user(
         )
         SegmentedImage.objects.filter(UUID__in=current_uuids).update(user_id=guest_id)
         refresh_user_storage_usage(user)
-        return SegmentationBatchResult(storage_warning_message=AUTOSAVE_STORAGE_FULL_MESSAGE)
+        return SegmentationBatchResult(
+            storage_warning_message=AUTOSAVE_STORAGE_FULL_MESSAGE
+        )
 
     with transaction.atomic():
-        SegmentedImage.objects.filter(UUID__in=current_uuids, user_id=guest_id).update(user=user)
+        SegmentedImage.objects.filter(UUID__in=current_uuids, user_id=guest_id).update(
+            user=user
+        )
     refresh_user_storage_usage(user)
     return SegmentationBatchResult()
 
@@ -546,7 +554,9 @@ def run_segmentation_batch(
             image = np.expand_dims(image, axis=-1)
             image = np.tile(image, 3)
 
-        seg = np.array(Image.open(Path(settings.MEDIA_ROOT) / str(uuid) / "output" / "mask.tif"))
+        seg = np.array(
+            Image.open(Path(settings.MEDIA_ROOT) / str(uuid) / "output" / "mask.tif")
+        )
 
         lines_to_draw: dict[int, tuple[tuple[int, int], tuple[int, int]]] = {}
         outputdirectory = str(Path(settings.MEDIA_ROOT) / str(uuid) / "output") + "/"
@@ -570,7 +580,8 @@ def run_segmentation_batch(
                         neighbor_count[neighbor] = neighbor_count.get(neighbor, 0) + 1
 
                 sorted_dict = {
-                    k: v for k, v in sorted(neighbor_count.items(), key=lambda item: item[1])
+                    k: v
+                    for k, v in sorted(neighbor_count.items(), key=lambda item: item[1])
                 }
                 if len(sorted_dict) == 0:
                     single_cell_list.append(int(i))
@@ -667,7 +678,10 @@ def run_segmentation_batch(
                         single_cell_list.append(int(k))
                         continue
 
-                    if closest_neighbors[int(v)] == int(k) and int(k) not in ignore_list:
+                    if (
+                        closest_neighbors[int(v)] == int(k)
+                        and int(k) not in ignore_list
+                    ):
                         to_update = np.where(seg == v)
                         ignore_list.append(int(v))
                         for update in zip(to_update[0], to_update[1]):
@@ -706,7 +720,9 @@ def run_segmentation_batch(
         for frame_idx in range(image_stack.shape[0]):
             _raise_if_cancelled(progress)
             image = Image.fromarray(image_stack[frame_idx])
-            image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
+            image = skimage.exposure.rescale_intensity(
+                np.float32(image), out_range=(0, 1)
+            )
             image = np.round(image * 255).astype(np.uint8)
             if len(image.shape) != 3 or image.shape[2] != 3:
                 image = np.expand_dims(image, axis=-1)
@@ -729,11 +745,17 @@ def run_segmentation_batch(
                 loc = np.where(seg == i)
                 if len(loc[0]) > 0:
                     txt = ax.text(loc[1][0], loc[0][0], str(i), size=12)
-                    txt.set_path_effects([PathEffects.withStroke(linewidth=1, foreground="w")])
+                    txt.set_path_effects(
+                        [PathEffects.withStroke(linewidth=1, foreground="w")]
+                    )
                 else:
-                    logger.debug("Could not find cell id %s while rendering frame labels", i)
+                    logger.debug(
+                        "Could not find cell id %s while rendering frame labels", i
+                    )
 
-            output_file = os.path.join(outputdirectory, f"{dv_name}_frame_{frame_idx}.png")
+            output_file = os.path.join(
+                outputdirectory, f"{dv_name}_frame_{frame_idx}.png"
+            )
             try:
                 _save_segmentation_frame(fig, output_file)
             finally:
@@ -754,7 +776,9 @@ def run_segmentation_batch(
 
         cell_stack = image_stack
         cell_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
-        cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(dict)
+        cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(
+            dict
+        )
         if cell_stack.ndim == 2:
             cell_stack = np.expand_dims(cell_stack, axis=0)
 
@@ -762,7 +786,9 @@ def run_segmentation_batch(
             _raise_if_cancelled(progress)
             raw_image = np.array(cell_stack[image_num], copy=True)
             image = np.array(raw_image, copy=True)
-            image = skimage.exposure.rescale_intensity(np.float32(image), out_range=(0, 1))
+            image = skimage.exposure.rescale_intensity(
+                np.float32(image), out_range=(0, 1)
+            )
             image = np.round(image * 255).astype(np.uint8)
             if len(image.shape) != 3 or image.shape[2] != 3:
                 image = np.expand_dims(image, axis=-1)
@@ -815,7 +841,10 @@ def run_segmentation_batch(
                         segmented_directory / cell_tif_image,
                         profile=PNG_PROFILE_ANALYSIS_FAST,
                     )
-                if not (segmented_directory / no_outline_image).exists() or not use_cache:
+                if (
+                    not (segmented_directory / no_outline_image).exists()
+                    or not use_cache
+                ):
                     save_png_array(
                         not_outlined_image,
                         segmented_directory / no_outline_image,
@@ -835,14 +864,22 @@ def run_segmentation_batch(
         )
         CellStatistics.objects.filter(segmented_image=instance).delete()
 
-        configuration = user.config if getattr(user, "is_authenticated", False) else settings.DEFAULT_SEGMENT_CONFIG
-        execution_plan = build_stats_execution_plan(config_snapshot.get("selected_analysis", []))
+        configuration = (
+            user.config
+            if getattr(user, "is_authenticated", False)
+            else settings.DEFAULT_SEGMENT_CONFIG
+        )
+        execution_plan = build_stats_execution_plan(
+            config_snapshot.get("selected_analysis", [])
+        )
         selected_analysis = list(execution_plan.selected_plugins)
         raw_puncta_line_width = config_snapshot.get(
             "stats_puncta_line_width_value",
             config_snapshot.get(
                 "punctaLineWidth",
-                config_snapshot.get("redLineWidth", config_snapshot.get("mCherryWidth", 1)),
+                config_snapshot.get(
+                    "redLineWidth", config_snapshot.get("mCherryWidth", 1)
+                ),
             ),
         )
         raw_cen_dot_distance = config_snapshot.get(
@@ -852,7 +889,10 @@ def run_segmentation_batch(
         puncta_line_width_unit = str(
             config_snapshot.get(
                 "stats_puncta_line_width_unit",
-                config_snapshot.get("stats_red_line_width_unit", config_snapshot.get("stats_mcherry_width_unit", "px")),
+                config_snapshot.get(
+                    "stats_red_line_width_unit",
+                    config_snapshot.get("stats_mcherry_width_unit", "px"),
+                ),
             )
         )
         cen_dot_distance_unit = str(
@@ -865,7 +905,9 @@ def run_segmentation_batch(
         scale_info = normalize_scale_info(
             uploaded_image.scale_info,
             manual_default=session_manual_scale,
-            prefer_metadata_default=bool(config_snapshot.get("stats_use_metadata_scale", True)),
+            prefer_metadata_default=bool(
+                config_snapshot.get("stats_use_metadata_scale", True)
+            ),
         )
         if uploaded_image.scale_info != scale_info:
             uploaded_image.scale_info = scale_info
@@ -873,7 +915,9 @@ def run_segmentation_batch(
         scale_context = resolve_scale_context(
             scale_info,
             manual_default=session_manual_scale,
-            prefer_metadata_default=bool(config_snapshot.get("stats_use_metadata_scale", True)),
+            prefer_metadata_default=bool(
+                config_snapshot.get("stats_use_metadata_scale", True)
+            ),
         )
         effective_um_per_px = scale_context.get("effective_um_per_px", 0.1)
         x_um_per_px = scale_context.get("x_um_per_px", effective_um_per_px)
@@ -882,7 +926,9 @@ def run_segmentation_batch(
             "line_width_proxy_um_per_px",
             effective_um_per_px,
         )
-        cen_dot_distance_unit = normalize_length_unit(cen_dot_distance_unit, default="px")
+        cen_dot_distance_unit = normalize_length_unit(
+            cen_dot_distance_unit, default="px"
+        )
 
         puncta_line_width = convert_length_to_pixels(
             raw_puncta_line_width,
@@ -931,7 +977,10 @@ def run_segmentation_batch(
                 cen_dot_proximity_radius = float(raw_cen_dot_proximity_radius)
             except (TypeError, ValueError):
                 cen_dot_proximity_radius = 13.0
-            if not math.isfinite(cen_dot_proximity_radius) or cen_dot_proximity_radius < 0:
+            if (
+                not math.isfinite(cen_dot_proximity_radius)
+                or cen_dot_proximity_radius < 0
+            ):
                 cen_dot_proximity_radius = 13.0
             cen_dot_proximity_radius_px_equivalent = convert_length_to_pixels(
                 cen_dot_proximity_radius,
@@ -982,6 +1031,15 @@ def run_segmentation_batch(
                 ),
             )
         )
+        raw_legacy_nuclear_cell_pair_pipeline = config_snapshot.get(
+            "use_legacy_nuclear_cell_pair_pipeline", False
+        )
+        use_legacy_nuclear_cell_pair_pipeline = (
+            raw_legacy_nuclear_cell_pair_pipeline
+            if isinstance(raw_legacy_nuclear_cell_pair_pipeline, bool)
+            else str(raw_legacy_nuclear_cell_pair_pipeline).strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
         puncta_contour_intensity_enabled = bool(
             config_snapshot.get(
                 "punctaContourIntensityEnabled",
@@ -1024,7 +1082,10 @@ def run_segmentation_batch(
             )
         except (TypeError, ValueError):
             biorientation_red_min_distance_value = 0.0
-        if not math.isfinite(biorientation_red_min_distance_value) or biorientation_red_min_distance_value < 0:
+        if (
+            not math.isfinite(biorientation_red_min_distance_value)
+            or biorientation_red_min_distance_value < 0
+        ):
             biorientation_red_min_distance_value = 0.0
         try:
             biorientation_red_max_distance_value = float(
@@ -1032,7 +1093,10 @@ def run_segmentation_batch(
             )
         except (TypeError, ValueError):
             biorientation_red_max_distance_value = 37.0
-        if not math.isfinite(biorientation_red_max_distance_value) or biorientation_red_max_distance_value < 0:
+        if (
+            not math.isfinite(biorientation_red_max_distance_value)
+            or biorientation_red_max_distance_value < 0
+        ):
             biorientation_red_max_distance_value = 37.0
         try:
             biorientation_collinearity_threshold = int(
@@ -1042,9 +1106,13 @@ def run_segmentation_batch(
                 )
             )
         except (TypeError, ValueError):
-            biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            biorientation_collinearity_threshold = (
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            )
         if biorientation_collinearity_threshold < 0:
-            biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            biorientation_collinearity_threshold = (
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            )
         green_dot_split_enabled = bool(
             config_snapshot.get(
                 "greenDotSplitEnabled",
@@ -1054,9 +1122,7 @@ def run_segmentation_batch(
         green_dot_split_mode = normalize_dot_split_mode(
             config_snapshot.get("greenDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
         )
-        red_dot_split_enabled = bool(
-            config_snapshot.get("redDotSplitEnabled", True)
-        )
+        red_dot_split_enabled = bool(config_snapshot.get("redDotSplitEnabled", True))
         red_dot_split_mode = normalize_dot_split_mode(
             config_snapshot.get("redDotSplitMode", DEFAULT_DOT_SPLIT_MODE)
         )
@@ -1082,6 +1148,9 @@ def run_segmentation_batch(
             ),
             "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
             "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
+            "use_legacy_nuclear_cell_pair_pipeline": (
+                use_legacy_nuclear_cell_pair_pipeline
+            ),
             "green_contour_filter_enabled": green_contour_filter_enabled,
             "alternate_red_detection": effective_alternate_enabled,
             "signal_quantification_enabled": signal_quantification_enabled,
@@ -1200,46 +1269,90 @@ def run_segmentation_batch(
                 "nuclear_cell_pair_mode",
                 config_snapshot.get("nuclear_cellular_mode", "green_nucleus"),
             )
-            cp.properties["nuclear_cell_pair_contour_mode"] = nuclear_cell_pair_contour_mode
+            cp.properties["nuclear_cell_pair_contour_mode"] = (
+                nuclear_cell_pair_contour_mode
+            )
+            cp.properties["use_legacy_nuclear_cell_pair_pipeline"] = (
+                use_legacy_nuclear_cell_pair_pipeline
+            )
             cp.properties["scale_effective_um_per_px"] = effective_um_per_px
             cp.properties["scale_source"] = scale_info.get("source", "manual_global")
             cp.properties["scale_status"] = scale_info.get("status", "missing")
             cp.properties["scale_note"] = scale_info.get("note", "")
             cp.properties["scale_manual_um_per_px"] = scale_info.get("manual_um_per_px")
-            cp.properties["scale_metadata_um_per_px"] = scale_info.get("metadata_um_per_px")
+            cp.properties["scale_metadata_um_per_px"] = scale_info.get(
+                "metadata_um_per_px"
+            )
             cp.properties["scale_x_um_per_px"] = x_um_per_px
             cp.properties["scale_y_um_per_px"] = y_um_per_px
             cp.properties["scale_is_anisotropic"] = bool(
                 scale_context.get("is_anisotropic", False)
             )
-            cp.properties["scale_distance_mode"] = scale_context.get("distance_mode", "scalar")
-            cp.properties["scale_line_width_proxy_um_per_px"] = line_width_proxy_um_per_px
+            cp.properties["scale_distance_mode"] = scale_context.get(
+                "distance_mode", "scalar"
+            )
+            cp.properties["scale_line_width_proxy_um_per_px"] = (
+                line_width_proxy_um_per_px
+            )
             cp.properties["stats_puncta_line_width_px"] = puncta_line_width
             cp.properties["stats_cen_dot_distance_px"] = cen_dot_distance_px_equivalent
             cp.properties["stats_cen_dot_distance_value"] = cen_dot_distance
             cp.properties["stats_cen_dot_distance_mode"] = cen_dot_distance_mode
             cp.properties["stats_puncta_line_width_unit"] = puncta_line_width_unit
             cp.properties["stats_cen_dot_distance_unit"] = cen_dot_distance_unit
-            cp.properties["stats_cen_dot_proximity_radius_px"] = cen_dot_proximity_radius_px_equivalent
-            cp.properties["stats_cen_dot_proximity_radius_value"] = cen_dot_proximity_radius
-            cp.properties["stats_cen_dot_proximity_radius_unit"] = cen_dot_proximity_radius_unit
-            cp.properties["stats_biorientation_red_min_distance_value"] = biorientation_red_min_distance_value
-            cp.properties["stats_biorientation_red_min_distance_unit"] = biorientation_red_min_distance_unit
-            cp.properties["stats_biorientation_red_max_distance_value"] = biorientation_red_max_distance_value
-            cp.properties["stats_biorientation_red_max_distance_unit"] = biorientation_red_max_distance_unit
-            cp.properties["stats_biorientation_collinearity_threshold"] = biorientation_collinearity_threshold
+            cp.properties["stats_cen_dot_proximity_radius_px"] = (
+                cen_dot_proximity_radius_px_equivalent
+            )
+            cp.properties["stats_cen_dot_proximity_radius_value"] = (
+                cen_dot_proximity_radius
+            )
+            cp.properties["stats_cen_dot_proximity_radius_unit"] = (
+                cen_dot_proximity_radius_unit
+            )
+            cp.properties["stats_biorientation_red_min_distance_value"] = (
+                biorientation_red_min_distance_value
+            )
+            cp.properties["stats_biorientation_red_min_distance_unit"] = (
+                biorientation_red_min_distance_unit
+            )
+            cp.properties["stats_biorientation_red_max_distance_value"] = (
+                biorientation_red_max_distance_value
+            )
+            cp.properties["stats_biorientation_red_max_distance_unit"] = (
+                biorientation_red_max_distance_unit
+            )
+            cp.properties["stats_biorientation_collinearity_threshold"] = (
+                biorientation_collinearity_threshold
+            )
             cp.properties["stats_green_dot_split_enabled"] = green_dot_split_enabled
             cp.properties["stats_green_dot_split_mode"] = green_dot_split_mode
             cp.properties["stats_red_dot_split_enabled"] = red_dot_split_enabled
             cp.properties["stats_red_dot_split_mode"] = red_dot_split_mode
-            cp.properties["signal_quantification_enabled"] = signal_quantification_enabled
+            cp.properties["signal_quantification_enabled"] = (
+                signal_quantification_enabled
+            )
             cp.properties["signal_quantification_mode"] = signal_quantification_mode
-            cp.properties["puncta_contour_intensity_enabled"] = puncta_contour_intensity_enabled
-            cp.properties["alternate_nucleus_detection_enabled"] = effective_alternate_enabled
-            cp.properties["alternate_nucleus_detection_channel"] = effective_alternate_channel
+            cp.properties["puncta_contour_intensity_enabled"] = (
+                puncta_contour_intensity_enabled
+            )
+            cp.properties["alternate_nucleus_detection_enabled"] = (
+                effective_alternate_enabled
+            )
+            cp.properties["alternate_nucleus_detection_channel"] = (
+                effective_alternate_channel
+            )
 
             pair_entry = pair_geometry_cache.get(cell_number)
             cp.properties["neck_split"] = _build_neck_split_properties(pair_entry)
+            legacy_exact_cell_pair_mask = None
+            if use_legacy_nuclear_cell_pair_pipeline and pair_entry is not None:
+                legacy_exact_cell_pair_mask = (
+                    seg[
+                        pair_entry.min_x : pair_entry.max_x,
+                        pair_entry.min_y : pair_entry.max_y,
+                    ]
+                    == cell_number
+                ).astype(np.uint8) * 255
 
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
@@ -1258,10 +1371,13 @@ def run_segmentation_batch(
                 cached_measurement_images=cell_measurement_image_cache.get(cell_number),
                 alternate_detection_channel=effective_alternate_channel,
                 contour_crop_origin=(
-                    (pair_entry.min_x, pair_entry.min_y) if pair_entry is not None else None
+                    (pair_entry.min_x, pair_entry.min_y)
+                    if pair_entry is not None
+                    else None
                 ),
                 contour_main_image_shape=seg.shape,
                 nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
+                legacy_exact_cell_pair_mask=legacy_exact_cell_pair_mask,
             )
             rendered_overlay_images = {
                 "red": debug_red,
