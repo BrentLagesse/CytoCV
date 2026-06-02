@@ -275,6 +275,11 @@ class CellStatistics(models.Model):
     nucleus_intensity_sum = models.FloatField()
     cell_pair_intensity_sum = models.FloatField()
     cytoplasmic_intensity = models.FloatField(default=0.0)
+    nuclear_cytoplasmic_ratio = models.FloatField(
+        null=True,
+        blank=True,
+        default=None,
+    )
 
     blue_contour_size = models.FloatField(default=0.0)
 
