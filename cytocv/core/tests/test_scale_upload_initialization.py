@@ -10,7 +10,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from core.metadata_processing.error_handling.source_image_validation import SourceImageValidationResult
+from core.metadata_processing.error_handling.source_image_validation import (
+    SourceImageValidationResult,
+)
 from core.models import UploadedImage, UploadPreparationJob
 from core.services.upload_preparation import run_upload_preparation_job
 
@@ -82,7 +84,9 @@ class UploadScaleInitializationTests(TestCase):
                                     "stats_cen_dot_distance_unit": "px",
                                     "puncta_line_mode": puncta_line_mode,
                                     "stats_microns_per_pixel": "0.2",
-                                    "stats_use_metadata_scale": "1" if use_metadata_scale else "0",
+                                    "stats_use_metadata_scale": (
+                                        "1" if use_metadata_scale else "0"
+                                    ),
                                 }
                                 if extra_payload:
                                     post_data.update(extra_payload)
@@ -114,7 +118,9 @@ class UploadScaleInitializationTests(TestCase):
         )
         self.assertIsNotNone(uploaded)
         self.assertEqual(uploaded.scale_info.get("source"), "metadata")
-        self.assertAlmostEqual(uploaded.scale_info.get("effective_um_per_px"), 0.11, places=6)
+        self.assertAlmostEqual(
+            uploaded.scale_info.get("effective_um_per_px"), 0.11, places=6
+        )
         self.assertTrue(uploaded.scale_info.get("prefer_metadata"))
 
     def test_upload_uses_manual_fallback_when_metadata_invalid(self):
@@ -131,7 +137,9 @@ class UploadScaleInitializationTests(TestCase):
         )
         self.assertIsNotNone(uploaded)
         self.assertEqual(uploaded.scale_info.get("source"), "manual_fallback")
-        self.assertAlmostEqual(uploaded.scale_info.get("effective_um_per_px"), 0.2, places=6)
+        self.assertAlmostEqual(
+            uploaded.scale_info.get("effective_um_per_px"), 0.2, places=6
+        )
 
     def test_upload_uses_manual_global_when_metadata_mode_disabled(self):
         uploaded = self._post_upload(
@@ -147,7 +155,9 @@ class UploadScaleInitializationTests(TestCase):
         )
         self.assertIsNotNone(uploaded)
         self.assertEqual(uploaded.scale_info.get("source"), "manual_global")
-        self.assertAlmostEqual(uploaded.scale_info.get("effective_um_per_px"), 0.2, places=6)
+        self.assertAlmostEqual(
+            uploaded.scale_info.get("effective_um_per_px"), 0.2, places=6
+        )
         self.assertFalse(uploaded.scale_info.get("prefer_metadata"))
 
     def test_upload_persists_puncta_line_mode_in_session(self):
@@ -165,9 +175,13 @@ class UploadScaleInitializationTests(TestCase):
         )
 
         self.assertEqual(self.client.session.get("puncta_line_mode"), "green_puncta")
-        self.assertEqual(self.client.session.get("selected_analysis"), ["PunctaDistance"])
+        self.assertEqual(
+            self.client.session.get("selected_analysis"), ["PunctaDistance"]
+        )
         self.assertTrue(self.client.session.get("signalQuantificationEnabled"))
-        self.assertEqual(self.client.session.get("signalQuantificationMode"), "puncta_distance")
+        self.assertEqual(
+            self.client.session.get("signalQuantificationMode"), "puncta_distance"
+        )
         self.assertFalse(self.client.session.get("punctaContourIntensityEnabled"))
 
     def test_upload_signal_quantification_nuclear_mode_derives_session_selection(self):
@@ -188,6 +202,7 @@ class UploadScaleInitializationTests(TestCase):
                 "punctaContourIntensityEnabled": "true",
                 "alternateNucleusDetectionEnabled": "true",
                 "nuclear_cell_pair_mode": "red_nucleus",
+                "use_legacy_nuclear_cell_pair_pipeline": "true",
             },
         )
 
@@ -195,14 +210,21 @@ class UploadScaleInitializationTests(TestCase):
             self.client.session.get("selected_analysis"),
             ["NuclearCellPairIntensity"],
         )
-        self.assertEqual(self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair")
+        self.assertEqual(
+            self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair"
+        )
         self.assertTrue(self.client.session.get("alternateNucleusDetectionEnabled"))
         self.assertEqual(
             self.client.session.get("alternateNucleusDetectionChannel"),
             "channel_red",
         )
+        self.assertTrue(
+            self.client.session.get("use_legacy_nuclear_cell_pair_pipeline")
+        )
 
-    def test_upload_signal_quantification_green_nuclear_mode_derives_session_selection(self):
+    def test_upload_signal_quantification_green_nuclear_mode_derives_session_selection(
+        self,
+    ):
         self._post_upload(
             metadata_payload={
                 "metadata_um_per_px": 0.11,
@@ -227,14 +249,18 @@ class UploadScaleInitializationTests(TestCase):
             self.client.session.get("selected_analysis"),
             ["NuclearCellPairIntensity"],
         )
-        self.assertEqual(self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair")
+        self.assertEqual(
+            self.client.session.get("signalQuantificationMode"), "nuclear_cell_pair"
+        )
         self.assertTrue(self.client.session.get("alternateNucleusDetectionEnabled"))
         self.assertEqual(
             self.client.session.get("alternateNucleusDetectionChannel"),
             "channel_green",
         )
 
-    def test_upload_signal_quantification_nuclear_mode_off_clears_alternate_channel(self):
+    def test_upload_signal_quantification_nuclear_mode_off_clears_alternate_channel(
+        self,
+    ):
         self._post_upload(
             metadata_payload={
                 "metadata_um_per_px": 0.11,

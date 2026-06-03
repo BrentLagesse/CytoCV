@@ -38,7 +38,10 @@ from core.channel_roles import (
     channel_display_label,
     channel_slug,
 )
-from core.channel_ordering import DEFAULT_FALLBACK_CHANNEL_ORDER, normalize_channel_order
+from core.channel_ordering import (
+    DEFAULT_FALLBACK_CHANNEL_ORDER,
+    normalize_channel_order,
+)
 from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
 from core.models import (
     CellStatistics,
@@ -63,7 +66,10 @@ from core.services.export_filenames import (
     build_statistics_export_filename,
 )
 from core.services.main_image_urls import build_main_image_paths
-from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
+from core.services.overlay_rendering import (
+    build_overlay_image_url,
+    overlay_image_available,
+)
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
     VALID_PUNCTA_LINE_MODES,
@@ -113,7 +119,9 @@ def _post_bool(request: HttpRequest, key: str) -> bool:
     return str(request.POST.get(key, "")).strip().lower() in {"1", "true", "on", "yes"}
 
 
-def _payload_bool(post_data: Any, key: str, *, default: bool = False, legacy_key: str | None = None) -> bool:
+def _payload_bool(
+    post_data: Any, key: str, *, default: bool = False, legacy_key: str | None = None
+) -> bool:
     raw_value = post_data.get(key)
     if raw_value is None and legacy_key is not None:
         raw_value = post_data.get(legacy_key)
@@ -254,6 +262,18 @@ def _extract_measurement_defaults(
     current_nuclear_contour_mode = _normalize_nuclear_contour_mode(
         defaults.get("nuclear_cell_pair_contour_mode"),
     )
+    current_legacy_nuclear_cell_pair = bool(
+        defaults.get("use_legacy_nuclear_cell_pair_pipeline", False)
+    )
+    raw_legacy_nuclear_cell_pair = post_data.get(
+        "use_legacy_nuclear_cell_pair_pipeline"
+    )
+    if raw_legacy_nuclear_cell_pair is None:
+        use_legacy_nuclear_cell_pair_pipeline = current_legacy_nuclear_cell_pair
+    else:
+        use_legacy_nuclear_cell_pair_pipeline = str(
+            raw_legacy_nuclear_cell_pair
+        ).strip().lower() in {"1", "true", "on", "yes"}
 
     puncta_line_width_unit = _normalize_unit(
         post_data.get("puncta_line_width_unit", post_data.get("red_line_width_unit")),
@@ -286,7 +306,9 @@ def _extract_measurement_defaults(
     if raw_use_metadata_channel_order is None:
         use_metadata_channel_order = current_use_metadata_channel_order
     else:
-        use_metadata_channel_order = str(raw_use_metadata_channel_order).strip().lower() in {
+        use_metadata_channel_order = str(
+            raw_use_metadata_channel_order
+        ).strip().lower() in {
             "1",
             "true",
             "on",
@@ -332,13 +354,16 @@ def _extract_measurement_defaults(
             default=current_puncta_mode,
         ),
         "nuclear_cell_pair_mode": _normalize_nuclear_mode(
-            post_data.get("nuclear_cell_pair_mode", post_data.get("nuclear_cellular_mode")),
+            post_data.get(
+                "nuclear_cell_pair_mode", post_data.get("nuclear_cellular_mode")
+            ),
             default=current_nuclear_mode,
         ),
         "nuclear_cell_pair_contour_mode": _normalize_nuclear_contour_mode(
             post_data.get("nuclear_cell_pair_contour_mode"),
             default=current_nuclear_contour_mode,
         ),
+        "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
         "puncta_line_width_unit": puncta_line_width_unit,
         "cen_dot_distance_unit": cen_dot_distance_unit,
         "biorientation_red_min_distance_unit": biorientation_red_min_distance_unit,
@@ -530,8 +555,8 @@ def _build_cell_table_for_uuid(
     spatial_stats_unit: str = "px",
 ) -> CellTable:
     preferences = get_user_preferences(user)
-    default_manual_scale = (
-        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    default_manual_scale = preferences.get("experiment_defaults", {}).get(
+        "microns_per_pixel", 0.1
     )
     try:
         segmented_image = SegmentedImage.objects.get(user=user, UUID=uuid)
@@ -544,13 +569,17 @@ def _build_cell_table_for_uuid(
             scale_context=None,
         )
 
-    uploaded = UploadedImage.objects.filter(user=user, uuid=uuid).only("scale_info").first()
+    uploaded = (
+        UploadedImage.objects.filter(user=user, uuid=uuid).only("scale_info").first()
+    )
     scale_context = get_scale_context_payload(
         getattr(uploaded, "scale_info", None),
         manual_default=default_manual_scale,
     )
 
-    stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by("cell_id")
+    stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
+        "cell_id"
+    )
     intensity_mode = _resolve_nuclear_cell_pair_mode(stats_qs)
     puncta_line_mode = _resolve_puncta_line_mode(stats_qs)
     return CellTable(
@@ -567,7 +596,9 @@ def _dashboard_available_export_uuid_set(user: Any) -> set[str]:
 
     segmented_uuids = {
         str(value)
-        for value in SegmentedImage.objects.filter(user=user).values_list("UUID", flat=True)
+        for value in SegmentedImage.objects.filter(user=user).values_list(
+            "UUID", flat=True
+        )
     }
     if not segmented_uuids:
         return set()
@@ -600,7 +631,9 @@ def _resolve_puncta_line_mode(stats_iterable: Any) -> str | None:
     return modes.pop() if len(modes) == 1 else None
 
 
-def _serialize_cell_statistics(cell_stat: CellStatistics | None) -> dict[str, Any] | None:
+def _serialize_cell_statistics(
+    cell_stat: CellStatistics | None,
+) -> dict[str, Any] | None:
     return serialize_cell_statistics_payload(cell_stat)
 
 
@@ -695,8 +728,8 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     confirm_multi_cell_deletion = bool(
         preferences.get("confirm_multi_cell_deletion", True)
     )
-    default_manual_scale = (
-        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    default_manual_scale = preferences.get("experiment_defaults", {}).get(
+        "microns_per_pixel", 0.1
     )
     default_spatial_stats_unit = normalize_spatial_stats_unit(
         preferences.get("experiment_defaults", {}).get("spatial_stats_unit"),
@@ -748,9 +781,9 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             uploaded.scale_info,
             manual_default=default_manual_scale,
         )
-        stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
-            "cell_id"
-        )
+        stats_qs = CellStatistics.objects.filter(
+            segmented_image=segmented_image
+        ).order_by("cell_id")
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
@@ -788,11 +821,14 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             for channel_name in channel_order:
                 channel_index = channel_config.get(
                     channel_name,
-                    DEFAULT_CHANNEL_CONFIG.get(channel_name, channel_order.index(channel_name)),
+                    DEFAULT_CHANNEL_CONFIG.get(
+                        channel_name, channel_order.index(channel_name)
+                    ),
                 )
                 outlined_url = ""
                 if (
-                    channel_name in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}
+                    channel_name
+                    in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}
                     and cell_stat is not None
                     and overlay_image_available(uuid, cell_id, channel_name)
                 ):
@@ -803,7 +839,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                     outlined_url = next(
                         (
                             url
-                            for (candidate_index, candidate_cell_id), url in outlined_images.items()
+                            for (
+                                candidate_index,
+                                candidate_cell_id,
+                            ), url in outlined_images.items()
                             if candidate_cell_id == cell_id
                         ),
                         "",
@@ -814,7 +853,10 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
                     no_outline_url = next(
                         (
                             url
-                            for (candidate_index, candidate_cell_id), url in no_outline_images.items()
+                            for (
+                                candidate_index,
+                                candidate_cell_id,
+                            ), url in no_outline_images.items()
                             if candidate_cell_id == cell_id
                         ),
                         "",
@@ -898,13 +940,17 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     used_storage = max(int(storage_projection.get("used_storage", 0) or 0), 0)
     used_percentage = min(100, max(0, (used_storage / total_storage) * 100))
     remaining_storage = max(int(storage_projection.get("available_storage", 0) or 0), 0)
-    average_file_size = float(storage_projection.get("average_saved_run_bytes", 0.0) or 0.0)
+    average_file_size = float(
+        storage_projection.get("average_saved_run_bytes", 0.0) or 0.0
+    )
     additional_files_possible = max(
         int(storage_projection.get("additional_files_possible", 0) or 0),
         0,
     )
     max_files_at_current_average = saved_file_count
-    file_capacity_projection_ready = bool(storage_projection.get("projection_ready", False))
+    file_capacity_projection_ready = bool(
+        storage_projection.get("projection_ready", False)
+    )
     if file_capacity_projection_ready:
         max_files_at_current_average = saved_file_count + additional_files_possible
     files_data_json = json.dumps(_sanitize_for_json(files_data), allow_nan=False)
@@ -950,14 +996,18 @@ def _safe_remove_media_path(path: Path) -> None:
 
 def _delete_user_and_media(user: Any) -> None:
     uploaded_qs = UploadedImage.objects.filter(user=user)
-    uploaded_uuids = [str(value) for value in uploaded_qs.values_list("uuid", flat=True)]
+    uploaded_uuids = [
+        str(value) for value in uploaded_qs.values_list("uuid", flat=True)
+    ]
 
     segmented_by_uuid_qs = SegmentedImage.objects.filter(UUID__in=uploaded_uuids)
     segmented_owned_qs = SegmentedImage.objects.filter(user=user)
     segmented_uuids = {
         str(value) for value in segmented_owned_qs.values_list("UUID", flat=True)
     }
-    segmented_uuids.update(str(value) for value in segmented_by_uuid_qs.values_list("UUID", flat=True))
+    segmented_uuids.update(
+        str(value) for value in segmented_by_uuid_qs.values_list("UUID", flat=True)
+    )
 
     file_locations = [
         Path(MEDIA_ROOT) / str(value)
@@ -1006,11 +1056,10 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
         if value
     )
 
-    removable_dirs = {
-        Path(MEDIA_ROOT) / uuid_value
-        for uuid_value in uuid_set
-    }
-    removable_dirs.update(Path(MEDIA_ROOT) / f"user_{uuid_value}" for uuid_value in uuid_set)
+    removable_dirs = {Path(MEDIA_ROOT) / uuid_value for uuid_value in uuid_set}
+    removable_dirs.update(
+        Path(MEDIA_ROOT) / f"user_{uuid_value}" for uuid_value in uuid_set
+    )
 
     with transaction.atomic():
         segmented_qs.delete()
@@ -1100,7 +1149,9 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
     }
     if len(owned_uuids) != len(set(requested_uuids)):
         return JsonResponse(
-            {"error": "One or more selected files are no longer available. Refresh and try again."},
+            {
+                "error": "One or more selected files are no longer available. Refresh and try again."
+            },
             status=403,
         )
 
@@ -1149,18 +1200,19 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             UUID__in=requested_uuids,
         )
     }
-    if (
-        len(uploaded_map) != len(set(requested_uuids))
-        or len(segmented_map) != len(set(requested_uuids))
+    if len(uploaded_map) != len(set(requested_uuids)) or len(segmented_map) != len(
+        set(requested_uuids)
     ):
         return JsonResponse(
-            {"error": "One or more selected files are no longer available. Refresh and try again."},
+            {
+                "error": "One or more selected files are no longer available. Refresh and try again."
+            },
             status=403,
         )
 
     preferences = get_user_preferences(request.user)
-    default_manual_scale = (
-        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    default_manual_scale = preferences.get("experiment_defaults", {}).get(
+        "microns_per_pixel", 0.1
     )
     sources = [
         StatisticsExportFile(
@@ -1198,7 +1250,12 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
     has_scales = "show_saved_file_scales" in payload
     has_sidebar_unit = "sidebar_spatial_stats_unit" in payload
     has_main_image_channel = "main_image_channel" in payload
-    if not has_channels and not has_scales and not has_sidebar_unit and not has_main_image_channel:
+    if (
+        not has_channels
+        and not has_scales
+        and not has_sidebar_unit
+        and not has_main_image_channel
+    ):
         return JsonResponse(
             {"error": "At least one preference is required."},
             status=400,
@@ -1222,14 +1279,18 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
         payload.get("sidebar_spatial_stats_unit"),
         default="px",
     )
-    if has_sidebar_unit and sidebar_spatial_stats_unit != payload.get("sidebar_spatial_stats_unit"):
+    if has_sidebar_unit and sidebar_spatial_stats_unit != payload.get(
+        "sidebar_spatial_stats_unit"
+    ):
         return JsonResponse(
             {"error": "sidebar_spatial_stats_unit must be 'px' or 'um'."},
             status=400,
         )
 
     raw_main_image_channel = payload.get("main_image_channel")
-    main_image_channel = normalize_main_image_channel(raw_main_image_channel, default="")
+    main_image_channel = normalize_main_image_channel(
+        raw_main_image_channel, default=""
+    )
     if has_main_image_channel and main_image_channel not in MAIN_IMAGE_CHANNEL_SLUGS:
         return JsonResponse(
             {
@@ -1254,9 +1315,7 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
             "show_saved_file_channels": bool(
                 updated.get("show_saved_file_channels", True)
             ),
-            "show_saved_file_scales": bool(
-                updated.get("show_saved_file_scales", True)
-            ),
+            "show_saved_file_scales": bool(updated.get("show_saved_file_scales", True)),
             "sidebar_spatial_stats_unit": normalize_spatial_stats_unit(
                 updated.get("sidebar_spatial_stats_unit"),
                 default=normalize_spatial_stats_unit(
@@ -1355,7 +1414,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 signal_payload["puncta_contour_intensity_enabled"] = _payload_bool(
                     request.POST,
                     "puncta_contour_intensity_enabled",
-                    default=bool(defaults.get("puncta_contour_intensity_enabled", True)),
+                    default=bool(
+                        defaults.get("puncta_contour_intensity_enabled", True)
+                    ),
                 )
             if (
                 "alternate_nucleus_detection_enabled" in request.POST
@@ -1385,7 +1446,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 ),
             )
             next_defaults = dict(defaults)
-            next_defaults["selected_plugins"] = list(signal_selection.configured_plugins)
+            next_defaults["selected_plugins"] = list(
+                signal_selection.configured_plugins
+            )
             next_defaults.update(
                 {
                     "signal_quantification_enabled": signal_selection.enabled,
@@ -1437,7 +1500,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             }
             measurement_defaults = _extract_measurement_defaults(request.POST, defaults)
 
-            selected_plugins = normalize_selected_plugins(defaults.get("selected_plugins", []))
+            selected_plugins = normalize_selected_plugins(
+                defaults.get("selected_plugins", [])
+            )
             removed_plugins: list[str] = []
             if override_channels:
                 kept_plugins = []
@@ -1559,10 +1624,14 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 "description": definition.description,
                 "checked": plugin_id in selected_plugins,
                 "is_legacy": definition.is_legacy,
-                "required_channels": sorted(definition.required_channels, key=CHANNEL_ORDER.index),
+                "required_channels": sorted(
+                    definition.required_channels, key=CHANNEL_ORDER.index
+                ),
                 "required_channel_labels": [
                     channel_display_label(channel)
-                    for channel in sorted(definition.required_channels, key=CHANNEL_ORDER.index)
+                    for channel in sorted(
+                        definition.required_channels, key=CHANNEL_ORDER.index
+                    )
                 ],
             }
         )
@@ -1593,7 +1662,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             "channels": CHANNEL_ORDER,
             "channel_info": CHANNEL_INFO,
             "required_channel_rows": required_channel_rows,
-            "required_channels_by_plugins": plugin_requirement_summary["required_channels"],
+            "required_channels_by_plugins": plugin_requirement_summary[
+                "required_channels"
+            ],
             "plugin_dependency_payload_json": json.dumps(plugin_dependency_payload),
             "fallback_channel_order_rows": fallback_channel_order_rows,
         },

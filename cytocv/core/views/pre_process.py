@@ -24,7 +24,10 @@ from core.services.analysis_jobs import (
     reap_stale_analysis_jobs,
 )
 from core.services.analysis_pipeline import run_analysis_batch
-from core.services.analysis_progress import AnalysisProgressHandle, get_progress_snapshot
+from core.services.analysis_progress import (
+    AnalysisProgressHandle,
+    get_progress_snapshot,
+)
 from core.services.analysis_progress_contract import (
     PROGRESS_PHASE_FAILED,
     PROGRESS_STATUS_FAILED,
@@ -60,12 +63,21 @@ from .utils import (
     prune_experiment_session_state,
     sync_transient_run_session_state,
 )
-from core.channel_roles import CHANNEL_ROLE_ORDER, channel_display_label, normalize_channel_role
-from core.channel_ordering import DEFAULT_FALLBACK_CHANNEL_ORDER, normalize_channel_order
+from core.channel_roles import (
+    CHANNEL_ROLE_ORDER,
+    channel_display_label,
+    normalize_channel_role,
+)
+from core.channel_ordering import (
+    DEFAULT_FALLBACK_CHANNEL_ORDER,
+    normalize_channel_order,
+)
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_sources import TIFF_IMAGE_EXTENSIONS, source_image_extension
 from core.metadata_processing.dv_channel_parser import extract_channel_config
-from core.metadata_processing.tiff_channel_parser import extract_tiff_metadata_channel_config
+from core.metadata_processing.tiff_channel_parser import (
+    extract_tiff_metadata_channel_config,
+)
 from core.mrcnn.my_inference import predict_images
 from core.mrcnn.preprocess_images import preprocess_images
 
@@ -147,6 +159,8 @@ def _channel_labels_from_config(config: dict[str, int]) -> list[str]:
         channel_display_label(channel)
         for channel, _ in sorted(config.items(), key=lambda item: item[1])
     ]
+
+
 PROGRESS_BATCH_SESSION_KEY = "authorized_progress_batches"
 
 
@@ -260,7 +274,10 @@ def _resolve_owned_progress_batch(request, raw_uuids: str) -> tuple[str, list[st
     if batch_key in _get_authorized_progress_batches(request):
         return batch_key, uuid_list
 
-    if get_latest_analysis_job(user_id=request.user.id, batch_key=batch_key) is not None:
+    if (
+        get_latest_analysis_job(user_id=request.user.id, batch_key=batch_key)
+        is not None
+    ):
         return batch_key, uuid_list
 
     raise ProgressRequestError("Forbidden", status_code=403)
@@ -406,7 +423,7 @@ def pre_process(request, uuids):
     POST: Run preprocess + inference on every UUID, then redirect.
     """
 
-    uuid_list = uuids.split(',')
+    uuid_list = uuids.split(",")
     owner_filter = _current_owner_filter(request)
     total_files = len(uuid_list)
     protected_uuids = {
@@ -420,11 +437,13 @@ def pre_process(request, uuids):
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
-    default_manual_scale = (
-        preferences.get("experiment_defaults", {}).get("microns_per_pixel", 0.1)
+    default_manual_scale = preferences.get("experiment_defaults", {}).get(
+        "microns_per_pixel", 0.1
     )
     prefer_metadata_channel_order = bool(
-        preferences.get("experiment_defaults", {}).get("use_metadata_channel_order", True)
+        preferences.get("experiment_defaults", {}).get(
+            "use_metadata_channel_order", True
+        )
     )
     fallback_channel_order = normalize_channel_order(
         preferences.get("experiment_defaults", {}).get("fallback_channel_order"),
@@ -441,7 +460,7 @@ def pre_process(request, uuids):
     )
 
     # clamp file_index into [0, total_files-1]
-    current_file_index = int(request.GET.get('file_index', 0))
+    current_file_index = int(request.GET.get("file_index", 0))
     current_file_index = max(0, min(current_file_index, total_files - 1))
 
     # build sidebar list, including the 4-channel order per file
@@ -450,7 +469,7 @@ def pre_process(request, uuids):
         uploaded = get_object_or_404(UploadedImage, uuid=uid, **owner_filter)
 
         # try reading existing channel_config.json
-        cfg_path = Path(MEDIA_ROOT) / uid / 'channel_config.json'
+        cfg_path = Path(MEDIA_ROOT) / uid / "channel_config.json"
         if cfg_path.exists():
             cfg = json.loads(cfg_path.read_text())
             cfg = _refresh_default_tiff_channel_config(
@@ -478,12 +497,14 @@ def pre_process(request, uuids):
             manual_default=default_manual_scale,
         )
 
-        file_list.append({
-            'uuid': uid,
-            'name': uploaded.name,
-            'detected_channels': detected_channels,
-            'scale': scale_payload,
-        })
+        file_list.append(
+            {
+                "uuid": uid,
+                "name": uploaded.name,
+                "detected_channels": detected_channels,
+                "scale": scale_payload,
+            }
+        )
 
     # current file previews
     current_uuid = uuid_list[current_file_index]
@@ -523,19 +544,31 @@ def pre_process(request, uuids):
         if scale_map or revert_uuid_set:
             uploaded_map = {
                 str(item.uuid): item
-                for item in UploadedImage.objects.filter(uuid__in=active_uuid_set, **owner_filter)
+                for item in UploadedImage.objects.filter(
+                    uuid__in=active_uuid_set, **owner_filter
+                )
             }
             if len(uploaded_map) != len(active_uuid_set):
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return JsonResponse({"error": "You do not have access to this experiment."}, status=401)
-                return HttpResponse("You do not have access to this experiment.", status=401)
+                    return JsonResponse(
+                        {"error": "You do not have access to this experiment."},
+                        status=401,
+                    )
+                return HttpResponse(
+                    "You do not have access to this experiment.", status=401
+                )
             updates = []
             for image_uuid in revert_uuid_set:
                 uploaded = uploaded_map.get(image_uuid)
                 if uploaded is None:
                     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                        return JsonResponse({"error": "You do not have access to this experiment."}, status=401)
-                    return HttpResponse("You do not have access to this experiment.", status=401)
+                        return JsonResponse(
+                            {"error": "You do not have access to this experiment."},
+                            status=401,
+                        )
+                    return HttpResponse(
+                        "You do not have access to this experiment.", status=401
+                    )
                 uploaded.scale_info = clear_manual_override_scale(
                     uploaded.scale_info,
                     manual_default=default_manual_scale,
@@ -545,8 +578,13 @@ def pre_process(request, uuids):
                 uploaded = uploaded_map.get(image_uuid)
                 if uploaded is None:
                     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                        return JsonResponse({"error": "You do not have access to this experiment."}, status=401)
-                    return HttpResponse("You do not have access to this experiment.", status=401)
+                        return JsonResponse(
+                            {"error": "You do not have access to this experiment."},
+                            status=401,
+                        )
+                    return HttpResponse(
+                        "You do not have access to this experiment.", status=401
+                    )
                 uploaded.scale_info = apply_manual_override_scale(
                     uploaded.scale_info,
                     effective_um_per_px=effective_scale,
@@ -557,45 +595,55 @@ def pre_process(request, uuids):
 
         # Selection is primarily set during upload step. Keep POST fallback for
         # backward compatibility with older clients.
-        selected_analysis = request.POST.getlist('selected_analysis') or request.session.get('selected_analysis', [])
+        selected_analysis = request.POST.getlist(
+            "selected_analysis"
+        ) or request.session.get("selected_analysis", [])
         puncta_line_width_raw = request.POST.get(
-            'punctaLineWidth',
-            request.POST.get('redLineWidth', request.session.get('punctaLineWidth', request.session.get('redLineWidth', request.session.get('mCherryWidth', 1)))),
+            "punctaLineWidth",
+            request.POST.get(
+                "redLineWidth",
+                request.session.get(
+                    "punctaLineWidth",
+                    request.session.get(
+                        "redLineWidth", request.session.get("mCherryWidth", 1)
+                    ),
+                ),
+            ),
         )
         cen_dot_distance_raw = request.POST.get(
-            'cenDotDistance',
-            request.session.get('cenDotDistance', request.session.get('distance', 37)),
+            "cenDotDistance",
+            request.session.get("cenDotDistance", request.session.get("distance", 37)),
         )
         biorientation_red_min_distance_value_raw = request.POST.get(
-            'biorientationRedMinDistance',
-            request.session.get('stats_biorientation_red_min_distance_value', 0.0),
+            "biorientationRedMinDistance",
+            request.session.get("stats_biorientation_red_min_distance_value", 0.0),
         )
         biorientation_red_min_distance_unit_raw = request.POST.get(
-            'biorientationRedMinDistanceUnit',
-            request.session.get('stats_biorientation_red_min_distance_unit', 'px'),
+            "biorientationRedMinDistanceUnit",
+            request.session.get("stats_biorientation_red_min_distance_unit", "px"),
         )
         biorientation_red_max_distance_value_raw = request.POST.get(
-            'biorientationRedMaxDistance',
-            request.session.get('stats_biorientation_red_max_distance_value', 37.0),
+            "biorientationRedMaxDistance",
+            request.session.get("stats_biorientation_red_max_distance_value", 37.0),
         )
         biorientation_red_max_distance_unit_raw = request.POST.get(
-            'biorientationRedMaxDistanceUnit',
-            request.session.get('stats_biorientation_red_max_distance_unit', 'px'),
+            "biorientationRedMaxDistanceUnit",
+            request.session.get("stats_biorientation_red_max_distance_unit", "px"),
         )
         biorientation_collinearity_threshold_raw = request.POST.get(
-            'biorientationCollinearityThreshold',
+            "biorientationCollinearityThreshold",
             request.session.get(
-                'biorientationCollinearityThreshold',
+                "biorientationCollinearityThreshold",
                 DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
             ),
         )
         green_dot_split_enabled_raw = request.POST.get(
-            'greenDotSplitEnabled',
+            "greenDotSplitEnabled",
             request.POST.get(
-                'biorientationGreenSplitEnabled',
+                "biorientationGreenSplitEnabled",
                 request.session.get(
-                    'greenDotSplitEnabled',
-                    request.session.get('biorientationGreenSplitEnabled', 'True'),
+                    "greenDotSplitEnabled",
+                    request.session.get("biorientationGreenSplitEnabled", "True"),
                 ),
             ),
         )
@@ -624,7 +672,13 @@ def pre_process(request, uuids):
         )
         nuclear_cell_pair_mode = request.POST.get(
             "nuclear_cell_pair_mode",
-            request.POST.get("nuclear_cellular_mode", request.session.get("nuclear_cell_pair_mode", request.session.get("nuclear_cellular_mode", "green_nucleus"))),
+            request.POST.get(
+                "nuclear_cellular_mode",
+                request.session.get(
+                    "nuclear_cell_pair_mode",
+                    request.session.get("nuclear_cellular_mode", "green_nucleus"),
+                ),
+            ),
         )
         if nuclear_cell_pair_mode not in NUCLEAR_CELL_PAIR_MODES:
             nuclear_cell_pair_mode = "green_nucleus"
@@ -640,11 +694,23 @@ def pre_process(request, uuids):
                 ),
             )
         )
-        green_contour_filter_enabled_raw = request.POST.get(
-            'greenContourFilterEnabled',
-            request.session.get('greenContourFilterEnabled', request.session.get('gfpFilterEnabled', 'False')),
+        use_legacy_nuclear_cell_pair_pipeline = _parse_bool(
+            request.POST.get(
+                "use_legacy_nuclear_cell_pair_pipeline",
+                request.session.get("use_legacy_nuclear_cell_pair_pipeline", False),
+            ),
+            default=False,
         )
-        green_contour_filter_enabled = _parse_bool(green_contour_filter_enabled_raw, default=False)
+        green_contour_filter_enabled_raw = request.POST.get(
+            "greenContourFilterEnabled",
+            request.session.get(
+                "greenContourFilterEnabled",
+                request.session.get("gfpFilterEnabled", "False"),
+            ),
+        )
+        green_contour_filter_enabled = _parse_bool(
+            green_contour_filter_enabled_raw, default=False
+        )
         signal_selection = resolve_signal_quantification_selection(
             payload={
                 "signalQuantificationEnabled": request.POST.get(
@@ -678,7 +744,9 @@ def pre_process(request, uuids):
                                 "alternate_nucleus_detection_enabled",
                                 request.session.get(
                                     "alternateRedDetection",
-                                    request.session.get("alternateMCherryDetection", False),
+                                    request.session.get(
+                                        "alternateMCherryDetection", False
+                                    ),
                                 ),
                             ),
                         ),
@@ -743,9 +811,13 @@ def pre_process(request, uuids):
                 biorientation_collinearity_threshold_raw
             )
         except (TypeError, ValueError):
-            biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            biorientation_collinearity_threshold = (
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            )
         if biorientation_collinearity_threshold < 0:
-            biorientation_collinearity_threshold = DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            biorientation_collinearity_threshold = (
+                DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX
+            )
         green_dot_split_enabled = (
             green_dot_split_enabled_raw
             if isinstance(green_dot_split_enabled_raw, bool)
@@ -759,37 +831,54 @@ def pre_process(request, uuids):
             in {"1", "true", "yes", "on"}
         )
 
-        request.session['selected_analysis'] = list(signal_selection.selected_plugins)
-        request.session['punctaLineWidth'] = puncta_line_width
-        request.session['cenDotDistance'] = cen_dot_distance
-        request.session['stats_biorientation_red_min_distance_value'] = biorientation_red_min_distance_value
-        request.session['stats_biorientation_red_min_distance_unit'] = biorientation_red_min_distance_unit
-        request.session['stats_biorientation_red_max_distance_value'] = biorientation_red_max_distance_value
-        request.session['stats_biorientation_red_max_distance_unit'] = biorientation_red_max_distance_unit
-        request.session['biorientationCollinearityThreshold'] = biorientation_collinearity_threshold
-        request.session['greenDotSplitEnabled'] = green_dot_split_enabled
-        request.session['greenDotSplitMode'] = green_dot_split_mode
-        request.session['redDotSplitEnabled'] = red_dot_split_enabled
-        request.session['redDotSplitMode'] = red_dot_split_mode
+        request.session["selected_analysis"] = list(signal_selection.selected_plugins)
+        request.session["punctaLineWidth"] = puncta_line_width
+        request.session["cenDotDistance"] = cen_dot_distance
+        request.session["stats_biorientation_red_min_distance_value"] = (
+            biorientation_red_min_distance_value
+        )
+        request.session["stats_biorientation_red_min_distance_unit"] = (
+            biorientation_red_min_distance_unit
+        )
+        request.session["stats_biorientation_red_max_distance_value"] = (
+            biorientation_red_max_distance_value
+        )
+        request.session["stats_biorientation_red_max_distance_unit"] = (
+            biorientation_red_max_distance_unit
+        )
+        request.session["biorientationCollinearityThreshold"] = (
+            biorientation_collinearity_threshold
+        )
+        request.session["greenDotSplitEnabled"] = green_dot_split_enabled
+        request.session["greenDotSplitMode"] = green_dot_split_mode
+        request.session["redDotSplitEnabled"] = red_dot_split_enabled
+        request.session["redDotSplitMode"] = red_dot_split_mode
         request.session["puncta_line_mode"] = puncta_line_mode
         request.session["nuclear_cell_pair_mode"] = nuclear_cell_pair_mode
-        request.session["nuclear_cell_pair_contour_mode"] = nuclear_cell_pair_contour_mode
-        request.session['greenContourFilterEnabled'] = green_contour_filter_enabled
-        request.session['alternateRedDetection'] = signal_selection.alternate_nucleus_detection_enabled
-        request.session['alternateNucleusDetectionEnabled'] = (
+        request.session["nuclear_cell_pair_contour_mode"] = (
+            nuclear_cell_pair_contour_mode
+        )
+        request.session["use_legacy_nuclear_cell_pair_pipeline"] = (
+            use_legacy_nuclear_cell_pair_pipeline
+        )
+        request.session["greenContourFilterEnabled"] = green_contour_filter_enabled
+        request.session["alternateRedDetection"] = (
             signal_selection.alternate_nucleus_detection_enabled
         )
-        request.session['alternateNucleusDetectionChannel'] = (
+        request.session["alternateNucleusDetectionEnabled"] = (
+            signal_selection.alternate_nucleus_detection_enabled
+        )
+        request.session["alternateNucleusDetectionChannel"] = (
             signal_selection.alternate_nucleus_detection_channel
         )
-        request.session['signalQuantificationEnabled'] = signal_selection.enabled
-        request.session['signalQuantificationMode'] = signal_selection.mode
-        request.session['punctaContourIntensityEnabled'] = (
+        request.session["signalQuantificationEnabled"] = signal_selection.enabled
+        request.session["signalQuantificationMode"] = signal_selection.mode
+        request.session["punctaContourIntensityEnabled"] = (
             signal_selection.puncta_contour_intensity_enabled
         )
         context = build_analysis_batch_context(request, uuid_list)
         batch_key = context.batch_key
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         _track_progress_batch(request, batch_key)
 
         def cancel_response():
@@ -813,7 +902,9 @@ def pre_process(request, uuids):
             _release_progress_batch(request, batch_key)
             messages.error(request, PROCESSING_STORAGE_FULL_MESSAGE)
             if is_ajax:
-                return JsonResponse({"error": PROCESSING_STORAGE_FULL_MESSAGE}, status=507)
+                return JsonResponse(
+                    {"error": PROCESSING_STORAGE_FULL_MESSAGE}, status=507
+                )
             return redirect("pre_process", uuids=batch_key)
 
         if context.execution_mode == "worker":
@@ -880,7 +971,9 @@ def pre_process(request, uuids):
             )
             _release_progress_batch(request, batch_key)
             if is_ajax:
-                return JsonResponse({"error": SAFE_ANALYSIS_FAILURE_SUMMARY}, status=500)
+                return JsonResponse(
+                    {"error": SAFE_ANALYSIS_FAILURE_SUMMARY}, status=500
+                )
             messages.error(request, SAFE_ANALYSIS_FAILURE_SUMMARY)
             return redirect("pre_process", uuids=batch_key)
 
@@ -898,43 +991,50 @@ def pre_process(request, uuids):
         return redirect("display", uuids=batch_key)
 
     # AJAX navigation
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({
-            'images': [
-                {'file_location': {'url': img.file_location.url}}
-                for img in preview_images
-            ],
-            'file_name': uploaded_image.name,
-            'current_file_index': current_file_index,
-        })
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse(
+            {
+                "images": [
+                    {"file_location": {"url": img.file_location.url}}
+                    for img in preview_images
+                ],
+                "file_name": uploaded_image.name,
+                "current_file_index": current_file_index,
+            }
+        )
 
     # Normal render
-    return TemplateResponse(request, "pre_process.html", {
-        'images': preview_images,
-        'file_name': uploaded_image.name,
-        'current_file_index': current_file_index,
-        'total_files': total_files,
-        'uuids': uuids,
-        'file_list': file_list,
-        'show_saved_file_channels': show_saved_file_channels,
-        'show_saved_file_scales': show_saved_file_scales,
-        'sidebar_starts_open': sidebar_starts_open,
-        'default_spatial_stats_unit': default_spatial_stats_unit,
-        'analysis_execution_mode': analysis_execution_mode,
-        'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
-        'has_selected_stats': bool(request.session.get('selected_analysis', [])),
-        'file_scale_map_json': json.dumps(
-            {
-                item["uuid"]: item["scale"]["effective_um_per_px"]
-                for item in file_list
-            }
-        ),
-    })
+    return TemplateResponse(
+        request,
+        "pre_process.html",
+        {
+            "images": preview_images,
+            "file_name": uploaded_image.name,
+            "current_file_index": current_file_index,
+            "total_files": total_files,
+            "uuids": uuids,
+            "file_list": file_list,
+            "show_saved_file_channels": show_saved_file_channels,
+            "show_saved_file_scales": show_saved_file_scales,
+            "sidebar_starts_open": sidebar_starts_open,
+            "default_spatial_stats_unit": default_spatial_stats_unit,
+            "analysis_execution_mode": analysis_execution_mode,
+            "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
+            "has_selected_stats": bool(request.session.get("selected_analysis", [])),
+            "file_scale_map_json": json.dumps(
+                {
+                    item["uuid"]: item["scale"]["effective_um_per_px"]
+                    for item in file_list
+                }
+            ),
+        },
+    )
+
 
 @require_POST
 def set_progress(request, key):
     try:
-        body = json.loads(request.body or '{}')
+        body = json.loads(request.body or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
         return _progress_write_error_response(
             SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
@@ -976,7 +1076,9 @@ def cancel_progress(request, uuids):
             progress = AnalysisProgressHandle(batch_key)
             progress.clear_cancel()
             progress.set_phase("Cancelled", status="cancelled", detail={})
-            return JsonResponse({"status": "cancelled", "phase": "Cancelled", "detail": {}})
+            return JsonResponse(
+                {"status": "cancelled", "phase": "Cancelled", "detail": {}}
+            )
         job = get_active_analysis_job(user_id=request.user.id, batch_key=batch_key)
         progress = AnalysisProgressHandle(batch_key, job=job)
         progress.request_cancel()
@@ -1012,25 +1114,21 @@ def update_channel_order(request, uuid):
 
     try:
         data = json.loads(request.body)
-        new_order = data.get('order', [])
+        new_order = data.get("order", [])
         if not isinstance(new_order, list):
-            return JsonResponse({'error': 'Invalid channel order.'}, status=400)
+            return JsonResponse({"error": "Invalid channel order."}, status=400)
 
-        normalized_order = [
-            normalize_channel_role(channel)
-            for channel in new_order
-        ]
+        normalized_order = [normalize_channel_role(channel) for channel in new_order]
         expected = set(CHANNEL_ROLE_ORDER)
         if (
             any(channel is None for channel in normalized_order)
             or len(normalized_order) != len(CHANNEL_ROLE_ORDER)
             or set(normalized_order) != expected
         ):
-            return JsonResponse({'error': 'Invalid channel order.'}, status=400)
+            return JsonResponse({"error": "Invalid channel order."}, status=400)
 
         mapping = {
-            str(channel): index
-            for index, channel in enumerate(normalized_order)
+            str(channel): index for index, channel in enumerate(normalized_order)
         }
 
         if not UploadedImage.objects.filter(
@@ -1038,22 +1136,22 @@ def update_channel_order(request, uuid):
             **_current_owner_filter(request),
         ).exists():
             return JsonResponse(
-                {'error': 'Channel information for this file could not be loaded.'},
+                {"error": "Channel information for this file could not be loaded."},
                 status=404,
             )
 
-        cfg_path = Path(MEDIA_ROOT) / uuid / 'channel_config.json'
+        cfg_path = Path(MEDIA_ROOT) / uuid / "channel_config.json"
         if not cfg_path.exists():
             return JsonResponse(
-                {'error': 'Channel information for this file could not be loaded.'},
+                {"error": "Channel information for this file could not be loaded."},
                 status=404,
             )
 
         _write_channel_config(cfg_path, mapping)
-        return JsonResponse({'status': 'ok'})
+        return JsonResponse({"status": "ok"})
 
     except Exception:
         return JsonResponse(
-            {'error': 'The channel order could not be updated. Try again.'},
+            {"error": "The channel order could not be updated. Try again."},
             status=500,
         )

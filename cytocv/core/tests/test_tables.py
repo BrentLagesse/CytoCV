@@ -1,4 +1,5 @@
-﻿from types import SimpleNamespace
+﻿from decimal import Decimal
+from types import SimpleNamespace
 
 from django.test import RequestFactory, SimpleTestCase
 
@@ -38,6 +39,7 @@ def _stats_record(**overrides):
         "nucleus_intensity_sum": 100.0,
         "cell_pair_intensity_sum": 150.0,
         "cytoplasmic_intensity": 50.0,
+        "nuclear_cytoplasmic_ratio": 2.0,
         "category_cen_dot": 1,
         "colinear_dots": 0,
         "off_axis_dots": 0,
@@ -73,6 +75,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(self.table.render_cell_pair_intensity_sum(123.456, record), "N/A")
         self.assertEqual(self.table.render_nucleus_intensity_sum(234.567, record), "N/A")
         self.assertEqual(self.table.render_cytoplasmic_intensity(345.678, record), "N/A")
+        self.assertEqual(self.table.render_nuclear_cytoplasmic_ratio(2.5, record), "N/A")
 
     def test_export_value_returns_na_for_nuclear_cell_pair_fields_when_no_nucleus_contour(self):
         record = self._record_with_status("no_nucleus_contour")
@@ -80,6 +83,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(self.table.value_cell_pair_intensity_sum(123.456, record), "N/A")
         self.assertEqual(self.table.value_nucleus_intensity_sum(234.567, record), "N/A")
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "N/A")
+        self.assertEqual(self.table.value_nuclear_cytoplasmic_ratio(2.5, record), "N/A")
 
     def test_render_and_export_keep_numeric_values_for_ok_status(self):
         record = self._record_with_status("ok")
@@ -87,10 +91,12 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(self.table.render_cell_pair_intensity_sum(123.456, record), "123.456")
         self.assertEqual(self.table.render_nucleus_intensity_sum(234.567, record), "234.567")
         self.assertEqual(self.table.render_cytoplasmic_intensity(345.678, record), "345.678")
+        self.assertEqual(self.table.render_nuclear_cytoplasmic_ratio(2.5, record), "2.500")
 
         self.assertEqual(self.table.value_cell_pair_intensity_sum(123.456, record), "123.456")
         self.assertEqual(self.table.value_nucleus_intensity_sum(234.567, record), "234.567")
         self.assertEqual(self.table.value_cytoplasmic_intensity(345.678, record), "345.678")
+        self.assertEqual(self.table.value_nuclear_cytoplasmic_ratio(2.5, record), "2.500")
 
     def test_render_cen_dot_location_uses_schema_aware_choice_label(self):
         record = SimpleNamespace(
@@ -214,6 +220,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertIn("Red Cell-Pair Intensity", header_row)
         self.assertIn("Red Nuclear Intensity", header_row)
         self.assertIn("Cytoplasmic Intensity", header_row)
+        self.assertIn("Nuclear / Cytoplasmic Ratio", header_row)
         self.assertIn("Distance Between Red Puncta (px)", header_row)
         self.assertIn("Green Intensity Over Red Line", header_row)
         self.assertIn("Red In Red Intensity 1", header_row)
@@ -268,6 +275,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(row.get_cell("cell_pair_intensity_sum"), "150.000")
         self.assertEqual(row.get_cell("nucleus_intensity_sum"), "100.000")
         self.assertEqual(row.get_cell("cytoplasmic_intensity"), "50.000")
+        self.assertEqual(row.get_cell("nuclear_cytoplasmic_ratio"), "2.000")
         self.assertEqual(row.get_cell("puncta_distance"), "N/A")
         self.assertEqual(row.get_cell("puncta_line_intensity"), "N/A")
         self.assertEqual(row.get_cell("red_intensity_1"), "N/A")
@@ -278,7 +286,14 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(row.get_cell("colinear_dots"), "N/A")
         self.assertEqual(row.get_cell("blue_contour_size"), "N/A")
         self.assertEqual(value_row[header.index("Distance Between Red Puncta (px)")], "N/A")
-        self.assertEqual(value_row[header.index("Red Cell-Pair Intensity")], "150.000")
+        self.assertEqual(
+            value_row[header.index("Red Cell-Pair Intensity")],
+            Decimal("150.000"),
+        )
+        self.assertEqual(
+            value_row[header.index("Nuclear / Cytoplasmic Ratio")],
+            Decimal("2.000"),
+        )
 
     def test_puncta_mode_outputs_na_for_uncomputed_contour_and_nuclear_groups(self):
         record = _stats_record(
@@ -301,6 +316,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(row.get_cell("distance_of_green_from_red_1"), "N/A")
         self.assertEqual(row.get_cell("nuclear_cell_pair_contour_source"), "N/A")
         self.assertEqual(row.get_cell("cell_pair_intensity_sum"), "N/A")
+        self.assertEqual(row.get_cell("nuclear_cytoplasmic_ratio"), "N/A")
 
     def test_cen_dot_disabled_outputs_na_despite_stored_values(self):
         record = _stats_record(
@@ -388,15 +404,15 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(row.get_cell("green_red_intensity_3"), "0.000")
         self.assertEqual(
             value_row[header_row.index("Measurement/Contour Ratio 1 (Red/Green)")],
-            "3.000",
+            Decimal("3.000"),
         )
         self.assertEqual(
             value_row[header_row.index("Measurement/Contour Ratio 2 (Red/Green)")],
-            "3.000",
+            Decimal("3.000"),
         )
         self.assertEqual(
             value_row[header_row.index("Measurement/Contour Ratio 3 (Red/Green)")],
-            "0.000",
+            Decimal("0.000"),
         )
 
     def test_spatial_headers_include_default_pixel_units(self):

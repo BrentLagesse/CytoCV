@@ -56,6 +56,7 @@ STAT_FIELD_GROUPS: dict[str, tuple[str, ...]] = {
         "cell_pair_intensity_sum",
         "nucleus_intensity_sum",
         "cytoplasmic_intensity",
+        "nuclear_cytoplasmic_ratio",
     ),
     "cen_dot": (
         "cell_parentage",

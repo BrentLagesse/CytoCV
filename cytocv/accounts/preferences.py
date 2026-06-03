@@ -53,6 +53,7 @@ MAIN_IMAGE_CHANNEL_SLUGS = frozenset(
 class PreferenceValidationError(ValueError):
     """Raised when an interactive preference payload is invalid."""
 
+
 DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "experiment_defaults": {
         "selected_plugins": list(DEFAULT_SIGNAL_SELECTED_PLUGINS),
@@ -78,6 +79,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "puncta_line_mode": DEFAULT_PUNCTA_LINE_MODE,
         "nuclear_cell_pair_mode": "green_nucleus",
         "nuclear_cell_pair_contour_mode": DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
+        "use_legacy_nuclear_cell_pair_pipeline": False,
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
         "puncta_line_width_unit": "px",
@@ -320,14 +322,14 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         defaults_payload.get("use_metadata_channel_order"),
         default=True,
     )
-    normalized["experiment_defaults"]["fallback_channel_order"] = normalize_channel_order(
-        defaults_payload.get("fallback_channel_order"),
-        default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+    normalized["experiment_defaults"]["fallback_channel_order"] = (
+        normalize_channel_order(
+            defaults_payload.get("fallback_channel_order"),
+            default=DEFAULT_FALLBACK_CHANNEL_ORDER,
+        )
     )
     width_minimum = (
-        1
-        if normalized["experiment_defaults"]["puncta_line_width_unit"] == "px"
-        else 0
+        1 if normalized["experiment_defaults"]["puncta_line_width_unit"] == "px" else 0
     )
     normalized["experiment_defaults"]["puncta_line_width"] = _as_float(
         _first_present(
@@ -346,27 +348,33 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         default=37,
         minimum=0,
     )
-    normalized["experiment_defaults"]["cen_dot_proximity_radius_unit"] = _normalize_unit(
-        defaults_payload.get("cen_dot_proximity_radius_unit"),
-        default="px",
+    normalized["experiment_defaults"]["cen_dot_proximity_radius_unit"] = (
+        _normalize_unit(
+            defaults_payload.get("cen_dot_proximity_radius_unit"),
+            default="px",
+        )
     )
     normalized["experiment_defaults"]["cen_dot_proximity_radius"] = _as_float(
         defaults_payload.get("cen_dot_proximity_radius"),
         default=13,
         minimum=0,
     )
-    normalized["experiment_defaults"]["biorientation_red_min_distance_unit"] = _normalize_unit(
-        defaults_payload.get("biorientation_red_min_distance_unit"),
-        default="px",
+    normalized["experiment_defaults"]["biorientation_red_min_distance_unit"] = (
+        _normalize_unit(
+            defaults_payload.get("biorientation_red_min_distance_unit"),
+            default="px",
+        )
     )
     normalized["experiment_defaults"]["biorientation_red_min_distance"] = _as_float(
         defaults_payload.get("biorientation_red_min_distance"),
         default=0,
         minimum=0,
     )
-    normalized["experiment_defaults"]["biorientation_red_max_distance_unit"] = _normalize_unit(
-        defaults_payload.get("biorientation_red_max_distance_unit"),
-        default="px",
+    normalized["experiment_defaults"]["biorientation_red_max_distance_unit"] = (
+        _normalize_unit(
+            defaults_payload.get("biorientation_red_max_distance_unit"),
+            default="px",
+        )
     )
     normalized["experiment_defaults"]["biorientation_red_max_distance"] = _as_float(
         defaults_payload.get(
@@ -445,29 +453,37 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
             )
         )
     )
+    normalized["experiment_defaults"]["use_legacy_nuclear_cell_pair_pipeline"] = (
+        _as_bool(
+            defaults_payload.get("use_legacy_nuclear_cell_pair_pipeline"),
+            default=False,
+        )
+    )
 
     signal_selection = resolve_signal_quantification_selection(
         payload=defaults_payload,
         selected_plugins=normalized["experiment_defaults"]["selected_plugins"],
         nuclear_cell_pair_mode=mode,
         puncta_line_mode=normalized["experiment_defaults"]["puncta_line_mode"],
-        default_alternate_nucleus_detection_enabled=normalized[
-            "experiment_defaults"
-        ]["alternate_nucleus_detection_enabled"],
+        default_alternate_nucleus_detection_enabled=normalized["experiment_defaults"][
+            "alternate_nucleus_detection_enabled"
+        ],
     )
-    normalized["experiment_defaults"]["signal_quantification_enabled"] = (
-        signal_selection.enabled
-    )
-    normalized["experiment_defaults"]["signal_quantification_mode"] = signal_selection.mode
-    normalized["experiment_defaults"]["puncta_contour_intensity_enabled"] = (
-        signal_selection.puncta_contour_intensity_enabled
-    )
-    normalized["experiment_defaults"]["alternate_nucleus_detection_enabled"] = (
-        signal_selection.alternate_nucleus_detection_enabled
-    )
-    normalized["experiment_defaults"]["alternate_red_detection"] = (
-        signal_selection.alternate_nucleus_detection_enabled
-    )
+    normalized["experiment_defaults"][
+        "signal_quantification_enabled"
+    ] = signal_selection.enabled
+    normalized["experiment_defaults"][
+        "signal_quantification_mode"
+    ] = signal_selection.mode
+    normalized["experiment_defaults"][
+        "puncta_contour_intensity_enabled"
+    ] = signal_selection.puncta_contour_intensity_enabled
+    normalized["experiment_defaults"][
+        "alternate_nucleus_detection_enabled"
+    ] = signal_selection.alternate_nucleus_detection_enabled
+    normalized["experiment_defaults"][
+        "alternate_red_detection"
+    ] = signal_selection.alternate_nucleus_detection_enabled
     normalized["experiment_defaults"]["selected_plugins"] = list(
         signal_selection.configured_plugins
     )
@@ -548,6 +564,7 @@ def build_experiment_defaults_from_popup_payload(
         "puncta_line_mode",
         "nuclear_cell_pair_mode",
         "nuclear_cell_pair_contour_mode",
+        "use_legacy_nuclear_cell_pair_pipeline",
         "microns_per_pixel",
         "use_metadata_scale",
         "use_metadata_channel_order",
@@ -684,6 +701,13 @@ def build_experiment_defaults_from_popup_payload(
         field="nuclear_cell_pair_contour_mode",
         allowed=set(NUCLEAR_CELL_PAIR_CONTOUR_MODES),
     )
+    use_legacy_nuclear_cell_pair_pipeline = _strict_bool(
+        raw_payload.get(
+            "use_legacy_nuclear_cell_pair_pipeline",
+            current.get("use_legacy_nuclear_cell_pair_pipeline", False),
+        ),
+        field="use_legacy_nuclear_cell_pair_pipeline",
+    )
     green_dot_split_mode = _strict_mode(
         raw_payload.get("green_dot_split_mode"),
         field="green_dot_split_mode",
@@ -812,6 +836,7 @@ def build_experiment_defaults_from_popup_payload(
             "puncta_line_mode": puncta_line_mode,
             "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
             "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
+            "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
             "microns_per_pixel": microns_per_pixel,
             "use_metadata_scale": _strict_bool(
                 raw_payload.get("use_metadata_scale"),
@@ -839,7 +864,9 @@ def get_user_preferences(user: Any) -> dict[str, Any]:
     return normalize_preferences_payload(config.get("preferences"))
 
 
-def update_user_preferences(user: Any, preference_payload: dict[str, Any]) -> dict[str, Any]:
+def update_user_preferences(
+    user: Any, preference_payload: dict[str, Any]
+) -> dict[str, Any]:
     """Persist normalized preferences in ``user.config``."""
 
     normalized = normalize_preferences_payload(preference_payload)

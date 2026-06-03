@@ -1014,6 +1014,7 @@
   const punctaLineModeInput = document.getElementById('puncta_line_mode');
   const nuclearCellPairModeInput = document.getElementById('nuclear_cell_pair_mode');
   const nuclearCellPairContourModeInput = document.getElementById('nuclear_cell_pair_contour_mode');
+  const legacyNuclearCellPairInput = document.getElementById('use_legacy_nuclear_cell_pair_pipeline');
   const useMetadataScaleInput = document.getElementById('use_metadata_scale');
   const useMetadataChannelOrderInput = document.getElementById('use_metadata_channel_order');
   const prefsChannelOrderModeStatus = document.getElementById('prefsChannelOrderModeStatus');
@@ -1594,6 +1595,9 @@
     punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
     nuclearCellPairContourMode: normalizeNuclearContourMode(valueOrEmpty(nuclearCellPairContourModeInput)),
+    useLegacyNuclearCellPairPipeline: !!(
+      legacyNuclearCellPairInput && legacyNuclearCellPairInput.checked
+    ),
     greenContourFilterEnabled: !!(greenContourFilterEnabledInput && greenContourFilterEnabledInput.checked),
     greenDotSplitEnabled: truthyHiddenValue(greenDotSplitEnabledInput),
     greenDotSplitMode: normalizeGreenDotSplitMode(valueOrEmpty(greenDotSplitModeInput)),
@@ -1716,6 +1720,12 @@
         `Nucleus Contour Mode: ${nuclearContourModeLabel(fromSnapshot.nuclearCellPairContourMode)} -> ${nuclearContourModeLabel(toSnapshot.nuclearCellPairContourMode)}`
       );
     }
+    pushToggleChange(
+      changes,
+      'Legacy-Scaled Measurement Compatibility',
+      fromSnapshot.useLegacyNuclearCellPairPipeline,
+      toSnapshot.useLegacyNuclearCellPairPipeline
+    );
     pushToggleChange(
       changes,
       'Alternate Nucleus Detection',
@@ -1951,6 +1961,9 @@
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
     if (nuclearCellPairContourModeInput) {
       nuclearCellPairContourModeInput.value = normalizeNuclearContourMode(snapshot.nuclearCellPairContourMode);
+    }
+    if (legacyNuclearCellPairInput) {
+      legacyNuclearCellPairInput.checked = !!snapshot.useLegacyNuclearCellPairPipeline;
     }
     if (greenContourFilterEnabledInput) greenContourFilterEnabledInput.checked = snapshot.greenContourFilterEnabled;
     setHiddenBoolValue(greenDotSplitEnabledInput, snapshot.greenDotSplitEnabled);

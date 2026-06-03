@@ -257,6 +257,10 @@ def serialize_cell_statistics_payload(
             "cytoplasmic_intensity",
             cell_stat.cytoplasmic_intensity,
         ),
+        "nuclear_cytoplasmic_ratio": stat_value(
+            "nuclear_cytoplasmic_ratio",
+            cell_stat.nuclear_cytoplasmic_ratio,
+        ),
         "cell_pair_intensity_sum_blue": stat_value(
             "cell_pair_intensity_sum_blue",
             cell_stat.cell_pair_intensity_sum_blue,
