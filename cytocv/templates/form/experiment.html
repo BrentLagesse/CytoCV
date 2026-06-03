@@ -2430,6 +2430,7 @@
 <script id="uploadQuotaProjection" type="application/json">{{ upload_quota_payload_json|safe }}</script>
 <script id="uploadAccessPolicy" type="application/json">{{ upload_access_policy_payload_json|safe }}</script>
 <script id="uploadResumePayload" type="application/json">{{ upload_resume_payload_json|safe }}</script>
+<script id="uploadPreparationConfig" type="application/json">{"batch_target_bytes": {{ upload_batch_target_bytes|default:83886080 }}, "execution_mode": "{{ upload_preparation_execution_mode|default:'worker'|escapejs }}"}</script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
@@ -2481,6 +2482,7 @@
     const uploadQuotaProjectionElement = document.getElementById('uploadQuotaProjection');
     const uploadAccessPolicyElement = document.getElementById('uploadAccessPolicy');
     const uploadResumePayloadElement = document.getElementById('uploadResumePayload');
+    const uploadPreparationConfigElement = document.getElementById('uploadPreparationConfig');
     let restoredQueueItems = [];
     try {
         const restoredRaw = restoredQueuePayloadElement ? restoredQueuePayloadElement.textContent : '[]';
@@ -2547,8 +2549,22 @@
     const fallbackChannelOrderKey = 'cytocv.fallback_channel_order.v1';
     const DEFAULT_FALLBACK_CHANNEL_ORDER = ['DIC', 'channel_blue', 'channel_green', 'channel_red'];
     const DEFAULT_MICRONS_PER_PIXEL = 0.1;
-    const UPLOAD_BATCH_TARGET_BYTES = {{ upload_batch_target_bytes|default:83886080 }};
-    const UPLOAD_PREPARATION_EXECUTION_MODE = "{{ upload_preparation_execution_mode|default:'worker'|escapejs }}";
+    let uploadPreparationConfig = {};
+    try {
+        const uploadPreparationRaw = uploadPreparationConfigElement
+            ? uploadPreparationConfigElement.textContent
+            : '{}';
+        uploadPreparationConfig = JSON.parse(uploadPreparationRaw || '{}');
+    } catch (err) {
+        uploadPreparationConfig = {};
+    }
+    const uploadBatchTargetBytes = Number(uploadPreparationConfig.batch_target_bytes);
+    const UPLOAD_BATCH_TARGET_BYTES = Number.isFinite(uploadBatchTargetBytes) && uploadBatchTargetBytes > 0
+        ? uploadBatchTargetBytes
+        : 83886080;
+    const UPLOAD_PREPARATION_EXECUTION_MODE = typeof uploadPreparationConfig.execution_mode === 'string'
+        ? uploadPreparationConfig.execution_mode
+        : 'worker';
     let serverPreferenceDefaults = {};
     try {
         const defaultsRaw = serverPreferenceDefaultsElement

@@ -36,3 +36,6 @@ settings.json
 .env
 .env.production
 cytocv/.postgres-local-admin.txt
+
+# Templates
+docs/release-note-rewrites/

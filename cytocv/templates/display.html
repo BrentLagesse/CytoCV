@@ -1423,7 +1423,7 @@
             inset: 0;
             z-index: 5;
             display: grid;
-            gap: 16px;
+            gap: 14px;
             padding: var(--glass-space-md);
             border-radius: inherit;
             border: 1px solid rgba(var(--glass-border-rgb), 0.24);
@@ -1469,12 +1469,16 @@
         .skeleton-line {
             height: 12px;
         }
-        .skeleton-line.title {
-            height: 26px;
-            width: min(420px, 70%);
+        .skeleton-line.eyebrow {
+            width: 82px;
         }
-        .skeleton-line.meta {
-            width: min(300px, 58%);
+        .skeleton-line.title {
+            height: 30px;
+            width: min(520px, 84%);
+            margin-bottom: 3px;
+        }
+        .skeleton-line.file-date {
+            width: min(270px, 58%);
         }
         .skeleton-line.short {
             width: 42%;
@@ -1485,18 +1489,21 @@
         .skeleton-toolbar-row,
         .skeleton-channel-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
-            gap: 14px;
+            gap: 16px;
         }
         .skeleton-divider {
             width: 100%;
             height: 1px;
             background: rgba(var(--glass-border-rgb), 0.24);
         }
+        .top-stage-skeleton .skeleton-divider {
+            margin-top: 2px;
+        }
         .skeleton-copy {
             display: grid;
-            gap: 10px;
+            gap: 6px;
             min-width: 0;
             flex: 1 1 auto;
         }
@@ -1507,7 +1514,7 @@
             gap: 8px;
         }
         .skeleton-pill {
-            width: 54px;
+            width: 68px;
             height: 30px;
             border-radius: 999px;
             background:
@@ -1544,8 +1551,41 @@
         }
         .skeleton-cell-header {
             display: flex;
+            align-items: center;
             justify-content: space-between;
             gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 0;
+        }
+        .skeleton-cell-title {
+            width: 82px;
+            height: 12px;
+        }
+        .skeleton-cell-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+        .skeleton-toolbar-control {
+            height: 36px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+                rgba(18, 28, 40, 0.55);
+        }
+        .skeleton-contour-control,
+        .skeleton-cell-id-control {
+            width: 138px;
+        }
+        .skeleton-menu-control {
+            width: 32px;
+            height: 32px;
+            min-height: 32px;
+            margin-left: 6px;
+            border-radius: 999px;
         }
         .skeleton-cell-image-row {
             display: grid;
@@ -1563,52 +1603,161 @@
         .skeleton-cell-label {
             width: 100%;
             min-height: 34px;
-            border-radius: 6px;
+            border: none;
+            border-radius: 10px;
             background:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
                 rgba(28, 38, 52, 0.72);
         }
+        .skeleton-cell-label.dic-label {
+            background: #000;
+        }
+        .skeleton-cell-label.blue-label {
+            background: blue;
+        }
+        .skeleton-cell-label.red-label {
+            background: red;
+        }
+        .skeleton-cell-label.green-label {
+            background: green;
+        }
         .skeleton-cell-image {
             width: 100%;
             aspect-ratio: 1 / 1;
-            border-radius: 10px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.24);
+            border-radius: 14px;
             background:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
                 rgba(8, 12, 19, 0.74);
         }
-        .skeleton-metrics-grid {
+        .skeleton-stats-strip {
             display: grid;
-            grid-template-columns: repeat(4, minmax(120px, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: min(100%, 1094px);
+            min-height: 373px;
+            margin: 0 auto;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.22);
+            border-radius: 12px;
+            background: rgba(14, 20, 29, 0.56);
+            overflow: hidden;
         }
-        .skeleton-metric-card {
+        .skeleton-stats-column {
             display: grid;
             gap: 10px;
-            padding: 12px;
-            border: 1px solid rgba(var(--glass-border-rgb), 0.18);
-            border-radius: 8px;
-            background: rgba(32, 32, 32, 0.82);
+            align-content: start;
+            min-width: 0;
+            padding: 16px 14px;
+        }
+        .skeleton-stats-column + .skeleton-stats-column {
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .skeleton-stat-section {
+            display: grid;
+            gap: 10px;
+        }
+        .skeleton-stat-section + .skeleton-stat-section {
+            margin-top: 8px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .skeleton-cell-navigation {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .skeleton-cell-nav-button {
+            flex: 1 1 160px;
+            min-width: 0;
+            max-width: 240px;
+            height: 37px;
+            border-radius: 10px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+                rgba(0, 123, 255, 0.42);
         }
         .table-swap-skeleton {
             align-content: start;
+            gap: 12px;
         }
         .skeleton-table-toolbar {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            gap: 16px;
+            gap: 10px;
+            width: 100%;
+        }
+        .skeleton-table-title {
+            width: 120px;
+            height: 12px;
+            border-radius: 999px;
+        }
+        .skeleton-table-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .skeleton-table-fullscreen {
+            width: 106px;
+            height: 36px;
+            border-radius: 999px;
+            border: 1px solid rgba(var(--glass-border-rgb), 0.34);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+                rgba(16, 24, 35, 0.6);
         }
         .skeleton-table {
             display: grid;
-            gap: 10px;
+            gap: 0;
+            width: 100%;
+            min-height: min(173px, calc(var(--safe-viewport-height) - var(--nav-height) - 160px));
+            border: 1px solid rgba(var(--glass-border-rgb), 0.3);
+            border-radius: 8px;
+            background: rgba(10, 15, 22, 0.46);
+            overflow: hidden;
         }
         .skeleton-table-row {
             display: grid;
-            grid-template-columns: 0.8fr 1.3fr 1fr 1fr 1.2fr;
-            gap: 10px;
+            grid-template-columns: 0.75fr 1.15fr 1fr 1fr 1fr 1.15fr;
+            gap: 1px;
+            min-height: 34px;
+            padding: 0;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .skeleton-table-row.header {
+            min-height: 38px;
         }
         .skeleton-table-cell {
-            height: 18px;
-            border-radius: 5px;
+            height: 100%;
+            min-height: inherit;
+            border: none;
+            border-radius: 0;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+                rgba(22, 29, 39, 0.68);
+        }
+        .skeleton-table-row.header .skeleton-table-cell {
+            background: rgba(16, 24, 35, 0.88);
+        }
+        .skeleton-table-row:nth-child(even) .skeleton-table-cell {
+            background: rgba(28, 36, 48, 0.78);
+        }
+        .skeleton-export-row {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            padding-top: 14px;
+        }
+        .skeleton-export-button {
+            width: 170px;
+            height: 38px;
+            border-radius: 8px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+                rgba(0, 123, 255, 0.42);
         }
         .is-file-swap-loading .file-navigation-button {
             opacity: 0.62;
@@ -1626,8 +1775,18 @@
                 justify-content: flex-start;
             }
             .skeleton-cell-image-row,
-            .skeleton-metrics-grid {
+            .skeleton-stats-strip {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .skeleton-cell-navigation {
+                width: 100%;
+                max-width: 320px;
+                justify-self: center;
+                gap: 10px;
+            }
+            .skeleton-cell-nav-button {
+                width: 100%;
+                max-width: none;
             }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -2033,7 +2192,7 @@
             font-feature-settings: "tnum" 1;
         }
         .navigation-buttons {
-            margin-top: 16px;
+            margin-top: 14px;
             display: flex;
             justify-content: center;
             gap: 12px;
@@ -2426,9 +2585,9 @@
                                 <div class="file-swap-skeleton top-stage-skeleton" aria-hidden="true">
                                     <div class="skeleton-toolbar-row">
                                         <div class="skeleton-copy">
-                                            <div class="skeleton-shape skeleton-line short"></div>
+                                            <div class="skeleton-shape skeleton-line eyebrow"></div>
                                             <div class="skeleton-shape skeleton-line title"></div>
-                                            <div class="skeleton-shape skeleton-line meta"></div>
+                                            <div class="skeleton-shape skeleton-line file-date"></div>
                                         </div>
                                         <div class="skeleton-pill-row">
                                             <div class="skeleton-shape skeleton-pill"></div>
@@ -2736,48 +2895,70 @@
                                 </div>
                                 <div class="file-swap-skeleton cell-swap-skeleton" aria-hidden="true">
                                     <div class="skeleton-cell-header">
-                                        <div class="skeleton-shape skeleton-line short"></div>
-                                        <div class="skeleton-shape skeleton-button"></div>
+                                        <div class="skeleton-shape skeleton-cell-title"></div>
+                                        <div class="skeleton-cell-actions">
+                                            <div class="skeleton-shape skeleton-toolbar-control skeleton-contour-control"></div>
+                                            <div class="skeleton-shape skeleton-toolbar-control skeleton-cell-id-control"></div>
+                                            <div class="skeleton-shape skeleton-toolbar-control skeleton-menu-control"></div>
+                                        </div>
                                     </div>
                                     <div class="skeleton-cell-image-row">
                                         <div class="skeleton-cell-column">
-                                            <div class="skeleton-shape skeleton-cell-label"></div>
+                                            <div class="skeleton-shape skeleton-cell-label dic-label"></div>
                                             <div class="skeleton-shape skeleton-cell-image"></div>
                                         </div>
                                         <div class="skeleton-cell-column">
-                                            <div class="skeleton-shape skeleton-cell-label"></div>
+                                            <div class="skeleton-shape skeleton-cell-label blue-label"></div>
                                             <div class="skeleton-shape skeleton-cell-image"></div>
                                         </div>
                                         <div class="skeleton-cell-column">
-                                            <div class="skeleton-shape skeleton-cell-label"></div>
+                                            <div class="skeleton-shape skeleton-cell-label red-label"></div>
                                             <div class="skeleton-shape skeleton-cell-image"></div>
                                         </div>
                                         <div class="skeleton-cell-column">
-                                            <div class="skeleton-shape skeleton-cell-label"></div>
+                                            <div class="skeleton-shape skeleton-cell-label green-label"></div>
                                             <div class="skeleton-shape skeleton-cell-image"></div>
                                         </div>
                                     </div>
-                                    <div class="skeleton-metrics-grid">
-                                        <div class="skeleton-metric-card">
-                                            <div class="skeleton-shape skeleton-line medium"></div>
-                                            <div class="skeleton-shape skeleton-line"></div>
-                                            <div class="skeleton-shape skeleton-line short"></div>
+                                    <div class="skeleton-stats-strip">
+                                        <div class="skeleton-stats-column">
+                                            <div class="skeleton-stat-section">
+                                                <div class="skeleton-shape skeleton-line medium"></div>
+                                                <div class="skeleton-shape skeleton-line"></div>
+                                                <div class="skeleton-shape skeleton-line short"></div>
+                                            </div>
+                                            <div class="skeleton-stat-section">
+                                                <div class="skeleton-shape skeleton-line medium"></div>
+                                                <div class="skeleton-shape skeleton-line"></div>
+                                                <div class="skeleton-shape skeleton-line short"></div>
+                                            </div>
                                         </div>
-                                        <div class="skeleton-metric-card">
-                                            <div class="skeleton-shape skeleton-line medium"></div>
-                                            <div class="skeleton-shape skeleton-line"></div>
-                                            <div class="skeleton-shape skeleton-line short"></div>
+                                        <div class="skeleton-stats-column">
+                                            <div class="skeleton-stat-section">
+                                                <div class="skeleton-shape skeleton-line medium"></div>
+                                                <div class="skeleton-shape skeleton-line"></div>
+                                                <div class="skeleton-shape skeleton-line"></div>
+                                                <div class="skeleton-shape skeleton-line short"></div>
+                                            </div>
                                         </div>
-                                        <div class="skeleton-metric-card">
-                                            <div class="skeleton-shape skeleton-line medium"></div>
-                                            <div class="skeleton-shape skeleton-line"></div>
-                                            <div class="skeleton-shape skeleton-line short"></div>
+                                        <div class="skeleton-stats-column">
+                                            <div class="skeleton-stat-section">
+                                                <div class="skeleton-shape skeleton-line medium"></div>
+                                                <div class="skeleton-shape skeleton-line"></div>
+                                                <div class="skeleton-shape skeleton-line short"></div>
+                                            </div>
                                         </div>
-                                        <div class="skeleton-metric-card">
-                                            <div class="skeleton-shape skeleton-line medium"></div>
-                                            <div class="skeleton-shape skeleton-line"></div>
-                                            <div class="skeleton-shape skeleton-line short"></div>
+                                        <div class="skeleton-stats-column">
+                                            <div class="skeleton-stat-section">
+                                                <div class="skeleton-shape skeleton-line medium"></div>
+                                                <div class="skeleton-shape skeleton-line"></div>
+                                                <div class="skeleton-shape skeleton-line short"></div>
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div class="skeleton-cell-navigation">
+                                        <div class="skeleton-shape skeleton-cell-nav-button"></div>
+                                        <div class="skeleton-shape skeleton-cell-nav-button"></div>
                                     </div>
                                 </div>
                             </div>
@@ -2822,8 +3003,10 @@
                     </div>
                     <div class="file-swap-skeleton table-swap-skeleton" aria-hidden="true">
                         <div class="skeleton-table-toolbar">
-                            <div class="skeleton-shape skeleton-line short"></div>
-                            <div class="skeleton-shape skeleton-button"></div>
+                            <div class="skeleton-shape skeleton-table-title"></div>
+                            <div class="skeleton-table-actions">
+                                <div class="skeleton-shape skeleton-table-fullscreen"></div>
+                            </div>
                         </div>
                         <div class="skeleton-table">
                             <div class="skeleton-table-row">
@@ -2854,6 +3037,9 @@
                                 <div class="skeleton-shape skeleton-table-cell"></div>
                                 <div class="skeleton-shape skeleton-table-cell"></div>
                             </div>
+                        </div>
+                        <div class="skeleton-export-row">
+                            <div class="skeleton-shape skeleton-export-button"></div>
                         </div>
                     </div>
 
