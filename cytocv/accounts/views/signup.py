@@ -690,13 +690,12 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             try:
-                user = user_model(
+                user = user_model.objects.create_user(
                     email=values["email"],
+                    password=password,
                     first_name=values["first_name"],
                     last_name=values["last_name"],
                 )
-                user.set_password(password)
-                user.save()
             except IntegrityError:
                 _add_error(errors, "email", "That email is already in use. Sign In instead.")
                 step = 2

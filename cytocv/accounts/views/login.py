@@ -19,6 +19,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET
 
@@ -50,6 +51,9 @@ RECOVERY_CODE_RESEND_SECONDS = VERIFY_CODE_RESEND_SECONDS
 AUTH_RECAPTCHA_GATE_SESSION_KEY = "auth_recaptcha_gate_verified_at"
 ACCOUNT_CANNOT_SIGN_IN_MESSAGE = (
     "This account cannot sign in right now. Contact support if you need help."
+)
+ACCOUNT_RECOVERY_UNAVAILABLE_MESSAGE = (
+    "We couldn't start password recovery for that email. Contact support if you need help."
 )
 logger = logging.getLogger(__name__)
 
@@ -403,12 +407,23 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
     def add_recovery_account_error(user) -> bool:
         """Add a safe recovery account error when the user cannot proceed."""
         nonlocal page_error
-        if user is None:
-            message = "We couldn't find an account for that email address."
-        elif not user.is_active:
-            message = ACCOUNT_CANNOT_SIGN_IN_MESSAGE
-        else:
+        if user is not None and user.is_active:
             return False
+        message = ACCOUNT_RECOVERY_UNAVAILABLE_MESSAGE
+        normalized_email = normalize_auth_email(values.get("email"))
+        logger.info(
+            "Password recovery unavailable for submitted email.",
+            extra={
+                "email_fingerprint": salted_hmac(
+                    "accounts.password_recovery",
+                    normalized_email,
+                ).hexdigest()[:16]
+                if normalized_email
+                else "",
+                "recovery_user_found": user is not None,
+                "recovery_user_active": bool(getattr(user, "is_active", False)),
+            },
+        )
         _add_error(errors, "email", message)
         page_error = message
         _clear_recovery_email_state(request, values)

@@ -105,6 +105,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def save_user(self, request: HttpRequest, sociallogin, form=None):
         """Persist new social users with normalized email fields."""
         sociallogin.user.email = normalize_auth_email(sociallogin.user.email)
+        sociallogin.user._skip_email_address_sync = True
         for addr in getattr(sociallogin, "email_addresses", []):
             addr.email = normalize_auth_email(getattr(addr, "email", ""))
         return super().save_user(request, sociallogin, form)
