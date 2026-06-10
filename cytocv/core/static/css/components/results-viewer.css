@@ -30,6 +30,91 @@
     background-color: #3bbf3b;
 }
 
+@keyframes tableFullscreenEnter {
+    from {
+        opacity: 0.6;
+        transform: translateY(10px) scale(0.985);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+}
+
+@keyframes tableFullscreenExit {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0.75;
+        transform: scale(0.988);
+    }
+
+}
+
+@keyframes cellSelectEnterForward {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+}
+
+@keyframes cellSelectEnterBackward {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+}
+
+@keyframes cellSelectExitForward {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+
+}
+
+@keyframes cellSelectExitBackward {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(8px);
+    }
+
+}
+
+@keyframes skeletonShimmer {
+    to {
+        transform: translateX(100%);
+    }
+
+}
+
 .dashboard-page,
 .display-page {
     flex: 1 0 auto;

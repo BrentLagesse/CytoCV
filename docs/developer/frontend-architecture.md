@@ -17,13 +17,15 @@ CytoCV's frontend is Django-rendered HTML plus source static assets. It does not
 - `cytocv/core/static/css/base-overrides.css`
   Late-loaded global overrides that must remain after page CSS in the cascade.
 - `cytocv/core/static/css/components/`
-  Shared component CSS used by more than one page or partial.
+  Shared component CSS used by more than one page or partial. Current shared component files include `results-viewer.css`, `export-selection-modal.css`, and `workflow-controls.css`.
 - `cytocv/core/static/css/pages/`
   Page-scoped CSS. A page template should generally load only its matching page file plus needed component CSS.
 - `cytocv/core/static/js/shared/`
   Shared browser utilities with stable global APIs.
 - `cytocv/core/static/js/pages/`
   Page controllers. These own DOM behavior for one page or one narrow page concern.
+- `cytocv/core/static/js/shared/results-cell-actions.js`
+  Shared dashboard/display cell action controller, initialized by thin page wrappers.
 - `cytocv/core/static/js/export_selection_modal.js`
   Shared export-selection controller. It remains outside `pages/` because both display and dashboard use it.
 - `cytocv/core/static/js/viewer_overlay_prefetch.js`
@@ -37,13 +39,17 @@ Templates own server-rendered markup, forms, Django URL resolution, CSRF tokens,
 
 When static JavaScript needs server data, add a `script type="application/json"` block with a stable ID in the template and read it from the controller. Current examples:
 
-- `uploadPreparationConfig` in `form/experiment.html`
-- `preprocessPageConfig` in `pre_process.html`
+- `statsPluginPayload`, `restoredQueuePayload`, `serverPreferenceDefaults`, `uploadQuotaProjection`, `uploadAccessPolicy`, `uploadResumePayload`, and `uploadPreparationConfig` in `form/experiment.html`
+- `pluginDependencyPayload` in `workflow_defaults.html`
+- `preprocessScalePayload` and `preprocessPageConfig` in `pre_process.html`
 - `displayFilesData` and `displayPageConfig` in `display.html`
 - `dashboardFilesData` and `dashboardPageConfig` in `dashboard.html`
+- `exportSelectionConfig` in `partials/export_selection_modal.html`
 - `accountSettingsConfig` in `account_settings.html`
 
 Keep request payload names, endpoint paths, response field names, form field names, and template context expectations unchanged unless a backend contract change is intentional and documented.
+
+Frontend contract tests in `core/tests/test_frontend_*_contracts.py` parse these blocks, verify static include order, and check public JavaScript globals. Add or update those tests when adding a page controller, component stylesheet, shared global, or JSON config block.
 
 ## Main Data Flow
 
@@ -58,6 +64,7 @@ Shared globals that must remain stable:
 - `window.CytoCVExportSelection`
 - `window.CytoCVOverlayPrefetch`
 - `window.CytoCVResultsViewerShared`
+- `window.CytoCVResultsCellActions`
 - `window.CytoCVAsyncProgress`
 - `window.showGlobalMessage`
 
@@ -68,6 +75,8 @@ Shared globals that must remain stable:
 In `sync` mode the upload-preparation request can return a terminal result. In `worker` mode the frontend polls `experiment_upload_prepare_status` until the job finishes or fails. Successful preparation redirects to `pre_process` for the approved UUID set.
 
 The frontend assumes upload-preparation responses keep the existing fields for status, job UUID, valid UUIDs, redirect URL, messages, and resumable-job state.
+
+Upload and workflow-default pages share reusable control styling through `css/components/workflow-controls.css`. Keep page layout, modal state, and responsive overrides in `css/pages/experiment.css` or `css/pages/workflow-defaults.css`.
 
 ## Verification And Preprocess Flow
 
@@ -93,15 +102,19 @@ Common contracts:
 - `displayPageConfig` and `dashboardPageConfig` serialize deletion preferences, sidebar unit preference, preferred main image channel, and table UUID.
 - `viewer_overlay_prefetch.js` owns overlay warmup helpers.
 - `js/shared/results-viewer.js` owns duplicate viewer utilities such as blend transitions, image preloading, stat formatting, spatial-unit table formatting, and main-image warmup helpers.
+- `js/shared/results-cell-actions.js` owns the shared cell delete/select modal and context-menu controller. `dashboard-cell-actions.js` and `display-cell-actions.js` only pass the page config into that shared controller.
 - `css/components/results-viewer.css` owns exact shared dashboard/display viewer selectors.
 - `export_selection_modal.js` owns selectable column/file export behavior.
 
 Only factor display/dashboard code when the DOM, payload, preference, and save/delete behavior contracts are identical.
 
+`display.html` still has inline `onclick` handlers for previous/next cell navigation because those handlers depend on page-local navigation functions. Keep them until the display viewer controller is deliberately converted to event-listener wiring with browser smoke coverage.
+
 ## Organization Rules
 
 - Put page-only CSS in `css/pages/<page>.css`.
 - Put reused component CSS in `css/components/`.
+- Load component CSS before page CSS so page-owned overrides keep the final cascade.
 - Put page-only JavaScript in `js/pages/`.
 - Put reused utilities in `js/shared/` only when at least two pages use them or when they expose a stable global API.
 - Keep backend route names resolved in templates, then pass URLs to static JS through JSON config.
@@ -124,6 +137,7 @@ Only factor display/dashboard code when the DOM, payload, preference, and save/d
 Run from `cytocv/`:
 
 ```powershell
+Get-ChildItem -Path core/static/js -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 python manage.py check
 python manage.py collectstatic --dry-run --noinput
 python manage.py test core.tests.test_core_app
@@ -155,5 +169,5 @@ Frontend controllers assume backend endpoints continue to return JSON objects wi
 No frontend files or selectors were deleted during the modularization pass because the goal was behavior-preserving extraction. Future cleanup candidates should be verified separately:
 
 - display/dashboard page controllers still have intentional duplication where saved-file and transient-display behavior diverges
-- large page CSS files can be split further only when a repeated component boundary is proven and cascade order can be preserved
+- large page CSS files can be split further only when a repeated component boundary is proven and cascade order can be preserved; current page-owned examples include modal animation rules, responsive channel-order rules, and order-sensitive `.length-unit-option` state rules
 - `cytocv/core/static/assets/UWBSTEM-badge-white.png` appears less prominent than the active UWB assets but should not be removed without checking external references and deployed branding needs

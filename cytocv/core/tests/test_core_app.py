@@ -129,6 +129,62 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
 
+    def test_static_frontend_javascript_does_not_embed_template_syntax(self):
+        for path in CORE_STATIC_ROOT.rglob("*.js"):
+            source = path.read_text(encoding="utf-8")
+            with self.subTest(path=path.relative_to(CORE_STATIC_ROOT)):
+                for token in ("{%", "%}", "{{", "}}"):
+                    self.assertNotIn(token, source)
+
+    def test_results_viewer_animation_keyframes_are_shared(self):
+        shared_css = _frontend_static_text("css/components/results-viewer.css")
+        dashboard_css = _frontend_static_text("css/pages/dashboard.css")
+        display_css = _frontend_static_text("css/pages/display.css")
+        keyframes = (
+            "tableFullscreenEnter",
+            "tableFullscreenExit",
+            "cellSelectEnterForward",
+            "cellSelectEnterBackward",
+            "cellSelectExitForward",
+            "cellSelectExitBackward",
+            "skeletonShimmer",
+        )
+
+        for keyframe in keyframes:
+            with self.subTest(keyframe=keyframe):
+                marker = f"@keyframes {keyframe}"
+                self.assertIn(marker, shared_css)
+                self.assertNotIn(marker, dashboard_css)
+                self.assertNotIn(marker, display_css)
+
+    def test_workflow_control_styles_are_shared_without_moving_page_owned_rules(self):
+        shared_css = _frontend_static_text("css/components/workflow-controls.css")
+        experiment_css = _frontend_static_text("css/pages/experiment.css")
+        workflow_css = _frontend_static_text("css/pages/workflow-defaults.css")
+        shared_selectors = (
+            ".signal-mode-panel {",
+            ".length-unit-caret {",
+            ".length-unit-trigger:hover {",
+            ".channel-order-control .channel-chip {",
+            ".channel-order-action-copy {",
+        )
+        page_owned_selectors = (
+            ".length-unit-option.is-selected",
+            ".popup-backdrop.modal-enter",
+            ".channel-order-control {",
+        )
+
+        for selector in shared_selectors:
+            with self.subTest(selector=selector):
+                self.assertIn(selector, shared_css)
+                self.assertNotIn(selector, experiment_css)
+                self.assertNotIn(selector, workflow_css)
+
+        for selector in page_owned_selectors:
+            with self.subTest(page_owned_selector=selector):
+                self.assertIn(selector, experiment_css)
+                self.assertIn(selector, workflow_css)
+
     @staticmethod
     def _write_channel_config(media_root: Path, uuid_value: str):
         output_dir = media_root / uuid_value
@@ -1709,6 +1765,13 @@ class RouteSurfaceRefactorTests(TestCase):
             "return 'N/A';",
             "return tableFieldOrder.slice();",
             "section.hidden = false;",
+            "function getSortedCellIds(fileData)",
+            "function getWarmPriorityOffsets(direction = 'initial')",
+            "function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells)",
+            "return [1, -1, 2, -2];",
+            "return [1, 2, -1, -2];",
+            "return [-1, -2, 1, 2];",
+            "buildFullCircularCellOrder(sortedIds, currentCellNumber, maxCells)",
         ):
             self.assertIn(expected, shared_source)
         for expected in (
@@ -1719,14 +1782,14 @@ class RouteSurfaceRefactorTests(TestCase):
             "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
             "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
             "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
-            "return [1, -1, 2, -2];",
-            "return [1, 2, -1, -2];",
-            "return [-1, -2, 1, 2];",
-            "buildFullCircularCellOrder(currentCellNumber, maxCells)",
+            "const getSortedCellIds = resultsViewerShared.getSortedCellIds;",
+            "return resultsViewerShared.getCircularWarmQueue({",
             "'measurement_contour_ratio_1',",
             "'measurement_contour_ratio_3',",
         ):
             self.assertIn(expected, source)
+        self.assertNotIn("function getWarmPriorityOffsets", source)
+        self.assertNotIn("function buildFullCircularCellOrder", source)
         self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
 
     def test_display_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
@@ -1745,6 +1808,13 @@ class RouteSurfaceRefactorTests(TestCase):
         for expected in (
             "return tableFieldOrder.slice();",
             "section.hidden = false;",
+            "function getSortedCellIds(fileData)",
+            "function getWarmPriorityOffsets(direction = 'initial')",
+            "function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells)",
+            "return [1, -1, 2, -2];",
+            "return [1, 2, -1, -2];",
+            "return [-1, -2, 1, 2];",
+            "buildFullCircularCellOrder(sortedIds, currentCellNumber, maxCells)",
         ):
             self.assertIn(expected, shared_source)
         for expected in (
@@ -1755,14 +1825,14 @@ class RouteSurfaceRefactorTests(TestCase):
             "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
             "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
             "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
-            "return [1, -1, 2, -2];",
-            "return [1, 2, -1, -2];",
-            "return [-1, -2, 1, 2];",
-            "buildFullCircularCellOrder(currentCellNumber, maxCells)",
+            "const getSortedCellIds = resultsViewerShared.getSortedCellIds;",
+            "return resultsViewerShared.getCircularWarmQueue({",
             "'measurement_contour_ratio_1',",
             "'measurement_contour_ratio_3',",
         ):
             self.assertIn(expected, source)
+        self.assertNotIn("function getWarmPriorityOffsets", source)
+        self.assertNotIn("function buildFullCircularCellOrder", source)
         self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
 
     def test_display_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):

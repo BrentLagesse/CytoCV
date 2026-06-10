@@ -361,6 +361,77 @@
         return Promise.all(uniqueUrls.map((url) => preloadImage(url)));
     }
 
+    function getSortedCellIds(fileData) {
+        const statistics = (fileData && fileData.Statistics) || {};
+        const statIds = Object.keys(statistics)
+            .map((key) => Number(key))
+            .filter((value) => (
+                Number.isFinite(value)
+                && value > 0
+                && statistics[String(value)]
+                && typeof statistics[String(value)] === 'object'
+            ))
+            .sort((a, b) => a - b);
+        if (statIds.length > 0) {
+            return statIds;
+        }
+        const pairImages = (fileData && fileData.CellPairImages) || {};
+        return Object.keys(pairImages)
+            .map((key) => Number(key))
+            .filter((value) => Number.isFinite(value) && value > 0)
+            .sort((a, b) => a - b);
+    }
+
+    function getWarmPriorityOffsets(direction = 'initial') {
+        if (direction === 'next') {
+            return [1, 2, -1, -2];
+        }
+        if (direction === 'previous') {
+            return [-1, -2, 1, 2];
+        }
+        return [1, -1, 2, -2];
+    }
+
+    function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells) {
+        if (!Array.isArray(sortedIds) || sortedIds.length < 2 || Number(totalCells || 0) < 1) {
+            return [];
+        }
+        const currentIdx = Math.max(0, sortedIds.indexOf(Number(activeCellNumber)));
+        const ordered = [];
+        for (let offset = 1; offset < sortedIds.length; offset += 1) {
+            ordered.push(sortedIds[(currentIdx + offset) % sortedIds.length]);
+        }
+        return ordered;
+    }
+
+    function getCircularWarmQueue({
+        sortedIds,
+        currentCellNumber,
+        maxCells,
+        direction = 'initial',
+    } = {}) {
+        if (!Array.isArray(sortedIds) || sortedIds.length < 2) {
+            return [];
+        }
+        const currentIdx = Math.max(0, sortedIds.indexOf(Number(currentCellNumber)));
+        const offsets = sortedIds.length <= 5
+            ? buildFullCircularCellOrder(sortedIds, currentCellNumber, maxCells).map((cellNumber) => (
+                (sortedIds.indexOf(cellNumber) - currentIdx + sortedIds.length) % sortedIds.length
+            ))
+            : getWarmPriorityOffsets(direction);
+        const seen = new Set();
+        const ordered = [];
+        offsets.forEach((offset) => {
+            const targetIdx = (currentIdx + offset + sortedIds.length) % sortedIds.length;
+            const cellNumber = sortedIds[targetIdx];
+            if (!seen.has(cellNumber) && cellNumber !== Number(currentCellNumber)) {
+                seen.add(cellNumber);
+                ordered.push(cellNumber);
+            }
+        });
+        return ordered;
+    }
+
     function normalizeMainImageChannel(channel, channels) {
         return channels.includes(channel) ? channel : '';
     }
@@ -811,6 +882,10 @@
         showChannelError,
         preloadImage,
         preloadImageSet,
+        getSortedCellIds,
+        getWarmPriorityOffsets,
+        buildFullCircularCellOrder,
+        getCircularWarmQueue,
         normalizeMainImageChannel,
         setActiveChannel,
         createMainImageHelpers,

@@ -28,6 +28,7 @@
         let maxCells;
         const channels = ["dic", "blue", "red", "green"];
         const normalizeMainImageChannel = (channel) => resultsViewerShared.normalizeMainImageChannel(channel, channels);
+        const getSortedCellIds = resultsViewerShared.getSortedCellIds;
         let activeChannelRequest = 0;
         const defaultChannelIndexMap = { 0: 'dic', 1: 'blue', 2: 'green', 3: 'red' };
         const noCellPlaceholder =
@@ -879,51 +880,15 @@
             }
         }
 
-        function getWarmPriorityOffsets(direction = 'initial') {
-            if (direction === 'next') {
-                return [1, 2, -1, -2];
-            }
-            if (direction === 'previous') {
-                return [-1, -2, 1, 2];
-            }
-            return [1, -1, 2, -2];
-        }
 
-        function buildFullCircularCellOrder(activeCellNumber, totalCells) {
-            const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
-            if (sortedIds.length < 2 || Number(totalCells || 0) < 1) {
-                return [];
-            }
-            const currentIdx = Math.max(0, sortedIds.indexOf(Number(activeCellNumber)));
-            const ordered = [];
-            for (let offset = 1; offset < sortedIds.length; offset += 1) {
-                ordered.push(sortedIds[(currentIdx + offset) % sortedIds.length]);
-            }
-            return ordered;
-        }
 
         function getCircularWarmQueue(direction = 'initial') {
-            const sortedIds = getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]);
-            if (sortedIds.length < 2) {
-                return [];
-            }
-            const currentIdx = Math.max(0, sortedIds.indexOf(Number(currentCellNumber)));
-            const offsets = sortedIds.length <= 5
-                ? buildFullCircularCellOrder(currentCellNumber, maxCells).map((cellNumber) => (
-                    (sortedIds.indexOf(cellNumber) - currentIdx + sortedIds.length) % sortedIds.length
-                ))
-                : getWarmPriorityOffsets(direction);
-            const seen = new Set();
-            const ordered = [];
-            offsets.forEach((offset) => {
-                const targetIdx = (currentIdx + offset + sortedIds.length) % sortedIds.length;
-                const cellNumber = sortedIds[targetIdx];
-                if (!seen.has(cellNumber) && cellNumber !== Number(currentCellNumber)) {
-                    seen.add(cellNumber);
-                    ordered.push(cellNumber);
-                }
+            return resultsViewerShared.getCircularWarmQueue({
+                sortedIds: getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]),
+                currentCellNumber,
+                maxCells,
+                direction,
             });
-            return ordered;
         }
 
         function markCurrentCellWarm(fileUUID, showContours) {
@@ -1020,26 +985,6 @@
             await loadFile(nextIndex);
         }
 
-        function getSortedCellIds(fileData) {
-            const statistics = (fileData && fileData.Statistics) || {};
-            const statIds = Object.keys(statistics)
-                .map((key) => Number(key))
-                .filter((value) => (
-                    Number.isFinite(value)
-                    && value > 0
-                    && statistics[String(value)]
-                    && typeof statistics[String(value)] === 'object'
-                ))
-                .sort((a, b) => a - b);
-            if (statIds.length > 0) {
-                return statIds;
-            }
-            const pairImages = (fileData && fileData.CellPairImages) || {};
-            return Object.keys(pairImages)
-                .map((key) => Number(key))
-                .filter((value) => Number.isFinite(value) && value > 0)
-                .sort((a, b) => a - b);
-        }
 
         async function nextCell() {
             if (maxCells < 1) {

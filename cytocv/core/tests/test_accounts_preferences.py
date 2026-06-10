@@ -1111,11 +1111,40 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="dashboardPageConfig"', html=False)
         self.assertContains(response, "css/components/results-viewer.css", html=False)
         self.assertContains(response, "js/shared/results-viewer.js", html=False)
+        self.assertContains(response, "js/shared/results-cell-actions.js", html=False)
         self.assertContains(response, "js/pages/dashboard-viewer.js", html=False)
+        self.assertContains(response, "js/pages/dashboard-cell-actions.js", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/results-viewer.css"),
+            content.index("css/pages/dashboard.css"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-viewer.js"),
+            content.index("js/pages/dashboard-viewer.js"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-cell-actions.js"),
+            content.index("js/pages/dashboard-cell-actions.js"),
+        )
         self.assertIn(
             "const initialSidebarSpatialStatsUnit =",
             _frontend_static_text("js/pages/dashboard-viewer.js"),
         )
+        self.assertIn(
+            "window.CytoCVResultsCellActions.init",
+            _frontend_static_text("js/pages/dashboard-cell-actions.js"),
+        )
+        shared_cell_actions_source = _frontend_static_text(
+            "js/shared/results-cell-actions.js"
+        )
+        self.assertIn("global.CytoCVResultsCellActions = { init };", shared_cell_actions_source)
+        self.assertIn(
+            "const tableFileUuid = (pageConfig && pageConfig.tableFileUuid) || '';",
+            shared_cell_actions_source,
+        )
+        self.assertNotIn("CytoCVDashboardPageConfig", shared_cell_actions_source)
+        self.assertNotIn("CytoCVDisplayPageConfig", shared_cell_actions_source)
         self.assertContains(
             response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False
         )
@@ -1182,12 +1211,31 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="displayPageConfig"', html=False)
         self.assertContains(response, "css/components/results-viewer.css", html=False)
         self.assertContains(response, "js/shared/results-viewer.js", html=False)
+        self.assertContains(response, "js/shared/results-cell-actions.js", html=False)
         self.assertContains(response, "js/pages/display-viewer.js", html=False)
+        self.assertContains(response, "js/pages/display-cell-actions.js", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/results-viewer.css"),
+            content.index("css/pages/display.css"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-viewer.js"),
+            content.index("js/pages/display-viewer.js"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-cell-actions.js"),
+            content.index("js/pages/display-cell-actions.js"),
+        )
         display_viewer_source = _frontend_static_text("js/pages/display-viewer.js")
         self.assertIn("const defaultSpatialStatsUnit =", display_viewer_source)
         self.assertIn(
             "const initialSidebarSpatialStatsUnit =",
             display_viewer_source,
+        )
+        self.assertIn(
+            "window.CytoCVResultsCellActions.init",
+            _frontend_static_text("js/pages/display-cell-actions.js"),
         )
         self.assertContains(
             response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False
@@ -3072,6 +3120,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="workflowDefaultsNav"', html=False)
         self.assertContains(response, "Workflow Defaults")
+        self.assertContains(response, "css/components/workflow-controls.css", html=False)
+        self.assertContains(response, "css/pages/workflow-defaults.css", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/workflow-controls.css"),
+            content.index("css/pages/workflow-defaults.css"),
+        )
         self.assertContains(
             response, 'id="pluginForm" data-review-section="plugins"', html=False
         )
@@ -3265,7 +3320,14 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
         self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
         self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
+        self.assertContains(response, "css/components/workflow-controls.css", html=False)
+        self.assertContains(response, "css/pages/experiment.css", html=False)
         self.assertContains(response, "js/pages/experiment.js", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/workflow-controls.css"),
+            content.index("css/pages/experiment.css"),
+        )
         experiment_source = _frontend_static_text("js/pages/experiment.js")
         self.assertIn(
             "fallbackChannelOrderBar.className = 'channel-bar';",
