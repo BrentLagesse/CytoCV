@@ -31,6 +31,10 @@ HTML templates under `cytocv/templates/` render:
 - account settings
 - workflow defaults
 
+Frontend behavior is delivered through Django staticfiles under `cytocv/core/static/`.
+Templates render the markup and JSON configuration blocks, while page controllers under `core/static/js/pages/` read those blocks and call existing backend endpoints.
+Shared CSS, shared JavaScript globals, and component styles live under `core/static/css/` and `core/static/js/`.
+
 ### Request And Workflow Layer
 
 The main route map is in `cytocv/cytocv/urls.py`. Request handlers are split across:
@@ -92,5 +96,6 @@ Media artifact generation, cleanup, quota projection, and retention logic are ce
 ## Related Documents
 
 - [`codebase-map.md`](codebase-map.md)
+- [`frontend-architecture.md`](frontend-architecture.md)
 - [`request-flows.md`](request-flows.md)
 - [`data-flow-and-artifacts.md`](data-flow-and-artifacts.md)

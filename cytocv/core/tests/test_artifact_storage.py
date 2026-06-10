@@ -61,6 +61,13 @@ from core.views.segment_image import (
 )
 
 
+CORE_STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
+
+
+def _frontend_static_text(relative_path: str) -> str:
+    return (CORE_STATIC_ROOT / relative_path).read_text(encoding="utf-8")
+
+
 @contextmanager
 def temporary_media_root():
     with TemporaryDirectory() as temp_media:
@@ -586,8 +593,15 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
         self.assertTrue(payload["projection_ready"])
         self.assertContains(response, 'id="uploadQuotaStatus"', html=False)
         self.assertContains(response, 'id="uploadQuotaProjection"', html=False)
-        self.assertContains(response, "window.clearGlobalMessages", html=False)
-        self.assertContains(response, "This queued workflow is estimated not to autosave", html=False)
+        self.assertContains(response, "js/pages/experiment.js", html=False)
+        self.assertIn(
+            "window.clearGlobalMessages",
+            _frontend_static_text("js/shared/base-interactions.js"),
+        )
+        self.assertIn(
+            "This queued workflow is estimated not to autosave",
+            _frontend_static_text("js/pages/experiment.js"),
+        )
 
     def test_experiment_upload_page_disables_quota_warning_when_autosave_is_off(self):
         with temporary_media_root() as media_root:
@@ -608,8 +622,13 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
         payload = json.loads(response.context["upload_quota_payload_json"])
         self.assertTrue(payload["is_authenticated"])
         self.assertFalse(payload["auto_save_experiments"])
-        self.assertContains(response, "Autosave off", html=False)
-        self.assertContains(response, "queueExceedsEstimate && autoSaveExperiments", html=False)
+        self.assertContains(response, "js/pages/experiment.js", html=False)
+        experiment_js = _frontend_static_text("js/pages/experiment.js")
+        self.assertIn("Autosave off", experiment_js)
+        self.assertIn(
+            "queueExceedsEstimate && autoSaveExperiments",
+            experiment_js,
+        )
 
     def test_experiment_upload_page_uses_no_warning_payload_for_guests(self):
         request = self.factory.get(reverse("experiment"))

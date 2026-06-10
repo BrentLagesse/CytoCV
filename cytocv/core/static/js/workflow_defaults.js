@@ -147,7 +147,7 @@
     advanced: null,
     saving: null,
   };
- 
+
   const clearPopupAnim = (backdrop, panel) => {
     if (backdrop) backdrop.classList.remove('modal-enter', 'modal-exit');
     if (panel) panel.classList.remove('modal-enter', 'modal-exit');
@@ -164,7 +164,7 @@
     if (panel) panel.classList.add('modal-enter');
     window.setTimeout(() => clearPopupAnim(backdrop, panel), POPUP_ENTER_MS);
   };
- 
+
   const closePopupModal = (backdrop, panel, onAfterClose = null) => {
     if (!backdrop) {
       if (typeof onAfterClose === 'function') onAfterClose();

@@ -41,6 +41,13 @@ from core.stats_plugins import (
 from core.views.segment_image import _resolve_uploaded_dv_path
 
 
+CORE_STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
+
+
+def _frontend_static_text(relative_path: str) -> str:
+    return (CORE_STATIC_ROOT / relative_path).read_text(encoding="utf-8")
+
+
 @contextmanager
 def temporary_media_root():
     with TemporaryDirectory() as temp_media:
@@ -1072,16 +1079,11 @@ class RouteSurfaceRefactorTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "display.html")
-        self.assertContains(
-            response,
-            "/experiment/${fileUUID}/main-channel/",
-            html=False,
-        )
-        self.assertContains(
-            response,
-            "/experiment/display/files/sync-selection/",
-            html=False,
-        )
+        self.assertContains(response, "js/pages/display-viewer.js", html=False)
+        display_source = _frontend_static_text("js/pages/display-viewer.js")
+        shared_viewer_source = _frontend_static_text("js/shared/results-viewer.js")
+        self.assertIn("/experiment/${fileUUID}/main-channel/", shared_viewer_source)
+        self.assertIn("/experiment/display/files/sync-selection/", display_source)
         self._assert_removed_paths(response)
 
     def test_display_payload_includes_main_image_paths_for_all_channels(self):
@@ -1154,26 +1156,27 @@ class RouteSurfaceRefactorTests(TestCase):
             display_response = self.client.get(reverse("display", args=[uuid_value]))
             dashboard_response = self.client.get(reverse("dashboard"))
 
-        self.assertContains(
-            display_response,
+        self.assertContains(display_response, "js/pages/display-viewer.js", html=False)
+        display_source = _frontend_static_text("js/pages/display-viewer.js")
+        self.assertIn(
             "scheduleMainImageWarmup(fileUUID, fileData, activeMainChannel || inferredDefaultChannel);",
-            html=False,
+            display_source,
         )
-        self.assertContains(
-            display_response,
+        self.assertIn(
             "const imageUrl = await warmMainImageChannel(fileUUID, fileData, normalizedChannel);",
-            html=False,
+            display_source,
         )
-        self.assertContains(display_response, "fileData.MainImagePaths = {};", html=False)
-        self.assertContains(
-            dashboard_response,
+        shared_viewer_source = _frontend_static_text("js/shared/results-viewer.js")
+        self.assertIn("fileData.MainImagePaths = {};", shared_viewer_source)
+        self.assertContains(dashboard_response, "js/pages/dashboard-viewer.js", html=False)
+        dashboard_source = _frontend_static_text("js/pages/dashboard-viewer.js")
+        self.assertIn(
             "scheduleMainImageWarmup(fileUUID, fileData, activeMainChannel || inferredDefaultChannel);",
-            html=False,
+            dashboard_source,
         )
-        self.assertContains(
-            dashboard_response,
+        self.assertIn(
             "const imageUrl = await warmMainImageChannel(fileUUID, fileData, normalizedChannel);",
-            html=False,
+            dashboard_source,
         )
 
     def test_main_image_channel_matches_display_and_dashboard_payload_paths(self):
@@ -1697,81 +1700,34 @@ class RouteSurfaceRefactorTests(TestCase):
     def test_dashboard_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "if (Number.isInteger(value)) {", html=False)
-        self.assertContains(response, "return value.toFixed(3);", html=False)
-        self.assertContains(response, "return 'N/A';", html=False)
-        self.assertContains(
-            response,
+        self.assertContains(response, "js/pages/dashboard-viewer.js", html=False)
+        source = _frontend_static_text("js/pages/dashboard-viewer.js")
+        shared_source = _frontend_static_text("js/shared/results-viewer.js")
+        for expected in (
+            "if (Number.isInteger(value)) {",
+            "return value.toFixed(3);",
+            "return 'N/A';",
+            "return tableFieldOrder.slice();",
+            "section.hidden = false;",
+        ):
+            self.assertIn(expected, shared_source)
+        for expected in (
             "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "return [1, -1, 2, -2];",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "return [1, 2, -1, -2];",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "return [-1, -2, 1, 2];",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "buildFullCircularCellOrder(currentCellNumber, maxCells)",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "'measurement_contour_ratio_1',",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "'measurement_contour_ratio_3',",
-            html=False,
-        )
-        self.assertContains(response, "return tableFieldOrder.slice();", html=False)
-        self.assertContains(response, "section.hidden = false;", html=False)
-        self.assertNotContains(
-            response,
-            "section.hidden = visibility[key] === false;",
-            html=False,
-        )
+        ):
+            self.assertIn(expected, source)
+        self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
 
     def test_display_cell_pair_cards_use_stat_formatter_for_numeric_metrics(self):
         uuid_value = str(uuid4())
@@ -1783,78 +1739,31 @@ class RouteSurfaceRefactorTests(TestCase):
             response = self.client.get(reverse("display", args=[uuid_value]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
+        self.assertContains(response, "js/pages/display-viewer.js", html=False)
+        source = _frontend_static_text("js/pages/display-viewer.js")
+        shared_source = _frontend_static_text("js/shared/results-viewer.js")
+        for expected in (
+            "return tableFieldOrder.slice();",
+            "section.hidden = false;",
+        ):
+            self.assertIn(expected, shared_source)
+        for expected in (
             "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "return [1, -1, 2, -2];",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "return [1, 2, -1, -2];",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "return [-1, -2, 1, 2];",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "buildFullCircularCellOrder(currentCellNumber, maxCells)",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "'measurement_contour_ratio_1',",
-            html=False,
-        )
-        self.assertContains(
-            response,
             "'measurement_contour_ratio_3',",
-            html=False,
-        )
-        self.assertContains(response, "return tableFieldOrder.slice();", html=False)
-        self.assertContains(response, "section.hidden = false;", html=False)
-        self.assertNotContains(
-            response,
-            "section.hidden = visibility[key] === false;",
-            html=False,
-        )
+        ):
+            self.assertIn(expected, source)
+        self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
 
     def test_display_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
         uuid_value = str(uuid4())
@@ -1923,11 +1832,13 @@ class RouteSurfaceRefactorTests(TestCase):
             '"cell_parentage_label": "Mother/Daughter identified"',
             html=False,
         )
-        self.assertContains(response, "cellStats.cell_parentage_label || 'Not identified'", html=False)
+        display_source = _frontend_static_text("js/pages/display-viewer.js")
+        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", display_source)
         self.assertContains(response, "Cell Parentage")
-        self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
-        self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
+        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", display_source)
+        self.assertNotIn("const categories = ['One green dot with each red dot'", display_source)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
+        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", display_source)
 
     def test_dashboard_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
         uuid_value = str(uuid4())
@@ -1996,11 +1907,13 @@ class RouteSurfaceRefactorTests(TestCase):
             '"cell_parentage_label": "Mother/Daughter identified"',
             html=False,
         )
-        self.assertContains(response, "cellStats.cell_parentage_label || 'Not identified'", html=False)
+        dashboard_source = _frontend_static_text("js/pages/dashboard-viewer.js")
+        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", dashboard_source)
         self.assertContains(response, "Cell Parentage")
-        self.assertContains(response, "cellStats.category_cen_dot_label || 'N/A'", html=False)
-        self.assertNotContains(response, "const categories = ['One green dot with each red dot'", html=False)
+        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", dashboard_source)
+        self.assertNotIn("const categories = ['One green dot with each red dot'", dashboard_source)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
+        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", dashboard_source)
 
     def test_display_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
         uuid_value = str(uuid4())

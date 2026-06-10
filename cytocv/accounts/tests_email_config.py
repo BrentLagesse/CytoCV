@@ -71,18 +71,18 @@ class AuthEmailSenderConfigTests(SimpleTestCase):
 
 class AuthGlobalMessagingTests(SimpleTestCase):
     def test_global_info_messages_use_success_treatment(self):
-        base_template = (settings.BASE_DIR / "templates" / "base.html").read_text(
-            encoding="utf-8"
-        )
-        signin_template = (
-            settings.BASE_DIR / "templates" / "registration" / "signin.html"
+        base_css = (
+            settings.BASE_DIR / "core" / "static" / "css" / "base.css"
+        ).read_text(encoding="utf-8")
+        signin_css = (
+            settings.BASE_DIR / "core" / "static" / "css" / "pages" / "signin.css"
         ).read_text(encoding="utf-8")
 
-        self.assertIn(".message.success,\n        .message.info", base_template)
-        self.assertIn(".message.info .message-close", base_template)
-        self.assertIn("rgba(34, 197, 94, 0.16)", base_template)
-        self.assertIn(".message.info", signin_template)
-        self.assertIn("rgba(0, 123, 255, 0.2)", signin_template)
+        self.assertIn(".message.success,\n        .message.info", base_css)
+        self.assertIn(".message.info .message-close", base_css)
+        self.assertIn("rgba(34, 197, 94, 0.16)", base_css)
+        self.assertIn(".message.info", signin_css)
+        self.assertIn("rgba(0, 123, 255, 0.2)", signin_css)
 
 
 class OAuthProviderConfigTests(SimpleTestCase):
@@ -769,10 +769,19 @@ class AllauthEmailConfirmationTests(TestCase):
         self.assertIn("I verified", content)
         self.assertIn(reverse("oauth_verification_status"), content)
         self.assertIn("verifiedCheckButton", content)
-        self.assertIn("setInterval", content)
+        self.assertIn("js/pages/account-verification-sent.js", content)
+        verification_source = (
+            settings.BASE_DIR
+            / "core"
+            / "static"
+            / "js"
+            / "pages"
+            / "account-verification-sent.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("setInterval", verification_source)
         self.assertIn(
             "If you opened it elsewhere, return to sign in again.",
-            content,
+            verification_source,
         )
         self.assertNotIn("Follow the link provided to finalize the signup process", content)
 

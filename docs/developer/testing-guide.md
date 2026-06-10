@@ -43,12 +43,25 @@ python manage.py test
 
 When working on a narrower area, run the relevant subset first and then rerun the full suite before finalizing.
 
+For frontend template/static changes, run:
+
+```powershell
+python manage.py check
+python manage.py collectstatic --dry-run --noinput
+python manage.py test core.tests.test_core_app
+python manage.py test core.tests.test_accounts_preferences
+python manage.py test
+```
+
+There is no npm build, lint, or typecheck step. If Node is available, `node --check` is useful as an additional syntax check for changed static JavaScript files.
+
 ## High-Risk Areas Requiring Extra Manual Review
 
 - upload validation rules
 - scale conversion and metadata fallback behavior
 - save versus transient ownership transitions
 - display serialization for new statistics fields
+- template JSON config blocks and page-controller expectations
 - auth and account flows with reCAPTCHA or provider login enabled
 
 ## Documentation Validation
@@ -63,4 +76,5 @@ For documentation changes, verify:
 ## Related Documents
 
 - [`contributing.md`](contributing.md)
+- [`frontend-architecture.md`](frontend-architecture.md)
 - [`../ops/environment-reference.md`](../ops/environment-reference.md)
