@@ -49,6 +49,11 @@ from core.services.combined_stat_export import (
 from core.services.export_filenames import (
     build_statistics_export_filename,
 )
+from core.services.artifact_paths import (
+    media_url,
+    output_frame_url,
+    segmented_cell_image_url,
+)
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
@@ -110,7 +115,7 @@ def _scan_output_frames(uuid: str):
         if not match:
             continue
         frame_idx = int(match.group(1))
-        frames[frame_idx] = f"{MEDIA_URL}{uuid}/output/{path.name}"
+        frames[frame_idx] = media_url(uuid, "output", path.name)
     return frames
 
 
@@ -275,8 +280,11 @@ def display(request, uuids):
                     image_index = channel_config.get(CHANNEL_ROLE_DIC, 0)
                 else:
                     image_index = channel_config.get(CHANNEL_ROLE_BLUE, 1)
-            image_file_name = image_name_stem + "_frame_" + str(image_index)
-            full_outlined = f"{MEDIA_URL}{uuid}/output/{image_file_name}.png"
+            full_outlined = output_frame_url(
+                uuid=uuid,
+                image_name=image_name,
+                frame_index=image_index,
+            )
             available_frames = _scan_output_frames(str(uuid))
             main_image_paths = build_main_image_paths(
                 uuid=str(uuid),
@@ -322,7 +330,13 @@ def display(request, uuids):
                 cell_stat = stats_by_id.get(i)
                 for channel_name in channel_order:
                     channel_index = channel_config.get(channel_name)
-                    no_outline = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}-no_outline.png"
+                    no_outline = segmented_cell_image_url(
+                        uuid=uuid,
+                        image_name=image_name_stem,
+                        channel_index=channel_index,
+                        cell_id=i,
+                        outline=False,
+                    )
                     if (
                         channel_name in [CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE]
                         and cell_stat is not None
@@ -330,7 +344,12 @@ def display(request, uuids):
                     ):
                         image_url = build_overlay_image_url(uuid, i, channel_name)
                     else:
-                        image_url = f"{MEDIA_URL}{uuid}/segmented/{image_name_stem}-{channel_index}-{i}.png"
+                        image_url = segmented_cell_image_url(
+                            uuid=uuid,
+                            image_name=image_name_stem,
+                            channel_index=channel_index,
+                            cell_id=i,
+                        )
                     images[str(i)].append(image_url)
                     images[str(i)].append(no_outline)
 

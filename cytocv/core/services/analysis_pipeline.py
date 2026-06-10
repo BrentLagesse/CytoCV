@@ -16,8 +16,8 @@ from core.services.analysis_context import AnalysisBatchContext
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_progress import AnalysisProgressHandle
 from core.services.analysis_progress_contract import (
-    SAFE_ANALYSIS_FAILURE_SUMMARY,
     progress_log_ref,
+    safe_analysis_failure_summary,
 )
 from core.services.artifact_storage import (
     cleanup_failed_processing_artifacts,
@@ -186,7 +186,7 @@ def run_analysis_batch(
         progress.set_phase(
             "Failed",
             status="failed",
-            failure_summary=SAFE_ANALYSIS_FAILURE_SUMMARY,
+            failure_summary=safe_analysis_failure_summary(context.batch_key),
             detail={},
         )
         logger.exception(

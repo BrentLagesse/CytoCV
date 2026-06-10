@@ -19,7 +19,7 @@ from core.services.analysis_jobs import (
 )
 from core.services.analysis_pipeline import run_analysis_batch
 from core.services.analysis_progress import AnalysisProgressHandle
-from core.services.analysis_progress_contract import SAFE_ANALYSIS_FAILURE_SUMMARY
+from core.services.analysis_progress_contract import safe_analysis_failure_summary
 from core.services.artifact_maintenance import run_artifact_maintenance
 from core.services.upload_preparation import run_upload_preparation_job
 from core.services.upload_preparation_jobs import (
@@ -157,7 +157,7 @@ class Command(BaseCommand):
                     job,
                     status=job.Status.FAILED,
                     current_phase="Failed",
-                    failure_summary=SAFE_ANALYSIS_FAILURE_SUMMARY,
+                    failure_summary=safe_analysis_failure_summary(job.batch_key),
                 )
                 logger.exception(
                     "Analysis worker failed job %s for user %s (%s runs) at %s",

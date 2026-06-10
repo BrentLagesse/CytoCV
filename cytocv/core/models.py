@@ -65,7 +65,7 @@ class UploadedImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     name = models.TextField()
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    file_location = models.FileField(upload_to=upload_to)
+    file_location = models.FileField(upload_to=upload_to, max_length=512)
     scale_info = models.JSONField(default=default_scale_info)
 
     def __str__(self) -> str:
@@ -89,9 +89,9 @@ class SegmentedImage(models.Model):
 
     UUID = models.UUIDField(primary_key=True)
     uploaded_date = models.DateTimeField(auto_now_add=True)
-    file_location = models.FileField(upload_to=user_directory_path)
-    ImagePath = models.FilePathField()
-    CellPairPrefix = models.FilePathField()
+    file_location = models.FileField(upload_to=user_directory_path, max_length=512)
+    ImagePath = models.FilePathField(max_length=512)
+    CellPairPrefix = models.FilePathField(max_length=512)
     NumCells = models.IntegerField()
 
     def __str__(self) -> str:
@@ -209,7 +209,7 @@ class DVLayerTifPreview(models.Model):
 
     wavelength = models.CharField(max_length=30)
     uploaded_image_uuid = models.ForeignKey(UploadedImage, on_delete=models.CASCADE)
-    file_location = models.ImageField()
+    file_location = models.ImageField(max_length=512)
 
 
 class Contour(Enum):

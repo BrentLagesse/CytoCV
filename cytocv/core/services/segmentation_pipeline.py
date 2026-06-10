@@ -51,6 +51,11 @@ from core.services.artifact_storage import (
     refresh_user_storage_usage,
     save_png_array,
 )
+from core.services.artifact_paths import (
+    cell_pair_prefix_url,
+    segmented_image_file_location,
+    segmented_image_path_url,
+)
 from core.services.neck_split import (
     NeckSplit,
     compute_side_areas,
@@ -856,9 +861,15 @@ def run_segmentation_batch(
             UUID=uuid,
             defaults={
                 "user_id": get_guest_user(),
-                "file_location": f"user_{uuid}/{dv_name}.png",
-                "ImagePath": f"{settings.MEDIA_URL}{uuid}/output/{dv_name}_frame_0.png",
-                "CellPairPrefix": f"{settings.MEDIA_URL}{uuid}/segmented/cell_",
+                "file_location": segmented_image_file_location(
+                    uuid=uuid,
+                    image_name=dv_name,
+                ),
+                "ImagePath": segmented_image_path_url(
+                    uuid=uuid,
+                    image_name=dv_name,
+                ),
+                "CellPairPrefix": cell_pair_prefix_url(uuid=uuid),
                 "NumCells": num_cells,
             },
         )

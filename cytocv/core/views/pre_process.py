@@ -38,6 +38,7 @@ from core.services.analysis_progress_contract import (
     TERMINAL_PROGRESS_STATUSES,
     normalize_progress_phase,
     progress_log_ref,
+    safe_analysis_failure_summary,
     validate_progress_status,
 )
 from core.services.biorientation_config import (
@@ -970,11 +971,10 @@ def pre_process(request, uuids):
                 progress_log_ref(batch_key),
             )
             _release_progress_batch(request, batch_key)
+            failure_summary = safe_analysis_failure_summary(batch_key)
             if is_ajax:
-                return JsonResponse(
-                    {"error": SAFE_ANALYSIS_FAILURE_SUMMARY}, status=500
-                )
-            messages.error(request, SAFE_ANALYSIS_FAILURE_SUMMARY)
+                return JsonResponse({"error": failure_summary}, status=500)
+            messages.error(request, failure_summary)
             return redirect("pre_process", uuids=batch_key)
 
         _finalize_terminal_progress_batch(request, batch_key, list(context.run_uuids))
