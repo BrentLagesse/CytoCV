@@ -872,7 +872,8 @@ class AnalysisAsyncTestCase(TestCase):
 
             self.assertEqual(response.status_code, 500)
             payload = response.json()
-            self.assertEqual(payload["error"], SAFE_ANALYSIS_FAILURE_SUMMARY)
+            self.assertTrue(payload["error"].startswith(SAFE_ANALYSIS_FAILURE_SUMMARY))
+            self.assertIn("contact support with reference", payload["error"])
             self.assertNotIn("database password leaked", payload["error"])
 
     def test_run_analysis_worker_once_finalizes_claimed_job(self):
@@ -909,7 +910,9 @@ class AnalysisAsyncTestCase(TestCase):
 
         job.refresh_from_db()
         self.assertEqual(job.status, AnalysisJob.Status.FAILED)
-        self.assertEqual(job.failure_summary, SAFE_ANALYSIS_FAILURE_SUMMARY)
+        self.assertTrue(job.failure_summary.startswith(SAFE_ANALYSIS_FAILURE_SUMMARY))
+        self.assertIn("contact support with reference", job.failure_summary)
+        self.assertNotIn("secret credentials", job.failure_summary)
 
     def test_multi_file_analysis_progress_includes_run_counts(self):
         with temporary_media_root() as media_root:

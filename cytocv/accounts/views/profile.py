@@ -110,6 +110,7 @@ from core.stats_plugins import (
 )
 from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
+from core.services.artifact_paths import normalize_media_field_path
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
@@ -1010,14 +1011,14 @@ def _delete_user_and_media(user: Any) -> None:
     )
 
     file_locations = [
-        Path(MEDIA_ROOT) / str(value)
+        path
         for value in uploaded_qs.values_list("file_location", flat=True)
-        if value
+        if (path := normalize_media_field_path(value)) is not None
     ]
     file_locations.extend(
-        Path(MEDIA_ROOT) / str(value)
+        path
         for value in segmented_by_uuid_qs.values_list("file_location", flat=True)
-        if value
+        if (path := normalize_media_field_path(value)) is not None
     )
 
     removable_dirs = set()
@@ -1046,14 +1047,14 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 
     segmented_qs = SegmentedImage.objects.filter(user=user, UUID__in=uuid_set)
     file_locations = [
-        Path(MEDIA_ROOT) / str(value)
+        path
         for value in uploaded_qs.values_list("file_location", flat=True)
-        if value
+        if (path := normalize_media_field_path(value)) is not None
     ]
     file_locations.extend(
-        Path(MEDIA_ROOT) / str(value)
+        path
         for value in segmented_qs.values_list("file_location", flat=True)
-        if value
+        if (path := normalize_media_field_path(value)) is not None
     )
 
     removable_dirs = {Path(MEDIA_ROOT) / uuid_value for uuid_value in uuid_set}

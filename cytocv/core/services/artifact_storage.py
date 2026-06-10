@@ -19,6 +19,7 @@ from PIL import Image
 from core.artifact_constants import PRE_PROCESS_FOLDER_NAME, PREVIEW_FOLDER_NAME
 from core.image_sources import load_image_stack
 from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
+from core.services.artifact_paths import normalize_media_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -375,10 +376,7 @@ def _safe_remove_path(path: Path) -> bool:
 def _media_path_from_field(field_value: object) -> Path | None:
     """Resolve a media-relative field value into an absolute path."""
 
-    name = str(field_value or "").strip()
-    if not name:
-        return None
-    return media_root_path() / name
+    return normalize_media_field_path(field_value)
 
 
 def resolve_uploaded_file_path(uploaded_image: UploadedImage) -> Path:

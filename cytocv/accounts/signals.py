@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
+from accounts.email_addresses import sync_user_email_address
 from accounts.quota import sync_user_quota
 
 CustomUser = get_user_model()
@@ -56,3 +57,37 @@ def sync_effective_quota_after_save(
 
     if should_sync:
         sync_user_quota(instance, refresh_usage=True)
+
+
+@receiver(post_save, sender=CustomUser)
+def sync_primary_email_address_after_save(
+    sender,
+    instance,
+    created: bool,
+    raw: bool,
+    update_fields,
+    **_kwargs,
+) -> None:
+    """Keep allauth's primary email alias aligned for native/admin users."""
+
+    if raw or getattr(instance, "_skip_email_address_sync", False):
+        return
+    if not created and update_fields is not None and "email" not in set(update_fields):
+        return
+
+    result = sync_user_email_address(
+        instance,
+        verified=True,
+        primary=True,
+    )
+    if result.conflict:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            "Unable to sync allauth email alias for user due to conflict.",
+            extra={
+                "user_id": str(getattr(instance, "pk", "")),
+                "email_alias_conflict": True,
+            },
+        )

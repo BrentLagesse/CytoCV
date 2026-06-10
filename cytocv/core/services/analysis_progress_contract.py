@@ -120,6 +120,17 @@ def progress_log_ref(key: str) -> str:
     return hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:12]
 
 
+def safe_analysis_failure_summary(batch_key: str | None = None) -> str:
+    """Return a user-safe analysis failure message with an optional support ref."""
+
+    if not batch_key:
+        return SAFE_ANALYSIS_FAILURE_SUMMARY
+    return (
+        f"{SAFE_ANALYSIS_FAILURE_SUMMARY} If it keeps happening, contact support "
+        f"with reference {progress_log_ref(batch_key)}."
+    )
+
+
 def normalize_progress_phase(phase: object | None) -> str | None:
     """Return a canonical display phase, or None when unknown."""
 

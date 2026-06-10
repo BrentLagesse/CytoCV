@@ -106,6 +106,11 @@ from core.services.artifact_storage import (
     resolve_uploaded_file_path,
     save_png_array,
 )
+from core.services.artifact_paths import (
+    cell_pair_prefix_url,
+    segmented_image_file_location,
+    segmented_image_path_url,
+)
 from core.services.canonical_contours import (
     CANONICAL_BLUE_SLOTS_KEY,
     CELL_PARENTAGE_KEY,
@@ -1377,9 +1382,15 @@ def segment_image(request, uuids):
             UUID=uuid,
             defaults={
                 "user_id": get_guest_user(),
-                "file_location": f"user_{uuid}/{DV_Name}.png",
-                "ImagePath": f"{MEDIA_URL}{uuid}/output/{DV_Name}_frame_0.png",
-                "CellPairPrefix": f"{MEDIA_URL}{uuid}/segmented/cell_",
+                "file_location": segmented_image_file_location(
+                    uuid=uuid,
+                    image_name=DV_Name,
+                ),
+                "ImagePath": segmented_image_path_url(
+                    uuid=uuid,
+                    image_name=DV_Name,
+                ),
+                "CellPairPrefix": cell_pair_prefix_url(uuid=uuid),
                 "NumCells": num_cells,
             },
         )

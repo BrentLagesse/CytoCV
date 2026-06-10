@@ -517,7 +517,7 @@ class AuthEmailResolutionTests(TestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertContains(
             response,
-            "We couldn&#x27;t find an account for that email address.",
+            "We couldn&#x27;t start password recovery for that email.",
         )
 
     def test_oauth_only_account_is_not_treated_as_nonexistent_in_recovery(self):
@@ -526,10 +526,9 @@ class AuthEmailResolutionTests(TestCase):
             password=None,
         )
         self.assertFalse(user.has_usable_password())
-        EmailAddress.objects.create(
-            user=user,
-            email="oauth-only@uw.edu",
+        EmailAddress.objects.filter(user=user, email="oauth-only@uw.edu").update(
             verified=True,
+            primary=True,
         )
 
         response = self.client.post(
@@ -622,7 +621,7 @@ class AuthEmailResolutionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            "This account cannot sign in right now. Contact support if you need help.",
+            "We couldn&#x27;t start password recovery for that email.",
         )
         user.refresh_from_db()
         self.assertTrue(user.check_password("OldPass123!"))
@@ -646,12 +645,13 @@ class AllauthEmailConfirmationTests(TestCase):
             password="TestPass123!",
             first_name="Nicolas",
         )
-        email_address = EmailAddress.objects.create(
+        email_address = EmailAddress.objects.get(
             user=user,
             email="oauth-user@example.com",
-            primary=True,
-            verified=False,
         )
+        email_address.primary = True
+        email_address.verified = False
+        email_address.save(update_fields=["primary", "verified"])
         request = RequestFactory().get("/signin/oauth/confirm-email/")
 
         EmailConfirmationHMAC(email_address).send(request=request, signup=True)
@@ -697,12 +697,13 @@ class AllauthEmailConfirmationTests(TestCase):
             email="local-oauth@example.com",
             password="TestPass123!",
         )
-        local_address = EmailAddress.objects.create(
+        local_address = EmailAddress.objects.get(
             user=local_user,
             email="local-oauth@example.com",
-            primary=True,
-            verified=False,
         )
+        local_address.primary = True
+        local_address.verified = False
+        local_address.save(update_fields=["primary", "verified"])
         local_request = RequestFactory().get(
             "/signin/oauth/confirm-email/",
             HTTP_HOST="localhost:8000",
@@ -722,12 +723,13 @@ class AllauthEmailConfirmationTests(TestCase):
             email="deployed-oauth@example.com",
             password="TestPass123!",
         )
-        deployed_address = EmailAddress.objects.create(
+        deployed_address = EmailAddress.objects.get(
             user=deployed_user,
             email="deployed-oauth@example.com",
-            primary=True,
-            verified=False,
         )
+        deployed_address.primary = True
+        deployed_address.verified = False
+        deployed_address.save(update_fields=["primary", "verified"])
         deployed_request = RequestFactory().get(
             "/signin/oauth/confirm-email/",
             secure=True,
@@ -821,12 +823,13 @@ class AllauthEmailConfirmationTests(TestCase):
             email="resume-oauth@example.com",
             password="TestPass123!",
         )
-        email_address = EmailAddress.objects.create(
+        email_address = EmailAddress.objects.get(
             user=user,
             email="resume-oauth@example.com",
-            primary=True,
-            verified=False,
         )
+        email_address.primary = True
+        email_address.verified = False
+        email_address.save(update_fields=["primary", "verified"])
         confirmation = EmailConfirmationHMAC(email_address)
         login = Login(
             user=user,
@@ -861,12 +864,13 @@ class AllauthEmailConfirmationTests(TestCase):
             email="confirm-oauth@example.com",
             password="TestPass123!",
         )
-        email_address = EmailAddress.objects.create(
+        email_address = EmailAddress.objects.get(
             user=user,
             email="confirm-oauth@example.com",
-            primary=True,
-            verified=False,
         )
+        email_address.primary = True
+        email_address.verified = False
+        email_address.save(update_fields=["primary", "verified"])
         confirmation = EmailConfirmationHMAC(email_address)
 
         response = self.client.get(reverse("account_confirm_email", args=[confirmation.key]))
@@ -891,12 +895,13 @@ class AllauthEmailConfirmationTests(TestCase):
             email="expired-oauth@example.com",
             password="TestPass123!",
         )
-        email_address = EmailAddress.objects.create(
+        email_address = EmailAddress.objects.get(
             user=user,
             email="expired-oauth@example.com",
-            primary=True,
-            verified=False,
         )
+        email_address.primary = True
+        email_address.verified = False
+        email_address.save(update_fields=["primary", "verified"])
         confirmation = EmailConfirmationHMAC(email_address)
         key = confirmation.key
 

@@ -6,8 +6,9 @@ from typing import Any
 
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 
-from accounts.email_lookup import find_user_by_email, normalize_auth_email
+from accounts.email_lookup import normalize_auth_email, resolve_user_by_email
 
 
 class EmailBackend(ModelBackend):
@@ -38,9 +39,14 @@ class EmailBackend(ModelBackend):
         identifier = normalize_auth_email(identifier)
         if not identifier or password is None:
             return None
-        user = find_user_by_email(identifier)
+        lookup = resolve_user_by_email(identifier)
+        if lookup.ambiguous:
+            raise PermissionDenied
+        user = lookup.user
         if user is None:
             return None
         if user.check_password(password) and self.user_can_authenticate(user):
             return user
+        if lookup.source == "custom_user":
+            raise PermissionDenied
         return None

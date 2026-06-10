@@ -104,3 +104,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self) -> str:
         """Return the primary identifier for display."""
         return self.email
+
+    def save(self, *args, **kwargs):
+        """Persist the user with a normalized primary email address."""
+
+        if self.email:
+            self.email = CustomUser.objects.normalize_email(self.email).strip().lower()
+        super().save(*args, **kwargs)

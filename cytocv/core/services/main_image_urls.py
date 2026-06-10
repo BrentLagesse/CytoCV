@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Mapping
-
-from django.conf import settings
 
 from core.channel_roles import (
     CHANNEL_ROLE_BLUE,
@@ -13,6 +10,7 @@ from core.channel_roles import (
     channel_slug,
 )
 from core.config import DEFAULT_CHANNEL_CONFIG
+from core.services.artifact_paths import output_frame_url
 
 MAIN_IMAGE_CHANNEL_ROLES: tuple[str, ...] = (
     CHANNEL_ROLE_DIC,
@@ -41,9 +39,11 @@ def resolve_main_image_url(
     if resolved:
         return resolved
 
-    image_stem = Path(str(image_name or "")).stem
-    image_file_name = f"{image_stem}_frame_{fallback_frame_idx}"
-    return f"{settings.MEDIA_URL}{uuid}/output/{image_file_name}.png"
+    return output_frame_url(
+        uuid=uuid,
+        image_name=image_name,
+        frame_index=fallback_frame_idx,
+    )
 
 
 def build_main_image_paths(
