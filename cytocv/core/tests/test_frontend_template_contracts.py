@@ -16,6 +16,13 @@ from .frontend_contract_helpers import (
 )
 
 
+RESULTS_VIEWER_CSS_VERSION = "stat-table-header-align-20260610"
+ICON_ALIGN_VERSION = "icon-align-20260610-v5"
+EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
+SCALE_REVERT_ICON_VERSION = "scale-revert-icon-20260610"
+PREPROCESS_CSS_VERSION = "preprocess-channel-label-nudge-20260610"
+
+
 class FrontendTemplateContractTests(TestCase):
     def test_public_pages_render_expected_static_contracts(self):
         cases = (
@@ -82,6 +89,9 @@ class FrontendTemplateContractTests(TestCase):
             "css/components/workflow-controls.css",
             "css/pages/workflow-defaults.css",
         )
+        self.assertIn(f"workflow-controls.css?v={ICON_ALIGN_VERSION}", workflow_content)
+        self.assertIn('<svg class="channel-order-action-icon is-back"', workflow_content)
+        self.assertIn('<svg class="channel-order-action-icon is-reset"', workflow_content)
         self.assertIn("js/workflow_defaults.js", workflow_content)
         self.assertIn('id="pluginDependencyPayload"', workflow_content)
         self.assertIn('id="workflowDefaultsNav"', workflow_content)
@@ -102,7 +112,10 @@ class FrontendTemplateContractTests(TestCase):
             "css/components/workflow-controls.css",
             "css/pages/experiment.css",
         )
+        self.assertIn(f"workflow-controls.css?v={ICON_ALIGN_VERSION}", content)
+        self.assertIn(f"experiment.css?v={EXPERIMENT_CSS_VERSION}", content)
         self.assertIn("js/pages/experiment.js", content)
+        self.assertIn(f"experiment.js?v={ICON_ALIGN_VERSION}", content)
         self.assertIn('id="uploadForm"', content)
         self.assertIn('id="fileInput"', content)
         self.assertIn('id="folderInput"', content)
@@ -124,9 +137,14 @@ class FrontendTemplateContractTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "pre_process.html")
         self.assertIn("css/pages/pre-process.css", content)
+        self.assertIn(f"pre-process.css?v={PREPROCESS_CSS_VERSION}", content)
         self.assertIn("js/pages/pre-process.js", content)
+        self.assertIn(f"pre-process.js?v={SCALE_REVERT_ICON_VERSION}", content)
         self.assertIn("js/pages/pre-process-csrf.js", content)
         self.assertIn("js/pages/pre-process-bfcache.js", content)
+        self.assertIn('<svg class="scale-revert-icon"', content)
+        self.assertIn('<span class="scale-revert-label">Revert</span>', content)
+        self.assertIn('id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"', content)
         self.assertIn('id="preprocessPageConfig"', content)
         self.assertIn('id="preprocessScalePayload"', content)
         self.assertIn("sortablejs@1.15.0/Sortable.min.js", content)
@@ -147,6 +165,8 @@ class FrontendTemplateContractTests(TestCase):
         self.assertEqual(display_response.status_code, 200)
         self.assertTemplateUsed(display_response, "display.html")
         self.assertIn('data-ui-region="display-main-shell"', display_content)
+        self.assertIn(f"results-viewer.css?v={RESULTS_VIEWER_CSS_VERSION}", display_content)
+        self.assertIn('id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"', display_content)
         self.assertIn('id="displayPageConfig"', display_content)
         self.assertIn('id="displayFilesData"', display_content)
         self.assertIn('id="saveFilesBackdrop"', display_content)
@@ -156,6 +176,8 @@ class FrontendTemplateContractTests(TestCase):
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertTemplateUsed(dashboard_response, "dashboard.html")
         self.assertIn('data-ui-region="dashboard-main-shell"', dashboard_content)
+        self.assertIn(f"results-viewer.css?v={RESULTS_VIEWER_CSS_VERSION}", dashboard_content)
+        self.assertIn('id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"', dashboard_content)
         self.assertIn('id="dashboardPageConfig"', dashboard_content)
         self.assertIn('id="dashboardFilesData"', dashboard_content)
         self.assertIn('id="deleteFilesBackdrop"', dashboard_content)

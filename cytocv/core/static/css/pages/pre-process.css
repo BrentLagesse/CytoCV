@@ -122,12 +122,27 @@
         border: none;
         color: #fff;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         font-size: 18px;
+        height: 28px;
         line-height: 24px;
+        width: 28px;
       }
       .toggle-btn:hover { color: #ddd; }
-      .toggle-btn::before { content: "?"; }
-      .sidebar.collapsed .toggle-btn::before { content: "?"; }
+      .toggle-btn::before {
+        content: "";
+        box-sizing: border-box;
+        display: block;
+        width: 9px;
+        height: 9px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(135deg);
+        transition: transform 0.16s ease;
+      }
+      .sidebar.collapsed .toggle-btn::before { transform: rotate(-45deg); }
 
       /* Number entry */
       .num-entry {
@@ -410,6 +425,31 @@
         transition: opacity 0.22s ease, transform 0.22s ease;
         white-space: nowrap;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+      }
+      .scale-revert-icon {
+        color: currentColor;
+        display: block;
+        flex: 0 0 12px;
+        height: 12px;
+        line-height: 1;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        transform: translateY(-0.5px);
+        width: 12px;
+      }
+      .scale-revert-icon path {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .scale-revert-label {
+        display: block;
+        line-height: 12px;
       }
       .scale-revert-btn.is-visible {
         opacity: 1;
@@ -492,7 +532,7 @@
       /* Channel pills */
       .channel-bar {
         display: flex;
-        gap: 4px;
+        gap: var(--preprocess-channel-gap, 4px);
         margin-top: 6px;
         flex-wrap: nowrap;
         overflow-x: auto;
@@ -500,15 +540,29 @@
         transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
       }
       .channel-plane-row {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 4px;
+        box-sizing: border-box;
+        display: flex;
+        gap: 0;
         margin-top: 8px;
         color: var(--muted);
         font-size: 10px;
         font-weight: 700;
+        line-height: 1.2;
+        margin-left: auto;
+        margin-right: auto;
+        overflow: hidden;
+        pointer-events: none;
         text-align: center;
         transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+        transform: translateX(-8px);
+        white-space: nowrap;
+        width: calc(100% - (var(--preprocess-channel-gap, 4px) * 3));
+      }
+      .channel-plane-row span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .channel-chip {
         background-color: var(--panel-border); color: #fff;
@@ -528,18 +582,32 @@
         transition: gap 0.16s ease;
       }
       .channel-chip-grip {
+        align-self: center;
         color: rgba(255, 255, 255, 0.72);
         display: inline-flex;
         flex: 0 0 auto;
-        font-size: clamp(8px, 20cqi, 12px);
-        font-weight: 800;
-        letter-spacing: -1px;
+        width: 7px;
+        height: 12px;
+        font-size: 0;
+        letter-spacing: 0;
         line-height: 1;
         max-width: 18px;
         opacity: 1;
         pointer-events: none;
         overflow: hidden;
+        position: relative;
         transition: opacity 0.16s ease, max-width 0.16s ease;
+      }
+      .channel-chip-grip::before {
+        background: currentColor;
+        border-radius: 50%;
+        box-shadow: 5px 0 0 currentColor, 0 4px 0 currentColor, 5px 4px 0 currentColor, 0 8px 0 currentColor, 5px 8px 0 currentColor;
+        content: "";
+        height: 2px;
+        left: 0;
+        position: absolute;
+        top: 1px;
+        width: 2px;
       }
       .analysis-locked .channel-chip {
         cursor: default;

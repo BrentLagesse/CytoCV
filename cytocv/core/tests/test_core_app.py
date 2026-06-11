@@ -724,7 +724,7 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         self.assertContains(
             technical_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/methods-and-system-description.pdf",
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/pdfs/methods-and-system-description.pdf",
             html=False,
         )
         self.assertNotContains(technical_response, "docs/ops/deployment-guide.md", html=False)
@@ -755,7 +755,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(biology_response, 'href="#biology-workflow-docs"', html=False)
         self.assertContains(
             biology_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/figure-catalog.pdf",
+            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/pdfs/figure-catalog.pdf",
             html=False,
         )
         self.assertContains(

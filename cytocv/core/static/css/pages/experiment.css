@@ -980,7 +980,7 @@
             --channel-order-track-width: 260px;
             --channel-order-slot-min: 58px;
             --channel-order-gap: 4px;
-            --channel-order-plane-offset-x: -6px;
+            --channel-order-plane-offset-x: -8px;
             box-sizing: border-box;
             display: grid;
             grid-template-columns: minmax(var(--channel-order-track-width), 1fr);
@@ -994,10 +994,16 @@
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
             padding: 17px 6px 7px;
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }.channel-order-action-copy.is-fading-down {
+        }
+        .experiment-page .channel-order-control .channel-chip-label {
+            display: block;
+            line-height: 1;
+        }
+        .channel-order-action-copy.is-fading-down {
             animation: channelOrderStatusFadeDown 0.18s ease-out;
             will-change: opacity, transform;
-        }.channel-order-action-btn {
+        }
+        .channel-order-action-btn {
             align-items: center;
             appearance: none;
             -webkit-appearance: none;

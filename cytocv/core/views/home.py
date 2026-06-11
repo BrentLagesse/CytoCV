@@ -40,33 +40,6 @@ LICENSE_DISCLAIMER = (
     "legal code."
 )
 
-RESEARCH_DOCUMENTS = (
-    {
-        "title": "Methods and system description",
-        "description": (
-            "System objective, input model, validation logic, measurement model, "
-            "workflow stages, architecture, and limitations."
-        ),
-        "static_path": "research/methods-and-system-description.pdf",
-    },
-    {
-        "title": "Reproducibility and validation",
-        "description": (
-            "Environment assumptions, validation semantics, reproducibility constraints, "
-            "and test-backed workflow defaults."
-        ),
-        "static_path": "research/reproducibility-and-validation.pdf",
-    },
-    {
-        "title": "Figure catalog",
-        "description": (
-            "Supporting diagrams and figure references for workflow, validation, "
-            "segmentation, and result interpretation."
-        ),
-        "static_path": "research/figure-catalog.pdf",
-    },
-)
-
 HOME_PROOF_CARDS = (
     {
         "eyebrow": "Team",
@@ -514,19 +487,19 @@ ABOUT_TECHNICAL_PAGE = {
             "links": (
                 _doc_link(
                     label="Methods And System Description",
-                    path="docs/research/methods-and-system-description.pdf",
+                    path="docs/research/pdfs/methods-and-system-description.pdf",
                     description="Formal PDF covering system objectives, input model, validation logic, measurement model, and workflow stages.",
                     link_type="GitHub PDF",
                 ),
                 _doc_link(
                     label="Figure Catalog",
-                    path="docs/research/figure-catalog.pdf",
+                    path="docs/research/pdfs/figure-catalog.pdf",
                     description="Catalog of architecture, workflow, validation, and output figures available in the repository.",
                     link_type="GitHub PDF",
                 ),
                 _doc_link(
                     label="Reproducibility And Validation",
-                    path="docs/research/reproducibility-and-validation.pdf",
+                    path="docs/research/pdfs/reproducibility-and-validation.pdf",
                     description="PDF covering reproducibility assumptions, validation semantics, and workflow defaults context.",
                     link_type="GitHub PDF",
                 ),
@@ -663,13 +636,13 @@ ABOUT_BIOLOGY_PAGE = {
             "links": (
                 _doc_link(
                     label="Methods And System Description",
-                    path="docs/research/methods-and-system-description.pdf",
+                    path="docs/research/pdfs/methods-and-system-description.pdf",
                     description="Formal PDF covering input model, validation logic, measurement model, and overall workflow framing.",
                     link_type="GitHub PDF",
                 ),
                 _doc_link(
                     label="Figure Catalog",
-                    path="docs/research/figure-catalog.pdf",
+                    path="docs/research/pdfs/figure-catalog.pdf",
                     description="Figure reference set covering architecture, workflow, validation, and output diagrams relevant to the biological story.",
                     link_type="GitHub PDF",
                 ),
@@ -718,9 +691,9 @@ RESEARCH_SECTIONS = (
             "The platform is described as a domain-specific research workflow rather than a generic microscopy framework.",
         ),
         "primary_label": "Open methods PDF",
-        "primary_static_path": "research/methods-and-system-description.pdf",
+        "primary_href": f"{GITHUB_BLOB_BASE_URL}/docs/research/pdfs/methods-and-system-description.pdf",
         "secondary_label": "Open figure catalog",
-        "secondary_static_path": "research/figure-catalog.pdf",
+        "secondary_href": f"{GITHUB_BLOB_BASE_URL}/docs/research/pdfs/figure-catalog.pdf",
     },
     {
         "id": "validation",
@@ -738,9 +711,9 @@ RESEARCH_SECTIONS = (
             "Upload-time validation and preview generation happen before segmentation and measurement.",
         ),
         "primary_label": "Open reproducibility PDF",
-        "primary_static_path": "research/reproducibility-and-validation.pdf",
+        "primary_href": f"{GITHUB_BLOB_BASE_URL}/docs/research/pdfs/reproducibility-and-validation.pdf",
         "secondary_label": "Open methods PDF",
-        "secondary_static_path": "research/methods-and-system-description.pdf",
+        "secondary_href": f"{GITHUB_BLOB_BASE_URL}/docs/research/pdfs/methods-and-system-description.pdf",
     },
     {
         "id": "reproducibility",
@@ -758,9 +731,9 @@ RESEARCH_SECTIONS = (
             "Formal result packages should preserve commit hash, dependency set, model weight identifier, and exported tables.",
         ),
         "primary_label": "Open reproducibility PDF",
-        "primary_static_path": "research/reproducibility-and-validation.pdf",
+        "primary_href": f"{GITHUB_BLOB_BASE_URL}/docs/research/pdfs/reproducibility-and-validation.pdf",
         "secondary_label": "Open figure catalog",
-        "secondary_static_path": "research/figure-catalog.pdf",
+        "secondary_href": f"{GITHUB_BLOB_BASE_URL}/docs/research/pdfs/figure-catalog.pdf",
     },
     {
         "id": "institutional-affiliation",

@@ -214,8 +214,13 @@
     border: none;
     color: #fff;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 18px;
+    height: 28px;
     line-height: 24px;
+    width: 28px;
 }
 
 .toggle-btn:hover {
@@ -223,11 +228,19 @@
 }
 
 .toggle-btn::before {
-    content: '?';
+    content: '';
+    box-sizing: border-box;
+    display: block;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(135deg);
+    transition: transform 0.16s ease;
 }
 
 .sidebar.collapsed .toggle-btn::before {
-    content: '?';
+    transform: rotate(-45deg);
 }
 
 .sidebar.collapsed .toggle-btn {
@@ -1007,6 +1020,7 @@ a:hover {
 .celltable th {
     padding: 9px 8px;
     text-align: left;
+    vertical-align: middle;
     font-weight: 600;
     color: #fff;
     background-color: var(--surface-header);

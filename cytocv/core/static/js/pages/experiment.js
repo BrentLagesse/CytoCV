@@ -2697,8 +2697,8 @@
             const grip = document.createElement('span');
             grip.className = 'channel-chip-grip';
             grip.setAttribute('aria-hidden', 'true');
-            grip.textContent = '??';
             const label = document.createElement('span');
+            label.className = 'channel-chip-label';
             label.textContent = displayChannelLabel(channel);
             chip.appendChild(grip);
             chip.appendChild(label);
@@ -2719,7 +2719,7 @@
         fallbackChannelOrderBackButton.className = 'channel-order-action-btn';
         fallbackChannelOrderBackButton.setAttribute('aria-label', 'Back');
         fallbackChannelOrderBackButton.title = 'Back';
-        fallbackChannelOrderBackButton.innerHTML = '<span class="channel-order-action-icon" aria-hidden="true">?</span><span class="channel-order-action-label">Back</span>';
+        fallbackChannelOrderBackButton.innerHTML = '<svg class="channel-order-action-icon is-back" aria-hidden="true" focusable="false" viewBox="0 0 12 12"><path d="M4.8 3.1 2.2 5.7l2.6 2.6"></path><path d="M2.6 5.7h4a3 3 0 1 1-1.8 5.4"></path></svg><span class="channel-order-action-label">Back</span>';
         fallbackChannelOrderBackButton.addEventListener('click', () => {
             if (fallbackChannelOrderActionLocked) return;
             const previousOrder = fallbackChannelOrderUndoStack.pop();
@@ -2732,7 +2732,7 @@
         fallbackChannelOrderResetButton.className = 'channel-order-action-btn';
         fallbackChannelOrderResetButton.setAttribute('aria-label', 'Reset');
         fallbackChannelOrderResetButton.title = 'Reset';
-        fallbackChannelOrderResetButton.innerHTML = '<span class="channel-order-action-icon" aria-hidden="true">?</span><span class="channel-order-action-label">Reset</span>';
+        fallbackChannelOrderResetButton.innerHTML = '<svg class="channel-order-action-icon is-reset" aria-hidden="true" focusable="false" viewBox="0 0 12 12"><path d="M9.4 5.4A3.5 3.5 0 1 0 8.3 8.5"></path><path d="M9.4 2.6v2.8H6.6"></path></svg><span class="channel-order-action-label">Reset</span>';
         fallbackChannelOrderResetButton.addEventListener('click', () => {
             if (fallbackChannelOrderActionLocked) return;
             if (sameChannelOrder(channelOrderFromBar(fallbackChannelOrderBar), fallbackChannelOrderResetBaseline)) return;

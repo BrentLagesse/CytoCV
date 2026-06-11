@@ -161,14 +161,35 @@
 }
 
 .channel-order-action-icon {
-  display: inline-flex;
-  font-size: 12px;
+  color: currentColor;
+  display: block;
+  flex: 0 0 12px;
+  height: 12px;
   line-height: 1;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  width: 12px;
+}
+
+.channel-order-action-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.channel-order-action-icon.is-back {
+  transform: translateY(-0.5px);
 }
 
 .channel-order-action-label {
-  display: inline-flex;
+  display: block;
   font-size: 10px;
+  line-height: 12px;
+}
+
+.channel-order-control .channel-chip-label {
+  display: block;
   line-height: 1;
 }
 
@@ -204,14 +225,29 @@
 }
 
 .channel-order-control .channel-chip-grip {
+  align-self: center;
   color: rgba(255, 255, 255, 0.72);
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: -1px;
+  width: 7px;
+  height: 12px;
+  font-size: 0;
+  letter-spacing: 0;
   line-height: 1;
   pointer-events: none;
+  position: relative;
+}
+
+.channel-order-control .channel-chip-grip::before {
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 5px 0 0 currentColor, 0 4px 0 currentColor, 5px 4px 0 currentColor, 0 8px 0 currentColor, 5px 8px 0 currentColor;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  top: 1px;
+  width: 2px;
 }
 
 .channel-order-control .channel-chip:active {

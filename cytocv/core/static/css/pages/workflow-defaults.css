@@ -1134,7 +1134,7 @@ main.main > section.panel > form.panel > .card {
   --channel-order-track-width: 260px;
   --channel-order-slot-min: 58px;
   --channel-order-gap: 4px;
-  --channel-order-plane-offset-x: -6px;
+  --channel-order-plane-offset-x: -8px;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(var(--channel-order-track-width), 1fr);

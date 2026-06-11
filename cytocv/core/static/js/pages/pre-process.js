@@ -45,6 +45,7 @@
       const SCALE_MATCH_TOLERANCE = 5e-5;
       const FILE_SWITCH_TEXT_FADE_MS = 170;
       const FILE_SWITCH_IMAGE_FADE_MS = 190;
+      const SCALE_REVERT_BUTTON_HTML = '<svg class="scale-revert-icon" aria-hidden="true" focusable="false" viewBox="0 0 12 12"><path d="M4.8 3.1 2.2 5.7l2.6 2.6"></path><path d="M2.6 5.7h4a3 3 0 1 1-1.8 5.4"></path></svg><span class="scale-revert-label">Revert</span>';
       const REDUCED_MOTION = !!(
         window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
       );
@@ -221,7 +222,7 @@
       }
       function setRevertButtonState(button, visible, title) {
         if (!button) return;
-        button.textContent = "? Revert";
+        button.innerHTML = SCALE_REVERT_BUTTON_HTML;
         button.title = title || "";
         button.classList.toggle("is-visible", !!visible);
       }

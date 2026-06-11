@@ -5,7 +5,7 @@
 
 {% block head %}
 <script src="{% static 'js/pages/pre-process-errors.js' %}?v=frontend-modularization-20260609"></script>
-<link rel="stylesheet" href="{% static 'css/pages/pre-process.css' %}?v=frontend-modularization-20260609">
+<link rel="stylesheet" href="{% static 'css/pages/pre-process.css' %}?v=preprocess-channel-label-nudge-20260610">
 
     <!-- Sortable.js for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -24,7 +24,7 @@
       <div class="sidebar{% if not sidebar_starts_open %} collapsed{% endif %}{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
         <div class="sidebar-header">
           <h2 class="section-eyebrow sidebar-title">Configuration</h2>
-          <button class="toggle-btn" id="toggleSidebarBtn"></button>
+          <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"></button>
         </div>
         <div class="sidebar-actions">
           <div class="visibility-controls">
@@ -59,7 +59,7 @@
                 <div class="channel-bar">
                   {% for channel in file.detected_channels %}
                   <span class="channel-chip {{ channel|lower }}" data-channel-label="{{ channel }}">
-                    <span class="channel-chip-grip" aria-hidden="true">⋮⋮</span>
+                    <span class="channel-chip-grip" aria-hidden="true"></span>
                     <span class="channel-chip-label">{{ channel }}</span>
                   </span>
                   {% endfor %}
@@ -101,7 +101,7 @@
                   <div class="scale-summary" data-scale-summary="{{ file.uuid }}">
                     {{ file.scale.scale_summary_label|default:file.scale.effective_label }}
                   </div>
-                  <button type="button" class="scale-revert-btn" data-scale-revert="{{ file.uuid }}">↺ Revert</button>
+                  <button type="button" class="scale-revert-btn" data-scale-revert="{{ file.uuid }}"><svg class="scale-revert-icon" aria-hidden="true" focusable="false" viewBox="0 0 12 12"><path d="M4.8 3.1 2.2 5.7l2.6 2.6"></path><path d="M2.6 5.7h4a3 3 0 1 1-1.8 5.4"></path></svg><span class="scale-revert-label">Revert</span></button>
                 </div>
                 <div class="scale-note{% if not file.scale.note %} is-empty{% endif %}" data-scale-note="{{ file.uuid }}">
                   {% if file.scale.note %}{{ file.scale.note }}{% endif %}
@@ -192,7 +192,7 @@
     <script id="preprocessScalePayload" type="application/json">{{ file_scale_map_json|safe }}</script>
     <script id="preprocessPageConfig" type="application/json">{"currentFileIndex": {{ current_file_index|default:0 }}, "totalFiles": {{ total_files|default:1 }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "uuids": "{{ uuids|escapejs }}", "experimentUrl": "{% url 'experiment' %}", "analysisExecutionMode": "{{ analysis_execution_mode|escapejs }}", "hasSelectedStats": {{ has_selected_stats|yesno:"true,false" }}}</script>
 
-    <script src="{% static 'js/pages/pre-process.js' %}?v=frontend-modularization-20260609"></script>
+    <script src="{% static 'js/pages/pre-process.js' %}?v=scale-revert-icon-20260610"></script>
 
     <script src="{% static 'js/pages/pre-process-csrf.js' %}?v=frontend-modularization-20260609"></script>
 

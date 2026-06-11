@@ -7,7 +7,7 @@
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=selectable-export-format-pill-state"></script>
     <script src="{% static 'js/shared/results-viewer.js' %}?v=results-viewer-shared-20260610"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=results-viewer-shared-20260610">
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=stat-table-header-align-20260610">
     <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=frontend-modularization-20260609">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=frontend-modularization-20260609">
 
@@ -24,7 +24,7 @@
         <div class="sidebar{% if not sidebar_starts_open %} collapsed{% endif %}{% if not show_saved_file_channels %} channels-hidden{% endif %}{% if not show_saved_file_scales %} scales-hidden{% endif %}" id="sidebar">
             <div class="sidebar-header">
                 <h2 class="section-eyebrow sidebar-title">Saved Files</h2>
-                <button class="toggle-btn" id="toggleSidebarBtn"></button>
+                <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"></button>
             </div>
             <div class="sidebar-actions">
                 <div class="selection-toolbar">

@@ -11,7 +11,7 @@ This directory is the canonical documentation home for CytoCV. The root `README.
 ## Conventions
 
 - Markdown is the canonical source format.
-- PDFs in `docs/research/` are derived formal deliverables.
+- PDFs in `docs/research/pdfs/` are derived formal deliverables.
 - Diagrams live in `docs/diagrams/`.
 - Obsolete or superseded material should move to `docs/archive/`.
 - Historical project records that should remain readable but are not part of the active doc system may remain in dedicated subfolders such as `docs/vm-deployment-record/`, `docs/vm-deployment-record-cytocv2/`, and dated follow-up record folders.
@@ -61,9 +61,9 @@ This directory is the canonical documentation home for CytoCV. The root `README.
 
 Formal PDF deliverables:
 
-- [`research/methods-and-system-description.pdf`](research/methods-and-system-description.pdf)
-- [`research/reproducibility-and-validation.pdf`](research/reproducibility-and-validation.pdf)
-- [`research/figure-catalog.pdf`](research/figure-catalog.pdf)
+- [`research/pdfs/methods-and-system-description.pdf`](research/pdfs/methods-and-system-description.pdf)
+- [`research/pdfs/reproducibility-and-validation.pdf`](research/pdfs/reproducibility-and-validation.pdf)
+- [`research/pdfs/figure-catalog.pdf`](research/pdfs/figure-catalog.pdf)
 
 ## Supporting Material
 
