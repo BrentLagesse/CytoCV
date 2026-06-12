@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import html
 import re
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,7 +31,7 @@ OUTPUT_STEMS = (
     "reproducibility-and-validation",
     "figure-catalog",
 )
-STATIC_OUTPUT_DIR = Path(__file__).resolve().parents[2] / "cytocv" / "core" / "static" / "research"
+PDF_OUTPUT_DIR_NAME = "pdfs"
 
 TEXT = colors.HexColor("#1f2933")
 MUTED_TEXT = colors.HexColor("#52606d")
@@ -470,15 +469,14 @@ def build_pdf(title: str, blocks: list[Block], destination: Path) -> None:
 
 def main() -> None:
     base = Path(__file__).resolve().parent
-    STATIC_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = base / PDF_OUTPUT_DIR_NAME
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for stem in OUTPUT_STEMS:
         source = base / f"{stem}.md"
-        destination = base / f"{stem}.pdf"
-        static_destination = STATIC_OUTPUT_DIR / f"{stem}.pdf"
+        destination = output_dir / f"{stem}.pdf"
         title, blocks = parse_markdown(source.read_text(encoding="utf-8-sig"))
         build_pdf(title, blocks, destination)
-        shutil.copy2(destination, static_destination)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,292 @@
+/* Shared controls used by upload and workflow-defaults pages. */
+
+.signal-mode-panel {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 92px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signal-mode-paused-note.is-enabled {
+  color: #8fdc9c;
+}
+
+.signal-mode-paused-note.is-paused {
+  color: #e5c558;
+}
+
+.length-unit-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.length-unit-dropdown.open .length-unit-trigger {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.length-unit-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #b7bfca;
+  transform: translateY(1px);
+}
+
+.length-unit-option + .length-unit-option {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.channel-order-control:focus-within {
+  border-color: rgba(86, 147, 220, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
+}
+
+.channel-order-control .channel-plane-row {
+  box-sizing: border-box;
+  display: flex;
+  gap: 0;
+  grid-column: 1;
+  grid-row: 1;
+  margin-top: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  pointer-events: none;
+  text-align: center;
+  transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+  width: calc(100% - (var(--channel-order-gap) * 3));
+  justify-self: center;
+  transform: translate(var(--channel-order-plane-offset-x), 16px);
+  white-space: nowrap;
+}
+
+.channel-order-control .channel-plane-row span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-order-control .channel-bar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--channel-order-gap);
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 18px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-height: 36px;
+  min-width: 0;
+  transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar {
+  height: 10px;
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar-track {
+  background: var(--card-bg);
+}
+
+.channel-order-control .channel-bar::-webkit-scrollbar-button {
+  display: none;
+}
+
+.channel-order-control .channel-order-actions {
+  box-sizing: border-box;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  min-width: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+}
+
+.channel-order-action-copy {
+  align-items: center;
+  color: #cfcfcf;
+  display: inline-flex;
+  font-family: var(--app-font);
+  font-size: 10px;
+  font-weight: 600;
+  height: 16px;
+  line-height: 1;
+  opacity: 1;
+  padding-left: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.channel-order-action-copy.is-backup {
+  color: #e5c558;
+}
+
+.channel-order-action-copy.is-primary {
+  color: #9fd5af;
+}
+
+.channel-order-action-group {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.channel-order-action-divider {
+  background: var(--panel-border);
+  display: block;
+  height: 1px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 24px;
+}
+
+.channel-order-action-icon {
+  color: currentColor;
+  display: block;
+  flex: 0 0 12px;
+  height: 12px;
+  line-height: 1;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  width: 12px;
+}
+
+.channel-order-action-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.channel-order-action-icon.is-back {
+  transform: translateY(-0.5px);
+}
+
+.channel-order-action-label {
+  display: block;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.channel-order-control .channel-chip-label {
+  display: block;
+  line-height: 1;
+}
+
+.channel-order-action-btn:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.channel-order-control .channel-chip {
+  background-color: var(--panel-border);
+  border: none;
+  box-sizing: border-box;
+  color: #fff;
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: var(--app-font);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  min-height: 30px;
+  min-width: var(--channel-order-slot-min);
+  overflow: hidden;
+  padding: 7px 0;
+  border-radius: 6px;
+  flex: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.channel-order-control .channel-chip-grip {
+  align-self: center;
+  color: rgba(255, 255, 255, 0.72);
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 12px;
+  font-size: 0;
+  letter-spacing: 0;
+  line-height: 1;
+  pointer-events: none;
+  position: relative;
+}
+
+.channel-order-control .channel-chip-grip::before {
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 5px 0 0 currentColor, 0 4px 0 currentColor, 5px 4px 0 currentColor, 0 8px 0 currentColor, 5px 8px 0 currentColor;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  top: 1px;
+  width: 2px;
+}
+
+.channel-order-control .channel-chip:active {
+  cursor: grabbing;
+}
+
+.channel-order-control .channel-chip.sortable-chosen,
+.channel-order-control .channel-chip.sortable-ghost {
+  opacity: 0.78;
+}
+
+.channel-order-control .channel-chip.dic {
+  background-color: black;
+}
+
+.channel-order-control .channel-chip.blue {
+  background-color: blue;
+}
+
+.channel-order-control .channel-chip.red {
+  background-color: red;
+}
+
+.channel-order-control .channel-chip.green {
+  background-color: green;
+}
+
+.channel-order-control .channel-chip.dic:hover {
+  background-color: var(--panel-border);
+}
+
+.channel-order-control .channel-chip.blue:hover {
+  background-color: #4d4dff;
+}
+
+.channel-order-control .channel-chip.red:hover {
+  background-color: #ff6b6b;
+}
+
+.channel-order-control .channel-chip.green:hover {
+  background-color: #3bbf3b;
+}

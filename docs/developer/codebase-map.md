@@ -46,6 +46,14 @@ Inside `cytocv/`:
 
   Shared templates for the UI
 
+- `cytocv/core/static/css/`
+
+  Source CSS organized into global, component, and page-level stylesheets. Shared results-viewer styling lives in `css/components/results-viewer.css`; shared upload/workflow control styling lives in `css/components/workflow-controls.css`.
+
+- `cytocv/core/static/js/`
+
+  Source JavaScript organized into shared controllers/utilities and page controllers. Results-viewer shared behavior lives in `js/shared/results-viewer.js`; shared dashboard/display cell actions live in `js/shared/results-cell-actions.js`; dashboard/display page-specific behavior stays in `js/pages/`.
+
 - `cytocv/media/`
 
   Runtime media storage root
@@ -105,5 +113,6 @@ Current tests live in `cytocv/core/tests/` and focus on:
 ## Related Documents
 
 - [`architecture-overview.md`](architecture-overview.md)
+- [`frontend-architecture.md`](frontend-architecture.md)
 - [`testing-guide.md`](testing-guide.md)
 - [`../reference/routes-and-endpoints.md`](../reference/routes-and-endpoints.md)

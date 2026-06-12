@@ -47,6 +47,13 @@ from core.services.stat_export_selection import USER_SELECTABLE_TABLE_FIELDS
 from core.stats_plugins import PLUGIN_DEFINITIONS
 
 
+CORE_STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
+
+
+def _frontend_static_text(relative_path: str) -> str:
+    return (CORE_STATIC_ROOT / relative_path).read_text(encoding="utf-8")
+
+
 class PreferenceNormalizationTests(TestCase):
     def test_new_account_preferences_default_signal_modes_to_balanced(self):
         user = get_user_model().objects.create_user(
@@ -1036,12 +1043,16 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(
             response, '<span class="btn-label">Confirm Delete</span>', html=False
         )
-        self.assertContains(response, "let isDeletingFiles = false;", html=False)
-        self.assertContains(
-            response, "function setDeleteLoading(isLoading)", html=False
+        self.assertContains(response, "js/pages/dashboard-file-actions.js", html=False)
+        dashboard_actions_source = _frontend_static_text(
+            "js/pages/dashboard-file-actions.js"
         )
-        self.assertContains(response, "Deleting selected files...", html=False)
-        self.assertContains(response, "if (isDeletingFiles) return;", html=False)
+        self.assertIn("let isDeletingFiles = false;", dashboard_actions_source)
+        self.assertIn(
+            "function setDeleteLoading(isLoading)", dashboard_actions_source
+        )
+        self.assertIn("Deleting selected files...", dashboard_actions_source)
+        self.assertIn("if (isDeletingFiles) return;", dashboard_actions_source)
         self.assertNotContains(response, "sort=cell_id", html=False)
         self.assertNotContains(response, "data-file-export=", html=False)
 
@@ -1097,9 +1108,43 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="downloadStatsBtn"', html=False)
         self.assertContains(response, 'data-action="select-cells"', html=False)
         self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
-        self.assertContains(
-            response, "const initialSidebarSpatialStatsUnit =", html=False
+        self.assertContains(response, 'id="dashboardPageConfig"', html=False)
+        self.assertContains(response, "css/components/results-viewer.css", html=False)
+        self.assertContains(response, "js/shared/results-viewer.js", html=False)
+        self.assertContains(response, "js/shared/results-cell-actions.js", html=False)
+        self.assertContains(response, "js/pages/dashboard-viewer.js", html=False)
+        self.assertContains(response, "js/pages/dashboard-cell-actions.js", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/results-viewer.css"),
+            content.index("css/pages/dashboard.css"),
         )
+        self.assertLess(
+            content.index("js/shared/results-viewer.js"),
+            content.index("js/pages/dashboard-viewer.js"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-cell-actions.js"),
+            content.index("js/pages/dashboard-cell-actions.js"),
+        )
+        self.assertIn(
+            "const initialSidebarSpatialStatsUnit =",
+            _frontend_static_text("js/pages/dashboard-viewer.js"),
+        )
+        self.assertIn(
+            "window.CytoCVResultsCellActions.init",
+            _frontend_static_text("js/pages/dashboard-cell-actions.js"),
+        )
+        shared_cell_actions_source = _frontend_static_text(
+            "js/shared/results-cell-actions.js"
+        )
+        self.assertIn("global.CytoCVResultsCellActions = { init };", shared_cell_actions_source)
+        self.assertIn(
+            "const tableFileUuid = (pageConfig && pageConfig.tableFileUuid) || '';",
+            shared_cell_actions_source,
+        )
+        self.assertNotIn("CytoCVDashboardPageConfig", shared_cell_actions_source)
+        self.assertNotIn("CytoCVDisplayPageConfig", shared_cell_actions_source)
         self.assertContains(
             response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False
         )
@@ -1163,9 +1208,34 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'data-action="select-cells"', html=False)
         self.assertContains(response, 'id="selectCellsBackdrop"', html=False)
         self.assertNotContains(response, "sort=cell_id", html=False)
-        self.assertContains(response, "const defaultSpatialStatsUnit =", html=False)
-        self.assertContains(
-            response, "const initialSidebarSpatialStatsUnit =", html=False
+        self.assertContains(response, 'id="displayPageConfig"', html=False)
+        self.assertContains(response, "css/components/results-viewer.css", html=False)
+        self.assertContains(response, "js/shared/results-viewer.js", html=False)
+        self.assertContains(response, "js/shared/results-cell-actions.js", html=False)
+        self.assertContains(response, "js/pages/display-viewer.js", html=False)
+        self.assertContains(response, "js/pages/display-cell-actions.js", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/results-viewer.css"),
+            content.index("css/pages/display.css"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-viewer.js"),
+            content.index("js/pages/display-viewer.js"),
+        )
+        self.assertLess(
+            content.index("js/shared/results-cell-actions.js"),
+            content.index("js/pages/display-cell-actions.js"),
+        )
+        display_viewer_source = _frontend_static_text("js/pages/display-viewer.js")
+        self.assertIn("const defaultSpatialStatsUnit =", display_viewer_source)
+        self.assertIn(
+            "const initialSidebarSpatialStatsUnit =",
+            display_viewer_source,
+        )
+        self.assertIn(
+            "window.CytoCVResultsCellActions.init",
+            _frontend_static_text("js/pages/display-cell-actions.js"),
         )
         self.assertContains(
             response, 'id="previousFileBtn" disabled aria-disabled="true"', html=False
@@ -1207,13 +1277,14 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "function syncDisplayExportButtons", html=False)
-        self.assertContains(
-            response,
+        self.assertContains(response, "js/pages/display-viewer.js", html=False)
+        display_viewer_source = _frontend_static_text("js/pages/display-viewer.js")
+        self.assertIn("function syncDisplayExportButtons", display_viewer_source)
+        self.assertIn(
             "syncDisplayExportButtons(fileUUID, fileData, renderedRowCount);",
-            html=False,
+            display_viewer_source,
         )
-        self.assertNotContains(response, "serverTableUUID", html=False)
+        self.assertNotIn("serverTableUUID", display_viewer_source)
 
     def test_display_view_serializes_nuclear_contour_source_without_stat_card_row(self):
         saved_uuid = self._create_display_file(
@@ -1265,7 +1336,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            'const initialPreferredMainImageChannel = "green";',
+            '"initialPreferredMainImageChannel": "green"',
             html=False,
         )
 
@@ -1283,7 +1354,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            'const initialPreferredMainImageChannel = "green";',
+            '"initialPreferredMainImageChannel": "green"',
             html=False,
         )
 
@@ -1307,22 +1378,22 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(display_response.status_code, 200)
         self.assertContains(
             dashboard_response,
-            "const confirmCellDeletion = false;",
+            '"confirmCellDeletion": false',
             html=False,
         )
         self.assertContains(
             dashboard_response,
-            "const confirmMultiCellDeletion = false;",
+            '"confirmMultiCellDeletion": false',
             html=False,
         )
         self.assertContains(
             display_response,
-            "const confirmCellDeletion = false;",
+            '"confirmCellDeletion": false',
             html=False,
         )
         self.assertContains(
             display_response,
-            "const confirmMultiCellDeletion = false;",
+            '"confirmMultiCellDeletion": false',
             html=False,
         )
 
@@ -2844,15 +2915,17 @@ class DisplayManualSaveTests(TestCase):
         )
 
         self.assertContains(
-            display_response, 'const initialSidebarSpatialStatsUnit = "um";', html=False
+            display_response, '"initialSidebarSpatialStatsUnit": "um"', html=False
         )
         self.assertContains(
             dashboard_response,
-            'const initialSidebarSpatialStatsUnit = "um";',
+            '"initialSidebarSpatialStatsUnit": "um"',
             html=False,
         )
         self.assertContains(
-            preprocess_response, 'let currentSpatialStatsUnit = "um";', html=False
+            preprocess_response,
+            '"initialSidebarSpatialStatsUnit": "um"',
+            html=False,
         )
 
     def test_preprocess_post_rejects_tampered_scale_uuid_map(self):
@@ -3047,6 +3120,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="workflowDefaultsNav"', html=False)
         self.assertContains(response, "Workflow Defaults")
+        self.assertContains(response, "css/components/workflow-controls.css", html=False)
+        self.assertContains(response, "css/pages/workflow-defaults.css", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/workflow-controls.css"),
+            content.index("css/pages/workflow-defaults.css"),
+        )
         self.assertContains(
             response, 'id="pluginForm" data-review-section="plugins"', html=False
         )
@@ -3240,74 +3320,88 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertNotContains(response, 'id="cellParentageModeInline"', html=False)
         self.assertNotContains(response, 'id="cellParentageModeMount"', html=False)
         self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
-        self.assertContains(
-            response, "fallbackChannelOrderBar.className = 'channel-bar';"
+        self.assertContains(response, "css/components/workflow-controls.css", html=False)
+        self.assertContains(response, "css/pages/experiment.css", html=False)
+        self.assertContains(response, "js/pages/experiment.js", html=False)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("css/components/workflow-controls.css"),
+            content.index("css/pages/experiment.css"),
         )
-        self.assertContains(response, "planeRow.className = 'channel-plane-row';")
-        self.assertContains(response, "chip.className = `channel-chip")
-        self.assertContains(response, "window.Sortable.create(bar,")
+        experiment_source = _frontend_static_text("js/pages/experiment.js")
+        self.assertIn(
+            "fallbackChannelOrderBar.className = 'channel-bar';",
+            experiment_source,
+        )
+        self.assertIn("planeRow.className = 'channel-plane-row';", experiment_source)
+        self.assertIn("chip.className = `channel-chip", experiment_source)
+        self.assertIn("window.Sortable.create(bar,", experiment_source)
         self.assertNotContains(response, "channel-order-chip")
         self.assertNotContains(response, "channel-order-bar")
+        self.assertNotIn("channel-order-chip", experiment_source)
+        self.assertNotIn("channel-order-bar", experiment_source)
 
     def test_experiment_page_contains_mode_aware_signal_quantification_info_text(self):
         response = self.client.get(reverse("experiment"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
+        self.assertContains(response, "js/pages/experiment.js", html=False)
+        experiment_source = _frontend_static_text("js/pages/experiment.js")
+        self.assertIn(
             "Signal Quantification controls the primary Red/Green signal measurement workflow for this experiment.",
+            experiment_source,
         )
-        self.assertContains(
-            response,
+        self.assertIn(
             "Puncta Distance detects the first two usable puncta in the selected source channel",
+            experiment_source,
         )
-        self.assertContains(
-            response,
+        self.assertIn(
             "Red/Green Contour Intensities optionally calculates raw intensity sums inside detected Red and Green contour masks.",
+            experiment_source,
         )
-        self.assertContains(
-            response,
+        self.assertIn(
             "Nuclear, Cell-Pair Intensity measures signal from the selected measurement channel inside the selected nucleus contour",
+            experiment_source,
         )
-        self.assertContains(
-            response,
+        self.assertIn(
             "Nucleus Contour Mode: Balanced keeps the current alternate nucleus contour behavior",
+            experiment_source,
         )
-        self.assertContains(response, "nuclear-contour-mode-child")
-        self.assertContains(
-            response,
+        self.assertIn("nuclear-contour-mode-child", experiment_source)
+        self.assertIn(
             "nuclearContourModeSelect.setDisabled(!statsState.alternateNucleusDetectionEnabled)",
+            experiment_source,
         )
-        self.assertNotContains(
-            response,
+        self.assertNotIn(
             "Only affects Nuclear, Cell-Pair Intensity and uses the alternate contour detection path on the selected nucleus source channel only.",
+            experiment_source,
         )
-        self.assertNotContains(
-            response,
+        self.assertNotIn(
             "Alternate Nucleus Detection: only affects Nuclear, Cell-Pair Intensity",
+            experiment_source,
         )
-        self.assertNotContains(
-            response,
+        self.assertNotIn(
             "Alternate Nucleus Detection changes only the Nuclear, Cell-Pair nucleus contour path.",
+            experiment_source,
         )
-        html = response.content.decode()
-        alternate_detection_js_index = html.index(
+        alternate_detection_js_index = experiment_source.index(
             "alternateLabel.textContent = 'Alternate Nucleus Detection';"
         )
-        contour_mode_js_index = html.index(
+        contour_mode_js_index = experiment_source.index(
             "contourModeLabel.textContent = 'Nucleus Contour Mode:'"
         )
         self.assertLess(alternate_detection_js_index, contour_mode_js_index)
-        self.assertContains(response, "Required channels: Red and Green.")
-        self.assertContains(
-            response, "All other stat modules enabled in Puncta Distance mode."
+        self.assertIn("Required channels: Red and Green.", experiment_source)
+        self.assertIn(
+            "All other stat modules enabled in Puncta Distance mode.",
+            experiment_source,
         )
-        self.assertContains(
-            response,
+        self.assertIn(
             "Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.",
+            experiment_source,
         )
-        self.assertContains(response, "signalQuantificationInfoDot")
-        self.assertContains(response, "buildSignalQuantificationInfoText")
+        self.assertIn("signalQuantificationInfoDot", experiment_source)
+        self.assertIn("buildSignalQuantificationInfoText", experiment_source)
         self.assertContains(response, 'id="dotSplitEnabled"', html=False)
         self.assertContains(response, 'id="dotSplitTargetMount"', html=False)
         self.assertContains(response, 'id="greenDotSplitModeMount"', html=False)

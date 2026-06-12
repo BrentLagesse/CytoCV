@@ -1,0 +1,40 @@
+        body [role="dialog"],
+        body .popup-surface,
+        body .settings-modal,
+        body .reset-modal,
+        body .folder-issue-modal,
+        body .nav-exit-modal,
+        body .delete-modal,
+        body .save-modal,
+        body .review-modal,
+        body .confirm[role="dialog"],
+        body .analysis-popover,
+        body .popup {
+            background: var(--popup-surface-bg) !important;
+            border: 1px solid var(--popup-surface-border) !important;
+            box-shadow: var(--popup-surface-shadow) !important;
+            backdrop-filter: var(--popup-surface-filter) !important;
+            -webkit-backdrop-filter: var(--popup-surface-filter) !important;
+        }
+        body .logout-btn.confirm,
+        body .nav-exit-btn.confirm,
+        body .reset-btn.confirm,
+        body .folder-issue-btn.no,
+        body .save-modal-btn.cancel,
+        body .delete-modal-btn.cancel,
+        body .review-btn.review-keep-old,
+        body .confirm-actions .cancel {
+            background: var(--popup-secondary-button-bg) !important;
+            border: 1px solid var(--popup-secondary-button-border) !important;
+            color: #fff !important;
+        }
+        body .logout-btn.confirm:hover,
+        body .nav-exit-btn.confirm:hover,
+        body .reset-btn.confirm:hover,
+        body .folder-issue-btn.no:hover,
+        body .save-modal-btn.cancel:hover,
+        body .delete-modal-btn.cancel:hover,
+        body .review-btn.review-keep-old:hover,
+        body .confirm-actions .cancel:hover {
+            background: var(--popup-secondary-button-hover-bg) !important;
+        }
