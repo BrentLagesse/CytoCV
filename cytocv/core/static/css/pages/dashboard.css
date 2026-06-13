@@ -287,14 +287,7 @@ body {
 .quota-fill {
     height: 100%;
     background: var(--accent);
-    width: {
-        {
-            storage_percentage|floatformat:2
-        }
-
-    }
-
-    %;
+    width: var(--quota-fill-width, 0%);
 }
 
 .delete-modal-backdrop {

@@ -105,7 +105,7 @@
                     <p class="storage-text">{{ used_storage_mb|floatformat:2 }} MB out of {{ total_storage_gb|floatformat:2 }} GB</p>
                 </div>
                 <div class="quota-track">
-                    <div class="quota-fill"></div>
+                    <div class="quota-fill" style="--quota-fill-width: {{ storage_percentage|floatformat:2 }}%;"></div>
                 </div>
                 <p class="storage-summary">{{ saved_file_count }} out of {{ max_files_at_current_average }} files saved.</p>
                 {% if file_capacity_projection_ready %}

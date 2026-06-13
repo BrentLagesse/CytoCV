@@ -566,6 +566,11 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
         self.assertContains(response, "1 out of 3 files saved.")
         self.assertContains(
             response,
+            'style="--quota-fill-width: 33.33%;"',
+            html=False,
+        )
+        self.assertContains(
+            response,
             "2 additional files can be saved before quota at your current average file size.",
         )
 
