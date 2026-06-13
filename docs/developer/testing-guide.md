@@ -11,7 +11,7 @@ The active Django test suite is split across:
 - `cytocv/core/tests/`
 - `cytocv/accounts/tests_*.py`
 
-The current baseline is 745 tests: 674 under `core` and 71 under `accounts`.
+The current baseline is 747 tests: 676 under `core` and 71 under `accounts`.
 The suite includes upload preparation, TIFF/DV parsing, artifact storage,
 progress and worker behavior, scientific-stat calculations, exports, frontend
 contracts, account preferences, email alias behavior, and quota policy.
@@ -54,6 +54,19 @@ python manage.py test
 ```
 
 When working on a narrower area, run the relevant subset first and then rerun the full suite before finalizing.
+
+## Backend CI
+
+GitHub Actions runs the backend safety gate in `.github/workflows/backend-ci.yml`.
+The workflow uses Python 3.11.5 from `.python-version`, installs
+`requirements.txt`, and runs `manage.py check`,
+`manage.py makemigrations --check --dry-run`,
+`manage.py collectstatic --dry-run --noinput`, `manage.py test core`,
+`manage.py test accounts`, and the full `manage.py test` suite.
+
+Coverage reporting, lint/format gates, typechecking, browser E2E, Docker build,
+and deployment validation are intentionally deferred until the baseline CI is
+stable.
 
 For frontend template/static changes, run:
 
