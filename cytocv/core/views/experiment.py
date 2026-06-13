@@ -180,6 +180,16 @@ def _build_upload_preparation_payload(
     }
 
 
+def _build_upload_preparation_cancel_payload(
+    job: UploadPreparationJob,
+) -> dict[str, object]:
+    return {
+        "status": job.status,
+        "phase": job.current_phase,
+        "detail": _upload_job_detail(job),
+    }
+
+
 def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | None:
     """Return the newest resumable upload-preparation payload for this session."""
 
@@ -1257,13 +1267,7 @@ def cancel_upload_preparation(request, job_uuid):
         UploadPreparationJob.Status.FAILED,
         UploadPreparationJob.Status.CANCELLED,
     }:
-        return JsonResponse(
-            {
-                "status": job.status,
-                "phase": job.current_phase,
-                "detail": _upload_job_detail(job),
-            }
-        )
+        return JsonResponse(_build_upload_preparation_cancel_payload(job))
 
     if job.status == UploadPreparationJob.Status.QUEUED:
         for run_uuid in job.new_run_uuids:
@@ -1278,10 +1282,4 @@ def cancel_upload_preparation(request, job_uuid):
         _forget_upload_preparation_job(request, str(job.job_uuid))
     else:
         job = request_upload_preparation_cancellation(job)
-    return JsonResponse(
-        {
-            "status": job.status,
-            "phase": job.current_phase,
-            "detail": _upload_job_detail(job),
-        }
-    )
+    return JsonResponse(_build_upload_preparation_cancel_payload(job))
