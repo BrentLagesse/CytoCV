@@ -69,7 +69,7 @@ from core.scale import (
     normalize_spatial_stats_unit,
 )
 from core.tables import CellTable
-from cytocv.settings import MEDIA_ROOT, MEDIA_URL
+from cytocv.settings import MEDIA_ROOT
 from django_tables2.export.export import TableExport
 
 

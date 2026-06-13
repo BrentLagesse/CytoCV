@@ -32,7 +32,6 @@ from core.services.analysis_progress_contract import (
     PROGRESS_PHASE_FAILED,
     PROGRESS_STATUS_FAILED,
     PROGRESS_STATUS_SUCCEEDED,
-    SAFE_ANALYSIS_FAILURE_SUMMARY,
     SAFE_PROGRESS_ERROR_MESSAGE,
     SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
     TERMINAL_PROGRESS_STATUSES,
@@ -60,7 +59,6 @@ from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
 )
 from .utils import (
-    tif_to_jpg,
     prune_experiment_session_state,
     sync_transient_run_session_state,
 )

@@ -22,9 +22,7 @@ from django.conf import settings
 from django.db import transaction
 
 from core.channel_roles import (
-    CHANNEL_ROLE_BLUE,
     CHANNEL_ROLE_DIC,
-    CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
 )
 from core.config import DEFAULT_CHANNEL_CONFIG, DEFAULT_PROCESS_CONFIG, input_dir
@@ -45,8 +43,6 @@ from core.services.artifact_storage import (
     StorageQuotaExceeded,
     assert_user_can_save_runs,
     cleanup_transient_processing_artifacts,
-    delete_uploaded_run_by_uuid,
-    is_storage_full_error,
     log_storage_capacity_failure,
     refresh_user_storage_usage,
     save_png_array,

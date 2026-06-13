@@ -50,6 +50,11 @@ The repository includes:
 - `start.sh`
 
 These artifacts support containerized deployment, but the final environment still depends on correct `.env` provisioning and accessible media storage.
+The current `start.sh` runs `makemigrations` for `accounts` and `core` before
+`migrate` and Gunicorn. Treat that as current runtime behavior when using this
+script; controlled production deployments should still review generated
+migration changes before rollout rather than relying on startup-time migration
+generation.
 
 Optional worker startup paths:
 

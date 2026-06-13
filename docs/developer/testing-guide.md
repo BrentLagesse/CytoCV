@@ -4,30 +4,17 @@
 
 This document explains the current automated test surface and the expected validation workflow for code changes.
 
-## Test Location
+## Test Locations
 
-The active test suite is under `cytocv/core/tests/`.
+The active Django test suite is split across:
 
-Current test modules:
+- `cytocv/core/tests/`
+- `cytocv/accounts/tests_*.py`
 
-- `test_accounts_preferences.py`
-- `test_artifact_storage.py`
-- `test_core_app.py`
-- `test_frontend_export_contracts.py`
-- `test_frontend_json_contracts.py`
-- `test_frontend_js_contracts.py`
-- `test_frontend_static_contracts.py`
-- `test_frontend_template_contracts.py`
-- `test_frontend_viewer_contracts.py`
-- `test_frontend_workflow_contracts.py`
-- `test_mrcnn_inference.py`
-- `test_nuclear_cell_pair_intensity.py`
-- `test_scale_upload_initialization.py`
-- `test_stats_cache.py`
-- `test_stats_validation.py`
-- `test_tables.py`
-- `test_upload_preparation.py`
-- `test_upload_length_scale.py`
+The current baseline is 745 tests: 674 under `core` and 71 under `accounts`.
+The suite includes upload preparation, TIFF/DV parsing, artifact storage,
+progress and worker behavior, scientific-stat calculations, exports, frontend
+contracts, account preferences, email alias behavior, and quota policy.
 
 ## What The Tests Cover
 
@@ -58,6 +45,11 @@ When adding a new frontend page, add a rendered-template contract for the page C
 From `cytocv/`:
 
 ```powershell
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py collectstatic --dry-run --noinput
+python manage.py test core
+python manage.py test accounts
 python manage.py test
 ```
 

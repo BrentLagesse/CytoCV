@@ -9,7 +9,6 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import AnalysisJob
 from core.services.analysis_context import AnalysisBatchContext, normalize_analysis_config_snapshot
 from core.services.analysis_exceptions import AnalysisCancelled
 from core.services.analysis_jobs import (
