@@ -54,6 +54,13 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)
 
+    def test_dashboard_quota_fill_width_is_applied_from_data_attribute(self):
+        source = static_text("js/pages/dashboard-viewer.js")
+        self.assertIn(".quota-fill[data-quota-fill-width]", source)
+        self.assertIn("dataset.quotaFillWidth", source)
+        self.assertIn("--quota-fill-width", source)
+        self.assertIn("`${quotaFillWidth}%`", source)
+
 
 class FrontendJavaScriptRenderedOrderTests(TestCase):
     def test_dashboard_and_display_load_shared_globals_before_consumers(self):

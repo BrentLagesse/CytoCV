@@ -4,6 +4,14 @@
         const dashboardPageConfig = readJsonConfig('dashboardPageConfig');
         window.CytoCVDashboardPageConfig = dashboardPageConfig;
 
+        function applyQuotaFillWidths() {
+            document.querySelectorAll('.quota-fill[data-quota-fill-width]').forEach((element) => {
+                const quotaFillWidth = element.dataset.quotaFillWidth;
+                element.style.setProperty('--quota-fill-width', `${quotaFillWidth}%`);
+            });
+        }
+        applyQuotaFillWidths();
+
         function getCsrfToken() {
             const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
             return match ? decodeURIComponent(match[1]) : '';

@@ -69,6 +69,17 @@ class RouteSurfaceRefactorTests(TestCase):
         "https://www.washington.edu/online/terms",
         "https://www.uwb.edu/accessibility/",
     )
+    FILES_DATA_REQUIRED_KEYS = {
+        "MainImagePath",
+        "MainImagePaths",
+        "NumberOfCells",
+        "CellPairImages",
+        "Image_Name",
+        "ScaleContext",
+        "ChannelConfig",
+        "Statistics",
+        "NoCellsWarning",
+    }
 
     def setUp(self):
         user_model = get_user_model()
@@ -127,6 +138,12 @@ class RouteSurfaceRefactorTests(TestCase):
             response,
             "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
             html=False,
+        )
+
+    def _assert_files_data_payload_contract(self, payload):
+        self.assertTrue(
+            self.FILES_DATA_REQUIRED_KEYS.issubset(payload.keys()),
+            sorted(self.FILES_DATA_REQUIRED_KEYS.difference(payload.keys())),
         )
 
     def test_static_frontend_javascript_does_not_embed_template_syntax(self):
@@ -1155,6 +1172,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         files_data = json.loads(response.context["files_data"])
         payload = files_data[uuid_value]
+        self._assert_files_data_payload_contract(payload)
         self.assertEqual(
             set(payload["MainImagePaths"].keys()),
             {"dic", "blue", "red", "green"},
@@ -1191,6 +1209,7 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         files_data = json.loads(response.context["files_data_json"])
         payload = files_data[uuid_value]
+        self._assert_files_data_payload_contract(payload)
         self.assertEqual(
             set(payload["MainImagePaths"].keys()),
             {"dic", "blue", "red", "green"},

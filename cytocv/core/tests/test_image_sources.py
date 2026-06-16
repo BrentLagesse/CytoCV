@@ -8,6 +8,8 @@ import tifffile
 from django.test import SimpleTestCase
 
 from core.image_sources import (
+    SUPPORTED_IMAGE_EXTENSIONS,
+    SUPPORTED_IMAGE_EXTENSIONS_LABEL,
     get_image_layer_count,
     is_recognized_image_file,
     is_supported_image_filename,
@@ -16,6 +18,10 @@ from core.image_sources import (
 
 
 class ImageSourceTests(SimpleTestCase):
+    def test_supported_source_extension_constants_are_exact(self):
+        self.assertEqual(SUPPORTED_IMAGE_EXTENSIONS, frozenset({".dv", ".tif", ".tiff"}))
+        self.assertEqual(SUPPORTED_IMAGE_EXTENSIONS_LABEL, ".dv, .tif, .tiff")
+
     def test_supported_source_extensions_are_case_insensitive(self):
         self.assertTrue(is_supported_image_filename("sample.dv"))
         self.assertTrue(is_supported_image_filename("sample.TIF"))

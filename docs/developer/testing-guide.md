@@ -11,7 +11,7 @@ The active Django test suite is split across:
 - `cytocv/core/tests/`
 - `cytocv/accounts/tests_*.py`
 
-The current baseline is 747 tests: 676 under `core` and 71 under `accounts`.
+The current baseline is 751 tests: 680 under `core` and 71 under `accounts`.
 The suite includes upload preparation, TIFF/DV parsing, artifact storage,
 progress and worker behavior, scientific-stat calculations, exports, frontend
 contracts, account preferences, email alias behavior, and quota policy.
@@ -26,6 +26,9 @@ contracts, account preferences, email alias behavior, and quota policy.
 - table rendering and export support
 - scale initialization and upload-time scale handling
 - plugin and stats validation behavior
+- exact artifact path contracts for generated media and overlay files
+- display/dashboard JSON payload keys used by the viewers
+- supported source image extension contracts
 - frontend rendered-template contracts, static asset references, JSON config blocks, shared JavaScript globals, and frontend-facing response shapes
 
 ## Frontend Contract Tests
@@ -34,6 +37,7 @@ The frontend is Django-rendered HTML plus static CSS/JS, so regression coverage 
 
 - Template contract tests verify major pages render the expected template, CSS/JS includes, DOM hooks, JSON config scripts, and no inline styles.
 - Static contract tests verify template `{% static %}` references resolve, CSS `url(...)` references exist, static JS contains no Django syntax, and debug/conflict markers are absent.
+- Dashboard quota fill width is rendered as a data attribute and applied by static JavaScript so templates keep the no-inline-style contract.
 - JSON contract tests parse frontend config scripts and assert stable IDs, required keys, and basic value types.
 - JavaScript contract tests verify owner files for public globals and run `node --check` when Node is available.
 - Viewer/workflow/export contract tests cover page-specific hooks and frontend-facing endpoint response shapes without duplicating deeper backend behavior tests.
