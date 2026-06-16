@@ -65,8 +65,15 @@ GitHub Actions runs the backend safety gate in `.github/workflows/backend-ci.yml
 The workflow uses Python 3.11.5 from `.python-version`, installs
 `requirements.txt`, and runs `manage.py check`,
 `manage.py makemigrations --check --dry-run`,
-`manage.py collectstatic --dry-run --noinput`, `manage.py test core`,
-`manage.py test accounts`, and the full `manage.py test` suite.
+`manage.py collectstatic --dry-run --noinput`, explicit Django frontend-contract
+tests, `manage.py test core`, `manage.py test accounts`, and the full
+`manage.py test` suite.
+
+There is no separate Node frontend toolchain or frontend build CI. The
+frontend safety rail in CI is contract coverage for Django-rendered templates,
+static CSS/JS references, JSON config blocks, JavaScript globals, viewer hooks,
+workflow responses, and export hooks. It is not browser E2E coverage and does
+not run an npm build.
 
 Coverage reporting, lint/format gates, typechecking, browser E2E, Docker build,
 and deployment validation are intentionally deferred until the baseline CI is

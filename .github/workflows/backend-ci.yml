@@ -100,6 +100,19 @@ jobs:
         working-directory: cytocv
         run: python manage.py collectstatic --dry-run --noinput
 
+      - name: Frontend contract tests
+        working-directory: cytocv
+        run: |
+          python manage.py test \
+            core.tests.test_frontend_template_contracts \
+            core.tests.test_frontend_static_contracts \
+            core.tests.test_frontend_json_contracts \
+            core.tests.test_frontend_js_contracts \
+            core.tests.test_frontend_workflow_contracts \
+            core.tests.test_frontend_viewer_contracts \
+            core.tests.test_frontend_export_contracts \
+            core.tests.test_core_app
+
       - name: Core tests
         working-directory: cytocv
         run: python manage.py test core
