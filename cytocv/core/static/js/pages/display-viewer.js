@@ -208,7 +208,6 @@
             applyMetricVisibility,
             normalizeSpatialUnit,
             getCurrentSpatialUnit,
-            setCurrentSpatialUnit,
             getScaleContext,
             formatSpatialLabel,
             formatFieldValue,
@@ -218,6 +217,7 @@
             renderStatisticsTable,
             hasStatisticsTableRows,
             updateSpatialUnitControls,
+            bindSpatialUnitControls,
         } = resultsViewerShared.createStatisticsHelpers({
             tableFieldOrder,
             statFieldGroups,
@@ -784,29 +784,14 @@
             return normalizeSpatialUnit(payload.sidebar_spatial_stats_unit || unit);
         }
 
-        const sidebarSpatialUnitToggle = document.getElementById('sidebarSpatialUnitToggle');
-        if (sidebarSpatialUnitToggle) {
-            sidebarSpatialUnitToggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
-                button.addEventListener('click', async () => {
-                    const nextUnit = normalizeSpatialUnit(button.dataset.spatialUnit || 'px');
-                    if (nextUnit === getCurrentSpatialUnit()) {
-                        return;
-                    }
-                    const previousUnit = getCurrentSpatialUnit();
-                    setCurrentSpatialUnit(nextUnit);
-                    rerenderSpatialUnitsForCurrentFile();
-                    try {
-                        const persistedUnit = await persistSidebarSpatialUnit(nextUnit);
-                        setCurrentSpatialUnit(persistedUnit);
-                        rerenderSpatialUnitsForCurrentFile();
-                    } catch (error) {
-                        setCurrentSpatialUnit(previousUnit);
-                        rerenderSpatialUnitsForCurrentFile();
-                        showSidebarMessage('Unable to save spatial unit preference right now.');
-                    }
-                });
-            });
-        }
+        bindSpatialUnitControls({
+            getCurrentFileData: () => filesData[fileUUIDs[currentFileIndex]] || null,
+            rerender: rerenderSpatialUnitsForCurrentFile,
+            persistSpatialUnit: persistSidebarSpatialUnit,
+            onError: () => {
+                showSidebarMessage('Unable to save spatial unit preference right now.');
+            },
+        });
 
         function getCurrentCellImageUrls() {
             const fileData = filesData[fileUUIDs[currentFileIndex]];

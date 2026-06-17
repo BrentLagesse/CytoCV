@@ -54,6 +54,18 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)
 
+    def test_spatial_unit_control_binding_is_shared(self):
+        shared_source = static_text("js/shared/results-viewer.js")
+        display_source = static_text("js/pages/display-viewer.js")
+        dashboard_source = static_text("js/pages/dashboard-viewer.js")
+
+        self.assertIn("function bindSpatialUnitControls", shared_source)
+        self.assertIn("[data-spatial-unit-toggle]", shared_source)
+        self.assertIn("bindSpatialUnitControls({", display_source)
+        self.assertIn("bindSpatialUnitControls({", dashboard_source)
+        self.assertNotIn("const sidebarSpatialUnitToggle", display_source)
+        self.assertNotIn("const sidebarSpatialUnitToggle", dashboard_source)
+
     def test_dashboard_quota_fill_width_is_applied_from_data_attribute(self):
         source = static_text("js/pages/dashboard-viewer.js")
         self.assertIn(".quota-fill[data-quota-fill-width]", source)

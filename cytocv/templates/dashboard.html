@@ -53,8 +53,8 @@
                 </div>
                 <div class="sidebar-unit-controls">
                     <span class="sidebar-unit-label">Spatial Unit:</span>
-                    <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-active-unit="px">
-                        <div class="sidebar-unit-indicator" aria-hidden="true"></div>
+                    <div class="spatial-unit-track sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-spatial-unit-toggle data-active-unit="px">
+                        <div class="spatial-unit-indicator sidebar-unit-indicator" aria-hidden="true"></div>
                         <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
                         <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
                     </div>
@@ -524,9 +524,13 @@
                         <div class="table-toolbar glass-toolbar">
                             <p class="section-eyebrow">Statistics Table</p>
                             <div class="toolbar-actions">
-                                <div class="unit-toggle" id="dashboardSpatialUnitToggleLegacy" role="group" aria-label="Spatial Units">
-                                    <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
-                                    <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                                <div class="table-spatial-unit-control">
+                                    <span class="table-spatial-unit-label">Spatial Unit:</span>
+                                    <div class="spatial-unit-track table-spatial-unit-toggle" role="group" aria-label="Statistics table spatial units" data-spatial-unit-toggle data-active-unit="px">
+                                        <div class="spatial-unit-indicator" aria-hidden="true"></div>
+                                        <button type="button" class="spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                                        <button type="button" class="spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                                    </div>
                                 </div>
                                 <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">
                                     <span class="fullscreen-icon" aria-hidden="true">⛶</span>

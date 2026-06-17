@@ -170,6 +170,25 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="displayPageConfig"', display_content)
         self.assertIn('id="displayFilesData"', display_content)
         self.assertIn('id="saveFilesBackdrop"', display_content)
+        self.assertEqual(
+            display_content.count('class="table-spatial-unit-control"'),
+            1,
+        )
+        self.assertEqual(
+            display_content.count('class="spatial-unit-track table-spatial-unit-toggle"'),
+            1,
+        )
+        self.assertEqual(display_content.count('data-spatial-unit-toggle'), 2)
+        self.assertNotIn("displaySpatialUnitToggleLegacy", display_content)
+        self.assertNotIn("displaySpatialUnitToggleLegacySecondary", display_content)
+        assert_in_order(
+            self,
+            display_content,
+            'class="table-spatial-unit-control"',
+            '<span class="table-spatial-unit-label">Spatial Unit:</span>',
+            'class="spatial-unit-track table-spatial-unit-toggle"',
+            'id="tableFullscreenBtn"',
+        )
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
         dashboard_content = response_text(dashboard_response)
@@ -181,3 +200,21 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="dashboardPageConfig"', dashboard_content)
         self.assertIn('id="dashboardFilesData"', dashboard_content)
         self.assertIn('id="deleteFilesBackdrop"', dashboard_content)
+        self.assertEqual(
+            dashboard_content.count('class="table-spatial-unit-control"'),
+            1,
+        )
+        self.assertEqual(
+            dashboard_content.count('class="spatial-unit-track table-spatial-unit-toggle"'),
+            1,
+        )
+        self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 2)
+        self.assertNotIn("dashboardSpatialUnitToggleLegacy", dashboard_content)
+        assert_in_order(
+            self,
+            dashboard_content,
+            'class="table-spatial-unit-control"',
+            '<span class="table-spatial-unit-label">Spatial Unit:</span>',
+            'class="spatial-unit-track table-spatial-unit-toggle"',
+            'id="tableFullscreenBtn"',
+        )

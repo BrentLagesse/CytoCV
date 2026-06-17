@@ -729,16 +729,14 @@
         }
 
         function updateSpatialUnitControls(fileData) {
-            const toggle = document.getElementById('sidebarSpatialUnitToggle');
-            if (!toggle) {
-                return;
-            }
             const activeUnit = getCurrentSpatialUnit();
-            toggle.dataset.activeUnit = activeUnit;
-            toggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
-                const isActive = button.dataset.spatialUnit === activeUnit;
-                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-                button.classList.toggle('active', isActive);
+            document.querySelectorAll('[data-spatial-unit-toggle]').forEach((toggle) => {
+                toggle.dataset.activeUnit = activeUnit;
+                toggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
+                    const isActive = button.dataset.spatialUnit === activeUnit;
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                    button.classList.toggle('active', isActive);
+                });
             });
 
             const headers = Array.from(document.querySelectorAll('#celltable thead th'));
@@ -749,6 +747,47 @@
                 }
                 headers[index].textContent = getDynamicSpatialHeaderLabel(fieldName, fileData);
             });
+        }
+
+        function bindSpatialUnitControls({
+            getCurrentFileData = () => null,
+            rerender = () => {},
+            persistSpatialUnit = null,
+            onError = () => {},
+        } = {}) {
+            document.querySelectorAll('[data-spatial-unit-toggle]').forEach((toggle) => {
+                if (toggle.dataset.spatialUnitBound === 'true') {
+                    return;
+                }
+                toggle.dataset.spatialUnitBound = 'true';
+                toggle.querySelectorAll('[data-spatial-unit]').forEach((button) => {
+                    button.addEventListener('click', async () => {
+                        const nextUnit = normalizeSpatialUnit(button.dataset.spatialUnit || 'px');
+                        if (nextUnit === getCurrentSpatialUnit()) {
+                            return;
+                        }
+                        const previousUnit = getCurrentSpatialUnit();
+                        setCurrentSpatialUnit(nextUnit);
+                        updateSpatialUnitControls(getCurrentFileData());
+                        rerender();
+                        if (!persistSpatialUnit) {
+                            return;
+                        }
+                        try {
+                            const persistedUnit = await persistSpatialUnit(nextUnit);
+                            setCurrentSpatialUnit(persistedUnit);
+                            updateSpatialUnitControls(getCurrentFileData());
+                            rerender();
+                        } catch (error) {
+                            setCurrentSpatialUnit(previousUnit);
+                            updateSpatialUnitControls(getCurrentFileData());
+                            rerender();
+                            onError(error);
+                        }
+                    });
+                });
+            });
+            updateSpatialUnitControls(getCurrentFileData());
         }
 
         function hasNoNucleusContour(cellStats) {
@@ -862,6 +901,7 @@
             formatFieldValue,
             getDynamicSpatialHeaderLabel,
             updateSpatialUnitControls,
+            bindSpatialUnitControls,
             formatStatValue,
             hasNoNucleusContour,
             getNuclearLabelPair,
