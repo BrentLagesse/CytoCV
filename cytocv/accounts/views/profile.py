@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-import math
 import re
 import shutil
 from pathlib import Path
 from typing import Any
-from uuid import UUID
 
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -59,7 +57,6 @@ from core.services.biorientation_config import (
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.combined_stat_export import (
     CombinedStatisticsExportError,
-    StatisticsExportFile,
     build_combined_statistics_export_response,
 )
 from core.services.export_filenames import (
@@ -72,7 +69,6 @@ from core.services.overlay_rendering import (
 )
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
-    VALID_PUNCTA_LINE_MODES,
     normalize_puncta_line_mode,
 )
 from core.services.dot_split import (
@@ -91,6 +87,18 @@ from core.services.stat_export_selection import (
     export_exclude_columns,
     export_metric_scope,
     export_selection_config,
+)
+from core.services.stat_export_requests import (
+    build_statistics_export_sources,
+    normalize_uuid_list,
+)
+from core.services.result_view_payloads import (
+    NUCLEAR_CELL_PAIR_MODES,
+    RESULT_CHANNEL_ORDER,
+    channel_config_payload,
+    detected_channel_labels,
+    resolve_cell_table_modes,
+    sanitize_for_json,
 )
 from core.scale import (
     get_scale_context_payload,
@@ -112,7 +120,6 @@ from core.tables import CellTable
 from cytocv.settings import MEDIA_ROOT, MEDIA_URL
 from core.services.artifact_paths import normalize_media_field_path
 
-NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 LENGTH_UNITS = {"px", "um"}
 
 
@@ -528,23 +535,6 @@ def _build_required_channel_rows(
     return rows, requirement_summary
 
 
-def _normalize_uuid_list(raw_values: Any) -> list[str]:
-    if not isinstance(raw_values, list):
-        return []
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for value in raw_values:
-        try:
-            value_uuid = str(UUID(str(value)))
-        except (TypeError, ValueError, AttributeError):
-            return []
-        if value_uuid in seen:
-            continue
-        seen.add(value_uuid)
-        normalized.append(value_uuid)
-    return normalized
-
-
 def _recalculate_user_storage_usage(user: Any) -> None:
     refresh_user_storage_usage(user)
 
@@ -581,8 +571,7 @@ def _build_cell_table_for_uuid(
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
         "cell_id"
     )
-    intensity_mode = _resolve_nuclear_cell_pair_mode(stats_qs)
-    puncta_line_mode = _resolve_puncta_line_mode(stats_qs)
+    intensity_mode, puncta_line_mode = resolve_cell_table_modes(stats_qs)
     return CellTable(
         stats_qs,
         intensity_mode=intensity_mode,
@@ -612,41 +601,10 @@ def _dashboard_available_export_uuid_set(user: Any) -> set[str]:
     }
 
 
-def _resolve_nuclear_cell_pair_mode(stats_iterable: Any) -> str | None:
-    modes = set()
-    for stat in stats_iterable:
-        props = stat.properties or {}
-        mode = props.get("nuclear_cell_pair_mode", props.get("nuclear_cellular_mode"))
-        if mode in NUCLEAR_CELL_PAIR_MODES:
-            modes.add(mode)
-    return modes.pop() if len(modes) == 1 else None
-
-
-def _resolve_puncta_line_mode(stats_iterable: Any) -> str | None:
-    modes = set()
-    for stat in stats_iterable:
-        props = stat.properties or {}
-        mode = props.get("puncta_line_mode")
-        if mode in VALID_PUNCTA_LINE_MODES:
-            modes.add(mode)
-    return modes.pop() if len(modes) == 1 else None
-
-
 def _serialize_cell_statistics(
     cell_stat: CellStatistics | None,
 ) -> dict[str, Any] | None:
     return serialize_cell_statistics_payload(cell_stat)
-
-
-def _sanitize_for_json(value: Any) -> Any:
-    """Convert nested values to strict JSON-safe equivalents."""
-    if isinstance(value, float):
-        return value if math.isfinite(value) else None
-    if isinstance(value, dict):
-        return {str(key): _sanitize_for_json(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_sanitize_for_json(item) for item in value]
-    return value
 
 
 def _media_url_for_file(path: Path) -> str:
@@ -750,12 +708,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     first_table_uuid: str = ""
     cell_table = None
 
-    channel_order = [
-        CHANNEL_ROLE_DIC,
-        CHANNEL_ROLE_BLUE,
-        CHANNEL_ROLE_RED,
-        CHANNEL_ROLE_GREEN,
-    ]
+    channel_order = RESULT_CHANNEL_ORDER
     for segmented_image in segmented_images:
         uuid = str(segmented_image.UUID)
         uploaded = uploaded_map.get(uuid)
@@ -770,10 +723,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             segmented_dir
         )
         output_frames = _scan_output_frames(output_dir)
-        detected_channels = [
-            channel_display_label(channel)
-            for channel, _ in sorted(channel_config.items(), key=lambda entry: entry[1])
-        ]
+        detected_channels = detected_channel_labels(channel_config)
         scale_payload = get_scale_sidebar_payload(
             uploaded.scale_info,
             manual_default=default_manual_scale,
@@ -788,8 +738,9 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
-            intensity_mode = _resolve_nuclear_cell_pair_mode(stats_by_id.values())
-            puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
+            intensity_mode, puncta_line_mode = resolve_cell_table_modes(
+                stats_by_id.values()
+            )
             cell_table = CellTable(
                 stats_qs,
                 intensity_mode=intensity_mode,
@@ -918,10 +869,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
             "CellPairImages": cell_images,
             "Image_Name": image_name,
             "ScaleContext": scale_context,
-            "ChannelConfig": {
-                channel_slug(channel_name): channel_index
-                for channel_name, channel_index in channel_config.items()
-            },
+            "ChannelConfig": channel_config_payload(channel_config),
             "Statistics": statistics,
             "NoCellsWarning": no_cells_warning,
         }
@@ -954,7 +902,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     )
     if file_capacity_projection_ready:
         max_files_at_current_average = saved_file_count + additional_files_possible
-    files_data_json = json.dumps(_sanitize_for_json(files_data), allow_nan=False)
+    files_data_json = json.dumps(sanitize_for_json(files_data), allow_nan=False)
 
     return {
         "file_list": file_list,
@@ -1134,7 +1082,7 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
-    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    requested_uuids = normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
         return JsonResponse(
             {"error": "Select at least one saved file to continue."},
@@ -1180,7 +1128,7 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
-    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    requested_uuids = normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
         return JsonResponse(
             {"error": "Select at least one saved file to continue."},
@@ -1215,15 +1163,11 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
     default_manual_scale = preferences.get("experiment_defaults", {}).get(
         "microns_per_pixel", 0.1
     )
-    sources = [
-        StatisticsExportFile(
-            uuid=uuid,
-            file_name=uploaded_map[uuid].name,
-            segmented_image=segmented_map[uuid],
-            scale_info=uploaded_map[uuid].scale_info,
-        )
-        for uuid in requested_uuids
-    ]
+    sources = build_statistics_export_sources(
+        requested_uuids,
+        uploaded_map=uploaded_map,
+        segmented_map=segmented_map,
+    )
     try:
         return build_combined_statistics_export_response(
             sources,

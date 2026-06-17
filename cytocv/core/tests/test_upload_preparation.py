@@ -413,6 +413,20 @@ class UploadPreparationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
+        self.assertEqual(
+            list(payload.keys()),
+            [
+                "job_uuid",
+                "status",
+                "phase",
+                "detail",
+                "errors",
+                "failure_summary",
+                "redirect",
+            ],
+        )
+        self.assertEqual(payload["job_uuid"], str(job.job_uuid))
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.RUNNING)
         self.assertEqual(payload["phase"], "Extracting Image Metadata")
         self.assertEqual(
             payload["detail"],
@@ -423,6 +437,9 @@ class UploadPreparationTestCase(TestCase):
                 "fileTotal": 4,
             },
         )
+        self.assertEqual(payload["errors"], [])
+        self.assertEqual(payload["failure_summary"], "")
+        self.assertIsNone(payload["redirect"])
 
     def test_upload_preparation_cancel_terminal_job_returns_status_phase_detail(self):
         job = enqueue_upload_preparation_job(
