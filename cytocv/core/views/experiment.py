@@ -67,7 +67,6 @@ from core.services.artifact_storage import (
     sweep_user_run_artifacts,
 )
 from core.services.analysis_context import normalize_execution_mode
-from core.services.analysis_progress import normalize_progress_detail
 from core.services.upload_preparation import run_upload_preparation_job
 from core.services.upload_preparation_jobs import (
     ACTIVE_UPLOAD_PREPARATION_STATUSES,
@@ -79,6 +78,10 @@ from core.services.upload_preparation_jobs import (
     reap_stale_upload_preparation_jobs,
     request_upload_preparation_cancellation,
     start_inline_upload_preparation_job,
+)
+from core.services.upload_preparation_payloads import (
+    build_upload_preparation_cancel_payload,
+    build_upload_preparation_payload,
 )
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
@@ -98,10 +101,6 @@ def _parse_bool(value, default=False):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _upload_job_detail(job: UploadPreparationJob) -> dict[str, object]:
-    return normalize_progress_detail(job.progress_detail)
 
 
 def _recent_upload_preparation_job_uuids(request) -> list[str]:
@@ -147,37 +146,33 @@ def _forget_upload_preparation_job(request, job_uuid: str) -> None:
     _set_recent_upload_preparation_job_uuids(request, next_values)
 
 
-def _build_upload_preparation_payload(
+def _upload_preparation_redirect_for_request(
+    request,
+    job: UploadPreparationJob,
+    status: str,
+) -> str | None:
+    if status != UploadPreparationJob.Status.SUCCEEDED or not job.valid_run_uuids:
+        return None
+
+    valid_uuids = [str(value) for value in job.valid_run_uuids if str(value)]
+    request.session["last_experiment_uuids"] = valid_uuids
+    request.session.modified = True
+    return reverse("pre_process", kwargs={"uuids": ",".join(valid_uuids)})
+
+
+def _build_upload_preparation_payload_for_request(
     request,
     job: UploadPreparationJob,
     *,
     stale_state: tuple[str, str, str] | None = None,
 ) -> dict[str, object]:
-    """Serialize one upload-preparation job for APIs and resume bootstrapping."""
-
     status = stale_state[0] if stale_state is not None else job.status
-    phase = stale_state[1] if stale_state is not None else job.current_phase
-    failure_summary = stale_state[2] if stale_state is not None else job.failure_summary
-    errors = [str(line) for line in job.error_lines or [] if str(line)]
-    if failure_summary and not errors and status == UploadPreparationJob.Status.FAILED:
-        errors = [failure_summary]
-
-    redirect_url = None
-    if status == UploadPreparationJob.Status.SUCCEEDED and job.valid_run_uuids:
-        valid_uuids = [str(value) for value in job.valid_run_uuids if str(value)]
-        request.session["last_experiment_uuids"] = valid_uuids
-        request.session.modified = True
-        redirect_url = reverse("pre_process", kwargs={"uuids": ",".join(valid_uuids)})
-
-    return {
-        "job_uuid": str(job.job_uuid),
-        "status": status,
-        "phase": phase,
-        "detail": _upload_job_detail(job),
-        "errors": errors,
-        "failure_summary": failure_summary,
-        "redirect": redirect_url,
-    }
+    redirect_url = _upload_preparation_redirect_for_request(request, job, status)
+    return build_upload_preparation_payload(
+        job,
+        stale_state=stale_state,
+        redirect_url=redirect_url,
+    )
 
 
 def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | None:
@@ -201,7 +196,7 @@ def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | N
     for job_uuid in reversed(existing_job_uuids):
         job = jobs_by_uuid[job_uuid]
         stale_state = get_stale_upload_preparation_terminal_state(job)
-        selected_payload = _build_upload_preparation_payload(
+        selected_payload = _build_upload_preparation_payload_for_request(
             request,
             job,
             stale_state=stale_state,
@@ -971,7 +966,7 @@ def experiment(request):
             config_snapshot=config_snapshot,
         )
         _track_active_upload_preparation_job(request, job)
-        payload = _build_upload_preparation_payload(request, job)
+        payload = _build_upload_preparation_payload_for_request(request, job)
         if is_ajax:
             return JsonResponse(payload)
         if job.status == UploadPreparationJob.Status.SUCCEEDED and payload.get(
@@ -1208,7 +1203,7 @@ def enqueue_upload_preparation(request):
         config_snapshot=config_snapshot,
     )
     _track_active_upload_preparation_job(request, job)
-    return JsonResponse(_build_upload_preparation_payload(request, job))
+    return JsonResponse(_build_upload_preparation_payload_for_request(request, job))
 
 
 @require_GET
@@ -1225,7 +1220,7 @@ def upload_preparation_status(request, job_uuid):
             {"errors": ["That upload session is no longer available."]}, status=404
         )
     stale_state = get_stale_upload_preparation_terminal_state(job)
-    payload = _build_upload_preparation_payload(
+    payload = _build_upload_preparation_payload_for_request(
         request,
         job,
         stale_state=stale_state,
@@ -1257,13 +1252,7 @@ def cancel_upload_preparation(request, job_uuid):
         UploadPreparationJob.Status.FAILED,
         UploadPreparationJob.Status.CANCELLED,
     }:
-        return JsonResponse(
-            {
-                "status": job.status,
-                "phase": job.current_phase,
-                "detail": _upload_job_detail(job),
-            }
-        )
+        return JsonResponse(build_upload_preparation_cancel_payload(job))
 
     if job.status == UploadPreparationJob.Status.QUEUED:
         for run_uuid in job.new_run_uuids:
@@ -1278,10 +1267,4 @@ def cancel_upload_preparation(request, job_uuid):
         _forget_upload_preparation_job(request, str(job.job_uuid))
     else:
         job = request_upload_preparation_cancellation(job)
-    return JsonResponse(
-        {
-            "status": job.status,
-            "phase": job.current_phase,
-            "detail": _upload_job_detail(job),
-        }
-    )
+    return JsonResponse(build_upload_preparation_cancel_payload(job))

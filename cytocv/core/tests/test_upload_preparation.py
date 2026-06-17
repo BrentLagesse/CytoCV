@@ -413,6 +413,20 @@ class UploadPreparationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
+        self.assertEqual(
+            list(payload.keys()),
+            [
+                "job_uuid",
+                "status",
+                "phase",
+                "detail",
+                "errors",
+                "failure_summary",
+                "redirect",
+            ],
+        )
+        self.assertEqual(payload["job_uuid"], str(job.job_uuid))
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.RUNNING)
         self.assertEqual(payload["phase"], "Extracting Image Metadata")
         self.assertEqual(
             payload["detail"],
@@ -423,6 +437,86 @@ class UploadPreparationTestCase(TestCase):
                 "fileTotal": 4,
             },
         )
+        self.assertEqual(payload["errors"], [])
+        self.assertEqual(payload["failure_summary"], "")
+        self.assertIsNone(payload["redirect"])
+
+    def test_upload_preparation_cancel_terminal_job_returns_status_phase_detail(self):
+        job = enqueue_upload_preparation_job(
+            user_id=self.user.id,
+            new_run_uuids=[],
+            restored_run_uuids=[],
+            config_snapshot=self._config_snapshot(),
+        )
+        UploadPreparationJob.objects.filter(pk=job.pk).update(
+            status=UploadPreparationJob.Status.SUCCEEDED,
+            current_phase="Completed",
+            progress_detail={
+                "fileName": "../complete.dv",
+                "message": "Upload preparation complete.",
+                "fileIndex": 1,
+                "fileTotal": 1,
+                "unsafe": "ignored",
+            },
+            finished_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            reverse("experiment_upload_prepare_cancel", args=[str(job.job_uuid)])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(list(payload.keys()), ["status", "phase", "detail"])
+        self.assertEqual(payload["status"], UploadPreparationJob.Status.SUCCEEDED)
+        self.assertEqual(payload["phase"], "Completed")
+        self.assertEqual(
+            payload["detail"],
+            {
+                "fileName": "complete.dv",
+                "message": "Upload preparation complete.",
+                "fileIndex": 1,
+                "fileTotal": 1,
+            },
+        )
+
+    def test_upload_preparation_cancel_queued_job_returns_cancelled_payload(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="queued_cancel")
+            run_dir = media_root / str(uploaded.uuid)
+            job = enqueue_upload_preparation_job(
+                user_id=self.user.id,
+                new_run_uuids=[str(uploaded.uuid)],
+                restored_run_uuids=[],
+                config_snapshot=self._config_snapshot(),
+            )
+            session = self.client.session
+            session["recent_upload_preparation_job_uuids"] = [str(job.job_uuid)]
+            session.save()
+
+            response = self.client.post(
+                reverse("experiment_upload_prepare_cancel", args=[str(job.job_uuid)])
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(list(payload.keys()), ["status", "phase", "detail"])
+            self.assertEqual(
+                payload,
+                {
+                    "status": UploadPreparationJob.Status.CANCELLED,
+                    "phase": "Cancelled",
+                    "detail": {},
+                },
+            )
+            job.refresh_from_db()
+            self.assertEqual(job.status, UploadPreparationJob.Status.CANCELLED)
+            self.assertFalse(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
+            self.assertFalse(run_dir.exists())
+            self.assertNotIn(
+                "recent_upload_preparation_job_uuids",
+                self.client.session,
+            )
 
     def test_upload_preparation_enqueue_forbids_other_user_uuid_and_cleans_new(self):
         with temporary_media_root() as media_root:

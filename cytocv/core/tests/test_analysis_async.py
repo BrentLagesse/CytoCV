@@ -22,7 +22,10 @@ from core.services.analysis_context import AnalysisBatchContext
 from core.services.analysis_jobs import AnalysisJobLimitExceeded, enqueue_analysis_job
 from core.services.analysis_pipeline import run_preprocess_and_inference_batch
 from core.services.analysis_progress_contract import (
+    PROGRESS_PHASE_FAILED,
+    PROGRESS_STATUS_FAILED,
     SAFE_ANALYSIS_FAILURE_SUMMARY,
+    SAFE_PROGRESS_ERROR_MESSAGE,
     SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
 )
 from core.services.analysis_progress import (
@@ -469,6 +472,21 @@ class AnalysisAsyncTestCase(TestCase):
             )
 
             self.assertEqual(response.status_code, 403)
+
+    @override_settings(ANALYSIS_EXECUTION_MODE="worker")
+    def test_progress_endpoint_rejects_invalid_batch_with_safe_payload(self):
+        response = self.client.get(reverse("analysis_progress", args=["not-a-batch"]))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json(),
+            {
+                "phase": PROGRESS_PHASE_FAILED,
+                "status": PROGRESS_STATUS_FAILED,
+                "failure_summary": SAFE_PROGRESS_ERROR_MESSAGE,
+                "redirect": None,
+            },
+        )
 
     @override_settings(ANALYSIS_EXECUTION_MODE="worker")
     def test_cancel_progress_forbids_other_user_batch(self):

@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .frontend_contract_helpers import (
+    add_cell_stat,
     assert_json_script_keys,
     create_display_file,
     create_preprocess_file,
@@ -85,12 +86,45 @@ class FrontendJsonContractTests(TestCase):
             uploaded_owner=user,
             segmented_owner_id=guest_user_id(),
             filename="json_transient",
+            num_cells=1,
         )
+        add_cell_stat(saved_uuid, cell_id=1)
+        add_cell_stat(transient_uuid, cell_id=1)
         set_transient_uuids(self.client, [transient_uuid])
 
         display_response = self.client.get(reverse("display", args=[transient_uuid]))
         display_content = response_text(display_response)
-        self.assertIsInstance(parse_json_script(display_content, "displayFilesData"), dict)
+        display_files = parse_json_script(display_content, "displayFilesData")
+        self.assertIsInstance(display_files, dict)
+        display_file = display_files[transient_uuid]
+        expected_file_keys = {
+            "MainImagePath",
+            "MainImagePaths",
+            "NumberOfCells",
+            "CellPairImages",
+            "Image_Name",
+            "ScaleContext",
+            "ChannelConfig",
+            "Statistics",
+            "NoCellsWarning",
+        }
+        self.assertEqual(set(display_file.keys()), expected_file_keys)
+        self.assertEqual(display_file["NumberOfCells"], 1)
+        self.assertEqual(list(display_file["CellPairImages"].keys()), ["1"])
+        self.assertEqual(
+            display_file["CellPairImages"]["1"],
+            [
+                f"/media/{transient_uuid}/segmented/json_transient-0-1.png",
+                f"/media/{transient_uuid}/segmented/json_transient-0-1-no_outline.png",
+                f"/media/{transient_uuid}/segmented/json_transient-1-1.png",
+                f"/media/{transient_uuid}/segmented/json_transient-1-1-no_outline.png",
+                f"/media/{transient_uuid}/segmented/json_transient-3-1.png",
+                f"/media/{transient_uuid}/segmented/json_transient-3-1-no_outline.png",
+                f"/media/{transient_uuid}/segmented/json_transient-2-1.png",
+                f"/media/{transient_uuid}/segmented/json_transient-2-1-no_outline.png",
+            ],
+        )
+        self.assertEqual(list(display_file["Statistics"].keys()), ["1"])
         display_config = assert_json_script_keys(
             self,
             display_content,
@@ -109,7 +143,14 @@ class FrontendJsonContractTests(TestCase):
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
         dashboard_content = response_text(dashboard_response)
-        self.assertIsInstance(parse_json_script(dashboard_content, "dashboardFilesData"), dict)
+        dashboard_files = parse_json_script(dashboard_content, "dashboardFilesData")
+        self.assertIsInstance(dashboard_files, dict)
+        dashboard_file = dashboard_files[saved_uuid]
+        self.assertEqual(set(dashboard_file.keys()), expected_file_keys)
+        self.assertEqual(dashboard_file["NumberOfCells"], 1)
+        self.assertEqual(list(dashboard_file["CellPairImages"].keys()), ["1"])
+        self.assertEqual(len(dashboard_file["CellPairImages"]["1"]), 8)
+        self.assertEqual(list(dashboard_file["Statistics"].keys()), ["1"])
         dashboard_config = assert_json_script_keys(
             self,
             dashboard_content,

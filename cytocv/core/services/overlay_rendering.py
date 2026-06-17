@@ -18,8 +18,6 @@ from core.channel_roles import (
     CHANNEL_ROLE_DIC,
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
-    channel_display_label,
-    channel_role_from_slug,
     channel_slug,
     normalize_channel_role,
 )

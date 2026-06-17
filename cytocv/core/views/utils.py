@@ -1,12 +1,10 @@
 import cv2
-import logging
 from pathlib import Path
 from cytocv.settings import MEDIA_ROOT
 from core.models import SegmentedImage, get_guest_user
 from core.services.analysis_progress import (
     clear_cancelled as clear_cancelled_flag,
     is_cancelled as is_cancelled_flag,
-    progress_path,
     read_file_progress,
     set_cancelled as set_cancelled_flag,
     write_file_progress,
@@ -28,9 +26,6 @@ def tif_to_jpg(tif_path :Path, output_dir :Path) -> Path:
     jpg_path = Path(output_dir / temp)
     cv2.imwrite(str(jpg_path), read,[int(cv2.IMWRITE_JPEG_QUALITY), 100])
     return jpg_path
-
-
-logger = logging.getLogger(__name__)
 
 
 def write_progress(key: str, phase: str, status: str | None = None, failure_summary: str = "") -> None:

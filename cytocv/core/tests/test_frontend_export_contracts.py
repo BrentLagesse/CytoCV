@@ -108,3 +108,58 @@ class FrontendExportContractTests(TestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         self.assertIn("cytocv_", response["Content-Disposition"])
         self.assertIn("Red In Red Intensity 1", response.content.decode("utf-8"))
+
+    def test_display_export_preserves_visible_subset_order(self):
+        user = login_user(self, "frontend-display-export-order@example.com")
+        first_uuid = create_display_file(uploaded_owner=user, filename="display_export_first")
+        second_uuid = create_display_file(uploaded_owner=user, filename="display_export_second")
+        add_cell_stat(first_uuid)
+        add_cell_stat(second_uuid)
+
+        response = self.client.post(
+            reverse("display_export_files"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [second_uuid, first_uuid],
+                    "uuids": [first_uuid, second_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("display_export_second"),
+            content.index("display_export_first"),
+        )
+
+    def test_dashboard_export_preserves_selected_uuid_order(self):
+        user = login_user(self, "frontend-dashboard-export-order@example.com")
+        first_uuid = create_display_file(uploaded_owner=user, filename="dashboard_export_first")
+        second_uuid = create_display_file(uploaded_owner=user, filename="dashboard_export_second")
+        add_cell_stat(first_uuid)
+        add_cell_stat(second_uuid)
+
+        response = self.client.post(
+            reverse("dashboard_bulk_export"),
+            data=json.dumps(
+                {
+                    "uuids": [second_uuid, first_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_intensity_1"],
+                    "_unit": "px",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("dashboard_export_second"),
+            content.index("dashboard_export_first"),
+        )

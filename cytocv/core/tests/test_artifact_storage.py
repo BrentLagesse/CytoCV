@@ -202,6 +202,15 @@ class PreviewArtifactTests(ArtifactStorageTestCase):
             preview_dir = media_root / str(uploaded.uuid) / PREVIEW_FOLDER_NAME
             self.assertEqual(len(preview_rows), 4)
             self.assertEqual(DVLayerTifPreview.objects.filter(uploaded_image_uuid=uploaded).count(), 4)
+            self.assertEqual(
+                [row.file_location.name.replace("\\", "/") for row in preview_rows],
+                [
+                    f"{uploaded.uuid}/{PREVIEW_FOLDER_NAME}/preview-layer0.png",
+                    f"{uploaded.uuid}/{PREVIEW_FOLDER_NAME}/preview-layer1.png",
+                    f"{uploaded.uuid}/{PREVIEW_FOLDER_NAME}/preview-layer2.png",
+                    f"{uploaded.uuid}/{PREVIEW_FOLDER_NAME}/preview-layer3.png",
+                ],
+            )
             self.assertEqual(sorted(path.suffix for path in preview_dir.iterdir()), [".png", ".png", ".png", ".png"])
             self.assertFalse(any(preview_dir.glob("*.tif")))
             self.assertFalse(any(preview_dir.glob("*.jpg")))
@@ -246,7 +255,10 @@ class PreprocessEncodingTests(ArtifactStorageTestCase):
                 )
 
             self.assertIsNotNone(artifact)
-            self.assertTrue(str(artifact.preprocessed_path).endswith(".png"))
+            self.assertEqual(
+                artifact.preprocessed_path,
+                media_root / str(uploaded.uuid) / PRE_PROCESS_FOLDER_NAME / "preprocess_png.png",
+            )
             self.assertTrue(artifact.preprocessed_path.exists())
             self.assertFalse((media_root / str(uploaded.uuid) / "preprocessed_images_list.csv").exists())
             self.assertFalse(any((media_root / str(uploaded.uuid) / PRE_PROCESS_FOLDER_NAME).glob("*.tif")))
@@ -564,6 +576,12 @@ class UploadQuotaProjectionViewTests(ArtifactStorageTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "1 out of 3 files saved.")
+        self.assertContains(
+            response,
+            'data-quota-fill-width="33.33"',
+            html=False,
+        )
+        self.assertNotContains(response, "style=", html=False)
         self.assertContains(
             response,
             "2 additional files can be saved before quota at your current average file size.",

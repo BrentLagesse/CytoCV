@@ -5,14 +5,12 @@ from django.template.response import TemplateResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.urls import reverse
-import math
 from uuid import UUID
 import logging
 
-from core.models import SegmentedImage, UploadedImage, get_guest_user
+from core.models import UploadedImage
 from core.services.analysis_context import (
     build_analysis_batch_context,
-    build_batch_key,
     normalize_execution_mode,
 )
 from core.services.analysis_exceptions import AnalysisCancelled
@@ -20,7 +18,6 @@ from core.services.analysis_jobs import (
     AnalysisJobLimitExceeded,
     enqueue_analysis_job,
     get_active_analysis_job,
-    get_latest_analysis_job,
     reap_stale_analysis_jobs,
 )
 from core.services.analysis_pipeline import run_analysis_batch
@@ -29,10 +26,7 @@ from core.services.analysis_progress import (
     get_progress_snapshot,
 )
 from core.services.analysis_progress_contract import (
-    PROGRESS_PHASE_FAILED,
-    PROGRESS_STATUS_FAILED,
     PROGRESS_STATUS_SUCCEEDED,
-    SAFE_ANALYSIS_FAILURE_SUMMARY,
     SAFE_PROGRESS_ERROR_MESSAGE,
     SAFE_PROGRESS_WRITE_ERROR_MESSAGE,
     TERMINAL_PROGRESS_STATUSES,
@@ -59,8 +53,20 @@ from core.services.nuclear_cell_pair_contour_mode import (
 from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
 )
+from core.services.progress_request_helpers import (
+    ProgressRequestError,
+    current_owner_filter as _current_owner_filter,
+    progress_read_error_response as _progress_read_error_response,
+    progress_write_error_response as _progress_write_error_response,
+    release_progress_batch as _release_progress_batch,
+    resolve_owned_progress_batch as _resolve_owned_progress_batch,
+    track_progress_batch as _track_progress_batch,
+)
+from core.services.scale_request_payloads import (
+    parse_file_scale_map_payload,
+    parse_file_scale_revert_payload,
+)
 from .utils import (
-    tif_to_jpg,
     prune_experiment_session_state,
     sync_transient_run_session_state,
 )
@@ -85,7 +91,6 @@ from core.mrcnn.preprocess_images import preprocess_images
 from cytocv.settings import MEDIA_ROOT
 from pathlib import Path
 import json
-import re
 
 from accounts.preferences import get_user_preferences
 from core.scale import (
@@ -162,18 +167,6 @@ def _channel_labels_from_config(config: dict[str, int]) -> list[str]:
     ]
 
 
-PROGRESS_BATCH_SESSION_KEY = "authorized_progress_batches"
-
-
-class ProgressRequestError(Exception):
-    """Controlled progress request error carrying an HTTP status code."""
-
-    def __init__(self, message: str, *, status_code: int) -> None:
-        super().__init__(message)
-        self.message = message
-        self.status_code = status_code
-
-
 def _parse_bool(value, default: bool = False) -> bool:
     """Parse common truthy/falsy request/session values."""
 
@@ -182,14 +175,6 @@ def _parse_bool(value, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _current_owner_filter(request) -> dict:
-    """Return queryset filter args for the current upload owner."""
-
-    if request.user.is_authenticated:
-        return {"user": request.user}
-    return {"user_id": get_guest_user()}
 
 
 def _delete_cancelled_runs(request, uuid_values: list[str]) -> None:
@@ -206,166 +191,6 @@ def _delete_cancelled_runs(request, uuid_values: list[str]) -> None:
     for run_uuid in owned_uuids:
         delete_uploaded_run_by_uuid(run_uuid)
     prune_experiment_session_state(request, owned_uuids)
-
-
-def _get_authorized_progress_batches(request) -> set[str]:
-    """Return session-tracked progress batches authorized for the current user."""
-
-    return {
-        str(value)
-        for value in request.session.get(PROGRESS_BATCH_SESSION_KEY, [])
-        if str(value)
-    }
-
-
-def _track_progress_batch(request, batch_key: str) -> None:
-    """Persist a session-scoped allowlist for in-flight progress lookups."""
-
-    tracked = _get_authorized_progress_batches(request)
-    if batch_key in tracked:
-        return
-    tracked.add(batch_key)
-    request.session[PROGRESS_BATCH_SESSION_KEY] = sorted(tracked)
-    request.session.modified = True
-
-
-def _release_progress_batch(request, batch_key: str) -> None:
-    """Remove a finished batch from the session-scoped progress allowlist."""
-
-    tracked = _get_authorized_progress_batches(request)
-    if batch_key not in tracked:
-        return
-    tracked.remove(batch_key)
-    request.session[PROGRESS_BATCH_SESSION_KEY] = sorted(tracked)
-    request.session.modified = True
-
-
-def _resolve_owned_progress_batch(request, raw_uuids: str) -> tuple[str, list[str]]:
-    """Return the canonical owned batch key for progress routes."""
-
-    if not raw_uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", raw_uuids):
-        raise ProgressRequestError("Invalid analysis batch.", status_code=400)
-    try:
-        batch_key = build_batch_key(raw_uuids)
-    except (TypeError, ValueError):
-        raise ProgressRequestError("Invalid analysis batch.", status_code=400)
-    uuid_list = [value for value in batch_key.split(",") if value]
-    if not uuid_list:
-        raise ProgressRequestError("Invalid analysis batch.", status_code=400)
-
-    owner_filter = _current_owner_filter(request)
-    owned_uploads = {
-        str(value)
-        for value in UploadedImage.objects.filter(
-            uuid__in=uuid_list,
-            **owner_filter,
-        ).values_list("uuid", flat=True)
-    }
-    owned_segmented = {
-        str(value)
-        for value in SegmentedImage.objects.filter(
-            UUID__in=uuid_list,
-            user=request.user,
-        ).values_list("UUID", flat=True)
-    }
-    owned_uuids = owned_uploads | owned_segmented
-    if set(uuid_list).issubset(owned_uuids):
-        return batch_key, uuid_list
-
-    if batch_key in _get_authorized_progress_batches(request):
-        return batch_key, uuid_list
-
-    if (
-        get_latest_analysis_job(user_id=request.user.id, batch_key=batch_key)
-        is not None
-    ):
-        return batch_key, uuid_list
-
-    raise ProgressRequestError("Forbidden", status_code=403)
-
-
-def _progress_read_error_response(message: str, *, status_code: int) -> JsonResponse:
-    """Return a controlled progress-read error payload."""
-
-    return JsonResponse(
-        {
-            "phase": PROGRESS_PHASE_FAILED,
-            "status": PROGRESS_STATUS_FAILED,
-            "failure_summary": message,
-            "redirect": None,
-        },
-        status=status_code,
-    )
-
-
-def _progress_write_error_response(message: str, *, status_code: int) -> JsonResponse:
-    """Return a controlled progress-write error payload."""
-
-    return JsonResponse({"status": "error", "message": message}, status=status_code)
-
-
-def _parse_file_scale_map_payload(
-    raw_payload: str,
-    active_uuid_set: set[str],
-) -> tuple[dict[str, float], str | None, int]:
-    """Parse and validate per-file scale payload from preprocess form."""
-
-    if not raw_payload:
-        return {}, None, 200
-    try:
-        payload = json.loads(raw_payload)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return {}, "Invalid per-file scale payload.", 400
-    if not isinstance(payload, dict):
-        return {}, "Per-file scale payload must be a JSON object.", 400
-
-    parsed: dict[str, float] = {}
-    for raw_uuid, raw_value in payload.items():
-        try:
-            normalized_uuid = str(UUID(str(raw_uuid)))
-        except (TypeError, ValueError, AttributeError):
-            return {}, "Per-file scale payload contains an invalid UUID.", 400
-        if normalized_uuid not in active_uuid_set:
-            return {}, "Per-file scale payload contains unavailable files.", 403
-
-        value = raw_value
-        if isinstance(raw_value, dict):
-            value = raw_value.get("effective_um_per_px")
-        try:
-            numeric = float(value)
-        except (TypeError, ValueError):
-            return {}, "Per-file scale values must be numeric.", 400
-        if not math.isfinite(numeric) or numeric <= 0:
-            return {}, "Per-file scale values must be greater than 0.", 400
-        parsed[normalized_uuid] = numeric
-    return parsed, None, 200
-
-
-def _parse_file_scale_revert_payload(
-    raw_payload: str,
-    active_uuid_set: set[str],
-) -> tuple[set[str], str | None, int]:
-    """Parse and validate file UUIDs that should revert to auto scale resolution."""
-
-    if not raw_payload:
-        return set(), None, 200
-    try:
-        payload = json.loads(raw_payload)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return set(), "Invalid scale revert payload.", 400
-    if not isinstance(payload, list):
-        return set(), "Scale revert payload must be a JSON array.", 400
-
-    parsed: set[str] = set()
-    for raw_uuid in payload:
-        try:
-            normalized_uuid = str(UUID(str(raw_uuid)))
-        except (TypeError, ValueError, AttributeError):
-            return set(), "Scale revert payload contains an invalid UUID.", 400
-        if normalized_uuid not in active_uuid_set:
-            return set(), "Scale revert payload contains unavailable files.", 403
-        parsed.add(normalized_uuid)
-    return parsed, None, 200
 
 
 @require_GET
@@ -522,7 +347,7 @@ def pre_process(request, uuids):
                 active_uuid_set.add(str(UUID(str(value))))
             except (TypeError, ValueError, AttributeError):
                 active_uuid_set.add(str(value))
-        scale_map, scale_error, scale_status = _parse_file_scale_map_payload(
+        scale_map, scale_error, scale_status = parse_file_scale_map_payload(
             request.POST.get("file_scale_map", ""),
             active_uuid_set=active_uuid_set,
         )
@@ -530,7 +355,7 @@ def pre_process(request, uuids):
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 return JsonResponse({"error": scale_error}, status=scale_status)
             return HttpResponse(scale_error, status=scale_status)
-        revert_uuid_set, revert_error, revert_status = _parse_file_scale_revert_payload(
+        revert_uuid_set, revert_error, revert_status = parse_file_scale_revert_payload(
             request.POST.get("file_scale_revert_uuids", ""),
             active_uuid_set=active_uuid_set,
         )

@@ -8,8 +8,6 @@ import os
 import time
 from collections import defaultdict
 from pathlib import Path
-import json
-import hashlib
 
 # ==========================================================
 # Matplotlib backend (must run BEFORE importing pyplot/etc.)
@@ -33,8 +31,6 @@ import numpy as np
 import skimage
 from PIL import Image
 from cv2_rolling_ball import subtract_background_rolling_ball
-from scipy.spatial.distance import euclidean
-from skimage import io
 
 # =========================
 # Django imports
@@ -48,7 +44,7 @@ from django.shortcuts import get_object_or_404, redirect
 # =========================
 # Local application imports
 # =========================
-from cytocv.settings import MEDIA_ROOT, MEDIA_URL
+from cytocv.settings import MEDIA_ROOT
 from .utils import (
     write_progress,
     is_cancelled,
@@ -70,7 +66,6 @@ from core.config import (
 from core.image_sources import load_image_stack
 from core.models import (
     CellStatistics,
-    Contour,
     SegmentedImage,
     UploadedImage,
     get_guest_user,

@@ -51,6 +51,11 @@ Sensitive values that must remain outside source control:
 - reCAPTCHA secret key
 
 `.env` should never be committed.
+The repository should not contain live production values in `.env.production`
+or any other environment file. If such values were committed, rotate the
+affected credentials, scrub the file from active deployment workflows, and audit
+history as an operational incident. Do not quote secret values in tickets,
+docs, logs, or review comments.
 
 ## Ownership And Data Visibility
 

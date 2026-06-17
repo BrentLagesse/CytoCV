@@ -1,8 +1,6 @@
 import json
-import math
 import re
 from pathlib import Path
-from uuid import UUID
 
 from django.db import transaction
 from django.http import (
@@ -21,9 +19,7 @@ from core.channel_roles import (
     CHANNEL_ROLE_DIC,
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
-    channel_display_label,
     channel_role_from_slug,
-    channel_slug,
 )
 from core.config import get_channel_config_for_uuid
 from core.models import (
@@ -43,7 +39,6 @@ from core.services.cell_deletion import delete_multiple_cells, delete_single_cel
 from core.services.cell_statistics_payload import serialize_cell_statistics_payload
 from core.services.combined_stat_export import (
     CombinedStatisticsExportError,
-    StatisticsExportFile,
     build_combined_statistics_export_response,
 )
 from core.services.export_filenames import (
@@ -56,12 +51,22 @@ from core.services.artifact_paths import (
 )
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
-from core.services.puncta_line_mode import VALID_PUNCTA_LINE_MODES
+from core.services.result_view_payloads import (
+    RESULT_CHANNEL_ORDER,
+    channel_config_payload,
+    detected_channel_labels,
+    resolve_cell_table_modes,
+    sanitize_for_json,
+)
 from core.services.stat_export_selection import (
     ExportColumnSelectionError,
     export_exclude_columns,
     export_metric_scope,
     export_selection_config,
+)
+from core.services.stat_export_requests import (
+    build_statistics_export_sources,
+    normalize_uuid_list,
 )
 from core.scale import (
     get_scale_context_payload,
@@ -69,39 +74,8 @@ from core.scale import (
     normalize_spatial_stats_unit,
 )
 from core.tables import CellTable
-from cytocv.settings import MEDIA_ROOT, MEDIA_URL
+from cytocv.settings import MEDIA_ROOT
 from django_tables2.export.export import TableExport
-
-
-def _resolve_nuclear_cell_pair_mode(stats_iterable):
-    modes = set()
-    for stat in stats_iterable:
-        props = stat.properties or {}
-        mode = props.get("nuclear_cell_pair_mode", props.get("nuclear_cellular_mode"))
-        if mode in {"green_nucleus", "red_nucleus"}:
-            modes.add(mode)
-    return modes.pop() if len(modes) == 1 else None
-
-
-def _resolve_puncta_line_mode(stats_iterable):
-    modes = set()
-    for stat in stats_iterable:
-        props = stat.properties or {}
-        mode = props.get("puncta_line_mode")
-        if mode in VALID_PUNCTA_LINE_MODES:
-            modes.add(mode)
-    return modes.pop() if len(modes) == 1 else None
-
-
-def _sanitize_for_json(value):
-    """Convert nested values to strict JSON-safe equivalents."""
-    if isinstance(value, float):
-        return value if math.isfinite(value) else None
-    if isinstance(value, dict):
-        return {str(key): _sanitize_for_json(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_sanitize_for_json(item) for item in value]
-    return value
 
 
 def _scan_output_frames(uuid: str):
@@ -125,23 +99,6 @@ def _current_transient_uuid_set(request):
         for value in request.session.get("transient_experiment_uuids", [])
         if str(value)
     }
-
-
-def _normalize_uuid_list(raw_values):
-    if not isinstance(raw_values, list):
-        return []
-    normalized = []
-    seen = set()
-    for value in raw_values:
-        try:
-            value_uuid = str(UUID(str(value)))
-        except (TypeError, ValueError, AttributeError):
-            return []
-        if value_uuid in seen:
-            continue
-        seen.add(value_uuid)
-        normalized.append(value_uuid)
-    return normalized
 
 
 MANUAL_SAVE_STORAGE_FULL_MESSAGE = (
@@ -202,12 +159,7 @@ def display(request, uuids):
     # List to store file information for sidebar navigation
     file_list = []
     cell_table = None
-    channel_order = [
-        CHANNEL_ROLE_DIC,
-        CHANNEL_ROLE_BLUE,
-        CHANNEL_ROLE_RED,
-        CHANNEL_ROLE_GREEN,
-    ]
+    channel_order = RESULT_CHANNEL_ORDER
 
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
@@ -245,10 +197,7 @@ def display(request, uuids):
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
             # Sort by saved index so the sidebar mirrors the detected file order.
-            detected = [
-                channel_display_label(channel_name)
-                for channel_name, _ in sorted(channel_config.items(), key=lambda t: t[1])
-            ]
+            detected = detected_channel_labels(channel_config)
 
             # Append file info for the sidebar, INCLUDING the channel pills
             scale_payload = get_scale_sidebar_payload(
@@ -299,8 +248,9 @@ def display(request, uuids):
             stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
-                table_mode = _resolve_nuclear_cell_pair_mode(stats_by_id.values())
-                puncta_line_mode = _resolve_puncta_line_mode(stats_by_id.values())
+                table_mode, puncta_line_mode = resolve_cell_table_modes(
+                    stats_by_id.values()
+                )
                 cell_table = CellTable(
                     cell_stats_qs,
                     intensity_mode=table_mode,
@@ -401,10 +351,7 @@ def display(request, uuids):
                 'CellPairImages': images,
                 'Image_Name': image_name,
                 'ScaleContext': scale_context,
-                'ChannelConfig': {
-                    channel_slug(channel_name): channel_index
-                    for channel_name, channel_index in channel_config.items()
-                },
+                'ChannelConfig': channel_config_payload(channel_config),
                 'Statistics': statistics,
                 'NoCellsWarning': no_cells_warning,
             }
@@ -424,7 +371,7 @@ def display(request, uuids):
         )
 
     # Convert the files_data to JSON to be used in the template
-    json_files_data = json.dumps(_sanitize_for_json(all_files_data), allow_nan=False)
+    json_files_data = json.dumps(sanitize_for_json(all_files_data), allow_nan=False)
 
     return render(request, "display.html", {
         'files_data': json_files_data,  # Pass all file data to the template
@@ -454,7 +401,7 @@ def save_display_files(request):
             status=400,
         )
 
-    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    requested_uuids = normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
         return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
@@ -555,7 +502,7 @@ def unsave_display_files(request):
             status=400,
         )
 
-    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    requested_uuids = normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
         return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
@@ -644,8 +591,8 @@ def sync_display_file_selection(request):
             status=400,
         )
 
-    visible_uuids = _normalize_uuid_list(payload.get("visible_uuids", []))
-    selected_uuids = _normalize_uuid_list(payload.get("selected_uuids", []))
+    visible_uuids = normalize_uuid_list(payload.get("visible_uuids", []))
+    selected_uuids = normalize_uuid_list(payload.get("selected_uuids", []))
     if not visible_uuids:
         return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
@@ -761,8 +708,8 @@ def export_display_files(request):
             status=400,
         )
 
-    visible_uuids = _normalize_uuid_list(payload.get("visible_uuids", []))
-    requested_uuids = _normalize_uuid_list(payload.get("uuids", []))
+    visible_uuids = normalize_uuid_list(payload.get("visible_uuids", []))
+    requested_uuids = normalize_uuid_list(payload.get("uuids", []))
     if not requested_uuids:
         return JsonResponse({"error": "Select at least one file to continue."}, status=400)
     if not visible_uuids:
@@ -800,7 +747,6 @@ def export_display_files(request):
             status=403,
         )
 
-    sources = []
     for uuid in ordered_uuids:
         uploaded = uploaded_map[uuid]
         segmented = segmented_map[uuid]
@@ -809,14 +755,11 @@ def export_display_files(request):
                 {"error": "One or more selected files are no longer available. Refresh and try again."},
                 status=403,
             )
-        sources.append(
-            StatisticsExportFile(
-                uuid=uuid,
-                file_name=uploaded.name,
-                segmented_image=segmented,
-                scale_info=uploaded.scale_info,
-            )
-        )
+    sources = build_statistics_export_sources(
+        ordered_uuids,
+        uploaded_map=uploaded_map,
+        segmented_map=segmented_map,
+    )
 
     preferences = get_user_preferences(request.user)
     default_manual_scale = (

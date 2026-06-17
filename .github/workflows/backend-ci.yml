@@ -1,0 +1,130 @@
+name: Backend CI
+
+"on":
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - nicolasmgioanni
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: backend-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CYTOCV_SECRET_KEY: ci-insecure-secret-key
+      CYTOCV_DEBUG: "1"
+      CYTOCV_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      CYTOCV_ANALYSIS_EXECUTION_MODE: sync
+      CYTOCV_DB_BACKEND: sqlite
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install OpenCV runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Check whitespace in changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            if git cat-file -e "$base^{commit}" 2>/dev/null; then
+              git diff --check "$base"...HEAD
+            else
+              git diff --check
+            fi
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ -n "$before" && "$before" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "$before^{commit}" 2>/dev/null; then
+              git diff --check "$before" HEAD
+            else
+              git diff --check
+            fi
+          else
+            git diff --check
+          fi
+
+      - name: Print Python version
+        working-directory: cytocv
+        run: python --version
+
+      - name: Print pip version
+        working-directory: cytocv
+        run: python -m pip --version
+
+      - name: Print Django version
+        working-directory: cytocv
+        run: python -c "import django; print('Django', django.get_version())"
+
+      - name: Django system check
+        working-directory: cytocv
+        run: python manage.py check
+
+      - name: Migration dry-run
+        working-directory: cytocv
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Static collection dry-run
+        working-directory: cytocv
+        run: python manage.py collectstatic --dry-run --noinput
+
+      - name: Frontend contract tests
+        working-directory: cytocv
+        run: |
+          python manage.py test \
+            core.tests.test_frontend_template_contracts \
+            core.tests.test_frontend_static_contracts \
+            core.tests.test_frontend_json_contracts \
+            core.tests.test_frontend_js_contracts \
+            core.tests.test_frontend_workflow_contracts \
+            core.tests.test_frontend_viewer_contracts \
+            core.tests.test_frontend_export_contracts \
+            core.tests.test_core_app
+
+      - name: Core tests
+        working-directory: cytocv
+        run: python manage.py test core
+
+      - name: Account tests
+        working-directory: cytocv
+        run: python manage.py test accounts
+
+      - name: Full test suite
+        working-directory: cytocv
+        run: python manage.py test
+
+      - name: Final repository status
+        if: always()
+        run: git status --short
