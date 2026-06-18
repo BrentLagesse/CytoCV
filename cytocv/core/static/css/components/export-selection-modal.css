@@ -198,11 +198,15 @@
         border: 2px solid transparent;
         background-clip: padding-box;
     }
-    #exportFileSelectionList.export-selection-list-box,
-    #exportSelectionList.export-selection-list-box {
+    #exportFileSelectionList.export-selection-list-box {
         background: transparent;
         border: none;
         padding: 0;
+    }
+    #exportSelectionList.export-selection-list-box {
+        background: transparent;
+        border: none;
+        padding: 1px 8px 0 2px;
     }
     .export-selection-group {
         display: grid;
