@@ -16,7 +16,7 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "stat-table-header-align-20260610"
+RESULTS_VIEWER_CSS_VERSION = "table-skeleton-spatial-unit-20260618"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
 SCALE_REVERT_ICON_VERSION = "scale-revert-icon-20260610"
@@ -178,6 +178,10 @@ class FrontendTemplateContractTests(TestCase):
             display_content.count('class="spatial-unit-track table-spatial-unit-toggle"'),
             1,
         )
+        self.assertEqual(
+            display_content.count('class="skeleton-shape skeleton-table-spatial-unit"'),
+            1,
+        )
         self.assertEqual(display_content.count('data-spatial-unit-toggle'), 2)
         self.assertNotIn("displaySpatialUnitToggleLegacy", display_content)
         self.assertNotIn("displaySpatialUnitToggleLegacySecondary", display_content)
@@ -188,6 +192,13 @@ class FrontendTemplateContractTests(TestCase):
             '<span class="table-spatial-unit-label">Spatial Unit:</span>',
             'class="spatial-unit-track table-spatial-unit-toggle"',
             'id="tableFullscreenBtn"',
+        )
+        assert_in_order(
+            self,
+            display_content,
+            'class="skeleton-table-actions"',
+            'class="skeleton-shape skeleton-table-spatial-unit"',
+            'class="skeleton-shape skeleton-table-fullscreen"',
         )
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
@@ -208,6 +219,10 @@ class FrontendTemplateContractTests(TestCase):
             dashboard_content.count('class="spatial-unit-track table-spatial-unit-toggle"'),
             1,
         )
+        self.assertEqual(
+            dashboard_content.count('class="skeleton-shape skeleton-table-spatial-unit"'),
+            1,
+        )
         self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 2)
         self.assertNotIn("dashboardSpatialUnitToggleLegacy", dashboard_content)
         assert_in_order(
@@ -217,4 +232,11 @@ class FrontendTemplateContractTests(TestCase):
             '<span class="table-spatial-unit-label">Spatial Unit:</span>',
             'class="spatial-unit-track table-spatial-unit-toggle"',
             'id="tableFullscreenBtn"',
+        )
+        assert_in_order(
+            self,
+            dashboard_content,
+            'class="skeleton-table-actions"',
+            'class="skeleton-shape skeleton-table-spatial-unit"',
+            'class="skeleton-shape skeleton-table-fullscreen"',
         )

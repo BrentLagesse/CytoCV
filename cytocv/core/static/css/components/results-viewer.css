@@ -1938,14 +1938,22 @@ a:hover {
     flex-wrap: wrap;
 }
 
-.skeleton-table-fullscreen {
-    width: 106px;
+.skeleton-table-spatial-unit,
+        .skeleton-table-fullscreen {
     height: 36px;
     border-radius: 999px;
     border: 1px solid rgba(var(--glass-border-rgb), 0.34);
     background:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
                 rgba(16, 24, 35, 0.6);
+}
+
+.skeleton-table-spatial-unit {
+    width: 208px;
+}
+
+.skeleton-table-fullscreen {
+    width: 106px;
 }
 
 .skeleton-table {

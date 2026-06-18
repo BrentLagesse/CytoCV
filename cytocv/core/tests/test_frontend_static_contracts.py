@@ -148,6 +148,17 @@ class FrontendStaticContractTests(SimpleTestCase):
                     r"\.sidebar-content\s*\{[^}]*scrollbar-gutter:\s*stable;",
                 )
 
+    def test_table_skeleton_spatial_unit_placeholder_matches_toolbar_control(self):
+        results_css = static_text("css/components/results-viewer.css")
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-table-spatial-unit,\s*\.skeleton-table-fullscreen\s*\{[^}]*height:\s*36px;[^}]*border-radius:\s*999px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-table-spatial-unit\s*\{[^}]*width:\s*208px;",
+        )
+
     def test_decorative_icon_slots_do_not_use_placeholder_glyphs(self):
         for css_path in (CORE_STATIC_ROOT / "css").rglob("*.css"):
             source = css_path.read_text(encoding="utf-8", errors="replace")
