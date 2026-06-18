@@ -135,6 +135,19 @@ class FrontendStaticContractTests(SimpleTestCase):
                 self.assertIn('aria-hidden="true" focusable="false"', source)
         self.assertIn('<span class="channel-chip-label">{{ item.label }}</span>', workflow_template)
 
+    def test_sidebar_toggle_alignment_is_not_scrollbar_state_dependent(self):
+        for css_path in (
+            "css/components/results-viewer.css",
+            "css/pages/pre-process.css",
+        ):
+            css_source = static_text(css_path)
+            with self.subTest(css=css_path):
+                self.assertNotRegex(css_source, r"\.sidebar\.has-scrollbar\s+\.sidebar-header")
+                self.assertRegex(
+                    css_source,
+                    r"\.sidebar-content\s*\{[^}]*scrollbar-gutter:\s*stable;",
+                )
+
     def test_decorative_icon_slots_do_not_use_placeholder_glyphs(self):
         for css_path in (CORE_STATIC_ROOT / "css").rglob("*.css"):
             source = css_path.read_text(encoding="utf-8", errors="replace")
