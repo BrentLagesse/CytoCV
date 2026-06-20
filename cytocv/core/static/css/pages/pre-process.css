@@ -100,7 +100,7 @@
         justify-content: center;
       }
 
-      /* Explicity cancel hover when it’s open (this is to prevent any unessesary flashing)*/
+      /* Explicity cancel hover when it's open (this is to prevent any unessesary flashing)*/
       .sidebar:hover { background-color: var(--card-bg); }
 
       /* Only lighten when collapsed AND hovered */

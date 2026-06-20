@@ -13,6 +13,20 @@ CSS_URL_RE = re.compile(r"url\(\s*([\"']?)(.*?)\1\s*\)")
 
 
 class FrontendStaticContractTests(SimpleTestCase):
+    def test_frontend_sources_do_not_contain_known_mojibake_tokens_or_bom(self):
+        forbidden_tokens = ("Âµ", "â›", "�")
+        for root in (TEMPLATE_ROOT, CORE_STATIC_ROOT):
+            for path in root.rglob("*"):
+                if path.suffix not in {".html", ".css", ".js"}:
+                    continue
+                raw_source = path.read_bytes()
+                with self.subTest(path=path.relative_to(root), token="utf-8-bom"):
+                    self.assertFalse(raw_source.startswith(b"\xef\xbb\xbf"))
+                source = raw_source.decode("utf-8", errors="replace")
+                for token in forbidden_tokens:
+                    with self.subTest(path=path.relative_to(root), token=token):
+                        self.assertNotIn(token, source)
+
     def test_template_static_references_exist_in_source_static_tree(self):
         for template_path in TEMPLATE_ROOT.rglob("*.html"):
             source = template_path.read_text(encoding="utf-8")

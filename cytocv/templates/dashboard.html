@@ -5,11 +5,11 @@
 
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
-    <script src="{% static 'js/export_selection_modal.js' %}?v=selectable-export-format-pill-state"></script>
+    <script src="{% static 'js/export_selection_modal.js' %}?v=contour-intensity-quick-select"></script>
     <script src="{% static 'js/shared/results-viewer.js' %}?v=results-viewer-shared-20260610"></script>
     <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=table-skeleton-spatial-unit-20260618">
     <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=frontend-modularization-20260609">
-    <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=export-modal-spacing-20260618">
+    <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=contour-intensity-quick-select">
 
     <!-- Sortable.js for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -212,7 +212,7 @@
                                     </div>
                                 </div>
                                 <div class="cell-stats-strip" data-ui-region="cell-metrics-strip">
-                                    <div class="cell-stats-column">
+                                    <div class="cell-stats-top-grid" data-ui-region="cell-metrics-top">
                                         <div class="cell-stats-section">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Reference Channel</p>
@@ -248,31 +248,6 @@
                                                 <span class="metric-value" id="offAxisDots"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Red In Red Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Red-channel intensity summed inside each ranked Red contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other raw-sum sections."
-                                                    aria-label="Red In Red Raw Sum Details"
-                                                    title="Red In Red Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Red Intensity 1</span>
-                                                <span class="metric-value" id="redInRedIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Red Intensity 2</span>
-                                                <span class="metric-value" id="redInRedIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Red Intensity 3</span>
-                                                <span class="metric-value" id="redInRedIntensity3"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-column">
                                         <div class="cell-stats-section" data-stat-section="nuclear_cell_pair_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Nucleus + Measurement</p>
@@ -312,31 +287,6 @@
                                                 <span class="metric-value" id="nuclearCytoplasmicRatio"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Green In Red Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Green-channel intensity summed inside each ranked Red contour slot after clipping to the DIC cell mask. Use this to compare Green signal captured by Red contour regions."
-                                                    aria-label="Green In Red Raw Sum Details"
-                                                    title="Green In Red Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Red Intensity 1</span>
-                                                <span class="metric-value" id="greenInRedIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Red Intensity 2</span>
-                                                <span class="metric-value" id="greenInRedIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Red Intensity 3</span>
-                                                <span class="metric-value" id="greenInRedIntensity3"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-column">
                                         <div class="cell-stats-section" data-stat-section="cen_puncta">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">CEN Dot Measurements</p>
@@ -364,31 +314,6 @@
                                                 <span class="metric-value" id="cenDot"></span>
                                             </div>
                                         </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Red In Green Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Red-channel intensity summed inside each ranked Green contour slot after clipping to the DIC cell mask. Use this to compare Red signal captured by Green contour regions."
-                                                    aria-label="Red In Green Raw Sum Details"
-                                                    title="Red In Green Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Green Intensity 1</span>
-                                                <span class="metric-value" id="redInGreenIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Green Intensity 2</span>
-                                                <span class="metric-value" id="redInGreenIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Green Intensity 3</span>
-                                                <span class="metric-value" id="redInGreenIntensity3"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-column">
                                         <div class="cell-stats-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
                                                 <p class="metric-lead">Measurement/Contour</p>
@@ -416,26 +341,97 @@
                                                 <span class="metric-value" id="measurementContourRatio3"></span>
                                             </div>
                                         </div>
+                                    </div>
+                                    <div class="cell-stats-intensity-grid" data-ui-region="cell-intensity-totals">
                                         <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
                                             <div class="metric-lead-row">
-                                                <p class="metric-lead">Green In Green Raw Sums</p>
+                                                <p class="metric-lead">Red In Red Total Intensity</p>
                                                 <span
                                                     class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Green-channel intensity summed inside each ranked Green contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other raw-sum sections."
-                                                    aria-label="Green In Green Raw Sum Details"
-                                                    title="Green In Green Raw Sum Details"
+                                                    data-info-text="Total raw Red-channel intensity inside each ranked Red contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other total-intensity sections."
+                                                    aria-label="Red In Red Total Intensity Details"
+                                                    title="Red In Red Total Intensity Details"
                                                 >i</span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Green In Green Intensity 1</span>
+                                                <span class="metric-label">Red In Red Total Intensity 1</span>
+                                                <span class="metric-value" id="redInRedIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Red Total Intensity 2</span>
+                                                <span class="metric-value" id="redInRedIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Red Total Intensity 3</span>
+                                                <span class="metric-value" id="redInRedIntensity3"></span>
+                                            </div>
+                                        </div>
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Green In Red Total Intensity</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Total raw Green-channel intensity inside each ranked Red contour slot after clipping to the DIC cell mask. Use this to compare Green signal captured by Red contour regions."
+                                                    aria-label="Green In Red Total Intensity Details"
+                                                    title="Green In Red Total Intensity Details"
+                                                >i</span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Red Total Intensity 1</span>
+                                                <span class="metric-value" id="greenInRedIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Red Total Intensity 2</span>
+                                                <span class="metric-value" id="greenInRedIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Red Total Intensity 3</span>
+                                                <span class="metric-value" id="greenInRedIntensity3"></span>
+                                            </div>
+                                        </div>
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Red In Green Total Intensity</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Total raw Red-channel intensity inside each ranked Green contour slot after clipping to the DIC cell mask. Use this to compare Red signal captured by Green contour regions."
+                                                    aria-label="Red In Green Total Intensity Details"
+                                                    title="Red In Green Total Intensity Details"
+                                                >i</span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Green Total Intensity 1</span>
+                                                <span class="metric-value" id="redInGreenIntensity1"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Green Total Intensity 2</span>
+                                                <span class="metric-value" id="redInGreenIntensity2"></span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Red In Green Total Intensity 3</span>
+                                                <span class="metric-value" id="redInGreenIntensity3"></span>
+                                            </div>
+                                        </div>
+                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
+                                            <div class="metric-lead-row">
+                                                <p class="metric-lead">Green In Green Total Intensity</p>
+                                                <span
+                                                    class="selection-info-dot metric-info-dot"
+                                                    data-info-text="Total raw Green-channel intensity inside each ranked Green contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other total-intensity sections."
+                                                    aria-label="Green In Green Total Intensity Details"
+                                                    title="Green In Green Total Intensity Details"
+                                                >i</span>
+                                            </div>
+                                            <div class="metric-row">
+                                                <span class="metric-label">Green In Green Total Intensity 1</span>
                                                 <span class="metric-value" id="greenInGreenIntensity1"></span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Green In Green Intensity 2</span>
+                                                <span class="metric-label">Green In Green Total Intensity 2</span>
                                                 <span class="metric-value" id="greenInGreenIntensity2"></span>
                                             </div>
                                             <div class="metric-row">
-                                                <span class="metric-label">Green In Green Intensity 3</span>
+                                                <span class="metric-label">Green In Green Total Intensity 3</span>
                                                 <span class="metric-value" id="greenInGreenIntensity3"></span>
                                             </div>
                                         </div>

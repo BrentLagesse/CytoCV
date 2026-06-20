@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import re
@@ -91,18 +91,18 @@ def _make_cell_stats(
         puncta_line_intensity=0.0,
         nucleus_intensity_sum=0.0,
         cell_pair_intensity_sum=0.0,
-        red_intensity_1=0.0,
-        red_intensity_2=0.0,
-        red_intensity_3=0.0,
-        green_intensity_1=0.0,
-        green_intensity_2=0.0,
-        green_intensity_3=0.0,
-        red_in_green_intensity_1=0.0,
-        red_in_green_intensity_2=0.0,
-        red_in_green_intensity_3=0.0,
-        green_in_green_intensity_1=0.0,
-        green_in_green_intensity_2=0.0,
-        green_in_green_intensity_3=0.0,
+        red_in_red_total_intensity_1=0.0,
+        red_in_red_total_intensity_2=0.0,
+        red_in_red_total_intensity_3=0.0,
+        green_in_red_total_intensity_1=0.0,
+        green_in_red_total_intensity_2=0.0,
+        green_in_red_total_intensity_3=0.0,
+        red_in_green_total_intensity_1=0.0,
+        red_in_green_total_intensity_2=0.0,
+        red_in_green_total_intensity_3=0.0,
+        green_in_green_total_intensity_1=0.0,
+        green_in_green_total_intensity_2=0.0,
+        green_in_green_total_intensity_3=0.0,
         green_red_intensity_1=0.0,
         green_red_intensity_2=0.0,
         green_red_intensity_3=0.0,
@@ -568,10 +568,32 @@ class CellDeletionEndpointTests(TestCase):
                     "_columns": "puncta_distance",
                 },
             )
+            selected_intensity_csv_response = self.client.get(
+                reverse("dashboard"),
+                {
+                    "file_uuid": uuid_value,
+                    "_export": "csv",
+                    "_unit": "px",
+                    "_columns": "red_in_red_total_intensity_1",
+                },
+            )
+            selected_intensity_xlsx_response = self.client.get(
+                reverse("dashboard"),
+                {
+                    "file_uuid": uuid_value,
+                    "_export": "xlsx",
+                    "_unit": "px",
+                    "_columns": "red_in_red_total_intensity_1",
+                },
+            )
 
             self.assertEqual(csv_response.status_code, 200)
             self.assertEqual(xlsx_response.status_code, 200)
             self.assertEqual(filtered_csv_response.status_code, 200)
+            self.assertEqual(selected_intensity_csv_response.status_code, 200)
+            self.assertEqual(selected_intensity_xlsx_response.status_code, 200)
             self.assertEqual(_csv_cell_ids(csv_response), [1, 4])
             self.assertEqual(_xlsx_cell_ids(xlsx_response), [1, 4])
             self.assertEqual(_csv_cell_ids(filtered_csv_response), [1, 4])
+            self.assertEqual(_csv_cell_ids(selected_intensity_csv_response), [1, 4])
+            self.assertEqual(_xlsx_cell_ids(selected_intensity_xlsx_response), [1, 4])

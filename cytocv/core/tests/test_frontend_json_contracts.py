@@ -139,7 +139,9 @@ class FrontendJsonContractTests(TestCase):
             ),
         )
         self.assertIsInstance(display_config["confirmCellDeletion"], bool)
-        self.assertIsInstance(parse_json_script(display_content, "exportSelectionConfig"), dict)
+        display_export_config = parse_json_script(display_content, "exportSelectionConfig")
+        self.assertIsInstance(display_export_config, dict)
+        self.assertContourIntensityExportMetadata(display_export_config)
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
         dashboard_content = response_text(dashboard_response)
@@ -166,7 +168,9 @@ class FrontendJsonContractTests(TestCase):
             ),
         )
         self.assertIsInstance(dashboard_config["hasFiles"], bool)
-        self.assertIsInstance(parse_json_script(dashboard_content, "exportSelectionConfig"), dict)
+        dashboard_export_config = parse_json_script(dashboard_content, "exportSelectionConfig")
+        self.assertIsInstance(dashboard_export_config, dict)
+        self.assertContourIntensityExportMetadata(dashboard_export_config)
 
     def test_account_settings_json_contract_parses(self):
         login_user(self, "frontend-json-account@example.com")
@@ -178,3 +182,30 @@ class FrontendJsonContractTests(TestCase):
             ("openDeleteModal",),
         )
         self.assertIsInstance(payload["openDeleteModal"], bool)
+
+    def assertContourIntensityExportMetadata(self, config):
+        items = config["items"]
+        intensity_items = [
+            item for item in items if item.get("family") == "contour_intensity"
+        ]
+        self.assertEqual(len(intensity_items), 36)
+        fields = {item["tableField"]: item for item in intensity_items}
+        self.assertEqual(
+            fields["red_in_red_total_intensity_1"]["combination"],
+            "red_in_red",
+        )
+        self.assertEqual(fields["red_in_red_total_intensity_1"]["statistic"], "total")
+        self.assertEqual(fields["red_in_red_total_intensity_1"]["slot"], 1)
+        self.assertEqual(
+            fields["green_in_green_average_intensity_3"]["combination"],
+            "green_in_green",
+        )
+        self.assertEqual(
+            fields["green_in_green_average_intensity_3"]["statistic"],
+            "average",
+        )
+        self.assertEqual(fields["green_in_green_average_intensity_3"]["slot"], 3)
+        self.assertNotEqual(
+            next(item for item in items if item["tableField"] == "puncta_distance").get("family"),
+            "contour_intensity",
+        )

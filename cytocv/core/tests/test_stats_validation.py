@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase
+﻿from django.test import SimpleTestCase
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -332,8 +332,12 @@ class AnalysisRegressionTests(SimpleTestCase):
             cen_dot_distance=37,
         )
 
-        self.assertEqual(cp.red_intensity_1, 0.0)
-        self.assertEqual(cp.green_in_green_intensity_1, 0.0)
+        self.assertEqual(cp.red_in_red_total_intensity_1, 0.0)
+        self.assertEqual(cp.red_in_red_max_intensity_1, 0.0)
+        self.assertEqual(cp.red_in_red_average_intensity_1, 0.0)
+        self.assertEqual(cp.green_in_green_total_intensity_1, 0.0)
+        self.assertEqual(cp.green_in_green_max_intensity_1, 0.0)
+        self.assertEqual(cp.green_in_green_average_intensity_1, 0.0)
 
     def test_green_red_intensity_uses_red_mode_ratio_when_toggle_targets_red_contours(self):
         plugin = GreenRedIntensity()
@@ -388,20 +392,34 @@ class AnalysisRegressionTests(SimpleTestCase):
         green_mask = np.zeros(green_image.shape, dtype=np.uint8)
         cv2.drawContours(green_mask, [green_contour], 0, 255, -1)
 
-        expected_red_in_red = float(np.sum(red_image[red_mask > 0]))
-        expected_green_in_red = float(np.sum(green_image[red_mask > 0]))
-        expected_red_in_green = float(np.sum(red_image[green_mask > 0]))
-        expected_green_in_green = float(np.sum(green_image[green_mask > 0]))
+        red_in_red_pixels = red_image[red_mask > 0]
+        green_in_red_pixels = green_image[red_mask > 0]
+        red_in_green_pixels = red_image[green_mask > 0]
+        green_in_green_pixels = green_image[green_mask > 0]
+        expected_red_in_red = float(np.sum(red_in_red_pixels))
+        expected_green_in_red = float(np.sum(green_in_red_pixels))
+        expected_red_in_green = float(np.sum(red_in_green_pixels))
+        expected_green_in_green = float(np.sum(green_in_green_pixels))
 
-        self.assertEqual(cp.red_intensity_1, expected_red_in_red)
-        self.assertEqual(cp.green_intensity_1, expected_green_in_red)
-        self.assertEqual(cp.red_in_green_intensity_1, expected_red_in_green)
-        self.assertEqual(cp.green_in_green_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.red_in_red_total_intensity_1, expected_red_in_red)
+        self.assertEqual(cp.red_in_red_max_intensity_1, float(np.max(red_in_red_pixels)))
+        self.assertEqual(cp.red_in_red_average_intensity_1, float(np.mean(red_in_red_pixels)))
+        self.assertEqual(cp.green_in_red_total_intensity_1, expected_green_in_red)
+        self.assertEqual(cp.green_in_red_max_intensity_1, float(np.max(green_in_red_pixels)))
+        self.assertEqual(cp.green_in_red_average_intensity_1, float(np.mean(green_in_red_pixels)))
+        self.assertEqual(cp.red_in_green_total_intensity_1, expected_red_in_green)
+        self.assertEqual(cp.red_in_green_max_intensity_1, float(np.max(red_in_green_pixels)))
+        self.assertEqual(cp.red_in_green_average_intensity_1, float(np.mean(red_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_total_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.green_in_green_max_intensity_1, float(np.max(green_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_average_intensity_1, float(np.mean(green_in_green_pixels)))
         self.assertEqual(
             cp.green_red_intensity_1,
             expected_green_in_red / expected_red_in_red,
         )
-        self.assertEqual(cp.red_intensity_2, 0.0)
+        self.assertEqual(cp.red_in_red_total_intensity_2, 0.0)
+        self.assertEqual(cp.red_in_red_max_intensity_2, 0.0)
+        self.assertEqual(cp.red_in_red_average_intensity_2, 0.0)
         self.assertEqual(cp.green_red_intensity_2, 0.0)
 
     def test_green_red_intensity_uses_green_mode_ratio_when_toggle_targets_green_contours(self):
@@ -454,11 +472,17 @@ class AnalysisRegressionTests(SimpleTestCase):
 
         green_mask = np.zeros(green_image.shape, dtype=np.uint8)
         cv2.drawContours(green_mask, [green_contour], 0, 255, -1)
-        expected_red_in_green = float(np.sum(red_image[green_mask > 0]))
-        expected_green_in_green = float(np.sum(green_image[green_mask > 0]))
+        red_in_green_pixels = red_image[green_mask > 0]
+        green_in_green_pixels = green_image[green_mask > 0]
+        expected_red_in_green = float(np.sum(red_in_green_pixels))
+        expected_green_in_green = float(np.sum(green_in_green_pixels))
 
-        self.assertEqual(cp.red_in_green_intensity_1, expected_red_in_green)
-        self.assertEqual(cp.green_in_green_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.red_in_green_total_intensity_1, expected_red_in_green)
+        self.assertEqual(cp.red_in_green_max_intensity_1, float(np.max(red_in_green_pixels)))
+        self.assertEqual(cp.red_in_green_average_intensity_1, float(np.mean(red_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_total_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.green_in_green_max_intensity_1, float(np.max(green_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_average_intensity_1, float(np.mean(green_in_green_pixels)))
         self.assertEqual(
             cp.green_red_intensity_1,
             expected_red_in_green / expected_green_in_green,

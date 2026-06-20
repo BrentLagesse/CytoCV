@@ -114,7 +114,7 @@ For the modern red/green measurements, CytoCV uses canonical contour slots acros
 
 - contour size outputs
 - full-main-image contour center coordinate outputs
-- raw integrated contour intensity outputs
+- raw total, maximum, and average contour intensity outputs
 - Red-line and CEN-dot puncta selection
 - nucleus measurements in `red_nucleus` and `green_nucleus` mode
 

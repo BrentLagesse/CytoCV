@@ -21,6 +21,21 @@ def calculate_intensity_mask(image, mask):
     masked_pixel = image[mask > 0]
     return np.sum(masked_pixel) if len(masked_pixel) > 0 else 0
 
+def calculate_masked_intensity_stats(image, mask):
+    """
+    :param image: Gray scale image
+    :param mask: Contour mask
+    :return: Total, maximum, and average values in the mask from the image
+    """
+    masked_pixel = image[mask > 0]
+    if len(masked_pixel) == 0:
+        return 0.0, 0.0, 0.0
+    return (
+        float(np.sum(masked_pixel)),
+        float(np.max(masked_pixel)),
+        float(np.mean(masked_pixel)),
+    )
+
 def ensure_3channel_bgr(img_array):
     """
     This function ensures that the image has 3 channels

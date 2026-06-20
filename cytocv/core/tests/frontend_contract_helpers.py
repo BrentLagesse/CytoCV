@@ -1,4 +1,4 @@
-"""Shared helpers for frontend contract tests."""
+﻿"""Shared helpers for frontend contract tests."""
 
 from __future__ import annotations
 
@@ -120,10 +120,18 @@ def add_cell_stat(file_uuid: str, *, cell_id: int = 1) -> None:
         cell_pair_intensity_sum=4.0,
         blue_contour_size=9.0,
         distance_of_green_from_red_1=6.0,
-        red_intensity_1=5.0,
-        green_intensity_1=6.0,
-        red_in_green_intensity_1=7.0,
-        green_in_green_intensity_1=8.0,
+        red_in_red_total_intensity_1=5.0,
+        red_in_red_max_intensity_1=4.0,
+        red_in_red_average_intensity_1=2.5,
+        green_in_red_total_intensity_1=6.0,
+        green_in_red_max_intensity_1=5.0,
+        green_in_red_average_intensity_1=3.0,
+        red_in_green_total_intensity_1=7.0,
+        red_in_green_max_intensity_1=6.0,
+        red_in_green_average_intensity_1=3.5,
+        green_in_green_total_intensity_1=8.0,
+        green_in_green_max_intensity_1=7.0,
+        green_in_green_average_intensity_1=4.0,
         green_red_intensity_1=6.0 / 5.0,
         category_cen_dot=1,
         properties={

@@ -7,6 +7,14 @@
   const VIEW_EXIT_MS = 120;
   const SELECTED_COUNT_COLOR = '#61d394';
   const EMPTY_COUNT_COLOR = '#f0c95a';
+  const CONTOUR_INTENSITY_COMBINATIONS = [
+    'red_in_red',
+    'green_in_red',
+    'red_in_green',
+    'green_in_green',
+  ];
+  const CONTOUR_INTENSITY_STATISTICS = ['total', 'max', 'average'];
+  const CONTOUR_INTENSITY_SLOTS = [1, 2, 3];
   const VIEW_ANIM_CLASSES = [
     'anim-enter-forward',
     'anim-enter-backward',
@@ -54,6 +62,136 @@
       if (text) labels.set(item.id, text);
     });
     return labels;
+  }
+
+  function arrayFromMaybeSet(value) {
+    if (value instanceof Set) return Array.from(value);
+    if (Array.isArray(value)) return value;
+    if (value === undefined || value === null) return [];
+    return [value];
+  }
+
+  function normalizedStringSet(value, allowedValues) {
+    const allowed = new Set(allowedValues);
+    return new Set(
+      arrayFromMaybeSet(value)
+        .map((item) => String(item))
+        .filter((item) => allowed.has(item))
+    );
+  }
+
+  function normalizedSlotSet(value) {
+    const allowed = new Set(CONTOUR_INTENSITY_SLOTS);
+    return new Set(
+      arrayFromMaybeSet(value)
+        .map((item) => Number(item))
+        .filter((item) => Number.isInteger(item) && allowed.has(item))
+    );
+  }
+
+  function normalizeIntensityFilters(filters) {
+    const source = filters || {};
+    return {
+      statistics: normalizedStringSet(
+        source.statistics || source.statistic,
+        CONTOUR_INTENSITY_STATISTICS
+      ),
+      slots: normalizedSlotSet(source.slots || source.slot),
+      combinations: normalizedStringSet(
+        source.combinations || source.combination,
+        CONTOUR_INTENSITY_COMBINATIONS
+      ),
+    };
+  }
+
+  function allIntensityFilters() {
+    return normalizeIntensityFilters({
+      statistics: CONTOUR_INTENSITY_STATISTICS,
+      slots: CONTOUR_INTENSITY_SLOTS,
+      combinations: CONTOUR_INTENSITY_COMBINATIONS,
+    });
+  }
+
+  function isContourIntensityItem(item) {
+    if (!item || item.family !== 'contour_intensity') return false;
+    return (
+      CONTOUR_INTENSITY_COMBINATIONS.includes(item.combination)
+      && CONTOUR_INTENSITY_STATISTICS.includes(item.statistic)
+      && CONTOUR_INTENSITY_SLOTS.includes(Number(item.slot))
+    );
+  }
+
+  function intensityItemMatchesFilters(item, filters) {
+    const normalized = filters && filters.statistics instanceof Set
+      ? filters
+      : normalizeIntensityFilters(filters);
+    return (
+      isContourIntensityItem(item)
+      && normalized.statistics.has(item.statistic)
+      && normalized.slots.has(Number(item.slot))
+      && normalized.combinations.has(item.combination)
+    );
+  }
+
+  function applyContourIntensitySelection(items, selectedIds, filters, options) {
+    const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
+    const normalized = normalizeIntensityFilters(filters);
+    const applicable = !options || options.applicable !== false;
+    (items || []).forEach((item) => {
+      if (!isContourIntensityItem(item) || !item.id) return;
+      selected.delete(item.id);
+      if (applicable && !item.disabled && intensityItemMatchesFilters(item, normalized)) {
+        selected.add(item.id);
+      }
+    });
+    return Array.from(selected);
+  }
+
+  function clearContourIntensitySelection(items, selectedIds) {
+    const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
+    (items || []).forEach((item) => {
+      if (isContourIntensityItem(item) && item.id) selected.delete(item.id);
+    });
+    return Array.from(selected);
+  }
+
+  function contourIntensitySelectedCount(items, selectedIds) {
+    const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
+    return (items || []).filter(
+      (item) => isContourIntensityItem(item) && selected.has(item.id)
+    ).length;
+  }
+
+  function isContourIntensityAvailable(visibility, hasIntensityItems) {
+    if (!hasIntensityItems) return false;
+    if (
+      visibility
+      && Object.prototype.hasOwnProperty.call(visibility, 'red_green_intensity')
+    ) {
+      return visibility.red_green_intensity !== false;
+    }
+    return true;
+  }
+
+  function formatContourIntensitySummary(items, selectedIds, available) {
+    if (!available) return 'Not available for selected files';
+    const count = contourIntensitySelectedCount(items, selectedIds);
+    return count === 1
+      ? '1 intensity column selected'
+      : `${count} intensity columns selected`;
+  }
+
+  function deriveContourIntensityAccordionState(expanded, available) {
+    const isExpanded = !!expanded;
+    const isAvailable = available !== false;
+    return {
+      expanded: isExpanded,
+      ariaExpanded: isExpanded ? 'true' : 'false',
+      bodyHidden: !isExpanded,
+      toggleText: isExpanded ? 'Hide' : 'Show',
+      controlsHidden: !isExpanded || !isAvailable,
+      unavailableMessageHidden: !isExpanded || isAvailable,
+    };
   }
 
   function getCookie(name) {
@@ -168,9 +306,29 @@
     const confirmBtn = document.getElementById(options.confirmId || 'confirmExportSelectionBtn');
     const chooseFilesBtn = document.getElementById(options.chooseFilesId || 'chooseExportFilesBtn');
     const formatToggle = document.getElementById(options.formatToggleId || 'exportFormatToggle');
+    const intensityQuickSelect = document.getElementById(
+      options.intensityQuickSelectId || 'exportIntensityQuickSelect'
+    );
+    const intensitySummaryEl = document.getElementById(
+      options.intensitySummaryId || 'exportIntensityQuickSelectSummary'
+    );
+    const intensityToggleBtn = document.getElementById(
+      options.intensityToggleId || 'exportIntensityQuickSelectToggle'
+    );
+    const intensityBody = document.getElementById(
+      options.intensityBodyId || 'exportIntensityQuickSelectBody'
+    );
+    const intensityAvailableControls = document.getElementById(
+      options.intensityAvailableControlsId || 'exportIntensityAvailableControls'
+    );
+    const intensityUnavailableMessage = document.getElementById(
+      options.intensityUnavailableMessageId || 'exportIntensityUnavailableMessage'
+    );
     const triggerFormats = options.triggerFormats || {};
     const items = metadata && Array.isArray(metadata.items) ? metadata.items : [];
     const groups = metadata && Array.isArray(metadata.groups) ? metadata.groups : [];
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const intensityItems = items.filter(isContourIntensityItem);
     const groupLabels = new Map(groups.map((group) => [group.id, group.label || group.id]));
     const presetButtons = Array.from(
       backdrop ? backdrop.querySelectorAll('[data-export-selection-action]') : []
@@ -180,6 +338,12 @@
     );
     const formatButtons = Array.from(
       backdrop ? backdrop.querySelectorAll('[data-export-format]') : []
+    );
+    const intensityFilterInputs = Array.from(
+      backdrop ? backdrop.querySelectorAll('[data-export-intensity-filter]') : []
+    );
+    const intensityActionButtons = Array.from(
+      backdrop ? backdrop.querySelectorAll('[data-export-intensity-action]') : []
     );
 
     if (
@@ -198,6 +362,7 @@
     let statsCanBack = false;
     let viewTimer = null;
     let downloading = false;
+    let intensityQuickSelectExpanded = false;
 
     function fileContext() {
       if (typeof options.getCurrentFileContext === 'function') {
@@ -328,6 +493,113 @@
       return visibility[item.group] !== false;
     }
 
+    function intensityQuickSelectIsApplicable() {
+      return isContourIntensityAvailable(activeVisibility(), intensityItems.length > 0);
+    }
+
+    function currentIntensityFilters() {
+      const values = {
+        statistics: [],
+        slots: [],
+        combinations: [],
+      };
+      intensityFilterInputs.forEach((input) => {
+        if (!input.checked) return;
+        const filterType = input.dataset.exportIntensityFilter;
+        if (filterType === 'statistic') {
+          values.statistics.push(input.value);
+        } else if (filterType === 'slot') {
+          values.slots.push(input.value);
+        } else if (filterType === 'combination') {
+          values.combinations.push(input.value);
+        }
+      });
+      return normalizeIntensityFilters(values);
+    }
+
+    function setIntensityFilterValues(filters) {
+      const normalized = normalizeIntensityFilters(filters);
+      intensityFilterInputs.forEach((input) => {
+        const filterType = input.dataset.exportIntensityFilter;
+        if (filterType === 'statistic') {
+          input.checked = normalized.statistics.has(input.value);
+        } else if (filterType === 'slot') {
+          input.checked = normalized.slots.has(Number(input.value));
+        } else if (filterType === 'combination') {
+          input.checked = normalized.combinations.has(input.value);
+        }
+      });
+    }
+
+    function setIntensitySelectionFromFilters(filters) {
+      const normalized = normalizeIntensityFilters(filters);
+      const applicable = intensityQuickSelectIsApplicable();
+      statList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        const item = itemById.get(input.value);
+        if (!isContourIntensityItem(item)) return;
+        input.checked = applicable && !input.disabled && intensityItemMatchesFilters(item, normalized);
+      });
+      updateStatCount();
+    }
+
+    function clearIntensitySelection() {
+      statList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        const item = itemById.get(input.value);
+        if (isContourIntensityItem(item)) input.checked = false;
+      });
+      updateStatCount();
+    }
+
+    function setIntensityControlsDisabled(disabled) {
+      intensityFilterInputs.forEach((input) => {
+        input.disabled = disabled;
+      });
+      intensityActionButtons.forEach((button) => {
+        button.disabled = disabled;
+      });
+    }
+
+    function updateIntensityQuickSelectState(selected) {
+      if (!intensityQuickSelect) return;
+      const hasIntensityItems = intensityItems.length > 0;
+      intensityQuickSelect.hidden = !hasIntensityItems;
+      if (!hasIntensityItems) return;
+
+      const applicable = intensityQuickSelectIsApplicable();
+      const state = deriveContourIntensityAccordionState(
+        intensityQuickSelectExpanded,
+        applicable
+      );
+      intensityQuickSelect.dataset.expanded = state.expanded ? 'true' : 'false';
+      intensityQuickSelect.classList.toggle('is-unavailable', !applicable);
+      setIntensityControlsDisabled(!applicable);
+      if (intensityToggleBtn) {
+        intensityToggleBtn.textContent = state.toggleText;
+        intensityToggleBtn.setAttribute('aria-expanded', state.ariaExpanded);
+      }
+      if (intensityBody) {
+        intensityBody.hidden = state.bodyHidden;
+      }
+      if (intensityAvailableControls) {
+        intensityAvailableControls.hidden = state.controlsHidden;
+      }
+      if (intensityUnavailableMessage) {
+        intensityUnavailableMessage.hidden = state.unavailableMessageHidden;
+      }
+      if (intensitySummaryEl) {
+        intensitySummaryEl.textContent = formatContourIntensitySummary(
+          items,
+          selected || selectedStatIds(),
+          applicable
+        );
+      }
+    }
+
+    function setIntensityAccordionExpanded(expanded) {
+      intensityQuickSelectExpanded = !!expanded;
+      updateIntensityQuickSelectState();
+    }
+
     function selectedStatIds() {
       return Array.from(statList.querySelectorAll('input[type="checkbox"]:checked'))
         .map((input) => input.value)
@@ -396,6 +668,7 @@
       }
       confirmBtn.disabled = count === 0 || downloading;
       updatePresetState(selected);
+      updateIntensityQuickSelectState(selected);
     }
 
     function setStatSelection(mode) {
@@ -562,6 +835,7 @@
       activeMode = 'single';
       activeView = 'stats';
       statsCanBack = false;
+      intensityQuickSelectExpanded = false;
       setActiveFormat(format);
       activeFileContext = fileContext();
       activeFileIds = new Set(
@@ -611,6 +885,7 @@
       if (!selectedFileIdsInOrder().length) return;
       activeMode = 'multi';
       statsCanBack = true;
+      intensityQuickSelectExpanded = false;
       buildStatRows();
       configureStatsView();
       switchView('stats', true, 'forward');
@@ -740,6 +1015,75 @@
       });
     });
 
+    intensityFilterInputs.forEach((input) => {
+      input.addEventListener('change', () => {
+        updateIntensityQuickSelectState();
+      });
+    });
+
+    intensityActionButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.exportIntensityAction || 'apply';
+        if (action === 'clear') {
+          clearIntensitySelection();
+          return;
+        }
+        if (action === 'all') {
+          setIntensityFilterValues(allIntensityFilters());
+          setIntensitySelectionFromFilters(allIntensityFilters());
+          return;
+        }
+        if (action === 'totals') {
+          const filters = {
+            statistics: ['total'],
+            slots: CONTOUR_INTENSITY_SLOTS,
+            combinations: CONTOUR_INTENSITY_COMBINATIONS,
+          };
+          setIntensityFilterValues(filters);
+          setIntensitySelectionFromFilters(filters);
+          return;
+        }
+        if (action === 'total_max') {
+          const filters = {
+            statistics: ['total', 'max'],
+            slots: CONTOUR_INTENSITY_SLOTS,
+            combinations: CONTOUR_INTENSITY_COMBINATIONS,
+          };
+          setIntensityFilterValues(filters);
+          setIntensitySelectionFromFilters(filters);
+          return;
+        }
+        if (action === 'average') {
+          const filters = {
+            statistics: ['average'],
+            slots: CONTOUR_INTENSITY_SLOTS,
+            combinations: CONTOUR_INTENSITY_COMBINATIONS,
+          };
+          setIntensityFilterValues(filters);
+          setIntensitySelectionFromFilters(filters);
+          return;
+        }
+        if (action === 'slots_1_2') {
+          const current = currentIntensityFilters();
+          const filters = {
+            statistics: Array.from(current.statistics),
+            slots: [1, 2],
+            combinations: Array.from(current.combinations),
+          };
+          setIntensityFilterValues(filters);
+          setIntensitySelectionFromFilters(filters);
+          return;
+        }
+        setIntensitySelectionFromFilters(currentIntensityFilters());
+      });
+    });
+
+    if (intensityToggleBtn) {
+      intensityToggleBtn.addEventListener('click', () => {
+        setIntensityAccordionExpanded(!intensityQuickSelectExpanded);
+      });
+    }
+
     backFileBtn.addEventListener('click', close);
     continueFileBtn.addEventListener('click', continueToStats);
     cancelBtn.addEventListener('click', () => {
@@ -791,5 +1135,17 @@
 
   window.CytoCVExportSelection = {
     init: createController,
+    __testHooks: {
+      applyContourIntensitySelection,
+      clearContourIntensitySelection,
+      contourIntensitySelectedCount,
+      deriveContourIntensityAccordionState,
+      formatContourIntensitySummary,
+      allIntensityFilters,
+      isContourIntensityAvailable,
+      isContourIntensityItem,
+      intensityItemMatchesFilters,
+      normalizeIntensityFilters,
+    },
   };
 })();

@@ -1,6 +1,6 @@
 import math
 
-from core.image_processing import calculate_intensity_mask
+from core.image_processing import calculate_masked_intensity_stats
 from core.services.canonical_contours import (
     get_canonical_green_slots,
     get_canonical_red_slots,
@@ -23,6 +23,12 @@ from .analysis import Analysis
 
 class GreenRedIntensity(Analysis):
     name = "Green Red Intensity"
+    intensity_prefixes = (
+        "red_in_red",
+        "green_in_red",
+        "red_in_green",
+        "green_in_green",
+    )
 
     def _set_default_triplet(self, prefix):
         for idx in range(1, 4):
@@ -31,6 +37,19 @@ class GreenRedIntensity(Analysis):
     def _set_default_red_contour_sizes(self):
         for idx in range(1, 4):
             setattr(self.cp, f"red_contour_{idx}_size", 0.0)
+
+    def _set_default_intensity_stats(self):
+        for prefix in self.intensity_prefixes:
+            for idx in range(1, 4):
+                setattr(self.cp, f"{prefix}_total_intensity_{idx}", 0.0)
+                setattr(self.cp, f"{prefix}_max_intensity_{idx}", 0.0)
+                setattr(self.cp, f"{prefix}_average_intensity_{idx}", 0.0)
+
+    def _store_intensity_stats(self, prefix, index, image, mask):
+        total, maximum, average = calculate_masked_intensity_stats(image, mask)
+        setattr(self.cp, f"{prefix}_total_intensity_{index}", total)
+        setattr(self.cp, f"{prefix}_max_intensity_{index}", maximum)
+        setattr(self.cp, f"{prefix}_average_intensity_{index}", average)
 
     def calculate_statistics(
         self,
@@ -65,11 +84,8 @@ class GreenRedIntensity(Analysis):
         self.cp.properties = props
         center_context = contour_center_context_from_properties(props)
         if red_gray is None or green_gray is None:
-            self._set_default_triplet("red_intensity")
-            self._set_default_triplet("green_intensity")
+            self._set_default_intensity_stats()
             self._set_default_triplet("green_red_intensity")
-            self._set_default_triplet("red_in_green_intensity")
-            self._set_default_triplet("green_in_green_intensity")
             self._set_default_triplet("distance_of_green_from_red")
             self._set_default_red_contour_sizes()
             for idx in range(1, 4):
@@ -96,26 +112,21 @@ class GreenRedIntensity(Analysis):
             center_context,
         )
 
-        self._set_default_triplet("red_intensity")
-        self._set_default_triplet("green_intensity")
+        self._set_default_intensity_stats()
         self._set_default_triplet("green_red_intensity")
-        self._set_default_triplet("red_in_green_intensity")
-        self._set_default_triplet("green_in_green_intensity")
         self._set_default_triplet("distance_of_green_from_red")
         self._set_default_red_contour_sizes()
         for idx in range(1, 4):
             setattr(self.cp, f"green_contour_{idx}_size", 0.0)
 
         for i, slot in enumerate(red_slots):
-            red_intensity = float(calculate_intensity_mask(red_gray, slot.mask))
-            green_intensity = float(calculate_intensity_mask(green_gray, slot.mask))
-            setattr(self.cp, f"red_intensity_{i + 1}", red_intensity)
-            setattr(self.cp, f"green_intensity_{i + 1}", green_intensity)
-            setattr(self.cp, f"red_contour_{i + 1}_size", float(slot.area))
+            index = i + 1
+            self._store_intensity_stats("red_in_red", index, red_gray, slot.mask)
+            self._store_intensity_stats("green_in_red", index, green_gray, slot.mask)
+            setattr(self.cp, f"red_contour_{index}_size", float(slot.area))
 
         for i, slot in enumerate(green_slots):
-            red_in_green = float(calculate_intensity_mask(red_gray, slot.mask))
-            green_in_green = float(calculate_intensity_mask(green_gray, slot.mask))
+            index = i + 1
             if red_centers:
                 nearest_red_center = min(
                     red_centers,
@@ -126,16 +137,16 @@ class GreenRedIntensity(Analysis):
                 nearest_red_center = None
                 nearest_red_dist = 0.0
 
-            setattr(self.cp, f"red_in_green_intensity_{i + 1}", red_in_green)
-            setattr(self.cp, f"green_in_green_intensity_{i + 1}", green_in_green)
-            setattr(self.cp, f"green_contour_{i + 1}_size", float(slot.area))
-            setattr(self.cp, f"distance_of_green_from_red_{i + 1}", float(nearest_red_dist))
+            self._store_intensity_stats("red_in_green", index, red_gray, slot.mask)
+            self._store_intensity_stats("green_in_green", index, green_gray, slot.mask)
+            setattr(self.cp, f"green_contour_{index}_size", float(slot.area))
+            setattr(self.cp, f"distance_of_green_from_red_{index}", float(nearest_red_dist))
             self.cp.properties = dict(self.cp.properties or {})
             if nearest_red_center is not None:
-                self.cp.properties[f"distance_of_green_from_red_{i + 1}_delta_x_px"] = float(
+                self.cp.properties[f"distance_of_green_from_red_{index}_delta_x_px"] = float(
                     nearest_red_center[0] - slot.center[0]
                 )
-                self.cp.properties[f"distance_of_green_from_red_{i + 1}_delta_y_px"] = float(
+                self.cp.properties[f"distance_of_green_from_red_{index}_delta_y_px"] = float(
                     nearest_red_center[1] - slot.center[1]
                 )
 

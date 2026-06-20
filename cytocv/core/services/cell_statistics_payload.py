@@ -88,6 +88,21 @@ def serialize_cell_statistics_payload(
             return None
         return value
 
+    intensity_payload = {}
+    for prefix in (
+        "red_in_red",
+        "green_in_red",
+        "red_in_green",
+        "green_in_green",
+    ):
+        for index in range(1, 4):
+            for statistic in ("total", "max", "average"):
+                field_name = f"{prefix}_{statistic}_intensity_{index}"
+                intensity_payload[field_name] = stat_value(
+                    field_name,
+                    getattr(cell_stat, field_name),
+                )
+
     return {
         "selected_analysis": selected_analysis if isinstance(selected_analysis, list) else [],
         "stat_visibility": stat_visibility,
@@ -134,45 +149,7 @@ def serialize_cell_statistics_payload(
             "red_contour_3_center_xy",
             contour_center_payloads["red_contour_3_center_xy"],
         ),
-        "red_intensity_1": stat_value("red_intensity_1", cell_stat.red_intensity_1),
-        "red_intensity_2": stat_value("red_intensity_2", cell_stat.red_intensity_2),
-        "red_intensity_3": stat_value("red_intensity_3", cell_stat.red_intensity_3),
-        "green_intensity_1": stat_value(
-            "green_intensity_1",
-            cell_stat.green_intensity_1,
-        ),
-        "green_intensity_2": stat_value(
-            "green_intensity_2",
-            cell_stat.green_intensity_2,
-        ),
-        "green_intensity_3": stat_value(
-            "green_intensity_3",
-            cell_stat.green_intensity_3,
-        ),
-        "red_in_green_intensity_1": stat_value(
-            "red_in_green_intensity_1",
-            cell_stat.red_in_green_intensity_1,
-        ),
-        "red_in_green_intensity_2": stat_value(
-            "red_in_green_intensity_2",
-            cell_stat.red_in_green_intensity_2,
-        ),
-        "red_in_green_intensity_3": stat_value(
-            "red_in_green_intensity_3",
-            cell_stat.red_in_green_intensity_3,
-        ),
-        "green_in_green_intensity_1": stat_value(
-            "green_in_green_intensity_1",
-            cell_stat.green_in_green_intensity_1,
-        ),
-        "green_in_green_intensity_2": stat_value(
-            "green_in_green_intensity_2",
-            cell_stat.green_in_green_intensity_2,
-        ),
-        "green_in_green_intensity_3": stat_value(
-            "green_in_green_intensity_3",
-            cell_stat.green_in_green_intensity_3,
-        ),
+        **intensity_payload,
         "green_contour_1_size": stat_value(
             "green_contour_1_size",
             cell_stat.green_contour_1_size,

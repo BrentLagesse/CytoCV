@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 
 from django.test import SimpleTestCase
 from django.utils import timezone
@@ -81,7 +81,7 @@ class StatExportSelectionTests(SimpleTestCase):
     def test_export_metric_scope_detects_selected_metric_subset(self):
         self.assertEqual(
             export_metric_scope(
-                "cytoplasmic_intensity,red_intensity_1,puncta_distance",
+                "cytoplasmic_intensity,red_in_red_total_intensity_1,puncta_distance",
                 columns_present=True,
             ),
             "selected",
@@ -95,12 +95,12 @@ class StatExportSelectionTests(SimpleTestCase):
 
     def test_valid_columns_are_returned_in_table_order(self):
         selected = normalize_export_columns(
-            "cytoplasmic_intensity,puncta_distance,red_intensity_1"
+            "cytoplasmic_intensity,puncta_distance,red_in_red_total_intensity_1"
         )
 
         self.assertEqual(
             selected,
-            ("puncta_distance", "red_intensity_1", "cytoplasmic_intensity"),
+            ("puncta_distance", "red_in_red_total_intensity_1", "cytoplasmic_intensity"),
         )
 
     def test_contour_center_columns_are_selectable_in_table_order(self):
@@ -123,13 +123,13 @@ class StatExportSelectionTests(SimpleTestCase):
     def test_duplicate_fields_collapse_without_changing_order(self):
         selected = normalize_export_columns(
             [
-                "red_intensity_1,puncta_distance",
+                "red_in_red_total_intensity_1,puncta_distance",
                 "puncta_distance",
-                "red_intensity_1",
+                "red_in_red_total_intensity_1",
             ]
         )
 
-        self.assertEqual(selected, ("puncta_distance", "red_intensity_1"))
+        self.assertEqual(selected, ("puncta_distance", "red_in_red_total_intensity_1"))
 
     def test_unknown_fields_are_ignored_when_valid_fields_are_present(self):
         selected = normalize_export_columns("unknown_field,cell_id,nucleus_intensity_sum")
@@ -170,13 +170,13 @@ class StatExportSelectionTests(SimpleTestCase):
 
     def test_included_columns_always_keep_cell_id_first(self):
         included_columns = export_included_columns(
-            "red_intensity_1,puncta_distance",
+            "red_in_red_total_intensity_1,puncta_distance",
             columns_present=True,
         )
 
         self.assertEqual(
             included_columns,
-            ("cell_id", "puncta_distance", "red_intensity_1"),
+            ("cell_id", "puncta_distance", "red_in_red_total_intensity_1"),
         )
 
     def test_exclude_columns_excludes_every_unselected_stat_field(self):
@@ -206,4 +206,99 @@ class StatExportSelectionTests(SimpleTestCase):
         self.assertEqual(config["alwaysIncluded"][0]["id"], "cell_id")
         self.assertTrue(
             any(item["id"] == "red_contour_1_center_xy" for item in config["items"])
+        )
+
+    def test_export_selection_config_tags_contour_intensity_metadata(self):
+        config = export_selection_config()
+        items_by_field = {item["tableField"]: item for item in config["items"]}
+        combinations = (
+            "red_in_red",
+            "green_in_red",
+            "red_in_green",
+            "green_in_green",
+        )
+        statistics = ("total", "max", "average")
+        intensity_fields = [
+            f"{combination}_{statistic}_intensity_{slot}"
+            for combination in combinations
+            for statistic in statistics
+            for slot in range(1, 4)
+        ]
+
+        self.assertEqual(len(intensity_fields), 36)
+        for field_name in intensity_fields:
+            with self.subTest(field=field_name):
+                item = items_by_field[field_name]
+                combination, statistic, _, slot = field_name.rsplit("_", 3)
+                self.assertEqual(item["family"], "contour_intensity")
+                self.assertEqual(item["combination"], combination)
+                self.assertEqual(item["statistic"], statistic)
+                self.assertEqual(item["slot"], int(slot))
+                self.assertEqual(item["id"], field_name)
+                self.assertEqual(item["tableField"], field_name)
+                self.assertEqual(item["payloadParam"], "_columns")
+
+    def test_export_selection_config_leaves_non_intensity_fields_untagged(self):
+        config = export_selection_config()
+        non_intensity_items = [
+            item
+            for item in config["items"]
+            if item["tableField"] in {"puncta_distance", "green_red_intensity_1"}
+        ]
+
+        self.assertEqual(len(non_intensity_items), 2)
+        for item in non_intensity_items:
+            with self.subTest(field=item["tableField"]):
+                self.assertNotEqual(item.get("family"), "contour_intensity")
+                self.assertNotIn("combination", item)
+                self.assertNotIn("statistic", item)
+                self.assertNotIn("slot", item)
+
+    def test_total_max_and_average_intensity_columns_are_independently_selectable(self):
+        total_only = normalize_export_columns(
+            "red_in_red_total_intensity_1,"
+            "green_in_red_total_intensity_1,"
+            "red_in_green_total_intensity_1,"
+            "green_in_green_total_intensity_1"
+        )
+        self.assertEqual(
+            total_only,
+            (
+                "red_in_red_total_intensity_1",
+                "green_in_red_total_intensity_1",
+                "red_in_green_total_intensity_1",
+                "green_in_green_total_intensity_1",
+            ),
+        )
+
+        total_and_max = normalize_export_columns(
+            "red_in_red_total_intensity_1,"
+            "red_in_red_max_intensity_1,"
+            "green_in_red_total_intensity_1,"
+            "green_in_red_max_intensity_1"
+        )
+        self.assertEqual(
+            total_and_max,
+            (
+                "red_in_red_total_intensity_1",
+                "red_in_red_max_intensity_1",
+                "green_in_red_total_intensity_1",
+                "green_in_red_max_intensity_1",
+            ),
+        )
+
+        average_only = normalize_export_columns(
+            "red_in_red_average_intensity_1,"
+            "green_in_red_average_intensity_1,"
+            "red_in_green_average_intensity_1,"
+            "green_in_green_average_intensity_1"
+        )
+        self.assertEqual(
+            average_only,
+            (
+                "red_in_red_average_intensity_1",
+                "green_in_red_average_intensity_1",
+                "red_in_green_average_intensity_1",
+                "green_in_green_average_intensity_1",
+            ),
         )

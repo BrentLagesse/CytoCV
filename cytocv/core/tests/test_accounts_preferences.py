@@ -838,10 +838,18 @@ class DisplayManualSaveTests(TestCase):
             cell_pair_intensity_sum=4.0,
             blue_contour_size=9.0,
             distance_of_green_from_red_1=6.0,
-            red_intensity_1=5.0,
-            green_intensity_1=6.0,
-            red_in_green_intensity_1=7.0,
-            green_in_green_intensity_1=8.0,
+            red_in_red_total_intensity_1=5.0,
+            red_in_red_max_intensity_1=4.0,
+            red_in_red_average_intensity_1=2.5,
+            green_in_red_total_intensity_1=6.0,
+            green_in_red_max_intensity_1=5.0,
+            green_in_red_average_intensity_1=3.0,
+            red_in_green_total_intensity_1=7.0,
+            red_in_green_max_intensity_1=6.0,
+            red_in_green_average_intensity_1=3.5,
+            green_in_green_total_intensity_1=8.0,
+            green_in_green_max_intensity_1=7.0,
+            green_in_green_average_intensity_1=4.0,
             green_red_intensity_1=6.0 / 5.0,
             category_cen_dot=1,
             properties=stat_properties,
@@ -899,6 +907,25 @@ class DisplayManualSaveTests(TestCase):
     @staticmethod
     def _all_metric_columns() -> str:
         return ",".join(USER_SELECTABLE_TABLE_FIELDS)
+
+    @staticmethod
+    def _intensity_columns(
+        *,
+        statistics: tuple[str, ...] = ("total", "max", "average"),
+        slots: tuple[int, ...] = (1, 2, 3),
+        combinations: tuple[str, ...] = (
+            "red_in_red",
+            "green_in_red",
+            "red_in_green",
+            "green_in_green",
+        ),
+    ) -> list[str]:
+        return [
+            f"{combination}_{statistic}_intensity_{slot}"
+            for combination in combinations
+            for slot in slots
+            for statistic in statistics
+        ]
 
     def assertExportFilename(
         self,
@@ -1152,13 +1179,13 @@ class DisplayManualSaveTests(TestCase):
             response, 'id="nextFileBtn" disabled aria-disabled="true"', html=False
         )
         self.assertContains(response, "CEN Dot Measurements")
-        self.assertContains(response, "Red In Red Raw Sums")
-        self.assertContains(response, "Green In Red Raw Sums")
-        self.assertContains(response, "Red In Green Raw Sums")
-        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(response, "Red In Red Total Intensity")
+        self.assertContains(response, "Green In Red Total Intensity")
+        self.assertContains(response, "Red In Green Total Intensity")
+        self.assertContains(response, "Green In Green Total Intensity")
         self.assertContains(
             response,
-            "Raw Green-channel intensity summed inside each ranked Green contour slot",
+            "Total raw Green-channel intensity inside each ranked Green contour slot",
         )
         self.assertNotContains(response, "Intensity + Green Output")
 
@@ -1248,13 +1275,13 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'id="red_form"', html=False)
         self.assertContains(response, 'id="green_form"', html=False)
         self.assertContains(response, "CEN Dot Measurements")
-        self.assertContains(response, "Red In Red Raw Sums")
-        self.assertContains(response, "Green In Red Raw Sums")
-        self.assertContains(response, "Red In Green Raw Sums")
-        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(response, "Red In Red Total Intensity")
+        self.assertContains(response, "Green In Red Total Intensity")
+        self.assertContains(response, "Red In Green Total Intensity")
+        self.assertContains(response, "Green In Green Total Intensity")
         self.assertContains(
             response,
-            "Raw Green-channel intensity summed inside each ranked Green contour slot",
+            "Total raw Green-channel intensity inside each ranked Green contour slot",
         )
         self.assertNotContains(response, "Intensity + Green Output")
 
@@ -1448,10 +1475,18 @@ class DisplayManualSaveTests(TestCase):
         self.assertIn("text/csv", response["Content-Type"])
         csv_text = response.content.decode("utf-8")
         self.assertIn("Cell ID", csv_text)
-        self.assertIn("Red In Red Intensity 1", csv_text)
-        self.assertIn("Green In Red Intensity 1", csv_text)
-        self.assertIn("Red In Green Intensity 1", csv_text)
-        self.assertIn("Green In Green Intensity 1", csv_text)
+        self.assertIn("Red In Red Total Intensity 1", csv_text)
+        self.assertIn("Red In Red Max Intensity 1", csv_text)
+        self.assertIn("Red In Red Average Intensity 1", csv_text)
+        self.assertIn("Green In Red Total Intensity 1", csv_text)
+        self.assertIn("Green In Red Max Intensity 1", csv_text)
+        self.assertIn("Green In Red Average Intensity 1", csv_text)
+        self.assertIn("Red In Green Total Intensity 1", csv_text)
+        self.assertIn("Red In Green Max Intensity 1", csv_text)
+        self.assertIn("Red In Green Average Intensity 1", csv_text)
+        self.assertIn("Green In Green Total Intensity 1", csv_text)
+        self.assertIn("Green In Green Max Intensity 1", csv_text)
+        self.assertIn("Green In Green Average Intensity 1", csv_text)
         self.assertNotIn("Green/Red ratio 1", csv_text)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", csv_text)
         self.assertIn("5.000", csv_text)
@@ -1488,15 +1523,23 @@ class DisplayManualSaveTests(TestCase):
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
         headers = [cell.value for cell in sheet[1]]
-        self.assertIn("Red In Red Intensity 1", headers)
-        self.assertIn("Green In Red Intensity 1", headers)
-        self.assertIn("Red In Green Intensity 1", headers)
-        self.assertIn("Green In Green Intensity 1", headers)
+        self.assertIn("Red In Red Total Intensity 1", headers)
+        self.assertIn("Red In Red Max Intensity 1", headers)
+        self.assertIn("Red In Red Average Intensity 1", headers)
+        self.assertIn("Green In Red Total Intensity 1", headers)
+        self.assertIn("Green In Red Max Intensity 1", headers)
+        self.assertIn("Green In Red Average Intensity 1", headers)
+        self.assertIn("Red In Green Total Intensity 1", headers)
+        self.assertIn("Red In Green Max Intensity 1", headers)
+        self.assertIn("Red In Green Average Intensity 1", headers)
+        self.assertIn("Green In Green Total Intensity 1", headers)
+        self.assertIn("Green In Green Max Intensity 1", headers)
+        self.assertIn("Green In Green Average Intensity 1", headers)
         self.assertNotIn("Green/Red ratio 1", headers)
         self.assertIn("Measurement/Contour Ratio 1 (Green/Red)", headers)
         self.assertEqual(sheet.cell(row=2, column=1).value, 1)
         self.assertEqual(sheet.cell(row=2, column=1).data_type, "n")
-        red_intensity_col = headers.index("Red In Red Intensity 1") + 1
+        red_intensity_col = headers.index("Red In Red Total Intensity 1") + 1
         red_intensity_cell = sheet.cell(row=2, column=red_intensity_col)
         self.assertEqual(red_intensity_cell.value, 5)
         self.assertEqual(red_intensity_cell.data_type, "n")
@@ -1536,13 +1579,13 @@ class DisplayManualSaveTests(TestCase):
             ),
             (
                 "csv",
-                {"_columns": "red_intensity_1,puncta_distance"},
+                {"_columns": "red_in_red_total_intensity_1,puncta_distance"},
                 "selected",
                 "csv",
             ),
             (
                 "xlsx",
-                {"_columns": "red_intensity_1,puncta_distance"},
+                {"_columns": "red_in_red_total_intensity_1,puncta_distance"},
                 "selected",
                 "xlsx",
             ),
@@ -1584,7 +1627,7 @@ class DisplayManualSaveTests(TestCase):
                 "file_uuid": saved_uuid,
                 "_export": "csv",
                 "_columns": (
-                    "cytoplasmic_intensity,red_intensity_1,"
+                    "cytoplasmic_intensity,red_in_red_total_intensity_1,"
                     "red_contour_1_center_xy,puncta_distance"
                 ),
             },
@@ -1598,7 +1641,7 @@ class DisplayManualSaveTests(TestCase):
                 "Cell ID",
                 "Distance Between Red Puncta (px)",
                 "Red Contour 1 Center (x,y) (px)",
-                "Red In Red Intensity 1",
+                "Red In Red Total Intensity 1",
                 "Cytoplasmic Intensity",
             ],
         )
@@ -1617,7 +1660,7 @@ class DisplayManualSaveTests(TestCase):
             {
                 "file_uuid": saved_uuid,
                 "_export": "xlsx",
-                "_columns": "red_intensity_1,measurement_contour_ratio_1",
+                "_columns": "red_in_red_total_intensity_1,measurement_contour_ratio_1",
             },
         )
 
@@ -1626,8 +1669,207 @@ class DisplayManualSaveTests(TestCase):
             self._xlsx_headers(response),
             [
                 "Cell ID",
-                "Red In Red Intensity 1",
+                "Red In Red Total Intensity 1",
                 "Measurement/Contour Ratio 1 (Green/Red)",
+            ],
+        )
+
+    def test_dashboard_selected_intensity_exports_keep_total_max_and_average_independent(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_selected_intensity_independent",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        total_only_fields = (
+            "red_in_red_total_intensity_1,"
+            "green_in_red_total_intensity_1,"
+            "red_in_green_total_intensity_1,"
+            "green_in_green_total_intensity_1"
+        )
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "csv",
+                "_columns": total_only_fields,
+            },
+        )
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "Cell ID",
+                "Red In Red Total Intensity 1",
+                "Green In Red Total Intensity 1",
+                "Red In Green Total Intensity 1",
+                "Green In Green Total Intensity 1",
+            ],
+        )
+        self.assertEqual(rows[1], ["1", "5.000", "6.000", "7.000", "8.000"])
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "xlsx",
+                "_columns": total_only_fields,
+            },
+        )
+        self.assertEqual(
+            self._xlsx_headers(response),
+            [
+                "Cell ID",
+                "Red In Red Total Intensity 1",
+                "Green In Red Total Intensity 1",
+                "Red In Green Total Intensity 1",
+                "Green In Green Total Intensity 1",
+            ],
+        )
+        self.assertEqual(self._xlsx_rows(response)[1], [1, 5, 6, 7, 8])
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "csv",
+                "_columns": (
+                    "red_in_red_total_intensity_1,"
+                    "red_in_red_max_intensity_1,"
+                    "green_in_red_total_intensity_1,"
+                    "green_in_red_max_intensity_1"
+                ),
+            },
+        )
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "Cell ID",
+                "Red In Red Total Intensity 1",
+                "Red In Red Max Intensity 1",
+                "Green In Red Total Intensity 1",
+                "Green In Red Max Intensity 1",
+            ],
+        )
+        self.assertNotIn("Red In Red Average Intensity 1", rows[0])
+        self.assertEqual(rows[1], ["1", "5.000", "4.000", "6.000", "5.000"])
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "xlsx",
+                "_columns": (
+                    "red_in_red_average_intensity_1,"
+                    "green_in_red_average_intensity_1,"
+                    "red_in_green_average_intensity_1,"
+                    "green_in_green_average_intensity_1"
+                ),
+            },
+        )
+        self.assertEqual(
+            self._xlsx_headers(response),
+            [
+                "Cell ID",
+                "Red In Red Average Intensity 1",
+                "Green In Red Average Intensity 1",
+                "Red In Green Average Intensity 1",
+                "Green In Green Average Intensity 1",
+            ],
+        )
+        self.assertEqual(self._xlsx_rows(response)[1], [1, 2.5, 3, 3.5, 4])
+
+    def test_display_selected_total_only_intensity_exports_all_slots_and_combinations(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_selected_total_only_intensity",
+        )
+        self._add_cell_stat(saved_uuid)
+        columns = ",".join(self._intensity_columns(statistics=("total",)))
+
+        csv_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {"_export": "csv", "_columns": columns},
+        )
+        xlsx_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {"_export": "xlsx", "_columns": columns},
+        )
+
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(xlsx_response.status_code, 200)
+        csv_headers = self._csv_rows(csv_response)[0]
+        xlsx_headers = self._xlsx_headers(xlsx_response)
+        self.assertEqual(csv_headers, xlsx_headers)
+        self.assertEqual(len(csv_headers), 13)
+        self.assertIn("Red In Red Total Intensity 1", csv_headers)
+        self.assertIn("Green In Green Total Intensity 3", csv_headers)
+        self.assertTrue(all("Total Intensity" in header for header in csv_headers[1:]))
+        self.assertFalse(any("Max Intensity" in header for header in csv_headers))
+        self.assertFalse(any("Average Intensity" in header for header in csv_headers))
+
+    def test_dashboard_selected_slots_one_two_intensity_exports_exclude_slot_three(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="dashboard_selected_slots_one_two_intensity",
+        )
+        self._add_cell_stat(saved_uuid)
+        columns = ",".join(self._intensity_columns(slots=(1, 2)))
+
+        for export_format in ("csv", "xlsx"):
+            with self.subTest(export_format=export_format):
+                response = self.client.get(
+                    reverse("dashboard"),
+                    {
+                        "file_uuid": saved_uuid,
+                        "_export": export_format,
+                        "_columns": columns,
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                headers = (
+                    self._csv_rows(response)[0]
+                    if export_format == "csv"
+                    else self._xlsx_headers(response)
+                )
+                self.assertEqual(len(headers), 25)
+                self.assertIn("Red In Red Total Intensity 1", headers)
+                self.assertIn("Green In Green Average Intensity 2", headers)
+                self.assertFalse(any(header.endswith("Intensity 3") for header in headers))
+
+    def test_display_selected_same_channel_total_intensity_slots_one_two(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_selected_same_channel_intensity",
+        )
+        self._add_cell_stat(saved_uuid)
+        columns = ",".join(
+            self._intensity_columns(
+                statistics=("total",),
+                slots=(1, 2),
+                combinations=("red_in_red", "green_in_green"),
+            )
+        )
+
+        response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {"_export": "csv", "_columns": columns},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self._csv_rows(response)[0],
+            [
+                "Cell ID",
+                "Red In Red Total Intensity 1",
+                "Red In Red Total Intensity 2",
+                "Green In Green Total Intensity 1",
+                "Green In Green Total Intensity 2",
             ],
         )
 
@@ -1677,7 +1919,7 @@ class DisplayManualSaveTests(TestCase):
                 "file_uuid": saved_uuid,
                 "_export": "csv",
                 "_unit": "um",
-                "_columns": "red_intensity_1,puncta_distance",
+                "_columns": "red_in_red_total_intensity_1,puncta_distance",
             },
         )
 
@@ -1685,7 +1927,7 @@ class DisplayManualSaveTests(TestCase):
         rows = self._csv_rows(response)
         self.assertEqual(
             rows[0],
-            ["Cell ID", "Distance Between Red Puncta (µm)", "Red In Red Intensity 1"],
+            ["Cell ID", "Distance Between Red Puncta (µm)", "Red In Red Total Intensity 1"],
         )
         self.assertEqual(rows[1], ["1", "0.500", "5.000"])
 
@@ -1747,7 +1989,7 @@ class DisplayManualSaveTests(TestCase):
                     "uuids": [second_uuid, first_uuid],
                     "_export": "csv",
                     "_columns": [
-                        "red_intensity_1",
+                        "red_in_red_total_intensity_1",
                         "puncta_distance",
                         "red_contour_1_center_xy",
                     ],
@@ -1772,9 +2014,11 @@ class DisplayManualSaveTests(TestCase):
                 "Cell ID",
                 "Puncta Distance (px)",
                 "Red Contour 1 Center (x,y) (px)",
-                "Red In Red Intensity 1",
+                "Red In Red Total Intensity 1",
             ],
         )
+        self.assertNotIn("Red In Red Max Intensity 1", rows[0])
+        self.assertNotIn("Red In Red Average Intensity 1", rows[0])
         self.assertEqual(
             rows[1:],
             [
@@ -1804,7 +2048,7 @@ class DisplayManualSaveTests(TestCase):
                 {
                     "uuids": [first_uuid, second_uuid],
                     "_export": "xlsx",
-                    "_columns": ["red_intensity_1", "measurement_contour_ratio_1"],
+                    "_columns": ["red_in_red_total_intensity_1", "measurement_contour_ratio_1"],
                     "_unit": "px",
                 }
             ),
@@ -1824,10 +2068,12 @@ class DisplayManualSaveTests(TestCase):
             [
                 "File Name",
                 "Cell ID",
-                "Red In Red Intensity 1",
+                "Red In Red Total Intensity 1",
                 "Measurement/Contour Ratio 1",
             ],
         )
+        self.assertNotIn("Red In Red Max Intensity 1", rows[0])
+        self.assertNotIn("Red In Red Average Intensity 1", rows[0])
         self.assertEqual(
             [row[0] for row in rows[1:]],
             ["combined_xlsx_first", "combined_xlsx_second"],
@@ -1839,6 +2085,88 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(red_intensity_cell.value, 5)
         self.assertEqual(red_intensity_cell.data_type, "n")
         self.assertEqual(ratio_cell.data_type, "n")
+
+    def test_dashboard_combined_intensity_export_supports_total_max_without_average(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_total_max_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_total_max_second",
+        )
+        self._add_cell_stat(first_uuid)
+        self._add_cell_stat(second_uuid)
+        columns = self._intensity_columns(statistics=("total", "max"))
+
+        for export_format in ("csv", "xlsx"):
+            with self.subTest(export_format=export_format):
+                response = self.client.post(
+                    reverse("dashboard_bulk_export"),
+                    data=json.dumps(
+                        {
+                            "uuids": [first_uuid, second_uuid],
+                            "_export": export_format,
+                            "_columns": columns,
+                            "_unit": "px",
+                        }
+                    ),
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 200)
+                headers = (
+                    self._csv_rows(response)[0]
+                    if export_format == "csv"
+                    else self._xlsx_headers(response)
+                )
+                self.assertEqual(len(headers), 26)
+                self.assertIn("File Name", headers)
+                self.assertIn("Red In Red Total Intensity 1", headers)
+                self.assertIn("Green In Green Max Intensity 3", headers)
+                self.assertFalse(any("Average Intensity" in header for header in headers))
+
+    def test_display_combined_intensity_export_supports_average_only(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_average_only",
+        )
+        other_visible_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_average_not_selected",
+        )
+        self._add_cell_stat(saved_uuid)
+        columns = self._intensity_columns(statistics=("average",))
+
+        for export_format in ("csv", "xlsx"):
+            with self.subTest(export_format=export_format):
+                response = self.client.post(
+                    reverse("display_export_files"),
+                    data=json.dumps(
+                        {
+                            "visible_uuids": [saved_uuid, other_visible_uuid],
+                            "uuids": [saved_uuid],
+                            "_export": export_format,
+                            "_columns": columns,
+                            "_unit": "px",
+                        }
+                    ),
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 200)
+                headers = (
+                    self._csv_rows(response)[0]
+                    if export_format == "csv"
+                    else self._xlsx_headers(response)
+                )
+                self.assertEqual(len(headers), 14)
+                self.assertIn("Red In Red Average Intensity 1", headers)
+                self.assertIn("Green In Green Average Intensity 3", headers)
+                self.assertFalse(any("Total Intensity" in header for header in headers))
+                self.assertFalse(any("Max Intensity" in header for header in headers))
 
     def test_dashboard_combined_export_filename_scope_tracks_metric_selection(self):
         first_uuid = self._create_display_file(
@@ -1855,8 +2183,8 @@ class DisplayManualSaveTests(TestCase):
         self._add_cell_stat(second_uuid)
 
         cases = [
-            ("csv", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
-            ("xlsx", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
+            ("csv", [first_uuid, second_uuid], ["red_in_red_total_intensity_1"], "selected", 2),
+            ("xlsx", [first_uuid, second_uuid], ["red_in_red_total_intensity_1"], "selected", 2),
             (
                 "csv",
                 [first_uuid],
@@ -1923,7 +2251,7 @@ class DisplayManualSaveTests(TestCase):
                     "visible_uuids": [first_uuid, second_uuid],
                     "uuids": [second_uuid, first_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                     "_unit": "px",
                 }
             ),
@@ -1938,7 +2266,7 @@ class DisplayManualSaveTests(TestCase):
             extension="csv",
         )
         rows = self._csv_rows(response)
-        self.assertEqual(rows[0], ["File Name", "Cell ID", "Red In Red Intensity 1"])
+        self.assertEqual(rows[0], ["File Name", "Cell ID", "Red In Red Total Intensity 1"])
         self.assertEqual(
             [row[0] for row in rows[1:]],
             ["display_combined_first", "display_combined_second"],
@@ -1964,7 +2292,7 @@ class DisplayManualSaveTests(TestCase):
                     "visible_uuids": [saved_uuid, other_visible_uuid],
                     "uuids": [saved_uuid],
                     "_export": "xlsx",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                     "_unit": "px",
                 }
             ),
@@ -1980,7 +2308,7 @@ class DisplayManualSaveTests(TestCase):
         )
         self.assertEqual(
             self._xlsx_headers(response),
-            ["File Name", "Cell ID", "Red In Red Intensity 1"],
+            ["File Name", "Cell ID", "Red In Red Total Intensity 1"],
         )
 
     def test_display_combined_export_filename_scope_tracks_metric_selection(self):
@@ -1998,8 +2326,8 @@ class DisplayManualSaveTests(TestCase):
         self._add_cell_stat(second_uuid)
 
         cases = [
-            ("csv", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
-            ("xlsx", [first_uuid, second_uuid], ["red_intensity_1"], "selected", 2),
+            ("csv", [first_uuid, second_uuid], ["red_in_red_total_intensity_1"], "selected", 2),
+            ("xlsx", [first_uuid, second_uuid], ["red_in_red_total_intensity_1"], "selected", 2),
             (
                 "csv",
                 [first_uuid],
@@ -2099,7 +2427,7 @@ class DisplayManualSaveTests(TestCase):
         no_files = self.client.post(
             reverse("dashboard_bulk_export"),
             data=json.dumps(
-                {"uuids": [], "_export": "csv", "_columns": ["red_intensity_1"]}
+                {"uuids": [], "_export": "csv", "_columns": ["red_in_red_total_intensity_1"]}
             ),
             content_type="application/json",
         )
@@ -2114,7 +2442,7 @@ class DisplayManualSaveTests(TestCase):
                 {
                     "uuids": [owned_uuid, foreign_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                 }
             ),
             content_type="application/json",
@@ -2126,7 +2454,7 @@ class DisplayManualSaveTests(TestCase):
                     "visible_uuids": [owned_uuid],
                     "uuids": [outside_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                 }
             ),
             content_type="application/json",
@@ -2150,7 +2478,7 @@ class DisplayManualSaveTests(TestCase):
                 {
                     "uuids": [empty_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                 }
             ),
             content_type="application/json",
@@ -2175,7 +2503,7 @@ class DisplayManualSaveTests(TestCase):
                 {
                     "uuids": [saved_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                 }
             ),
             content_type="application/json",
@@ -2309,13 +2637,13 @@ class DisplayManualSaveTests(TestCase):
             ),
             (
                 "csv",
-                {"_columns": "red_intensity_1,puncta_distance"},
+                {"_columns": "red_in_red_total_intensity_1,puncta_distance"},
                 "selected",
                 "csv",
             ),
             (
                 "xlsx",
-                {"_columns": "red_intensity_1,puncta_distance"},
+                {"_columns": "red_in_red_total_intensity_1,puncta_distance"},
                 "selected",
                 "xlsx",
             ),
@@ -2355,7 +2683,7 @@ class DisplayManualSaveTests(TestCase):
             {
                 "_export": "csv",
                 "_columns": (
-                    "red_intensity_1,red_contour_1_center_xy,"
+                    "red_in_red_total_intensity_1,red_contour_1_center_xy,"
                     "measurement_contour_ratio_1"
                 ),
             },
@@ -2365,7 +2693,7 @@ class DisplayManualSaveTests(TestCase):
             {
                 "_export": "xlsx",
                 "_columns": (
-                    "red_intensity_1,red_contour_1_center_xy,"
+                    "red_in_red_total_intensity_1,red_contour_1_center_xy,"
                     "measurement_contour_ratio_1"
                 ),
             },
@@ -2376,15 +2704,19 @@ class DisplayManualSaveTests(TestCase):
         expected_headers = [
             "Cell ID",
             "Red Contour 1 Center (x,y) (px)",
-            "Red In Red Intensity 1",
+            "Red In Red Total Intensity 1",
             "Measurement/Contour Ratio 1 (Green/Red)",
         ]
         self.assertEqual(self._csv_rows(csv_response)[0], expected_headers)
+        self.assertNotIn("Red In Red Max Intensity 1", self._csv_rows(csv_response)[0])
+        self.assertNotIn("Red In Red Average Intensity 1", self._csv_rows(csv_response)[0])
         self.assertEqual(
             self._csv_rows(csv_response)[1],
             ["1", "10.000, 20.000", "5.000", "1.200"],
         )
         self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
+        self.assertNotIn("Red In Red Max Intensity 1", self._xlsx_headers(xlsx_response))
+        self.assertNotIn("Red In Red Average Intensity 1", self._xlsx_headers(xlsx_response))
 
     def test_filtered_exports_reject_invalid_or_empty_columns(self):
         saved_uuid = self._create_display_file(
@@ -2442,6 +2774,43 @@ class DisplayManualSaveTests(TestCase):
             ],
         )
         self.assertEqual(rows[1], ["1", "N/A", "4.000"])
+
+    def test_green_red_intensity_disabled_export_does_not_emit_fake_values(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="green_red_disabled_filtered_export",
+        )
+        self._add_cell_stat(
+            saved_uuid,
+            properties={
+                "selected_analysis": ["NuclearCellPairIntensity"],
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "nuclear_cell_pair_status": "ok",
+                "nuclear_cell_pair_contour_source": "canonical_slot_1",
+            },
+        )
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {
+                "file_uuid": saved_uuid,
+                "_export": "csv",
+                "_columns": "red_in_red_total_intensity_1,red_in_red_max_intensity_1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "Cell ID",
+                "Red In Red Total Intensity 1",
+                "Red In Red Max Intensity 1",
+            ],
+        )
+        self.assertEqual(rows[1], ["1", "N/A", "N/A"])
 
     def test_display_save_endpoint_is_idempotent_for_saved_file(self):
         saved_uuid = self._create_display_file(

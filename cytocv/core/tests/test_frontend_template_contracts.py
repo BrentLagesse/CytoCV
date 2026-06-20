@@ -21,9 +21,75 @@ ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
 SCALE_REVERT_ICON_VERSION = "scale-revert-icon-20260610"
 PREPROCESS_CSS_VERSION = "preprocess-channel-label-nudge-20260610"
+MOJIBAKE_TOKENS = ("Âµ", "â›", "�")
 
 
 class FrontendTemplateContractTests(TestCase):
+    def _assert_viewer_encoding_and_stats_layout(self, content: str) -> None:
+        for token in MOJIBAKE_TOKENS:
+            with self.subTest(token=token):
+                self.assertNotIn(token, content)
+        self.assertEqual(
+            content.count('data-spatial-unit="um" aria-pressed="false">µm</button>'),
+            2,
+        )
+        self.assertIn('<span class="fullscreen-icon" aria-hidden="true">⛶</span>', content)
+        assert_in_order(
+            self,
+            content,
+            'data-ui-region="cell-metrics-top"',
+            "<p class=\"metric-lead\">Reference Channel</p>",
+            "<p class=\"metric-lead\">Biorientation</p>",
+            "<p class=\"metric-lead\">Nucleus + Measurement</p>",
+            "<p class=\"metric-lead\">CEN Dot Measurements</p>",
+            "<p class=\"metric-lead\">Measurement/Contour</p>",
+            'data-ui-region="cell-intensity-totals"',
+            "<p class=\"metric-lead\">Red In Red Total Intensity</p>",
+            "<p class=\"metric-lead\">Green In Red Total Intensity</p>",
+            "<p class=\"metric-lead\">Red In Green Total Intensity</p>",
+            "<p class=\"metric-lead\">Green In Green Total Intensity</p>",
+        )
+        for hook in (
+            'id="contourStateValue"',
+            'id="colinearDots"',
+            'id="offAxisDots"',
+            'id="nucleusContourChannel"',
+            'id="measurementChannel"',
+            'id="nuclearStatus"',
+            'id="nucleusIntensitySum"',
+            'id="cellPairIntensitySum"',
+            'id="cytoplasmicIntensity"',
+            'id="nuclearCytoplasmicRatio"',
+            'id="distance"',
+            'id="punctaLineIntensity"',
+            'id="cellParentage"',
+            'id="cenDot"',
+            'id="measurementContourRatioFormula"',
+            'id="measurementContourRatio1"',
+            'id="measurementContourRatio2"',
+            'id="measurementContourRatio3"',
+            'id="redInRedIntensity1"',
+            'id="redInRedIntensity2"',
+            'id="redInRedIntensity3"',
+            'id="greenInRedIntensity1"',
+            'id="greenInRedIntensity2"',
+            'id="greenInRedIntensity3"',
+            'id="redInGreenIntensity1"',
+            'id="redInGreenIntensity2"',
+            'id="redInGreenIntensity3"',
+            'id="greenInGreenIntensity1"',
+            'id="greenInGreenIntensity2"',
+            'id="greenInGreenIntensity3"',
+            'data-stat-section="red_green_intensity"',
+            'data-stat-section="nuclear_cell_pair_intensity"',
+            'data-stat-section="cen_puncta"',
+            'data-stat-section="biorientation"',
+            'data-stat-row="puncta_distance"',
+            'data-stat-row="cen_dot"',
+        ):
+            with self.subTest(hook=hook):
+                self.assertIn(hook, content)
+
     def test_public_pages_render_expected_static_contracts(self):
         cases = (
             ("home", "home.html", "css/pages/home.css", "js/pages/home.js"),
@@ -200,6 +266,7 @@ class FrontendTemplateContractTests(TestCase):
             'class="skeleton-shape skeleton-table-spatial-unit"',
             'class="skeleton-shape skeleton-table-fullscreen"',
         )
+        self._assert_viewer_encoding_and_stats_layout(display_content)
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
         dashboard_content = response_text(dashboard_response)
@@ -240,3 +307,4 @@ class FrontendTemplateContractTests(TestCase):
             'class="skeleton-shape skeleton-table-spatial-unit"',
             'class="skeleton-shape skeleton-table-fullscreen"',
         )
+        self._assert_viewer_encoding_and_stats_layout(dashboard_content)

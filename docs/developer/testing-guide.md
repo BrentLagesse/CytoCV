@@ -11,7 +11,7 @@ The active Django test suite is split across:
 - `cytocv/core/tests/`
 - `cytocv/accounts/tests_*.py`
 
-The current baseline is 751 tests: 680 under `core` and 71 under `accounts`.
+The current baseline is 774 tests: 703 under `core` and 71 under `accounts`.
 The suite includes upload preparation, TIFF/DV parsing, artifact storage,
 progress and worker behavior, scientific-stat calculations, exports, frontend
 contracts, account preferences, email alias behavior, and quota policy.
@@ -27,6 +27,10 @@ contracts, account preferences, email alias behavior, and quota policy.
 - scale initialization and upload-time scale handling
 - plugin and stats validation behavior
 - exact artifact path contracts for generated media and overlay files
+- protected media access, ownership, missing-file, and traversal contracts
+- job status names and default queued-state fields for analysis and upload-preparation work
+- Backend CI command and frontend-contract step contracts
+- settings import behavior for CI/test SQLite and production SQLite rejection
 - display/dashboard JSON payload keys used by the viewers
 - supported source image extension contracts
 - frontend rendered-template contracts, static asset references, JSON config blocks, shared JavaScript globals, and frontend-facing response shapes
@@ -75,9 +79,11 @@ static CSS/JS references, JSON config blocks, JavaScript globals, viewer hooks,
 workflow responses, and export hooks. It is not browser E2E coverage and does
 not run an npm build.
 
-Coverage reporting, lint/format gates, typechecking, browser E2E, Docker build,
-and deployment validation are intentionally deferred until the baseline CI is
-stable.
+Coverage reporting remains deferred because `coverage.py` is not currently a
+project dependency. Add coverage as a test/development dependency before
+introducing an informational coverage step in Backend CI. Lint/format gates,
+typechecking, browser E2E, Docker build, and deployment validation are also
+deferred until the baseline CI stays stable.
 
 For frontend template/static changes, run:
 

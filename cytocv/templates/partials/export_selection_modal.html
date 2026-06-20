@@ -42,6 +42,64 @@
                 </div>
                 <span class="export-selection-count" id="exportSelectionCount" aria-live="polite"></span>
             </div>
+            <section class="export-intensity-quick-select" id="exportIntensityQuickSelect" aria-labelledby="exportIntensityQuickSelectTitle" data-expanded="false" hidden>
+                <div class="export-intensity-quick-select-header">
+                    <div>
+                        <h4 id="exportIntensityQuickSelectTitle">Contour Intensity Quick Select</h4>
+                        <p id="exportIntensityQuickSelectSummary" aria-live="polite">Selected intensity columns: 0</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="export-selection-btn export-intensity-toggle"
+                        id="exportIntensityQuickSelectToggle"
+                        aria-expanded="false"
+                        aria-controls="exportIntensityQuickSelectBody"
+                    >Show</button>
+                </div>
+                <div class="export-intensity-quick-select-body" id="exportIntensityQuickSelectBody" hidden>
+                    <p class="export-intensity-unavailable-message" id="exportIntensityUnavailableMessage" hidden>
+                        Contour intensity columns are not available because Red/Green contour intensity was not computed for this file set.
+                    </p>
+                    <div class="export-intensity-available-controls" id="exportIntensityAvailableControls">
+                        <div class="export-intensity-section" aria-label="Contour intensity presets">
+                            <span class="export-intensity-section-title">Presets</span>
+                            <div class="export-intensity-action-row">
+                                <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="totals">Totals only</button>
+                                <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="total_max">Totals + Max</button>
+                                <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="average">Average only</button>
+                                <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="slots_1_2">Slots 1 + 2 only</button>
+                                <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="all">Select all intensity columns</button>
+                                <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="clear">Clear intensity columns</button>
+                            </div>
+                        </div>
+                        <div class="export-intensity-section">
+                            <span class="export-intensity-section-title">Custom Filters</span>
+                            <div class="export-intensity-filter-grid">
+                                <div class="export-intensity-filter-group" role="group" aria-label="Intensity statistic types">
+                                    <span class="export-intensity-filter-title">Statistic</span>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="statistic" value="total" checked> Total</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="statistic" value="max" checked> Max</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="statistic" value="average" checked> Average</label>
+                                </div>
+                                <div class="export-intensity-filter-group" role="group" aria-label="Contour slots">
+                                    <span class="export-intensity-filter-title">Slot</span>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="slot" value="1" checked> Slot 1</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="slot" value="2" checked> Slot 2</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="slot" value="3" checked> Slot 3</label>
+                                </div>
+                                <div class="export-intensity-filter-group export-intensity-filter-group-wide" role="group" aria-label="Signal and contour combinations">
+                                    <span class="export-intensity-filter-title">Combination</span>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="combination" value="red_in_red" checked> Red In Red</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="combination" value="green_in_red" checked> Green In Red</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="combination" value="red_in_green" checked> Red In Green</label>
+                                    <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="combination" value="green_in_green" checked> Green In Green</label>
+                                </div>
+                            </div>
+                            <button type="button" class="export-selection-btn export-intensity-btn export-intensity-apply-btn" data-export-intensity-action="apply">Apply filters</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
             <div class="export-selection-list-box" id="exportSelectionList" role="group" aria-label="Statistics available for export"></div>
             <div class="export-selection-actions">
                 <button type="button" class="export-selection-btn cancel" id="cancelExportSelectionBtn">Cancel</button>

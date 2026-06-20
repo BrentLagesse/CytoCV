@@ -160,21 +160,45 @@ class CellTable(tables.Table):
         empty_values=(),
     )
 
-    red_intensity_1 = NumberColumn(verbose_name="Red In Red Intensity 1")
-    red_intensity_2 = NumberColumn(verbose_name="Red In Red Intensity 2")
-    red_intensity_3 = NumberColumn(verbose_name="Red In Red Intensity 3")
+    red_in_red_total_intensity_1 = NumberColumn(verbose_name="Red In Red Total Intensity 1")
+    red_in_red_max_intensity_1 = NumberColumn(verbose_name="Red In Red Max Intensity 1")
+    red_in_red_average_intensity_1 = NumberColumn(verbose_name="Red In Red Average Intensity 1")
+    red_in_red_total_intensity_2 = NumberColumn(verbose_name="Red In Red Total Intensity 2")
+    red_in_red_max_intensity_2 = NumberColumn(verbose_name="Red In Red Max Intensity 2")
+    red_in_red_average_intensity_2 = NumberColumn(verbose_name="Red In Red Average Intensity 2")
+    red_in_red_total_intensity_3 = NumberColumn(verbose_name="Red In Red Total Intensity 3")
+    red_in_red_max_intensity_3 = NumberColumn(verbose_name="Red In Red Max Intensity 3")
+    red_in_red_average_intensity_3 = NumberColumn(verbose_name="Red In Red Average Intensity 3")
 
-    green_intensity_1 = NumberColumn(verbose_name="Green In Red Intensity 1")
-    green_intensity_2 = NumberColumn(verbose_name="Green In Red Intensity 2")
-    green_intensity_3 = NumberColumn(verbose_name="Green In Red Intensity 3")
+    green_in_red_total_intensity_1 = NumberColumn(verbose_name="Green In Red Total Intensity 1")
+    green_in_red_max_intensity_1 = NumberColumn(verbose_name="Green In Red Max Intensity 1")
+    green_in_red_average_intensity_1 = NumberColumn(verbose_name="Green In Red Average Intensity 1")
+    green_in_red_total_intensity_2 = NumberColumn(verbose_name="Green In Red Total Intensity 2")
+    green_in_red_max_intensity_2 = NumberColumn(verbose_name="Green In Red Max Intensity 2")
+    green_in_red_average_intensity_2 = NumberColumn(verbose_name="Green In Red Average Intensity 2")
+    green_in_red_total_intensity_3 = NumberColumn(verbose_name="Green In Red Total Intensity 3")
+    green_in_red_max_intensity_3 = NumberColumn(verbose_name="Green In Red Max Intensity 3")
+    green_in_red_average_intensity_3 = NumberColumn(verbose_name="Green In Red Average Intensity 3")
 
-    red_in_green_intensity_1 = NumberColumn(verbose_name="Red In Green Intensity 1")
-    red_in_green_intensity_2 = NumberColumn(verbose_name="Red In Green Intensity 2")
-    red_in_green_intensity_3 = NumberColumn(verbose_name="Red In Green Intensity 3")
+    red_in_green_total_intensity_1 = NumberColumn(verbose_name="Red In Green Total Intensity 1")
+    red_in_green_max_intensity_1 = NumberColumn(verbose_name="Red In Green Max Intensity 1")
+    red_in_green_average_intensity_1 = NumberColumn(verbose_name="Red In Green Average Intensity 1")
+    red_in_green_total_intensity_2 = NumberColumn(verbose_name="Red In Green Total Intensity 2")
+    red_in_green_max_intensity_2 = NumberColumn(verbose_name="Red In Green Max Intensity 2")
+    red_in_green_average_intensity_2 = NumberColumn(verbose_name="Red In Green Average Intensity 2")
+    red_in_green_total_intensity_3 = NumberColumn(verbose_name="Red In Green Total Intensity 3")
+    red_in_green_max_intensity_3 = NumberColumn(verbose_name="Red In Green Max Intensity 3")
+    red_in_green_average_intensity_3 = NumberColumn(verbose_name="Red In Green Average Intensity 3")
 
-    green_in_green_intensity_1 = NumberColumn(verbose_name="Green In Green Intensity 1")
-    green_in_green_intensity_2 = NumberColumn(verbose_name="Green In Green Intensity 2")
-    green_in_green_intensity_3 = NumberColumn(verbose_name="Green In Green Intensity 3")
+    green_in_green_total_intensity_1 = NumberColumn(verbose_name="Green In Green Total Intensity 1")
+    green_in_green_max_intensity_1 = NumberColumn(verbose_name="Green In Green Max Intensity 1")
+    green_in_green_average_intensity_1 = NumberColumn(verbose_name="Green In Green Average Intensity 1")
+    green_in_green_total_intensity_2 = NumberColumn(verbose_name="Green In Green Total Intensity 2")
+    green_in_green_max_intensity_2 = NumberColumn(verbose_name="Green In Green Max Intensity 2")
+    green_in_green_average_intensity_2 = NumberColumn(verbose_name="Green In Green Average Intensity 2")
+    green_in_green_total_intensity_3 = NumberColumn(verbose_name="Green In Green Total Intensity 3")
+    green_in_green_max_intensity_3 = NumberColumn(verbose_name="Green In Green Max Intensity 3")
+    green_in_green_average_intensity_3 = NumberColumn(verbose_name="Green In Green Average Intensity 3")
 
     green_red_intensity_1 = NumberColumn(verbose_name="Measurement/Contour Ratio 1")
     green_red_intensity_2 = NumberColumn(verbose_name="Measurement/Contour Ratio 2")
@@ -223,18 +247,42 @@ class CellTable(tables.Table):
             "green_contour_1_center_xy",
             "green_contour_2_center_xy",
             "green_contour_3_center_xy",
-            "red_intensity_1",
-            "red_intensity_2",
-            "red_intensity_3",
-            "green_intensity_1",
-            "green_intensity_2",
-            "green_intensity_3",
-            "red_in_green_intensity_1",
-            "red_in_green_intensity_2",
-            "red_in_green_intensity_3",
-            "green_in_green_intensity_1",
-            "green_in_green_intensity_2",
-            "green_in_green_intensity_3",
+            "red_in_red_total_intensity_1",
+            "red_in_red_max_intensity_1",
+            "red_in_red_average_intensity_1",
+            "red_in_red_total_intensity_2",
+            "red_in_red_max_intensity_2",
+            "red_in_red_average_intensity_2",
+            "red_in_red_total_intensity_3",
+            "red_in_red_max_intensity_3",
+            "red_in_red_average_intensity_3",
+            "green_in_red_total_intensity_1",
+            "green_in_red_max_intensity_1",
+            "green_in_red_average_intensity_1",
+            "green_in_red_total_intensity_2",
+            "green_in_red_max_intensity_2",
+            "green_in_red_average_intensity_2",
+            "green_in_red_total_intensity_3",
+            "green_in_red_max_intensity_3",
+            "green_in_red_average_intensity_3",
+            "red_in_green_total_intensity_1",
+            "red_in_green_max_intensity_1",
+            "red_in_green_average_intensity_1",
+            "red_in_green_total_intensity_2",
+            "red_in_green_max_intensity_2",
+            "red_in_green_average_intensity_2",
+            "red_in_green_total_intensity_3",
+            "red_in_green_max_intensity_3",
+            "red_in_green_average_intensity_3",
+            "green_in_green_total_intensity_1",
+            "green_in_green_max_intensity_1",
+            "green_in_green_average_intensity_1",
+            "green_in_green_total_intensity_2",
+            "green_in_green_max_intensity_2",
+            "green_in_green_average_intensity_2",
+            "green_in_green_total_intensity_3",
+            "green_in_green_max_intensity_3",
+            "green_in_green_average_intensity_3",
             "green_red_intensity_1",
             "green_red_intensity_2",
             "green_red_intensity_3",

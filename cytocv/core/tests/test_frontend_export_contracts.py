@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 
@@ -25,11 +25,42 @@ class FrontendExportContractTests(TestCase):
                     'id="exportStatSelectionView"',
                     'id="exportFormatToggle"',
                     'id="exportSelectionConfig"',
+                    'id="exportIntensityQuickSelect"',
+                    'id="exportIntensityQuickSelectSummary"',
+                    'id="exportIntensityQuickSelectToggle"',
+                    'id="exportIntensityQuickSelectBody"',
+                    'aria-controls="exportIntensityQuickSelectBody"',
                     'data-export-format="csv"',
                     'data-export-format="xlsx"',
+                    'data-export-intensity-action="apply"',
+                    'data-export-intensity-action="clear"',
+                    'data-export-intensity-action="all"',
+                    'data-export-intensity-action="totals"',
+                    'data-export-intensity-action="total_max"',
+                    'data-export-intensity-action="average"',
+                    'data-export-intensity-action="slots_1_2"',
                 ):
                     self.assertIn(hook, content)
                     self.assertEqual(content.count(hook), 1)
+                for hook in (
+                    'data-expanded="false"',
+                    'aria-expanded="false"',
+                    'id="exportIntensityQuickSelectBody" hidden',
+                    "Show</button>",
+                    'data-export-intensity-filter="statistic"',
+                    'data-export-intensity-filter="slot"',
+                    'data-export-intensity-filter="combination"',
+                    "Contour Intensity Quick Select",
+                    "Presets",
+                    "Custom Filters",
+                    "Average only",
+                    "Slot 1",
+                    "Slot 2",
+                    "Slot 3",
+                    "Red In Red",
+                    "Green In Green",
+                ):
+                    self.assertIn(hook, content)
                 self.assertIn("js/export_selection_modal.js", content)
 
     def test_dashboard_export_endpoint_preserves_invalid_selection_error_shape(self):
@@ -71,7 +102,7 @@ class FrontendExportContractTests(TestCase):
                 {
                     "uuids": [uuid_value],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                     "_unit": "px",
                 }
             ),
@@ -82,7 +113,7 @@ class FrontendExportContractTests(TestCase):
         self.assertIn("text/csv", response["Content-Type"])
         self.assertIn("attachment;", response["Content-Disposition"])
         self.assertIn("cytocv_", response["Content-Disposition"])
-        self.assertIn("Red In Red Intensity 1", response.content.decode("utf-8"))
+        self.assertIn("Red In Red Total Intensity 1", response.content.decode("utf-8"))
 
     def test_display_export_valid_csv_preserves_download_response_contract(self):
         user = login_user(self, "frontend-display-export-valid@example.com")
@@ -96,7 +127,7 @@ class FrontendExportContractTests(TestCase):
                     "visible_uuids": [uuid_value],
                     "uuids": [uuid_value],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                     "_unit": "px",
                 }
             ),
@@ -107,7 +138,7 @@ class FrontendExportContractTests(TestCase):
         self.assertIn("text/csv", response["Content-Type"])
         self.assertIn("attachment;", response["Content-Disposition"])
         self.assertIn("cytocv_", response["Content-Disposition"])
-        self.assertIn("Red In Red Intensity 1", response.content.decode("utf-8"))
+        self.assertIn("Red In Red Total Intensity 1", response.content.decode("utf-8"))
 
     def test_display_export_preserves_visible_subset_order(self):
         user = login_user(self, "frontend-display-export-order@example.com")
@@ -123,7 +154,7 @@ class FrontendExportContractTests(TestCase):
                     "visible_uuids": [second_uuid, first_uuid],
                     "uuids": [first_uuid, second_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                     "_unit": "px",
                 }
             ),
@@ -150,7 +181,7 @@ class FrontendExportContractTests(TestCase):
                 {
                     "uuids": [second_uuid, first_uuid],
                     "_export": "csv",
-                    "_columns": ["red_intensity_1"],
+                    "_columns": ["red_in_red_total_intensity_1"],
                     "_unit": "px",
                 }
             ),

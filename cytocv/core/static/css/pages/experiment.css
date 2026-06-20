@@ -43,7 +43,7 @@
             align-items: center;
         }
 
-        /* Upload list � hidden when empty, auto-grow, custom scrollbar */
+        /* Upload list - hidden when empty, auto-grow, custom scrollbar */
         #fileList {
             width: 100%;
             text-align: left;
