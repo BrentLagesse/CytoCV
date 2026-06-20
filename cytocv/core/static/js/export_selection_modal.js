@@ -15,6 +15,7 @@
   ];
   const CONTOUR_INTENSITY_STATISTICS = ['total', 'max', 'average'];
   const CONTOUR_INTENSITY_SLOTS = [1, 2, 3];
+  const CONTOUR_INTENSITY_UNAVAILABLE_SUMMARY = 'Contour intensity was not computed for this file set.';
   const VIEW_ANIM_CLASSES = [
     'anim-enter-forward',
     'anim-enter-backward',
@@ -183,6 +184,27 @@
     return Array.from(selected);
   }
 
+  function captureContourIntensitySelection(items, selectedIds) {
+    const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
+    return (items || [])
+      .filter((item) => isContourIntensityItem(item) && item.id && selected.has(item.id))
+      .map((item) => item.id);
+  }
+
+  function restoreContourIntensitySelection(items, selectedIds, snapshot, options) {
+    const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
+    const snapshotIds = new Set(arrayFromMaybeSet(snapshot).map((item) => String(item)));
+    const applicable = !options || options.applicable !== false;
+    (items || []).forEach((item) => {
+      if (!isContourIntensityItem(item) || !item.id) return;
+      selected.delete(item.id);
+      if (applicable && !item.disabled && snapshotIds.has(item.id)) {
+        selected.add(item.id);
+      }
+    });
+    return Array.from(selected);
+  }
+
   function contourIntensitySelectedCount(items, selectedIds) {
     const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
     return (items || []).filter(
@@ -202,24 +224,40 @@
   }
 
   function formatContourIntensitySummary(items, selectedIds, available) {
-    if (!available) return 'Not available for selected files';
+    if (!available) return CONTOUR_INTENSITY_UNAVAILABLE_SUMMARY;
     const count = contourIntensitySelectedCount(items, selectedIds);
     return count === 1
       ? '1 intensity column selected'
       : `${count} intensity columns selected`;
   }
 
-  function deriveContourIntensityAccordionState(expanded, available) {
-    const isExpanded = !!expanded;
-    const isAvailable = available !== false;
-    return {
-      expanded: isExpanded,
-      ariaExpanded: isExpanded ? 'true' : 'false',
-      bodyHidden: !isExpanded,
-      toggleText: isExpanded ? 'Hide' : 'Show',
-      controlsHidden: !isExpanded || !isAvailable,
-      unavailableMessageHidden: !isExpanded || isAvailable,
-    };
+  function contourIntensityActiveFilterCount(filters) {
+    const normalized = normalizeIntensityFilters(filters || allIntensityFilters());
+    let count = 0;
+    if (normalized.statistics.size !== CONTOUR_INTENSITY_STATISTICS.length) count += 1;
+    if (normalized.slots.size !== CONTOUR_INTENSITY_SLOTS.length) count += 1;
+    if (normalized.combinations.size !== CONTOUR_INTENSITY_COMBINATIONS.length) count += 1;
+    return count;
+  }
+
+  function formatContourIntensityFilterStatus(filters) {
+    const count = contourIntensityActiveFilterCount(filters);
+    return count === 1 ? '1 filter applied' : `${count} filters applied`;
+  }
+
+  function updateTextWithFade(element, text, className) {
+    if (!element || element.textContent === text) return false;
+    const fadeClass = className || 'is-updating';
+    element.classList.add(fadeClass);
+    element.textContent = text;
+    if (typeof window !== 'undefined' && window.setTimeout) {
+      window.setTimeout(() => {
+        element.classList.remove(fadeClass);
+      }, 140);
+    } else {
+      element.classList.remove(fadeClass);
+    }
+    return true;
   }
 
   function getCookie(name) {
@@ -337,11 +375,8 @@
     const intensityQuickSelect = document.getElementById(
       options.intensityQuickSelectId || 'exportIntensityQuickSelect'
     );
-    const intensitySummaryEl = document.getElementById(
-      options.intensitySummaryId || 'exportIntensityQuickSelectSummary'
-    );
-    const intensityToggleBtn = document.getElementById(
-      options.intensityToggleId || 'exportIntensityQuickSelectToggle'
+    const intensityFilterStatusEl = document.getElementById(
+      options.intensityFilterStatusId || 'exportIntensityFilterStatus'
     );
     const intensityBody = document.getElementById(
       options.intensityBodyId || 'exportIntensityQuickSelectBody'
@@ -373,6 +408,7 @@
     const intensityActionButtons = Array.from(
       backdrop ? backdrop.querySelectorAll('[data-export-intensity-action]') : []
     );
+    const intensityActions = backdrop ? backdrop.querySelector('.export-quick-select-actions') : null;
 
     if (
       !metadata || !backdrop || !fileView || !statsView || !fileList || !statList
@@ -390,7 +426,7 @@
     let statsCanBack = false;
     let viewTimer = null;
     let downloading = false;
-    let intensityQuickSelectExpanded = false;
+    let intensitySelectionSnapshot = new Set();
 
     function fileContext() {
       if (typeof options.getCurrentFileContext === 'function') {
@@ -578,6 +614,28 @@
       updateStatCount();
     }
 
+    function captureIntensitySelectionSnapshot() {
+      intensitySelectionSnapshot = new Set(
+        captureContourIntensitySelection(items, selectedStatIds())
+      );
+    }
+
+    function restoreIntensitySelectionSnapshot() {
+      setIntensityFilterValues(allIntensityFilters());
+      const restored = new Set(restoreContourIntensitySelection(
+        items,
+        selectedStatIds(),
+        Array.from(intensitySelectionSnapshot),
+        { applicable: intensityQuickSelectIsApplicable() }
+      ));
+      statList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        const item = itemById.get(input.value);
+        if (!isContourIntensityItem(item)) return;
+        input.checked = restored.has(input.value);
+      });
+      updateStatCount();
+    }
+
     function setIntensityControlsDisabled(disabled) {
       intensityFilterInputs.forEach((input) => {
         input.disabled = disabled;
@@ -594,38 +652,26 @@
       if (!hasIntensityItems) return;
 
       const applicable = intensityQuickSelectIsApplicable();
-      const state = deriveContourIntensityAccordionState(
-        intensityQuickSelectExpanded,
-        applicable
-      );
-      intensityQuickSelect.dataset.expanded = state.expanded ? 'true' : 'false';
       intensityQuickSelect.classList.toggle('is-unavailable', !applicable);
       setIntensityControlsDisabled(!applicable);
-      if (intensityToggleBtn) {
-        intensityToggleBtn.textContent = state.toggleText;
-        intensityToggleBtn.setAttribute('aria-expanded', state.ariaExpanded);
-      }
       if (intensityBody) {
-        intensityBody.hidden = state.bodyHidden;
+        intensityBody.hidden = !applicable;
       }
       if (intensityAvailableControls) {
-        intensityAvailableControls.hidden = state.controlsHidden;
+        intensityAvailableControls.hidden = !applicable;
+      }
+      if (intensityActions) {
+        intensityActions.hidden = !applicable;
       }
       if (intensityUnavailableMessage) {
-        intensityUnavailableMessage.hidden = state.unavailableMessageHidden;
+        intensityUnavailableMessage.hidden = applicable;
       }
-      if (intensitySummaryEl) {
-        intensitySummaryEl.textContent = formatContourIntensitySummary(
-          items,
-          selected || selectedStatIds(),
-          applicable
-        );
+      if (intensityFilterStatusEl) {
+        const nextStatus = applicable
+          ? formatContourIntensityFilterStatus(currentIntensityFilters())
+          : 'Unavailable';
+        updateTextWithFade(intensityFilterStatusEl, nextStatus);
       }
-    }
-
-    function setIntensityAccordionExpanded(expanded) {
-      intensityQuickSelectExpanded = !!expanded;
-      updateIntensityQuickSelectState();
     }
 
     function selectedStatIds() {
@@ -710,7 +756,10 @@
       const selected = selectedStatIds();
       const count = selected.length;
       if (statCountEl) {
-        statCountEl.textContent = count === 1 ? '1 statistic selected' : `${count} statistics selected`;
+        updateTextWithFade(
+          statCountEl,
+          count === 1 ? '1 statistic selected' : `${count} statistics selected`
+        );
         updateCountState(statCountEl, count);
       }
       confirmBtn.disabled = count === 0 || downloading;
@@ -895,7 +944,6 @@
       activeMode = 'single';
       activeView = 'stats';
       statsCanBack = false;
-      intensityQuickSelectExpanded = false;
       setActiveFormat(format);
       activeFileContext = fileContext();
       activeFileIds = new Set(
@@ -904,6 +952,7 @@
           : []
       );
       buildStatRows();
+      captureIntensitySelectionSnapshot();
       configureStatsView();
       switchView('stats', false, 'forward');
       modalVisibility.show();
@@ -945,8 +994,8 @@
       if (!selectedFileIdsInOrder().length) return;
       activeMode = 'multi';
       statsCanBack = true;
-      intensityQuickSelectExpanded = false;
       buildStatRows();
+      captureIntensitySelectionSnapshot();
       configureStatsView();
       switchView('stats', true, 'forward');
       focusFirst(statsView);
@@ -1088,6 +1137,10 @@
           clearIntensitySelection();
           return;
         }
+        if (action === 'reset') {
+          restoreIntensitySelectionSnapshot();
+          return;
+        }
         if (action === 'all') {
           setIntensityFilterValues(allIntensityFilters());
           setIntensitySelectionFromFilters(allIntensityFilters());
@@ -1137,12 +1190,6 @@
         setIntensitySelectionFromFilters(currentIntensityFilters());
       });
     });
-
-    if (intensityToggleBtn) {
-      intensityToggleBtn.addEventListener('click', () => {
-        setIntensityAccordionExpanded(!intensityQuickSelectExpanded);
-      });
-    }
 
     backFileBtn.addEventListener('click', close);
     continueFileBtn.addEventListener('click', continueToStats);
@@ -1198,9 +1245,11 @@
     init: createController,
     __testHooks: {
       applyContourIntensitySelection,
+      captureContourIntensitySelection,
       clearContourIntensitySelection,
+      contourIntensityActiveFilterCount,
       contourIntensitySelectedCount,
-      deriveContourIntensityAccordionState,
+      formatContourIntensityFilterStatus,
       formatContourIntensitySummary,
       allIntensityFilters,
       isContourIntensityAvailable,
@@ -1208,7 +1257,9 @@
       intensityItemMatchesFilters,
       normalizeIntensityFilters,
       refreshStatLabelElements,
+      restoreContourIntensitySelection,
       resolveStatLabel,
+      updateTextWithFade,
     },
   };
 })();

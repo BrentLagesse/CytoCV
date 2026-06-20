@@ -162,6 +162,96 @@ class FrontendStaticContractTests(SimpleTestCase):
                     r"\.sidebar-content\s*\{[^}]*scrollbar-gutter:\s*stable;",
                 )
 
+    def test_export_selection_modal_uses_compact_sidebar_and_transparent_stat_panel(self):
+        css_source = static_text("css/components/export-selection-modal.css")
+
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-modal\s*\{[^}]*width:\s*min\(82vw,\s*820px\);",
+        )
+        self.assertIn(".export-selection-workspace {", css_source)
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(260px,\s*300px\)\s+minmax\(0,\s*1fr\);",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-status-row\s*\{[^}]*padding-bottom:\s*10px;[^}]*border-bottom:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.16\);",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-modal\s+\.export-selection-count\s*\{[^}]*transition:\s*color\s+0\.18s\s+ease,\s*opacity\s+140ms\s+ease;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-modal\s+\.export-selection-count\.is-updating\s*\{[^}]*opacity:\s*0\.45;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-quick-select-sidebar\s*\{[^}]*overflow:\s*hidden;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-stat-list-panel\s*\{[^}]*overflow-y:\s*auto;[^}]*scrollbar-gutter:\s*stable;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-stat-list-panel\s*\{[^}]*background:\s*transparent;[^}]*border:\s*none;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-quick-select\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*height:\s*100%;[^}]*overflow:\s*hidden;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-quick-select\s*\{[^}]*border:\s*none;[^}]*background:\s*transparent;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-quick-select-header\s*\{[^}]*flex:\s*0\s+0\s+auto;[^}]*border-bottom:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.16\);",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-quick-select-body\s*\{[^}]*overflow-y:\s*auto;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-quick-select-actions\s*\{[^}]*flex:\s*0\s+0\s+auto;[^}]*padding-top:\s*8px;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-info-dot\s*\{[^}]*border:\s*1px\s+solid\s+var\(--panel-border\);[^}]*width:\s*16px;[^}]*height:\s*16px;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-module\s*\{[^}]*border:\s*none;[^}]*background:\s*transparent;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-filter-module\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*border:\s*none;[^}]*background:\s*transparent;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-filter-title\s*\{[^}]*flex:\s*0\s+0\s+100%;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-chip\s*\{[^}]*flex:\s*0\s+0\s+auto;[^}]*min-height:\s*28px;[^}]*border:\s*1px\s+solid\s+var\(--popup-secondary-button-border\);[^}]*border-radius:\s*8px;[^}]*background:\s*var\(--popup-secondary-button-bg\);",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-chip:hover\s*\{[^}]*background:\s*var\(--popup-secondary-button-hover-bg\);",
+        )
+        self.assertNotIn(".export-intensity-chip:has(input:checked)", css_source)
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-row\.stat-export-row\s*\{[^}]*border:\s*1px\s+solid\s+var\(--settings-module-border\);[^}]*background:\s*var\(--settings-module-bg\);",
+        )
+        self.assertIn("@media (max-width: 760px)", css_source)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", css_source)
+        self.assertNotIn("exportQuickSelectOverlayIn", css_source)
+        self.assertNotIn('data-expanded="true"', css_source)
+
     def test_table_skeleton_spatial_unit_placeholder_matches_toolbar_control(self):
         results_css = static_text("css/components/results-viewer.css")
         self.assertRegex(

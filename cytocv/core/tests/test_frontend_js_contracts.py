@@ -50,6 +50,12 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
         self.assertNotIn("Red In Red", source)
         self.assertNotIn("Total Intensity", source)
 
+    def test_export_selection_stat_count_uses_text_fade(self):
+        source = static_text("js/export_selection_modal.js")
+
+        self.assertIn("updateTextWithFade(\n          statCountEl,", source)
+        self.assertNotIn("statCountEl.textContent = count === 1", source)
+
     def test_export_selection_contour_intensity_helpers_select_concrete_fields(self):
         node = shutil.which("node")
         if not node:
@@ -177,26 +183,105 @@ const unavailableSelection = new Set(hooks.applyContourIntensitySelection(
 assert.deepStrictEqual(Array.from(unavailableSelection), ['puncta_distance']);
 assert.strictEqual(
   hooks.formatContourIntensitySummary(items, Array.from(unavailableSelection), false),
-  'Not available for selected files'
+  'Contour intensity was not computed for this file set.'
 );
 assert.strictEqual(hooks.isContourIntensityAvailable(null, true), true);
 assert.strictEqual(hooks.isContourIntensityAvailable({{ red_green_intensity: false }}, true), false);
+assert.strictEqual(hooks.contourIntensityActiveFilterCount({{
+  statistics,
+  slots,
+  combinations,
+}}), 0);
+assert.strictEqual(hooks.formatContourIntensityFilterStatus({{
+  statistics,
+  slots,
+  combinations,
+}}), '0 filters applied');
+assert.strictEqual(hooks.contourIntensityActiveFilterCount({{
+  statistics: ['total'],
+  slots,
+  combinations,
+}}), 1);
+assert.strictEqual(hooks.formatContourIntensityFilterStatus({{
+  statistics: ['total'],
+  slots,
+  combinations,
+}}), '1 filter applied');
+assert.strictEqual(hooks.contourIntensityActiveFilterCount({{
+  statistics,
+  slots: [1, 2],
+  combinations,
+}}), 1);
+assert.strictEqual(hooks.contourIntensityActiveFilterCount({{
+  statistics: ['total', 'max'],
+  slots: [1, 2],
+  combinations,
+}}), 2);
+assert.strictEqual(hooks.formatContourIntensityFilterStatus({{
+  statistics: ['total', 'max'],
+  slots: [1, 2],
+  combinations,
+}}), '2 filters applied');
+assert.strictEqual(hooks.contourIntensityActiveFilterCount({{
+  statistics: ['total'],
+  slots: [1, 2],
+  combinations: ['red_in_red', 'green_in_green'],
+}}), 3);
+const statusElement = {{
+  textContent: '0 filters applied',
+  classList: {{
+    values: new Set(),
+    add(value) {{ this.values.add(value); }},
+    remove(value) {{ this.values.delete(value); }},
+    contains(value) {{ return this.values.has(value); }},
+  }},
+}};
+assert.strictEqual(hooks.updateTextWithFade(statusElement, '1 filter applied'), true);
+assert.strictEqual(statusElement.textContent, '1 filter applied');
+assert.strictEqual(statusElement.classList.contains('is-updating'), false);
+assert.strictEqual(hooks.updateTextWithFade(statusElement, '1 filter applied'), false);
 
-const collapsedState = hooks.deriveContourIntensityAccordionState(false, true);
-assert.strictEqual(collapsedState.expanded, false);
-assert.strictEqual(collapsedState.ariaExpanded, 'false');
-assert.strictEqual(collapsedState.bodyHidden, true);
-assert.strictEqual(collapsedState.toggleText, 'Show');
-assert.strictEqual(collapsedState.controlsHidden, true);
-assert.strictEqual(collapsedState.unavailableMessageHidden, true);
-
-const unavailableExpandedState = hooks.deriveContourIntensityAccordionState(true, false);
-assert.strictEqual(unavailableExpandedState.expanded, true);
-assert.strictEqual(unavailableExpandedState.ariaExpanded, 'true');
-assert.strictEqual(unavailableExpandedState.bodyHidden, false);
-assert.strictEqual(unavailableExpandedState.toggleText, 'Hide');
-assert.strictEqual(unavailableExpandedState.controlsHidden, true);
-assert.strictEqual(unavailableExpandedState.unavailableMessageHidden, false);
+const startingSelection = [
+  'puncta_distance',
+  'red_in_red_total_intensity_1',
+  'green_in_green_average_intensity_3',
+];
+const snapshot = hooks.captureContourIntensitySelection(items, startingSelection);
+assert.deepStrictEqual(
+  snapshot.sort(),
+  ['green_in_green_average_intensity_3', 'red_in_red_total_intensity_1'].sort()
+);
+const changedSelection = hooks.applyContourIntensitySelection(
+  items,
+  ['puncta_distance', 'red_in_red_max_intensity_2'],
+  {{ statistics: ['max'], slots: [2], combinations: ['red_in_red'] }}
+);
+assert.ok(changedSelection.includes('red_in_red_max_intensity_2'));
+assert.ok(changedSelection.includes('puncta_distance'));
+const restoredSelection = hooks.restoreContourIntensitySelection(
+  items,
+  changedSelection,
+  snapshot
+);
+assertConcreteSelection(restoredSelection);
+assert.ok(restoredSelection.includes('puncta_distance'));
+assert.ok(restoredSelection.includes('red_in_red_total_intensity_1'));
+assert.ok(restoredSelection.includes('green_in_green_average_intensity_3'));
+assert.ok(!restoredSelection.includes('red_in_red_max_intensity_2'));
+const unavailableRestore = hooks.restoreContourIntensitySelection(
+  items,
+  changedSelection,
+  snapshot,
+  {{ applicable: false }}
+);
+assert.deepStrictEqual(Array.from(unavailableRestore), ['puncta_distance']);
+let fileType = 'xlsx';
+hooks.applyContourIntensitySelection(items, ['puncta_distance'], {{
+  statistics: ['total'],
+  slots: [1],
+  combinations: ['red_in_red'],
+}});
+assert.strictEqual(fileType, 'xlsx');
 
 const manualOverride = new Set(totalOnly);
 manualOverride.add('red_in_red_average_intensity_1');
