@@ -2311,6 +2311,54 @@ class DisplayManualSaveTests(TestCase):
             ["File Name", "Cell ID", "Red In Red Total Intensity 1"],
         )
 
+    def test_display_combined_csv_export_respects_micron_unit_request(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_combined_um_export",
+        )
+        uploaded = UploadedImage.objects.get(uuid=saved_uuid)
+        uploaded.scale_info = build_scale_info(
+            manual_um_per_px=0.5, prefer_metadata=False
+        )
+        uploaded.save(update_fields=["scale_info"])
+        self._add_cell_stat(saved_uuid)
+
+        response = self.client.post(
+            reverse("display_export_files"),
+            data=json.dumps(
+                {
+                    "visible_uuids": [saved_uuid],
+                    "uuids": [saved_uuid],
+                    "_export": "csv",
+                    "_columns": [
+                        "puncta_distance",
+                        "red_contour_1_center_xy",
+                        "red_in_red_total_intensity_1",
+                    ],
+                    "_unit": "um",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._csv_rows(response)
+        self.assertEqual(
+            rows[0],
+            [
+                "File Name",
+                "Cell ID",
+                "Puncta Distance (µm)",
+                "Red Contour 1 Center (x,y) (µm)",
+                "Red In Red Total Intensity 1",
+            ],
+        )
+        self.assertEqual(
+            rows[1],
+            ["display_combined_um_export", "1", "0.500", "5.000, 10.000", "5.000"],
+        )
+
     def test_display_combined_export_filename_scope_tracks_metric_selection(self):
         first_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -2717,6 +2765,60 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
         self.assertNotIn("Red In Red Max Intensity 1", self._xlsx_headers(xlsx_response))
         self.assertNotIn("Red In Red Average Intensity 1", self._xlsx_headers(xlsx_response))
+
+    def test_display_csv_and_xlsx_exports_respect_micron_unit_request(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="display_export_um",
+        )
+        uploaded = UploadedImage.objects.get(uuid=saved_uuid)
+        uploaded.scale_info = build_scale_info(
+            manual_um_per_px=0.5, prefer_metadata=False
+        )
+        uploaded.save(update_fields=["scale_info"])
+        self._add_cell_stat(saved_uuid)
+
+        selected_columns = (
+            "puncta_distance,red_contour_1_center_xy,"
+            "red_in_red_total_intensity_1,measurement_contour_ratio_1"
+        )
+        csv_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {
+                "_export": "csv",
+                "_unit": "um",
+                "_columns": selected_columns,
+            },
+        )
+        xlsx_response = self.client.get(
+            reverse("display", args=[saved_uuid]),
+            {
+                "_export": "xlsx",
+                "_unit": "um",
+                "_columns": selected_columns,
+            },
+        )
+
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(xlsx_response.status_code, 200)
+        expected_headers = [
+            "Cell ID",
+            "Distance Between Red Puncta (µm)",
+            "Red Contour 1 Center (x,y) (µm)",
+            "Red In Red Total Intensity 1",
+            "Measurement/Contour Ratio 1 (Green/Red)",
+        ]
+        self.assertEqual(self._csv_rows(csv_response)[0], expected_headers)
+        self.assertEqual(
+            self._csv_rows(csv_response)[1],
+            ["1", "0.500", "5.000, 10.000", "5.000", "1.200"],
+        )
+        self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
+        self.assertEqual(
+            self._xlsx_rows(xlsx_response)[1],
+            [1, 0.5, "5.000, 10.000", 5, 1.2],
+        )
 
     def test_filtered_exports_reject_invalid_or_empty_columns(self):
         saved_uuid = self._create_display_file(

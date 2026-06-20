@@ -32,12 +32,22 @@
                 <button type="button" class="export-selection-btn secondary-nav" id="chooseExportFilesBtn">Edit files</button>
             </div>
             <div class="export-selection-status-row">
-                <div class="export-format-control">
-                    <span class="export-format-label">File Type:</span>
-                    <div class="export-format-toggle" id="exportFormatToggle" role="group" aria-label="Download format" data-active-format="csv">
-                        <div class="export-format-indicator" aria-hidden="true"></div>
-                        <button type="button" class="export-format-btn active" data-export-format="csv" aria-pressed="true">CSV</button>
-                        <button type="button" class="export-format-btn" data-export-format="xlsx" aria-pressed="false">Excel</button>
+                <div class="export-selection-download-controls">
+                    <div class="export-format-control">
+                        <span class="export-format-label">File Type:</span>
+                        <div class="export-format-toggle" id="exportFormatToggle" role="group" aria-label="Download format" data-active-format="csv">
+                            <div class="export-format-indicator" aria-hidden="true"></div>
+                            <button type="button" class="export-format-btn active" data-export-format="csv" aria-pressed="true">CSV</button>
+                            <button type="button" class="export-format-btn" data-export-format="xlsx" aria-pressed="false">Excel</button>
+                        </div>
+                    </div>
+                    <div class="export-spatial-unit-control">
+                        <span class="export-spatial-unit-label">Spatial Unit:</span>
+                        <div class="spatial-unit-track export-spatial-unit-toggle" role="group" aria-label="Download spatial units" data-spatial-unit-toggle data-active-unit="px">
+                            <div class="spatial-unit-indicator" aria-hidden="true"></div>
+                            <button type="button" class="spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                            <button type="button" class="spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                        </div>
                     </div>
                 </div>
                 <span class="export-selection-count" id="exportSelectionCount" aria-live="polite"></span>

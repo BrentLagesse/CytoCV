@@ -31,7 +31,7 @@ class FrontendTemplateContractTests(TestCase):
                 self.assertNotIn(token, content)
         self.assertEqual(
             content.count('data-spatial-unit="um" aria-pressed="false">µm</button>'),
-            2,
+            3,
         )
         self.assertIn('<span class="fullscreen-icon" aria-hidden="true">⛶</span>', content)
         assert_in_order(
@@ -248,7 +248,7 @@ class FrontendTemplateContractTests(TestCase):
             display_content.count('class="skeleton-shape skeleton-table-spatial-unit"'),
             1,
         )
-        self.assertEqual(display_content.count('data-spatial-unit-toggle'), 2)
+        self.assertEqual(display_content.count('data-spatial-unit-toggle'), 3)
         self.assertNotIn("displaySpatialUnitToggleLegacy", display_content)
         self.assertNotIn("displaySpatialUnitToggleLegacySecondary", display_content)
         assert_in_order(
@@ -290,7 +290,7 @@ class FrontendTemplateContractTests(TestCase):
             dashboard_content.count('class="skeleton-shape skeleton-table-spatial-unit"'),
             1,
         )
-        self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 2)
+        self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 3)
         self.assertNotIn("dashboardSpatialUnitToggleLegacy", dashboard_content)
         assert_in_order(
             self,

@@ -241,8 +241,219 @@ assert.strictEqual(
         self.assertIn("[data-spatial-unit-toggle]", shared_source)
         self.assertIn("bindSpatialUnitControls({", display_source)
         self.assertIn("bindSpatialUnitControls({", dashboard_source)
+        self.assertIn("getStatLabel: getExportSelectionStatLabel", display_source)
+        self.assertIn("getStatLabel: getExportSelectionStatLabel", dashboard_source)
+        self.assertIn("refreshStatLabels", static_text("js/export_selection_modal.js"))
+        self.assertIn("refreshStatLabels", display_source)
+        self.assertIn("refreshStatLabels", dashboard_source)
         self.assertNotIn("const sidebarSpatialUnitToggle", display_source)
         self.assertNotIn("const sidebarSpatialUnitToggle", dashboard_source)
+
+    def test_shared_spatial_unit_binding_syncs_sidebar_table_and_modal_controls(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "shared" / "results-viewer.js"
+        script = f"""
+(async () => {{
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+
+function makeClassList() {{
+  const values = new Set();
+  return {{
+    toggle(name, force) {{
+      if (force) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{
+      return values.has(name);
+    }},
+  }};
+}}
+
+function makeButton(unit) {{
+  return {{
+    dataset: {{ spatialUnit: unit }},
+    attrs: {{}},
+    classList: makeClassList(),
+    handlers: {{}},
+    setAttribute(name, value) {{
+      this.attrs[name] = value;
+    }},
+    addEventListener(eventName, handler) {{
+      this.handlers[eventName] = handler;
+    }},
+  }};
+}}
+
+function makeToggle(name) {{
+  return {{
+    name,
+    dataset: {{}},
+    buttons: [makeButton('px'), makeButton('um')],
+    querySelectorAll(selector) {{
+      assert.strictEqual(selector, '[data-spatial-unit]');
+      return this.buttons;
+    }},
+  }};
+}}
+
+const toggles = [makeToggle('sidebar'), makeToggle('table'), makeToggle('modal')];
+const context = {{
+  window: {{}},
+  document: {{
+    querySelectorAll(selector) {{
+      return selector === '[data-spatial-unit-toggle]' ? toggles : [];
+    }},
+  }},
+}};
+vm.runInNewContext(source, context);
+
+let currentUnit = 'px';
+let rerenderCount = 0;
+const persistedUnits = [];
+const helpers = context.window.CytoCVResultsViewerShared.createStatisticsHelpers({{
+  tableFieldOrder: [],
+  statFieldGroups: {{}},
+  spatialFieldKinds: {{}},
+  spatialHeaderBaseLabels: {{}},
+  defaultSpatialStatsUnit: 'px',
+  getCurrentSpatialStatsUnit: () => currentUnit,
+  setCurrentSpatialStatsUnit: (unit) => {{
+    currentUnit = unit;
+  }},
+}});
+
+function assertSynced(expectedUnit) {{
+  for (const toggle of toggles) {{
+    assert.strictEqual(toggle.dataset.activeUnit, expectedUnit);
+    for (const button of toggle.buttons) {{
+      const active = button.dataset.spatialUnit === expectedUnit;
+      assert.strictEqual(button.attrs['aria-pressed'], active ? 'true' : 'false');
+      assert.strictEqual(button.classList.contains('active'), active);
+    }}
+  }}
+}}
+
+helpers.bindSpatialUnitControls({{
+  getCurrentFileData: () => null,
+  rerender: () => {{
+    rerenderCount += 1;
+  }},
+  persistSpatialUnit: async (unit) => {{
+    persistedUnits.push(unit);
+    return unit;
+  }},
+}});
+
+assertSynced('px');
+await toggles[2].buttons[1].handlers.click();
+assert.strictEqual(currentUnit, 'um');
+assertSynced('um');
+assert.deepStrictEqual(persistedUnits, ['um']);
+assert.strictEqual(rerenderCount, 2);
+
+await toggles[0].buttons[0].handlers.click();
+assert.strictEqual(currentUnit, 'px');
+assertSynced('px');
+assert.deepStrictEqual(persistedUnits, ['um', 'px']);
+assert.strictEqual(rerenderCount, 4);
+}})().catch((error) => {{
+  console.error(error);
+  process.exit(1);
+}});
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
+    def test_export_selection_refreshes_stat_labels_without_rebuilding_state(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "export_selection_modal.js"
+        script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+const context = {{ window: {{}} }};
+vm.runInNewContext(source, context);
+const hooks = context.window.CytoCVExportSelection.__testHooks;
+
+const itemById = new Map([
+  ['puncta_distance', {{
+    id: 'puncta_distance',
+    label: 'Distance Between Red Puncta (px)',
+  }}],
+  ['red_in_red_total_intensity_1', {{
+    id: 'red_in_red_total_intensity_1',
+    label: 'Red In Red Total Intensity 1',
+  }}],
+]);
+const labelElements = [
+  {{
+    dataset: {{ exportStatLabelFor: 'puncta_distance' }},
+    textContent: 'Distance Between Red Puncta (px)',
+  }},
+  {{
+    dataset: {{ exportStatLabelFor: 'red_in_red_total_intensity_1' }},
+    textContent: 'Red In Red Total Intensity 1',
+  }},
+];
+const selectedCheckbox = {{ checked: true }};
+const formatState = {{ activeFormat: 'xlsx' }};
+const intensityFilter = {{ checked: true }};
+const statList = {{
+  querySelectorAll(selector) {{
+    assert.strictEqual(selector, '[data-export-stat-label-for]');
+    return labelElements;
+  }},
+}};
+const headerLabels = new Map([
+  ['puncta_distance', 'Distance Between Red Puncta (µm)'],
+]);
+
+const updated = hooks.refreshStatLabelElements(
+  statList,
+  itemById,
+  headerLabels,
+  (item, context) => item.id === 'puncta_distance' ? context.currentTableLabel : '',
+  {{ activeMode: 'single' }}
+);
+
+assert.strictEqual(updated, 2);
+assert.strictEqual(labelElements[0].textContent, 'Distance Between Red Puncta (µm)');
+assert.strictEqual(labelElements[1].textContent, 'Red In Red Total Intensity 1');
+assert.strictEqual(selectedCheckbox.checked, true);
+assert.strictEqual(formatState.activeFormat, 'xlsx');
+assert.strictEqual(intensityFilter.checked, true);
+assert.strictEqual(
+  hooks.resolveStatLabel(
+    {{ id: 'blue_contour_size', label: 'Blue Contour Size (px²)' }},
+    new Map(),
+    (item) => item.label.replace('(px²)', '(µm²)'),
+    {{}}
+  ),
+  'Blue Contour Size (µm²)'
+);
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
     def test_dashboard_quota_fill_width_is_applied_from_data_attribute(self):
         source = static_text("js/pages/dashboard-viewer.js")

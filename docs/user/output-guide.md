@@ -103,7 +103,9 @@ The on-page statistics tables and the CSV/XLSX exports include both:
 - the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
 - canonical contour slot numbering, so size, center-coordinate, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
 
-When the statistics unit toggle is set to pixels, coordinate columns show full-image pixel coordinates. When the unit is set to micrometers, `x` and `y` are converted with the file's per-axis scale metadata or manual fallback scale.
+Spatial units can be changed from the page-level Spatial Unit controls or directly inside the Download Statistics modal. The selected unit applies to spatial measurements in CSV and XLSX exports, including distances, contour sizes, and contour center coordinates. When the statistics unit toggle is set to pixels, coordinate columns show full-image pixel coordinates. When the unit is set to micrometers, `x` and `y` are converted with the file's per-axis scale metadata or manual fallback scale.
+
+Intensity values, ratios, classifications, file names, and cell IDs are not spatial-unit-dependent. Combined exports apply the selected unit to every included file using each file's existing scale metadata or fallback behavior.
 
 Statistics downloads can include all metrics or a selected subset. Export filenames follow:
 

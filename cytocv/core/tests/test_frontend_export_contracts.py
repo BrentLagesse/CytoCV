@@ -1,11 +1,18 @@
 ﻿from __future__ import annotations
 
 import json
+import re
 
 from django.test import TestCase
 from django.urls import reverse
 
-from .frontend_contract_helpers import add_cell_stat, create_display_file, login_user, response_text
+from .frontend_contract_helpers import (
+    add_cell_stat,
+    assert_in_order,
+    create_display_file,
+    login_user,
+    response_text,
+)
 
 
 class FrontendExportContractTests(TestCase):
@@ -39,6 +46,9 @@ class FrontendExportContractTests(TestCase):
                     'data-export-intensity-action="total_max"',
                     'data-export-intensity-action="average"',
                     'data-export-intensity-action="slots_1_2"',
+                    'class="export-spatial-unit-control"',
+                    'class="spatial-unit-track export-spatial-unit-toggle"',
+                    'aria-label="Download spatial units"',
                 ):
                     self.assertIn(hook, content)
                     self.assertEqual(content.count(hook), 1)
@@ -59,8 +69,20 @@ class FrontendExportContractTests(TestCase):
                     "Slot 3",
                     "Red In Red",
                     "Green In Green",
+                    '<span class="export-spatial-unit-label">Spatial Unit:</span>',
+                    'data-spatial-unit="px" aria-pressed="false">px</button>',
+                    'data-spatial-unit="um" aria-pressed="false">µm</button>',
                 ):
                     self.assertIn(hook, content)
+                assert_in_order(
+                    self,
+                    content,
+                    '<span class="export-format-label">File Type:</span>',
+                    '<span class="export-spatial-unit-label">Spatial Unit:</span>',
+                    'id="exportSelectionCount"',
+                )
+                ids = re.findall(r'\bid="([^"]+)"', content)
+                self.assertEqual(len(ids), len(set(ids)))
                 self.assertIn("js/export_selection_modal.js", content)
 
     def test_dashboard_export_endpoint_preserves_invalid_selection_error_shape(self):

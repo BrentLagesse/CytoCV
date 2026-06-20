@@ -284,6 +284,7 @@
             formatStatValue,
             hasNoNucleusContour,
             getNuclearLabelPair,
+            getDynamicSpatialHeaderLabel,
             renderStatisticsTable,
             hasStatisticsTableRows,
             updateSpatialUnitControls,
@@ -540,6 +541,18 @@
             return `/dashboard/?${params.toString()}`;
         }
 
+        function getExportSelectionStatLabel(item, context = {}) {
+            if (context.currentTableLabel) {
+                return context.currentTableLabel;
+            }
+            const fieldName = item ? (item.tableField || item.id) : '';
+            if (fieldName && Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
+                const fileUUID = fileUUIDs[currentFileIndex];
+                return getDynamicSpatialHeaderLabel(fieldName, filesData[fileUUID] || null);
+            }
+            return item ? (item.label || item.id) : '';
+        }
+
         function syncDashboardExportButtons(fileUUID, fileData, renderedRowCount = 0) {
             const exportButtons = document.getElementById('exportButtons');
             if (!exportButtons) {
@@ -574,6 +587,7 @@
                     };
                 },
                 buildExportUrl: buildDashboardExportUrl,
+                getStatLabel: getExportSelectionStatLabel,
                 bulkExportUrl: '/dashboard/files/export/',
                 getSelectableFiles: () => fileUUIDs.map((fileUUID) => ({
                     id: fileUUID,
@@ -631,6 +645,9 @@
             });
             renderCellDisplayState(nextState, { blendImages: false, blendText: false });
             updateTableState(fileUUID, fileData);
+            if (dashboardExportSelectionController && dashboardExportSelectionController.refreshStatLabels) {
+                dashboardExportSelectionController.refreshStatLabels();
+            }
         }
 
         async function persistSidebarSpatialUnit(unit) {

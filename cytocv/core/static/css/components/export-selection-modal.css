@@ -91,7 +91,15 @@
         background: transparent;
         overflow: hidden;
     }
-    .export-format-control {
+    .export-selection-download-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+    .export-format-control,
+    .export-spatial-unit-control {
         display: inline-flex;
         align-items: center;
         gap: 10px;
@@ -101,7 +109,8 @@
         background: var(--popup-secondary-button-bg);
         padding: 2px 4px 2px 10px;
     }
-    .export-format-label {
+    .export-format-label,
+    .export-spatial-unit-label {
         color: rgba(255, 255, 255, 0.82);
         font-size: 12px;
         font-weight: 600;
@@ -122,6 +131,10 @@
         transition: left 0.25s ease;
         pointer-events: none;
         z-index: 0;
+    }
+    .export-spatial-unit-toggle {
+        flex: 0 0 auto;
+        min-width: 104px;
     }
     .export-selection-modal .export-format-btn {
         position: relative;
@@ -170,6 +183,21 @@
         box-shadow: none !important;
         filter: none !important;
         color: #ffffff;
+    }
+    .export-selection-modal .spatial-unit-btn {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        filter: none !important;
+    }
+    .export-selection-modal .spatial-unit-btn:hover,
+    .export-selection-modal .spatial-unit-btn:focus-visible,
+    .export-selection-modal .spatial-unit-btn:active {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        filter: none !important;
+        outline: none;
     }
     .export-selection-list-box {
         border: 1px solid var(--panel-border);
@@ -536,6 +564,16 @@
         .export-intensity-quick-select-header {
             align-items: stretch;
             flex-direction: column;
+        }
+        .export-selection-download-controls,
+        .export-format-control,
+        .export-spatial-unit-control {
+            align-items: stretch;
+            width: 100%;
+        }
+        .export-format-toggle,
+        .export-spatial-unit-toggle {
+            flex: 1 1 auto;
         }
         .export-intensity-filter-grid {
             grid-template-columns: minmax(0, 1fr);

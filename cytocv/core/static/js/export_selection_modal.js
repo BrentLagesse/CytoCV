@@ -64,6 +64,34 @@
     return labels;
   }
 
+  function resolveStatLabel(item, headerLabels, getCustomLabel, context) {
+    if (!item) return '';
+    const currentTableLabel = headerLabels && typeof headerLabels.get === 'function'
+      ? (headerLabels.get(item.id) || '')
+      : '';
+    if (typeof getCustomLabel === 'function') {
+      const customLabel = getCustomLabel(item, {
+        ...(context || {}),
+        currentTableLabel,
+      });
+      if (customLabel) return String(customLabel);
+    }
+    return currentTableLabel || item.label || item.id;
+  }
+
+  function refreshStatLabelElements(statList, itemById, headerLabels, getCustomLabel, context) {
+    if (!statList || typeof statList.querySelectorAll !== 'function') return 0;
+    let updatedCount = 0;
+    statList.querySelectorAll('[data-export-stat-label-for]').forEach((labelEl) => {
+      const itemId = labelEl.dataset ? labelEl.dataset.exportStatLabelFor : '';
+      const item = itemById && typeof itemById.get === 'function' ? itemById.get(itemId) : null;
+      if (!item) return;
+      labelEl.textContent = resolveStatLabel(item, headerLabels, getCustomLabel, context);
+      updatedCount += 1;
+    });
+    return updatedCount;
+  }
+
   function arrayFromMaybeSet(value) {
     if (value instanceof Set) return Array.from(value);
     if (Array.isArray(value)) return value;
@@ -646,6 +674,25 @@
       updateFormatState();
     }
 
+    function statLabelContext(extra = {}) {
+      return {
+        activeMode,
+        activeView,
+        activeFileContext,
+        selectedFileIds: selectedFileIdsInOrder(),
+        ...extra,
+      };
+    }
+
+    function labelForItem(item, headerLabels) {
+      return resolveStatLabel(
+        item,
+        headerLabels,
+        options.getStatLabel,
+        statLabelContext()
+      );
+    }
+
     function updateCountState(element, count) {
       if (!element) return;
       const hasSelection = count > 0;
@@ -787,7 +834,8 @@
 
           const text = document.createElement('span');
           text.className = 'export-selection-row-text';
-          text.textContent = headerLabels.get(item.id) || item.label || item.id;
+          text.dataset.exportStatLabelFor = item.id;
+          text.textContent = labelForItem(item, headerLabels);
 
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
@@ -804,6 +852,18 @@
         statList.appendChild(section);
       });
       updateStatCount();
+    }
+
+    function refreshStatLabels() {
+      const useCurrentTableLabels = activeMode === 'single';
+      const headerLabels = getHeaderLabels(items, useCurrentTableLabels);
+      refreshStatLabelElements(
+        statList,
+        itemById,
+        headerLabels,
+        options.getStatLabel,
+        statLabelContext()
+      );
     }
 
     function configureStatsView() {
@@ -1130,6 +1190,7 @@
       openFiles,
       close,
       refresh: buildStatRows,
+      refreshStatLabels,
     };
   }
 
@@ -1146,6 +1207,8 @@
       isContourIntensityItem,
       intensityItemMatchesFilters,
       normalizeIntensityFilters,
+      refreshStatLabelElements,
+      resolveStatLabel,
     },
   };
 })();
