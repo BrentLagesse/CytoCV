@@ -313,6 +313,19 @@ class FrontendStaticContractTests(SimpleTestCase):
             results_css,
             r"\.table-filter-count-meta\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--glass-border-rgb\),\s*0\.34\);[^}]*background:\s*rgba\(18,\s*28,\s*40,\s*0\.48\);",
         )
+        self.assertIn(".table-filter-count-meta.is-applying-filter {", results_css)
+        self.assertIn(".table-scroll-frame.is-contour-filter-applying tbody td", results_css)
+        self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-row", results_css)
+        self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-detail", results_css)
+        self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-note", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.table-scroll-frame\.is-contour-filter-applying\s+tbody\s+td::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-row::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-detail::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-note::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
+        )
         self.assertRegex(
             results_css,
             r"\.table-toolbar\s*\{[^}]*align-items:\s*flex-start;",

@@ -16,7 +16,7 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "puncta-source-contour-filter-20260621-v8"
+RESULTS_VIEWER_CSS_VERSION = "scoped-filter-feedback-20260622"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "puncta-source-contour-filter-20260621-v3"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"

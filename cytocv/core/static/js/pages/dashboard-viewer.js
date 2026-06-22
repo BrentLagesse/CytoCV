@@ -311,6 +311,8 @@
         let currentPunctaSourceContourCountFilter = normalizePunctaSourceContourCountFilter(
             dashboardPageConfig.initialPunctaSourceContourCountFilter
         );
+        const PUNCTA_SOURCE_FILTER_APPLY_FEEDBACK_MS = 120;
+        let punctaSourceContourApplySkeletonTimer = null;
         const punctaSourceContourFilterControl = document.getElementById('punctaSourceContourFilterControl');
         const punctaSourceContourFilterButton = document.getElementById('punctaSourceContourFilterButton');
         const punctaSourceContourFilterValue = document.getElementById('punctaSourceContourFilterValue');
@@ -673,9 +675,57 @@
             punctaSourceContourFilterButton.setAttribute('aria-expanded', 'false');
         }
 
+        function waitForPunctaSourceContourFilterApplyFeedback() {
+            return new Promise((resolve) => {
+                window.setTimeout(resolve, PUNCTA_SOURCE_FILTER_APPLY_FEEDBACK_MS);
+            });
+        }
+
+        function setPunctaSourceContourFilterApplying(isApplying) {
+            const status = document.getElementById('punctaSourceContourFilterStatus');
+            if (!status) return;
+            status.classList.toggle('is-applying-filter', !!isApplying);
+            if (isApplying) {
+                status.textContent = 'Applying filter...';
+                status.dataset.activeFilter = 'Applying filter';
+            }
+        }
+
+        function setPunctaSourceContourFilterSkeleton(isApplying) {
+            [
+                document.getElementById('tableScrollFrame'),
+                document.querySelector('[data-ui-region="cell-metrics-strip"]'),
+            ].forEach((element) => {
+                if (!element) return;
+                element.classList.toggle('is-contour-filter-applying', !!isApplying);
+                element.setAttribute('aria-busy', isApplying ? 'true' : 'false');
+            });
+        }
+
+        function startPunctaSourceContourFilterApplyVisualState() {
+            setPunctaSourceContourFilterApplying(true);
+            if (punctaSourceContourApplySkeletonTimer) {
+                window.clearTimeout(punctaSourceContourApplySkeletonTimer);
+            }
+            setPunctaSourceContourFilterSkeleton(false);
+            punctaSourceContourApplySkeletonTimer = window.setTimeout(() => {
+                punctaSourceContourApplySkeletonTimer = null;
+                setPunctaSourceContourFilterSkeleton(true);
+            }, PUNCTA_SOURCE_FILTER_APPLY_FEEDBACK_MS);
+        }
+
+        function clearPunctaSourceContourFilterApplyVisualState() {
+            if (punctaSourceContourApplySkeletonTimer) {
+                window.clearTimeout(punctaSourceContourApplySkeletonTimer);
+                punctaSourceContourApplySkeletonTimer = null;
+            }
+            setPunctaSourceContourFilterSkeleton(false);
+        }
+
         function syncPunctaSourceContourFilterStatus(fileData, renderedRowCount = 0) {
             const status = document.getElementById('punctaSourceContourFilterStatus');
             if (status) {
+                status.classList.remove('is-applying-filter');
                 const counts = getPunctaSourceContourCountFilterCounts(
                     fileData?.Statistics || {},
                     getCurrentPunctaSourceContourCountFilter(),
@@ -895,18 +945,27 @@
                 option.addEventListener('click', async () => {
                     const previousCellNumber = Number(currentCellNumber);
                     setCurrentPunctaSourceContourCountFilter(option.dataset.value);
+                    startPunctaSourceContourFilterApplyVisualState();
                     closePunctaSourceContourFilterMenu();
-                    const fileUUID = fileUUIDs[currentFileIndex];
-                    const fileData = fileUUID ? filesData[fileUUID] : null;
-                    if (fileUUID && fileData) {
-                        await syncCurrentCellToActiveContourFilter(fileData, {
-                            anchorCellId: previousCellNumber,
-                            blendImages: true,
-                            blendText: true,
-                        });
-                        updateTableState(fileUUID, fileData);
-                    } else {
-                        syncPunctaSourceContourFilterStatus({ Statistics: {} }, 0);
+                    try {
+                        await waitForPunctaSourceContourFilterApplyFeedback();
+                        const fileUUID = fileUUIDs[currentFileIndex];
+                        const fileData = fileUUID ? filesData[fileUUID] : null;
+                        if (fileUUID && fileData) {
+                            await syncCurrentCellToActiveContourFilter(fileData, {
+                                anchorCellId: previousCellNumber,
+                                blendImages: true,
+                                blendText: true,
+                            });
+                            updateTableState(fileUUID, fileData);
+                        } else {
+                            syncPunctaSourceContourFilterStatus({ Statistics: {} }, 0);
+                        }
+                    } catch (error) {
+                        setPunctaSourceContourFilterApplying(false);
+                        throw error;
+                    } finally {
+                        clearPunctaSourceContourFilterApplyVisualState();
                     }
                 });
             });

@@ -982,6 +982,47 @@ a:hover {
     white-space: nowrap;
 }
 
+.table-filter-count-meta.is-applying-filter {
+    color: rgba(231, 237, 248, 0.72);
+}
+
+.table-scroll-frame.is-contour-filter-applying tbody tr {
+    pointer-events: none;
+}
+
+.table-scroll-frame.is-contour-filter-applying tbody td {
+    position: relative;
+    color: transparent !important;
+    overflow: hidden;
+}
+
+.table-scroll-frame.is-contour-filter-applying tbody td::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(var(--glass-border-rgb), 0.12);
+    background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+                rgba(43, 43, 43, 0.78);
+}
+
+.table-scroll-frame.is-contour-filter-applying tbody td::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    z-index: 1;
+    transform: translateX(-100%);
+    border-radius: 999px;
+    background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(126, 171, 228, 0.18),
+                transparent
+            );
+    animation: skeletonShimmer 1.15s ease-in-out infinite;
+}
+
 .table-spatial-unit-toggle {
     flex: 0 0 auto;
     min-height: 28px;
@@ -2496,6 +2537,52 @@ a:hover {
     min-width: 0;
     text-align: left;
     align-content: start;
+}
+
+.cell-stats-strip.is-contour-filter-applying .metric-row,
+.cell-stats-strip.is-contour-filter-applying .metric-detail,
+.cell-stats-strip.is-contour-filter-applying .metric-note {
+    position: relative;
+    min-height: 16px;
+    color: transparent !important;
+    overflow: hidden;
+}
+
+.cell-stats-strip.is-contour-filter-applying .metric-row > *,
+.cell-stats-strip.is-contour-filter-applying .metric-detail > *,
+.cell-stats-strip.is-contour-filter-applying .metric-note {
+    color: transparent !important;
+}
+
+.cell-stats-strip.is-contour-filter-applying .metric-row::after,
+.cell-stats-strip.is-contour-filter-applying .metric-detail::after,
+.cell-stats-strip.is-contour-filter-applying .metric-note::after {
+    content: "";
+    position: absolute;
+    inset: 2px 0;
+    border-radius: 999px;
+    border: 1px solid rgba(var(--glass-border-rgb), 0.12);
+    background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+                rgba(43, 43, 43, 0.72);
+}
+
+.cell-stats-strip.is-contour-filter-applying .metric-row::before,
+.cell-stats-strip.is-contour-filter-applying .metric-detail::before,
+.cell-stats-strip.is-contour-filter-applying .metric-note::before {
+    content: "";
+    position: absolute;
+    inset: 2px 0;
+    z-index: 1;
+    transform: translateX(-100%);
+    border-radius: 999px;
+    background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(126, 171, 228, 0.18),
+                transparent
+            );
+    animation: skeletonShimmer 1.15s ease-in-out infinite;
 }
 
 @media (max-width: 1180px) {
