@@ -24,6 +24,10 @@ from core.services.nuclear_cell_pair_contour_mode import (
     DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
     normalize_nuclear_cell_pair_contour_mode,
 )
+from core.services.puncta_source_contour_count_filter import (
+    PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
+    normalize_puncta_source_contour_count_filter,
+)
 from core.services.signal_quantification import (
     SIGNAL_MODE_PUNCTA_DISTANCE,
     resolve_effective_alternate_nucleus_detection,
@@ -61,6 +65,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "nuclear_cell_pair_mode": "green_nucleus",
     "nuclear_cell_pair_contour_mode": DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
     "use_legacy_nuclear_cell_pair_pipeline": False,
+    "puncta_source_contour_count_filter": PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
     "greenContourFilterEnabled": False,
     "alternateRedDetection": False,
     "auto_save_experiments": True,
@@ -375,6 +380,12 @@ def normalize_analysis_config_snapshot(
             payload.get("use_legacy_nuclear_cell_pair_pipeline"),
             default=False,
         ),
+        "puncta_source_contour_count_filter": normalize_puncta_source_contour_count_filter(
+            payload.get(
+                "puncta_source_contour_count_filter",
+                payload.get("red_contour_count_filter"),
+            )
+        ),
         "greenContourFilterEnabled": _parse_bool(
             payload.get("greenContourFilterEnabled", payload.get("gfpFilterEnabled")),
             default=False,
@@ -512,6 +523,13 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         "use_legacy_nuclear_cell_pair_pipeline": request.session.get(
             "use_legacy_nuclear_cell_pair_pipeline",
             False,
+        ),
+        "puncta_source_contour_count_filter": request.session.get(
+            "puncta_source_contour_count_filter",
+            request.session.get(
+                "red_contour_count_filter",
+                PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
+            ),
         ),
         "greenContourFilterEnabled": request.session.get(
             "greenContourFilterEnabled", request.session.get("gfpFilterEnabled", False)

@@ -21,6 +21,9 @@ from core.services.stat_export_selection import (
     export_metric_scope,
 )
 from core.services.export_filenames import build_statistics_export_filename
+from core.services.puncta_source_contour_count_filter import (
+    filter_statistics_by_puncta_source_contour_count,
+)
 from core.tables import CellTable
 
 
@@ -84,15 +87,20 @@ def _table_rows_for_file(
     exclude_columns: tuple[str, ...],
     spatial_stats_unit: str,
     default_manual_scale: float,
+    puncta_source_contour_count_filter: str = "all",
 ) -> list[list[Any]]:
     stats_qs = CellStatistics.objects.filter(
         segmented_image=source.segmented_image,
     ).order_by("cell_id")
-    if not stats_qs.exists():
+    stats = filter_statistics_by_puncta_source_contour_count(
+        stats_qs,
+        puncta_source_contour_count_filter,
+    )
+    if not stats:
         return []
 
     table = CellTable(
-        stats_qs,
+        stats,
         intensity_mode=None,
         puncta_line_mode=None,
         spatial_stats_unit=spatial_stats_unit,
@@ -112,6 +120,7 @@ def build_combined_statistics_export_response(
     raw_columns: Any,
     spatial_stats_unit: str,
     default_manual_scale: float,
+    puncta_source_contour_count_filter: str = "all",
 ) -> HttpResponse:
     """Return one CSV/XLSX attachment for the selected files."""
 
@@ -138,6 +147,7 @@ def build_combined_statistics_export_response(
             exclude_columns=exclude_columns,
             spatial_stats_unit=unit,
             default_manual_scale=default_manual_scale,
+            puncta_source_contour_count_filter=puncta_source_contour_count_filter,
         )
         for row_index, row in enumerate(rows):
             file_name_cell = source.file_name if row_index == 0 else ""

@@ -115,6 +115,17 @@ def serialize_cell_statistics_payload(
         "alternate_nucleus_detection_channel": properties.get(
             "alternate_nucleus_detection_channel"
         ),
+        "red_contour_count": properties.get("red_contour_count"),
+        "green_contour_count": properties.get("green_contour_count"),
+        "red_contour_count_source": properties.get("red_contour_count_source"),
+        "green_contour_count_source": properties.get("green_contour_count_source"),
+        "puncta_source_contour_count": properties.get("puncta_source_contour_count"),
+        "puncta_source_contour_count_channel": properties.get(
+            "puncta_source_contour_count_channel"
+        ),
+        "puncta_source_contour_count_source": properties.get(
+            "puncta_source_contour_count_source"
+        ),
         "puncta_distance": stat_value("puncta_distance", cell_stat.puncta_distance),
         "puncta_line_intensity": stat_value(
             "puncta_line_intensity",

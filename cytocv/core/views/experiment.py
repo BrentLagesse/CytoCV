@@ -497,7 +497,6 @@ def _parse_experiment_submission(
         experiment_defaults.get("fallback_channel_order"),
         default=DEFAULT_FALLBACK_CHANNEL_ORDER,
     )
-
     has_selected_analysis_payload = _has_payload_key(payload, "selected_analysis")
     raw_selected_analysis = normalize_selected_plugins(
         _getlist(payload, "selected_analysis")

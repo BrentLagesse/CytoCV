@@ -6,8 +6,8 @@
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-count-fade-20260620"></script>
-    <script src="{% static 'js/shared/results-viewer.js' %}?v=results-viewer-shared-20260610"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=table-skeleton-spatial-unit-20260618">
+    <script src="{% static 'js/shared/results-viewer.js' %}?v=puncta-source-contour-filter-20260621-v4"></script>
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=puncta-source-contour-filter-20260621-v8">
     <link rel="stylesheet" href="{% static 'css/pages/display.css' %}?v=frontend-modularization-20260609">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-count-fade-20260620">
 
@@ -69,7 +69,7 @@
                     <div class="spatial-unit-track sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-spatial-unit-toggle data-active-unit="px">
                         <div class="spatial-unit-indicator sidebar-unit-indicator" aria-hidden="true"></div>
                         <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
-                        <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                        <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">&micro;m</button>
                     </div>
                 </div>
             </div>
@@ -170,7 +170,11 @@
 
                             <div class="cell-pairs-card glass-card glass-section" data-ui-region="cell-pairs-card">
                                 <div class="glass-toolbar cell-pairs-toolbar">
-                                    <p class="section-eyebrow">Cell Pairs</p>
+                                    <div class="cell-pairs-title-group">
+                                        <p class="section-eyebrow">Cell Pairs</p>
+                                        <div class="cell-card-filter-badge cell-card-filter-meta" id="punctaSourceContourCellFilterBadge" aria-live="polite" hidden></div>
+                                        <div class="cell-card-filter-message cell-card-filter-warning" id="punctaSourceContourActiveCellMessage" aria-live="polite" hidden></div>
+                                    </div>
                                     <div class="cell-toolbar-actions">
                                         <div class="contour-toolbar">
                                             <span>Contours</span>
@@ -449,12 +453,15 @@
                                 </div>
 
                                 <div class="navigation-buttons">
-                                    <button type="button" onclick="previousCell()">Previous Cell</button>
-                                    <button type="button" onclick="nextCell()">Next Cell</button>
+                                    <button type="button" id="previousCellBtn" onclick="previousCell()">Previous Cell</button>
+                                    <button type="button" id="nextCellBtn" onclick="nextCell()">Next Cell</button>
                                 </div>
                                 <div class="file-swap-skeleton cell-swap-skeleton" aria-hidden="true">
                                     <div class="skeleton-cell-header">
-                                        <div class="skeleton-shape skeleton-cell-title"></div>
+                                        <div class="skeleton-cell-title-group">
+                                            <div class="skeleton-shape skeleton-cell-title"></div>
+                                            <div class="skeleton-shape skeleton-cell-filter-badge"></div>
+                                        </div>
                                         <div class="skeleton-cell-actions">
                                             <div class="skeleton-shape skeleton-toolbar-control skeleton-contour-control"></div>
                                             <div class="skeleton-shape skeleton-toolbar-control skeleton-cell-id-control"></div>
@@ -530,19 +537,34 @@
                         <div class="table-toolbar glass-toolbar">
                             <p class="section-eyebrow">Statistics Table</p>
                             <div class="toolbar-actions">
+                                <div class="table-puncta-source-contour-filter" id="punctaSourceContourFilterControl" data-puncta-source-contour-filter>
+                                    <span class="table-filter-label" id="punctaSourceContourFilterLabel">Puncta Source Contour Count:</span>
+                                    <button type="button" class="table-filter-trigger" id="punctaSourceContourFilterButton" aria-haspopup="listbox" aria-expanded="false">
+                                        <span id="punctaSourceContourFilterValue">All cells</span>
+                                        <span class="table-filter-caret" aria-hidden="true"></span>
+                                    </button>
+                                    <div class="table-filter-menu" id="punctaSourceContourFilterMenu" role="listbox" aria-labelledby="punctaSourceContourFilterLabel" hidden>
+                                        <button type="button" role="option" data-value="all">All cells</button>
+                                        <button type="button" role="option" data-value="exactly_1">Exactly 1 source contour</button>
+                                        <button type="button" role="option" data-value="exactly_2">Exactly 2 source contours</button>
+                                    </div>
+                                </div>
                                 <div class="table-spatial-unit-control">
                                     <span class="table-spatial-unit-label">Spatial Unit:</span>
                                     <div class="spatial-unit-track table-spatial-unit-toggle" role="group" aria-label="Statistics table spatial units" data-spatial-unit-toggle data-active-unit="px">
                                         <div class="spatial-unit-indicator" aria-hidden="true"></div>
                                         <button type="button" class="spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
-                                        <button type="button" class="spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                                        <button type="button" class="spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">&micro;m</button>
                                     </div>
                                 </div>
                                 <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">
-                                    <span class="fullscreen-icon" aria-hidden="true">⛶</span>
+                                    <span class="fullscreen-icon" aria-hidden="true">&#x26F6;</span>
                                     <span class="fullscreen-label">Fullscreen</span>
                                 </button>
                             </div>
+                        </div>
+                        <div class="table-filter-summary">
+                            <span id="punctaSourceContourFilterStatus" aria-live="polite" class="table-filter-count-meta cell-card-filter-meta">Showing 0 of 0 cells</span>
                         </div>
                         <div class="table-scroll-frame" id="tableScrollFrame">
                             {% render_table cell_table %}
@@ -559,9 +581,13 @@
                         <div class="skeleton-table-toolbar">
                             <div class="skeleton-shape skeleton-table-title"></div>
                             <div class="skeleton-table-actions">
+                                <div class="skeleton-shape skeleton-table-source-contour-filter"></div>
                                 <div class="skeleton-shape skeleton-table-spatial-unit"></div>
                                 <div class="skeleton-shape skeleton-table-fullscreen"></div>
                             </div>
+                        </div>
+                        <div class="skeleton-table-filter-summary">
+                            <div class="skeleton-shape skeleton-table-filter-count"></div>
                         </div>
                         <div class="skeleton-table">
                             <div class="skeleton-table-row">
@@ -670,13 +696,13 @@
     {% include "partials/export_selection_modal.html" %}
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
     <script id="displayFilesData" type="application/json">{{ files_data|safe }}</script>
-    <script id="displayPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
+    <script id="displayPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "initialPunctaSourceContourCountFilter": "{{ puncta_source_contour_count_filter|default:'all'|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
 
-    <script src="{% static 'js/pages/display-viewer.js' %}?v=spatial-unit-modal-20260620"></script>
+    <script src="{% static 'js/pages/display-viewer.js' %}?v=puncta-source-contour-filter-20260621-v5"></script>
 
     <script src="{% static 'js/pages/display-bfcache.js' %}?v=frontend-modularization-20260609"></script>
 
-    <script src="{% static 'js/shared/results-cell-actions.js' %}?v=results-cell-actions-shared-20260610"></script>
+    <script src="{% static 'js/shared/results-cell-actions.js' %}?v=puncta-source-contour-filter-20260621-v4"></script>
     <script src="{% static 'js/pages/display-cell-actions.js' %}?v=frontend-modularization-20260609"></script>
 
     <script src="{% static 'js/pages/display-info-message.js' %}?v=frontend-modularization-20260609"></script>

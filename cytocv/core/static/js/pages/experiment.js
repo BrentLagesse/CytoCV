@@ -3774,7 +3774,6 @@
             statsState.useLegacyNuclearCellPairPipeline = !!legacyNuclearCellPairToggle.checked;
             localStorage.setItem(legacyNuclearCellPairModeKey, String(statsState.useLegacyNuclearCellPairPipeline));
         }
-
         const usingMicrometers = statsState.punctaLineWidthUnit === 'um'
             || statsState.cenDotDistanceUnit === 'um'
             || statsState.cenDotProximityRadiusUnit === 'um'

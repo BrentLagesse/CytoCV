@@ -112,10 +112,29 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
                     "selected_analysis": ["PunctaDistance", "GreenRedIntensity"],
                     "nuclear_cell_pair_mode": "green_nucleus",
                     "puncta_line_mode": "red_puncta",
+                    "red_contour_count": 2,
+                    "green_contour_count": 1,
+                    "red_contour_count_source": "standard_canonical_slots_v1",
+                    "green_contour_count_source": "standard_canonical_slots_v1",
+                    "puncta_source_contour_count": 2,
+                    "puncta_source_contour_count_channel": "red",
+                    "puncta_source_contour_count_source": "standard_canonical_slots_v1",
                 },
             )
         )
 
+        self.assertEqual(payload["red_contour_count"], 2)
+        self.assertEqual(payload["green_contour_count"], 1)
+        self.assertEqual(
+            payload["red_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+        self.assertEqual(payload["puncta_source_contour_count"], 2)
+        self.assertEqual(payload["puncta_source_contour_count_channel"], "red")
+        self.assertEqual(
+            payload["puncta_source_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
         self.assertEqual(payload["puncta_distance"], 10.0)
         self.assertEqual(payload["puncta_line_intensity"], 20.0)
         self.assertEqual(payload["red_in_red_total_intensity_1"], 2.0)
@@ -134,6 +153,25 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
         self.assertEqual(payload["nuclear_cell_pair_status"], "N/A")
         self.assertIsNone(payload["category_cen_dot"])
         self.assertIsNone(payload["colinear_dots"])
+
+    def test_old_payload_without_contour_count_metadata_still_serializes(self):
+        payload = serialize_cell_statistics_payload(
+            _cell_stat(
+                properties={
+                    "selected_analysis": ["PunctaDistance", "GreenRedIntensity"],
+                    "nuclear_cell_pair_mode": "green_nucleus",
+                    "puncta_line_mode": "red_puncta",
+                },
+            )
+        )
+
+        self.assertIn("red_contour_count", payload)
+        self.assertIn("green_contour_count", payload)
+        self.assertIn("puncta_source_contour_count", payload)
+        self.assertIsNone(payload["red_contour_count"])
+        self.assertIsNone(payload["green_contour_count"])
+        self.assertIsNone(payload["puncta_source_contour_count"])
+        self.assertNotIn("Puncta Source Contour Count", payload)
 
     def test_selected_biorientation_payload_preserves_computed_zero(self):
         payload = serialize_cell_statistics_payload(

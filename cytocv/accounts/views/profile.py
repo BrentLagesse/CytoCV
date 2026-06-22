@@ -100,6 +100,10 @@ from core.services.result_view_payloads import (
     resolve_cell_table_modes,
     sanitize_for_json,
 )
+from core.services.puncta_source_contour_count_filter import (
+    filter_statistics_by_puncta_source_contour_count,
+    normalize_puncta_source_contour_count_filter,
+)
 from core.scale import (
     get_scale_context_payload,
     get_scale_sidebar_payload,
@@ -259,6 +263,14 @@ def _extract_measurement_defaults(
         defaults.get("spatial_stats_unit"),
         default="px",
     )
+    current_puncta_source_contour_count_filter = (
+        normalize_puncta_source_contour_count_filter(
+            defaults.get(
+                "puncta_source_contour_count_filter",
+                defaults.get("red_contour_count_filter"),
+            )
+        )
+    )
     current_puncta_mode = _normalize_puncta_mode(
         defaults.get("puncta_line_mode"),
         default=DEFAULT_PUNCTA_LINE_MODE,
@@ -385,6 +397,15 @@ def _extract_measurement_defaults(
         "spatial_stats_unit": normalize_spatial_stats_unit(
             post_data.get("spatial_stats_unit"),
             default=current_spatial_stats_unit,
+        ),
+        "puncta_source_contour_count_filter": normalize_puncta_source_contour_count_filter(
+            post_data.get(
+                "puncta_source_contour_count_filter",
+                post_data.get(
+                    "red_contour_count_filter",
+                    current_puncta_source_contour_count_filter,
+                ),
+            )
         ),
         "use_metadata_channel_order": use_metadata_channel_order,
         "fallback_channel_order": fallback_channel_order,
@@ -544,6 +565,7 @@ def _build_cell_table_for_uuid(
     uuid: str,
     *,
     spatial_stats_unit: str = "px",
+    puncta_source_contour_count_filter: str = "all",
 ) -> CellTable:
     preferences = get_user_preferences(user)
     default_manual_scale = preferences.get("experiment_defaults", {}).get(
@@ -571,9 +593,13 @@ def _build_cell_table_for_uuid(
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
         "cell_id"
     )
-    intensity_mode, puncta_line_mode = resolve_cell_table_modes(stats_qs)
-    return CellTable(
+    stats = filter_statistics_by_puncta_source_contour_count(
         stats_qs,
+        puncta_source_contour_count_filter,
+    )
+    intensity_mode, puncta_line_mode = resolve_cell_table_modes(stats)
+    return CellTable(
+        stats,
         intensity_mode=intensity_mode,
         puncta_line_mode=puncta_line_mode,
         spatial_stats_unit=spatial_stats_unit,
@@ -928,6 +954,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
+        "puncta_source_contour_count_filter": "all",
         "export_selection_config": export_selection_config(),
     }
 
@@ -1054,6 +1081,10 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             request.user,
             export_uuid,
             spatial_stats_unit=export_unit,
+            puncta_source_contour_count_filter=request.GET.get(
+                "_puncta_source_contour_count",
+                request.GET.get("_red_contour_count"),
+            ),
         )
         download_name = build_statistics_export_filename(
             scope=metric_scope,
@@ -1175,6 +1206,10 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
+            puncta_source_contour_count_filter=payload.get(
+                "_puncta_source_contour_count",
+                payload.get("_red_contour_count"),
+            ),
         )
     except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)

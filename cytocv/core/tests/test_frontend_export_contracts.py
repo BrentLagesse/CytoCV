@@ -12,6 +12,7 @@ from .frontend_contract_helpers import (
     create_display_file,
     login_user,
     response_text,
+    static_text,
 )
 
 
@@ -203,6 +204,102 @@ class FrontendExportContractTests(TestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         self.assertIn("cytocv_", response["Content-Disposition"])
         self.assertIn("Red In Red Total Intensity 1", response.content.decode("utf-8"))
+
+    def test_export_contracts_include_puncta_source_contour_count_filter_parameter(self):
+        display_source = static_text("js/pages/display-viewer.js")
+        dashboard_source = static_text("js/pages/dashboard-viewer.js")
+        results_source = static_text("js/shared/results-viewer.js")
+
+        for source in (display_source, dashboard_source):
+            with self.subTest(source=source[:20]):
+                self.assertIn("_puncta_source_contour_count", source)
+                self.assertIn("getCurrentPunctaSourceContourCountFilter()", source)
+                self.assertIn("punctaSourceContourFilterButton.addEventListener('click'", source)
+                self.assertIn("syncCurrentCellToActiveContourFilter", source)
+                self.assertIn("getActiveCellNavigationIds", source)
+                self.assertIn("getAdjacentFilteredCellId(currentCellNumber, activeIds", source)
+                self.assertIn("closest('tbody tr[data-cell-id]')", source)
+                self.assertIn("prefix.textContent = 'Filtered view'", source)
+                self.assertIn("separator.textContent = '\\u00b7'", source)
+                self.assertIn("value.textContent = label || 'All cells'", source)
+                self.assertIn("cell-card-filter-value", source)
+                self.assertIn("Showing ${shown} of ${counts.total} cells.", source)
+                self.assertIn("No cells match the current contour-count filter.", source)
+                self.assertNotIn("Filtered view:", source)
+                self.assertNotIn("Filter active:", source)
+                self.assertNotIn("Viewing filtered cells only", source)
+                self.assertNotIn("Counting Green source contours", source)
+                self.assertNotIn("Counting Red source contours", source)
+                self.assertNotIn("This cell is excluded by the current Puncta Source Contour Count filter.", source)
+                self.assertNotIn("startAnalysis", source)
+
+        self.assertIn("normalizePunctaSourceContourCountFilter", results_source)
+        self.assertIn("matchesPunctaSourceContourCountFilter", results_source)
+        self.assertIn("getPunctaSourceContourCountFilterCounts", results_source)
+        self.assertIn("getPunctaSourceContourFilteredCellIds", results_source)
+        self.assertIn("findNearestMatchingCellByOriginalOrder", results_source)
+        self.assertIn("getAdjacentFilteredCellId", results_source)
+        self.assertIn("tr.dataset.cellId = String(id)", results_source)
+        self.assertIn("tr.classList.add('is-active-cell')", results_source)
+
+    def test_filtered_table_delete_contract_uses_stable_cell_id(self):
+        actions_source = static_text("js/shared/results-cell-actions.js")
+
+        self.assertIn("contextMenu.dataset.cellId = String(cellId)", actions_source)
+        self.assertIn("Number(contextMenu.dataset.cellId)", actions_source)
+        self.assertIn("requestCellDelete({", actions_source)
+        self.assertIn("syncCurrentCellToActiveContourFilter", actions_source)
+        self.assertIn("updateTableState(fileUuid, fileData)", actions_source)
+        self.assertNotIn("rowIndex", actions_source)
+
+    def test_combined_export_payloads_respect_puncta_source_contour_count_row_filter(self):
+        user = login_user(self, "frontend-combined-source-filter@example.com")
+        first_uuid = create_display_file(uploaded_owner=user, filename="source_filter_first")
+        second_uuid = create_display_file(uploaded_owner=user, filename="source_filter_second")
+        source_props = {
+            "signal_quantification_mode": "puncta_distance",
+            "puncta_line_mode": "red_puncta",
+        }
+        add_cell_stat(first_uuid, cell_id=1, properties={**source_props, "puncta_source_contour_count": 1})
+        add_cell_stat(first_uuid, cell_id=2, properties={**source_props, "puncta_source_contour_count": 2})
+        add_cell_stat(second_uuid, cell_id=1, properties={**source_props, "puncta_source_contour_count": 1})
+
+        for route_name, payload in (
+            (
+                "dashboard_bulk_export",
+                {
+                    "uuids": [first_uuid, second_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_in_red_total_intensity_1"],
+                    "_unit": "px",
+                    "_puncta_source_contour_count": "exactly_2",
+                },
+            ),
+            (
+                "display_export_files",
+                {
+                    "visible_uuids": [first_uuid, second_uuid],
+                    "uuids": [first_uuid, second_uuid],
+                    "_export": "csv",
+                    "_columns": ["red_in_red_total_intensity_1"],
+                    "_unit": "px",
+                    "_puncta_source_contour_count": "exactly_2",
+                },
+            ),
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.post(
+                    reverse(route_name),
+                    data=json.dumps(payload),
+                    content_type="application/json",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                csv_text = response.content.decode("utf-8")
+                self.assertIn("source_filter_first", csv_text)
+                self.assertIn(",2,5.000", csv_text)
+                self.assertNotIn(",1,5.000", csv_text)
+                self.assertNotIn("source_filter_second", csv_text)
 
     def test_display_export_preserves_visible_subset_order(self):
         user = login_user(self, "frontend-display-export-order@example.com")

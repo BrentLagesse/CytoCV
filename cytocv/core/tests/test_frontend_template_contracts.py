@@ -16,12 +16,13 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "table-skeleton-spatial-unit-20260618"
+RESULTS_VIEWER_CSS_VERSION = "puncta-source-contour-filter-20260621-v8"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
+EXPERIMENT_JS_VERSION = "puncta-source-contour-filter-20260621-v3"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
 SCALE_REVERT_ICON_VERSION = "scale-revert-icon-20260610"
 PREPROCESS_CSS_VERSION = "preprocess-channel-label-nudge-20260610"
-MOJIBAKE_TOKENS = ("Âµ", "â›", "�")
+MOJIBAKE_TOKENS = ("Ã‚Âµ", "Âµ", "Ã¢â€º", "â›¶", "ï¿½")
 
 
 class FrontendTemplateContractTests(TestCase):
@@ -30,10 +31,10 @@ class FrontendTemplateContractTests(TestCase):
             with self.subTest(token=token):
                 self.assertNotIn(token, content)
         self.assertEqual(
-            content.count('data-spatial-unit="um" aria-pressed="false">µm</button>'),
-            3,
+            content.count('data-spatial-unit="um" aria-pressed="false">&micro;m</button>'),
+            2,
         )
-        self.assertIn('<span class="fullscreen-icon" aria-hidden="true">⛶</span>', content)
+        self.assertIn('<span class="fullscreen-icon" aria-hidden="true">&#x26F6;</span>', content)
         assert_in_order(
             self,
             content,
@@ -162,6 +163,14 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="pluginDependencyPayload"', workflow_content)
         self.assertIn('id="workflowDefaultsNav"', workflow_content)
         self.assertIn('data-workflow-card="plugin-defaults"', workflow_content)
+        self.assertNotIn('data-workflow-card="result-filters"', workflow_content)
+        self.assertNotIn('id="puncta_source_contour_count_filter"', workflow_content)
+        assert_in_order(
+            self,
+            workflow_content,
+            'data-workflow-card="plugin-defaults"',
+            'data-workflow-card="dot-detection"',
+        )
         assert_no_inline_styles(self, workflow_content)
 
     def test_experiment_upload_page_preserves_frontend_hooks(self):
@@ -181,13 +190,21 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn(f"workflow-controls.css?v={ICON_ALIGN_VERSION}", content)
         self.assertIn(f"experiment.css?v={EXPERIMENT_CSS_VERSION}", content)
         self.assertIn("js/pages/experiment.js", content)
-        self.assertIn(f"experiment.js?v={ICON_ALIGN_VERSION}", content)
+        self.assertIn(f"experiment.js?v={EXPERIMENT_JS_VERSION}", content)
         self.assertIn('id="uploadForm"', content)
         self.assertIn('id="fileInput"', content)
         self.assertIn('id="folderInput"', content)
         self.assertIn('accept=".dv,.tif,.tiff"', content)
         self.assertIn('id="uploadPreparationConfig"', content)
         self.assertIn('id="statsPluginPayload"', content)
+        self.assertNotIn('id="resultFiltersList"', content)
+        self.assertNotIn("Result Filters", content)
+        assert_in_order(
+            self,
+            content,
+            'id="statsList"',
+            "Dot Detection",
+        )
         self.assertIn('id="uploadQuotaProjection"', content)
         self.assertIn('id="saveWorkflowDefaultsBackdrop"', content)
         self.assertIn("sortablejs@1.15.0/Sortable.min.js", content)
@@ -248,12 +265,67 @@ class FrontendTemplateContractTests(TestCase):
             display_content.count('class="skeleton-shape skeleton-table-spatial-unit"'),
             1,
         )
+        self.assertEqual(
+            display_content.count('class="skeleton-shape skeleton-table-source-contour-filter"'),
+            1,
+        )
+        self.assertEqual(
+            display_content.count('class="skeleton-shape skeleton-table-filter-count"'),
+            1,
+        )
+        self.assertEqual(
+            display_content.count('class="skeleton-shape skeleton-cell-filter-badge"'),
+            1,
+        )
         self.assertEqual(display_content.count('data-spatial-unit-toggle'), 3)
+        self.assertIn('id="punctaSourceContourFilterControl"', display_content)
+        self.assertIn('id="punctaSourceContourFilterButton"', display_content)
+        self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', display_content)
+        self.assertIn(
+            'id="punctaSourceContourFilterStatus" aria-live="polite" class="table-filter-count-meta cell-card-filter-meta"',
+            display_content,
+        )
+        self.assertEqual(display_content.count('id="punctaSourceContourCellFilterBadge"'), 1)
+        self.assertEqual(display_content.count('id="punctaSourceContourActiveCellMessage"'), 1)
+        self.assertIn(
+            'class="cell-card-filter-badge cell-card-filter-meta" id="punctaSourceContourCellFilterBadge" aria-live="polite" hidden',
+            display_content,
+        )
+        self.assertIn(
+            'class="cell-card-filter-message cell-card-filter-warning" id="punctaSourceContourActiveCellMessage" aria-live="polite" hidden',
+            display_content,
+        )
+        display_navigation = display_content[
+            display_content.index('class="navigation-buttons"') :
+            display_content.index('class="file-swap-skeleton cell-swap-skeleton"')
+        ]
+        self.assertNotIn("punctaSourceContourCellFilterBadge", display_navigation)
+        self.assertNotIn("punctaSourceContourActiveCellMessage", display_navigation)
+        self.assertEqual(display_content.count('id="punctaSourceContourFilterControl"'), 1)
+        self.assertNotIn("Counting Green source contours", display_content)
+        self.assertNotIn("Counting Red source contours", display_content)
+        self.assertNotIn("This cell is excluded by the current Puncta Source Contour Count filter.", display_content)
         self.assertNotIn("displaySpatialUnitToggleLegacy", display_content)
         self.assertNotIn("displaySpatialUnitToggleLegacySecondary", display_content)
         assert_in_order(
             self,
             display_content,
+            'class="cell-pairs-title-group"',
+            '<p class="section-eyebrow">Cell Pairs</p>',
+            'id="punctaSourceContourCellFilterBadge"',
+            'id="punctaSourceContourActiveCellMessage"',
+            'class="cell-toolbar-actions"',
+            'class="navigation-buttons"',
+            'id="previousCellBtn"',
+            'id="nextCellBtn"',
+            'class="table-filter-summary"',
+            'id="punctaSourceContourFilterStatus" aria-live="polite"',
+        )
+        assert_in_order(
+            self,
+            display_content,
+            'class="table-puncta-source-contour-filter"',
+            'id="punctaSourceContourFilterButton"',
             'class="table-spatial-unit-control"',
             '<span class="table-spatial-unit-label">Spatial Unit:</span>',
             'class="spatial-unit-track table-spatial-unit-toggle"',
@@ -262,9 +334,22 @@ class FrontendTemplateContractTests(TestCase):
         assert_in_order(
             self,
             display_content,
+            'class="skeleton-cell-header"',
+            'class="skeleton-cell-title-group"',
+            'class="skeleton-shape skeleton-cell-title"',
+            'class="skeleton-shape skeleton-cell-filter-badge"',
+            'class="skeleton-cell-actions"',
+        )
+        assert_in_order(
+            self,
+            display_content,
             'class="skeleton-table-actions"',
+            'class="skeleton-shape skeleton-table-source-contour-filter"',
             'class="skeleton-shape skeleton-table-spatial-unit"',
             'class="skeleton-shape skeleton-table-fullscreen"',
+            'class="skeleton-table-filter-summary"',
+            'class="skeleton-shape skeleton-table-filter-count"',
+            'class="skeleton-table"',
         )
         self._assert_viewer_encoding_and_stats_layout(display_content)
 
@@ -290,11 +375,66 @@ class FrontendTemplateContractTests(TestCase):
             dashboard_content.count('class="skeleton-shape skeleton-table-spatial-unit"'),
             1,
         )
+        self.assertEqual(
+            dashboard_content.count('class="skeleton-shape skeleton-table-source-contour-filter"'),
+            1,
+        )
+        self.assertEqual(
+            dashboard_content.count('class="skeleton-shape skeleton-table-filter-count"'),
+            1,
+        )
+        self.assertEqual(
+            dashboard_content.count('class="skeleton-shape skeleton-cell-filter-badge"'),
+            1,
+        )
         self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 3)
+        self.assertIn('id="punctaSourceContourFilterControl"', dashboard_content)
+        self.assertIn('id="punctaSourceContourFilterButton"', dashboard_content)
+        self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', dashboard_content)
+        self.assertIn(
+            'id="punctaSourceContourFilterStatus" aria-live="polite" class="table-filter-count-meta cell-card-filter-meta"',
+            dashboard_content,
+        )
+        self.assertEqual(dashboard_content.count('id="punctaSourceContourCellFilterBadge"'), 1)
+        self.assertEqual(dashboard_content.count('id="punctaSourceContourActiveCellMessage"'), 1)
+        self.assertIn(
+            'class="cell-card-filter-badge cell-card-filter-meta" id="punctaSourceContourCellFilterBadge" aria-live="polite" hidden',
+            dashboard_content,
+        )
+        self.assertIn(
+            'class="cell-card-filter-message cell-card-filter-warning" id="punctaSourceContourActiveCellMessage" aria-live="polite" hidden',
+            dashboard_content,
+        )
+        dashboard_navigation = dashboard_content[
+            dashboard_content.index('class="navigation-buttons"') :
+            dashboard_content.index('class="file-swap-skeleton cell-swap-skeleton"')
+        ]
+        self.assertNotIn("punctaSourceContourCellFilterBadge", dashboard_navigation)
+        self.assertNotIn("punctaSourceContourActiveCellMessage", dashboard_navigation)
+        self.assertEqual(dashboard_content.count('id="punctaSourceContourFilterControl"'), 1)
+        self.assertNotIn("Counting Green source contours", dashboard_content)
+        self.assertNotIn("Counting Red source contours", dashboard_content)
+        self.assertNotIn("This cell is excluded by the current Puncta Source Contour Count filter.", dashboard_content)
         self.assertNotIn("dashboardSpatialUnitToggleLegacy", dashboard_content)
         assert_in_order(
             self,
             dashboard_content,
+            'class="cell-pairs-title-group"',
+            '<p class="section-eyebrow">Cell Pairs</p>',
+            'id="punctaSourceContourCellFilterBadge"',
+            'id="punctaSourceContourActiveCellMessage"',
+            'class="cell-toolbar-actions"',
+            'class="navigation-buttons"',
+            'id="previousCellBtn"',
+            'id="nextCellBtn"',
+            'class="table-filter-summary"',
+            'id="punctaSourceContourFilterStatus" aria-live="polite"',
+        )
+        assert_in_order(
+            self,
+            dashboard_content,
+            'class="table-puncta-source-contour-filter"',
+            'id="punctaSourceContourFilterButton"',
             'class="table-spatial-unit-control"',
             '<span class="table-spatial-unit-label">Spatial Unit:</span>',
             'class="spatial-unit-track table-spatial-unit-toggle"',
@@ -303,8 +443,21 @@ class FrontendTemplateContractTests(TestCase):
         assert_in_order(
             self,
             dashboard_content,
+            'class="skeleton-cell-header"',
+            'class="skeleton-cell-title-group"',
+            'class="skeleton-shape skeleton-cell-title"',
+            'class="skeleton-shape skeleton-cell-filter-badge"',
+            'class="skeleton-cell-actions"',
+        )
+        assert_in_order(
+            self,
+            dashboard_content,
             'class="skeleton-table-actions"',
+            'class="skeleton-shape skeleton-table-source-contour-filter"',
             'class="skeleton-shape skeleton-table-spatial-unit"',
             'class="skeleton-shape skeleton-table-fullscreen"',
+            'class="skeleton-table-filter-summary"',
+            'class="skeleton-shape skeleton-table-filter-count"',
+            'class="skeleton-table"',
         )
         self._assert_viewer_encoding_and_stats_layout(dashboard_content)

@@ -28,6 +28,10 @@ from core.services.nuclear_cell_pair_contour_mode import (
     NUCLEAR_CELL_PAIR_CONTOUR_MODES,
     normalize_nuclear_cell_pair_contour_mode,
 )
+from core.services.puncta_source_contour_count_filter import (
+    PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
+    normalize_puncta_source_contour_count_filter,
+)
 from core.services.signal_quantification import (
     DEFAULT_SIGNAL_SELECTED_PLUGINS,
     SIGNAL_MODE_PUNCTA_DISTANCE,
@@ -90,6 +94,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
         "spatial_stats_unit": "px",
+        "puncta_source_contour_count_filter": PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
         "use_metadata_channel_order": True,
         "fallback_channel_order": list(DEFAULT_FALLBACK_CHANNEL_ORDER),
     },
@@ -317,6 +322,14 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     normalized["experiment_defaults"]["spatial_stats_unit"] = _normalize_unit(
         defaults_payload.get("spatial_stats_unit"),
         default="px",
+    )
+    normalized["experiment_defaults"]["puncta_source_contour_count_filter"] = (
+        normalize_puncta_source_contour_count_filter(
+            defaults_payload.get(
+                "puncta_source_contour_count_filter",
+                defaults_payload.get("red_contour_count_filter"),
+            )
+        )
     )
     normalized["experiment_defaults"]["use_metadata_channel_order"] = _as_bool(
         defaults_payload.get("use_metadata_channel_order"),
@@ -565,6 +578,7 @@ def build_experiment_defaults_from_popup_payload(
         "nuclear_cell_pair_mode",
         "nuclear_cell_pair_contour_mode",
         "use_legacy_nuclear_cell_pair_pipeline",
+        "puncta_source_contour_count_filter",
         "microns_per_pixel",
         "use_metadata_scale",
         "use_metadata_channel_order",
@@ -721,6 +735,12 @@ def build_experiment_defaults_from_popup_payload(
         field="red_dot_split_mode",
         allowed={"balanced", "aggressive"},
     )
+    puncta_source_contour_count_filter = normalize_puncta_source_contour_count_filter(
+        raw_payload.get(
+            "puncta_source_contour_count_filter",
+            raw_payload.get("red_contour_count_filter"),
+        )
+    )
 
     signal_payload: dict[str, Any] = {}
     if "signal_quantification_enabled" in raw_payload:
@@ -837,6 +857,7 @@ def build_experiment_defaults_from_popup_payload(
             "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
             "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
             "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
+            "puncta_source_contour_count_filter": puncta_source_contour_count_filter,
             "microns_per_pixel": microns_per_pixel,
             "use_metadata_scale": _strict_bool(
                 raw_payload.get("use_metadata_scale"),

@@ -108,6 +108,8 @@ from core.services.artifact_paths import (
 )
 from core.services.canonical_contours import (
     CANONICAL_BLUE_SLOTS_KEY,
+    CANONICAL_GREEN_SLOTS_KEY,
+    CANONICAL_RED_SLOTS_KEY,
     CELL_PARENTAGE_KEY,
     build_canonical_contour_payload,
     flatten_slot_contours,
@@ -147,6 +149,10 @@ from core.services.nuclear_cell_pair_contour_mode import (
 from core.services.red_nucleus_speckle_mask import (
     RED_NUCLEUS_DEBUG_PAYLOAD_KEY,
     save_red_nucleus_debug_artifacts,
+)
+from core.services.puncta_source_contour_count_filter import (
+    PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE,
+    count_valid_contour_slots,
 )
 from core.services.signal_quantification import (
     BIORIENTATION_PLUGIN,
@@ -493,6 +499,32 @@ def get_stats(
     edit_green_img = _canvas_for("green")
     edit_blue_img = _canvas_for("blue")
 
+    def _store_contour_count_metadata(canonical_payload):
+        red_count = count_valid_contour_slots(
+            canonical_payload.get(CANONICAL_RED_SLOTS_KEY, [])
+        )
+        green_count = count_valid_contour_slots(
+            canonical_payload.get(CANONICAL_GREEN_SLOTS_KEY, [])
+        )
+        cp.properties["red_contour_count"] = red_count
+        cp.properties["green_contour_count"] = green_count
+        cp.properties["contour_count_source"] = PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE
+        cp.properties["red_contour_count_source"] = PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE
+        cp.properties["green_contour_count_source"] = PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE
+        cp.properties["puncta_source_contour_count_source"] = (
+            PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE
+        )
+        if cp.properties.get("signal_quantification_mode") != SIGNAL_MODE_PUNCTA_DISTANCE:
+            cp.properties["puncta_source_contour_count"] = None
+            cp.properties["puncta_source_contour_count_channel"] = None
+            return
+        if cp.properties.get("puncta_line_mode") == "green_puncta":
+            cp.properties["puncta_source_contour_count"] = green_count
+            cp.properties["puncta_source_contour_count_channel"] = "green"
+        else:
+            cp.properties["puncta_source_contour_count"] = red_count
+            cp.properties["puncta_source_contour_count_channel"] = "red"
+
     def _attach_canonical_parentage(contour_payload):
         canonical_payload = build_canonical_contour_payload(
             contour_payload,
@@ -502,6 +534,7 @@ def get_stats(
             shape=reference.shape[:2],
         )
         cp.properties["cell_parentage"] = canonical_payload.get(CELL_PARENTAGE_KEY)
+        _store_contour_count_metadata(canonical_payload)
         return canonical_payload
 
     if not execution_plan.selected_plugins:
@@ -591,6 +624,7 @@ def get_stats(
     ):
         contours_data[LEGACY_EXACT_CELL_PAIR_MASK_KEY] = legacy_exact_cell_pair_mask
     cp.properties["cell_parentage"] = contours_data.get(CELL_PARENTAGE_KEY)
+    _store_contour_count_metadata(contours_data)
     if (
         settings.SEGMENT_SAVE_DEBUG_ARTIFACTS
         and effective_alternate_enabled

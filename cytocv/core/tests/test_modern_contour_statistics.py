@@ -326,6 +326,118 @@ class ModernContourStatisticsTests(SimpleTestCase):
             }
         )
 
+    def test_get_stats_stores_source_contour_counts_from_final_canonical_slots(self):
+        red_gray = np.zeros((36, 36), dtype=np.uint8)
+        green_gray = np.zeros_like(red_gray)
+        red_gray[5:10, 5:10] = 255
+        red_gray[16:21, 16:21] = 255
+        red_gray[30:35, 30:35] = 255
+        green_gray[6:11, 6:11] = 255
+        contours_data = {
+            "dot_contours": [
+                self._rect_contour(5, 5, 10, 10),
+                self._rect_contour(16, 16, 21, 21),
+                self._rect_contour(30, 30, 35, 35),
+            ],
+            "contours_green": [
+                self._rect_contour(6, 6, 11, 11),
+            ],
+        }
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["PunctaDistance"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, 26),
+            x_range=range(0, 26),
+            signal_quantification_mode=SIGNAL_MODE_PUNCTA_DISTANCE,
+        )
+
+        self.assertEqual(cp.properties["red_contour_count"], 2)
+        self.assertEqual(cp.properties["green_contour_count"], 1)
+        self.assertEqual(
+            cp.properties["red_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+        self.assertEqual(
+            cp.properties["green_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+        self.assertEqual(cp.properties["puncta_source_contour_count"], 2)
+        self.assertEqual(cp.properties["puncta_source_contour_count_channel"], "red")
+        self.assertEqual(
+            cp.properties["puncta_source_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+
+    def test_get_stats_green_puncta_uses_green_source_contour_count(self):
+        red_gray = np.zeros((36, 36), dtype=np.uint8)
+        green_gray = np.zeros_like(red_gray)
+        red_gray[5:10, 5:10] = 255
+        green_gray[6:11, 6:11] = 255
+        green_gray[18:23, 18:23] = 255
+        contours_data = {
+            "dot_contours": [
+                self._rect_contour(5, 5, 10, 10),
+            ],
+            "contours_green": [
+                self._rect_contour(6, 6, 11, 11),
+                self._rect_contour(18, 18, 23, 23),
+            ],
+        }
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["PunctaDistance"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, 30),
+            x_range=range(0, 30),
+            puncta_line_mode="green_puncta",
+            signal_quantification_mode=SIGNAL_MODE_PUNCTA_DISTANCE,
+        )
+
+        self.assertEqual(cp.properties["red_contour_count"], 1)
+        self.assertEqual(cp.properties["green_contour_count"], 2)
+        self.assertEqual(cp.properties["puncta_source_contour_count"], 2)
+        self.assertEqual(cp.properties["puncta_source_contour_count_channel"], "green")
+
+    def test_get_stats_does_not_count_alternate_red_nucleus_slots(self):
+        red_gray = np.zeros((36, 36), dtype=np.uint8)
+        green_gray = np.zeros_like(red_gray)
+        red_gray[10:20, 10:20] = 255
+        contours_data = {
+            "alternate_nucleus_contours_red": [
+                self._rect_contour(10, 10, 20, 20),
+            ],
+            "contours_green": [],
+        }
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="red_nucleus",
+            selected_analysis=["NuclearCellPairIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, 30),
+            x_range=range(0, 30),
+            alternate_enabled=True,
+            alternate_channel=CHANNEL_ROLE_RED,
+            signal_quantification_mode=SIGNAL_MODE_NUCLEAR_CELL_PAIR,
+        )
+
+        self.assertEqual(cp.properties["red_contour_count"], 0)
+        self.assertEqual(cp.properties["green_contour_count"], 0)
+        self.assertIsNone(cp.properties["puncta_source_contour_count"])
+        self.assertIsNone(cp.properties["puncta_source_contour_count_channel"])
+        self.assertEqual(
+            cp.properties["red_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+
     @staticmethod
     def _tightening_support_and_core_images(
         shape: tuple[int, int] = (96, 128),

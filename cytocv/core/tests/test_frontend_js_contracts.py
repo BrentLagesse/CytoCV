@@ -460,6 +460,110 @@ assert.strictEqual(rerenderCount, 4);
         )
         self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
+    def test_puncta_source_contour_filter_helpers_are_source_aware(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "shared" / "results-viewer.js"
+        script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+const context = {{ window: {{}} }};
+vm.runInNewContext(source, context);
+const helpers = context.window.CytoCVResultsViewerShared.createStatisticsHelpers({{
+  tableFieldOrder: ['cell_id'],
+  statFieldGroups: {{}},
+  spatialFieldKinds: {{}},
+  spatialHeaderBaseLabels: {{}},
+  defaultSpatialStatsUnit: 'px',
+  getCurrentSpatialStatsUnit: () => 'px',
+  setCurrentSpatialStatsUnit: () => {{}},
+}});
+const ownArray = (values) => Array.from(values);
+
+const redFile = {{
+  Statistics: {{
+    '1': {{
+      signal_quantification_mode: 'puncta_distance',
+      puncta_line_mode: 'red_puncta',
+      puncta_source_contour_count: 1,
+      puncta_source_contour_count_channel: 'red',
+    }},
+    '2': {{
+      signal_quantification_mode: 'puncta_distance',
+      puncta_line_mode: 'red_puncta',
+      puncta_source_contour_count: 2,
+      puncta_source_contour_count_channel: 'red',
+    }},
+    '3': {{
+      signal_quantification_mode: 'puncta_distance',
+      puncta_line_mode: 'red_puncta',
+      puncta_source_contour_count: 3,
+      puncta_source_contour_count_channel: 'red',
+    }},
+  }},
+}};
+assert.strictEqual(helpers.getPunctaSourceContourContext(redFile.Statistics).controlLabel, 'Red Source Contour Count');
+assert.deepStrictEqual(ownArray(helpers.getPunctaSourceContourFilteredCellIds(redFile, 'exactly_1')), [1]);
+assert.deepStrictEqual(ownArray(helpers.getPunctaSourceContourFilteredCellIds(redFile, 'exactly_2')), [2]);
+assert.deepStrictEqual(ownArray(helpers.getPunctaSourceContourFilteredCellIds(redFile, 'all')), [1, 2, 3]);
+
+const greenFile = {{
+  Statistics: {{
+    '1': {{
+      signal_quantification_mode: 'puncta_distance',
+      puncta_line_mode: 'green_puncta',
+      green_contour_1_size: 4,
+      green_contour_2_size: 0,
+      red_contour_1_size: 9,
+    }},
+    '2': {{
+      signal_quantification_mode: 'puncta_distance',
+      puncta_line_mode: 'green_puncta',
+      green_contour_1_size: 4,
+      green_contour_2_size: '2.5',
+      red_contour_1_size: 9,
+    }},
+  }},
+}};
+assert.strictEqual(helpers.getPunctaSourceContourContext(greenFile.Statistics).controlLabel, 'Green Source Contour Count');
+assert.strictEqual(helpers.derivePunctaSourceContourCount(greenFile.Statistics['1']), 1);
+assert.strictEqual(helpers.derivePunctaSourceContourCount(greenFile.Statistics['2']), 2);
+assert.deepStrictEqual(ownArray(helpers.getPunctaSourceContourFilteredCellIds(greenFile, 'exactly_2')), [2]);
+
+const nuclearFile = {{
+  Statistics: {{
+    '1': {{ signal_quantification_mode: 'nuclear_cell_pair' }},
+    '2': {{ signal_quantification_mode: 'nuclear_cell_pair' }},
+  }},
+}};
+assert.strictEqual(helpers.getPunctaSourceContourContext(nuclearFile.Statistics).applicable, false);
+assert.deepStrictEqual(ownArray(helpers.getPunctaSourceContourFilteredCellIds(nuclearFile, 'exactly_2')), [1, 2]);
+
+assert.strictEqual(
+  helpers.findNearestMatchingCellByOriginalOrder(10, [1, 5, 10, 12, 14], [5, 12]),
+  12
+);
+assert.strictEqual(
+  helpers.findNearestMatchingCellByOriginalOrder(14, [1, 5, 10, 12, 14], [5, 12]),
+  12
+);
+assert.strictEqual(helpers.getAdjacentFilteredCellId(12, [5, 12], 'next'), 5);
+assert.strictEqual(helpers.getAdjacentFilteredCellId(5, [5, 12], 'previous'), 12);
+assert.strictEqual(helpers.getAdjacentFilteredCellId(99, [5, 12], 'next'), 5);
+assert.strictEqual(helpers.getAdjacentFilteredCellId(99, [5, 12], 'previous'), 12);
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
     def test_export_selection_refreshes_stat_labels_without_rebuilding_state(self):
         node = shutil.which("node")
         if not node:

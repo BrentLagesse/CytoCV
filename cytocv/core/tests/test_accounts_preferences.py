@@ -1,4 +1,4 @@
-﻿"""Tests for account preference and account-area safeguards."""
+"""Tests for account preference and account-area safeguards."""
 
 from __future__ import annotations
 
@@ -126,6 +126,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(defaults["use_metadata_channel_order"])
@@ -159,6 +160,7 @@ class PreferenceNormalizationTests(TestCase):
                     "green_dot_split_mode": "bad_mode",
                     "red_dot_split_enabled": "off",
                     "red_dot_split_mode": "bad_mode",
+                    "puncta_source_contour_count_filter": "bad_filter",
                     "puncta_line_width_unit": "um",
                     "cen_dot_distance_unit": "px",
                     "microns_per_pixel": "0",
@@ -199,6 +201,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertFalse(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(defaults["use_metadata_channel_order"])
@@ -226,6 +229,16 @@ class PreferenceNormalizationTests(TestCase):
         defaults = normalized["experiment_defaults"]
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertNotIn("biorientation_green_split_enabled", defaults)
+
+    def test_normalize_preferences_accepts_red_count_filter_aliases(self):
+        normalized = normalize_preferences_payload(
+            {"experiment_defaults": {"puncta_source_contour_count_filter": "2"}}
+        )
+
+        self.assertEqual(
+            normalized["experiment_defaults"]["puncta_source_contour_count_filter"],
+            "exactly_2",
+        )
 
     def test_normalize_preferences_keeps_cen_dot_selection(self):
         normalized = normalize_preferences_payload(
@@ -814,6 +827,8 @@ class DisplayManualSaveTests(TestCase):
     ) -> None:
         segmented = SegmentedImage.objects.get(UUID=file_uuid)
         stat_properties = {
+            "signal_quantification_mode": "puncta_distance",
+            "puncta_line_mode": "red_puncta",
             "nuclear_cell_pair_mode": "red_nucleus",
             "cen_dot_schema_version": 3,
             "puncta_distance_delta_x_px": 1.0,
@@ -1100,6 +1115,34 @@ class DisplayManualSaveTests(TestCase):
             html=False,
         )
         self.assertNotContains(response, "_export=xlsx", html=False)
+
+    def test_results_payload_retains_all_rows_when_stale_contour_default_is_exact(self):
+        preferences = get_user_preferences(self.user)
+        preferences["experiment_defaults"]["puncta_source_contour_count_filter"] = "exactly_2"
+        update_user_preferences(self.user, preferences)
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="red_count_payload_retains_all",
+        )
+        self._add_cell_stat(saved_uuid, cell_id=1, properties={"puncta_source_contour_count": 1})
+        self._add_cell_stat(saved_uuid, cell_id=2, properties={"puncta_source_contour_count": 2})
+
+        cases = (
+            ("dashboard", reverse("dashboard") + f"?file_uuid={saved_uuid}", "files_data_json"),
+            ("display", reverse("display", args=[saved_uuid]), "files_data"),
+        )
+        for route_name, url, context_key in cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["puncta_source_contour_count_filter"], "all")
+                files_data = json.loads(response.context[context_key])
+                self.assertEqual(
+                    sorted(files_data[saved_uuid]["Statistics"].keys()),
+                    ["1", "2"],
+                )
 
     def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
         self._create_display_file(
@@ -1674,6 +1717,73 @@ class DisplayManualSaveTests(TestCase):
             ],
         )
 
+    def test_single_selected_exports_respect_red_count_filter_without_changing_columns(self):
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="single_red_count_filter",
+        )
+        self._add_cell_stat(saved_uuid, cell_id=1, properties={"puncta_source_contour_count": 1})
+        self._add_cell_stat(saved_uuid, cell_id=2, properties={"puncta_source_contour_count": 2})
+        selected_columns = "puncta_distance,red_in_red_total_intensity_1"
+        expected_headers = [
+            "Cell ID",
+            "Distance Between Red Puncta (px)",
+            "Red In Red Total Intensity 1",
+        ]
+
+        request_cases = (
+            ("dashboard", reverse("dashboard"), {"file_uuid": saved_uuid}),
+            ("display", reverse("display", args=[saved_uuid]), {}),
+        )
+        for route_name, url, base_params in request_cases:
+            for export_format in ("csv", "xlsx"):
+                with self.subTest(route=route_name, export_format=export_format):
+                    response = self.client.get(
+                        url,
+                        {
+                            **base_params,
+                            "_export": export_format,
+                            "_columns": selected_columns,
+                            "_puncta_source_contour_count": "exactly_2",
+                        },
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    if export_format == "csv":
+                        rows = self._csv_rows(response)
+                        self.assertEqual(rows[0], expected_headers)
+                        self.assertEqual(rows[1:], [["2", "1.000", "5.000"]])
+                    else:
+                        rows = self._xlsx_rows(response)
+                        self.assertEqual(rows[0], expected_headers)
+                        self.assertEqual(rows[1:], [[2, 1, 5]])
+
+                    all_response = self.client.get(
+                        url,
+                        {
+                            **base_params,
+                            "_export": export_format,
+                            "_columns": selected_columns,
+                            "_puncta_source_contour_count": "invalid",
+                        },
+                    )
+                    self.assertEqual(all_response.status_code, 200)
+                    if export_format == "csv":
+                        all_rows = self._csv_rows(all_response)
+                        self.assertEqual(all_rows[0], expected_headers)
+                        self.assertEqual(
+                            [row[0] for row in all_rows[1:]],
+                            ["1", "2"],
+                        )
+                    else:
+                        all_rows = self._xlsx_rows(all_response)
+                        self.assertEqual(all_rows[0], expected_headers)
+                        self.assertEqual(
+                            [row[0] for row in all_rows[1:]],
+                            [1, 2],
+                        )
+
     def test_dashboard_selected_intensity_exports_keep_total_max_and_average_independent(self):
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
@@ -2085,6 +2195,77 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(red_intensity_cell.value, 5)
         self.assertEqual(red_intensity_cell.data_type, "n")
         self.assertEqual(ratio_cell.data_type, "n")
+
+    def test_combined_exports_respect_red_count_filter_without_changing_columns(self):
+        first_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_red_filter_first",
+        )
+        second_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="combined_red_filter_second",
+        )
+        self._add_cell_stat(first_uuid, cell_id=1, properties={"puncta_source_contour_count": 1})
+        self._add_cell_stat(first_uuid, cell_id=2, properties={"puncta_source_contour_count": 2})
+        self._add_cell_stat(second_uuid, cell_id=1, properties={"puncta_source_contour_count": 1})
+        columns = ["red_in_red_total_intensity_1", "puncta_distance"]
+        expected_headers = [
+            "File Name",
+            "Cell ID",
+            "Puncta Distance (px)",
+            "Red In Red Total Intensity 1",
+        ]
+        route_payloads = (
+            (
+                "dashboard_bulk_export",
+                {
+                    "uuids": [first_uuid, second_uuid],
+                    "_columns": columns,
+                    "_unit": "px",
+                    "_puncta_source_contour_count": "exactly_2",
+                },
+            ),
+            (
+                "display_export_files",
+                {
+                    "visible_uuids": [first_uuid, second_uuid],
+                    "uuids": [first_uuid, second_uuid],
+                    "_columns": columns,
+                    "_unit": "px",
+                    "_puncta_source_contour_count": "exactly_2",
+                },
+            ),
+        )
+
+        for route_name, payload in route_payloads:
+            for export_format in ("csv", "xlsx"):
+                with self.subTest(route=route_name, export_format=export_format):
+                    response = self.client.post(
+                        reverse(route_name),
+                        data=json.dumps({**payload, "_export": export_format}),
+                        content_type="application/json",
+                    )
+
+                    self.assertEqual(response.status_code, 200)
+                    rows = (
+                        self._csv_rows(response)
+                        if export_format == "csv"
+                        else self._xlsx_rows(response)
+                    )
+                    self.assertEqual(rows[0], expected_headers)
+                    self.assertEqual(
+                        rows[1:],
+                        [
+                            [
+                                "combined_red_filter_first",
+                                "2" if export_format == "csv" else 2,
+                                "1.000" if export_format == "csv" else 1,
+                                "5.000" if export_format == "csv" else 5,
+                            ]
+                        ],
+                    )
 
     def test_dashboard_combined_intensity_export_supports_total_max_without_average(self):
         first_uuid = self._create_display_file(
@@ -4428,6 +4609,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
+        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
@@ -4482,6 +4664,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(defaults["green_contour_filter_enabled"])
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
+        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
         self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
         self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")

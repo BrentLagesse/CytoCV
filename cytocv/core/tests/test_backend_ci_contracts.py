@@ -35,6 +35,18 @@ class BackendCiContractTests(SimpleTestCase):
             "      - name: Static collection dry-run\n"
             "        working-directory: cytocv\n"
             "        run: python manage.py collectstatic --dry-run --noinput",
+            "      - name: Set up Node.js\n"
+            "        uses: actions/setup-node@v6\n"
+            "        with:\n"
+            '          node-version: "22"',
+            "      - name: JavaScript syntax check\n"
+            "        working-directory: cytocv\n"
+            "        shell: bash\n"
+            "        run: |\n"
+            "          set -euo pipefail\n"
+            "          while IFS= read -r -d '' file; do\n"
+            '            node --check "$file"\n'
+            "          done < <(find core/static/js -type f -name '*.js' -print0)",
             "      - name: Core tests\n"
             "        working-directory: cytocv\n"
             "        run: python manage.py test core",
@@ -53,9 +65,11 @@ class BackendCiContractTests(SimpleTestCase):
         workflow = self._workflow_text()
         frontend_step = self._workflow_step("Frontend contract tests")
 
+        js_syntax_index = workflow.index("      - name: JavaScript syntax check")
         frontend_index = workflow.index("      - name: Frontend contract tests")
         core_index = workflow.index("      - name: Core tests")
 
+        self.assertLess(js_syntax_index, frontend_index)
         self.assertLess(frontend_index, core_index)
         self.assertIn("working-directory: cytocv", frontend_step)
         for test_module in (

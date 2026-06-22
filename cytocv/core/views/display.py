@@ -58,6 +58,9 @@ from core.services.result_view_payloads import (
     resolve_cell_table_modes,
     sanitize_for_json,
 )
+from core.services.puncta_source_contour_count_filter import (
+    filter_statistics_by_puncta_source_contour_count,
+)
 from core.services.stat_export_selection import (
     ExportColumnSelectionError,
     export_exclude_columns,
@@ -311,6 +314,10 @@ def display(request, uuids):
             if TableExport.is_valid_format(export_format) and cell_table is not None:
                 raw_columns = request.GET.getlist("_columns")
                 columns_present = "_columns" in request.GET
+                export_puncta_source_contour_count_filter = request.GET.get(
+                    "_puncta_source_contour_count",
+                    request.GET.get("_red_contour_count"),
+                )
                 try:
                     exclude_columns = export_exclude_columns(
                         raw_columns,
@@ -323,10 +330,17 @@ def display(request, uuids):
                 except ExportColumnSelectionError as exc:
                     return HttpResponse(str(exc), status=400)
                 if first_table_uuid == uuid:
-                    cell_table = CellTable(
+                    export_stats = filter_statistics_by_puncta_source_contour_count(
                         cell_stats_qs,
-                        intensity_mode=table_mode,
-                        puncta_line_mode=puncta_line_mode,
+                        export_puncta_source_contour_count_filter,
+                    )
+                    export_table_mode, export_puncta_line_mode = resolve_cell_table_modes(
+                        export_stats
+                    )
+                    cell_table = CellTable(
+                        export_stats,
+                        intensity_mode=export_table_mode,
+                        puncta_line_mode=export_puncta_line_mode,
                         spatial_stats_unit=export_unit,
                         scale_context=scale_context,
                     )
@@ -386,6 +400,7 @@ def display(request, uuids):
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'main_image_channel': main_image_channel,
+        'puncta_source_contour_count_filter': 'all',
         'export_selection_config': export_selection_config(),
     })
 
@@ -772,6 +787,10 @@ def export_display_files(request):
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
+            puncta_source_contour_count_filter=payload.get(
+                "_puncta_source_contour_count",
+                payload.get("_red_contour_count"),
+            ),
         )
     except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)

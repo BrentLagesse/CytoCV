@@ -704,6 +704,252 @@
             return String(value);
         }
 
+        function normalizePunctaSourceContourCountFilter(value) {
+            const raw = String(value ?? '').trim().toLowerCase();
+            if (raw === 'exactly_1' || raw === '1') return 'exactly_1';
+            if (raw === 'exactly_2' || raw === '2') return 'exactly_2';
+            return 'all';
+        }
+
+        function getPunctaSourceContourCountFilterLabel(value) {
+            const normalized = normalizePunctaSourceContourCountFilter(value);
+            if (normalized === 'exactly_1') return 'Exactly 1 source contour';
+            if (normalized === 'exactly_2') return 'Exactly 2 source contours';
+            return 'All cells';
+        }
+
+        function primitiveStatValue(value) {
+            if (!value || typeof value !== 'object') return value;
+            for (const key of ['value', 'raw', 'raw_value', 'display_value']) {
+                if (Object.prototype.hasOwnProperty.call(value, key)) {
+                    return value[key];
+                }
+            }
+            return value;
+        }
+
+        function positiveNumber(value) {
+            const primitive = primitiveStatValue(value);
+            if (primitive === null || primitive === undefined || primitive === '') return null;
+            if (typeof primitive === 'string' && ['n/a', 'na', 'none'].includes(primitive.trim().toLowerCase())) {
+                return null;
+            }
+            const numeric = Number(primitive);
+            return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+        }
+
+        function nonnegativeInteger(value) {
+            const primitive = primitiveStatValue(value);
+            if (primitive === null || primitive === undefined || primitive === '' || typeof primitive === 'boolean') {
+                return null;
+            }
+            const numeric = Number(primitive);
+            if (!Number.isInteger(numeric) || numeric < 0) return null;
+            return numeric;
+        }
+
+        function normalizePunctaSourceChannel(channel) {
+            const raw = String(channel ?? '').trim().toLowerCase();
+            if (raw === 'red' || raw === 'channel_red' || raw === 'red puncta') return 'red';
+            if (raw === 'green' || raw === 'channel_green' || raw === 'green puncta') return 'green';
+            if (raw.includes('red')) return 'red';
+            if (raw.includes('green')) return 'green';
+            return null;
+        }
+
+        function getPunctaSourceContourChannel(row) {
+            if (!row || typeof row !== 'object') return null;
+            const signalMode = String(row.signal_quantification_mode ?? '').trim().toLowerCase();
+            if (signalMode && signalMode !== 'puncta_distance') return null;
+            const hasPunctaDistanceEvidence = signalMode === 'puncta_distance'
+                || row.puncta_distance !== null && row.puncta_distance !== undefined
+                || row.puncta_source_contour_count !== null && row.puncta_source_contour_count !== undefined;
+            if (!hasPunctaDistanceEvidence) return null;
+
+            const storedChannel = normalizePunctaSourceChannel(row.puncta_source_contour_count_channel);
+            if (storedChannel) return storedChannel;
+            if (row.puncta_line_mode === 'green_puncta') return 'green';
+            if (row.puncta_line_mode === 'red_puncta') return 'red';
+            const sourceLabel = normalizePunctaSourceChannel(row.puncta_line_source_channel);
+            if (sourceLabel) return sourceLabel;
+            return 'red';
+        }
+
+        function getPunctaSourceContourContext(statistics) {
+            const entries = getStatisticsEntries(statistics);
+            for (const [, row] of entries) {
+                const channel = getPunctaSourceContourChannel(row);
+                if (channel) {
+                    const channelLabel = channel === 'green' ? 'Green' : 'Red';
+                    return {
+                        applicable: true,
+                        channel,
+                        channelLabel,
+                        controlLabel: `${channelLabel} Source Contour Count`,
+                    };
+                }
+            }
+            return {
+                applicable: false,
+                channel: null,
+                channelLabel: '',
+                controlLabel: 'Puncta Source Contour Count',
+            };
+        }
+
+        function derivePunctaSourceContourCount(row) {
+            if (!row || typeof row !== 'object') return null;
+            const sourceChannel = getPunctaSourceContourChannel(row);
+            if (!sourceChannel) return null;
+            const storedCount = nonnegativeInteger(row.puncta_source_contour_count);
+            if (storedCount !== null) return storedCount;
+            const channelCount = nonnegativeInteger(row[`${sourceChannel}_contour_count`]);
+            if (channelCount !== null) return channelCount;
+
+            let count = 0;
+            for (let index = 1; index <= 3; index += 1) {
+                if (positiveNumber(row[`${sourceChannel}_contour_${index}_size`]) !== null) {
+                    count += 1;
+                }
+            }
+            return count > 0 ? count : null;
+        }
+
+        function matchesPunctaSourceContourCountFilter(row, filterValue) {
+            const normalized = normalizePunctaSourceContourCountFilter(filterValue);
+            if (normalized === 'all') return true;
+            if (!getPunctaSourceContourChannel(row)) return true;
+            const expected = normalized === 'exactly_1' ? 1 : 2;
+            return derivePunctaSourceContourCount(row) === expected;
+        }
+
+        function getStatisticsEntries(statistics) {
+            return Object.keys(statistics || {})
+                .map((key) => [Number(key), statistics[String(key)]])
+                .filter(([id, row]) => (
+                    !Number.isNaN(id)
+                    && row
+                    && typeof row === 'object'
+                ))
+                .sort(([leftId], [rightId]) => leftId - rightId);
+        }
+
+        function getFilteredStatisticsEntries(statistics, filterValue) {
+            const normalized = normalizePunctaSourceContourCountFilter(filterValue);
+            const entries = getStatisticsEntries(statistics);
+            if (normalized === 'all') return entries;
+            return entries.filter(([, row]) => matchesPunctaSourceContourCountFilter(row, normalized));
+        }
+
+        function getPunctaSourceContourCountFilterCounts(statistics, filterValue) {
+            const entries = getStatisticsEntries(statistics);
+            const context = getPunctaSourceContourContext(statistics);
+            const normalized = context.applicable
+                ? normalizePunctaSourceContourCountFilter(filterValue)
+                : 'all';
+            return {
+                filter: normalized,
+                total: entries.length,
+                applicable: context.applicable,
+                channel: context.channel,
+                channelLabel: context.channelLabel,
+                controlLabel: context.controlLabel,
+                shown: normalized === 'all'
+                    ? entries.length
+                    : entries.filter(([, row]) => matchesPunctaSourceContourCountFilter(row, normalized)).length,
+            };
+        }
+
+        function uniquePositiveCellIds(values) {
+            const seen = new Set();
+            const ids = [];
+            (values || []).forEach((value) => {
+                const id = Number(value);
+                if (!Number.isFinite(id) || id <= 0 || seen.has(id)) return;
+                seen.add(id);
+                ids.push(id);
+            });
+            return ids;
+        }
+
+        function getPunctaSourceContourFilteredCellIds(fileData, filterValue) {
+            const statistics = fileData?.Statistics || {};
+            const context = getPunctaSourceContourContext(statistics);
+            const normalized = context.applicable
+                ? normalizePunctaSourceContourCountFilter(filterValue)
+                : 'all';
+            const entries = getStatisticsEntries(statistics);
+            if (normalized === 'all') {
+                return entries.map(([id]) => id);
+            }
+            return entries
+                .filter(([, row]) => matchesPunctaSourceContourCountFilter(row, normalized))
+                .map(([id]) => id);
+        }
+
+        function findNearestMatchingCellByOriginalOrder(currentCellId, allCellIds, filteredCellIds) {
+            const filteredIds = uniquePositiveCellIds(filteredCellIds);
+            if (filteredIds.length === 0) return null;
+
+            const orderedIds = uniquePositiveCellIds(allCellIds);
+            function findInsertionIndex(id) {
+                if (orderedIds.length === 0) return 0;
+                const numericId = Number(id);
+                if (!Number.isFinite(numericId)) return 0;
+                for (let index = 0; index < orderedIds.length; index += 1) {
+                    if (orderedIds[index] >= numericId) {
+                        return index;
+                    }
+                }
+                return orderedIds.length - 1;
+            }
+
+            const fullIndexById = new Map();
+            orderedIds.forEach((id, index) => {
+                fullIndexById.set(id, index);
+            });
+            const currentId = Number(currentCellId);
+            const currentIndex = fullIndexById.has(currentId)
+                ? fullIndexById.get(currentId)
+                : findInsertionIndex(currentId);
+
+            let bestId = null;
+            let bestDistance = Infinity;
+            let bestIsForward = false;
+            filteredIds.forEach((id) => {
+                if (!fullIndexById.has(id)) return;
+                const index = fullIndexById.get(id);
+                const distance = Math.abs(index - currentIndex);
+                const isForward = index >= currentIndex;
+                if (
+                    distance < bestDistance
+                    || (distance === bestDistance && isForward && !bestIsForward)
+                ) {
+                    bestId = id;
+                    bestDistance = distance;
+                    bestIsForward = isForward;
+                }
+            });
+
+            return bestId ?? filteredIds[0];
+        }
+
+        function getAdjacentFilteredCellId(currentCellId, filteredCellIds, direction = 'next') {
+            const ids = uniquePositiveCellIds(filteredCellIds);
+            if (ids.length === 0) return null;
+            const currentIdx = ids.indexOf(Number(currentCellId));
+            if (direction === 'previous') {
+                const prevIdx = currentIdx === -1
+                    ? ids.length - 1
+                    : (currentIdx - 1 + ids.length) % ids.length;
+                return ids[prevIdx];
+            }
+            const nextIdx = currentIdx === -1
+                ? 0
+                : (currentIdx + 1) % ids.length;
+            return ids[nextIdx];
+        }
+
         function formatFieldValue(fieldName, value, cellStats, scaleContext) {
             if (Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
                 if (spatialFieldKinds[fieldName] === 'coordinate') {
@@ -819,7 +1065,10 @@
             };
         }
 
-        function renderStatisticsTable(statistics, fileData) {
+        function renderStatisticsTable(statistics, fileData, {
+            punctaSourceContourCountFilter = 'all',
+            activeCellId = null,
+        } = {}) {
             const table = document.getElementById('celltable');
             if (!table) return 0;
             const tbody = table.querySelector('tbody');
@@ -834,19 +1083,19 @@
             updateSpatialUnitControls(fileData);
             const visibleFieldOrder = getVisibleTableFieldOrder(statistics);
 
-            const ids = Object.keys(statistics || {})
-                .map((k) => Number(k))
-                .filter((n) => (
-                    !Number.isNaN(n)
-                    && statistics[String(n)]
-                    && typeof statistics[String(n)] === 'object'
-                ))
-                .sort((a, b) => a - b);
+            const entries = getFilteredStatisticsEntries(
+                statistics,
+                punctaSourceContourCountFilter,
+            );
 
             tbody.innerHTML = '';
-            for (const id of ids) {
-                const rowStats = statistics[String(id)] || null;
+            const activeId = Number(activeCellId);
+            for (const [id, rowStats] of entries) {
                 const tr = document.createElement('tr');
+                tr.dataset.cellId = String(id);
+                if (Number.isFinite(activeId) && id === activeId) {
+                    tr.classList.add('is-active-cell');
+                }
                 for (const fieldName of visibleFieldOrder) {
                     const td = document.createElement('td');
                     if (fieldName === 'cell_id') {
@@ -869,7 +1118,7 @@
                 }
                 tbody.appendChild(tr);
             }
-            return ids.length;
+            return entries.length;
         }
 
         function getStatisticsTableRowCount(fileData, renderedRowCount = 0) {
@@ -905,6 +1154,15 @@
             formatStatValue,
             hasNoNucleusContour,
             getNuclearLabelPair,
+            normalizePunctaSourceContourCountFilter,
+            getPunctaSourceContourCountFilterLabel,
+            getPunctaSourceContourContext,
+            derivePunctaSourceContourCount,
+            matchesPunctaSourceContourCountFilter,
+            getPunctaSourceContourCountFilterCounts,
+            getPunctaSourceContourFilteredCellIds,
+            findNearestMatchingCellByOriginalOrder,
+            getAdjacentFilteredCellId,
             renderStatisticsTable,
             getStatisticsTableRowCount,
             hasStatisticsTableRows,

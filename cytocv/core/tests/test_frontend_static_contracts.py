@@ -252,15 +252,82 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertNotIn("exportQuickSelectOverlayIn", css_source)
         self.assertNotIn('data-expanded="true"', css_source)
 
-    def test_table_skeleton_spatial_unit_placeholder_matches_toolbar_control(self):
+    def test_table_skeleton_toolbar_placeholders_match_toolbar_controls(self):
         results_css = static_text("css/components/results-viewer.css")
         self.assertRegex(
             results_css,
-            r"\.skeleton-table-spatial-unit,\s*\.skeleton-table-fullscreen\s*\{[^}]*height:\s*36px;[^}]*border-radius:\s*999px;",
+            r"\.skeleton-table-source-contour-filter,\s*\.skeleton-table-spatial-unit,\s*\.skeleton-table-fullscreen\s*\{[^}]*height:\s*36px;[^}]*border-radius:\s*999px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-table-source-contour-filter\s*\{[^}]*width:\s*408px;",
         )
         self.assertRegex(
             results_css,
             r"\.skeleton-table-spatial-unit\s*\{[^}]*width:\s*208px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-table-toolbar\s*\{[^}]*align-items:\s*flex-start;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-table-filter-count\s*\{[^}]*width:\s*150px;[^}]*height:\s*24px;[^}]*border-radius:\s*999px;",
+        )
+
+    def test_cell_pairs_skeleton_header_uses_title_top_alignment(self):
+        results_css = static_text("css/components/results-viewer.css")
+        self.assertRegex(
+            results_css,
+            r"\.cell-pairs-toolbar\s*\{[^}]*align-items:\s*flex-start;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-cell-header\s*\{[^}]*align-items:\s*flex-start;",
+        )
+        self.assertIn(".skeleton-cell-title-group {", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-cell-filter-badge\s*\{[^}]*width:\s*150px;[^}]*height:\s*24px;[^}]*border-radius:\s*999px;",
+        )
+
+    def test_cell_card_contour_filter_badge_uses_quiet_meta_styling(self):
+        results_css = static_text("css/components/results-viewer.css")
+
+        self.assertIn(".cell-card-filter-meta {", results_css)
+        self.assertIn(".cell-card-filter-warning {", results_css)
+        self.assertIn(".cell-card-filter-label {", results_css)
+        self.assertIn(".cell-card-filter-separator {", results_css)
+        self.assertIn(".cell-card-filter-value {", results_css)
+        self.assertIn(".cell-card-filter-warning:empty", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.cell-card-filter-meta\[hidden\],\s*\.cell-card-filter-warning\[hidden\],\s*\.cell-card-filter-warning:empty\s*\{[^}]*display:\s*none\s*!important;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-card-filter-meta\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--glass-border-rgb\),\s*0\.34\);[^}]*background:\s*rgba\(18,\s*28,\s*40,\s*0\.48\);",
+        )
+        self.assertIn(".table-filter-count-meta {", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.table-filter-count-meta\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--glass-border-rgb\),\s*0\.34\);[^}]*background:\s*rgba\(18,\s*28,\s*40,\s*0\.48\);",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-toolbar\s*\{[^}]*align-items:\s*flex-start;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-toolbar\s*>\s*\.section-eyebrow\s*\{[^}]*margin:\s*0;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-card-filter-warning\s*\{[^}]*rgba\(255,\s*205,\s*138,\s*0\.38\);",
+        )
+        self.assertNotRegex(
+            results_css,
+            r"\.cell-card-filter-meta\s*\{[^}]*255,\s*205,\s*138",
         )
 
     def test_decorative_icon_slots_do_not_use_placeholder_glyphs(self):

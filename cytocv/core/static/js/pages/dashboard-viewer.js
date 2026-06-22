@@ -287,6 +287,14 @@
             getDynamicSpatialHeaderLabel,
             renderStatisticsTable,
             hasStatisticsTableRows,
+            normalizePunctaSourceContourCountFilter,
+            getPunctaSourceContourCountFilterLabel,
+            getPunctaSourceContourContext,
+            matchesPunctaSourceContourCountFilter,
+            getPunctaSourceContourCountFilterCounts,
+            getPunctaSourceContourFilteredCellIds,
+            findNearestMatchingCellByOriginalOrder,
+            getAdjacentFilteredCellId,
             updateSpatialUnitControls,
             bindSpatialUnitControls,
         } = resultsViewerShared.createStatisticsHelpers({
@@ -300,6 +308,14 @@
                 currentSpatialStatsUnit = unit;
             },
         });
+        let currentPunctaSourceContourCountFilter = normalizePunctaSourceContourCountFilter(
+            dashboardPageConfig.initialPunctaSourceContourCountFilter
+        );
+        const punctaSourceContourFilterControl = document.getElementById('punctaSourceContourFilterControl');
+        const punctaSourceContourFilterButton = document.getElementById('punctaSourceContourFilterButton');
+        const punctaSourceContourFilterValue = document.getElementById('punctaSourceContourFilterValue');
+        const punctaSourceContourFilterMenu = document.getElementById('punctaSourceContourFilterMenu');
+        const punctaSourceContourFilterLabel = document.getElementById('punctaSourceContourFilterLabel');
         let preferredMainImageChannel = normalizeMainImageChannel(initialPreferredMainImageChannel);
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
@@ -534,6 +550,7 @@
                 file_uuid: fileUUID,
                 _export: format,
                 _unit: getCurrentSpatialUnit(),
+                _puncta_source_contour_count: getCurrentPunctaSourceContourCountFilter(),
             });
             if (Array.isArray(selectedColumns) && selectedColumns.length > 0) {
                 params.set('_columns', selectedColumns.join(','));
@@ -601,9 +618,226 @@
                     _export: format,
                     _columns: columns,
                     _unit: getCurrentSpatialUnit(),
+                    _puncta_source_contour_count: getCurrentPunctaSourceContourCountFilter(),
                 }),
             });
             window.dashboardExportSelectionController = dashboardExportSelectionController;
+        }
+
+        function getCurrentPunctaSourceContourCountFilter() {
+            return normalizePunctaSourceContourCountFilter(currentPunctaSourceContourCountFilter);
+        }
+
+        function setCurrentPunctaSourceContourCountFilter(value) {
+            currentPunctaSourceContourCountFilter = normalizePunctaSourceContourCountFilter(value);
+            syncPunctaSourceContourFilterControl(filesData[fileUUIDs[currentFileIndex]] || null);
+            return currentPunctaSourceContourCountFilter;
+        }
+
+        function getEffectivePunctaSourceContourCountFilter(fileData) {
+            const context = getPunctaSourceContourContext(fileData?.Statistics || {});
+            return context.applicable ? getCurrentPunctaSourceContourCountFilter() : 'all';
+        }
+
+        function syncPunctaSourceContourFilterControl(fileData) {
+            const context = getPunctaSourceContourContext(fileData?.Statistics || {});
+            const effectiveFilter = context.applicable
+                ? getCurrentPunctaSourceContourCountFilter()
+                : 'all';
+            if (punctaSourceContourFilterLabel) {
+                punctaSourceContourFilterLabel.textContent = `${context.controlLabel}:`;
+            }
+            if (punctaSourceContourFilterValue) {
+                punctaSourceContourFilterValue.textContent = getPunctaSourceContourCountFilterLabel(effectiveFilter);
+            }
+            if (punctaSourceContourFilterControl) {
+                punctaSourceContourFilterControl.classList.toggle('is-disabled', !context.applicable);
+                punctaSourceContourFilterControl.dataset.sourceChannel = context.channel || '';
+            }
+            if (punctaSourceContourFilterButton) {
+                punctaSourceContourFilterButton.disabled = !context.applicable;
+                punctaSourceContourFilterButton.setAttribute('aria-disabled', context.applicable ? 'false' : 'true');
+            }
+            if (punctaSourceContourFilterMenu) {
+                punctaSourceContourFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
+                    const selected = option.dataset.value === effectiveFilter;
+                    option.classList.toggle('is-selected', selected);
+                    option.setAttribute('aria-selected', selected ? 'true' : 'false');
+                });
+            }
+        }
+
+        function closePunctaSourceContourFilterMenu() {
+            if (!punctaSourceContourFilterMenu || !punctaSourceContourFilterButton) return;
+            punctaSourceContourFilterMenu.hidden = true;
+            punctaSourceContourFilterButton.setAttribute('aria-expanded', 'false');
+        }
+
+        function syncPunctaSourceContourFilterStatus(fileData, renderedRowCount = 0) {
+            const status = document.getElementById('punctaSourceContourFilterStatus');
+            if (status) {
+                const counts = getPunctaSourceContourCountFilterCounts(
+                    fileData?.Statistics || {},
+                    getCurrentPunctaSourceContourCountFilter(),
+                );
+                const shown = Number.isFinite(Number(renderedRowCount))
+                    ? Number(renderedRowCount)
+                    : counts.shown;
+                status.textContent = `Showing ${shown} of ${counts.total} cells.`;
+                status.dataset.activeFilter = getPunctaSourceContourCountFilterLabel(counts.filter);
+            }
+            syncPunctaSourceContourCellCardState(fileData);
+        }
+
+        function getActiveCellNavigationIds(fileData) {
+            const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
+            if (filterValue === 'all') {
+                return getSortedCellIds(fileData);
+            }
+            const allIds = new Set(getSortedCellIds(fileData));
+            return getPunctaSourceContourFilteredCellIds(fileData, filterValue)
+                .filter((cellId) => allIds.has(cellId));
+        }
+
+        function getPunctaSourceContourCardFilterLabel(fileData) {
+            const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
+            if (filterValue === 'all') return '';
+            const context = getPunctaSourceContourContext(fileData?.Statistics || {});
+            const countLabel = filterValue === 'exactly_1'
+                ? 'Exactly 1'
+                : 'Exactly 2';
+            const sourceLabel = context.channelLabel
+                ? `${context.channelLabel.toLowerCase()} source contour${filterValue === 'exactly_1' ? '' : 's'}`
+                : `source contour${filterValue === 'exactly_1' ? '' : 's'}`;
+            return `${countLabel} ${sourceLabel}`;
+        }
+
+        function syncPunctaSourceContourCellCardState(fileData) {
+            const badge = document.getElementById('punctaSourceContourCellFilterBadge');
+            const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
+            if (badge) {
+                const label = getPunctaSourceContourCardFilterLabel(fileData);
+                badge.replaceChildren();
+                const prefix = document.createElement('span');
+                prefix.className = 'cell-card-filter-label';
+                prefix.textContent = 'Filtered view';
+                const separator = document.createElement('span');
+                separator.className = 'cell-card-filter-separator';
+                separator.setAttribute('aria-hidden', 'true');
+                separator.textContent = '\u00b7';
+                const value = document.createElement('span');
+                value.className = 'cell-card-filter-value';
+                value.textContent = label || 'All cells';
+                badge.append(prefix, separator, value);
+                badge.hidden = false;
+            }
+
+            const message = document.getElementById('punctaSourceContourActiveCellMessage');
+            if (!message) return;
+            if (filterValue === 'all') {
+                message.hidden = true;
+                message.textContent = '';
+                return;
+            }
+            const activeIds = getActiveCellNavigationIds(fileData);
+            if (activeIds.length === 0) {
+                message.hidden = true;
+                message.textContent = '';
+                return;
+            }
+            const row = fileData?.Statistics?.[String(currentCellNumber)] || null;
+            if (row && !matchesPunctaSourceContourCountFilter(row, filterValue)) {
+                message.textContent = 'Current cell is outside the active contour-count filter.';
+                message.hidden = false;
+            } else {
+                message.hidden = true;
+                message.textContent = '';
+            }
+        }
+
+        function syncCellNavigationState(fileData = filesData[fileUUIDs[currentFileIndex]] || null) {
+            const activeIds = getActiveCellNavigationIds(fileData);
+            const disableNavigation = fileSwapLoading || activeIds.length === 0;
+            [
+                document.getElementById('previousCellBtn'),
+                document.getElementById('nextCellBtn'),
+            ].forEach((button) => {
+                if (!button) return;
+                button.disabled = disableNavigation;
+                button.setAttribute('aria-disabled', disableNavigation ? 'true' : 'false');
+                button.title = disableNavigation
+                    ? 'No cells match the current contour-count filter.'
+                    : '';
+            });
+        }
+
+        function alignCurrentCellNumberToActiveFilter(fileData, { anchorCellId = currentCellNumber } = {}) {
+            const allIds = getSortedCellIds(fileData);
+            const activeIds = getActiveCellNavigationIds(fileData);
+            if (allIds.length === 0) {
+                currentCellNumber = 0;
+                return { changed: true, activeIds };
+            }
+            if (activeIds.length === 0) {
+                return { changed: false, activeIds };
+            }
+            if (activeIds.includes(Number(currentCellNumber))) {
+                return { changed: false, activeIds };
+            }
+            const nearestCellId = findNearestMatchingCellByOriginalOrder(
+                anchorCellId,
+                allIds,
+                activeIds,
+            );
+            if (!nearestCellId) {
+                return { changed: false, activeIds };
+            }
+            const changed = Number(currentCellNumber) !== nearestCellId;
+            currentCellNumber = nearestCellId;
+            return { changed, activeIds };
+        }
+
+        async function syncCurrentCellToActiveContourFilter(fileData, options = {}) {
+            if (!fileData) return null;
+            const previousCellNumber = Number(currentCellNumber);
+            const { changed, activeIds } = alignCurrentCellNumberToActiveFilter(fileData, {
+                anchorCellId: options.anchorCellId ?? previousCellNumber,
+            });
+            syncCellNavigationState(fileData);
+            if (activeIds.length === 0) {
+                const allIds = getSortedCellIds(fileData);
+                if (!allIds.includes(Number(currentCellNumber))) {
+                    const fallbackCellId = findNearestMatchingCellByOriginalOrder(
+                        options.anchorCellId ?? previousCellNumber,
+                        allIds,
+                        allIds,
+                    );
+                    currentCellNumber = fallbackCellId || 0;
+                    await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                        blendImages: options.blendImages !== false,
+                        blendText: options.blendText !== false,
+                        forceShowContours: getContourToggleState(),
+                    });
+                }
+                syncPunctaSourceContourCellCardState(fileData);
+                return null;
+            }
+            if (changed || options.forceRender) {
+                const showContours = getContourToggleState();
+                await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                    blendImages: options.blendImages !== false,
+                    blendText: options.blendText !== false,
+                    forceShowContours: showContours,
+                });
+                if (showContours) {
+                    const fileUUID = fileUUIDs[currentFileIndex];
+                    markCurrentCellWarm(fileUUID, true);
+                    scheduleCircularOverlayWarmup(options.warmDirection || 'initial');
+                }
+            } else {
+                syncPunctaSourceContourCellCardState(fileData);
+            }
+            return currentCellNumber;
         }
 
         function updateTableState(fileUUID, fileData) {
@@ -620,16 +854,97 @@
                 }
             }
 
-            const renderedRowCount = renderStatisticsTable(fileData.Statistics || {}, fileData);
+            const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
+            const renderedRowCount = renderStatisticsTable(
+                fileData.Statistics || {},
+                fileData,
+                {
+                    punctaSourceContourCountFilter: filterValue,
+                    activeCellId: currentCellNumber,
+                },
+            );
+            const filterCounts = getPunctaSourceContourCountFilterCounts(
+                fileData.Statistics || {},
+                getCurrentPunctaSourceContourCountFilter(),
+            );
+            syncPunctaSourceContourFilterControl(fileData);
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
+                note.style.display = 'block';
+            } else if (filterCounts.total > 0 && renderedRowCount === 0 && filterValue !== 'all') {
+                note.textContent = 'No cells match the current contour-count filter. Switch back to All cells to view every cell.';
                 note.style.display = 'block';
             } else {
                 note.style.display = 'none';
             }
 
+            syncPunctaSourceContourFilterStatus(fileData, renderedRowCount);
+            syncCellNavigationState(fileData);
             syncDashboardExportButtons(fileUUID, fileData, renderedRowCount);
+        }
+
+        if (punctaSourceContourFilterButton && punctaSourceContourFilterMenu) {
+            punctaSourceContourFilterButton.addEventListener('click', () => {
+                if (punctaSourceContourFilterButton.disabled) return;
+                const isOpen = punctaSourceContourFilterButton.getAttribute('aria-expanded') === 'true';
+                punctaSourceContourFilterMenu.hidden = isOpen;
+                punctaSourceContourFilterButton.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+            });
+            punctaSourceContourFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
+                option.addEventListener('click', async () => {
+                    const previousCellNumber = Number(currentCellNumber);
+                    setCurrentPunctaSourceContourCountFilter(option.dataset.value);
+                    closePunctaSourceContourFilterMenu();
+                    const fileUUID = fileUUIDs[currentFileIndex];
+                    const fileData = fileUUID ? filesData[fileUUID] : null;
+                    if (fileUUID && fileData) {
+                        await syncCurrentCellToActiveContourFilter(fileData, {
+                            anchorCellId: previousCellNumber,
+                            blendImages: true,
+                            blendText: true,
+                        });
+                        updateTableState(fileUUID, fileData);
+                    } else {
+                        syncPunctaSourceContourFilterStatus({ Statistics: {} }, 0);
+                    }
+                });
+            });
+            document.addEventListener('click', (event) => {
+                if (!punctaSourceContourFilterControl || punctaSourceContourFilterControl.contains(event.target)) {
+                    return;
+                }
+                closePunctaSourceContourFilterMenu();
+            });
+        }
+
+        const statisticsTable = document.getElementById('celltable');
+        if (statisticsTable) {
+            statisticsTable.addEventListener('click', async (event) => {
+                if (event.target.closest('button, a, input, label, [role="button"]')) {
+                    return;
+                }
+                const row = event.target.closest('tbody tr[data-cell-id]');
+                if (!row || !statisticsTable.contains(row)) {
+                    return;
+                }
+                const cellId = Number(row.dataset.cellId);
+                if (!Number.isFinite(cellId) || cellId <= 0) {
+                    return;
+                }
+                const fileUUID = fileUUIDs[currentFileIndex];
+                const fileData = fileUUID ? filesData[fileUUID] : null;
+                if (!fileData || !getActiveCellNavigationIds(fileData).includes(cellId)) {
+                    return;
+                }
+                currentCellNumber = cellId;
+                await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                    blendImages: true,
+                    blendText: true,
+                    forceShowContours: getContourToggleState(),
+                });
+                updateTableState(fileUUID, fileData);
+            });
         }
 
         function rerenderSpatialUnitsForCurrentFile() {
@@ -702,6 +1017,7 @@
                 button.disabled = disableNavigation;
                 button.setAttribute('aria-disabled', disableNavigation ? 'true' : 'false');
             });
+            syncCellNavigationState();
         }
 
         function applyContourToggleState(forceShowContours = null) {
@@ -764,6 +1080,9 @@
             }
             const initialSortedIds = getSortedCellIds(fileData);
             currentCellNumber = initialSortedIds.length > 0 ? initialSortedIds[0] : 1;
+            alignCurrentCellNumberToActiveFilter(fileData, {
+                anchorCellId: currentCellNumber,
+            });
 
             const defaultMainImagePath = fileData.MainImagePath || noCellPlaceholder;
             const inferredDefaultChannel = primeMainImageWarmState(fileUUID, fileData, defaultMainImagePath);
@@ -938,8 +1257,9 @@
 
 
         function getCircularWarmQueue(direction = 'initial') {
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
             return resultsViewerShared.getCircularWarmQueue({
-                sortedIds: getSortedCellIds(filesData[fileUUIDs[currentFileIndex]]),
+                sortedIds: getActiveCellNavigationIds(fileData),
                 currentCellNumber,
                 maxCells,
                 direction,
@@ -989,6 +1309,9 @@
             }
 
             await renderCellDisplayState(state, { blendImages, blendText });
+            syncPunctaSourceContourCellCardState(
+                filesData[fileUUIDs[currentFileIndex]] || { Statistics: statistics || {} }
+            );
 
             if (renderToken !== activeCellRenderToken) {
                 return false;
@@ -1050,19 +1373,19 @@
             if (!fileData) {
                 return;
             }
-            const sortedIds = getSortedCellIds(fileData);
-            if (sortedIds.length === 0) {
+            const activeIds = getActiveCellNavigationIds(fileData);
+            if (activeIds.length === 0) {
+                syncCellNavigationState(fileData);
                 return;
             }
-            const currentIdx = sortedIds.indexOf(Number(currentCellNumber));
-            const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % sortedIds.length;
-            currentCellNumber = sortedIds[nextIdx];
+            currentCellNumber = getAdjacentFilteredCellId(currentCellNumber, activeIds, 'next');
             const showContours = getContourToggleState();
             await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                 blendImages: true,
                 blendText: true,
                 forceShowContours: showContours,
             });
+            updateTableState(fileUUID, fileData);
             if (showContours) {
                 markCurrentCellWarm(fileUUID, true);
                 scheduleCircularOverlayWarmup('next');
@@ -1078,21 +1401,19 @@
             if (!fileData) {
                 return;
             }
-            const sortedIds = getSortedCellIds(fileData);
-            if (sortedIds.length === 0) {
+            const activeIds = getActiveCellNavigationIds(fileData);
+            if (activeIds.length === 0) {
+                syncCellNavigationState(fileData);
                 return;
             }
-            const currentIdx = sortedIds.indexOf(Number(currentCellNumber));
-            const prevIdx = currentIdx === -1
-                ? sortedIds.length - 1
-                : (currentIdx - 1 + sortedIds.length) % sortedIds.length;
-            currentCellNumber = sortedIds[prevIdx];
+            currentCellNumber = getAdjacentFilteredCellId(currentCellNumber, activeIds, 'previous');
             const showContours = getContourToggleState();
             await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                 blendImages: true,
                 blendText: true,
                 forceShowContours: showContours,
             });
+            updateTableState(fileUUID, fileData);
             if (showContours) {
                 markCurrentCellWarm(fileUUID, true);
                 scheduleCircularOverlayWarmup('previous');
