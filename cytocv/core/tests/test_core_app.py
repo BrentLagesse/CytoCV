@@ -1807,7 +1807,14 @@ class RouteSurfaceRefactorTests(TestCase):
             "return value.toFixed(3);",
             "return 'N/A';",
             "return tableFieldOrder.slice();",
-            "section.hidden = false;",
+            "document.querySelectorAll('[data-cell-card-section]')",
+            "section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)",
+            "function buildCellCardMetricValues(cellStats",
+            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
+            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
+            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
+            "getContourIntensityDisplayFields(displayType).forEach((field) => {",
+            "metricValues[field.metricId] = formatStatValue(cellStats ? cellStats[field.fieldName] : null);",
             "function getSortedCellIds(fileData)",
             "function getWarmPriorityOffsets(direction = 'initial')",
             "function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells)",
@@ -1818,19 +1825,14 @@ class RouteSurfaceRefactorTests(TestCase):
         ):
             self.assertIn(expected, shared_source)
         for expected in (
-            "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
-            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
-            "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),",
-            "greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_total_intensity_1 : null),",
-            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
-            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
-            "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
+            "buildCellCardMetricValues(cellStats, {",
+            "contourIntensityType: currentContourIntensityDisplayType",
             "const getSortedCellIds = resultsViewerShared.getSortedCellIds;",
             "return resultsViewerShared.getCircularWarmQueue({",
-            "'measurement_contour_ratio_1',",
-            "'measurement_contour_ratio_3',",
         ):
             self.assertIn(expected, source)
+        self.assertNotIn("redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),", source)
+        self.assertNotIn("greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_total_intensity_1 : null),", source)
         self.assertNotIn("function getWarmPriorityOffsets", source)
         self.assertNotIn("function buildFullCircularCellOrder", source)
         self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
@@ -1850,7 +1852,14 @@ class RouteSurfaceRefactorTests(TestCase):
         shared_source = _frontend_static_text("js/shared/results-viewer.js")
         for expected in (
             "return tableFieldOrder.slice();",
-            "section.hidden = false;",
+            "document.querySelectorAll('[data-cell-card-section]')",
+            "section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)",
+            "function buildCellCardMetricValues(cellStats",
+            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
+            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
+            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
+            "getContourIntensityDisplayFields(displayType).forEach((field) => {",
+            "metricValues[field.metricId] = formatStatValue(cellStats ? cellStats[field.fieldName] : null);",
             "function getSortedCellIds(fileData)",
             "function getWarmPriorityOffsets(direction = 'initial')",
             "function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells)",
@@ -1861,19 +1870,14 @@ class RouteSurfaceRefactorTests(TestCase):
         ):
             self.assertIn(expected, shared_source)
         for expected in (
-            "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
-            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
-            "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),",
-            "redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_total_intensity_1 : null),",
-            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
-            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
-            "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
+            "buildCellCardMetricValues(cellStats, {",
+            "contourIntensityType: currentContourIntensityDisplayType",
             "const getSortedCellIds = resultsViewerShared.getSortedCellIds;",
             "return resultsViewerShared.getCircularWarmQueue({",
-            "'measurement_contour_ratio_1',",
-            "'measurement_contour_ratio_3',",
         ):
             self.assertIn(expected, source)
+        self.assertNotIn("redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),", source)
+        self.assertNotIn("redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_total_intensity_1 : null),", source)
         self.assertNotIn("function getWarmPriorityOffsets", source)
         self.assertNotIn("function buildFullCircularCellOrder", source)
         self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
@@ -1927,7 +1931,10 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "CEN Dot Measurements")
         self.assertContains(response, "Distance Between Green Puncta")
         self.assertContains(response, "Red Intensity Over Green Line")
-        self.assertContains(response, "Total raw Green-channel intensity inside each ranked Green contour slot")
+        self.assertContains(response, "Contour Intensities")
+        self.assertContains(response, 'data-contour-intensity-display="total"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="max"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="average"', html=False)
         self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_in_red_total_intensity_1": 11.0', html=False)
         self.assertContains(response, '"red_in_green_total_intensity_1": 5.0', html=False)
@@ -1946,12 +1953,14 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
         display_source = _frontend_static_text("js/pages/display-viewer.js")
-        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", display_source)
+        shared_source = _frontend_static_text("js/shared/results-viewer.js")
+        self.assertIn("buildCellCardMetricValues", display_source)
+        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", shared_source)
         self.assertContains(response, "Cell Parentage")
-        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", display_source)
+        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", shared_source)
         self.assertNotIn("const categories = ['One green dot with each red dot'", display_source)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
-        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", display_source)
+        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", shared_source)
 
     def test_dashboard_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
         uuid_value = str(uuid4())
@@ -2003,7 +2012,10 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "CEN Dot Measurements")
         self.assertContains(response, "Distance Between Green Puncta")
         self.assertContains(response, "Red Intensity Over Green Line")
-        self.assertContains(response, "Total raw Green-channel intensity inside each ranked Green contour slot")
+        self.assertContains(response, "Contour Intensities")
+        self.assertContains(response, 'data-contour-intensity-display="total"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="max"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="average"', html=False)
         self.assertNotContains(response, "Intensity + Green Output")
         self.assertContains(response, '"red_in_red_total_intensity_1": 19.0', html=False)
         self.assertContains(response, '"green_in_red_total_intensity_1": 23.0', html=False)
@@ -2021,12 +2033,14 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
         dashboard_source = _frontend_static_text("js/pages/dashboard-viewer.js")
-        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", dashboard_source)
+        shared_source = _frontend_static_text("js/shared/results-viewer.js")
+        self.assertIn("buildCellCardMetricValues", dashboard_source)
+        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", shared_source)
         self.assertContains(response, "Cell Parentage")
-        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", dashboard_source)
+        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", shared_source)
         self.assertNotIn("const categories = ['One green dot with each red dot'", dashboard_source)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
-        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", dashboard_source)
+        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", shared_source)
 
     def test_display_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
         uuid_value = str(uuid4())

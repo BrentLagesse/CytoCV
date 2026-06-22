@@ -16,7 +16,7 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "scoped-filter-feedback-20260622"
+RESULTS_VIEWER_CSS_VERSION = "cell-card-mode-stats-20260622-v3"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "puncta-source-contour-filter-20260621-v3"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
@@ -40,15 +40,13 @@ class FrontendTemplateContractTests(TestCase):
             content,
             'data-ui-region="cell-metrics-top"',
             "<p class=\"metric-lead\">Reference Channel</p>",
-            "<p class=\"metric-lead\">Biorientation</p>",
             "<p class=\"metric-lead\">Nucleus + Measurement</p>",
+            "<p class=\"metric-lead\">Puncta Distance</p>",
+            "<p class=\"metric-lead\">Biorientation</p>",
             "<p class=\"metric-lead\">CEN Dot Measurements</p>",
             "<p class=\"metric-lead\">Measurement/Contour</p>",
             'data-ui-region="cell-intensity-totals"',
-            "<p class=\"metric-lead\">Red In Red Total Intensity</p>",
-            "<p class=\"metric-lead\">Green In Red Total Intensity</p>",
-            "<p class=\"metric-lead\">Red In Green Total Intensity</p>",
-            "<p class=\"metric-lead\">Green In Green Total Intensity</p>",
+            "<p class=\"metric-lead\">Contour Intensities</p>",
         )
         for hook in (
             'id="contourStateValue"',
@@ -81,9 +79,21 @@ class FrontendTemplateContractTests(TestCase):
             'id="greenInGreenIntensity1"',
             'id="greenInGreenIntensity2"',
             'id="greenInGreenIntensity3"',
+            'data-cell-card-section="reference"',
+            'data-cell-card-section="nuclear_cell_pair_intensity"',
+            'data-cell-card-section="puncta_distance"',
+            'data-cell-card-section="biorientation"',
+            'data-cell-card-section="cen_dot"',
+            'data-cell-card-section="measurement_contour"',
+            'data-cell-card-section="contour_intensity"',
+            'data-contour-intensity-display="total"',
+            'data-contour-intensity-display="max"',
+            'data-contour-intensity-display="average"',
+            'data-contour-intensity-display="total" aria-pressed="true"',
+            'data-contour-intensity-label-for="redInRedIntensity1"',
             'data-stat-section="red_green_intensity"',
             'data-stat-section="nuclear_cell_pair_intensity"',
-            'data-stat-section="cen_puncta"',
+            'data-stat-section="cen_dot"',
             'data-stat-section="biorientation"',
             'data-stat-row="puncta_distance"',
             'data-stat-row="cen_dot"',

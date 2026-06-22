@@ -263,6 +263,23 @@
         return indices.map((index) => imageUrls[index] || noCellPlaceholder);
     }
 
+    const CELL_CARD_SIGNAL_MODES = {
+        puncta: 'puncta_distance',
+        nuclear: 'nuclear_cell_pair',
+    };
+    const CONTOUR_INTENSITY_COMBINATIONS = [
+        ['red_in_red', 'Red In Red', 'redInRedIntensity'],
+        ['green_in_red', 'Green In Red', 'greenInRedIntensity'],
+        ['red_in_green', 'Red In Green', 'redInGreenIntensity'],
+        ['green_in_green', 'Green In Green', 'greenInGreenIntensity'],
+    ];
+    const CONTOUR_INTENSITY_STATISTICS = {
+        total: 'Total',
+        max: 'Max',
+        average: 'Average',
+    };
+    const CONTOUR_INTENSITY_SLOTS = [1, 2, 3];
+
     function defaultStatVisibility() {
         return {
             puncta_distance: true,
@@ -271,6 +288,158 @@
             cen_dot: true,
             biorientation: true,
             legacy_blue_intensity: true,
+        };
+    }
+
+    function normalizeCellCardSignalMode(value) {
+        const raw = String(value ?? '').trim().toLowerCase();
+        if (raw === 'nuclear_cell_pair' || raw === 'nuclearcellpairintensity' || raw === 'nuclear') {
+            return CELL_CARD_SIGNAL_MODES.nuclear;
+        }
+        if (raw === 'puncta_distance' || raw === 'punctadistance' || raw === 'puncta') {
+            return CELL_CARD_SIGNAL_MODES.puncta;
+        }
+        return null;
+    }
+
+    function selectedAnalysisIncludes(cellStats, pluginId) {
+        const selectedAnalysis = Array.isArray(cellStats?.selected_analysis)
+            ? cellStats.selected_analysis
+            : [];
+        return selectedAnalysis.some((value) => String(value || '').trim() === pluginId);
+    }
+
+    function getEffectiveCellCardMode(cellStats) {
+        const explicitMode = normalizeCellCardSignalMode(cellStats?.signal_quantification_mode);
+        if (explicitMode) return explicitMode;
+
+        const visibility = cellStats && typeof cellStats.stat_visibility === 'object'
+            ? cellStats.stat_visibility
+            : null;
+        if (
+            visibility
+            && visibility.nuclear_cell_pair_intensity !== false
+            && visibility.puncta_distance === false
+        ) {
+            return CELL_CARD_SIGNAL_MODES.nuclear;
+        }
+
+        if (
+            selectedAnalysisIncludes(cellStats, 'NuclearCellPairIntensity')
+            && !selectedAnalysisIncludes(cellStats, 'PunctaDistance')
+        ) {
+            return CELL_CARD_SIGNAL_MODES.nuclear;
+        }
+
+        return CELL_CARD_SIGNAL_MODES.puncta;
+    }
+
+    function hasUsableCellCardValue(cellStats, fieldNames) {
+        if (!cellStats || typeof cellStats !== 'object') return false;
+        return fieldNames.some((fieldName) => {
+            const value = cellStats[fieldName];
+            return value !== null && value !== undefined && value !== '';
+        });
+    }
+
+    function normalizeContourIntensityDisplayType(type = 'total') {
+        return Object.prototype.hasOwnProperty.call(CONTOUR_INTENSITY_STATISTICS, type)
+            ? type
+            : 'total';
+    }
+
+    function getContourIntensityDisplayFields(type = 'total') {
+        const statistic = normalizeContourIntensityDisplayType(type);
+        const statisticLabel = CONTOUR_INTENSITY_STATISTICS[statistic];
+        const fields = [];
+        CONTOUR_INTENSITY_COMBINATIONS.forEach(([combination, label, metricPrefix]) => {
+            CONTOUR_INTENSITY_SLOTS.forEach((slot) => {
+                fields.push({
+                    combination,
+                    combinationLabel: label,
+                    statistic,
+                    statisticLabel,
+                    slot,
+                    fieldName: `${combination}_${statistic}_intensity_${slot}`,
+                    label: `${label} ${statisticLabel} Intensity ${slot}`,
+                    metricId: `${metricPrefix}${slot}`,
+                });
+            });
+        });
+        return fields;
+    }
+
+    function getAllContourIntensityDisplayFields() {
+        return Object.keys(CONTOUR_INTENSITY_STATISTICS).flatMap((statistic) => (
+            getContourIntensityDisplayFields(statistic)
+        ));
+    }
+
+    function setContourIntensityDisplayButtonState(activeType = 'total') {
+        const normalizedType = normalizeContourIntensityDisplayType(activeType);
+        document.querySelectorAll('[data-contour-intensity-display]').forEach((button) => {
+            const buttonType = normalizeContourIntensityDisplayType(button.dataset.contourIntensityDisplay);
+            const isActive = buttonType === normalizedType;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    function bindContourIntensityDisplayControls({
+        getCurrentType = () => 'total',
+        setCurrentType = () => {},
+        rerender = () => {},
+    } = {}) {
+        setContourIntensityDisplayButtonState(getCurrentType());
+        document.querySelectorAll('[data-contour-intensity-display]').forEach((button) => {
+            if (button.dataset.contourIntensityBound === 'true') return;
+            button.dataset.contourIntensityBound = 'true';
+            button.addEventListener('click', () => {
+                const nextType = normalizeContourIntensityDisplayType(button.dataset.contourIntensityDisplay);
+                if (nextType === normalizeContourIntensityDisplayType(getCurrentType())) return;
+                setCurrentType(nextType);
+                setContourIntensityDisplayButtonState(nextType);
+                rerender(nextType);
+            });
+        });
+    }
+
+    function getVisibleCellCardSections(cellStats) {
+        const visibility = getStatVisibility(cellStats);
+        const mode = getEffectiveCellCardMode(cellStats);
+        const hasCellStats = !!(cellStats && typeof cellStats === 'object');
+        const contourFields = getAllContourIntensityDisplayFields().map((field) => field.fieldName);
+        const ratioFields = [
+            'measurement_contour_ratio_1',
+            'measurement_contour_ratio_2',
+            'measurement_contour_ratio_3',
+        ];
+        const redGreenVisible = hasCellStats
+            && mode === CELL_CARD_SIGNAL_MODES.puncta
+            && visibility.red_green_intensity !== false;
+
+        return {
+            reference: true,
+            nuclear_cell_pair_intensity: hasCellStats
+                && mode === CELL_CARD_SIGNAL_MODES.nuclear
+                && visibility.nuclear_cell_pair_intensity !== false,
+            puncta_distance: hasCellStats
+                && mode === CELL_CARD_SIGNAL_MODES.puncta
+                && visibility.puncta_distance !== false,
+            biorientation: hasCellStats
+                && mode === CELL_CARD_SIGNAL_MODES.puncta
+                && visibility.biorientation !== false,
+            cen_dot: hasCellStats
+                && mode === CELL_CARD_SIGNAL_MODES.puncta
+                && visibility.cen_dot !== false,
+            measurement_contour: redGreenVisible && (
+                hasUsableCellCardValue(cellStats, ratioFields)
+                || (
+                    cellStats.measurement_contour_ratio_display_text
+                    && cellStats.measurement_contour_ratio_display_text !== 'N/A'
+                )
+            ),
+            contour_intensity: redGreenVisible && hasUsableCellCardValue(cellStats, contourFields),
         };
     }
 
@@ -601,11 +770,26 @@
         }
 
         function applyMetricVisibility(visibility) {
-            document.querySelectorAll('[data-stat-section]').forEach((section) => {
-                section.hidden = false;
+            const sections = visibility && typeof visibility === 'object'
+                ? visibility
+                : { reference: true };
+            document.querySelectorAll('[data-cell-card-section]').forEach((section) => {
+                const sectionName = section.dataset.cellCardSection;
+                section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)
+                    ? !sections[sectionName]
+                    : false;
+            });
+            document.querySelectorAll('[data-stat-section]:not([data-cell-card-section])').forEach((section) => {
+                const sectionName = section.dataset.statSection;
+                section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)
+                    ? !sections[sectionName]
+                    : false;
             });
             document.querySelectorAll('[data-stat-row]').forEach((row) => {
-                row.hidden = false;
+                const rowName = row.dataset.statRow;
+                row.hidden = rowName && Object.prototype.hasOwnProperty.call(sections, rowName)
+                    ? !sections[rowName]
+                    : false;
             });
         }
 
@@ -1065,6 +1249,68 @@
             };
         }
 
+        function buildCellCardMetricValues(cellStats, {
+            scaleContext = {},
+            contourIntensityType = 'total',
+        } = {}) {
+            const displayType = normalizeContourIntensityDisplayType(contourIntensityType);
+            const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
+            const cellParentage = cellStats ? (cellStats.cell_parentage_label || 'Not identified') : 'N/A';
+            const nuclearUnavailable = hasNoNucleusContour(cellStats);
+            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
+            const labels = getNuclearLabelPair(mode);
+            const spatialUnit = getCurrentSpatialUnit();
+            const distanceLabel = cellStats
+                ? (cellStats.puncta_distance_label || 'Distance Between Red Puncta')
+                : 'Distance Between Red Puncta';
+            const lineIntensityLabel = cellStats
+                ? (cellStats.puncta_line_intensity_label || 'Green Intensity Over Red Line')
+                : 'Green Intensity Over Red Line';
+            const metricValues = {
+                distance: formatFieldValue(
+                    'puncta_distance',
+                    cellStats ? cellStats.puncta_distance : null,
+                    cellStats,
+                    scaleContext,
+                ),
+                punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
+                measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
+                measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
+                measurementContourRatio2: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null),
+                measurementContourRatio3: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null),
+                nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
+                cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
+                cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
+                nuclearCytoplasmicRatio: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nuclear_cytoplasmic_ratio),
+                cellParentage,
+                cenDot: category,
+                colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),
+                offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),
+                nucleusContourChannel: cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour,
+                measurementChannel: cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement,
+                nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
+            };
+            const contourIntensityLabels = {};
+            getContourIntensityDisplayFields(displayType).forEach((field) => {
+                metricValues[field.metricId] = formatStatValue(cellStats ? cellStats[field.fieldName] : null);
+                contourIntensityLabels[field.metricId] = field.label;
+            });
+
+            return {
+                mode: getEffectiveCellCardMode(cellStats),
+                sections: getVisibleCellCardSections(cellStats),
+                contourIntensityType: displayType,
+                metricValues,
+                labels: {
+                    distanceLabel: formatSpatialLabel(distanceLabel, 'puncta_distance', spatialUnit),
+                    lineIntensityLabel,
+                    nucleusIntensityLabel: labels.nuclear,
+                    cellularIntensityLabel: labels.cellular,
+                    contourIntensityLabels,
+                },
+            };
+        }
+
         function renderStatisticsTable(statistics, fileData, {
             punctaSourceContourCountFilter = 'all',
             activeCellId = null,
@@ -1154,6 +1400,7 @@
             formatStatValue,
             hasNoNucleusContour,
             getNuclearLabelPair,
+            buildCellCardMetricValues,
             normalizePunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterLabel,
             getPunctaSourceContourContext,
@@ -1176,6 +1423,13 @@
         getVisibleCellImageUrls,
         defaultStatVisibility,
         getStatVisibility,
+        normalizeContourIntensityDisplayType,
+        getEffectiveCellCardMode,
+        getVisibleCellCardSections,
+        getContourIntensityDisplayFields,
+        getAllContourIntensityDisplayFields,
+        bindContourIntensityDisplayControls,
+        setContourIntensityDisplayButtonState,
         ensureChannelMessageContainer,
         showChannelError,
         preloadImage,

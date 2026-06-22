@@ -318,13 +318,14 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-row", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-detail", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-note", results_css)
+        self.assertIn(".cell-stats-strip.is-contour-filter-applying .contour-intensity-toggle", results_css)
         self.assertRegex(
             results_css,
             r"\.table-scroll-frame\.is-contour-filter-applying\s+tbody\s+td::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
         )
         self.assertRegex(
             results_css,
-            r"\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-row::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-detail::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-note::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
+            r"\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-row::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-detail::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-note::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.contour-intensity-toggle::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
         )
         self.assertRegex(
             results_css,
@@ -342,6 +343,38 @@ class FrontendStaticContractTests(SimpleTestCase):
             results_css,
             r"\.cell-card-filter-meta\s*\{[^}]*255,\s*205,\s*138",
         )
+
+    def test_cell_pair_card_mode_specific_sections_and_contour_selector_css(self):
+        results_css = static_text("css/components/results-viewer.css")
+
+        self.assertIn("[data-cell-card-section][hidden]", results_css)
+        self.assertIn(".cell-stats-intensity-grid[hidden]", results_css)
+        self.assertRegex(
+            results_css,
+            r"\[data-cell-card-section\]\[hidden\],\s*\.cell-stats-section\[hidden\],\s*\.cell-stats-intensity-grid\[hidden\]\s*\{[^}]*display:\s*none\s*!important;",
+        )
+        self.assertIn(".contour-intensity-toggle {", results_css)
+        self.assertIn(".contour-intensity-toggle-btn {", results_css)
+        self.assertIn('.contour-intensity-toggle-btn[aria-pressed="true"]', results_css)
+        self.assertIn(".contour-intensity-groups {", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-toggle\s*\{[^}]*display:\s*inline-flex;[^}]*border-radius:\s*8px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-toggle-btn\s*\{[^}]*min-height:\s*26px;[^}]*border-radius:\s*6px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-groups\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-combination\s+\.metric-label\s*\{[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*normal;",
+        )
+        self.assertIn("@media (max-width: 1180px)", results_css)
+        self.assertIn("@media (max-width: 760px)", results_css)
 
     def test_decorative_icon_slots_do_not_use_placeholder_glyphs(self):
         for css_path in (CORE_STATIC_ROOT / "css").rglob("*.css"):

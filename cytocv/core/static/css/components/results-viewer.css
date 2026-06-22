@@ -2541,7 +2541,8 @@ a:hover {
 
 .cell-stats-strip.is-contour-filter-applying .metric-row,
 .cell-stats-strip.is-contour-filter-applying .metric-detail,
-.cell-stats-strip.is-contour-filter-applying .metric-note {
+.cell-stats-strip.is-contour-filter-applying .metric-note,
+.cell-stats-strip.is-contour-filter-applying .contour-intensity-toggle {
     position: relative;
     min-height: 16px;
     color: transparent !important;
@@ -2550,13 +2551,15 @@ a:hover {
 
 .cell-stats-strip.is-contour-filter-applying .metric-row > *,
 .cell-stats-strip.is-contour-filter-applying .metric-detail > *,
-.cell-stats-strip.is-contour-filter-applying .metric-note {
+.cell-stats-strip.is-contour-filter-applying .metric-note,
+.cell-stats-strip.is-contour-filter-applying .contour-intensity-toggle > * {
     color: transparent !important;
 }
 
 .cell-stats-strip.is-contour-filter-applying .metric-row::after,
 .cell-stats-strip.is-contour-filter-applying .metric-detail::after,
-.cell-stats-strip.is-contour-filter-applying .metric-note::after {
+.cell-stats-strip.is-contour-filter-applying .metric-note::after,
+.cell-stats-strip.is-contour-filter-applying .contour-intensity-toggle::after {
     content: "";
     position: absolute;
     inset: 2px 0;
@@ -2569,7 +2572,8 @@ a:hover {
 
 .cell-stats-strip.is-contour-filter-applying .metric-row::before,
 .cell-stats-strip.is-contour-filter-applying .metric-detail::before,
-.cell-stats-strip.is-contour-filter-applying .metric-note::before {
+.cell-stats-strip.is-contour-filter-applying .metric-note::before,
+.cell-stats-strip.is-contour-filter-applying .contour-intensity-toggle::before {
     content: "";
     position: absolute;
     inset: 2px 0;
@@ -2583,6 +2587,72 @@ a:hover {
                 transparent
             );
     animation: skeletonShimmer 1.15s ease-in-out infinite;
+}
+
+[data-cell-card-section][hidden],
+.cell-stats-section[hidden],
+.cell-stats-intensity-grid[hidden] {
+    display: none !important;
+}
+
+.cell-stats-intensity-grid > .contour-intensity-section {
+    grid-column: 1 / -1;
+}
+
+.contour-intensity-heading {
+    align-items: center;
+}
+
+.contour-intensity-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid rgba(var(--glass-border-rgb), 0.28);
+    border-radius: 8px;
+    background: rgba(9, 14, 21, 0.54);
+}
+
+.contour-intensity-toggle-btn {
+    min-height: 26px;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.contour-intensity-toggle-btn:hover,
+.contour-intensity-toggle-btn:focus-visible {
+    color: #eef4ff;
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+.contour-intensity-toggle-btn.active,
+.contour-intensity-toggle-btn[aria-pressed="true"] {
+    color: #ffffff;
+    background: rgba(74, 144, 226, 0.34);
+}
+
+.contour-intensity-groups {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    min-width: 0;
+}
+
+.contour-intensity-combination {
+    margin-top: 0;
+}
+
+.contour-intensity-combination .metric-label {
+    overflow-wrap: normal;
+    word-break: normal;
 }
 
 @media (max-width: 1180px) {
@@ -2608,11 +2678,19 @@ a:hover {
     .cell-stats-intensity-grid > .cell-stats-section:nth-child(2n + 1) {
         border-left: 0;
     }
+
+    .contour-intensity-groups {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 760px) {
     .cell-stats-top-grid,
     .cell-stats-intensity-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .contour-intensity-groups {
         grid-template-columns: 1fr;
     }
 

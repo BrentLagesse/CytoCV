@@ -1226,10 +1226,10 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, "Green In Red Total Intensity")
         self.assertContains(response, "Red In Green Total Intensity")
         self.assertContains(response, "Green In Green Total Intensity")
-        self.assertContains(
-            response,
-            "Total raw Green-channel intensity inside each ranked Green contour slot",
-        )
+        self.assertContains(response, "Contour Intensities")
+        self.assertContains(response, 'data-contour-intensity-display="total"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="max"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="average"', html=False)
         self.assertNotContains(response, "Intensity + Green Output")
 
     def test_display_template_renders_glass_layout_and_existing_hooks(self):
@@ -1322,10 +1322,10 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, "Green In Red Total Intensity")
         self.assertContains(response, "Red In Green Total Intensity")
         self.assertContains(response, "Green In Green Total Intensity")
-        self.assertContains(
-            response,
-            "Total raw Green-channel intensity inside each ranked Green contour slot",
-        )
+        self.assertContains(response, "Contour Intensities")
+        self.assertContains(response, 'data-contour-intensity-display="total"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="max"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="average"', html=False)
         self.assertNotContains(response, "Intensity + Green Output")
 
     def test_display_export_buttons_are_not_bound_to_initial_table_uuid(self):

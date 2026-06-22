@@ -1,5 +1,6 @@
         const resultsViewerShared = window.CytoCVResultsViewerShared;
         const { readJsonConfig } = resultsViewerShared;
+        const { bindContourIntensityDisplayControls } = resultsViewerShared;
 
         const dashboardPageConfig = readJsonConfig('dashboardPageConfig');
         window.CytoCVDashboardPageConfig = dashboardPageConfig;
@@ -274,6 +275,7 @@
             distance_of_green_from_red_3: 'Distance Of Green From Red 3',
         };
         let currentSpatialStatsUnit = initialSidebarSpatialStatsUnit;
+        let currentContourIntensityDisplayType = 'total';
         const {
             applyMetricVisibility,
             normalizeSpatialUnit,
@@ -284,6 +286,7 @@
             formatStatValue,
             hasNoNucleusContour,
             getNuclearLabelPair,
+            buildCellCardMetricValues,
             getDynamicSpatialHeaderLabel,
             renderStatisticsTable,
             hasStatisticsTableRows,
@@ -398,57 +401,17 @@
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
             const fileUUID = fileUUIDs[currentFileIndex];
             const scaleContext = getScaleContext(filesData[fileUUID]);
-            const spatialUnit = getCurrentSpatialUnit();
-            const category = cellStats ? (cellStats.category_cen_dot_label || 'N/A') : 'N/A';
-            const cellParentage = cellStats ? (cellStats.cell_parentage_label || 'Not identified') : 'N/A';
-            const nuclearUnavailable = hasNoNucleusContour(cellStats);
-            const mode = cellStats ? cellStats.nuclear_cell_pair_mode : null;
-            const labels = getNuclearLabelPair(mode);
-            const distanceLabel = cellStats ? (cellStats.puncta_distance_label || 'Distance Between Red Puncta') : 'Distance Between Red Puncta';
-            const lineIntensityLabel = cellStats ? (cellStats.puncta_line_intensity_label || 'Green Intensity Over Red Line') : 'Green Intensity Over Red Line';
-            const statVisibility = getStatVisibility(cellStats);
+            const cellCard = buildCellCardMetricValues(cellStats, {
+                scaleContext,
+                contourIntensityType: currentContourIntensityDisplayType,
+            });
 
             return {
                 visibleImageUrls,
                 cellId: (imageUrls || cellStats) ? cellNumber : 0,
-                statVisibility,
-                metricValues: {
-                    distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),
-                    punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),
-                    measurementContourRatioFormula: cellStats ? (cellStats.measurement_contour_ratio_display_text || 'N/A') : 'N/A',
-                    measurementContourRatio1: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_1 : null),
-                    measurementContourRatio2: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_2 : null),
-                    measurementContourRatio3: formatStatValue(cellStats ? cellStats.measurement_contour_ratio_3 : null),
-                    redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),
-                    redInRedIntensity2: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_2 : null),
-                    redInRedIntensity3: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_3 : null),
-                    greenInRedIntensity1: formatStatValue(cellStats ? cellStats.green_in_red_total_intensity_1 : null),
-                    greenInRedIntensity2: formatStatValue(cellStats ? cellStats.green_in_red_total_intensity_2 : null),
-                    greenInRedIntensity3: formatStatValue(cellStats ? cellStats.green_in_red_total_intensity_3 : null),
-                    redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_total_intensity_1 : null),
-                    redInGreenIntensity2: formatStatValue(cellStats ? cellStats.red_in_green_total_intensity_2 : null),
-                    redInGreenIntensity3: formatStatValue(cellStats ? cellStats.red_in_green_total_intensity_3 : null),
-                    greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_total_intensity_1 : null),
-                    greenInGreenIntensity2: formatStatValue(cellStats ? cellStats.green_in_green_total_intensity_2 : null),
-                    greenInGreenIntensity3: formatStatValue(cellStats ? cellStats.green_in_green_total_intensity_3 : null),
-                    nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),
-                    cellPairIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cell_pair_intensity_sum),
-                    cytoplasmicIntensity: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.cytoplasmic_intensity),
-                    nuclearCytoplasmicRatio: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nuclear_cytoplasmic_ratio),
-                    cellParentage,
-                    cenDot: category,
-                    colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),
-                    offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),
-                    nucleusContourChannel: cellStats ? (cellStats.nuclear_cell_pair_contour_channel || labels.contour) : labels.contour,
-                    measurementChannel: cellStats ? (cellStats.nuclear_cell_pair_measurement_channel || labels.measurement) : labels.measurement,
-                    nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
-                },
-                labels: {
-                    distanceLabel: formatSpatialLabel(distanceLabel, 'puncta_distance', spatialUnit),
-                    lineIntensityLabel,
-                    nucleusIntensityLabel: labels.nuclear,
-                    cellularIntensityLabel: labels.cellular,
-                },
+                sections: cellCard.sections,
+                metricValues: cellCard.metricValues,
+                labels: cellCard.labels,
             };
         }
 
@@ -461,7 +424,12 @@
             document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
-            applyMetricVisibility(state.statVisibility || defaultStatVisibility());
+            document.querySelectorAll('[data-contour-intensity-label-for]').forEach((element) => {
+                const metricId = element.dataset.contourIntensityLabelFor;
+                const label = state.labels.contourIntensityLabels?.[metricId];
+                if (label) element.textContent = label;
+            });
+            applyMetricVisibility(state.sections || { reference: true });
 
             const imageIds = ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'];
             const imageUpdates = imageIds.map((id, index) =>
@@ -1102,7 +1070,31 @@
             }
         }
 
+        function rerenderCurrentCellCard() {
+            const fileData = filesData[fileUUIDs[currentFileIndex]];
+            if (!fileData) {
+                return Promise.resolve(false);
+            }
+            const state = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
+                showContours: getContourToggleState(),
+                cellNumber: currentCellNumber,
+            });
+            return renderCellDisplayState(state, {
+                blendImages: false,
+                blendText: hasInitializedDashboardFile,
+            });
+        }
+
         window.onload = async function () {
+            bindContourIntensityDisplayControls({
+                getCurrentType: () => currentContourIntensityDisplayType,
+                setCurrentType: (type) => {
+                    currentContourIntensityDisplayType = type;
+                },
+                rerender: () => {
+                    void rerenderCurrentCellCard();
+                },
+            });
             if (filesDataParseError) {
                 showChannelError('Saved file preview data could not be loaded. Refresh and try again.');
                 return;

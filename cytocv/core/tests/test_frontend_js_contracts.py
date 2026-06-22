@@ -313,9 +313,284 @@ assert.strictEqual(
             "normalizeMainImageChannel",
             "createMainImageHelpers",
             "createStatisticsHelpers",
+            "getEffectiveCellCardMode",
+            "getVisibleCellCardSections",
+            "getContourIntensityDisplayFields",
+            "bindContourIntensityDisplayControls",
         ):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)
+
+    def test_cell_pair_card_mode_visibility_and_contour_display_helpers(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "shared" / "results-viewer.js"
+        script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+
+function makeClassList() {{
+  const values = new Set();
+  return {{
+    toggle(name, force) {{
+      if (force) values.add(name);
+      else values.delete(name);
+    }},
+    contains(name) {{
+      return values.has(name);
+    }},
+  }};
+}}
+
+function makeButton(type) {{
+  return {{
+    dataset: {{ contourIntensityDisplay: type }},
+    attrs: {{}},
+    classList: makeClassList(),
+    handlers: {{}},
+    setAttribute(name, value) {{
+      this.attrs[name] = value;
+    }},
+    addEventListener(eventName, handler) {{
+      this.handlers[eventName] = handler;
+    }},
+  }};
+}}
+
+const selectorButtons = [makeButton('total'), makeButton('max'), makeButton('average')];
+const context = {{
+  window: {{}},
+  document: {{
+    querySelectorAll(selector) {{
+      return selector === '[data-contour-intensity-display]' ? selectorButtons : [];
+    }},
+  }},
+}};
+vm.runInNewContext(source, context);
+const shared = context.window.CytoCVResultsViewerShared;
+const trueKeys = (sections) => Object.entries(sections)
+  .filter(([, value]) => value === true)
+  .map(([key]) => key)
+  .sort();
+
+assert.strictEqual(
+  shared.getEffectiveCellCardMode({{ signal_quantification_mode: 'nuclear_cell_pair' }}),
+  'nuclear_cell_pair'
+);
+assert.strictEqual(
+  shared.getEffectiveCellCardMode({{ signal_quantification_mode: 'puncta_distance' }}),
+  'puncta_distance'
+);
+assert.strictEqual(
+  shared.getEffectiveCellCardMode({{
+    stat_visibility: {{ nuclear_cell_pair_intensity: true, puncta_distance: false }},
+  }}),
+  'nuclear_cell_pair'
+);
+assert.strictEqual(
+  shared.getEffectiveCellCardMode({{ selected_analysis: ['NuclearCellPairIntensity'] }}),
+  'nuclear_cell_pair'
+);
+assert.strictEqual(shared.getEffectiveCellCardMode({{}}), 'puncta_distance');
+
+const nuclearStats = {{
+  signal_quantification_mode: 'nuclear_cell_pair',
+  selected_analysis: ['NuclearCellPairIntensity'],
+  stat_visibility: {{
+    nuclear_cell_pair_intensity: true,
+    puncta_distance: false,
+    red_green_intensity: false,
+    cen_dot: false,
+    biorientation: false,
+  }},
+  nucleus_intensity_sum: 40,
+  cell_pair_intensity_sum: 100,
+  cytoplasmic_intensity: 60,
+  nuclear_cytoplasmic_ratio: 0.667,
+  red_in_red_total_intensity_1: 500,
+  category_cen_dot: 1,
+  colinear_dots: 2,
+}};
+assert.deepStrictEqual(
+  trueKeys(shared.getVisibleCellCardSections(nuclearStats)),
+  ['nuclear_cell_pair_intensity', 'reference']
+);
+
+const punctaStats = {{
+  signal_quantification_mode: 'puncta_distance',
+  selected_analysis: ['PunctaDistance', 'GreenRedIntensity', 'CENDot', 'Biorientation'],
+  stat_visibility: {{
+    nuclear_cell_pair_intensity: false,
+    puncta_distance: true,
+    red_green_intensity: true,
+    cen_dot: true,
+    biorientation: true,
+  }},
+  puncta_distance: 7,
+  puncta_line_intensity: 13,
+  measurement_contour_ratio_1: 0,
+  measurement_contour_ratio_2: 1.25,
+  measurement_contour_ratio_3: null,
+  measurement_contour_ratio_display_text: 'Red / green contour intensity',
+  red_in_red_total_intensity_1: 11,
+  red_in_red_max_intensity_1: 111,
+  red_in_red_average_intensity_1: 1.5,
+  green_in_red_total_intensity_1: 12,
+  red_in_green_total_intensity_1: 13,
+  green_in_green_total_intensity_1: 14,
+  category_cen_dot_label: 'CEN dot',
+  cell_parentage_label: 'Mother/Daughter identified',
+  colinear_dots: 0,
+  off_axis_dots: 1,
+}};
+assert.deepStrictEqual(
+  trueKeys(shared.getVisibleCellCardSections(punctaStats)),
+  [
+    'biorientation',
+    'cen_dot',
+    'contour_intensity',
+    'measurement_contour',
+    'puncta_distance',
+    'reference',
+  ]
+);
+
+const punctaWithoutIndependentModules = {{
+  ...punctaStats,
+  selected_analysis: ['PunctaDistance'],
+  stat_visibility: {{
+    nuclear_cell_pair_intensity: false,
+    puncta_distance: true,
+    red_green_intensity: false,
+    cen_dot: false,
+    biorientation: false,
+  }},
+}};
+assert.deepStrictEqual(
+  trueKeys(shared.getVisibleCellCardSections(punctaWithoutIndependentModules)),
+  ['puncta_distance', 'reference']
+);
+
+const redGreenDisabledWithLegacyValues = {{
+  ...punctaStats,
+  stat_visibility: {{
+    nuclear_cell_pair_intensity: false,
+    puncta_distance: true,
+    red_green_intensity: false,
+    cen_dot: false,
+    biorientation: false,
+  }},
+}};
+const disabledSections = shared.getVisibleCellCardSections(redGreenDisabledWithLegacyValues);
+assert.strictEqual(disabledSections.measurement_contour, false);
+assert.strictEqual(disabledSections.contour_intensity, false);
+
+const expectedCombinations = ['red_in_red', 'green_in_red', 'red_in_green', 'green_in_green'];
+for (const type of ['total', 'max', 'average']) {{
+  const fields = shared.getContourIntensityDisplayFields(type);
+  assert.strictEqual(fields.length, 12);
+  assert.ok(fields.every((field) => field.statistic === type));
+  assert.ok(fields.every((field) => field.fieldName.includes(`_${{type}}_intensity_`)));
+  assert.deepStrictEqual(
+    Array.from(new Set(fields.map((field) => field.combination))),
+    expectedCombinations
+  );
+}}
+assert.strictEqual(
+  JSON.stringify(shared.getContourIntensityDisplayFields('total').slice(0, 3).map((field) => field.fieldName)),
+  JSON.stringify([
+    'red_in_red_total_intensity_1',
+    'red_in_red_total_intensity_2',
+    'red_in_red_total_intensity_3',
+  ])
+);
+assert.strictEqual(
+  JSON.stringify(shared.getContourIntensityDisplayFields('max').slice(0, 3).map((field) => field.fieldName)),
+  JSON.stringify([
+    'red_in_red_max_intensity_1',
+    'red_in_red_max_intensity_2',
+    'red_in_red_max_intensity_3',
+  ])
+);
+assert.strictEqual(
+  JSON.stringify(shared.getContourIntensityDisplayFields('average').slice(0, 3).map((field) => field.fieldName)),
+  JSON.stringify([
+    'red_in_red_average_intensity_1',
+    'red_in_red_average_intensity_2',
+    'red_in_red_average_intensity_3',
+  ])
+);
+const allGeneratedFields = shared.getAllContourIntensityDisplayFields().map((field) => field.fieldName);
+assert.strictEqual(allGeneratedFields.length, 36);
+for (const oldName of [
+  'red_in_red_intensity_1',
+  'green_in_red_intensity_1',
+  'red_in_green_intensity_1',
+  'green_in_green_intensity_1',
+]) {{
+  assert.ok(!allGeneratedFields.includes(oldName));
+}}
+
+let currentType = 'total';
+let rerenderedType = null;
+const exportState = {{ activeFormat: 'xlsx' }};
+const selectedMetricCheckbox = {{ checked: true }};
+shared.bindContourIntensityDisplayControls({{
+  getCurrentType: () => currentType,
+  setCurrentType: (type) => {{
+    currentType = type;
+  }},
+  rerender: (type) => {{
+    rerenderedType = type;
+  }},
+}});
+assert.strictEqual(selectorButtons[0].attrs['aria-pressed'], 'true');
+assert.strictEqual(selectorButtons[0].classList.contains('active'), true);
+assert.strictEqual(selectorButtons[1].attrs['aria-pressed'], 'false');
+selectorButtons[1].handlers.click();
+assert.strictEqual(currentType, 'max');
+assert.strictEqual(rerenderedType, 'max');
+assert.strictEqual(selectorButtons[0].attrs['aria-pressed'], 'false');
+assert.strictEqual(selectorButtons[1].attrs['aria-pressed'], 'true');
+selectorButtons[2].handlers.click();
+assert.strictEqual(currentType, 'average');
+assert.strictEqual(rerenderedType, 'average');
+assert.deepStrictEqual(exportState, {{ activeFormat: 'xlsx' }});
+assert.strictEqual(selectedMetricCheckbox.checked, true);
+
+const helpers = shared.createStatisticsHelpers({{
+  tableFieldOrder: [],
+  statFieldGroups: {{}},
+  spatialFieldKinds: {{}},
+  spatialHeaderBaseLabels: {{}},
+  defaultSpatialStatsUnit: 'px',
+  getCurrentSpatialStatsUnit: () => 'px',
+  setCurrentSpatialStatsUnit: () => {{}},
+}});
+const builtTotal = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'total' }});
+assert.strictEqual(builtTotal.contourIntensityType, 'total');
+assert.strictEqual(builtTotal.metricValues.redInRedIntensity1, '11');
+assert.strictEqual(builtTotal.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Total Intensity 1');
+const builtMax = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'max' }});
+assert.strictEqual(builtMax.contourIntensityType, 'max');
+assert.strictEqual(builtMax.metricValues.redInRedIntensity1, '111');
+assert.strictEqual(builtMax.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Max Intensity 1');
+const builtAverage = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'average' }});
+assert.strictEqual(builtAverage.contourIntensityType, 'average');
+assert.strictEqual(builtAverage.metricValues.redInRedIntensity1, '1.500');
+assert.strictEqual(builtAverage.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Average Intensity 1');
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
     def test_spatial_unit_control_binding_is_shared(self):
         shared_source = static_text("js/shared/results-viewer.js")
