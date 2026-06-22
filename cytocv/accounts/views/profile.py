@@ -25,6 +25,7 @@ from accounts.preferences import (
     get_user_preferences,
     normalize_main_image_channel,
     MAIN_IMAGE_CHANNEL_SLUGS,
+    resolve_initial_puncta_source_contour_count_filter,
     should_auto_save_experiments,
     update_user_preferences,
 )
@@ -263,14 +264,6 @@ def _extract_measurement_defaults(
         defaults.get("spatial_stats_unit"),
         default="px",
     )
-    current_puncta_source_contour_count_filter = (
-        normalize_puncta_source_contour_count_filter(
-            defaults.get(
-                "puncta_source_contour_count_filter",
-                defaults.get("red_contour_count_filter"),
-            )
-        )
-    )
     current_puncta_mode = _normalize_puncta_mode(
         defaults.get("puncta_line_mode"),
         default=DEFAULT_PUNCTA_LINE_MODE,
@@ -397,15 +390,6 @@ def _extract_measurement_defaults(
         "spatial_stats_unit": normalize_spatial_stats_unit(
             post_data.get("spatial_stats_unit"),
             default=current_spatial_stats_unit,
-        ),
-        "puncta_source_contour_count_filter": normalize_puncta_source_contour_count_filter(
-            post_data.get(
-                "puncta_source_contour_count_filter",
-                post_data.get(
-                    "red_contour_count_filter",
-                    current_puncta_source_contour_count_filter,
-                ),
-            )
         ),
         "use_metadata_channel_order": use_metadata_channel_order,
         "fallback_channel_order": fallback_channel_order,
@@ -696,7 +680,7 @@ def _scan_output_frames(output_dir: Path) -> dict[int, str]:
     return frames
 
 
-def _build_dashboard_payload(user: Any) -> dict[str, Any]:
+def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> dict[str, Any]:
     segmented_images = list(
         SegmentedImage.objects.filter(user=user).order_by("-uploaded_date")
     )
@@ -727,6 +711,9 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
     main_image_channel = normalize_main_image_channel(
         preferences.get("main_image_channel"),
         default="",
+    )
+    initial_puncta_source_contour_count_filter = (
+        resolve_initial_puncta_source_contour_count_filter(request, preferences)
     )
 
     files_data: dict[str, Any] = {}
@@ -764,11 +751,15 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
+            initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                stats_qs,
+                initial_puncta_source_contour_count_filter,
+            )
             intensity_mode, puncta_line_mode = resolve_cell_table_modes(
-                stats_by_id.values()
+                initial_table_stats
             )
             cell_table = CellTable(
-                stats_qs,
+                initial_table_stats,
                 intensity_mode=intensity_mode,
                 puncta_line_mode=puncta_line_mode,
                 spatial_stats_unit=sidebar_spatial_stats_unit,
@@ -954,7 +945,7 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
-        "puncta_source_contour_count_filter": "all",
+        "puncta_source_contour_count_filter": initial_puncta_source_contour_count_filter,
         "export_selection_config": export_selection_config(),
     }
 
@@ -1098,7 +1089,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         )
         return exporter.response(download_name)
 
-    context = _build_dashboard_payload(request.user)
+    context = _build_dashboard_payload(request.user, request=request)
     return TemplateResponse(request, "dashboard.html", context)
 
 
@@ -1578,6 +1569,12 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 request,
                 "confirm_multi_cell_deletion",
             )
+            if "default_puncta_source_contour_count_filter" in request.POST:
+                next_payload["default_puncta_source_contour_count_filter"] = (
+                    normalize_puncta_source_contour_count_filter(
+                        request.POST.get("default_puncta_source_contour_count_filter")
+                    )
+                )
             preferences = update_user_preferences(request.user, next_payload)
             if should_auto_save_experiments(request.user):
                 messages.success(

@@ -210,6 +210,14 @@ class FrontendExportContractTests(TestCase):
         dashboard_source = static_text("js/pages/dashboard-viewer.js")
         results_source = static_text("js/shared/results-viewer.js")
 
+        self.assertIn(
+            "displayPageConfig.initialPunctaSourceContourCountFilter",
+            display_source,
+        )
+        self.assertIn(
+            "dashboardPageConfig.initialPunctaSourceContourCountFilter",
+            dashboard_source,
+        )
         for source in (display_source, dashboard_source):
             with self.subTest(source=source[:20]):
                 self.assertIn("_puncta_source_contour_count", source)
@@ -249,6 +257,10 @@ class FrontendExportContractTests(TestCase):
                 self.assertNotIn("/dashboard/preferences/channels/", filter_handler)
                 self.assertNotIn("startAnalysis", filter_handler)
                 self.assertNotIn("start-analysis", filter_handler)
+                self.assertNotIn(
+                    "default_puncta_source_contour_count_filter",
+                    source,
+                )
                 self.assertNotIn("Filtered view:", source)
                 self.assertNotIn("Filter active:", source)
                 self.assertNotIn("Viewing filtered cells only", source)

@@ -1048,6 +1048,7 @@
   const showSavedFileChannelsInput = document.getElementById('show_saved_file_channels');
   const showSavedFileScalesInput = document.getElementById('show_saved_file_scales');
   const sidebarStartsOpenInput = document.getElementById('sidebar_starts_open');
+  const defaultPunctaSourceContourCountFilterInput = document.getElementById('default_puncta_source_contour_count_filter');
   [moduleEnabledInput, enforceLayerCountInput, enforceWavelengthsInput].forEach((input) => {
     if (!input) return;
     input.addEventListener('change', syncRows);
@@ -1072,6 +1073,18 @@
   const normalizeGreenDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
   const normalizeRedDotSplitMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
   const normalizeNuclearContourMode = (value) => (value === 'aggressive' ? 'aggressive' : 'balanced');
+  const normalizePunctaSourceContourCountFilter = (value) => {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (raw === 'exactly_1' || raw === '1') return 'exactly_1';
+    if (raw === 'exactly_2' || raw === '2') return 'exactly_2';
+    return 'all';
+  };
+  const punctaSourceContourCountFilterLabel = (value) => {
+    const normalized = normalizePunctaSourceContourCountFilter(value);
+    if (normalized === 'exactly_1') return 'Exactly 1 source contour';
+    if (normalized === 'exactly_2') return 'Exactly 2 source contours';
+    return 'All cells';
+  };
   const normalizeDotSplitTarget = (value) => {
     if (value === 'red' || value === 'green' || value === 'both') return value;
     return 'both';
@@ -1623,6 +1636,9 @@
     showSavedFileChannels: !!(showSavedFileChannelsInput && showSavedFileChannelsInput.checked),
     showSavedFileScales: !!(showSavedFileScalesInput && showSavedFileScalesInput.checked),
     sidebarStartsOpen: !!(sidebarStartsOpenInput && sidebarStartsOpenInput.checked),
+    defaultPunctaSourceContourCountFilter: normalizePunctaSourceContourCountFilter(
+      defaultPunctaSourceContourCountFilterInput ? defaultPunctaSourceContourCountFilterInput.value : ''
+    ),
   });
 
   const pushToggleChange = (changes, label, fromValue, toValue) => {
@@ -1872,6 +1888,14 @@
       fromSnapshot.sidebarStartsOpen,
       toSnapshot.sidebarStartsOpen
     );
+    if (
+      fromSnapshot.defaultPunctaSourceContourCountFilter
+      !== toSnapshot.defaultPunctaSourceContourCountFilter
+    ) {
+      changes.push(
+        `Default Source Contour Count Filter: ${punctaSourceContourCountFilterLabel(fromSnapshot.defaultPunctaSourceContourCountFilter)} -> ${punctaSourceContourCountFilterLabel(toSnapshot.defaultPunctaSourceContourCountFilter)}`
+      );
+    }
     return changes;
   };
 
@@ -2016,6 +2040,12 @@
     if (showSavedFileChannelsInput) showSavedFileChannelsInput.checked = snapshot.showSavedFileChannels;
     if (showSavedFileScalesInput) showSavedFileScalesInput.checked = snapshot.showSavedFileScales;
     if (sidebarStartsOpenInput) sidebarStartsOpenInput.checked = snapshot.sidebarStartsOpen;
+    if (defaultPunctaSourceContourCountFilterInput) {
+      defaultPunctaSourceContourCountFilterInput.value = normalizePunctaSourceContourCountFilter(
+        snapshot.defaultPunctaSourceContourCountFilter
+      );
+      refreshCustomSelect(defaultPunctaSourceContourCountFilterInput);
+    }
   };
 
   const captureBaselineSnapshots = () => {

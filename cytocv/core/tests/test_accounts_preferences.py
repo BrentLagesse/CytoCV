@@ -13,6 +13,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -126,7 +127,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
-        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
+        self.assertNotIn("puncta_source_contour_count_filter", defaults)
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertTrue(defaults["use_metadata_channel_order"])
@@ -141,6 +142,10 @@ class PreferenceNormalizationTests(TestCase):
         self.assertTrue(normalized["confirm_multi_cell_deletion"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
         self.assertEqual(normalized["main_image_channel"], "")
+        self.assertEqual(
+            normalized["default_puncta_source_contour_count_filter"],
+            "all",
+        )
 
     def test_normalize_preferences_filters_invalid_values(self):
         normalized = normalize_preferences_payload(
@@ -179,6 +184,7 @@ class PreferenceNormalizationTests(TestCase):
                 "confirm_cell_deletion": "off",
                 "confirm_multi_cell_deletion": "off",
                 "main_image_channel": "invalid",
+                "default_puncta_source_contour_count_filter": "bad_filter",
             }
         )
 
@@ -201,7 +207,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertFalse(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
-        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
+        self.assertNotIn("puncta_source_contour_count_filter", defaults)
         self.assertFalse(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "px")
         self.assertFalse(defaults["use_metadata_channel_order"])
@@ -216,6 +222,10 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(normalized["show_saved_file_scales"])
         self.assertEqual(normalized["sidebar_spatial_stats_unit"], "px")
         self.assertEqual(normalized["main_image_channel"], "")
+        self.assertEqual(
+            normalized["default_puncta_source_contour_count_filter"],
+            "all",
+        )
 
     def test_normalize_preferences_migrates_legacy_green_split_default(self):
         normalized = normalize_preferences_payload(
@@ -230,14 +240,47 @@ class PreferenceNormalizationTests(TestCase):
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertNotIn("biorientation_green_split_enabled", defaults)
 
-    def test_normalize_preferences_accepts_red_count_filter_aliases(self):
+    def test_normalize_preferences_normalizes_result_display_default(self):
+        cases = (
+            (None, "all"),
+            ("", "all"),
+            ("bad_filter", "all"),
+            ("all", "all"),
+            ("exactly_1", "exactly_1"),
+            ("exactly_2", "exactly_2"),
+        )
+
+        for raw_value, expected in cases:
+            with self.subTest(raw_value=raw_value):
+                normalized = normalize_preferences_payload(
+                    {"default_puncta_source_contour_count_filter": raw_value}
+                )
+
+                self.assertEqual(
+                    normalized["default_puncta_source_contour_count_filter"],
+                    expected,
+                )
+
+    def test_legacy_experiment_contour_filter_does_not_create_display_default(self):
         normalized = normalize_preferences_payload(
             {"experiment_defaults": {"puncta_source_contour_count_filter": "2"}}
         )
 
+        self.assertNotIn(
+            "puncta_source_contour_count_filter",
+            normalized["experiment_defaults"],
+        )
         self.assertEqual(
-            normalized["experiment_defaults"]["puncta_source_contour_count_filter"],
-            "exactly_2",
+            normalized["default_puncta_source_contour_count_filter"],
+            "all",
+        )
+
+    def test_anonymous_preferences_default_result_display_filter_to_all(self):
+        preferences = get_user_preferences(AnonymousUser())
+
+        self.assertEqual(
+            preferences["default_puncta_source_contour_count_filter"],
+            "all",
         )
 
     def test_normalize_preferences_keeps_cen_dot_selection(self):
@@ -384,6 +427,18 @@ class PreferenceNormalizationTests(TestCase):
         )
 
         self.assertTrue(normalized["use_legacy_nuclear_cell_pair_pipeline"])
+
+    def test_analysis_snapshot_ignores_legacy_contour_count_filter_values(self):
+        normalized = normalize_analysis_config_snapshot(
+            {
+                "selected_analysis": ["PunctaDistance"],
+                "puncta_source_contour_count_filter": "exactly_2",
+                "red_contour_count_filter": "exactly_1",
+            }
+        )
+
+        self.assertNotIn("puncta_source_contour_count_filter", normalized)
+        self.assertNotIn("red_contour_count_filter", normalized)
 
     def test_signal_quantification_applies_alternate_detection_in_nuclear_mode(self):
         selection = resolve_signal_quantification_selection(
@@ -1117,19 +1172,36 @@ class DisplayManualSaveTests(TestCase):
         self.assertNotContains(response, "_export=xlsx", html=False)
 
     def test_results_payload_retains_all_rows_when_stale_contour_default_is_exact(self):
-        preferences = get_user_preferences(self.user)
-        preferences["experiment_defaults"]["puncta_source_contour_count_filter"] = "exactly_2"
-        update_user_preferences(self.user, preferences)
+        self.user.config = {
+            "preferences": {
+                "experiment_defaults": {
+                    "puncta_source_contour_count_filter": "exactly_2"
+                }
+            }
+        }
+        self.user.save(update_fields=["config"])
         saved_uuid = self._create_display_file(
             uploaded_owner=self.user,
             segmented_owner_id=self.user.id,
             filename="red_count_payload_retains_all",
         )
-        self._add_cell_stat(saved_uuid, cell_id=1, properties={"puncta_source_contour_count": 1})
-        self._add_cell_stat(saved_uuid, cell_id=2, properties={"puncta_source_contour_count": 2})
+        self._add_cell_stat(
+            saved_uuid,
+            cell_id=1,
+            properties={"puncta_source_contour_count": 1},
+        )
+        self._add_cell_stat(
+            saved_uuid,
+            cell_id=2,
+            properties={"puncta_source_contour_count": 2},
+        )
 
         cases = (
-            ("dashboard", reverse("dashboard") + f"?file_uuid={saved_uuid}", "files_data_json"),
+            (
+                "dashboard",
+                reverse("dashboard") + f"?file_uuid={saved_uuid}",
+                "files_data_json",
+            ),
             ("display", reverse("display", args=[saved_uuid]), "files_data"),
         )
         for route_name, url, context_key in cases:
@@ -1137,11 +1209,138 @@ class DisplayManualSaveTests(TestCase):
                 response = self.client.get(url)
 
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.context["puncta_source_contour_count_filter"], "all")
+                self.assertEqual(
+                    response.context["puncta_source_contour_count_filter"],
+                    "all",
+                )
                 files_data = json.loads(response.context[context_key])
                 self.assertEqual(
                     sorted(files_data[saved_uuid]["Statistics"].keys()),
                     ["1", "2"],
+                )
+
+    def test_saved_result_display_default_initializes_dashboard_and_display(self):
+        preferences = get_user_preferences(self.user)
+        preferences["default_puncta_source_contour_count_filter"] = "exactly_1"
+        update_user_preferences(self.user, preferences)
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="saved_source_filter_default",
+        )
+        self._add_cell_stat(
+            saved_uuid,
+            cell_id=1,
+            properties={"puncta_source_contour_count": 1},
+        )
+        self._add_cell_stat(
+            saved_uuid,
+            cell_id=2,
+            properties={"puncta_source_contour_count": 2},
+        )
+
+        cases = (
+            (
+                "dashboard",
+                reverse("dashboard") + f"?file_uuid={saved_uuid}",
+                "files_data_json",
+                "dashboardPageConfig",
+            ),
+            (
+                "display",
+                reverse("display", args=[saved_uuid]),
+                "files_data",
+                "displayPageConfig",
+            ),
+        )
+        for route_name, url, context_key, config_id in cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["puncta_source_contour_count_filter"],
+                    "exactly_1",
+                )
+                self.assertContains(
+                    response,
+                    f'<script id="{config_id}" type="application/json">',
+                    html=False,
+                )
+                self.assertContains(
+                    response,
+                    '"initialPunctaSourceContourCountFilter": "exactly_1"',
+                    html=False,
+                )
+                files_data = json.loads(response.context[context_key])
+                self.assertEqual(
+                    sorted(files_data[saved_uuid]["Statistics"].keys()),
+                    ["1", "2"],
+                )
+
+    def test_invalid_result_display_default_initializes_to_all(self):
+        self.user.config = {
+            "preferences": {
+                "default_puncta_source_contour_count_filter": "not-a-filter"
+            }
+        }
+        self.user.save(update_fields=["config"])
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="invalid_source_filter_default",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        cases = (
+            ("dashboard", reverse("dashboard") + f"?file_uuid={saved_uuid}"),
+            ("display", reverse("display", args=[saved_uuid])),
+        )
+        for route_name, url in cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["puncta_source_contour_count_filter"],
+                    "all",
+                )
+
+    def test_query_contour_filter_takes_precedence_over_saved_display_default(self):
+        preferences = get_user_preferences(self.user)
+        preferences["default_puncta_source_contour_count_filter"] = "exactly_2"
+        update_user_preferences(self.user, preferences)
+        saved_uuid = self._create_display_file(
+            uploaded_owner=self.user,
+            segmented_owner_id=self.user.id,
+            filename="query_source_filter_default",
+        )
+        self._add_cell_stat(saved_uuid)
+
+        cases = (
+            (
+                "dashboard",
+                reverse("dashboard")
+                + f"?file_uuid={saved_uuid}&_puncta_source_contour_count=exactly_1",
+            ),
+            (
+                "display",
+                reverse("display", args=[saved_uuid])
+                + "?_puncta_source_contour_count=exactly_1",
+            ),
+            (
+                "display_legacy",
+                reverse("display", args=[saved_uuid]) + "?_red_contour_count=exactly_1",
+            ),
+        )
+        for route_name, url in cases:
+            with self.subTest(route=route_name):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["puncta_source_contour_count_filter"],
+                    "exactly_1",
                 )
 
     def test_dashboard_template_renders_glass_layout_and_existing_hooks(self):
@@ -4127,6 +4326,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         preferences["confirm_multi_cell_deletion"] = False
         preferences["sidebar_spatial_stats_unit"] = "um"
         preferences["main_image_channel"] = "green"
+        preferences["default_puncta_source_contour_count_filter"] = "exactly_2"
         preferences["experiment_defaults"]["spatial_stats_unit"] = "um"
         update_user_preferences(self.user, preferences)
 
@@ -4147,6 +4347,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertFalse(updated["confirm_multi_cell_deletion"])
         self.assertEqual(updated["sidebar_spatial_stats_unit"], "um")
         self.assertEqual(updated["main_image_channel"], "green")
+        self.assertEqual(
+            updated["default_puncta_source_contour_count_filter"],
+            "exactly_2",
+        )
         self.assertEqual(updated["experiment_defaults"]["spatial_stats_unit"], "um")
 
     def test_experiment_workflow_defaults_endpoint_rejects_invalid_payload(self):
@@ -4384,10 +4588,73 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "show_saved_file_channels": "on",
                 "show_saved_file_scales": "on",
                 "sidebar_starts_open": "on",
+                "default_puncta_source_contour_count_filter": "all",
             },
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(get_user_preferences(self.user)["sidebar_starts_open"])
+
+    def test_behavior_form_persists_default_source_contour_count_filter(self):
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
+                "default_puncta_source_contour_count_filter": "exactly_1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(
+            get_user_preferences(self.user)[
+                "default_puncta_source_contour_count_filter"
+            ],
+            "exactly_1",
+        )
+
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
+                "default_puncta_source_contour_count_filter": "",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(
+            get_user_preferences(self.user)[
+                "default_puncta_source_contour_count_filter"
+            ],
+            "all",
+        )
+
+    def test_behavior_form_preserves_default_source_filter_when_field_missing(self):
+        preferences = get_user_preferences(self.user)
+        preferences["default_puncta_source_contour_count_filter"] = "exactly_2"
+        update_user_preferences(self.user, preferences)
+
+        response = self.client.post(
+            reverse("workflow_defaults"),
+            {
+                "action": "save_behavior",
+                "auto_save_experiments": "on",
+                "show_saved_file_channels": "on",
+                "show_saved_file_scales": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(
+            get_user_preferences(self.user)[
+                "default_puncta_source_contour_count_filter"
+            ],
+            "exactly_2",
+        )
 
     def test_behavior_form_persists_cell_delete_confirmation_preference(self):
         response = self.client.post(
@@ -4413,6 +4680,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "show_saved_file_scales": "on",
                 "sidebar_starts_open": "on",
                 "confirm_cell_deletion": "on",
+                "default_puncta_source_contour_count_filter": "all",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -4429,6 +4697,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "show_saved_file_scales": "on",
                 "sidebar_starts_open": "on",
                 "confirm_cell_deletion": "on",
+                "default_puncta_source_contour_count_filter": "all",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -4445,6 +4714,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "sidebar_starts_open": "on",
                 "confirm_cell_deletion": "on",
                 "confirm_multi_cell_deletion": "on",
+                "default_puncta_source_contour_count_filter": "all",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -4463,6 +4733,32 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "Deletion Preferences")
         self.assertContains(response, "Confirm Before Deleting Cells")
         self.assertContains(response, "Confirm Before Deleting Multiple Cells")
+
+    def test_preferences_page_renders_result_display_default_filter(self):
+        response = self.client.get(reverse("workflow_defaults") + "?section=saving")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'data-workflow-card="result-display-defaults"',
+            html=False,
+        )
+        self.assertContains(response, "Result Display Defaults")
+        self.assertContains(response, "Default Source Contour Count Filter")
+        self.assertContains(response, "Include cells by default:")
+        self.assertContains(
+            response,
+            'id="default_puncta_source_contour_count_filter"',
+            html=False,
+        )
+        self.assertContains(response, '<option value="all"', html=False)
+        self.assertContains(response, '<option value="exactly_1"', html=False)
+        self.assertContains(response, '<option value="exactly_2"', html=False)
+        self.assertContains(
+            response,
+            "Sets the default filter used when opening Display and Dashboard results. "
+            "You can still change this filter on each results page.",
+        )
 
     def test_behavior_form_honors_safe_next_redirect(self):
         response = self.client.post(
@@ -4592,7 +4888,8 @@ class ChannelVisibilityPreferenceTests(TestCase):
         )
 
     def test_new_user_has_default_selected_plugins(self):
-        defaults = get_user_preferences(self.user)["experiment_defaults"]
+        preferences = get_user_preferences(self.user)
+        defaults = preferences["experiment_defaults"]
         self.assertEqual(
             defaults["selected_plugins"],
             [
@@ -4609,7 +4906,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
-        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
+        self.assertNotIn("puncta_source_contour_count_filter", defaults)
+        self.assertEqual(
+            preferences["default_puncta_source_contour_count_filter"],
+            "all",
+        )
 
     def test_plugin_settings_form_persists_measurement_defaults(self):
         response = self.client.post(
@@ -4664,7 +4965,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(defaults["green_contour_filter_enabled"])
         self.assertFalse(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "aggressive")
-        self.assertEqual(defaults["puncta_source_contour_count_filter"], "all")
+        self.assertNotIn("puncta_source_contour_count_filter", defaults)
         self.assertTrue(defaults["alternate_nucleus_detection_enabled"])
         self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")

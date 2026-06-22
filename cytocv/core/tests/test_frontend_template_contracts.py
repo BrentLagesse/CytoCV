@@ -173,13 +173,42 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="pluginDependencyPayload"', workflow_content)
         self.assertIn('id="workflowDefaultsNav"', workflow_content)
         self.assertIn('data-workflow-card="plugin-defaults"', workflow_content)
+        self.assertIn('data-workflow-card="result-display-defaults"', workflow_content)
+        self.assertIn('id="default_puncta_source_contour_count_filter"', workflow_content)
+        self.assertIn("Result Display Defaults", workflow_content)
+        self.assertIn("Default Source Contour Count Filter", workflow_content)
+        self.assertIn("Include cells by default:", workflow_content)
+        self.assertIn(">All cells</option>", workflow_content)
+        self.assertIn(">Exactly 1 source contour</option>", workflow_content)
+        self.assertIn(">Exactly 2 source contours</option>", workflow_content)
+        self.assertIn(
+            "Sets the default filter used when opening Display and Dashboard results. "
+            "You can still change this filter on each results page.",
+            workflow_content,
+        )
         self.assertNotIn('data-workflow-card="result-filters"', workflow_content)
         self.assertNotIn('id="puncta_source_contour_count_filter"', workflow_content)
+        plugin_defaults_section = workflow_content[
+            workflow_content.index('data-workflow-card="plugin-defaults"') :
+            workflow_content.index('data-workflow-card="dot-detection"')
+        ]
+        self.assertNotIn("Default Source Contour Count Filter", plugin_defaults_section)
+        self.assertNotIn(
+            'id="default_puncta_source_contour_count_filter"',
+            plugin_defaults_section,
+        )
         assert_in_order(
             self,
             workflow_content,
             'data-workflow-card="plugin-defaults"',
             'data-workflow-card="dot-detection"',
+        )
+        assert_in_order(
+            self,
+            workflow_content,
+            'data-workflow-card="sidebar-preferences"',
+            'data-workflow-card="result-display-defaults"',
+            'data-workflow-action-card="saving"',
         )
         assert_no_inline_styles(self, workflow_content)
 

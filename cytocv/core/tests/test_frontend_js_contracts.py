@@ -40,6 +40,16 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
             with self.subTest(path=path):
                 self.assertIn(marker, static_text(path))
 
+    def test_workflow_defaults_tracks_result_display_filter_preference(self):
+        source = static_text("js/workflow_defaults.js")
+
+        self.assertIn("default_puncta_source_contour_count_filter", source)
+        self.assertIn("defaultPunctaSourceContourCountFilter", source)
+        self.assertIn("normalizePunctaSourceContourCountFilter", source)
+        self.assertIn("punctaSourceContourCountFilterLabel", source)
+        self.assertIn("Default Source Contour Count Filter:", source)
+        self.assertIn("refreshCustomSelect(defaultPunctaSourceContourCountFilterInput)", source)
+
     def test_export_selection_quick_select_js_uses_metadata_not_labels(self):
         source = static_text("js/export_selection_modal.js")
 

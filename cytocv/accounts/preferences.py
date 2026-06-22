@@ -94,7 +94,6 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "microns_per_pixel": DEFAULT_MICRONS_PER_PIXEL,
         "use_metadata_scale": True,
         "spatial_stats_unit": "px",
-        "puncta_source_contour_count_filter": PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
         "use_metadata_channel_order": True,
         "fallback_channel_order": list(DEFAULT_FALLBACK_CHANNEL_ORDER),
     },
@@ -106,6 +105,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "confirm_multi_cell_deletion": True,
     "sidebar_spatial_stats_unit": "px",
     "main_image_channel": "",
+    "default_puncta_source_contour_count_filter": PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
 }
 
 
@@ -323,14 +323,6 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         defaults_payload.get("spatial_stats_unit"),
         default="px",
     )
-    normalized["experiment_defaults"]["puncta_source_contour_count_filter"] = (
-        normalize_puncta_source_contour_count_filter(
-            defaults_payload.get(
-                "puncta_source_contour_count_filter",
-                defaults_payload.get("red_contour_count_filter"),
-            )
-        )
-    )
     normalized["experiment_defaults"]["use_metadata_channel_order"] = _as_bool(
         defaults_payload.get("use_metadata_channel_order"),
         default=True,
@@ -533,6 +525,11 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         raw_payload.get("main_image_channel"),
         default="",
     )
+    normalized["default_puncta_source_contour_count_filter"] = (
+        normalize_puncta_source_contour_count_filter(
+            raw_payload.get("default_puncta_source_contour_count_filter")
+        )
+    )
     return normalized
 
 
@@ -579,6 +576,7 @@ def build_experiment_defaults_from_popup_payload(
         "nuclear_cell_pair_contour_mode",
         "use_legacy_nuclear_cell_pair_pipeline",
         "puncta_source_contour_count_filter",
+        "red_contour_count_filter",
         "microns_per_pixel",
         "use_metadata_scale",
         "use_metadata_channel_order",
@@ -735,13 +733,6 @@ def build_experiment_defaults_from_popup_payload(
         field="red_dot_split_mode",
         allowed={"balanced", "aggressive"},
     )
-    puncta_source_contour_count_filter = normalize_puncta_source_contour_count_filter(
-        raw_payload.get(
-            "puncta_source_contour_count_filter",
-            raw_payload.get("red_contour_count_filter"),
-        )
-    )
-
     signal_payload: dict[str, Any] = {}
     if "signal_quantification_enabled" in raw_payload:
         signal_payload["signal_quantification_enabled"] = _strict_bool(
@@ -857,7 +848,6 @@ def build_experiment_defaults_from_popup_payload(
             "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
             "nuclear_cell_pair_contour_mode": nuclear_cell_pair_contour_mode,
             "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
-            "puncta_source_contour_count_filter": puncta_source_contour_count_filter,
             "microns_per_pixel": microns_per_pixel,
             "use_metadata_scale": _strict_bool(
                 raw_payload.get("use_metadata_scale"),
@@ -883,6 +873,29 @@ def get_user_preferences(user: Any) -> dict[str, Any]:
         return deepcopy(DEFAULT_USER_PREFERENCES)
     config = user.config if isinstance(user.config, dict) else {}
     return normalize_preferences_payload(config.get("preferences"))
+
+
+def resolve_initial_puncta_source_contour_count_filter(
+    request: Any,
+    preferences: dict[str, Any] | None,
+) -> str:
+    """Resolve the result-page initial source-contour row filter."""
+
+    query_params = getattr(request, "GET", None)
+    if hasattr(query_params, "get"):
+        if query_params.get("_puncta_source_contour_count") is not None:
+            return normalize_puncta_source_contour_count_filter(
+                query_params.get("_puncta_source_contour_count")
+            )
+        if query_params.get("_red_contour_count") is not None:
+            return normalize_puncta_source_contour_count_filter(
+                query_params.get("_red_contour_count")
+            )
+
+    payload = preferences if isinstance(preferences, dict) else {}
+    return normalize_puncta_source_contour_count_filter(
+        payload.get("default_puncta_source_contour_count_filter")
+    )
 
 
 def update_user_preferences(

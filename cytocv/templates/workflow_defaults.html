@@ -584,6 +584,23 @@
           <div class="row"><div class="row-copy"><label for="show_saved_file_scales">Show Scale Details In File Sidebars</label><p class="module-help">Shows per-file scale details on dashboard, preprocess, and display sidebars, including whether metadata or manual fallback scale is being used.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_scales" name="show_saved_file_scales" {% if preferences.show_saved_file_scales %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><label for="sidebar_starts_open">Start Sidebars Open On Dashboard, Display, And Preprocess</label><p class="module-help">Sets the default sidebar state when those pages first render. Users can still open or collapse each sidebar during the session.</p></div><label class="sw"><input type="checkbox" id="sidebar_starts_open" name="sidebar_starts_open" {% if preferences.sidebar_starts_open %}checked{% endif %}><span class="sl"></span></label></div>
         </div>
+        <div class="card" data-workflow-card="result-display-defaults">
+          <p class="section-eyebrow card-title">Result Display Defaults</p>
+          <div class="row">
+            <div class="row-copy">
+              <p><strong>Default Source Contour Count Filter</strong></p>
+              <label for="default_puncta_source_contour_count_filter">Include cells by default:</label>
+              <p class="module-help">Sets the default filter used when opening Display and Dashboard results. You can still change this filter on each results page.</p>
+            </div>
+            <div class="mode-select-group plugin-measure-right compact-control">
+              <select id="default_puncta_source_contour_count_filter" name="default_puncta_source_contour_count_filter">
+                <option value="all" {% if preferences.default_puncta_source_contour_count_filter == 'all' %}selected{% endif %}>All cells</option>
+                <option value="exactly_1" {% if preferences.default_puncta_source_contour_count_filter == 'exactly_1' %}selected{% endif %}>Exactly 1 source contour</option>
+                <option value="exactly_2" {% if preferences.default_puncta_source_contour_count_filter == 'exactly_2' %}selected{% endif %}>Exactly 2 source contours</option>
+              </select>
+            </div>
+          </div>
+        </div>
         <div class="card action-card" data-workflow-action-card="saving">
           <p class="section-eyebrow card-title">Save Preferences</p>
           <button class="save save-right" type="submit">Save Preferences</button>

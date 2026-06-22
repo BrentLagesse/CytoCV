@@ -13,7 +13,11 @@ from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from accounts.preferences import get_user_preferences, normalize_main_image_channel
+from accounts.preferences import (
+    get_user_preferences,
+    normalize_main_image_channel,
+    resolve_initial_puncta_source_contour_count_filter,
+)
 from core.channel_roles import (
     CHANNEL_ROLE_BLUE,
     CHANNEL_ROLE_DIC,
@@ -187,6 +191,9 @@ def display(request, uuids):
         preferences.get("main_image_channel"),
         default="",
     )
+    initial_puncta_source_contour_count_filter = (
+        resolve_initial_puncta_source_contour_count_filter(request, preferences)
+    )
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -251,11 +258,15 @@ def display(request, uuids):
             stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
+                initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                    cell_stats_qs,
+                    initial_puncta_source_contour_count_filter,
+                )
                 table_mode, puncta_line_mode = resolve_cell_table_modes(
-                    stats_by_id.values()
+                    initial_table_stats
                 )
                 cell_table = CellTable(
-                    cell_stats_qs,
+                    initial_table_stats,
                     intensity_mode=table_mode,
                     puncta_line_mode=puncta_line_mode,
                     spatial_stats_unit=sidebar_spatial_stats_unit,
@@ -400,7 +411,7 @@ def display(request, uuids):
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'main_image_channel': main_image_channel,
-        'puncta_source_contour_count_filter': 'all',
+        'puncta_source_contour_count_filter': initial_puncta_source_contour_count_filter,
         'export_selection_config': export_selection_config(),
     })
 
