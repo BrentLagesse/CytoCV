@@ -2481,6 +2481,36 @@ a:hover {
     background: rgba(10, 15, 22, 0.76);
 }
 
+.cell-image-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+}
+
+.cell-image-frame .cell-image {
+    display: block;
+}
+
+.cell-image-loading-skeleton {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.14s ease, visibility 0.14s ease;
+}
+
+.cell-image-frame.is-cell-image-loading .cell-image-loading-skeleton {
+    opacity: 1;
+    visibility: visible;
+}
+
+.cell-image-frame.is-cell-image-loading .cell-image {
+    opacity: 0.28;
+}
+
 #imageTitle,
         #fileContextMetaLine,
         #fileContextScaleLine,

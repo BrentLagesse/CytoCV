@@ -59,6 +59,7 @@
             showChannelError,
             preloadImage,
             preloadImageSet,
+            setCellPairImagesLoading,
         } = resultsViewerShared;
         const FILE_BLEND_TEXT_MS = 170;
         const FILE_BLEND_IMAGE_MS = 190;
@@ -835,6 +836,7 @@
                         blendImages: options.blendImages !== false,
                         blendText: options.blendText !== false,
                         forceShowContours: getContourToggleState(),
+                        imageLoading: options.imageLoading === true,
                     });
                 }
                 syncPunctaSourceContourCellCardState(fileData);
@@ -846,6 +848,7 @@
                     blendImages: options.blendImages !== false,
                     blendText: options.blendText !== false,
                     forceShowContours: showContours,
+                    imageLoading: options.imageLoading === true,
                 });
                 if (showContours) {
                     const fileUUID = fileUUIDs[currentFileIndex];
@@ -924,6 +927,7 @@
                                 anchorCellId: previousCellNumber,
                                 blendImages: true,
                                 blendText: true,
+                                imageLoading: true,
                             });
                             updateTableState(fileUUID, fileData);
                         } else {
@@ -1336,42 +1340,57 @@
             const renderToken = ++activeCellRenderToken;
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;
+            const showImageLoading = options.imageLoading === true;
             const showContours = getContourToggleState(options.forceShowContours ?? null);
             const state = getCellDisplayState(cellPairImages, statistics, {
                 showContours,
                 cellNumber: options.cellNumber ?? currentCellNumber,
             });
 
-            if (blendImages && options.preload !== false) {
-                await preloadImageSet(state.visibleImageUrls);
+            if (showImageLoading) {
+                setCellPairImagesLoading(true);
+            }
+
+            try {
+                if (blendImages && options.preload !== false) {
+                    await preloadImageSet(state.visibleImageUrls);
+                    if (renderToken !== activeCellRenderToken) {
+                        return false;
+                    }
+                    if (options.fileToken && options.fileToken !== activeFileLoadToken) {
+                        return false;
+                    }
+                }
+
                 if (renderToken !== activeCellRenderToken) {
                     return false;
                 }
                 if (options.fileToken && options.fileToken !== activeFileLoadToken) {
                     return false;
                 }
-            }
 
-            if (renderToken !== activeCellRenderToken) {
-                return false;
-            }
-            if (options.fileToken && options.fileToken !== activeFileLoadToken) {
-                return false;
-            }
+                await renderCellDisplayState(state, { blendImages, blendText });
+                syncPunctaSourceContourCellCardState(
+                    filesData[fileUUIDs[currentFileIndex]] || { Statistics: statistics || {} }
+                );
 
-            await renderCellDisplayState(state, { blendImages, blendText });
-            syncPunctaSourceContourCellCardState(
-                filesData[fileUUIDs[currentFileIndex]] || { Statistics: statistics || {} }
-            );
+                if (renderToken !== activeCellRenderToken) {
+                    return false;
+                }
+                if (options.fileToken && options.fileToken !== activeFileLoadToken) {
+                    return false;
+                }
 
-            if (renderToken !== activeCellRenderToken) {
-                return false;
+                return true;
+            } finally {
+                if (
+                    showImageLoading
+                    && renderToken === activeCellRenderToken
+                    && (!options.fileToken || options.fileToken === activeFileLoadToken)
+                ) {
+                    setCellPairImagesLoading(false);
+                }
             }
-            if (options.fileToken && options.fileToken !== activeFileLoadToken) {
-                return false;
-            }
-
-            return true;
         }
 
         async function handleContourToggleChange(forceShowContours = null) {
@@ -1435,6 +1454,7 @@
                 blendImages: true,
                 blendText: true,
                 forceShowContours: showContours,
+                imageLoading: true,
             });
             updateTableState(fileUUID, fileData);
             if (showContours) {
@@ -1463,6 +1483,7 @@
                 blendImages: true,
                 blendText: true,
                 forceShowContours: showContours,
+                imageLoading: true,
             });
             updateTableState(fileUUID, fileData);
             if (showContours) {

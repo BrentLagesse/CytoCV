@@ -393,6 +393,7 @@ assert.strictEqual(
             "getVisibleCellCardSections",
             "getContourIntensityDisplayFields",
             "bindContourIntensityDisplayControls",
+            "setCellPairImagesLoading",
         ):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)

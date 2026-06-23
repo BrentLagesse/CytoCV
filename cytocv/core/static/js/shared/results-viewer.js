@@ -530,6 +530,19 @@
         return Promise.all(uniqueUrls.map((url) => preloadImage(url)));
     }
 
+    function setCellPairImagesLoading(isLoading, root = null) {
+        const loading = !!isLoading;
+        const searchRoot = root || (typeof document !== 'undefined' ? document : null);
+        const frames = searchRoot && typeof searchRoot.querySelectorAll === 'function'
+            ? searchRoot.querySelectorAll('[data-cell-image-frame]')
+            : [];
+        frames.forEach((frame) => {
+            frame.classList.toggle('is-cell-image-loading', loading);
+            frame.setAttribute('aria-busy', loading ? 'true' : 'false');
+        });
+        return frames.length;
+    }
+
     function getSortedCellIds(fileData) {
         const statistics = (fileData && fileData.Statistics) || {};
         const statIds = Object.keys(statistics)
@@ -1434,6 +1447,7 @@
         showChannelError,
         preloadImage,
         preloadImageSet,
+        setCellPairImagesLoading,
         getSortedCellIds,
         getWarmPriorityOffsets,
         buildFullCircularCellOrder,

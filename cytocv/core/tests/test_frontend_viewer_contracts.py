@@ -113,3 +113,24 @@ class FrontendViewerContractTests(TestCase):
         self.assertNotIn('onclick="previousCell()"', dashboard_source)
         self.assertNotIn('onclick="nextCell()"', dashboard_source)
 
+
+    def test_cell_pair_image_loading_state_is_image_only_for_cell_transitions(self):
+        shared_source = static_text("js/shared/results-viewer.js")
+        display_source = static_text("js/pages/display-viewer.js")
+        dashboard_source = static_text("js/pages/dashboard-viewer.js")
+
+        self.assertIn("function setCellPairImagesLoading", shared_source)
+        self.assertIn("querySelectorAll('[data-cell-image-frame]')", shared_source)
+        self.assertIn("is-cell-image-loading", shared_source)
+
+        for page_name, source in (("display", display_source), ("dashboard", dashboard_source)):
+            with self.subTest(page=page_name):
+                self.assertIn("setCellPairImagesLoading,", source)
+                self.assertIn("setCellPairImagesLoading(true)", source)
+                self.assertIn("setCellPairImagesLoading(false)", source)
+                self.assertEqual(source.count("imageLoading: true"), 3)
+                self.assertEqual(source.count("imageLoading: options.imageLoading === true"), 2)
+                file_swap_start = source.index("setFileSwapLoading(true, requestToken)")
+                file_swap_end = source.index("setFileSwapLoading(false, requestToken)", file_swap_start)
+                self.assertNotIn("imageLoading: true", source[file_swap_start:file_swap_end])
+

@@ -299,6 +299,31 @@ class FrontendStaticContractTests(SimpleTestCase):
             r"\.skeleton-cell-filter-badge\s*\{[^}]*width:\s*150px;[^}]*height:\s*24px;[^}]*border-radius:\s*999px;",
         )
 
+
+    def test_cell_pair_image_loader_uses_image_only_skeleton_overlay(self):
+        results_css = static_text("css/components/results-viewer.css")
+
+        self.assertRegex(
+            results_css,
+            r"\.cell-image-frame\s*\{[^}]*position:\s*relative;[^}]*width:\s*100%;[^}]*aspect-ratio:\s*1\s*/\s*1;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-image-loading-skeleton\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*opacity:\s*0;[^}]*visibility:\s*hidden;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-image-frame\.is-cell-image-loading\s+\.cell-image-loading-skeleton\s*\{[^}]*opacity:\s*1;[^}]*visibility:\s*visible;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-image-frame\.is-cell-image-loading\s+\.cell-image\s*\{[^}]*opacity:\s*0\.28;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-image\s*\{[^}]*width:\s*100%;[^}]*aspect-ratio:\s*1\s*/\s*1;[^}]*border-radius:\s*14px;",
+        )
+
     def test_cell_card_contour_filter_badge_uses_quiet_meta_styling(self):
         results_css = static_text("css/components/results-viewer.css")
 

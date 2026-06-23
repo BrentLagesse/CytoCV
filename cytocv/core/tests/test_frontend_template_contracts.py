@@ -16,7 +16,7 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "cell-card-mode-stats-20260622-v3"
+RESULTS_VIEWER_CSS_VERSION = "cell-image-loading-20260623"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "puncta-source-contour-filter-20260621-v3"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
@@ -316,6 +316,13 @@ class FrontendTemplateContractTests(TestCase):
             display_content.count('class="skeleton-shape skeleton-cell-filter-badge"'),
             1,
         )
+        self.assertEqual(display_content.count('data-cell-image-frame'), 4)
+        self.assertEqual(
+            display_content.count('class="skeleton-shape cell-image-loading-skeleton"'),
+            4,
+        )
+        for image_id in ("cellImage1", "cellImage2", "cellImage3", "cellImage4"):
+            self.assertIn(f'id="{image_id}" class="cell-image"', display_content)
         self.assertEqual(display_content.count('data-spatial-unit-toggle'), 3)
         self.assertIn('id="punctaSourceContourFilterControl"', display_content)
         self.assertIn('id="punctaSourceContourFilterButton"', display_content)
@@ -426,6 +433,13 @@ class FrontendTemplateContractTests(TestCase):
             dashboard_content.count('class="skeleton-shape skeleton-cell-filter-badge"'),
             1,
         )
+        self.assertEqual(dashboard_content.count('data-cell-image-frame'), 4)
+        self.assertEqual(
+            dashboard_content.count('class="skeleton-shape cell-image-loading-skeleton"'),
+            4,
+        )
+        for image_id in ("cellImage1", "cellImage2", "cellImage3", "cellImage4"):
+            self.assertIn(f'id="{image_id}" class="cell-image"', dashboard_content)
         self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 3)
         self.assertIn('id="punctaSourceContourFilterControl"', dashboard_content)
         self.assertIn('id="punctaSourceContourFilterButton"', dashboard_content)
