@@ -224,6 +224,14 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             css_source,
+            r"\.export-intensity-section-title-row\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*gap:\s*6px;",
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-intensity-section-info-dot\s*\{[^}]*width:\s*14px;[^}]*height:\s*14px;[^}]*font-size:\s*9px;",
+        )
+        self.assertRegex(
+            css_source,
             r"\.export-intensity-module\s*\{[^}]*border:\s*none;[^}]*background:\s*transparent;",
         )
         self.assertRegex(

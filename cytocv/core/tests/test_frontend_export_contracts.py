@@ -58,6 +58,10 @@ class FrontendExportContractTests(TestCase):
                 ):
                     self.assertIn(hook, content)
                     self.assertEqual(content.count(hook), 1)
+                self.assertEqual(
+                    content.count('class="selection-info-dot info-dot compact export-intensity-info-dot export-intensity-section-info-dot"'),
+                    2,
+                )
                 for hook in (
                     'data-export-intensity-filter="statistic"',
                     'data-export-intensity-filter="slot"',
@@ -73,14 +77,16 @@ class FrontendExportContractTests(TestCase):
                     "Red in Green means the red signal is measured inside the green contour",
                     "You can still manually check or uncheck individual statistics",
                     "Presets",
+                    "Presets apply immediately. Clicking one changes the matching download columns and updates the Custom Filters below.",
                     "Custom Filters",
+                    "Custom Filters let you choose value type, contour slot, and signal pairing. Click Apply custom filters at the bottom to update the download columns.",
                     "Intensity Value",
                     "Contour Slot",
                     "Signal Measured Inside Contour",
                     'class="export-intensity-filter-stack"',
                     'class="export-intensity-filter-module"',
                     "Reset changes",
-                    "Apply filters",
+                    "Apply custom filters",
                     "Average only",
                     "Slot 1",
                     "Slot 2",
@@ -241,6 +247,7 @@ class FrontendExportContractTests(TestCase):
                 self.assertIn("document.querySelector('[data-ui-region=\"cell-metrics-strip\"]')", source)
                 self.assertIn("element.classList.toggle('is-contour-filter-applying'", source)
                 self.assertIn("element.setAttribute('aria-busy'", source)
+                self.assertIn("setPunctaSourceContourFilterApplying(true)", source)
                 self.assertIn("await waitForPunctaSourceContourFilterApplyFeedback()", source)
                 self.assertIn("status.textContent = 'Applying filter...'", source)
                 self.assertIn("status.classList.remove('is-applying-filter')", source)

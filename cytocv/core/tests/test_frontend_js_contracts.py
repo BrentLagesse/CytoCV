@@ -60,11 +60,13 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
         self.assertNotIn("Red In Red", source)
         self.assertNotIn("Total Intensity", source)
 
-    def test_export_selection_stat_count_uses_text_fade(self):
+    def test_export_selection_counts_use_text_fade(self):
         source = static_text("js/export_selection_modal.js")
 
         self.assertIn("updateTextWithFade(\n          statCountEl,", source)
+        self.assertIn("updateTextWithFade(\n          fileCountEl,", source)
         self.assertNotIn("statCountEl.textContent = count === 1", source)
+        self.assertNotIn("fileCountEl.textContent = count === 1", source)
 
     def test_export_selection_contour_intensity_helpers_select_concrete_fields(self):
         node = shutil.which("node")
@@ -119,6 +121,70 @@ function choose(filters, starting = ['puncta_distance']) {{
   assertConcreteSelection(selected);
   return selected;
 }}
+
+function filtersToObject(filters) {{
+  return {{
+    statistics: Array.from(filters.statistics).sort(),
+    slots: Array.from(filters.slots).sort((a, b) => a - b),
+    combinations: Array.from(filters.combinations).sort(),
+  }};
+}}
+
+const scopedCurrentFilters = {{
+  statistics: ['max', 'average'],
+  slots: [2],
+  combinations: ['red_in_red', 'green_in_green'],
+}};
+assert.deepStrictEqual(filtersToObject(hooks.intensityFiltersForAction('totals', scopedCurrentFilters)), {{
+  statistics: ['total'],
+  slots: [2],
+  combinations: ['green_in_green', 'red_in_red'],
+}});
+assert.deepStrictEqual(filtersToObject(hooks.intensityFiltersForAction('total_max', scopedCurrentFilters)), {{
+  statistics: ['max', 'total'],
+  slots: [2],
+  combinations: ['green_in_green', 'red_in_red'],
+}});
+assert.deepStrictEqual(filtersToObject(hooks.intensityFiltersForAction('average', scopedCurrentFilters)), {{
+  statistics: ['average'],
+  slots: [2],
+  combinations: ['green_in_green', 'red_in_red'],
+}});
+assert.deepStrictEqual(filtersToObject(hooks.intensityFiltersForAction('slots_1_2', scopedCurrentFilters)), {{
+  statistics: ['average', 'max'],
+  slots: [1, 2],
+  combinations: ['green_in_green', 'red_in_red'],
+}});
+assert.deepStrictEqual(filtersToObject(hooks.intensityFiltersForAction('clear', scopedCurrentFilters)), {{
+  statistics: [],
+  slots: [],
+  combinations: [],
+}});
+assert.deepStrictEqual(filtersToObject(hooks.intensityFiltersForAction('all', scopedCurrentFilters)), {{
+  statistics: ['average', 'max', 'total'],
+  slots,
+  combinations: ['green_in_green', 'green_in_red', 'red_in_green', 'red_in_red'],
+}});
+
+const scopedTotals = choose(
+  hooks.intensityFiltersForAction('totals', scopedCurrentFilters),
+  ['puncta_distance', 'red_in_red_max_intensity_1']
+);
+assert.deepStrictEqual(
+  selectedIntensityIds(scopedTotals).sort(),
+  ['green_in_green_total_intensity_2', 'red_in_red_total_intensity_2'].sort()
+);
+assert.ok(scopedTotals.has('puncta_distance'));
+
+const clearedViaPreset = choose(
+  hooks.intensityFiltersForAction('clear', scopedCurrentFilters),
+  ['puncta_distance', 'red_in_red_total_intensity_1']
+);
+assert.deepStrictEqual(Array.from(clearedViaPreset), ['puncta_distance']);
+
+const allViaPreset = choose(hooks.intensityFiltersForAction('all', scopedCurrentFilters));
+assert.strictEqual(selectedIntensityIds(allViaPreset).length, 36);
+assert.ok(allViaPreset.has('puncta_distance'));
 
 const totalOnly = choose({{
   statistics: ['total'],

@@ -141,6 +141,44 @@
     });
   }
 
+  function intensityFiltersWithDimension(currentFilters, overrides) {
+    const current = normalizeIntensityFilters(currentFilters || allIntensityFilters());
+    const next = overrides || {};
+    return normalizeIntensityFilters({
+      statistics: Object.prototype.hasOwnProperty.call(next, 'statistics')
+        ? next.statistics
+        : Array.from(current.statistics),
+      slots: Object.prototype.hasOwnProperty.call(next, 'slots')
+        ? next.slots
+        : Array.from(current.slots),
+      combinations: Object.prototype.hasOwnProperty.call(next, 'combinations')
+        ? next.combinations
+        : Array.from(current.combinations),
+    });
+  }
+
+  function intensityFiltersForAction(action, currentFilters) {
+    if (action === 'clear') {
+      return normalizeIntensityFilters({ statistics: [], slots: [], combinations: [] });
+    }
+    if (action === 'all') {
+      return allIntensityFilters();
+    }
+    if (action === 'totals') {
+      return intensityFiltersWithDimension(currentFilters, { statistics: ['total'] });
+    }
+    if (action === 'total_max') {
+      return intensityFiltersWithDimension(currentFilters, { statistics: ['total', 'max'] });
+    }
+    if (action === 'average') {
+      return intensityFiltersWithDimension(currentFilters, { statistics: ['average'] });
+    }
+    if (action === 'slots_1_2') {
+      return intensityFiltersWithDimension(currentFilters, { slots: [1, 2] });
+    }
+    return normalizeIntensityFilters(currentFilters || allIntensityFilters());
+  }
+
   function isContourIntensityItem(item) {
     if (!item || item.family !== 'contour_intensity') return false;
     return (
@@ -606,14 +644,6 @@
       updateStatCount();
     }
 
-    function clearIntensitySelection() {
-      statList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-        const item = itemById.get(input.value);
-        if (isContourIntensityItem(item)) input.checked = false;
-      });
-      updateStatCount();
-    }
-
     function captureIntensitySelectionSnapshot() {
       intensitySelectionSnapshot = new Set(
         captureContourIntensitySelection(items, selectedStatIds())
@@ -797,7 +827,10 @@
       const selected = selectedFileIdsInOrder();
       const count = selected.length;
       if (fileCountEl) {
-        fileCountEl.textContent = count === 1 ? '1 file selected' : `${count} files selected`;
+        updateTextWithFade(
+          fileCountEl,
+          count === 1 ? '1 file selected' : `${count} files selected`
+        );
         updateCountState(fileCountEl, count);
       }
       continueFileBtn.disabled = count === 0;
@@ -1133,56 +1166,19 @@
     intensityActionButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.exportIntensityAction || 'apply';
-        if (action === 'clear') {
-          clearIntensitySelection();
-          return;
-        }
         if (action === 'reset') {
           restoreIntensitySelectionSnapshot();
           return;
         }
-        if (action === 'all') {
-          setIntensityFilterValues(allIntensityFilters());
-          setIntensitySelectionFromFilters(allIntensityFilters());
-          return;
-        }
-        if (action === 'totals') {
-          const filters = {
-            statistics: ['total'],
-            slots: CONTOUR_INTENSITY_SLOTS,
-            combinations: CONTOUR_INTENSITY_COMBINATIONS,
-          };
-          setIntensityFilterValues(filters);
-          setIntensitySelectionFromFilters(filters);
-          return;
-        }
-        if (action === 'total_max') {
-          const filters = {
-            statistics: ['total', 'max'],
-            slots: CONTOUR_INTENSITY_SLOTS,
-            combinations: CONTOUR_INTENSITY_COMBINATIONS,
-          };
-          setIntensityFilterValues(filters);
-          setIntensitySelectionFromFilters(filters);
-          return;
-        }
-        if (action === 'average') {
-          const filters = {
-            statistics: ['average'],
-            slots: CONTOUR_INTENSITY_SLOTS,
-            combinations: CONTOUR_INTENSITY_COMBINATIONS,
-          };
-          setIntensityFilterValues(filters);
-          setIntensitySelectionFromFilters(filters);
-          return;
-        }
-        if (action === 'slots_1_2') {
-          const current = currentIntensityFilters();
-          const filters = {
-            statistics: Array.from(current.statistics),
-            slots: [1, 2],
-            combinations: Array.from(current.combinations),
-          };
+        if (
+          action === 'clear'
+          || action === 'all'
+          || action === 'totals'
+          || action === 'total_max'
+          || action === 'average'
+          || action === 'slots_1_2'
+        ) {
+          const filters = intensityFiltersForAction(action, currentIntensityFilters());
           setIntensityFilterValues(filters);
           setIntensitySelectionFromFilters(filters);
           return;
@@ -1252,6 +1248,7 @@
       formatContourIntensityFilterStatus,
       formatContourIntensitySummary,
       allIntensityFilters,
+      intensityFiltersForAction,
       isContourIntensityAvailable,
       isContourIntensityItem,
       intensityItemMatchesFilters,
