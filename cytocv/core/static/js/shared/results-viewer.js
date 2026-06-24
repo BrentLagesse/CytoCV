@@ -563,6 +563,60 @@
         return regions.length;
     }
 
+    function createCellDataRegionLoadingController({
+        minimumDurationMs = 160,
+        root = null,
+        getNow = null,
+        wait = null,
+    } = {}) {
+        let activeToken = 0;
+        const readNow = typeof getNow === 'function'
+            ? getNow
+            : () => (
+                typeof performance !== 'undefined' && typeof performance.now === 'function'
+                    ? performance.now()
+                    : Date.now()
+            );
+        const sleep = typeof wait === 'function'
+            ? wait
+            : (delayMs) => new Promise((resolve) => {
+                const setTimeoutFn = (
+                    typeof window !== 'undefined' && typeof window.setTimeout === 'function'
+                )
+                    ? window.setTimeout.bind(window)
+                    : setTimeout;
+                setTimeoutFn(resolve, delayMs);
+            });
+
+        return {
+            async run(callback) {
+                const token = ++activeToken;
+                const startedAt = readNow();
+                setCellDataRegionLoading(true, root);
+
+                try {
+                    if (typeof callback === 'function') {
+                        return await callback();
+                    }
+                    return undefined;
+                } finally {
+                    const elapsed = Math.max(0, readNow() - startedAt);
+                    const remaining = Math.max(0, minimumDurationMs - elapsed);
+                    if (remaining > 0) {
+                        await sleep(remaining);
+                    }
+                    if (token === activeToken) {
+                        setCellDataRegionLoading(false, root);
+                    }
+                }
+            },
+            clear() {
+                activeToken += 1;
+                setCellDataRegionLoading(false, root);
+            },
+        };
+    }
+
     function bindFilterMenuPointerAwayClose({
         control,
         button,
@@ -1755,6 +1809,7 @@
         preloadImageSet,
         setCellPairImagesLoading,
         setCellDataRegionLoading,
+        createCellDataRegionLoadingController,
         bindFilterMenuPointerAwayClose,
         getSortedCellIds,
         getWarmPriorityOffsets,

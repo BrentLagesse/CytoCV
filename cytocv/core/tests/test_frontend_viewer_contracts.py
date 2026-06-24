@@ -124,15 +124,30 @@ class FrontendViewerContractTests(TestCase):
         self.assertIn("function setCellDataRegionLoading", shared_source)
         self.assertIn("querySelector('#tableScrollFrame')", shared_source)
         self.assertIn("querySelectorAll('[data-ui-region=\"cell-metrics-strip\"]')", shared_source)
+        self.assertIn("function createCellDataRegionLoadingController", shared_source)
+        self.assertIn("minimumDurationMs = 160", shared_source)
+        self.assertIn("setCellDataRegionLoading(true, root)", shared_source)
+        self.assertIn("setCellDataRegionLoading(false, root)", shared_source)
 
         for page_name, source in (("display", display_source), ("dashboard", dashboard_source)):
             with self.subTest(page=page_name):
                 self.assertIn("setCellPairImagesLoading,", source)
                 self.assertIn("setCellDataRegionLoading,", source)
+                self.assertIn("createCellDataRegionLoadingController,", source)
+                self.assertIn("const CELL_DATA_REGION_LOADING_MIN_MS = 160", source)
+                self.assertIn("const cellDataRegionLoadingController = createCellDataRegionLoadingController({", source)
                 self.assertIn("setCellPairImagesLoading(true)", source)
                 self.assertIn("setCellPairImagesLoading(false)", source)
-                self.assertIn("setCellDataRegionLoading(true)", source)
-                self.assertIn("setCellDataRegionLoading(false)", source)
+                self.assertIn("setCellDataRegionLoading(isApplying)", source)
+                self.assertEqual(source.count("cellDataRegionLoadingController.run(async () => {"), 4)
+                update_cell_images_start = source.index("async function updateCellImages")
+                update_cell_images_end = source.index(
+                    "async function handleContourToggleChange",
+                    update_cell_images_start,
+                )
+                update_cell_images_block = source[update_cell_images_start:update_cell_images_end]
+                self.assertNotIn("setCellDataRegionLoading", update_cell_images_block)
+                self.assertNotIn("cellDataRegionLoadingController", update_cell_images_block)
 
     def test_row_filter_menus_close_when_pointer_moves_away(self):
         shared_source = static_text("js/shared/results-viewer.js")
@@ -152,8 +167,29 @@ class FrontendViewerContractTests(TestCase):
                 self.assertIn("closeMenu: closePunctaSourceContourFilterMenu", source)
                 self.assertEqual(source.count("imageLoading: true"), 4)
                 self.assertEqual(source.count("imageLoading: options.imageLoading === true"), 2)
-                self.assertEqual(source.count("dataRegionLoading: true"), 3)
-                self.assertEqual(source.count("dataRegionLoading: options.dataRegionLoading === true"), 2)
+                self.assertNotIn("dataRegionLoading", source)
+                cell_type_handler_start = source.index("if (cellTypeFilterButton && cellTypeFilterMenu) {")
+                cell_type_handler_end = source.index(
+                    "if (punctaSourceContourFilterButton && punctaSourceContourFilterMenu)",
+                    cell_type_handler_start,
+                )
+                cell_type_handler = source[cell_type_handler_start:cell_type_handler_end]
+                assert_in_order(
+                    self,
+                    cell_type_handler,
+                    "const nextFilter = normalizeCellTypeFilter(option.dataset.value)",
+                    (
+                        "if (nextFilter === getCurrentCellTypeFilter()) {\n"
+                        "                        closeCellTypeFilterMenu();\n"
+                        "                        return;\n"
+                        "                    }"
+                    ),
+                    "setCurrentCellTypeFilter(nextFilter)",
+                    "startPunctaSourceContourFilterApplyVisualState()",
+                    "cellDataRegionLoadingController.run(async () => {",
+                    "syncCurrentCellToActiveContourFilter(fileData",
+                    "updateTableState(fileUUID, fileData)",
+                )
                 filter_handler_start = source.rindex(
                     "option.addEventListener('click', async () => {",
                     0,
@@ -165,11 +201,39 @@ class FrontendViewerContractTests(TestCase):
                     self,
                     filter_handler,
                     "if (nextFilter === getEffectivePunctaSourceContourCountFilter(initialFileData))",
-                    "return;",
+                    (
+                        "if (nextFilter === getEffectivePunctaSourceContourCountFilter(initialFileData)) {\n"
+                        "                        closePunctaSourceContourFilterMenu();\n"
+                        "                        return;\n"
+                        "                    }"
+                    ),
                     "setCurrentPunctaSourceContourCountFilter(nextFilter)",
                     "startPunctaSourceContourFilterApplyVisualState()",
+                    "cellDataRegionLoadingController.run(async () => {",
+                    "syncCurrentCellToActiveContourFilter(fileData",
+                    "updateTableState(fileUUID, fileData)",
+                )
+                next_cell_start = source.index("async function nextCell()")
+                next_cell_end = source.index("async function previousCell()", next_cell_start)
+                assert_in_order(
+                    self,
+                    source[next_cell_start:next_cell_end],
+                    "cellDataRegionLoadingController.run(async () => {",
+                    "await updateCellImages",
+                    "imageLoading: true",
+                    "updateTableState(fileUUID, fileData)",
+                )
+                previous_cell_start = next_cell_end
+                previous_cell_end = source.index("let contourToggleBound", previous_cell_start)
+                assert_in_order(
+                    self,
+                    source[previous_cell_start:previous_cell_end],
+                    "cellDataRegionLoadingController.run(async () => {",
+                    "await updateCellImages",
+                    "imageLoading: true",
+                    "updateTableState(fileUUID, fileData)",
                 )
                 file_swap_start = source.index("setFileSwapLoading(true, requestToken)")
                 file_swap_end = source.index("setFileSwapLoading(false, requestToken)", file_swap_start)
                 self.assertNotIn("imageLoading: true", source[file_swap_start:file_swap_end])
-                self.assertNotIn("dataRegionLoading: true", source[file_swap_start:file_swap_end])
+                self.assertNotIn("cellDataRegionLoadingController.run", source[file_swap_start:file_swap_end])

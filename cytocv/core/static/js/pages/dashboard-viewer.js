@@ -61,6 +61,7 @@
             preloadImageSet,
             setCellPairImagesLoading,
             setCellDataRegionLoading,
+            createCellDataRegionLoadingController,
             bindFilterMenuPointerAwayClose,
         } = resultsViewerShared;
         const FILE_BLEND_TEXT_MS = 170;
@@ -328,7 +329,11 @@
             dashboardPageConfig.initialPunctaSourceContourCountFilter
         );
         const PUNCTA_SOURCE_FILTER_APPLY_FEEDBACK_MS = 120;
+        const CELL_DATA_REGION_LOADING_MIN_MS = 160;
         let punctaSourceContourApplySkeletonTimer = null;
+        const cellDataRegionLoadingController = createCellDataRegionLoadingController({
+            minimumDurationMs: CELL_DATA_REGION_LOADING_MIN_MS,
+        });
         const punctaSourceContourFilterControl = document.getElementById('punctaSourceContourFilterControl');
         const punctaSourceContourFilterButton = document.getElementById('punctaSourceContourFilterButton');
         const punctaSourceContourFilterValue = document.getElementById('punctaSourceContourFilterValue');
@@ -959,7 +964,6 @@
                         blendText: options.blendText !== false,
                         forceShowContours: getContourToggleState(),
                         imageLoading: options.imageLoading === true,
-                        dataRegionLoading: options.dataRegionLoading === true,
                     });
                 }
                 syncPunctaSourceContourCellCardState(fileData);
@@ -972,7 +976,6 @@
                     blendText: options.blendText !== false,
                     forceShowContours: showContours,
                     imageLoading: options.imageLoading === true,
-                    dataRegionLoading: options.dataRegionLoading === true,
                 });
                 if (showContours) {
                     const fileUUID = fileUUIDs[currentFileIndex];
@@ -1061,8 +1064,13 @@
             });
             cellTypeFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
                 option.addEventListener('click', async () => {
+                    const nextFilter = normalizeCellTypeFilter(option.dataset.value);
+                    if (nextFilter === getCurrentCellTypeFilter()) {
+                        closeCellTypeFilterMenu();
+                        return;
+                    }
                     const previousCellNumber = Number(currentCellNumber);
-                    setCurrentCellTypeFilter(option.dataset.value);
+                    setCurrentCellTypeFilter(nextFilter);
                     startPunctaSourceContourFilterApplyVisualState();
                     closeCellTypeFilterMenu();
                     try {
@@ -1070,13 +1078,15 @@
                         const fileUUID = fileUUIDs[currentFileIndex];
                         const fileData = fileUUID ? filesData[fileUUID] : null;
                         if (fileUUID && fileData) {
-                            await syncCurrentCellToActiveContourFilter(fileData, {
-                                anchorCellId: previousCellNumber,
-                                blendImages: true,
-                                blendText: true,
-                                imageLoading: true,
+                            await cellDataRegionLoadingController.run(async () => {
+                                await syncCurrentCellToActiveContourFilter(fileData, {
+                                    anchorCellId: previousCellNumber,
+                                    blendImages: true,
+                                    blendText: true,
+                                    imageLoading: true,
+                                });
+                                updateTableState(fileUUID, fileData);
                             });
-                            updateTableState(fileUUID, fileData);
                         } else {
                             syncPunctaSourceContourFilterStatus({ Statistics: {} }, 0);
                         }
@@ -1115,14 +1125,15 @@
                         const fileUUID = fileUUIDs[currentFileIndex];
                         const fileData = fileUUID ? filesData[fileUUID] : null;
                         if (fileUUID && fileData) {
-                            await syncCurrentCellToActiveContourFilter(fileData, {
-                                anchorCellId: previousCellNumber,
-                                blendImages: true,
-                                blendText: true,
-                                imageLoading: true,
-                                dataRegionLoading: true,
+                            await cellDataRegionLoadingController.run(async () => {
+                                await syncCurrentCellToActiveContourFilter(fileData, {
+                                    anchorCellId: previousCellNumber,
+                                    blendImages: true,
+                                    blendText: true,
+                                    imageLoading: true,
+                                });
+                                updateTableState(fileUUID, fileData);
                             });
-                            updateTableState(fileUUID, fileData);
                         } else {
                             syncPunctaSourceContourFilterStatus({ Statistics: {} }, 0);
                         }
@@ -1538,7 +1549,6 @@
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;
             const showImageLoading = options.imageLoading === true;
-            const showDataRegionLoading = options.dataRegionLoading === true;
             const showContours = getContourToggleState(options.forceShowContours ?? null);
             const state = getCellDisplayState(cellPairImages, statistics, {
                 showContours,
@@ -1547,9 +1557,6 @@
 
             if (showImageLoading) {
                 setCellPairImagesLoading(true);
-            }
-            if (showDataRegionLoading) {
-                setCellDataRegionLoading(true);
             }
 
             try {
@@ -1591,9 +1598,6 @@
                 if (shouldClearLoading) {
                     if (showImageLoading) {
                         setCellPairImagesLoading(false);
-                    }
-                    if (showDataRegionLoading) {
-                        setCellDataRegionLoading(false);
                     }
                 }
             }
@@ -1656,14 +1660,15 @@
             }
             currentCellNumber = getAdjacentFilteredCellId(currentCellNumber, activeIds, 'next');
             const showContours = getContourToggleState();
-            await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
-                blendImages: true,
-                blendText: true,
-                forceShowContours: showContours,
-                imageLoading: true,
-                dataRegionLoading: true,
+            await cellDataRegionLoadingController.run(async () => {
+                await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                    blendImages: true,
+                    blendText: true,
+                    forceShowContours: showContours,
+                    imageLoading: true,
+                });
+                updateTableState(fileUUID, fileData);
             });
-            updateTableState(fileUUID, fileData);
             if (showContours) {
                 markCurrentCellWarm(fileUUID, true);
                 scheduleCircularOverlayWarmup('next');
@@ -1686,14 +1691,15 @@
             }
             currentCellNumber = getAdjacentFilteredCellId(currentCellNumber, activeIds, 'previous');
             const showContours = getContourToggleState();
-            await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
-                blendImages: true,
-                blendText: true,
-                forceShowContours: showContours,
-                imageLoading: true,
-                dataRegionLoading: true,
+            await cellDataRegionLoadingController.run(async () => {
+                await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                    blendImages: true,
+                    blendText: true,
+                    forceShowContours: showContours,
+                    imageLoading: true,
+                });
+                updateTableState(fileUUID, fileData);
             });
-            updateTableState(fileUUID, fileData);
             if (showContours) {
                 markCurrentCellWarm(fileUUID, true);
                 scheduleCircularOverlayWarmup('previous');

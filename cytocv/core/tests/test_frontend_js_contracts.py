@@ -395,10 +395,85 @@ assert.strictEqual(
             "bindContourIntensityDisplayControls",
             "setCellPairImagesLoading",
             "setCellDataRegionLoading",
+            "createCellDataRegionLoadingController",
             "bindFilterMenuPointerAwayClose",
         ):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)
+
+    def test_cell_data_region_loading_controller_keeps_regions_busy_through_transition(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "shared" / "results-viewer.js"
+        script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+const context = {{ window: {{}} }};
+vm.runInNewContext(source, context);
+const shared = context.window.CytoCVResultsViewerShared;
+
+function makeRegion() {{
+  const classes = new Set();
+  const attributes = {{}};
+  return {{
+    classList: {{
+      toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name),
+      contains: (name) => classes.has(name),
+    }},
+    setAttribute: (name, value) => {{ attributes[name] = value; }},
+    getAttribute: (name) => attributes[name],
+  }};
+}}
+
+(async () => {{
+  const table = makeRegion();
+  const strip = makeRegion();
+  const root = {{
+    querySelector: (selector) => selector === '#tableScrollFrame' ? table : null,
+    querySelectorAll: (selector) => selector === '[data-ui-region="cell-metrics-strip"]' ? [strip] : [],
+  }};
+  let now = 0;
+  const waits = [];
+  const controller = shared.createCellDataRegionLoadingController({{
+    root,
+    minimumDurationMs: 160,
+    getNow: () => now,
+    wait: (ms) => {{
+      waits.push(ms);
+      now += ms;
+      return Promise.resolve();
+    }},
+  }});
+
+  const result = await controller.run(async () => {{
+    assert.strictEqual(table.classList.contains('is-contour-filter-applying'), true);
+    assert.strictEqual(strip.classList.contains('is-contour-filter-applying'), true);
+    assert.strictEqual(table.getAttribute('aria-busy'), 'true');
+    now += 40;
+    return 'rendered';
+  }});
+
+  assert.strictEqual(result, 'rendered');
+  assert.deepStrictEqual(waits, [120]);
+  assert.strictEqual(table.classList.contains('is-contour-filter-applying'), false);
+  assert.strictEqual(strip.classList.contains('is-contour-filter-applying'), false);
+  assert.strictEqual(table.getAttribute('aria-busy'), 'false');
+}})().catch((error) => {{
+  console.error(error);
+  process.exit(1);
+}});
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
     def test_cell_pair_card_mode_visibility_and_contour_display_helpers(self):
         node = shutil.which("node")
