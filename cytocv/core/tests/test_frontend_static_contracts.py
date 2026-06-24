@@ -439,7 +439,7 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-type-pill\s*\{[^}]*justify-content:\s*center;[^}]*min-width:\s*52px;",
+            r"\.contour-intensity-type-pill\s*\{[^}]*justify-content:\s*center;[^}]*box-sizing:\s*border-box;[^}]*flex:\s*0 0 68px;[^}]*width:\s*68px;[^}]*min-width:\s*68px;[^}]*white-space:\s*nowrap;",
         )
         self.assertRegex(
             results_css,
