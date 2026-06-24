@@ -34,16 +34,9 @@
           <div id="signalSelectedPlugins"></div>
           <div class="plugin cell-detection-inclusion" data-plugin-section="cell-detection-inclusion">
             <div class="plugin-main">
-              <p class="plugin-title-line">
-                <strong>Cell Detection &amp; Inclusion</strong>
-                <button
-                  type="button"
-                  class="info-dot compact"
-                  data-info-text="Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded."
-                  aria-label="Cell Detection &amp; Inclusion info"
-                  title="Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded."
-                >i</button>
-              </p>
+              <p><strong>Cell Detection &amp; Inclusion</strong></p>
+              <p class="desc">Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded.</p>
+              <p class="reqtxt">Requires: Red, Green.</p>
             </div>
             <div class="plugin-inline is-active" aria-hidden="false">
               <div class="plugin-measure-line">
@@ -620,7 +613,7 @@
               <label for="default_puncta_source_contour_count_filter">Include cells by default:</label>
               <p class="module-help">Sets the default filter used when opening Display and Dashboard results. You can still change this filter on each results page.</p>
             </div>
-            <div class="mode-select-group plugin-measure-right compact-control">
+            <div class="mode-select-group plugin-measure-right compact-control result-display-filter-control">
               <select id="default_puncta_source_contour_count_filter" name="default_puncta_source_contour_count_filter">
                 <option value="all" {% if preferences.default_puncta_source_contour_count_filter == 'all' %}selected{% endif %}>All cells</option>
                 <option value="exactly_1" {% if preferences.default_puncta_source_contour_count_filter == 'exactly_1' %}selected{% endif %}>Exactly 1 source contour</option>

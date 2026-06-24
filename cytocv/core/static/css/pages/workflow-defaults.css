@@ -296,13 +296,6 @@ main.main > section.panel > form.panel > .card {
   min-width: 0;
 }
 
-.plugin-title-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
 .info-dot {
   border: 1px solid var(--panel-border);
   border-radius: 999px;
@@ -954,6 +947,28 @@ main.main > section.panel > form.panel > .card {
 
 #pluginForm [data-workflow-card="measurement-scale"] .mode-select-group.plugin-measure-right select {
   width: 100%;
+}
+
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control {
+  --result-display-filter-width: 288px;
+  flex: 0 0 var(--result-display-filter-width);
+  width: var(--result-display-filter-width);
+  min-width: var(--result-display-filter-width);
+  max-width: var(--result-display-filter-width);
+}
+
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control select,
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-dropdown,
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-trigger,
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-menu {
+  width: var(--result-display-filter-width);
+  min-width: var(--result-display-filter-width);
+  max-width: var(--result-display-filter-width);
+}
+
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-trigger,
+#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-option {
+  white-space: nowrap;
 }
 
 #pluginForm [data-workflow-card="measurement-scale"] .measurement-scale-input-group input[type="number"] {

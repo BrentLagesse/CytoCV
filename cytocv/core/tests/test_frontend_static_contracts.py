@@ -137,6 +137,22 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertIn(".experiment-page .channel-order-control .channel-chip-label {", experiment_css)
         self.assertNotIn(".experiment-page .channel-order-control .channel-chip-grip::before", experiment_css)
         self.assertNotIn(".experiment-page .channel-order-control .channel-chip-grip::before", defaults_css)
+        self.assertIn(
+            '#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control',
+            defaults_css,
+        )
+        self.assertRegex(
+            defaults_css,
+            r'#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control\s*\{[^}]*--result-display-filter-width:\s*288px;[^}]*flex:\s*0 0 var\(--result-display-filter-width\);[^}]*width:\s*var\(--result-display-filter-width\);[^}]*min-width:\s*var\(--result-display-filter-width\);[^}]*max-width:\s*var\(--result-display-filter-width\);',
+        )
+        self.assertRegex(
+            defaults_css,
+            r'#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control select,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-dropdown,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-trigger,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-menu\s*\{[^}]*width:\s*var\(--result-display-filter-width\);[^}]*min-width:\s*var\(--result-display-filter-width\);[^}]*max-width:\s*var\(--result-display-filter-width\);',
+        )
+        self.assertRegex(
+            defaults_css,
+            r'#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-trigger,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-option\s*\{[^}]*white-space:\s*nowrap;',
+        )
 
         workflow_template = (TEMPLATE_ROOT / "workflow_defaults.html").read_text(encoding="utf-8")
         for source in (experiment_js, workflow_template):
@@ -264,11 +280,15 @@ class FrontendStaticContractTests(SimpleTestCase):
         results_css = static_text("css/components/results-viewer.css")
         self.assertRegex(
             results_css,
-            r"\.skeleton-table-source-contour-filter,\s*\.skeleton-table-spatial-unit,\s*\.skeleton-table-fullscreen\s*\{[^}]*height:\s*36px;[^}]*border-radius:\s*999px;",
+            r"\.skeleton-table-cell-type-filter,\s*\.skeleton-table-source-contour-filter,\s*\.skeleton-table-spatial-unit,\s*\.skeleton-table-fullscreen\s*\{[^}]*height:\s*36px;[^}]*border-radius:\s*999px;",
         )
         self.assertRegex(
             results_css,
-            r"\.skeleton-table-source-contour-filter\s*\{[^}]*width:\s*408px;",
+            r"\.skeleton-table-cell-type-filter\s*\{[^}]*width:\s*272px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.skeleton-table-source-contour-filter\s*\{[^}]*width:\s*348px;",
         )
         self.assertRegex(
             results_css,
@@ -349,11 +369,31 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertIn(".table-puncta-source-contour-filter[data-cell-type-filter] {", results_css)
         self.assertRegex(
             results_css,
-            r"\.table-puncta-source-contour-filter\[data-cell-type-filter\]\s*\{[^}]*justify-content:\s*flex-start;[^}]*width:\s*auto;[^}]*gap:\s*10px;",
+            r"\.table-puncta-source-contour-filter\s*\{[^}]*flex:\s*0 0 auto;[^}]*justify-content:\s*flex-start;[^}]*gap:\s*10px;[^}]*width:\s*auto;[^}]*min-width:\s*0;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-puncta-source-contour-filter\[data-cell-type-filter\]\s*\{[^}]*flex:\s*0 0 272px;[^}]*justify-content:\s*flex-start;[^}]*width:\s*272px;[^}]*min-width:\s*272px;[^}]*gap:\s*10px;",
         )
         self.assertRegex(
             results_css,
             r"\.table-puncta-source-contour-filter\[data-cell-type-filter\]\s+\.table-filter-trigger\s*\{[^}]*width:\s*150px;[^}]*min-width:\s*150px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s*\{[^}]*flex:\s*0 0 348px;[^}]*width:\s*348px;[^}]*min-width:\s*348px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-trigger\s*\{[^}]*flex-basis:\s*132px;[^}]*width:\s*132px;[^}]*min-width:\s*132px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-menu\s*\{[^}]*min-width:\s*132px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.export-buttons\s+\.export_btn\s*\{[^}]*display:\s*inline-flex;[^}]*flex:\s*1\s+1\s+160px;[^}]*max-width:\s*240px;[^}]*border-radius:\s*10px;",
         )
         self.assertIn(".table-scroll-frame.is-contour-filter-applying .celltable", results_css)
         self.assertIn(".table-region-skeleton {", results_css)
@@ -464,7 +504,7 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-toggle-btn\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;[^}]*width:\s*58px;[^}]*min-height:\s*24px;[^}]*border-radius:\s*6px;",
+            r"\.contour-intensity-toggle-btn\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;[^}]*width:\s*72px;[^}]*min-height:\s*24px;[^}]*border-radius:\s*6px;[^}]*white-space:\s*nowrap;",
         )
         self.assertRegex(
             results_css,

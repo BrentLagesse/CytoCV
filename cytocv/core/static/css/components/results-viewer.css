@@ -851,14 +851,14 @@ a:hover {
 }
 
 .table-puncta-source-contour-filter {
-    flex: 0 0 408px;
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    justify-content: flex-start;
+    gap: 10px;
     min-height: 36px;
-    width: 408px;
-    min-width: 408px;
+    width: auto;
+    min-width: 0;
     max-width: 100%;
     padding: 3px 5px 3px 12px;
     border: 1px solid rgba(var(--glass-border-rgb), 0.34);
@@ -869,10 +869,10 @@ a:hover {
 }
 
 .table-puncta-source-contour-filter[data-cell-type-filter] {
-    flex: 0 0 auto;
+    flex: 0 0 272px;
     justify-content: flex-start;
-    width: auto;
-    min-width: 0;
+    width: 272px;
+    min-width: 272px;
     gap: 10px;
 }
 
@@ -880,6 +880,22 @@ a:hover {
     flex-basis: 150px;
     width: 150px;
     min-width: 150px;
+}
+
+.table-puncta-source-contour-filter[data-puncta-source-contour-filter] {
+    flex: 0 0 348px;
+    width: 348px;
+    min-width: 348px;
+}
+
+.table-puncta-source-contour-filter[data-puncta-source-contour-filter] .table-filter-trigger {
+    flex-basis: 132px;
+    width: 132px;
+    min-width: 132px;
+}
+
+.table-puncta-source-contour-filter[data-puncta-source-contour-filter] .table-filter-menu {
+    min-width: 132px;
 }
 
 .table-puncta-source-contour-filter.is-disabled {
@@ -1507,8 +1523,20 @@ a:hover {
 }
 
 .export-buttons .export_btn {
-    min-width: 150px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 160px;
+    min-width: 0;
+    max-width: 240px;
     text-align: center;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    background-clip: border-box;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
 }
 
 .sidebar-content {
@@ -2195,6 +2223,7 @@ a:hover {
                 rgba(18, 28, 40, 0.48);
 }
 
+.skeleton-table-cell-type-filter,
 .skeleton-table-source-contour-filter,
 .skeleton-table-spatial-unit,
         .skeleton-table-fullscreen {
@@ -2206,8 +2235,12 @@ a:hover {
                 rgba(16, 24, 35, 0.6);
 }
 
+.skeleton-table-cell-type-filter {
+    width: 272px;
+}
+
 .skeleton-table-source-contour-filter {
-    width: 408px;
+    width: 348px;
 }
 
 .skeleton-table-spatial-unit {
@@ -2822,7 +2855,7 @@ a:hover {
 .contour-intensity-toggle-btn {
     position: relative;
     z-index: 1;
-    width: 58px;
+    width: 72px;
     min-height: 24px;
     padding: 3px 8px;
     border: 0;
@@ -2832,6 +2865,7 @@ a:hover {
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .contour-intensity-toggle-btn:hover,
@@ -3187,5 +3221,7 @@ a:hover {
 }
 
 .export-buttons .export_btn {
-    min-width: 170px;
+    flex: 1 1 160px;
+    min-width: 0;
+    max-width: 240px;
 }

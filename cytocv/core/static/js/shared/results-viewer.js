@@ -1076,8 +1076,8 @@
 
         function getPunctaSourceContourCountFilterLabel(value) {
             const normalized = normalizePunctaSourceContourCountFilter(value);
-            if (normalized === 'exactly_1') return 'Exactly 1 source contour';
-            if (normalized === 'exactly_2') return 'Exactly 2 source contours';
+            if (normalized === 'exactly_1') return '1 contour';
+            if (normalized === 'exactly_2') return '2 contours';
             return 'All cells';
         }
 
@@ -1152,7 +1152,7 @@
                 } else if (hasSingle && !hasPair) {
                     displayLabel = 'Only single cells analyzed';
                 } else {
-                    displayLabel = 'Cell type unavailable';
+                    displayLabel = 'Unavailable';
                 }
             }
             return {

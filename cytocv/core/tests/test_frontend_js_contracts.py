@@ -584,6 +584,7 @@ const context = {{
   window: {{}},
   document: {{
     querySelectorAll(selector) {{
+      if (selector === '.contour-intensity-toggle') return [contourIntensityToggle];
       if (selector === '[data-contour-intensity-display]') return selectorButtons;
       if (selector === '[data-cell-card-root]') return [rootEl];
       if (selector === '[data-cell-card-section]') return cellCardSections;
@@ -1057,7 +1058,7 @@ state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: null }}, '2': {{}
 assert.deepStrictEqual(ownArray(state.availableCellTypes), ['unknown']);
 assert.strictEqual(state.enabled, false);
 assert.strictEqual(state.effectiveFilter, 'all');
-assert.strictEqual(state.displayLabel, 'Cell type unavailable');
+assert.strictEqual(state.displayLabel, 'Unavailable');
 
 state = helpers.getCellTypeFilterUiState({{}}, 'single_cell');
 assert.strictEqual(state.enabled, false);
@@ -1068,6 +1069,8 @@ const sourceState = helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_
 assert.strictEqual(sourceState.enabled, true);
 assert.strictEqual(sourceState.effectiveFilter, 'exactly_2');
 assert.strictEqual(sourceState.controlLabel, 'Red Source Contour Count');
+assert.strictEqual(helpers.getPunctaSourceContourCountFilterLabel('exactly_1'), '1 contour');
+assert.strictEqual(helpers.getPunctaSourceContourCountFilterLabel('exactly_2'), '2 contours');
 assert.deepStrictEqual(
   ownArray(helpers.getFilteredStatisticsEntries(mixed, {{
     cellTypeFilter: 'single_cell',

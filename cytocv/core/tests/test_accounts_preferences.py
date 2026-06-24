@@ -4101,6 +4101,13 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertNotContains(response, "channel-order-bar")
         self.assertContains(response, "Cell Detection &amp; Inclusion", html=False)
         self.assertContains(response, "Cell Inclusion Mode")
+        content = response.content.decode("utf-8")
+        cell_detection_start = content.index("Cell Detection &amp; Inclusion")
+        signal_start = content.index("Signal Quantification")
+        cell_detection_section = content[cell_detection_start:signal_start]
+        self.assertNotIn('class="info-dot compact"', cell_detection_section)
+        self.assertNotIn("plugin-title-line", cell_detection_section)
+        self.assertIn("Requires: Red, Green.", cell_detection_section)
         self.assertContains(
             response,
             "Choose whether CytoCV analyzes cell pairs, single cells, or both. "

@@ -6,8 +6,8 @@
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-file-count-fade-20260622"></script>
-    <script src="{% static 'js/shared/results-viewer.js' %}?v=contour-intensity-toggle-slide-20260623"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=table-region-skeleton-20260624">
+    <script src="{% static 'js/shared/results-viewer.js' %}?v=source-contour-filter-copy-20260624"></script>
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=table-filter-skeleton-align-20260624">
     <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=cell-card-compact-20260623">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-file-count-fade-20260622">
 
@@ -334,8 +334,8 @@
                                     </button>
                                     <div class="table-filter-menu" id="punctaSourceContourFilterMenu" role="listbox" aria-labelledby="punctaSourceContourFilterLabel" hidden>
                                         <button type="button" role="option" data-value="all">All cells</button>
-                                        <button type="button" role="option" data-value="exactly_1">Exactly 1 source contour</button>
-                                        <button type="button" role="option" data-value="exactly_2">Exactly 2 source contours</button>
+                                        <button type="button" role="option" data-value="exactly_1">1 contour</button>
+                                        <button type="button" role="option" data-value="exactly_2">2 contours</button>
                                     </div>
                                 </div>
                                 <div class="table-spatial-unit-control">
@@ -414,6 +414,7 @@
                         <div class="skeleton-table-toolbar">
                             <div class="skeleton-shape skeleton-table-title"></div>
                             <div class="skeleton-table-actions">
+                                <div class="skeleton-shape skeleton-table-cell-type-filter"></div>
                                 <div class="skeleton-shape skeleton-table-source-contour-filter"></div>
                                 <div class="skeleton-shape skeleton-table-spatial-unit"></div>
                                 <div class="skeleton-shape skeleton-table-fullscreen"></div>
