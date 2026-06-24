@@ -113,7 +113,6 @@ class FrontendViewerContractTests(TestCase):
         self.assertNotIn('onclick="previousCell()"', dashboard_source)
         self.assertNotIn('onclick="nextCell()"', dashboard_source)
 
-
     def test_cell_pair_image_loading_state_is_image_only_for_cell_transitions(self):
         shared_source = static_text("js/shared/results-viewer.js")
         display_source = static_text("js/pages/display-viewer.js")
@@ -133,4 +132,3 @@ class FrontendViewerContractTests(TestCase):
                 file_swap_start = source.index("setFileSwapLoading(true, requestToken)")
                 file_swap_end = source.index("setFileSwapLoading(false, requestToken)", file_swap_start)
                 self.assertNotIn("imageLoading: true", source[file_swap_start:file_swap_end])
-

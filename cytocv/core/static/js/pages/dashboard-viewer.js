@@ -709,7 +709,7 @@
                 const shown = Number.isFinite(Number(renderedRowCount))
                     ? Number(renderedRowCount)
                     : counts.shown;
-                status.textContent = `Showing ${shown} of ${counts.total} cells.`;
+                status.textContent = `Showing ${shown} of ${counts.total} cells`;
                 status.dataset.activeFilter = getPunctaSourceContourCountFilterLabel(counts.filter);
             }
             syncPunctaSourceContourCellCardState(fileData);
