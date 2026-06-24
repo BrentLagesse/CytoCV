@@ -1338,7 +1338,13 @@ class DisplayManualSaveTests(TestCase):
             segmented_owner_id=self.user.id,
             filename="query_source_filter_default",
         )
-        self._add_cell_stat(saved_uuid)
+        self._add_cell_stat(
+            saved_uuid,
+            properties={
+                "puncta_source_contour_count": 1,
+                "puncta_source_contour_count_channel": "red",
+            },
+        )
 
         cases = (
             (
@@ -4093,6 +4099,21 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertContains(response, "sortablejs@1.15.0/Sortable.min.js")
         self.assertNotContains(response, "channel-order-chip")
         self.assertNotContains(response, "channel-order-bar")
+        self.assertContains(response, "Cell Detection &amp; Inclusion", html=False)
+        self.assertContains(response, "Cell Inclusion Mode")
+        self.assertContains(
+            response,
+            "Choose whether CytoCV analyzes cell pairs, single cells, or both. "
+            "This affects which result rows are created during analysis. "
+            "Rerun analysis to include a cell type that was previously excluded.",
+        )
+        self.assertNotContains(
+            response,
+            "Controls which detected cell objects are retained for analysis. "
+            "To include a cell type that was excluded, rerun analysis with a different mode.",
+        )
+        self.assertContains(response, "Puncta &amp; Contour Detection", html=False)
+        self.assertNotContains(response, ">Dot Detection</p>", html=False)
         self.assertContains(response, "Split Merged Dots")
         self.assertNotContains(response, "Split Merged Green Dots")
         self.assertNotContains(response, "Split Merged Red Dots")

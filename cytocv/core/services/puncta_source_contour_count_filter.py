@@ -183,3 +183,28 @@ def filter_statistics_by_puncta_source_contour_count(statistics: Any, filter_val
         for stat in statistics
         if matches_puncta_source_contour_count_filter(stat, normalized)
     ]
+
+
+def has_puncta_source_contour_count_data(statistics: Any) -> bool:
+    """Return whether any base row has a usable source contour count."""
+
+    if statistics is None:
+        return False
+    return any(
+        derive_puncta_source_contour_count_from_statistics(stat) is not None
+        for stat in statistics
+    )
+
+
+def resolve_effective_puncta_source_contour_count_filter(
+    statistics: Any,
+    filter_value: Any,
+) -> str:
+    """Return a filter that should be applied for the available source count data."""
+
+    normalized = normalize_puncta_source_contour_count_filter(filter_value)
+    if normalized == PUNCTA_SOURCE_CONTOUR_FILTER_ALL:
+        return PUNCTA_SOURCE_CONTOUR_FILTER_ALL
+    if has_puncta_source_contour_count_data(statistics):
+        return normalized
+    return PUNCTA_SOURCE_CONTOUR_FILTER_ALL

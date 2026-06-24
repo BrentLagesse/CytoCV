@@ -38,6 +38,8 @@
             preloadImage,
             preloadImageSet,
             setCellPairImagesLoading,
+            setCellDataRegionLoading,
+            bindFilterMenuPointerAwayClose,
         } = resultsViewerShared;
         const FILE_BLEND_TEXT_MS = 170;
         const FILE_BLEND_IMAGE_MS = 190;
@@ -275,9 +277,12 @@
             normalizeCellTypeFilter,
             getCellTypeFilterLabel,
             matchesCellTypeFilter,
+            getCellTypeFilterUiState,
             getPunctaSourceContourContext,
             matchesPunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterCounts,
+            getPunctaSourceContourFilterUiState,
+            getRowFilterEmptyMessage,
             getPunctaSourceContourFilteredCellIds,
             findNearestMatchingCellByOriginalOrder,
             getAdjacentFilteredCellId,
@@ -825,21 +830,46 @@
             window.displayExportSelectionController = displayExportSelectionController;
         }
 
-        function getCurrentCellTypeFilter() {
-            return normalizeCellTypeFilter(currentCellTypeFilter);
+        function getCurrentFileData() {
+            const fileUUID = fileUUIDs[currentFileIndex];
+            return fileUUID ? filesData[fileUUID] : null;
+        }
+
+        function getCurrentCellTypeFilter(fileData = getCurrentFileData()) {
+            return getCellTypeFilterUiState(
+                fileData?.Statistics || {},
+                currentCellTypeFilter,
+            ).effectiveFilter;
         }
 
         function setCurrentCellTypeFilter(value) {
             currentCellTypeFilter = normalizeCellTypeFilter(value);
-            syncCellTypeFilterControl();
-            syncPunctaSourceContourFilterControl(filesData[fileUUIDs[currentFileIndex]] || null);
-            return currentCellTypeFilter;
+            const fileData = getCurrentFileData();
+            syncCellTypeFilterControl(fileData);
+            syncPunctaSourceContourFilterControl(fileData);
+            return getCurrentCellTypeFilter(fileData);
         }
 
-        function syncCellTypeFilterControl() {
-            const effectiveFilter = getCurrentCellTypeFilter();
+        function syncCellTypeFilterControl(fileData = getCurrentFileData()) {
+            const state = getCellTypeFilterUiState(
+                fileData?.Statistics || {},
+                currentCellTypeFilter,
+            );
+            const effectiveFilter = state.effectiveFilter;
             if (cellTypeFilterValue) {
-                cellTypeFilterValue.textContent = getCellTypeFilterLabel(effectiveFilter);
+                cellTypeFilterValue.textContent = state.displayLabel;
+            }
+            if (cellTypeFilterControl) {
+                cellTypeFilterControl.classList.toggle('is-disabled', !state.enabled);
+                cellTypeFilterControl.dataset.availableCellTypes = state.availableCellTypes.join(',');
+            }
+            if (cellTypeFilterButton) {
+                cellTypeFilterButton.disabled = !state.enabled;
+                cellTypeFilterButton.setAttribute('aria-disabled', state.enabled ? 'false' : 'true');
+                cellTypeFilterButton.title = state.helpText;
+                if (!state.enabled) {
+                    closeCellTypeFilterMenu();
+                }
             }
             if (cellTypeFilterMenu) {
                 cellTypeFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
@@ -857,46 +887,48 @@
         }
 
         function getCurrentPunctaSourceContourCountFilter() {
-            return normalizePunctaSourceContourCountFilter(currentPunctaSourceContourCountFilter);
+            return getPunctaSourceContourFilterUiState(
+                getCurrentFileData()?.Statistics || {},
+                currentPunctaSourceContourCountFilter,
+            ).effectiveFilter;
         }
 
         function setCurrentPunctaSourceContourCountFilter(value) {
             currentPunctaSourceContourCountFilter = normalizePunctaSourceContourCountFilter(value);
-            syncPunctaSourceContourFilterControl(filesData[fileUUIDs[currentFileIndex]] || null);
-            return currentPunctaSourceContourCountFilter;
+            const fileData = getCurrentFileData();
+            syncPunctaSourceContourFilterControl(fileData);
+            return getCurrentPunctaSourceContourCountFilter();
         }
 
         function getEffectivePunctaSourceContourCountFilter(fileData) {
-            const counts = getPunctaSourceContourCountFilterCounts(
+            return getPunctaSourceContourFilterUiState(
                 fileData?.Statistics || {},
-                getCurrentPunctaSourceContourCountFilter(),
-                getCurrentCellTypeFilter(),
-            );
-            return counts.applicable ? getCurrentPunctaSourceContourCountFilter() : 'all';
+                currentPunctaSourceContourCountFilter,
+            ).effectiveFilter;
         }
 
         function syncPunctaSourceContourFilterControl(fileData) {
-            const counts = getPunctaSourceContourCountFilterCounts(
+            const state = getPunctaSourceContourFilterUiState(
                 fileData?.Statistics || {},
-                getCurrentPunctaSourceContourCountFilter(),
-                getCurrentCellTypeFilter(),
+                currentPunctaSourceContourCountFilter,
             );
-            const effectiveFilter = counts.applicable
-                ? getCurrentPunctaSourceContourCountFilter()
-                : 'all';
+            const effectiveFilter = state.effectiveFilter;
             if (punctaSourceContourFilterLabel) {
-                punctaSourceContourFilterLabel.textContent = `${counts.controlLabel}:`;
+                punctaSourceContourFilterLabel.textContent = `${state.controlLabel}:`;
             }
             if (punctaSourceContourFilterValue) {
                 punctaSourceContourFilterValue.textContent = getPunctaSourceContourCountFilterLabel(effectiveFilter);
             }
             if (punctaSourceContourFilterControl) {
-                punctaSourceContourFilterControl.classList.toggle('is-disabled', !counts.applicable);
-                punctaSourceContourFilterControl.dataset.sourceChannel = counts.channel || '';
+                punctaSourceContourFilterControl.classList.toggle('is-disabled', !state.enabled);
+                punctaSourceContourFilterControl.dataset.sourceChannel = state.channel || '';
             }
             if (punctaSourceContourFilterButton) {
-                punctaSourceContourFilterButton.disabled = !counts.applicable;
-                punctaSourceContourFilterButton.setAttribute('aria-disabled', counts.applicable ? 'false' : 'true');
+                punctaSourceContourFilterButton.disabled = !state.enabled;
+                punctaSourceContourFilterButton.setAttribute('aria-disabled', state.enabled ? 'false' : 'true');
+                if (!state.enabled) {
+                    closePunctaSourceContourFilterMenu();
+                }
             }
             if (punctaSourceContourFilterMenu) {
                 punctaSourceContourFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
@@ -911,6 +943,21 @@
             if (!punctaSourceContourFilterMenu || !punctaSourceContourFilterButton) return;
             punctaSourceContourFilterMenu.hidden = true;
             punctaSourceContourFilterButton.setAttribute('aria-expanded', 'false');
+        }
+
+        if (typeof bindFilterMenuPointerAwayClose === 'function') {
+            bindFilterMenuPointerAwayClose({
+                control: cellTypeFilterControl,
+                button: cellTypeFilterButton,
+                menu: cellTypeFilterMenu,
+                closeMenu: closeCellTypeFilterMenu,
+            });
+            bindFilterMenuPointerAwayClose({
+                control: punctaSourceContourFilterControl,
+                button: punctaSourceContourFilterButton,
+                menu: punctaSourceContourFilterMenu,
+                closeMenu: closePunctaSourceContourFilterMenu,
+            });
         }
 
         function waitForPunctaSourceContourFilterApplyFeedback() {
@@ -930,14 +977,7 @@
         }
 
         function setPunctaSourceContourFilterSkeleton(isApplying) {
-            [
-                document.getElementById('tableScrollFrame'),
-                document.querySelector('[data-ui-region="cell-metrics-strip"]'),
-            ].forEach((element) => {
-                if (!element) return;
-                element.classList.toggle('is-contour-filter-applying', !!isApplying);
-                element.setAttribute('aria-busy', isApplying ? 'true' : 'false');
-            });
+            setCellDataRegionLoading(isApplying);
         }
 
         function startPunctaSourceContourFilterApplyVisualState() {
@@ -964,18 +1004,22 @@
             const status = document.getElementById('punctaSourceContourFilterStatus');
             if (status) {
                 status.classList.remove('is-applying-filter');
+                const sourceState = getPunctaSourceContourFilterUiState(
+                    fileData?.Statistics || {},
+                    currentPunctaSourceContourCountFilter,
+                );
                 const counts = getPunctaSourceContourCountFilterCounts(
                     fileData?.Statistics || {},
-                    getCurrentPunctaSourceContourCountFilter(),
-                    getCurrentCellTypeFilter(),
+                    sourceState.effectiveFilter,
+                    getCurrentCellTypeFilter(fileData),
                 );
                 const shown = Number.isFinite(Number(renderedRowCount))
                     ? Number(renderedRowCount)
                     : counts.shown;
                 status.textContent = `Showing ${shown} of ${counts.total} cells`;
                 status.dataset.activeFilter = [
-                    getCellTypeFilterLabel(getCurrentCellTypeFilter()),
-                    getPunctaSourceContourCountFilterLabel(counts.filter),
+                    getCellTypeFilterLabel(getCurrentCellTypeFilter(fileData)),
+                    getPunctaSourceContourCountFilterLabel(sourceState.effectiveFilter),
                 ].join(' / ');
             }
             syncPunctaSourceContourCellCardState(fileData);
@@ -1125,6 +1169,7 @@
                         blendText: options.blendText !== false,
                         forceShowContours: getContourToggleState(),
                         imageLoading: options.imageLoading === true,
+                        dataRegionLoading: options.dataRegionLoading === true,
                     });
                 }
                 syncPunctaSourceContourCellCardState(fileData);
@@ -1137,6 +1182,7 @@
                     blendText: options.blendText !== false,
                     forceShowContours: showContours,
                     imageLoading: options.imageLoading === true,
+                    dataRegionLoading: options.dataRegionLoading === true,
                 });
                 if (showContours) {
                     const fileUUID = fileUUIDs[currentFileIndex];
@@ -1147,6 +1193,25 @@
                 syncPunctaSourceContourCellCardState(fileData);
             }
             return currentCellNumber;
+        }
+
+        function reconcileRowFilterState(fileData) {
+            let cellTypeState = getCellTypeFilterUiState(
+                fileData?.Statistics || {},
+                currentCellTypeFilter,
+            );
+            if (cellTypeState.resetRequestedFilter) {
+                currentCellTypeFilter = cellTypeState.effectiveFilter;
+                cellTypeState = getCellTypeFilterUiState(
+                    fileData?.Statistics || {},
+                    currentCellTypeFilter,
+                );
+            }
+            const punctaSourceContourState = getPunctaSourceContourFilterUiState(
+                fileData?.Statistics || {},
+                currentPunctaSourceContourCountFilter,
+            );
+            return { cellTypeState, punctaSourceContourState };
         }
 
         function updateTableState(fileUUID, fileData) {
@@ -1163,36 +1228,30 @@
                 }
             }
 
-            const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
+            const { cellTypeState, punctaSourceContourState } = reconcileRowFilterState(fileData);
+            const filterValue = punctaSourceContourState.effectiveFilter;
             const renderedRowCount = renderStatisticsTable(
                 fileData.Statistics || {},
                 fileData,
                 {
-                    cellTypeFilter: getCurrentCellTypeFilter(),
+                    cellTypeFilter: cellTypeState.effectiveFilter,
                     punctaSourceContourCountFilter: filterValue,
                     activeCellId: currentCellNumber,
                 },
             );
-            const filterCounts = getPunctaSourceContourCountFilterCounts(
-                fileData.Statistics || {},
-                getCurrentPunctaSourceContourCountFilter(),
-                getCurrentCellTypeFilter(),
-            );
-            syncCellTypeFilterControl();
+            syncCellTypeFilterControl(fileData);
             syncPunctaSourceContourFilterControl(fileData);
-            const hasActiveRowFilter = (
-                getCurrentCellTypeFilter() !== 'all'
-                || filterValue !== 'all'
+            const emptyMessage = getRowFilterEmptyMessage(
+                fileData.Statistics || {},
+                renderedRowCount,
+                { cellTypeState, punctaSourceContourState },
             );
-            const analyzedRowCount = Object.values(fileData.Statistics || {}).filter(
-                (row) => row && typeof row === 'object',
-            ).length;
 
-            if (fileData.NoCellsWarning) {
-                note.textContent = fileData.NoCellsWarning;
+            if (emptyMessage) {
+                note.textContent = emptyMessage;
                 note.style.display = 'block';
-            } else if (analyzedRowCount > 0 && renderedRowCount === 0 && hasActiveRowFilter) {
-                note.textContent = 'No cells match the current row filters. Show all analyzed cell types and all source contours to view every retained cell.';
+            } else if (fileData.NoCellsWarning) {
+                note.textContent = fileData.NoCellsWarning;
                 note.style.display = 'block';
             } else {
                 note.style.display = 'none';
@@ -1205,6 +1264,7 @@
 
         if (cellTypeFilterButton && cellTypeFilterMenu) {
             cellTypeFilterButton.addEventListener('click', () => {
+                if (cellTypeFilterButton.disabled) return;
                 const isOpen = cellTypeFilterButton.getAttribute('aria-expanded') === 'true';
                 cellTypeFilterMenu.hidden = isOpen;
                 cellTypeFilterButton.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
@@ -1249,8 +1309,15 @@
             });
             punctaSourceContourFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
                 option.addEventListener('click', async () => {
+                    const initialFileUUID = fileUUIDs[currentFileIndex];
+                    const initialFileData = initialFileUUID ? filesData[initialFileUUID] : null;
+                    const nextFilter = normalizePunctaSourceContourCountFilter(option.dataset.value);
+                    if (nextFilter === getEffectivePunctaSourceContourCountFilter(initialFileData)) {
+                        closePunctaSourceContourFilterMenu();
+                        return;
+                    }
                     const previousCellNumber = Number(currentCellNumber);
-                    setCurrentPunctaSourceContourCountFilter(option.dataset.value);
+                    setCurrentPunctaSourceContourCountFilter(nextFilter);
                     startPunctaSourceContourFilterApplyVisualState();
                     closePunctaSourceContourFilterMenu();
                     try {
@@ -1263,6 +1330,7 @@
                                 blendImages: true,
                                 blendText: true,
                                 imageLoading: true,
+                                dataRegionLoading: true,
                             });
                             updateTableState(fileUUID, fileData);
                         } else {
@@ -1444,6 +1512,7 @@
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;
             const showImageLoading = options.imageLoading === true;
+            const showDataRegionLoading = options.dataRegionLoading === true;
             const showContours = getContourToggleState(options.forceShowContours ?? null);
             const state = getCellDisplayState(cellPairImages, statistics, {
                 showContours,
@@ -1452,6 +1521,9 @@
 
             if (showImageLoading) {
                 setCellPairImagesLoading(true);
+            }
+            if (showDataRegionLoading) {
+                setCellDataRegionLoading(true);
             }
 
             try {
@@ -1486,12 +1558,17 @@
 
                 return true;
             } finally {
-                if (
-                    showImageLoading
-                    && renderToken === activeCellRenderToken
+                const shouldClearLoading = (
+                    renderToken === activeCellRenderToken
                     && (!options.fileToken || options.fileToken === activeFileLoadToken)
-                ) {
-                    setCellPairImagesLoading(false);
+                );
+                if (shouldClearLoading) {
+                    if (showImageLoading) {
+                        setCellPairImagesLoading(false);
+                    }
+                    if (showDataRegionLoading) {
+                        setCellDataRegionLoading(false);
+                    }
                 }
             }
         }
@@ -1558,6 +1635,7 @@
                 blendText: true,
                 forceShowContours: showContours,
                 imageLoading: true,
+                dataRegionLoading: true,
             });
             updateTableState(fileUUID, fileData);
             if (showContours) {
@@ -1587,6 +1665,7 @@
                 blendText: true,
                 forceShowContours: showContours,
                 imageLoading: true,
+                dataRegionLoading: true,
             });
             updateTableState(fileUUID, fileData);
             if (showContours) {

@@ -543,6 +543,105 @@
         return frames.length;
     }
 
+    function setCellDataRegionLoading(isLoading, root = null) {
+        const loading = !!isLoading;
+        const searchRoot = root || (typeof document !== 'undefined' ? document : null);
+        const regions = (
+            searchRoot
+            && typeof searchRoot.querySelector === 'function'
+            && typeof searchRoot.querySelectorAll === 'function'
+        )
+            ? [
+                searchRoot.querySelector('#tableScrollFrame'),
+                ...searchRoot.querySelectorAll('[data-ui-region="cell-metrics-strip"]'),
+            ].filter(Boolean)
+            : [];
+        regions.forEach((region) => {
+            region.classList.toggle('is-contour-filter-applying', loading);
+            region.setAttribute('aria-busy', loading ? 'true' : 'false');
+        });
+        return regions.length;
+    }
+
+    function bindFilterMenuPointerAwayClose({
+        control,
+        button,
+        menu,
+        closeMenu,
+        margin = 36,
+        closeDelayMs = 160,
+    } = {}) {
+        if (
+            !control
+            || !button
+            || !menu
+            || typeof closeMenu !== 'function'
+            || typeof document === 'undefined'
+        ) {
+            return () => {};
+        }
+
+        let closeTimer = null;
+        const clearCloseTimer = () => {
+            if (!closeTimer) return;
+            window.clearTimeout(closeTimer);
+            closeTimer = null;
+        };
+        const isMenuOpen = () => (
+            !menu.hidden
+            && button.getAttribute('aria-expanded') === 'true'
+        );
+        const combinedRect = () => {
+            const rects = [control, menu]
+                .filter(Boolean)
+                .map((element) => element.getBoundingClientRect());
+            if (!rects.length) return null;
+            return rects.reduce((bounds, rect) => ({
+                top: Math.min(bounds.top, rect.top),
+                right: Math.max(bounds.right, rect.right),
+                bottom: Math.max(bounds.bottom, rect.bottom),
+                left: Math.min(bounds.left, rect.left),
+            }));
+        };
+        const isPointerInsideGraceArea = (event) => {
+            const rect = combinedRect();
+            if (!rect) return false;
+            return (
+                event.clientX >= rect.left - margin
+                && event.clientX <= rect.right + margin
+                && event.clientY >= rect.top - margin
+                && event.clientY <= rect.bottom + margin
+            );
+        };
+        const scheduleClose = () => {
+            if (closeTimer) return;
+            closeTimer = window.setTimeout(() => {
+                closeTimer = null;
+                closeMenu();
+            }, closeDelayMs);
+        };
+        const handlePointerMove = (event) => {
+            if (!isMenuOpen()) {
+                clearCloseTimer();
+                return;
+            }
+            if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen') {
+                return;
+            }
+            if (isPointerInsideGraceArea(event)) {
+                clearCloseTimer();
+            } else {
+                scheduleClose();
+            }
+        };
+
+        document.addEventListener('pointermove', handlePointerMove, { passive: true });
+        return () => {
+            clearCloseTimer();
+            document.removeEventListener('pointermove', handlePointerMove);
+        };
+    }
+
     function getSortedCellIds(fileData) {
         const statistics = (fileData && fileData.Statistics) || {};
         const statIds = Object.keys(statistics)
@@ -933,9 +1032,9 @@
 
         function getCellTypeFilterLabel(value) {
             const normalized = normalizeCellTypeFilter(value);
-            if (normalized === 'single_cell') return 'Show single cells only';
-            if (normalized === 'cell_pair') return 'Show cell pairs only';
-            return 'Show all analyzed cell types';
+            if (normalized === 'single_cell') return 'Single cells only';
+            if (normalized === 'cell_pair') return 'Cell pairs only';
+            return 'All cells';
         }
 
         function normalizeCellType(value) {
@@ -954,6 +1053,63 @@
         function getRowCellType(row) {
             if (!row || typeof row !== 'object') return 'unknown';
             return normalizeCellType(row.cell_type);
+        }
+
+        function getAvailableCellTypes(statistics) {
+            const seen = new Set();
+            getStatisticsEntries(statistics).forEach(([, row]) => {
+                seen.add(getRowCellType(row));
+            });
+            return ['single_cell', 'cell_pair', 'unknown'].filter((cellType) => seen.has(cellType));
+        }
+
+        function getCellTypeFilterUnavailableHelp(availableCellTypes, baseRowCount) {
+            if (baseRowCount === 0) {
+                return 'No retained cells are available for this result.';
+            }
+            if (availableCellTypes.includes('cell_pair') && !availableCellTypes.includes('single_cell')) {
+                return 'This result only contains cell pairs. To include single cells, rerun analysis with Cell Inclusion Mode set to Single cells and cell pairs.';
+            }
+            if (availableCellTypes.includes('single_cell') && !availableCellTypes.includes('cell_pair')) {
+                return 'This result only contains single cells. To include cell pairs, rerun analysis with Cell Inclusion Mode set to Single cells and cell pairs.';
+            }
+            return 'Cell type information is unavailable for this result.';
+        }
+
+        function getCellTypeFilterUiState(statistics, requestedFilter) {
+            const entries = getStatisticsEntries(statistics);
+            const availableCellTypes = getAvailableCellTypes(statistics);
+            const hasSingle = availableCellTypes.includes('single_cell');
+            const hasPair = availableCellTypes.includes('cell_pair');
+            const requested = normalizeCellTypeFilter(requestedFilter);
+            const enabled = hasSingle && hasPair;
+            const effectiveFilter = enabled && requested !== 'all' && availableCellTypes.includes(requested)
+                ? requested
+                : 'all';
+            let displayLabel = getCellTypeFilterLabel(effectiveFilter);
+            if (!enabled) {
+                if (entries.length === 0) {
+                    displayLabel = 'No cells available';
+                } else if (hasPair && !hasSingle) {
+                    displayLabel = 'Only cell pairs analyzed';
+                } else if (hasSingle && !hasPair) {
+                    displayLabel = 'Only single cells analyzed';
+                } else {
+                    displayLabel = 'Cell type unavailable';
+                }
+            }
+            return {
+                enabled,
+                effectiveFilter,
+                requestedFilter: requested,
+                displayLabel,
+                helpText: enabled
+                    ? 'This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.'
+                    : getCellTypeFilterUnavailableHelp(availableCellTypes, entries.length),
+                availableCellTypes,
+                baseRowCount: entries.length,
+                resetRequestedFilter: requested !== effectiveFilter,
+            };
         }
 
         function matchesCellTypeFilter(row, filterValue) {
@@ -1128,6 +1284,59 @@
                     ? entries.length
                     : entries.filter(([, row]) => matchesPunctaSourceContourCountFilter(row, normalized)).length,
             };
+        }
+
+        function getPunctaSourceContourFilterUiState(statistics, requestedFilter) {
+            const entries = getStatisticsEntries(statistics);
+            const filteredStatistics = Object.fromEntries(
+                entries.map(([id, row]) => [String(id), row]),
+            );
+            const context = getPunctaSourceContourContext(filteredStatistics);
+            const normalized = normalizePunctaSourceContourCountFilter(requestedFilter);
+            const hasCountData = entries.some(([, row]) => derivePunctaSourceContourCount(row) !== null);
+            const enabled = entries.length > 0 && context.applicable && hasCountData;
+            return {
+                enabled,
+                effectiveFilter: enabled ? normalized : 'all',
+                requestedFilter: normalized,
+                channel: context.channel,
+                channelLabel: context.channelLabel,
+                controlLabel: context.controlLabel,
+                total: entries.length,
+            };
+        }
+
+        function getRowFilterEmptyMessage(statistics, renderedRowCount, {
+            cellTypeState = null,
+            punctaSourceContourState = null,
+        } = {}) {
+            const baseRowCount = getStatisticsEntries(statistics).length;
+            if (baseRowCount === 0) {
+                return 'No retained cells are available for this result.';
+            }
+            if (Number(renderedRowCount) > 0) {
+                return '';
+            }
+            const cellTypeActive = Boolean(
+                cellTypeState
+                && cellTypeState.enabled
+                && cellTypeState.effectiveFilter !== 'all'
+            );
+            const sourceContourActive = Boolean(
+                punctaSourceContourState
+                && punctaSourceContourState.enabled
+                && punctaSourceContourState.effectiveFilter !== 'all'
+            );
+            if (cellTypeActive && sourceContourActive) {
+                return 'No cells match the current row filters. Switch to All cells and all source contours to view every retained cell.';
+            }
+            if (cellTypeActive) {
+                return 'No cells match the current Cell Type Filter. Switch to All cells to view every retained cell.';
+            }
+            if (sourceContourActive) {
+                return 'No cells match the current source contour filter. Show all source contours to view every retained cell.';
+            }
+            return '';
         }
 
         function uniquePositiveCellIds(values) {
@@ -1508,11 +1717,15 @@
             normalizeCellType,
             getCellTypeLabel,
             matchesCellTypeFilter,
+            getAvailableCellTypes,
+            getCellTypeFilterUiState,
             getFilteredStatisticsEntries,
             getPunctaSourceContourContext,
             derivePunctaSourceContourCount,
             matchesPunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterCounts,
+            getPunctaSourceContourFilterUiState,
+            getRowFilterEmptyMessage,
             getPunctaSourceContourFilteredCellIds,
             findNearestMatchingCellByOriginalOrder,
             getAdjacentFilteredCellId,
@@ -1541,6 +1754,8 @@
         preloadImage,
         preloadImageSet,
         setCellPairImagesLoading,
+        setCellDataRegionLoading,
+        bindFilterMenuPointerAwayClose,
         getSortedCellIds,
         getWarmPriorityOffsets,
         buildFullCircularCellOrder,

@@ -296,6 +296,46 @@ main.main > section.panel > form.panel > .card {
   min-width: 0;
 }
 
+.plugin-title-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.info-dot {
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--surface-input);
+  color: #d7d7d7;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--app-font);
+  line-height: 1;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.info-dot.compact {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+}
+
+.info-dot:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.info-dot:focus-visible {
+  outline: none;
+  border-color: rgba(86, 147, 220, 0.8);
+  box-shadow: 0 0 0 2px rgba(86, 147, 220, 0.24);
+}
+
 .plugin > .plugin-inline {
   grid-column: 1 / -1;
 }

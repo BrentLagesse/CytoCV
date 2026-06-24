@@ -394,6 +394,8 @@ assert.strictEqual(
             "getContourIntensityDisplayFields",
             "bindContourIntensityDisplayControls",
             "setCellPairImagesLoading",
+            "setCellDataRegionLoading",
+            "bindFilterMenuPointerAwayClose",
         ):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)
@@ -882,6 +884,126 @@ assert.strictEqual(rerenderCount, 4);
   console.error(error);
   process.exit(1);
 }});
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
+    def test_row_filter_ui_state_helpers_use_base_rows(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "shared" / "results-viewer.js"
+        script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+const context = {{ window: {{}} }};
+vm.runInNewContext(source, context);
+const helpers = context.window.CytoCVResultsViewerShared.createStatisticsHelpers({{
+  tableFieldOrder: ['cell_id'],
+  statFieldGroups: {{}},
+  spatialFieldKinds: {{}},
+  spatialHeaderBaseLabels: {{}},
+  defaultSpatialStatsUnit: 'px',
+  getCurrentSpatialStatsUnit: () => 'px',
+  setCurrentSpatialStatsUnit: () => {{}},
+}});
+const ownArray = (values) => Array.from(values);
+
+const mixed = {{
+  '1': {{
+    cell_type: 'single_cell',
+    signal_quantification_mode: 'puncta_distance',
+    puncta_line_mode: 'red_puncta',
+    puncta_source_contour_count: 1,
+    puncta_source_contour_count_channel: 'red',
+  }},
+  '2': {{
+    cell_type: 'cell_pair',
+    signal_quantification_mode: 'puncta_distance',
+    puncta_line_mode: 'red_puncta',
+    puncta_source_contour_count: 2,
+    puncta_source_contour_count_channel: 'red',
+  }},
+}};
+assert.deepStrictEqual(ownArray(helpers.getAvailableCellTypes(mixed)), ['single_cell', 'cell_pair']);
+let state = helpers.getCellTypeFilterUiState(mixed, 'single_cell');
+assert.strictEqual(state.enabled, true);
+assert.strictEqual(state.effectiveFilter, 'single_cell');
+assert.strictEqual(state.displayLabel, 'Single cells only');
+
+state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: 'cell_pair' }} }}, 'single_cell');
+assert.strictEqual(state.enabled, false);
+assert.strictEqual(state.effectiveFilter, 'all');
+assert.strictEqual(state.displayLabel, 'Only cell pairs analyzed');
+assert.strictEqual(state.resetRequestedFilter, true);
+
+state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: 'single_cell' }} }}, 'cell_pair');
+assert.strictEqual(state.enabled, false);
+assert.strictEqual(state.effectiveFilter, 'all');
+assert.strictEqual(state.displayLabel, 'Only single cells analyzed');
+assert.strictEqual(state.resetRequestedFilter, true);
+
+state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: null }}, '2': {{}} }}, 'cell_pair');
+assert.deepStrictEqual(ownArray(state.availableCellTypes), ['unknown']);
+assert.strictEqual(state.enabled, false);
+assert.strictEqual(state.effectiveFilter, 'all');
+assert.strictEqual(state.displayLabel, 'Cell type unavailable');
+
+state = helpers.getCellTypeFilterUiState({{}}, 'single_cell');
+assert.strictEqual(state.enabled, false);
+assert.strictEqual(state.effectiveFilter, 'all');
+assert.strictEqual(state.displayLabel, 'No cells available');
+
+const sourceState = helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_2');
+assert.strictEqual(sourceState.enabled, true);
+assert.strictEqual(sourceState.effectiveFilter, 'exactly_2');
+assert.strictEqual(sourceState.controlLabel, 'Red Source Contour Count');
+assert.deepStrictEqual(
+  ownArray(helpers.getFilteredStatisticsEntries(mixed, {{
+    cellTypeFilter: 'single_cell',
+    punctaSourceContourCountFilter: 'exactly_2',
+  }})),
+  []
+);
+assert.strictEqual(
+  helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_2').enabled,
+  true
+);
+
+assert.strictEqual(
+  helpers.getPunctaSourceContourFilterUiState({{ '1': {{ signal_quantification_mode: 'nuclear_cell_pair' }} }}, 'exactly_1').effectiveFilter,
+  'all'
+);
+assert.strictEqual(
+  helpers.getPunctaSourceContourFilterUiState({{ '1': {{ signal_quantification_mode: 'puncta_distance', puncta_line_mode: 'red_puncta' }} }}, 'exactly_1').enabled,
+  false
+);
+assert.strictEqual(
+  helpers.getRowFilterEmptyMessage({{}}, 0),
+  'No retained cells are available for this result.'
+);
+assert.strictEqual(
+  helpers.getRowFilterEmptyMessage(mixed, 0, {{
+    cellTypeState: helpers.getCellTypeFilterUiState(mixed, 'single_cell'),
+    punctaSourceContourState: helpers.getPunctaSourceContourFilterUiState(mixed, 'all'),
+  }}),
+  'No cells match the current Cell Type Filter. Switch to All cells to view every retained cell.'
+);
+assert.strictEqual(
+  helpers.getRowFilterEmptyMessage(mixed, 0, {{
+    cellTypeState: helpers.getCellTypeFilterUiState(mixed, 'all'),
+    punctaSourceContourState: helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_2'),
+  }}),
+  'No cells match the current source contour filter. Show all source contours to view every retained cell.'
+);
 """
         result = subprocess.run(
             [node, "-e", script],

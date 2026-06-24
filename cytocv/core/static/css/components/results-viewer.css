@@ -868,6 +868,20 @@ a:hover {
     position: relative;
 }
 
+.table-puncta-source-contour-filter[data-cell-type-filter] {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    width: auto;
+    min-width: 0;
+    gap: 10px;
+}
+
+.table-puncta-source-contour-filter[data-cell-type-filter] .table-filter-trigger {
+    flex-basis: 150px;
+    width: 150px;
+    min-width: 150px;
+}
+
 .table-puncta-source-contour-filter.is-disabled {
     opacity: 0.58;
 }

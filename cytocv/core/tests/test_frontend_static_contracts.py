@@ -346,6 +346,15 @@ class FrontendStaticContractTests(SimpleTestCase):
             r"\.table-filter-count-meta\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(var\(--glass-border-rgb\),\s*0\.34\);[^}]*background:\s*rgba\(18,\s*28,\s*40,\s*0\.48\);",
         )
         self.assertIn(".table-filter-count-meta.is-applying-filter {", results_css)
+        self.assertIn(".table-puncta-source-contour-filter[data-cell-type-filter] {", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.table-puncta-source-contour-filter\[data-cell-type-filter\]\s*\{[^}]*justify-content:\s*flex-start;[^}]*width:\s*auto;[^}]*gap:\s*10px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-puncta-source-contour-filter\[data-cell-type-filter\]\s+\.table-filter-trigger\s*\{[^}]*width:\s*150px;[^}]*min-width:\s*150px;",
+        )
         self.assertIn(".table-scroll-frame.is-contour-filter-applying tbody td", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-row", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-detail", results_css)

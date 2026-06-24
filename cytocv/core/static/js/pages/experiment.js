@@ -39,6 +39,7 @@
     const channelLabels = statsPayload.channel_labels || {};
     const pluginMap = new Map(statsPlugins.map((plugin) => [plugin.id, plugin]));
     const signalPrimaryPluginIds = new Set(['PunctaDistance', 'GreenRedIntensity', 'NuclearCellPairIntensity']);
+    const CELL_INCLUSION_INFO_TEXT = 'Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded.';
 
     const selectionKey = 'cytocv.selected_analyses.v3';
     const initializedKey = 'cytocv.selected_analyses_initialized.v3';
@@ -199,6 +200,7 @@
     let measurementScaleFallbackHint = null;
     let punctaLineModeRow = null;
     let punctaLineModeSelect = null;
+    let cellInclusionModeSelect = null;
     let signalQuantificationToggle = null;
     let signalQuantificationModeRow = null;
     let signalQuantificationModeSelect = null;
@@ -1738,9 +1740,13 @@
         titleWrap.className = 'stats-toggle-title-wrap';
         const title = document.createElement('span');
         title.className = 'stats-toggle-title';
-        title.textContent = 'Cell Detection / Inclusion';
+        title.textContent = 'Cell Detection & Inclusion';
         titleWrap.appendChild(title);
         left.appendChild(titleWrap);
+        const info = buildInfoDot(CELL_INCLUSION_INFO_TEXT);
+        info.dataset.tooltipWidth = 'wide';
+        info.dataset.tooltipPlacement = 'right';
+        left.appendChild(info);
         row.appendChild(left);
 
         const modeRow = document.createElement('div');
@@ -1753,32 +1759,25 @@
         modeLabel.textContent = 'Cell Inclusion Mode:';
         modeTop.appendChild(modeLabel);
 
-        const select = document.createElement('select');
-        select.id = 'cellInclusionMode';
-        select.name = 'cell_inclusion_mode';
-        [
-            { value: 'cell_pairs_only', text: 'Cell pairs only' },
-            { value: 'single_cells_only', text: 'Single cells only' },
-            { value: 'single_cells_and_cell_pairs', text: 'Single cells and cell pairs' },
-        ].forEach(({ value, text }) => {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = text;
-            select.appendChild(option);
-        });
-        select.value = normalizeCellInclusionMode(statsState.cellInclusionMode);
-        select.addEventListener('change', () => {
-            statsState.cellInclusionMode = normalizeCellInclusionMode(select.value);
-            persistAdvancedSettings();
-            syncStatsUI();
-        });
-        modeTop.appendChild(select);
+        cellInclusionModeSelect = buildCustomModeSelect(
+            [
+                { value: 'cell_pairs_only', text: 'Cell pairs only' },
+                { value: 'single_cells_only', text: 'Single cells only' },
+                { value: 'single_cells_and_cell_pairs', text: 'Single cells and cell pairs' },
+            ],
+            normalizeCellInclusionMode(statsState.cellInclusionMode),
+            (nextMode) => {
+                statsState.cellInclusionMode = normalizeCellInclusionMode(nextMode);
+                persistAdvancedSettings();
+                syncStatsUI();
+            }
+        );
+        const trigger = cellInclusionModeSelect.root.querySelector('.mode-trigger');
+        if (trigger) {
+            trigger.id = 'cellInclusionMode';
+        }
+        modeTop.appendChild(cellInclusionModeSelect.root);
         modeRow.appendChild(modeTop);
-
-        const help = document.createElement('p');
-        help.className = 'module-help';
-        help.textContent = 'Controls which detected cell objects are retained during analysis. To include a cell type that was excluded, rerun analysis with a different mode.';
-        modeRow.appendChild(help);
 
         row.appendChild(modeRow);
         list.appendChild(row);
@@ -2067,6 +2066,7 @@
         micronsPerPixelInput = null;
         punctaLineModeRow = null;
         punctaLineModeSelect = null;
+        cellInclusionModeSelect = null;
         signalQuantificationToggle = null;
         signalQuantificationModeRow = null;
         signalQuantificationModeSelect = null;
@@ -3432,7 +3432,6 @@
         const greenFilterRow = document.getElementById('greenFilterRow');
         const dotSplitRow = document.getElementById('dotSplitRow');
         const moduleRow = document.getElementById('moduleToggleRow');
-        const cellInclusionModeSelect = document.getElementById('cellInclusionMode');
 
         statToggleElements.forEach((toggle, pluginId) => {
             const row = toggle.closest('.stats-toggle-row');
@@ -3832,7 +3831,6 @@
         if (alternateNucleusDetectionToggle) {
             statsState.alternateNucleusDetectionEnabled = !!alternateNucleusDetectionToggle.checked;
         }
-        const cellInclusionModeSelect = document.getElementById('cellInclusionMode');
         if (cellInclusionModeSelect) {
             statsState.cellInclusionMode = normalizeCellInclusionMode(cellInclusionModeSelect.value);
             persistAdvancedSettings();

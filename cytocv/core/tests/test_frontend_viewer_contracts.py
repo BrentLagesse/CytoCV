@@ -113,7 +113,7 @@ class FrontendViewerContractTests(TestCase):
         self.assertNotIn('onclick="previousCell()"', dashboard_source)
         self.assertNotIn('onclick="nextCell()"', dashboard_source)
 
-    def test_cell_pair_image_loading_state_is_image_only_for_cell_transitions(self):
+    def test_cell_transition_loading_state_is_region_scoped(self):
         shared_source = static_text("js/shared/results-viewer.js")
         display_source = static_text("js/pages/display-viewer.js")
         dashboard_source = static_text("js/pages/dashboard-viewer.js")
@@ -121,14 +121,55 @@ class FrontendViewerContractTests(TestCase):
         self.assertIn("function setCellPairImagesLoading", shared_source)
         self.assertIn("querySelectorAll('[data-cell-image-frame]')", shared_source)
         self.assertIn("is-cell-image-loading", shared_source)
+        self.assertIn("function setCellDataRegionLoading", shared_source)
+        self.assertIn("querySelector('#tableScrollFrame')", shared_source)
+        self.assertIn("querySelectorAll('[data-ui-region=\"cell-metrics-strip\"]')", shared_source)
 
         for page_name, source in (("display", display_source), ("dashboard", dashboard_source)):
             with self.subTest(page=page_name):
                 self.assertIn("setCellPairImagesLoading,", source)
+                self.assertIn("setCellDataRegionLoading,", source)
                 self.assertIn("setCellPairImagesLoading(true)", source)
                 self.assertIn("setCellPairImagesLoading(false)", source)
+                self.assertIn("setCellDataRegionLoading(true)", source)
+                self.assertIn("setCellDataRegionLoading(false)", source)
+
+    def test_row_filter_menus_close_when_pointer_moves_away(self):
+        shared_source = static_text("js/shared/results-viewer.js")
+        display_source = static_text("js/pages/display-viewer.js")
+        dashboard_source = static_text("js/pages/dashboard-viewer.js")
+
+        self.assertIn("function bindFilterMenuPointerAwayClose", shared_source)
+        self.assertIn("document.addEventListener('pointermove'", shared_source)
+        self.assertIn("margin = 36", shared_source)
+        self.assertIn("closeDelayMs = 160", shared_source)
+        for page_name, source in (("display", display_source), ("dashboard", dashboard_source)):
+            with self.subTest(page=page_name):
+                self.assertIn("bindFilterMenuPointerAwayClose,", source)
+                self.assertIn("control: cellTypeFilterControl", source)
+                self.assertIn("closeMenu: closeCellTypeFilterMenu", source)
+                self.assertIn("control: punctaSourceContourFilterControl", source)
+                self.assertIn("closeMenu: closePunctaSourceContourFilterMenu", source)
                 self.assertEqual(source.count("imageLoading: true"), 4)
                 self.assertEqual(source.count("imageLoading: options.imageLoading === true"), 2)
+                self.assertEqual(source.count("dataRegionLoading: true"), 3)
+                self.assertEqual(source.count("dataRegionLoading: options.dataRegionLoading === true"), 2)
+                filter_handler_start = source.rindex(
+                    "option.addEventListener('click', async () => {",
+                    0,
+                    source.index("const statisticsTable"),
+                )
+                filter_handler_end = source.index("const statisticsTable", filter_handler_start)
+                filter_handler = source[filter_handler_start:filter_handler_end]
+                assert_in_order(
+                    self,
+                    filter_handler,
+                    "if (nextFilter === getEffectivePunctaSourceContourCountFilter(initialFileData))",
+                    "return;",
+                    "setCurrentPunctaSourceContourCountFilter(nextFilter)",
+                    "startPunctaSourceContourFilterApplyVisualState()",
+                )
                 file_swap_start = source.index("setFileSwapLoading(true, requestToken)")
                 file_swap_end = source.index("setFileSwapLoading(false, requestToken)", file_swap_start)
                 self.assertNotIn("imageLoading: true", source[file_swap_start:file_swap_end])
+                self.assertNotIn("dataRegionLoading: true", source[file_swap_start:file_swap_end])

@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django_tables2.export.export import TableExport
 from tablib import Dataset
 
-from core.cell_types import filter_statistics_by_cell_type
+from core.cell_types import filter_statistics_by_cell_type, resolve_effective_cell_type_filter
 from core.models import CellStatistics
 from core.scale import (
     format_spatial_stat_header,
@@ -24,6 +24,7 @@ from core.services.stat_export_selection import (
 from core.services.export_filenames import build_statistics_export_filename
 from core.services.puncta_source_contour_count_filter import (
     filter_statistics_by_puncta_source_contour_count,
+    resolve_effective_puncta_source_contour_count_filter,
 )
 from core.tables import CellTable
 
@@ -95,10 +96,20 @@ def _table_rows_for_file(
     stats_qs = CellStatistics.objects.filter(
         segmented_image=source.segmented_image,
     ).order_by("cell_id")
-    stats = filter_statistics_by_cell_type(stats_qs, cell_type_filter)
+    effective_cell_type_filter = resolve_effective_cell_type_filter(
+        stats_qs,
+        cell_type_filter,
+    )
+    effective_puncta_source_contour_count_filter = (
+        resolve_effective_puncta_source_contour_count_filter(
+            stats_qs,
+            puncta_source_contour_count_filter,
+        )
+    )
+    stats = filter_statistics_by_cell_type(stats_qs, effective_cell_type_filter)
     stats = filter_statistics_by_puncta_source_contour_count(
         stats,
-        puncta_source_contour_count_filter,
+        effective_puncta_source_contour_count_filter,
     )
     if not stats:
         return []

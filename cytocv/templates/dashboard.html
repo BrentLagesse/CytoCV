@@ -6,8 +6,8 @@
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-file-count-fade-20260622"></script>
-    <script src="{% static 'js/shared/results-viewer.js' %}?v=cell-card-compact-20260623"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=cell-card-contour-line-fix-20260623">
+    <script src="{% static 'js/shared/results-viewer.js' %}?v=filter-hover-close-20260623"></script>
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=cell-type-filter-compact-20260623">
     <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=cell-card-compact-20260623">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-file-count-fade-20260622">
 
@@ -317,13 +317,13 @@
                                 <div class="table-puncta-source-contour-filter" id="cellTypeFilterControl" data-cell-type-filter>
                                     <span class="table-filter-label" id="cellTypeFilterLabel">Cell Type Filter:</span>
                                     <button type="button" class="table-filter-trigger" id="cellTypeFilterButton" aria-haspopup="listbox" aria-expanded="false" title="This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.">
-                                        <span id="cellTypeFilterValue">Show all analyzed cell types</span>
+                                        <span id="cellTypeFilterValue">All cells</span>
                                         <span class="table-filter-caret" aria-hidden="true"></span>
                                     </button>
                                     <div class="table-filter-menu" id="cellTypeFilterMenu" role="listbox" aria-labelledby="cellTypeFilterLabel" hidden>
-                                        <button type="button" role="option" data-value="all">Show all analyzed cell types</button>
-                                        <button type="button" role="option" data-value="single_cell">Show single cells only</button>
-                                        <button type="button" role="option" data-value="cell_pair">Show cell pairs only</button>
+                                        <button type="button" role="option" data-value="all">All cells</button>
+                                        <button type="button" role="option" data-value="single_cell">Single cells only</button>
+                                        <button type="button" role="option" data-value="cell_pair">Cell pairs only</button>
                                     </div>
                                 </div>
                                 <div class="table-puncta-source-contour-filter" id="punctaSourceContourFilterControl" data-puncta-source-contour-filter>
@@ -490,7 +490,7 @@
     <script id="dashboardPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "hasFiles": {{ has_files|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "initialCellTypeFilter": "{{ cell_type_filter|default:'all'|escapejs }}", "initialPunctaSourceContourCountFilter": "{{ puncta_source_contour_count_filter|default:'all'|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
-    <script src="{% static 'js/pages/dashboard-viewer.js' %}?v=cell-card-compact-20260623"></script>
+    <script src="{% static 'js/pages/dashboard-viewer.js' %}?v=filter-hover-close-20260623"></script>
 
     <script src="{% static 'js/pages/dashboard-csrf.js' %}?v=frontend-modularization-20260609"></script>
 

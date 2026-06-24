@@ -4,7 +4,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/components/workflow-controls.css' %}?v=icon-align-20260610-v5">
-<link rel="stylesheet" href="{% static 'css/pages/workflow-defaults.css' %}?v=channel-label-nudge-20260610">
+<link rel="stylesheet" href="{% static 'css/pages/workflow-defaults.css' %}?v=cell-inclusion-info-20260623">
 {% endblock head %}
 
 {% block content %}
@@ -32,17 +32,32 @@
         </div></div>
         <div class="card" data-workflow-card="plugin-defaults"><p class="section-eyebrow card-title">Plugin Defaults</p><div class="plugins">
           <div id="signalSelectedPlugins"></div>
-          <div class="plugin signal-quantification">
+          <div class="plugin cell-detection-inclusion" data-plugin-section="cell-detection-inclusion">
             <div class="plugin-main">
-              <p><strong>Cell Inclusion Mode</strong></p>
-              <p class="desc">Controls which detected DIC candidate types are retained and analyzed. Display filters can only hide or show rows already retained here.</p>
+              <p class="plugin-title-line">
+                <strong>Cell Detection &amp; Inclusion</strong>
+                <button
+                  type="button"
+                  class="info-dot compact"
+                  data-info-text="Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded."
+                  aria-label="Cell Detection &amp; Inclusion info"
+                  title="Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded."
+                >i</button>
+              </p>
             </div>
-            <div class="mode-select-group plugin-measure-right compact-control">
-              <select id="cell_inclusion_mode" name="cell_inclusion_mode">
-                <option value="cell_pairs_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'cell_pairs_only' %}selected{% endif %}>Cell pairs only</option>
-                <option value="single_cells_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_only' %}selected{% endif %}>Single cells only</option>
-                <option value="single_cells_and_cell_pairs" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_and_cell_pairs' %}selected{% endif %}>Single cells and cell pairs</option>
-              </select>
+            <div class="plugin-inline is-active" aria-hidden="false">
+              <div class="plugin-measure-line">
+                <div class="plugin-measure-copy">
+                  <label for="cell_inclusion_mode">Cell Inclusion Mode:</label>
+                </div>
+                <div class="mode-select-group plugin-measure-right">
+                  <select id="cell_inclusion_mode" name="cell_inclusion_mode">
+                    <option value="cell_pairs_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'cell_pairs_only' %}selected{% endif %}>Cell pairs only</option>
+                    <option value="single_cells_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_only' %}selected{% endif %}>Single cells only</option>
+                    <option value="single_cells_and_cell_pairs" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_and_cell_pairs' %}selected{% endif %}>Single cells and cell pairs</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
           <div class="plugin signal-quantification" id="signalQuantificationModule">
@@ -261,7 +276,7 @@
           {% endfor %}
         </div></div>
         <div class="card" data-workflow-card="dot-detection">
-          <p class="section-eyebrow card-title">Dot Detection</p>
+          <p class="section-eyebrow card-title">Puncta &amp; Contour Detection</p>
           <div class="row combo{% if not preferences.experiment_defaults.green_dot_split_enabled and not preferences.experiment_defaults.red_dot_split_enabled %} is-off{% endif %}" id="dotSplitRow">
             <div class="row-line">
               <div class="row-copy">

@@ -14,6 +14,7 @@ from core.cell_types import (
     CELL_INCLUSION_MODE_PAIRS_ONLY,
     CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
     CELL_INCLUSION_MODE_SINGLES_ONLY,
+    CELL_TYPE_FILTER_ALL,
     CELL_TYPE_FILTER_PAIR,
     CELL_TYPE_FILTER_SINGLE,
     CELL_TYPE_PAIR,
@@ -21,6 +22,7 @@ from core.cell_types import (
     CELL_TYPE_UNKNOWN,
     filter_statistics_by_cell_type,
     matches_cell_type_filter,
+    resolve_effective_cell_type_filter,
 )
 from core.models import CellStatistics, SegmentedImage, UploadedImage
 from core.services.analysis_context import normalize_analysis_config_snapshot
@@ -35,6 +37,7 @@ from core.services.puncta_source_contour_count_filter import (
     PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_1,
     PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
     filter_statistics_by_puncta_source_contour_count,
+    resolve_effective_puncta_source_contour_count_filter,
 )
 from core.services.stat_export_selection import export_included_columns
 from core.tables import CellTable
@@ -204,6 +207,70 @@ class CellInclusionPersistenceAndFilteringTests(TestCase):
             [3],
         )
 
+    def test_effective_cell_type_filter_requires_mixed_known_types(self):
+        single = self._create_stat(cell_id=1, cell_type=CELL_TYPE_SINGLE, source_count=1)
+        pair = self._create_stat(cell_id=2, cell_type=CELL_TYPE_PAIR, source_count=1)
+        unknown = self._create_stat(cell_id=3, cell_type=CELL_TYPE_UNKNOWN, source_count=1)
+
+        self.assertEqual(
+            resolve_effective_cell_type_filter([single, pair], CELL_TYPE_FILTER_SINGLE),
+            CELL_TYPE_FILTER_SINGLE,
+        )
+        self.assertEqual(
+            resolve_effective_cell_type_filter([pair], CELL_TYPE_FILTER_SINGLE),
+            CELL_TYPE_FILTER_ALL,
+        )
+        self.assertEqual(
+            resolve_effective_cell_type_filter([single], CELL_TYPE_FILTER_PAIR),
+            CELL_TYPE_FILTER_ALL,
+        )
+        self.assertEqual(
+            resolve_effective_cell_type_filter([unknown], CELL_TYPE_FILTER_PAIR),
+            CELL_TYPE_FILTER_ALL,
+        )
+        self.assertEqual(
+            resolve_effective_cell_type_filter([single, pair], "not-a-filter"),
+            CELL_TYPE_FILTER_ALL,
+        )
+
+    def test_effective_source_contour_filter_requires_base_count_data(self):
+        source_row = self._create_stat(cell_id=1, cell_type=CELL_TYPE_SINGLE, source_count=2)
+        nuclear_row = CellStatistics.objects.create(
+            segmented_image=self.segmented,
+            cell_id=2,
+            cell_type=CELL_TYPE_SINGLE,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
+            nucleus_intensity_sum=3.0,
+            cell_pair_intensity_sum=4.0,
+            properties={
+                "cell_type": CELL_TYPE_SINGLE,
+                "signal_quantification_mode": "nuclear_cell_pair",
+            },
+        )
+
+        self.assertEqual(
+            resolve_effective_puncta_source_contour_count_filter(
+                [source_row],
+                PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
+            ),
+            PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
+        )
+        self.assertEqual(
+            resolve_effective_puncta_source_contour_count_filter(
+                [nuclear_row],
+                PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_1,
+            ),
+            "all",
+        )
+        self.assertEqual(
+            resolve_effective_puncta_source_contour_count_filter(
+                [source_row],
+                "not-a-filter",
+            ),
+            "all",
+        )
+
     def test_selected_combined_export_respects_cell_type_row_filter(self):
         self._create_stat(cell_id=1, cell_type=CELL_TYPE_SINGLE, source_count=1)
         self._create_stat(cell_id=2, cell_type=CELL_TYPE_PAIR, source_count=1)
@@ -228,6 +295,63 @@ class CellInclusionPersistenceAndFilteringTests(TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[1][2], "Single Cell")
         self.assertNotIn("Cell Pair", response.content.decode("utf-8"))
+
+    def test_combined_export_unavailable_cell_type_filter_exports_all_rows(self):
+        self._create_stat(cell_id=1, cell_type=CELL_TYPE_PAIR, source_count=1)
+
+        response = build_combined_statistics_export_response(
+            [
+                StatisticsExportFile(
+                    uuid=str(self.segmented.UUID),
+                    file_name="cell_inclusion",
+                    segmented_image=self.segmented,
+                )
+            ],
+            export_format="csv",
+            raw_columns=["puncta_distance"],
+            spatial_stats_unit="px",
+            default_manual_scale=0.1,
+            cell_type_filter=CELL_TYPE_FILTER_SINGLE,
+        )
+
+        csv_text = response.content.decode("utf-8")
+        self.assertIn("Cell Pair", csv_text)
+        self.assertIn(",1,Cell Pair,", csv_text)
+
+    def test_combined_export_unavailable_source_contour_filter_exports_all_rows(self):
+        CellStatistics.objects.create(
+            segmented_image=self.segmented,
+            cell_id=1,
+            cell_type=CELL_TYPE_PAIR,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
+            nucleus_intensity_sum=3.0,
+            cell_pair_intensity_sum=4.0,
+            properties={
+                "cell_type": CELL_TYPE_PAIR,
+                "signal_quantification_mode": "puncta_distance",
+                "puncta_line_mode": "red_puncta",
+            },
+        )
+
+        response = build_combined_statistics_export_response(
+            [
+                StatisticsExportFile(
+                    uuid=str(self.segmented.UUID),
+                    file_name="cell_inclusion",
+                    segmented_image=self.segmented,
+                )
+            ],
+            export_format="csv",
+            raw_columns=["puncta_distance"],
+            spatial_stats_unit="px",
+            default_manual_scale=0.1,
+            puncta_source_contour_count_filter=PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
+        )
+
+        csv_text = response.content.decode("utf-8")
+        self.assertIn("Cell Pair", csv_text)
+        self.assertIn(",1,Cell Pair,1.000", csv_text)
 
     def test_selected_export_identity_columns_are_independent_from_metric_columns(self):
         self.assertEqual(

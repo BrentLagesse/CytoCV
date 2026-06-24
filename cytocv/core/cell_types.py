@@ -118,3 +118,27 @@ def filter_statistics_by_cell_type(statistics: Any, filter_value: Any):
         for stat in statistics
         if matches_cell_type_filter(stat, normalized_filter)
     ]
+
+
+def available_cell_types_from_statistics(statistics: Any) -> set[str]:
+    """Return canonical cell types present in serialized or model statistics rows."""
+
+    if statistics is None:
+        return set()
+    return {cell_type_from_statistics(stat) for stat in statistics}
+
+
+def resolve_effective_cell_type_filter(statistics: Any, filter_value: Any) -> str:
+    """Return the row filter that can be safely applied for the available rows."""
+
+    normalized_filter = normalize_cell_type_filter(filter_value)
+    if normalized_filter == CELL_TYPE_FILTER_ALL:
+        return CELL_TYPE_FILTER_ALL
+    available_types = available_cell_types_from_statistics(statistics)
+    has_mixed_known_types = (
+        CELL_TYPE_SINGLE in available_types
+        and CELL_TYPE_PAIR in available_types
+    )
+    if has_mixed_known_types and normalized_filter in available_types:
+        return normalized_filter
+    return CELL_TYPE_FILTER_ALL

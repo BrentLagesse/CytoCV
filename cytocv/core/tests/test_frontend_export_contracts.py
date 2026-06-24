@@ -1,7 +1,9 @@
 ﻿from __future__ import annotations
 
+import csv
 import json
 import re
+from io import StringIO
 
 from django.test import TestCase
 from django.urls import reverse
@@ -231,9 +233,13 @@ class FrontendExportContractTests(TestCase):
                 self.assertIn("_cell_type", source)
                 self.assertIn("getCurrentCellTypeFilter()", source)
                 self.assertIn("cellTypeFilterButton.addEventListener('click'", source)
+                self.assertIn("getCellTypeFilterUiState", source)
+                self.assertIn("cellTypeFilterButton.disabled = !state.enabled", source)
                 self.assertIn("_puncta_source_contour_count", source)
                 self.assertIn("getCurrentPunctaSourceContourCountFilter()", source)
                 self.assertIn("punctaSourceContourFilterButton.addEventListener('click'", source)
+                self.assertIn("getPunctaSourceContourFilterUiState", source)
+                self.assertIn("punctaSourceContourFilterButton.disabled = !state.enabled", source)
                 self.assertIn("syncCurrentCellToActiveContourFilter", source)
                 self.assertIn("getActiveCellNavigationIds", source)
                 self.assertIn("getAdjacentFilteredCellId(currentCellNumber, activeIds", source)
@@ -248,17 +254,14 @@ class FrontendExportContractTests(TestCase):
                 self.assertIn("setPunctaSourceContourFilterSkeleton", source)
                 self.assertIn("startPunctaSourceContourFilterApplyVisualState", source)
                 self.assertIn("clearPunctaSourceContourFilterApplyVisualState", source)
-                self.assertIn("document.getElementById('tableScrollFrame')", source)
-                self.assertIn("document.querySelector('[data-ui-region=\"cell-metrics-strip\"]')", source)
-                self.assertIn("element.classList.toggle('is-contour-filter-applying'", source)
-                self.assertIn("element.setAttribute('aria-busy'", source)
+                self.assertIn("setCellDataRegionLoading(isApplying)", source)
                 self.assertIn("setPunctaSourceContourFilterApplying(true)", source)
                 self.assertIn("await waitForPunctaSourceContourFilterApplyFeedback()", source)
                 self.assertIn("status.textContent = 'Applying filter...'", source)
                 self.assertIn("status.classList.remove('is-applying-filter')", source)
                 self.assertIn("Showing ${shown} of ${counts.total} cells", source)
                 self.assertNotIn("Showing ${shown} of ${counts.total} cells.", source)
-                self.assertIn("No cells match the current row filters.", source)
+                self.assertIn("getRowFilterEmptyMessage", source)
                 handler_start = source.index("option.addEventListener('click', async () => {")
                 handler_end = source.index("document.addEventListener('click'", handler_start)
                 filter_handler = source[handler_start:handler_end]
@@ -285,11 +288,24 @@ class FrontendExportContractTests(TestCase):
         self.assertIn("normalizePunctaSourceContourCountFilter", results_source)
         self.assertIn("normalizeCellTypeFilter", results_source)
         self.assertIn("matchesCellTypeFilter", results_source)
+        self.assertIn("getAvailableCellTypes", results_source)
+        self.assertIn("getCellTypeFilterUiState", results_source)
+        self.assertIn("getPunctaSourceContourFilterUiState", results_source)
+        self.assertIn("getRowFilterEmptyMessage", results_source)
+        self.assertIn("No cells match the current row filters.", results_source)
+        self.assertIn("No retained cells are available for this result.", results_source)
+        self.assertIn("No cells match the current Cell Type Filter.", results_source)
+        self.assertIn("No cells match the current source contour filter.", results_source)
         self.assertIn("matchesPunctaSourceContourCountFilter", results_source)
         self.assertIn("getPunctaSourceContourCountFilterCounts", results_source)
         self.assertIn("getPunctaSourceContourFilteredCellIds", results_source)
         self.assertIn("findNearestMatchingCellByOriginalOrder", results_source)
         self.assertIn("getAdjacentFilteredCellId", results_source)
+        self.assertIn("function setCellDataRegionLoading", results_source)
+        self.assertIn("querySelector('#tableScrollFrame')", results_source)
+        self.assertIn("querySelectorAll('[data-ui-region=\"cell-metrics-strip\"]')", results_source)
+        self.assertIn("region.classList.toggle('is-contour-filter-applying'", results_source)
+        self.assertIn("region.setAttribute('aria-busy'", results_source)
         self.assertIn("tr.dataset.cellId = String(id)", results_source)
         self.assertIn("tr.classList.add('is-active-cell')", results_source)
 
@@ -393,6 +409,30 @@ class FrontendExportContractTests(TestCase):
                 self.assertIn("Cell Type", csv_text)
                 self.assertIn(",1,Single Cell,5.000", csv_text)
                 self.assertNotIn(",2,Cell Pair,5.000", csv_text)
+
+    def test_direct_exports_use_all_when_cell_type_filter_unavailable(self):
+        user = login_user(self, "frontend-direct-disabled-cell-type-filter@example.com")
+        uuid_value = create_display_file(uploaded_owner=user, filename="disabled_cell_type_filter")
+        add_cell_stat(uuid_value, cell_id=1, properties={"cell_type": "cell_pair"})
+
+        for url in (
+            reverse("dashboard") + f"?file_uuid={uuid_value}&_export=csv&_cell_type=single_cell",
+            reverse("display", args=[uuid_value]) + "?_export=csv&_cell_type=single_cell",
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                csv_text = response.content.decode("utf-8")
+                rows = list(csv.reader(StringIO(csv_text)))
+                self.assertEqual(
+                    rows[0][:3],
+                    ["Cell ID", "Cell Type", "Distance Between Red Puncta (px)"],
+                )
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[1][0], "1")
+                self.assertEqual(rows[1][1], "Cell Pair")
+                self.assertNotIn("Single Cell", csv_text)
 
     def test_display_export_preserves_visible_subset_order(self):
         user = login_user(self, "frontend-display-export-order@example.com")
