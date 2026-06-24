@@ -68,6 +68,29 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
         self.assertNotIn("statCountEl.textContent = count === 1", source)
         self.assertNotIn("fileCountEl.textContent = count === 1", source)
 
+    def test_contour_intensity_selector_uses_slider_state_and_text_blend(self):
+        shared_source = static_text("js/shared/results-viewer.js")
+        display_source = static_text("js/pages/display-viewer.js")
+        dashboard_source = static_text("js/pages/dashboard-viewer.js")
+
+        self.assertIn("document.querySelectorAll('.contour-intensity-toggle')", shared_source)
+        self.assertIn("toggle.dataset.activeIntensity = normalizedType;", shared_source)
+
+        for name, source in (("display", display_source), ("dashboard", dashboard_source)):
+            with self.subTest(source=name):
+                self.assertIn(
+                    "document.querySelectorAll('[data-contour-intensity-type-label]')",
+                    source,
+                )
+                self.assertIn(
+                    "setTextWithBlend(element, contourIntensityTypeLabel, { blend: blendText })",
+                    source,
+                )
+                self.assertNotIn(
+                    "element.textContent = state.labels.contourIntensityTypeLabel || 'Total';",
+                    source,
+                )
+
     def test_export_selection_contour_intensity_helpers_select_concrete_fields(self):
         node = shutil.which("node")
         if not node:
@@ -531,6 +554,7 @@ function makeElement(dataset = {{}}) {{
 }}
 
 const selectorButtons = [makeButton('total'), makeButton('max'), makeButton('average')];
+const contourIntensityToggle = makeElement({{ activeIntensity: '' }});
 const rootEl = makeElement({{ cellCardMode: 'puncta_distance' }});
 const referenceSection = makeElement({{ cellCardSection: 'reference' }});
 const nuclearSection = makeElement({{ cellCardSection: 'nuclear_cell_pair_intensity' }});
@@ -748,17 +772,20 @@ shared.bindContourIntensityDisplayControls({{
     rerenderedType = type;
   }},
 }});
+assert.strictEqual(contourIntensityToggle.dataset.activeIntensity, 'total');
 assert.strictEqual(selectorButtons[0].attrs['aria-pressed'], 'true');
 assert.strictEqual(selectorButtons[0].classList.contains('active'), true);
 assert.strictEqual(selectorButtons[1].attrs['aria-pressed'], 'false');
 selectorButtons[1].handlers.click();
 assert.strictEqual(currentType, 'max');
 assert.strictEqual(rerenderedType, 'max');
+assert.strictEqual(contourIntensityToggle.dataset.activeIntensity, 'max');
 assert.strictEqual(selectorButtons[0].attrs['aria-pressed'], 'false');
 assert.strictEqual(selectorButtons[1].attrs['aria-pressed'], 'true');
 selectorButtons[2].handlers.click();
 assert.strictEqual(currentType, 'average');
 assert.strictEqual(rerenderedType, 'average');
+assert.strictEqual(contourIntensityToggle.dataset.activeIntensity, 'average');
 assert.deepStrictEqual(exportState, {{ activeFormat: 'xlsx' }});
 assert.strictEqual(selectedMetricCheckbox.checked, true);
 

@@ -377,6 +377,9 @@
 
     function setContourIntensityDisplayButtonState(activeType = 'total') {
         const normalizedType = normalizeContourIntensityDisplayType(activeType);
+        document.querySelectorAll('.contour-intensity-toggle').forEach((toggle) => {
+            toggle.dataset.activeIntensity = normalizedType;
+        });
         document.querySelectorAll('[data-contour-intensity-display]').forEach((button) => {
             const buttonType = normalizeContourIntensityDisplayType(button.dataset.contourIntensityDisplay);
             const isActive = buttonType === normalizedType;

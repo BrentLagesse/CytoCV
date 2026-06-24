@@ -408,6 +408,7 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertIn(".contour-intensity-title-group {", results_css)
         self.assertIn(".contour-intensity-type-pill {", results_css)
         self.assertIn(".contour-intensity-toggle {", results_css)
+        self.assertIn(".contour-intensity-toggle-indicator {", results_css)
         self.assertIn(".contour-intensity-toggle-btn {", results_css)
         self.assertIn('.contour-intensity-toggle-btn[aria-pressed="true"]', results_css)
         self.assertIn(".contour-intensity-groups {", results_css)
@@ -442,11 +443,27 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-toggle\s*\{[^}]*display:\s*inline-flex;[^}]*justify-self:\s*end;[^}]*margin-left:\s*auto;[^}]*border-radius:\s*8px;",
+            r"\.contour-intensity-toggle\s*\{[^}]*position:\s*relative;[^}]*display:\s*inline-flex;[^}]*justify-self:\s*end;[^}]*margin-left:\s*auto;[^}]*border-radius:\s*8px;",
         )
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-toggle-btn\s*\{[^}]*min-height:\s*24px;[^}]*border-radius:\s*6px;",
+            r"\.contour-intensity-toggle-indicator\s*\{[^}]*position:\s*absolute;[^}]*width:\s*calc\(\(100%\s*-\s*10px\)\s*/\s*3\);[^}]*transition:\s*transform\s+170ms\s+ease;",
+        )
+        self.assertRegex(
+            results_css,
+            r'\.contour-intensity-toggle\[data-active-intensity="max"\]\s+\.contour-intensity-toggle-indicator\s*\{[^}]*transform:\s*translateX\(calc\(100%\s*\+\s*2px\)\);',
+        )
+        self.assertRegex(
+            results_css,
+            r'\.contour-intensity-toggle\[data-active-intensity="average"\]\s+\.contour-intensity-toggle-indicator\s*\{[^}]*transform:\s*translateX\(calc\(200%\s*\+\s*4px\)\);',
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-toggle-btn\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;[^}]*width:\s*58px;[^}]*min-height:\s*24px;[^}]*border-radius:\s*6px;",
+        )
+        self.assertRegex(
+            results_css,
+            r'\.contour-intensity-toggle-btn\.active,\s*\.contour-intensity-toggle-btn\[aria-pressed="true"\]\s*\{[^}]*color:\s*#ffffff;[^}]*background:\s*transparent;',
         )
         self.assertRegex(
             results_css,

@@ -2775,6 +2775,7 @@ a:hover {
 }
 
 .contour-intensity-toggle {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-self: end;
@@ -2784,11 +2785,36 @@ a:hover {
     border: 1px solid rgba(var(--glass-border-rgb), 0.28);
     border-radius: 8px;
     background: rgba(9, 14, 21, 0.54);
+    overflow: hidden;
+}
+
+.contour-intensity-toggle-indicator {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    z-index: 0;
+    width: calc((100% - 10px) / 3);
+    border-radius: 6px;
+    background: rgba(74, 144, 226, 0.34);
+    pointer-events: none;
+    transition: transform 170ms ease;
+}
+
+.contour-intensity-toggle[data-active-intensity="max"] .contour-intensity-toggle-indicator {
+    transform: translateX(calc(100% + 2px));
+}
+
+.contour-intensity-toggle[data-active-intensity="average"] .contour-intensity-toggle-indicator {
+    transform: translateX(calc(200% + 4px));
 }
 
 .contour-intensity-toggle-btn {
+    position: relative;
+    z-index: 1;
+    width: 58px;
     min-height: 24px;
-    padding: 3px 9px;
+    padding: 3px 8px;
     border: 0;
     border-radius: 6px;
     background: transparent;
@@ -2801,14 +2827,18 @@ a:hover {
 .contour-intensity-toggle-btn:hover,
 .contour-intensity-toggle-btn:focus-visible {
     color: #eef4ff;
-    background: rgba(255, 255, 255, 0.08);
     outline: none;
+}
+
+.contour-intensity-toggle-btn:not([aria-pressed="true"]):hover,
+.contour-intensity-toggle-btn:not([aria-pressed="true"]):focus-visible {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .contour-intensity-toggle-btn.active,
 .contour-intensity-toggle-btn[aria-pressed="true"] {
     color: #ffffff;
-    background: rgba(74, 144, 226, 0.34);
+    background: transparent;
 }
 
 .contour-intensity-groups {

@@ -447,9 +447,10 @@
             document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
-            document.querySelectorAll('[data-contour-intensity-type-label]').forEach((element) => {
-                element.textContent = state.labels.contourIntensityTypeLabel || 'Total';
-            });
+            const contourIntensityTypeLabel = state.labels.contourIntensityTypeLabel || 'Total';
+            const contourIntensityTypeLabelUpdates = Array.from(
+                document.querySelectorAll('[data-contour-intensity-type-label]')
+            ).map((element) => setTextWithBlend(element, contourIntensityTypeLabel, { blend: blendText }));
             document.querySelectorAll('[data-contour-intensity-label-for]').forEach((element) => {
                 const metricId = element.dataset.contourIntensityLabelFor;
                 const label = state.labels.contourIntensityLabels?.[metricId];
@@ -470,6 +471,7 @@
 
             const textUpdates = [
                 setTextWithBlend(document.getElementById('cellID'), state.cellId, { blend: blendText }),
+                ...contourIntensityTypeLabelUpdates,
                 ...BLEND_METRIC_IDS.map((metricId) =>
                     setTextWithBlend(document.getElementById(metricId), state.metricValues[metricId] ?? 'N/A', { blend: blendText })
                 ),

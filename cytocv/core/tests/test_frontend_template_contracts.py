@@ -17,8 +17,8 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "cell-type-filter-compact-20260623"
-RESULTS_VIEWER_JS_VERSION = "cell-transition-skeleton-min-20260623"
+RESULTS_VIEWER_CSS_VERSION = "contour-intensity-toggle-slide-20260623"
+RESULTS_VIEWER_JS_VERSION = "contour-intensity-toggle-slide-20260623"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "cell-inclusion-ui-20260623"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
@@ -97,6 +97,8 @@ class FrontendTemplateContractTests(TestCase):
             'data-contour-intensity-display="total" aria-pressed="true"',
             'data-contour-intensity-type-label',
             'class="contour-intensity-title-group"',
+            'data-active-intensity="total"',
+            'class="contour-intensity-toggle-indicator" aria-hidden="true"',
             'data-contour-intensity-label-for="redInRedIntensity1"',
             'data-contour-slot-label="Slot 1"',
             'aria-label="Red In Red Total Intensity 1"',
@@ -153,6 +155,8 @@ class FrontendTemplateContractTests(TestCase):
             'aria-label="Contour Intensity Details"',
             'data-contour-intensity-type-label',
             'class="contour-intensity-toggle"',
+            'data-active-intensity="total"',
+            'class="contour-intensity-toggle-indicator" aria-hidden="true"',
             'data-contour-intensity-display="total"',
             'data-contour-intensity-display="max"',
             'data-contour-intensity-display="average"',
