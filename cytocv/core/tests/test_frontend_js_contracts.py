@@ -438,12 +438,58 @@ function makeButton(type) {{
   }};
 }}
 
+function makeElement(dataset = {{}}) {{
+  return {{
+    dataset: {{ ...dataset }},
+    attrs: {{}},
+    hidden: false,
+    classList: makeClassList(),
+    setAttribute(name, value) {{
+      this.attrs[name] = value;
+    }},
+    querySelectorAll() {{
+      return [];
+    }},
+  }};
+}}
+
 const selectorButtons = [makeButton('total'), makeButton('max'), makeButton('average')];
+const rootEl = makeElement({{ cellCardMode: 'puncta_distance' }});
+const referenceSection = makeElement({{ cellCardSection: 'reference' }});
+const nuclearSection = makeElement({{ cellCardSection: 'nuclear_cell_pair_intensity' }});
+const punctaSection = makeElement({{ cellCardSection: 'puncta_distance' }});
+const biorientationSection = makeElement({{ cellCardSection: 'biorientation' }});
+const cenDotSection = makeElement({{ cellCardSection: 'cen_dot' }});
+const measurementSection = makeElement({{ cellCardSection: 'measurement_contour' }});
+const contourSection = makeElement({{ cellCardSection: 'contour_intensity' }});
+const detailRow = makeElement();
+detailRow.querySelectorAll = (selector) => (
+  selector === '[data-cell-card-section]' ? [measurementSection, contourSection] : []
+);
+const statRows = [
+  makeElement({{ statRow: 'puncta_distance' }}),
+  makeElement({{ statRow: 'cen_dot' }}),
+];
+const cellCardSections = [
+  referenceSection,
+  nuclearSection,
+  punctaSection,
+  biorientationSection,
+  cenDotSection,
+  measurementSection,
+  contourSection,
+];
 const context = {{
   window: {{}},
   document: {{
     querySelectorAll(selector) {{
-      return selector === '[data-contour-intensity-display]' ? selectorButtons : [];
+      if (selector === '[data-contour-intensity-display]') return selectorButtons;
+      if (selector === '[data-cell-card-root]') return [rootEl];
+      if (selector === '[data-cell-card-section]') return cellCardSections;
+      if (selector === '[data-stat-section]:not([data-cell-card-section])') return [];
+      if (selector === '[data-stat-row]') return statRows;
+      if (selector === '[data-cell-card-detail-row]') return [detailRow];
+      return [];
     }},
   }},
 }};
@@ -651,15 +697,48 @@ const helpers = shared.createStatisticsHelpers({{
 const builtTotal = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'total' }});
 assert.strictEqual(builtTotal.contourIntensityType, 'total');
 assert.strictEqual(builtTotal.metricValues.redInRedIntensity1, '11');
+assert.strictEqual(builtTotal.metricValues.measurementContourRatio1, '0');
+assert.strictEqual(builtTotal.metricValues.colinearDots, '0');
+assert.strictEqual(builtTotal.labels.contourIntensityTypeLabel, 'Total');
 assert.strictEqual(builtTotal.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Total Intensity 1');
 const builtMax = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'max' }});
 assert.strictEqual(builtMax.contourIntensityType, 'max');
 assert.strictEqual(builtMax.metricValues.redInRedIntensity1, '111');
+assert.strictEqual(builtMax.labels.contourIntensityTypeLabel, 'Max');
 assert.strictEqual(builtMax.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Max Intensity 1');
 const builtAverage = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'average' }});
 assert.strictEqual(builtAverage.contourIntensityType, 'average');
 assert.strictEqual(builtAverage.metricValues.redInRedIntensity1, '1.500');
+assert.strictEqual(builtAverage.labels.contourIntensityTypeLabel, 'Average');
 assert.strictEqual(builtAverage.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Average Intensity 1');
+
+helpers.applyMetricVisibility(
+  shared.getVisibleCellCardSections(nuclearStats),
+  {{ mode: shared.getEffectiveCellCardMode(nuclearStats) }}
+);
+assert.strictEqual(rootEl.dataset.cellCardMode, 'nuclear_cell_pair');
+assert.strictEqual(referenceSection.hidden, false);
+assert.strictEqual(nuclearSection.hidden, false);
+assert.strictEqual(punctaSection.hidden, true);
+assert.strictEqual(biorientationSection.hidden, true);
+assert.strictEqual(cenDotSection.hidden, true);
+assert.strictEqual(measurementSection.hidden, true);
+assert.strictEqual(contourSection.hidden, true);
+assert.strictEqual(detailRow.hidden, true);
+
+helpers.applyMetricVisibility(
+  shared.getVisibleCellCardSections(punctaStats),
+  {{ mode: shared.getEffectiveCellCardMode(punctaStats) }}
+);
+assert.strictEqual(rootEl.dataset.cellCardMode, 'puncta_distance');
+assert.strictEqual(referenceSection.hidden, false);
+assert.strictEqual(nuclearSection.hidden, true);
+assert.strictEqual(punctaSection.hidden, false);
+assert.strictEqual(biorientationSection.hidden, false);
+assert.strictEqual(cenDotSection.hidden, false);
+assert.strictEqual(measurementSection.hidden, false);
+assert.strictEqual(contourSection.hidden, false);
+assert.strictEqual(detailRow.hidden, false);
 """
         result = subprocess.run(
             [node, "-e", script],

@@ -388,6 +388,7 @@
             return {
                 visibleImageUrls,
                 cellId: (imageUrls || cellStats) ? cellNumber : 0,
+                mode: cellCard.mode,
                 sections: cellCard.sections,
                 metricValues: cellCard.metricValues,
                 labels: cellCard.labels,
@@ -403,12 +404,18 @@
             document.getElementById('lineIntensityLabel').textContent = state.labels.lineIntensityLabel;
             document.getElementById('nucleusIntensityLabel').textContent = state.labels.nucleusIntensityLabel;
             document.getElementById('cellularIntensityLabel').textContent = state.labels.cellularIntensityLabel;
+            document.querySelectorAll('[data-contour-intensity-type-label]').forEach((element) => {
+                element.textContent = state.labels.contourIntensityTypeLabel || 'Total';
+            });
             document.querySelectorAll('[data-contour-intensity-label-for]').forEach((element) => {
                 const metricId = element.dataset.contourIntensityLabelFor;
                 const label = state.labels.contourIntensityLabels?.[metricId];
-                if (label) element.textContent = label;
+                if (!label) return;
+                element.setAttribute('aria-label', label);
+                element.setAttribute('title', label);
+                element.textContent = element.dataset.contourSlotLabel || label;
             });
-            applyMetricVisibility(state.sections || { reference: true });
+            applyMetricVisibility(state.sections || { reference: true }, { mode: state.mode });
 
             const imageIds = ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'];
             const imageUpdates = imageIds.map((id, index) =>

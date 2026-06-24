@@ -782,10 +782,14 @@
             return tableFieldOrder.slice();
         }
 
-        function applyMetricVisibility(visibility) {
+        function applyMetricVisibility(visibility, { mode = CELL_CARD_SIGNAL_MODES.puncta } = {}) {
             const sections = visibility && typeof visibility === 'object'
                 ? visibility
                 : { reference: true };
+            const normalizedMode = normalizeCellCardSignalMode(mode) || CELL_CARD_SIGNAL_MODES.puncta;
+            document.querySelectorAll('[data-cell-card-root]').forEach((root) => {
+                root.dataset.cellCardMode = normalizedMode;
+            });
             document.querySelectorAll('[data-cell-card-section]').forEach((section) => {
                 const sectionName = section.dataset.cellCardSection;
                 section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)
@@ -803,6 +807,12 @@
                 row.hidden = rowName && Object.prototype.hasOwnProperty.call(sections, rowName)
                     ? !sections[rowName]
                     : false;
+            });
+            document.querySelectorAll('[data-cell-card-detail-row]').forEach((row) => {
+                const hasVisibleSection = Array.from(row.querySelectorAll('[data-cell-card-section]')).some((section) => (
+                    !section.hidden
+                ));
+                row.hidden = !hasVisibleSection;
             });
         }
 
@@ -1319,6 +1329,7 @@
                     lineIntensityLabel,
                     nucleusIntensityLabel: labels.nuclear,
                     cellularIntensityLabel: labels.cellular,
+                    contourIntensityTypeLabel: CONTOUR_INTENSITY_STATISTICS[displayType],
                     contourIntensityLabels,
                 },
             };

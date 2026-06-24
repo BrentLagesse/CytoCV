@@ -16,7 +16,7 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "cell-image-loading-20260623"
+RESULTS_VIEWER_CSS_VERSION = "cell-card-contour-line-fix-20260623"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "puncta-source-contour-filter-20260621-v3"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
@@ -79,6 +79,9 @@ class FrontendTemplateContractTests(TestCase):
             'id="greenInGreenIntensity1"',
             'id="greenInGreenIntensity2"',
             'id="greenInGreenIntensity3"',
+            'data-cell-card-root',
+            'data-cell-card-mode="puncta_distance"',
+            'data-cell-card-detail-row',
             'data-cell-card-section="reference"',
             'data-cell-card-section="nuclear_cell_pair_intensity"',
             'data-cell-card-section="puncta_distance"',
@@ -90,7 +93,26 @@ class FrontendTemplateContractTests(TestCase):
             'data-contour-intensity-display="max"',
             'data-contour-intensity-display="average"',
             'data-contour-intensity-display="total" aria-pressed="true"',
+            'data-contour-intensity-type-label',
+            'class="contour-intensity-title-group"',
             'data-contour-intensity-label-for="redInRedIntensity1"',
+            'data-contour-slot-label="Slot 1"',
+            'aria-label="Red In Red Total Intensity 1"',
+            '>Slot 1</span>',
+            '>Ratio 1</span>',
+            'class="nuclear-metric-grid"',
+            'data-nuclear-metric-grid',
+            'data-nuclear-metric-group="setup"',
+            'data-nuclear-metric-group="intensity"',
+            'data-nuclear-metric-row="nucleus-contour-source"',
+            'data-nuclear-metric-row="measurement-channel"',
+            'data-nuclear-metric-row="nuclear-status"',
+            'data-nuclear-metric-row="nuclear-intensity"',
+            'data-nuclear-metric-row="cell-pair-intensity"',
+            'data-nuclear-metric-row="cytoplasmic-intensity"',
+            'data-nuclear-metric-row="nuclear-cytoplasmic-ratio"',
+            '<p class="nuclear-metric-group-title">Setup</p>',
+            '<p class="nuclear-metric-group-title">Intensity</p>',
             'data-stat-section="red_green_intensity"',
             'data-stat-section="nuclear_cell_pair_intensity"',
             'data-stat-section="cen_dot"',
@@ -100,6 +122,40 @@ class FrontendTemplateContractTests(TestCase):
         ):
             with self.subTest(hook=hook):
                 self.assertIn(hook, content)
+        assert_in_order(
+            self,
+            content,
+            'data-nuclear-metric-group="setup"',
+            'data-nuclear-metric-row="nucleus-contour-source"',
+            'id="nucleusContourChannel"',
+            'data-nuclear-metric-row="measurement-channel"',
+            'id="measurementChannel"',
+            'data-nuclear-metric-row="nuclear-status"',
+            'id="nuclearStatus"',
+            'data-nuclear-metric-group="intensity"',
+            'data-nuclear-metric-row="nuclear-intensity"',
+            'id="nucleusIntensitySum"',
+            'data-nuclear-metric-row="cell-pair-intensity"',
+            'id="cellPairIntensitySum"',
+            'data-nuclear-metric-row="cytoplasmic-intensity"',
+            'id="cytoplasmicIntensity"',
+            'data-nuclear-metric-row="nuclear-cytoplasmic-ratio"',
+            'id="nuclearCytoplasmicRatio"',
+        )
+        assert_in_order(
+            self,
+            content,
+            '<div class="metric-lead-row contour-intensity-heading">',
+            'class="contour-intensity-title-group"',
+            "<p class=\"metric-lead\">Contour Intensities</p>",
+            'aria-label="Contour Intensity Details"',
+            'data-contour-intensity-type-label',
+            'class="contour-intensity-toggle"',
+            'data-contour-intensity-display="total"',
+            'data-contour-intensity-display="max"',
+            'data-contour-intensity-display="average"',
+            '<div class="contour-intensity-groups">',
+        )
 
     def test_public_pages_render_expected_static_contracts(self):
         cases = (

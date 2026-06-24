@@ -299,7 +299,6 @@ class FrontendStaticContractTests(SimpleTestCase):
             r"\.skeleton-cell-filter-badge\s*\{[^}]*width:\s*150px;[^}]*height:\s*24px;[^}]*border-radius:\s*999px;",
         )
 
-
     def test_cell_pair_image_loader_uses_image_only_skeleton_overlay(self):
         results_css = static_text("css/components/results-viewer.css")
 
@@ -379,28 +378,74 @@ class FrontendStaticContractTests(SimpleTestCase):
 
     def test_cell_pair_card_mode_specific_sections_and_contour_selector_css(self):
         results_css = static_text("css/components/results-viewer.css")
+        display_css = static_text("css/pages/display.css")
+        dashboard_css = static_text("css/pages/dashboard.css")
 
         self.assertIn("[data-cell-card-section][hidden]", results_css)
+        self.assertIn(".cell-stats-detail-grid[hidden]", results_css)
         self.assertIn(".cell-stats-intensity-grid[hidden]", results_css)
         self.assertRegex(
             results_css,
-            r"\[data-cell-card-section\]\[hidden\],\s*\.cell-stats-section\[hidden\],\s*\.cell-stats-intensity-grid\[hidden\]\s*\{[^}]*display:\s*none\s*!important;",
+            r"\[data-cell-card-section\]\[hidden\],\s*\.cell-stats-section\[hidden\],\s*\.cell-stats-detail-grid\[hidden\],\s*\.cell-stats-intensity-grid\[hidden\]\s*\{[^}]*display:\s*none\s*!important;",
         )
+        self.assertIn('.cell-stats-strip[data-cell-card-mode="nuclear_cell_pair"] .cell-stats-top-grid', results_css)
+        self.assertIn('.cell-stats-strip[data-cell-card-mode="puncta_distance"] .nuclear-stat-section', results_css)
+        self.assertIn(".nuclear-metric-grid {", results_css)
+        self.assertIn(".nuclear-metric-group {", results_css)
+        self.assertIn(".nuclear-metric-group-title {", results_css)
+        self.assertIn(".cell-stats-strip .nuclear-metric-grid .nuclear-metric-row {", results_css)
+        self.assertIn(".cell-stats-detail-grid {", results_css)
+        self.assertIn(".contour-intensity-heading {", results_css)
+        self.assertIn(".contour-intensity-title-group {", results_css)
+        self.assertIn(".contour-intensity-type-pill {", results_css)
         self.assertIn(".contour-intensity-toggle {", results_css)
         self.assertIn(".contour-intensity-toggle-btn {", results_css)
         self.assertIn('.contour-intensity-toggle-btn[aria-pressed="true"]', results_css)
         self.assertIn(".contour-intensity-groups {", results_css)
+        self.assertNotIn("grid-template-columns: repeat(5", results_css)
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-toggle\s*\{[^}]*display:\s*inline-flex;[^}]*border-radius:\s*8px;",
+            r"\.cell-stats-strip\s+\.nuclear-metric-grid\s+\.nuclear-metric-row\s*\{[^}]*grid-template-columns:\s*minmax\(138px,\s*1fr\)\s+minmax\(72px,\s*auto\);[^}]*border-top:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.07\);",
         )
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-toggle-btn\s*\{[^}]*min-height:\s*26px;[^}]*border-radius:\s*6px;",
+            r"\.nuclear-metric-row\s+\.metric-value\s*\{[^}]*justify-self:\s*end;[^}]*text-align:\s*right;[^}]*white-space:\s*nowrap;",
         )
         self.assertRegex(
             results_css,
-            r"\.contour-intensity-groups\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);",
+            r"\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.puncta-stat-section\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.biorientation-stat-section\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.cen-dot-stat-section\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.measurement-contour-section\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.contour-intensity-combination\s+\.metric-row\s*\{[^}]*min-height:\s*22px;[^}]*padding:\s*3px\s+0;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.puncta-stat-section\s+\.metric-row\s+\+\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.biorientation-stat-section\s+\.metric-row\s+\+\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.cen-dot-stat-section\s+\.metric-row\s+\+\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.measurement-contour-section\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.contour-intensity-combination\s+\.metric-row\s+\+\s+\.metric-row\s*\{[^}]*border-top:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.07\);",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-heading\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*space-between;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-title-group\s*\{[^}]*display:\s*inline-flex;[^}]*gap:\s*6px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-type-pill\s*\{[^}]*justify-content:\s*center;[^}]*min-width:\s*52px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-toggle\s*\{[^}]*display:\s*inline-flex;[^}]*justify-self:\s*end;[^}]*margin-left:\s*auto;[^}]*border-radius:\s*8px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-toggle-btn\s*\{[^}]*min-height:\s*24px;[^}]*border-radius:\s*6px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.contour-intensity-groups\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(118px,\s*1fr\)\);",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\s+\.contour-intensity-combination\s*\{[^}]*border-top:\s*0;",
         )
         self.assertRegex(
             results_css,
@@ -408,6 +453,11 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertIn("@media (max-width: 1180px)", results_css)
         self.assertIn("@media (max-width: 760px)", results_css)
+        self.assertIn(".nuclear-metric-grid {\n        grid-template-columns: 1fr;", results_css)
+        self.assertNotIn(".cell-stats-column", display_css)
+        self.assertNotIn(".cell-stats-column", dashboard_css)
+        self.assertNotIn(".cell-stats-strip {\n        grid-template-columns", display_css)
+        self.assertNotIn(".cell-stats-strip {\n        grid-template-columns", dashboard_css)
 
     def test_decorative_icon_slots_do_not_use_placeholder_glyphs(self):
         for css_path in (CORE_STATIC_ROOT / "css").rglob("*.css"):

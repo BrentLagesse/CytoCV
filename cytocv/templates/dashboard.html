@@ -6,9 +6,9 @@
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-file-count-fade-20260622"></script>
-    <script src="{% static 'js/shared/results-viewer.js' %}?v=cell-image-loading-20260623"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=cell-image-loading-20260623">
-    <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=frontend-modularization-20260609">
+    <script src="{% static 'js/shared/results-viewer.js' %}?v=cell-card-compact-20260623"></script>
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=cell-card-contour-line-fix-20260623">
+    <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=cell-card-compact-20260623">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-file-count-fade-20260622">
 
     <!-- Sortable.js for drag & drop -->
@@ -477,7 +477,7 @@
     <script id="dashboardPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "hasFiles": {{ has_files|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "initialPunctaSourceContourCountFilter": "{{ puncta_source_contour_count_filter|default:'all'|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
 
-    <script src="{% static 'js/pages/dashboard-viewer.js' %}?v=cell-image-loading-20260623"></script>
+    <script src="{% static 'js/pages/dashboard-viewer.js' %}?v=cell-card-compact-20260623"></script>
 
     <script src="{% static 'js/pages/dashboard-csrf.js' %}?v=frontend-modularization-20260609"></script>
 
