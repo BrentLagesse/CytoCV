@@ -1006,43 +1006,6 @@ a:hover {
     color: rgba(231, 237, 248, 0.72);
 }
 
-.table-scroll-frame.is-contour-filter-applying tbody tr {
-    pointer-events: none;
-}
-
-.table-scroll-frame.is-contour-filter-applying tbody td {
-    position: relative;
-    color: transparent !important;
-    overflow: hidden;
-}
-
-.table-scroll-frame.is-contour-filter-applying tbody td::after {
-    content: "";
-    position: absolute;
-    inset: 8px;
-    border-radius: 999px;
-    border: 1px solid rgba(var(--glass-border-rgb), 0.12);
-    background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
-                rgba(43, 43, 43, 0.78);
-}
-
-.table-scroll-frame.is-contour-filter-applying tbody td::before {
-    content: "";
-    position: absolute;
-    inset: 8px;
-    z-index: 1;
-    transform: translateX(-100%);
-    border-radius: 999px;
-    background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(126, 171, 228, 0.18),
-                transparent
-            );
-    animation: skeletonShimmer 1.15s ease-in-out infinite;
-}
-
 .table-spatial-unit-toggle {
     flex: 0 0 auto;
     min-height: 28px;
@@ -1173,6 +1136,7 @@ a:hover {
 }
 
 .table-scroll-frame {
+    position: relative;
     width: 100%;
     max-height: 520px;
     max-height: min(520px, calc(var(--safe-viewport-height) - var(--nav-height) - 96px));
@@ -1183,6 +1147,48 @@ a:hover {
     background-color: rgba(15, 20, 30, 0.58);
     scrollbar-width: auto;
     scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.table-scroll-frame.is-contour-filter-applying {
+    pointer-events: none;
+}
+
+.table-scroll-frame.is-contour-filter-applying .celltable {
+    opacity: 0;
+}
+
+.table-region-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    padding: 0;
+    border-radius: inherit;
+    background: rgba(10, 15, 22, 0.94);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 120ms ease, visibility 120ms ease;
+}
+
+.table-scroll-frame.is-contour-filter-applying .table-region-skeleton {
+    opacity: 1;
+    visibility: visible;
+}
+
+.table-region-skeleton .skeleton-table {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    border: 0;
+    border-radius: inherit;
+}
+
+.table-region-skeleton .skeleton-table-row {
+    grid-template-columns: 0.65fr 0.75fr 1.4fr 1.25fr 1fr 1.2fr;
+}
+
+.table-region-skeleton .skeleton-table-cell::after {
+    animation: skeletonShimmer 1.15s ease-in-out infinite;
 }
 
 .table-scroll-frame::-webkit-scrollbar {

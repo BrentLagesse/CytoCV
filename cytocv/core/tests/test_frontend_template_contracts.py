@@ -17,7 +17,7 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "contour-intensity-toggle-slide-20260623"
+RESULTS_VIEWER_CSS_VERSION = "table-region-skeleton-20260624"
 RESULTS_VIEWER_JS_VERSION = "contour-intensity-toggle-slide-20260623"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "cell-inclusion-ui-20260623"
@@ -518,9 +518,12 @@ class FrontendTemplateContractTests(TestCase):
             'class="skeleton-shape skeleton-cell-filter-badge"',
             'class="skeleton-cell-actions"',
         )
+        display_table_swap_skeleton = display_content[
+            display_content.index('class="file-swap-skeleton table-swap-skeleton"') :
+        ]
         assert_in_order(
             self,
-            display_content,
+            display_table_swap_skeleton,
             'class="skeleton-table-actions"',
             'class="skeleton-shape skeleton-table-source-contour-filter"',
             'class="skeleton-shape skeleton-table-spatial-unit"',
@@ -529,6 +532,7 @@ class FrontendTemplateContractTests(TestCase):
             'class="skeleton-shape skeleton-table-filter-count"',
             'class="skeleton-table"',
         )
+        self.assertIn('class="table-region-skeleton" aria-hidden="true"', display_content)
         self._assert_viewer_encoding_and_stats_layout(display_content)
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
@@ -538,6 +542,7 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('data-ui-region="dashboard-main-shell"', dashboard_content)
         self.assertIn(f"results-viewer.css?v={RESULTS_VIEWER_CSS_VERSION}", dashboard_content)
         self.assertIn(f"results-viewer.js?v={RESULTS_VIEWER_JS_VERSION}", dashboard_content)
+        self.assertIn('class="table-region-skeleton" aria-hidden="true"', dashboard_content)
         self.assertIn(f"dashboard-viewer.js?v={RESULTS_VIEWER_JS_VERSION}", dashboard_content)
         self.assertIn('id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"', dashboard_content)
         self.assertIn('id="dashboardPageConfig"', dashboard_content)
@@ -646,9 +651,12 @@ class FrontendTemplateContractTests(TestCase):
             'class="skeleton-shape skeleton-cell-filter-badge"',
             'class="skeleton-cell-actions"',
         )
+        dashboard_table_swap_skeleton = dashboard_content[
+            dashboard_content.index('class="file-swap-skeleton table-swap-skeleton"') :
+        ]
         assert_in_order(
             self,
-            dashboard_content,
+            dashboard_table_swap_skeleton,
             'class="skeleton-table-actions"',
             'class="skeleton-shape skeleton-table-source-contour-filter"',
             'class="skeleton-shape skeleton-table-spatial-unit"',

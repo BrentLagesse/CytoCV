@@ -355,15 +355,20 @@ class FrontendStaticContractTests(SimpleTestCase):
             results_css,
             r"\.table-puncta-source-contour-filter\[data-cell-type-filter\]\s+\.table-filter-trigger\s*\{[^}]*width:\s*150px;[^}]*min-width:\s*150px;",
         )
-        self.assertIn(".table-scroll-frame.is-contour-filter-applying tbody td", results_css)
+        self.assertIn(".table-scroll-frame.is-contour-filter-applying .celltable", results_css)
+        self.assertIn(".table-region-skeleton {", results_css)
+        self.assertIn(".table-scroll-frame.is-contour-filter-applying .table-region-skeleton", results_css)
+        self.assertIn(".table-region-skeleton .skeleton-table {", results_css)
+        self.assertIn(".table-region-skeleton .skeleton-table-row {", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-row", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-detail", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .metric-note", results_css)
         self.assertIn(".cell-stats-strip.is-contour-filter-applying .contour-intensity-toggle", results_css)
         self.assertRegex(
             results_css,
-            r"\.table-scroll-frame\.is-contour-filter-applying\s+tbody\s+td::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
+            r"\.table-region-skeleton\s+\.skeleton-table-cell::after\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",
         )
+        self.assertNotIn(".table-scroll-frame.is-contour-filter-applying tbody td::before", results_css)
         self.assertRegex(
             results_css,
             r"\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-row::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-detail::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.metric-note::before,\s*\.cell-stats-strip\.is-contour-filter-applying\s+\.contour-intensity-toggle::before\s*\{[^}]*animation:\s*skeletonShimmer\s+1\.15s\s+ease-in-out\s+infinite;",

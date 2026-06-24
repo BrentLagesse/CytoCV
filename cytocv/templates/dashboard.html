@@ -7,7 +7,7 @@
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-file-count-fade-20260622"></script>
     <script src="{% static 'js/shared/results-viewer.js' %}?v=contour-intensity-toggle-slide-20260623"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=contour-intensity-toggle-slide-20260623">
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=table-region-skeleton-20260624">
     <link rel="stylesheet" href="{% static 'css/pages/dashboard.css' %}?v=cell-card-compact-20260623">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-file-count-fade-20260622">
 
@@ -358,6 +358,50 @@
                         </div>
                         <div class="table-scroll-frame" id="tableScrollFrame">
                             {% render_table cell_table %}
+                            <div class="table-region-skeleton" aria-hidden="true">
+                                <div class="skeleton-table">
+                                    <div class="skeleton-table-row header">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="cell-row-context-menu" id="cellRowContextMenu" role="menu">
                             <button type="button" class="cell-actions-menu-item delete" role="menuitem" data-action="delete-row-cell">Delete</button>
