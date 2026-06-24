@@ -155,6 +155,7 @@
         nuclearCellPairMode: 'green_nucleus',
         nuclearCellPairContourMode: 'balanced',
         greenContourFilterEnabled: false,
+        cellInclusionMode: 'cell_pairs_only',
         punctaLineWidthUnit: 'px',
         cenDotDistanceUnit: 'px',
         cenDotProximityRadiusUnit: 'px',
@@ -235,6 +236,14 @@
 
     function normalizeNuclearContourMode(value) {
         return value === 'aggressive' ? 'aggressive' : 'balanced';
+    }
+
+    function normalizeCellInclusionMode(value) {
+        const raw = String(value || '').trim();
+        if (raw === 'single_cells_only' || raw === 'single_cells_and_cell_pairs') {
+            return raw;
+        }
+        return 'cell_pairs_only';
     }
 
     function normalizeDotSplitTarget(value) {
@@ -593,6 +602,7 @@
             showLegacyPlugins: !!serverPreferenceDefaults.show_legacy_plugins,
             manualRequiredChannels: manualChannels,
             greenContourFilterEnabled: !!serverPreferenceDefaults.green_contour_filter_enabled,
+            cellInclusionMode: normalizeCellInclusionMode(serverPreferenceDefaults.cell_inclusion_mode),
             greenDotSplitEnabled: rawGreenDotSplitDefault !== false,
             greenDotSplitMode: normalizeGreenDotSplitMode(serverPreferenceDefaults.green_dot_split_mode),
             redDotSplitEnabled: rawRedDotSplitDefault !== false,
@@ -1717,6 +1727,63 @@
         });
     }
 
+    function renderCellDetectionInclusionModule(list) {
+        const row = document.createElement('div');
+        row.className = 'stats-toggle-row cell-detection-inclusion-row';
+        row.dataset.statsModule = 'cell-detection-inclusion';
+
+        const left = document.createElement('div');
+        left.className = 'stats-toggle-left';
+        const titleWrap = document.createElement('span');
+        titleWrap.className = 'stats-toggle-title-wrap';
+        const title = document.createElement('span');
+        title.className = 'stats-toggle-title';
+        title.textContent = 'Cell Detection / Inclusion';
+        titleWrap.appendChild(title);
+        left.appendChild(titleWrap);
+        row.appendChild(left);
+
+        const modeRow = document.createElement('div');
+        modeRow.className = 'nuclear-mode-inline cell-inclusion-mode-inline visible';
+        const modeTop = document.createElement('div');
+        modeTop.className = 'nuclear-mode-row';
+
+        const modeLabel = document.createElement('label');
+        modeLabel.setAttribute('for', 'cellInclusionMode');
+        modeLabel.textContent = 'Cell Inclusion Mode:';
+        modeTop.appendChild(modeLabel);
+
+        const select = document.createElement('select');
+        select.id = 'cellInclusionMode';
+        select.name = 'cell_inclusion_mode';
+        [
+            { value: 'cell_pairs_only', text: 'Cell pairs only' },
+            { value: 'single_cells_only', text: 'Single cells only' },
+            { value: 'single_cells_and_cell_pairs', text: 'Single cells and cell pairs' },
+        ].forEach(({ value, text }) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+        select.value = normalizeCellInclusionMode(statsState.cellInclusionMode);
+        select.addEventListener('change', () => {
+            statsState.cellInclusionMode = normalizeCellInclusionMode(select.value);
+            persistAdvancedSettings();
+            syncStatsUI();
+        });
+        modeTop.appendChild(select);
+        modeRow.appendChild(modeTop);
+
+        const help = document.createElement('p');
+        help.className = 'module-help';
+        help.textContent = 'Controls which detected cell objects are retained during analysis. To include a cell type that was excluded, rerun analysis with a different mode.';
+        modeRow.appendChild(help);
+
+        row.appendChild(modeRow);
+        list.appendChild(row);
+    }
+
     function renderSignalQuantificationModule(list) {
         const row = document.createElement('div');
         row.className = 'stats-toggle-row signal-quantification-row';
@@ -2018,6 +2085,7 @@
         nuclearContourModeSelect = null;
         nuclearContourModeRow = null;
         syncSignalSelectedPlugins();
+        renderCellDetectionInclusionModule(list);
         renderSignalQuantificationModule(list);
 
         const visiblePlugins = statsPlugins.filter(
@@ -3088,6 +3156,7 @@
         statsState.enforceLayerCount = typeof stored.enforceLayerCount === 'boolean' ? stored.enforceLayerCount : false;
         statsState.enforceAllWavelengths = typeof stored.enforceAllWavelengths === 'boolean' ? stored.enforceAllWavelengths : false;
         statsState.showLegacyPlugins = typeof stored.showLegacyPlugins === 'boolean' ? stored.showLegacyPlugins : false;
+        statsState.cellInclusionMode = normalizeCellInclusionMode(stored.cellInclusionMode);
         statsState.manualRequiredChannels = new Set(
             Array.isArray(stored.manualRequiredChannels)
                 ? stored.manualRequiredChannels.filter((channel) => channelOrder.includes(channel))
@@ -3247,6 +3316,7 @@
             showLegacyPlugins: !!statsState.showLegacyPlugins,
             manualRequiredChannels: [...statsState.manualRequiredChannels],
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            cellInclusionMode: normalizeCellInclusionMode(statsState.cellInclusionMode),
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
             redDotSplitEnabled: !!statsState.redDotSplitEnabled,
@@ -3362,6 +3432,7 @@
         const greenFilterRow = document.getElementById('greenFilterRow');
         const dotSplitRow = document.getElementById('dotSplitRow');
         const moduleRow = document.getElementById('moduleToggleRow');
+        const cellInclusionModeSelect = document.getElementById('cellInclusionMode');
 
         statToggleElements.forEach((toggle, pluginId) => {
             const row = toggle.closest('.stats-toggle-row');
@@ -3400,6 +3471,9 @@
         }
         if (alternateNucleusDetectionToggle) {
             alternateNucleusDetectionToggle.checked = !!statsState.alternateNucleusDetectionEnabled;
+        }
+        if (cellInclusionModeSelect) {
+            cellInclusionModeSelect.value = normalizeCellInclusionMode(statsState.cellInclusionMode);
         }
 
         syncLengthControls();
@@ -3758,6 +3832,11 @@
         if (alternateNucleusDetectionToggle) {
             statsState.alternateNucleusDetectionEnabled = !!alternateNucleusDetectionToggle.checked;
         }
+        const cellInclusionModeSelect = document.getElementById('cellInclusionMode');
+        if (cellInclusionModeSelect) {
+            statsState.cellInclusionMode = normalizeCellInclusionMode(cellInclusionModeSelect.value);
+            persistAdvancedSettings();
+        }
         syncSignalSelectedPlugins();
         persistSignalQuantificationSettings();
         if (nuclearModeSelect) {
@@ -3852,6 +3931,7 @@
             nuclearCellPairContourMode: normalizeNuclearContourMode(statsState.nuclearCellPairContourMode),
             useLegacyNuclearCellPairPipeline: !!statsState.useLegacyNuclearCellPairPipeline,
             greenContourFilterEnabled: !!statsState.greenContourFilterEnabled,
+            cellInclusionMode: normalizeCellInclusionMode(statsState.cellInclusionMode),
             greenDotSplitEnabled: !!statsState.greenDotSplitEnabled,
             greenDotSplitMode: normalizeGreenDotSplitMode(statsState.greenDotSplitMode),
             redDotSplitEnabled: !!statsState.redDotSplitEnabled,
@@ -3930,6 +4010,7 @@
             snapshot.alternateNucleusDetectionEnabled || snapshot.alternateRedDetection
         );
         statsState.greenContourFilterEnabled = !!snapshot.greenContourFilterEnabled;
+        statsState.cellInclusionMode = normalizeCellInclusionMode(snapshot.cellInclusionMode);
         statsState.greenDotSplitEnabled = snapshot.greenDotSplitEnabled !== false;
         statsState.greenDotSplitMode = normalizeGreenDotSplitMode(snapshot.greenDotSplitMode);
         statsState.redDotSplitEnabled = snapshot.redDotSplitEnabled !== false;
@@ -4123,6 +4204,7 @@
                 red_dot_split_enabled: snapshot.redDotSplitEnabled,
                 red_dot_split_mode: snapshot.redDotSplitMode,
                 alternate_red_detection: snapshot.alternateNucleusDetectionEnabled,
+                cell_inclusion_mode: snapshot.cellInclusionMode,
                 puncta_line_width: snapshot.punctaLineWidth,
                 puncta_line_width_unit: snapshot.punctaLineWidthUnit,
                 cen_dot_distance: snapshot.cenDotDistance,
@@ -5161,6 +5243,7 @@
             prepData.append('use_legacy_nuclear_cell_pair_pipeline', String(statsState.useLegacyNuclearCellPairPipeline));
             prepData.append('greenContourFilterEnabled', String(statsState.greenContourFilterEnabled));
             prepData.append('alternateRedDetection', String(statsState.alternateNucleusDetectionEnabled));
+            prepData.append('cell_inclusion_mode', normalizeCellInclusionMode(statsState.cellInclusionMode));
             const allUnitsMatch = statsState.punctaLineWidthUnit === statsState.cenDotDistanceUnit
                 && statsState.cenDotDistanceUnit === statsState.cenDotProximityRadiusUnit;
             const sharedLengthUnit = allUnitsMatch

@@ -216,6 +216,8 @@ class FrontendExportContractTests(TestCase):
         dashboard_source = static_text("js/pages/dashboard-viewer.js")
         results_source = static_text("js/shared/results-viewer.js")
 
+        self.assertIn("displayPageConfig.initialCellTypeFilter", display_source)
+        self.assertIn("dashboardPageConfig.initialCellTypeFilter", dashboard_source)
         self.assertIn(
             "displayPageConfig.initialPunctaSourceContourCountFilter",
             display_source,
@@ -226,6 +228,9 @@ class FrontendExportContractTests(TestCase):
         )
         for source in (display_source, dashboard_source):
             with self.subTest(source=source[:20]):
+                self.assertIn("_cell_type", source)
+                self.assertIn("getCurrentCellTypeFilter()", source)
+                self.assertIn("cellTypeFilterButton.addEventListener('click'", source)
                 self.assertIn("_puncta_source_contour_count", source)
                 self.assertIn("getCurrentPunctaSourceContourCountFilter()", source)
                 self.assertIn("punctaSourceContourFilterButton.addEventListener('click'", source)
@@ -253,7 +258,7 @@ class FrontendExportContractTests(TestCase):
                 self.assertIn("status.classList.remove('is-applying-filter')", source)
                 self.assertIn("Showing ${shown} of ${counts.total} cells", source)
                 self.assertNotIn("Showing ${shown} of ${counts.total} cells.", source)
-                self.assertIn("No cells match the current contour-count filter.", source)
+                self.assertIn("No cells match the current row filters.", source)
                 handler_start = source.index("option.addEventListener('click', async () => {")
                 handler_end = source.index("document.addEventListener('click'", handler_start)
                 filter_handler = source[handler_start:handler_end]
@@ -278,6 +283,8 @@ class FrontendExportContractTests(TestCase):
                 self.assertNotIn("startAnalysis", source)
 
         self.assertIn("normalizePunctaSourceContourCountFilter", results_source)
+        self.assertIn("normalizeCellTypeFilter", results_source)
+        self.assertIn("matchesCellTypeFilter", results_source)
         self.assertIn("matchesPunctaSourceContourCountFilter", results_source)
         self.assertIn("getPunctaSourceContourCountFilterCounts", results_source)
         self.assertIn("getPunctaSourceContourFilteredCellIds", results_source)
@@ -341,9 +348,51 @@ class FrontendExportContractTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 csv_text = response.content.decode("utf-8")
                 self.assertIn("source_filter_first", csv_text)
-                self.assertIn(",2,5.000", csv_text)
-                self.assertNotIn(",1,5.000", csv_text)
+                self.assertIn(",2,Unknown,5.000", csv_text)
+                self.assertNotIn(",1,Unknown,5.000", csv_text)
                 self.assertNotIn("source_filter_second", csv_text)
+
+    def test_combined_export_payloads_respect_cell_type_row_filter(self):
+        user = login_user(self, "frontend-combined-cell-type-filter@example.com")
+        uuid_value = create_display_file(uploaded_owner=user, filename="cell_type_filter")
+        add_cell_stat(uuid_value, cell_id=1, properties={"cell_type": "single_cell"})
+        add_cell_stat(uuid_value, cell_id=2, properties={"cell_type": "cell_pair"})
+
+        for route_name, payload in (
+            (
+                "dashboard_bulk_export",
+                {
+                    "uuids": [uuid_value],
+                    "_export": "csv",
+                    "_columns": ["red_in_red_total_intensity_1"],
+                    "_unit": "px",
+                    "_cell_type": "single_cell",
+                },
+            ),
+            (
+                "display_export_files",
+                {
+                    "visible_uuids": [uuid_value],
+                    "uuids": [uuid_value],
+                    "_export": "csv",
+                    "_columns": ["red_in_red_total_intensity_1"],
+                    "_unit": "px",
+                    "_cell_type": "single_cell",
+                },
+            ),
+        ):
+            with self.subTest(route=route_name):
+                response = self.client.post(
+                    reverse(route_name),
+                    data=json.dumps(payload),
+                    content_type="application/json",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                csv_text = response.content.decode("utf-8")
+                self.assertIn("Cell Type", csv_text)
+                self.assertIn(",1,Single Cell,5.000", csv_text)
+                self.assertNotIn(",2,Cell Pair,5.000", csv_text)
 
     def test_display_export_preserves_visible_subset_order(self):
         user = login_user(self, "frontend-display-export-order@example.com")

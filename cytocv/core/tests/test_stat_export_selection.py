@@ -167,8 +167,10 @@ class StatExportSelectionTests(SimpleTestCase):
     def test_cell_id_is_not_user_selectable(self):
         with self.assertRaises(ExportColumnSelectionError):
             normalize_export_columns("cell_id")
+        with self.assertRaises(ExportColumnSelectionError):
+            normalize_export_columns("cell_type")
 
-    def test_included_columns_always_keep_cell_id_first(self):
+    def test_included_columns_always_keep_identity_columns_first(self):
         included_columns = export_included_columns(
             "red_in_red_total_intensity_1,puncta_distance",
             columns_present=True,
@@ -176,7 +178,12 @@ class StatExportSelectionTests(SimpleTestCase):
 
         self.assertEqual(
             included_columns,
-            ("cell_id", "puncta_distance", "red_in_red_total_intensity_1"),
+            (
+                "cell_id",
+                "cell_type",
+                "puncta_distance",
+                "red_in_red_total_intensity_1",
+            ),
         )
 
     def test_exclude_columns_excludes_every_unselected_stat_field(self):
@@ -187,6 +194,7 @@ class StatExportSelectionTests(SimpleTestCase):
 
         self.assertIsNotNone(exclude_columns)
         self.assertNotIn("cell_id", exclude_columns)
+        self.assertNotIn("cell_type", exclude_columns)
         self.assertNotIn("puncta_distance", exclude_columns)
         self.assertNotIn("green_red_intensity_1", exclude_columns)
         self.assertIn("puncta_line_intensity", exclude_columns)
@@ -204,6 +212,7 @@ class StatExportSelectionTests(SimpleTestCase):
         self.assertIn("payloadParam", first_item)
         self.assertEqual(config["payloadParam"], "_columns")
         self.assertEqual(config["alwaysIncluded"][0]["id"], "cell_id")
+        self.assertEqual(config["alwaysIncluded"][1]["id"], "cell_type")
         self.assertTrue(
             any(item["id"] == "red_contour_1_center_xy" for item in config["items"])
         )

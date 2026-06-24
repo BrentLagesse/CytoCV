@@ -32,6 +32,19 @@
         </div></div>
         <div class="card" data-workflow-card="plugin-defaults"><p class="section-eyebrow card-title">Plugin Defaults</p><div class="plugins">
           <div id="signalSelectedPlugins"></div>
+          <div class="plugin signal-quantification">
+            <div class="plugin-main">
+              <p><strong>Cell Inclusion Mode</strong></p>
+              <p class="desc">Controls which detected DIC candidate types are retained and analyzed. Display filters can only hide or show rows already retained here.</p>
+            </div>
+            <div class="mode-select-group plugin-measure-right compact-control">
+              <select id="cell_inclusion_mode" name="cell_inclusion_mode">
+                <option value="cell_pairs_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'cell_pairs_only' %}selected{% endif %}>Cell pairs only</option>
+                <option value="single_cells_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_only' %}selected{% endif %}>Single cells only</option>
+                <option value="single_cells_and_cell_pairs" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_and_cell_pairs' %}selected{% endif %}>Single cells and cell pairs</option>
+              </select>
+            </div>
+          </div>
           <div class="plugin signal-quantification" id="signalQuantificationModule">
             <div class="plugin-main">
               <p><strong>Signal Quantification</strong></p>

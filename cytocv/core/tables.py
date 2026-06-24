@@ -8,6 +8,7 @@ import django_tables2 as tables
 from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
+from core.cell_types import cell_type_from_statistics, cell_type_label
 from core.models import CellStatistics, get_cen_dot_category_label
 from core.scale import (
     convert_area_pixels_to_display_units,
@@ -120,6 +121,7 @@ class CellTable(tables.Table):
     STAT_COLUMN_GROUPS = STAT_FIELD_GROUPS
 
     cell_id = tables.Column(verbose_name="Cell ID")
+    cell_type = tables.Column(verbose_name="Cell Type", empty_values=())
     puncta_distance = NumberColumn(verbose_name="Distance Between Red Puncta")
     puncta_line_intensity = NumberColumn(verbose_name="Green Intensity Over Red Line")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
@@ -231,6 +233,7 @@ class CellTable(tables.Table):
         orderable = False
         fields = (
             "cell_id",
+            "cell_type",
             "puncta_distance",
             "puncta_line_intensity",
             "blue_contour_size",
@@ -470,6 +473,8 @@ class CellTable(tables.Table):
     def _export_cell_value(self, field_name: str, row, record: CellStatistics):
         if field_name == "cell_id":
             return self._export_int(getattr(record, field_name, None))
+        if field_name == "cell_type":
+            return cell_type_label(cell_type_from_statistics(record))
 
         if (
             field_name in self.SPATIAL_FIELDS
@@ -520,6 +525,12 @@ class CellTable(tables.Table):
             )
 
         return row.get_cell_value(field_name)
+
+    def render_cell_type(self, record: CellStatistics) -> str:
+        return cell_type_label(cell_type_from_statistics(record))
+
+    def value_cell_type(self, record: CellStatistics) -> str:
+        return self.render_cell_type(record)
 
     def render_cell_parentage(self, record: CellStatistics) -> str:
         if not self._field_is_applicable(record, "cell_parentage"):

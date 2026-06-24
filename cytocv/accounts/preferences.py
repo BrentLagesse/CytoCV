@@ -12,6 +12,10 @@ from core.channel_ordering import (
     normalize_channel_order,
     validate_channel_order,
 )
+from core.cell_types import (
+    CELL_INCLUSION_MODE_PAIRS_ONLY,
+    normalize_cell_inclusion_mode,
+)
 from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
 )
@@ -86,6 +90,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "use_legacy_nuclear_cell_pair_pipeline": False,
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
+        "cell_inclusion_mode": CELL_INCLUSION_MODE_PAIRS_ONLY,
         "puncta_line_width_unit": "px",
         "cen_dot_distance_unit": "px",
         "cen_dot_proximity_radius_unit": "px",
@@ -464,6 +469,9 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
             default=False,
         )
     )
+    normalized["experiment_defaults"]["cell_inclusion_mode"] = (
+        normalize_cell_inclusion_mode(defaults_payload.get("cell_inclusion_mode"))
+    )
 
     signal_selection = resolve_signal_quantification_selection(
         payload=defaults_payload,
@@ -560,6 +568,7 @@ def build_experiment_defaults_from_popup_payload(
         "red_dot_split_enabled",
         "red_dot_split_mode",
         "alternate_red_detection",
+        "cell_inclusion_mode",
         "puncta_line_width",
         "puncta_line_width_unit",
         "cen_dot_distance",
@@ -832,6 +841,12 @@ def build_experiment_defaults_from_popup_payload(
             "red_dot_split_mode": red_dot_split_mode,
             "alternate_red_detection": (
                 signal_selection.alternate_nucleus_detection_enabled
+            ),
+            "cell_inclusion_mode": normalize_cell_inclusion_mode(
+                raw_payload.get(
+                    "cell_inclusion_mode",
+                    current.get("cell_inclusion_mode"),
+                )
             ),
             "puncta_line_width": puncta_line_width,
             "puncta_line_width_unit": puncta_line_width_unit,

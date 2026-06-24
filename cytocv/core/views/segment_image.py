@@ -30,7 +30,6 @@ import matplotlib.patheffects as PathEffects
 import numpy as np
 import skimage
 from PIL import Image
-from cv2_rolling_ball import subtract_background_rolling_ball
 
 # =========================
 # Django imports
@@ -75,10 +74,16 @@ from core.image_processing import (
     load_image,
     preprocess_image_to_gray,
 )
-from core.contour_processing import (
-    find_contours,
-    get_contour_center,
-    get_neighbor_count,
+from core.contour_processing import find_contours
+from core.cell_types import (
+    CELL_TYPE_PAIR,
+    CELL_TYPE_SINGLE,
+    CELL_TYPE_UNKNOWN,
+    normalize_cell_inclusion_mode,
+)
+from core.services.cell_candidate_retention import build_retained_candidate_label_image
+from core.services.cell_type_statistics import (
+    mark_single_cell_pair_specific_statistics_na,
 )
 from core.stats_plugins import StatsExecutionPlan, build_stats_execution_plan
 from accounts.preferences import should_auto_save_experiments
@@ -855,264 +860,16 @@ def segment_image(request, uuids):
 
         # TODO:   If G1 Arrested, we don't want to merge neighbors and ignore non-budding cells
         # choices = ['Metaphase Arrested', 'G1 Arrested']
+        cell_inclusion_mode = normalize_cell_inclusion_mode(
+            request.session.get("cell_inclusion_mode")
+        )
+        cell_type_by_label = {}
+        lines_to_draw = dict()
         if choice_var == "Metaphase Arrested":
-            # Create a raw file to store the outlines
-            ignore_list = list()
-            single_cell_list = list()
-            # merge cell pairs
-            neighbor_count = dict()
-            closest_neighbors = dict()
-            for i in range(1, int(np.max(seg) + 1)):
-                cells = np.where(seg == i)
-                # examine neighbors
-                neighbor_list = list()
-                for cell in zip(cells[0], cells[1]):
-                    # TODO:  account for going over the edge without throwing out the data
-
-                    try:
-                        neighbor_list = get_neighbor_count(
-                            seg, cell, 3
-                        )  # get neighbor with a 3 pixel radius from the cell
-                    except:
-                        continue
-                    # count the number of pixels that are within 3 pixel radius of all neighbors
-                    for neighbor in neighbor_list:
-                        if int(neighbor) == i or int(neighbor) == 0:  # same cell
-                            continue
-                        if neighbor in neighbor_count:
-                            neighbor_count[neighbor] += 1
-                        else:
-                            neighbor_count[neighbor] = 1
-
-                sorted_dict = {
-                    k: v
-                    for k, v in sorted(neighbor_count.items(), key=lambda item: item[1])
-                }
-                if len(sorted_dict) == 0:
-                    single_cell_list.append(int(i))
-                else:
-                    if len(sorted_dict) == 1:
-                        # one cell close by
-                        closest_neighbors[i] = list(sorted_dict.items())[0][0]
-                    else:
-                        # find the closest neighbor by number of pixels close by
-                        top_val = list(sorted_dict.items())[0][1]
-                        second_val = list(sorted_dict.items())[1][1]
-                        if (
-                            second_val > 0.5 * top_val
-                        ):  # things got confusing, so we throw it and its neighbor out
-                            single_cell_list.append(int(i))
-                            for cluster_cell in neighbor_count:
-                                single_cell_list.append(int(cluster_cell))
-                        else:
-                            closest_neighbors[i] = list(sorted_dict.items())[0][0]
-
-                # reset for the next cell
-                neighbor_count = dict()
-            # TODO:  Examine the spc110 dots and make closest dots neighbors
-
-            # resolve_cells_using_spc110 = use_spc110.get()
-
-            resolve_cells_using_spc110 = False  # Hard coding this for now but will have to use a config file in the future
-
-            lines_to_draw = dict()
-            if resolve_cells_using_spc110:
-
-                # Open the red channel from the source image stack.
-
-                # basename = image_name.split('_R3D_REF')[0]
-                # red_dir = input_dir + basename + '_PRJ_TIFFS/'
-                # red_image_name = basename + '_PRJ' + '_w625' + '.tif'
-                # red_image = np.array(Image.open(red_dir + red_image_name))
-
-                red_index = channel_config.get(CHANNEL_ROLE_RED)
-                red_image = im[red_index]
-
-                red_image = np.round(red_image * 255).astype(np.uint8)
-
-                # Convert the image to an RGB image, if necessary
-                if len(red_image.shape) == 3 and red_image.shape[2] == 3:
-                    pass
-                else:
-                    red_image = np.expand_dims(red_image, axis=-1)
-                    red_image = np.tile(red_image, 3)
-                # find contours
-                red_image_gray = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
-                red_image_gray, _background = subtract_background_rolling_ball(
-                    red_image_gray,
-                    50,
-                    light_background=False,
-                    use_paraboloid=False,
-                    do_presmooth=True,
-                )
-
-                debug = False
-                if debug:
-                    plt.figure(dpi=600)
-                    plt.title("red")
-                    plt.imshow(red_image_gray, cmap="gray")
-                    plt.show()
-
-                _red_image_ret, red_image_thresh = cv2.threshold(
-                    red_image_gray,
-                    0,
-                    1,
-                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
-                )
-                red_image_cont, _red_image_h = cv2.findContours(red_image_thresh, 1, 2)
-
-                if debug:
-                    cv2.drawContours(image, red_image_cont, -1, 255, 1)
-                    plt.figure(dpi=600)
-                    plt.title("ref image with contours")
-                    plt.imshow(image, cmap="gray")
-                    plt.show()
-
-                # 921,800
-
-                min_red_distance = dict()
-                min_red_loc = (
-                    dict()
-                )  # maps a red dot to its closest red dot in terms of cell id
-                for cnt1 in red_image_cont:
-                    try:
-                        contourArea = cv2.contourArea(cnt1)
-                        if (
-                            contourArea > 100000
-                        ):  # test for the big box, TODO: fix this to be adaptive
-                            logger.debug(
-                                "Discarded oversized bounding contour while pairing cells"
-                            )
-                            continue
-                        coordinate = get_contour_center(cnt1)
-                        # These are opposite of what we would expect
-                        c1y = coordinate[0][0]
-                        c1x = coordinate[0][1]
-
-                    except:  # no moment found
-                        continue
-                    c_id = int(seg[c1x][c1y])
-                    if c_id == 0:
-                        continue
-                    for cnt2 in red_image_cont:
-                        try:
-                            coordinate = get_contour_center(cnt2)
-                            # find center of each contour
-                            c2y = coordinate[0][0]
-                            c2x = coordinate[0][1]
-
-                        except:
-                            continue  # no moment found
-                        if int(seg[c2x][c2y]) == 0:
-                            continue
-                        if (
-                            seg[c1x][c1y] == seg[c2x][c2y]
-                        ):  # these are the same cell already
-                            continue
-                        # find the closest point to each center
-                        d = math.sqrt(pow(c1x - c2x, 2) + pow(c1y - c2y, 2))
-                        if min_red_distance.get(c_id) == None:
-                            min_red_distance[c_id] = d
-                            min_red_loc[c_id] = int(seg[c2x][c2y])
-                            lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))
-                        else:
-                            if d < min_red_distance[c_id]:
-                                min_red_distance[c_id] = d
-                                min_red_loc[c_id] = int(seg[c2x][c2y])
-                                lines_to_draw[c_id] = (
-                                    (c1y, c1x),
-                                    (c2y, c2x),
-                                )  # flip it back here
-                            elif d == min_red_distance[c_id]:
-                                logger.debug(
-                                    "Found tied Red pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
-                                    seg[c1x][c1y],
-                                    seg[c2x][c2y],
-                                    min_red_loc[c_id],
-                                    d,
-                                )
-
-            for k, v in closest_neighbors.items():
-                if v in closest_neighbors:  # check to see if v could be a mutual pair
-                    if (
-                        int(v) in ignore_list
-                    ):  # if we have already paired this one, throw it out
-                        single_cell_list.append(int(k))
-                        continue
-
-                    if (
-                        closest_neighbors[int(v)] == int(k)
-                        and int(k) not in ignore_list
-                    ):  # closest neighbors are reciprocal
-                        # TODO:  set them to all be the same cell
-                        to_update = np.where(seg == v)
-                        ignore_list.append(int(v))
-                        if resolve_cells_using_spc110:
-                            if (
-                                int(v) in min_red_loc
-                            ):  # if we merge them here, we don't need to do it with red
-                                del min_red_loc[int(v)]
-                            if int(k) in min_red_loc:
-                                del min_red_loc[int(k)]
-                        for update in zip(to_update[0], to_update[1]):
-                            seg[update[0]][update[1]] = k
-
-                    elif int(k) not in ignore_list and not resolve_cells_using_spc110:
-                        single_cell_list.append(int(k))
-
-                elif int(k) not in ignore_list and not resolve_cells_using_spc110:
-                    single_cell_list.append(int(k))
-
-            if resolve_cells_using_spc110:
-                for c_id, nearest_cid in min_red_loc.items():
-                    if (
-                        int(c_id) in ignore_list
-                    ):  # if we have already paired this one, ignore it
-                        continue
-                    if (
-                        int(nearest_cid) in min_red_loc
-                    ):  # make sure the reciprocal exists
-                        if (
-                            min_red_loc[int(nearest_cid)] == int(c_id)
-                            and int(c_id) not in ignore_list
-                        ):  # if it is mutual
-                            # print('added a cell pair in image {} using the red-channel technique {} and {}'.format(image_name, int(nearest_cid),
-                            # int(c_id)))
-                            if int(c_id) in single_cell_list:
-                                single_cell_list.remove(int(c_id))
-                            if int(nearest_cid) in single_cell_list:
-                                single_cell_list.remove(int(nearest_cid))
-                            to_update = np.where(seg == nearest_cid)
-                            closest_neighbors[int(c_id)] = int(nearest_cid)
-                            ignore_list.append(int(nearest_cid))
-                            for update in zip(to_update[0], to_update[1]):
-                                seg[update[0]][update[1]] = c_id
-                        elif int(c_id) not in ignore_list:
-                            logger.debug(
-                                "Skipped non-mutual closest cell pair candidate: %s vs %s",
-                                nearest_cid,
-                                int(v),
-                            )
-                            single_cell_list.append(int(k))
-
-            # remove single cells or confusing cells
-            for cell in single_cell_list:
-                seg[np.where(seg == cell)] = 0.0
-
-            # only merge if two cells are both each others closest neighbors
-            # otherwise zero them out?
-            # rebase segment count
-            to_rebase = list()
-            for k, v in closest_neighbors.items():
-                if k in ignore_list or k in single_cell_list:
-                    continue
-                else:
-                    to_rebase.append(int(k))
-            to_rebase.sort()
-
-            for i, x in enumerate(to_rebase):
-                seg[np.where(seg == x)] = i + 1
-
+            seg, cell_type_by_label = build_retained_candidate_label_image(
+                seg,
+                cell_inclusion_mode,
+            )
             seg = refine_pair_label_image(seg)
 
             # now seg has the updated masks, so lets save them so we don't have to do this every time
@@ -1421,6 +1178,7 @@ def segment_image(request, uuids):
                 ),
                 "CellPairPrefix": cell_pair_prefix_url(uuid=uuid),
                 "NumCells": num_cells,
+                "cell_inclusion_mode": cell_inclusion_mode,
             },
         )
         CellStatistics.objects.filter(segmented_image=instance).delete()
@@ -1435,6 +1193,13 @@ def segment_image(request, uuids):
             request.session.get("selected_analysis", [])
         )
         selected_analysis = list(execution_plan.selected_plugins)
+        single_cell_execution_plan = build_stats_execution_plan(
+            [
+                plugin_id
+                for plugin_id in selected_analysis
+                if plugin_id in {"PunctaDistance", "GreenRedIntensity"}
+            ]
+        )
         raw_puncta_line_width = request.session.get(
             "stats_puncta_line_width_value",
             request.session.get(
@@ -1797,12 +1562,14 @@ def segment_image(request, uuids):
                 DV_Name,
                 uuid,
             )
+            cell_type = cell_type_by_label.get(cell_number, CELL_TYPE_UNKNOWN)
 
             # Create or get a CellStatistics row
             cp, created = CellStatistics.objects.get_or_create(
                 segmented_image=instance,
                 cell_id=cell_number,
                 defaults={
+                    "cell_type": cell_type,
                     # Cell statistics numerical defaults
                     "puncta_distance": 0.0,
                     "puncta_line_intensity": 0.0,
@@ -1819,7 +1586,10 @@ def segment_image(request, uuids):
 
             # Now pass the real model object + conf to get_stats
             # This modifies cp's fields in place
+            cp.cell_type = cell_type
             cp.properties = dict(cp.properties or {})
+            cp.properties["cell_type"] = cell_type
+            cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
             cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
                 request.session.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
@@ -1910,16 +1680,22 @@ def segment_image(request, uuids):
             if (
                 use_legacy_nuclear_cell_pair_pipeline
                 and contour_cache_entry is not None
+                and cell_type == CELL_TYPE_PAIR
             ):
                 _local_contours, min_x, max_x, min_y, max_y = contour_cache_entry
                 legacy_exact_cell_pair_mask = (
                     seg[min_x:max_x, min_y:max_y] == cell_number
                 ).astype(np.uint8) * 255
             # Call get_stats to do the real work
+            row_execution_plan = (
+                single_cell_execution_plan
+                if cell_type == CELL_TYPE_SINGLE
+                else execution_plan
+            )
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
                 conf,
-                execution_plan,
+                row_execution_plan,
                 puncta_line_width,
                 cen_dot_distance,
                 cen_dot_proximity_radius,
@@ -1937,6 +1713,10 @@ def segment_image(request, uuids):
                 nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
                 legacy_exact_cell_pair_mask=legacy_exact_cell_pair_mask,
             )
+            cp.properties["cell_type"] = cell_type
+            cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
+            if cell_type == CELL_TYPE_SINGLE:
+                mark_single_cell_pair_specific_statistics_na(cp)
 
             try:
                 persist_overlay_cache_images(

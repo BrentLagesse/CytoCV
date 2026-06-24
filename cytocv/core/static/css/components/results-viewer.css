@@ -965,6 +965,12 @@ a:hover {
     margin: 8px 0 10px;
 }
 
+.table-filter-help {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
 .table-filter-count-meta {
     display: inline-flex;
     align-items: center;

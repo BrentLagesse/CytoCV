@@ -925,6 +925,43 @@
             return 'All cells';
         }
 
+        function normalizeCellTypeFilter(value) {
+            const raw = String(value ?? '').trim().toLowerCase();
+            if (raw === 'single_cell' || raw === 'cell_pair') return raw;
+            return 'all';
+        }
+
+        function getCellTypeFilterLabel(value) {
+            const normalized = normalizeCellTypeFilter(value);
+            if (normalized === 'single_cell') return 'Show single cells only';
+            if (normalized === 'cell_pair') return 'Show cell pairs only';
+            return 'Show all analyzed cell types';
+        }
+
+        function normalizeCellType(value) {
+            const raw = String(value ?? '').trim().toLowerCase();
+            if (raw === 'single_cell' || raw === 'cell_pair') return raw;
+            return 'unknown';
+        }
+
+        function getCellTypeLabel(value) {
+            const normalized = normalizeCellType(value);
+            if (normalized === 'single_cell') return 'Single Cell';
+            if (normalized === 'cell_pair') return 'Cell Pair';
+            return 'Unknown';
+        }
+
+        function getRowCellType(row) {
+            if (!row || typeof row !== 'object') return 'unknown';
+            return normalizeCellType(row.cell_type);
+        }
+
+        function matchesCellTypeFilter(row, filterValue) {
+            const normalized = normalizeCellTypeFilter(filterValue);
+            if (normalized === 'all') return true;
+            return getRowCellType(row) === normalized;
+        }
+
         function primitiveStatValue(value) {
             if (!value || typeof value !== 'object') return value;
             for (const key of ['value', 'raw', 'raw_value', 'display_value']) {
@@ -1041,16 +1078,42 @@
                 .sort(([leftId], [rightId]) => leftId - rightId);
         }
 
-        function getFilteredStatisticsEntries(statistics, filterValue) {
-            const normalized = normalizePunctaSourceContourCountFilter(filterValue);
-            const entries = getStatisticsEntries(statistics);
-            if (normalized === 'all') return entries;
-            return entries.filter(([, row]) => matchesPunctaSourceContourCountFilter(row, normalized));
+        function normalizeRowFilterOptions(filterOptions) {
+            if (!filterOptions || typeof filterOptions !== 'object') {
+                return {
+                    cellTypeFilter: 'all',
+                    punctaSourceContourCountFilter: normalizePunctaSourceContourCountFilter(filterOptions),
+                };
+            }
+            return {
+                cellTypeFilter: normalizeCellTypeFilter(filterOptions.cellTypeFilter),
+                punctaSourceContourCountFilter: normalizePunctaSourceContourCountFilter(
+                    filterOptions.punctaSourceContourCountFilter,
+                ),
+            };
         }
 
-        function getPunctaSourceContourCountFilterCounts(statistics, filterValue) {
+        function getFilteredStatisticsEntries(statistics, filterOptions) {
+            const filters = normalizeRowFilterOptions(filterOptions);
             const entries = getStatisticsEntries(statistics);
-            const context = getPunctaSourceContourContext(statistics);
+            return entries.filter(([, row]) => (
+                matchesCellTypeFilter(row, filters.cellTypeFilter)
+                && matchesPunctaSourceContourCountFilter(
+                    row,
+                    filters.punctaSourceContourCountFilter,
+                )
+            ));
+        }
+
+        function getPunctaSourceContourCountFilterCounts(statistics, filterValue, cellTypeFilter = 'all') {
+            const entries = getFilteredStatisticsEntries(statistics, {
+                cellTypeFilter,
+                punctaSourceContourCountFilter: 'all',
+            });
+            const filteredStatistics = Object.fromEntries(
+                entries.map(([id, row]) => [String(id), row]),
+            );
+            const context = getPunctaSourceContourContext(filteredStatistics);
             const normalized = context.applicable
                 ? normalizePunctaSourceContourCountFilter(filterValue)
                 : 'all';
@@ -1079,13 +1142,20 @@
             return ids;
         }
 
-        function getPunctaSourceContourFilteredCellIds(fileData, filterValue) {
+        function getPunctaSourceContourFilteredCellIds(fileData, filterValue, cellTypeFilter = 'all') {
             const statistics = fileData?.Statistics || {};
-            const context = getPunctaSourceContourContext(statistics);
+            const cellTypeEntries = getFilteredStatisticsEntries(statistics, {
+                cellTypeFilter,
+                punctaSourceContourCountFilter: 'all',
+            });
+            const filteredStatistics = Object.fromEntries(
+                cellTypeEntries.map(([id, row]) => [String(id), row]),
+            );
+            const context = getPunctaSourceContourContext(filteredStatistics);
             const normalized = context.applicable
                 ? normalizePunctaSourceContourCountFilter(filterValue)
                 : 'all';
-            const entries = getStatisticsEntries(statistics);
+            const entries = getStatisticsEntries(filteredStatistics);
             if (normalized === 'all') {
                 return entries.map(([id]) => id);
             }
@@ -1158,6 +1228,9 @@
         }
 
         function formatFieldValue(fieldName, value, cellStats, scaleContext) {
+            if (fieldName === 'cell_type') {
+                return getCellTypeLabel(value);
+            }
             if (Object.prototype.hasOwnProperty.call(spatialFieldKinds, fieldName)) {
                 if (spatialFieldKinds[fieldName] === 'coordinate') {
                     return formatCoordinateValue(value, scaleContext, getCurrentSpatialUnit());
@@ -1336,6 +1409,7 @@
         }
 
         function renderStatisticsTable(statistics, fileData, {
+            cellTypeFilter = 'all',
             punctaSourceContourCountFilter = 'all',
             activeCellId = null,
         } = {}) {
@@ -1355,7 +1429,7 @@
 
             const entries = getFilteredStatisticsEntries(
                 statistics,
-                punctaSourceContourCountFilter,
+                { cellTypeFilter, punctaSourceContourCountFilter },
             );
 
             tbody.innerHTML = '';
@@ -1370,6 +1444,8 @@
                     const td = document.createElement('td');
                     if (fieldName === 'cell_id') {
                         td.textContent = String(id);
+                    } else if (fieldName === 'cell_type') {
+                        td.textContent = rowStats ? getCellTypeLabel(rowStats.cell_type) : 'Unknown';
                     } else if (fieldName === 'category_cen_dot') {
                         td.textContent = rowStats ? (rowStats.category_cen_dot_label || 'N/A') : 'N/A';
                     } else if (fieldName === 'cell_parentage') {
@@ -1427,6 +1503,12 @@
             buildCellCardMetricValues,
             normalizePunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterLabel,
+            normalizeCellTypeFilter,
+            getCellTypeFilterLabel,
+            normalizeCellType,
+            getCellTypeLabel,
+            matchesCellTypeFilter,
+            getFilteredStatisticsEntries,
             getPunctaSourceContourContext,
             derivePunctaSourceContourCount,
             matchesPunctaSourceContourCountFilter,

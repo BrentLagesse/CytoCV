@@ -27,6 +27,7 @@ from accounts.preferences import (
     get_user_preferences,
     update_user_preferences,
 )
+from core.cell_types import normalize_cell_inclusion_mode
 from core.scale import (
     DEFAULT_MICRONS_PER_PIXEL,
     convert_length_to_pixels,
@@ -697,6 +698,12 @@ def _parse_experiment_submission(
         ),
         default=False,
     )
+    cell_inclusion_mode = normalize_cell_inclusion_mode(
+        payload.get(
+            "cell_inclusion_mode",
+            experiment_defaults.get("cell_inclusion_mode"),
+        )
+    )
     signal_selection = resolve_signal_quantification_selection(
         payload={
             "signal_quantification_enabled": payload.get(
@@ -801,6 +808,7 @@ def _parse_experiment_submission(
         "signalQuantificationEnabled": signal_selection.enabled,
         "signalQuantificationMode": signal_selection.mode,
         "punctaContourIntensityEnabled": signal_selection.puncta_contour_intensity_enabled,
+        "cell_inclusion_mode": cell_inclusion_mode,
     }
     config_snapshot = {
         **session_values,

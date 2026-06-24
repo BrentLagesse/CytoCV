@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from django_tables2.export.export import TableExport
 from tablib import Dataset
 
+from core.cell_types import filter_statistics_by_cell_type
 from core.models import CellStatistics
 from core.scale import (
     format_spatial_stat_header,
@@ -65,6 +66,7 @@ def _generic_headers_for_fields(
     labels.update(
         {
             "cell_id": "Cell ID",
+            "cell_type": "Cell Type",
             "puncta_distance": format_spatial_stat_header(
                 "Puncta Distance",
                 spatial_kind="distance",
@@ -87,13 +89,15 @@ def _table_rows_for_file(
     exclude_columns: tuple[str, ...],
     spatial_stats_unit: str,
     default_manual_scale: float,
+    cell_type_filter: str = "all",
     puncta_source_contour_count_filter: str = "all",
 ) -> list[list[Any]]:
     stats_qs = CellStatistics.objects.filter(
         segmented_image=source.segmented_image,
     ).order_by("cell_id")
+    stats = filter_statistics_by_cell_type(stats_qs, cell_type_filter)
     stats = filter_statistics_by_puncta_source_contour_count(
-        stats_qs,
+        stats,
         puncta_source_contour_count_filter,
     )
     if not stats:
@@ -120,6 +124,7 @@ def build_combined_statistics_export_response(
     raw_columns: Any,
     spatial_stats_unit: str,
     default_manual_scale: float,
+    cell_type_filter: str = "all",
     puncta_source_contour_count_filter: str = "all",
 ) -> HttpResponse:
     """Return one CSV/XLSX attachment for the selected files."""
@@ -147,6 +152,7 @@ def build_combined_statistics_export_response(
             exclude_columns=exclude_columns,
             spatial_stats_unit=unit,
             default_manual_scale=default_manual_scale,
+            cell_type_filter=cell_type_filter,
             puncta_source_contour_count_filter=puncta_source_contour_count_filter,
         )
         for row_index, row in enumerate(rows):

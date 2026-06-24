@@ -9,6 +9,7 @@ from core.tables import CellTable
 def _stats_record(**overrides):
     defaults = {
         "cell_id": 1,
+        "cell_type": "cell_pair",
         "puncta_distance": 10.0,
         "puncta_line_intensity": 20.0,
         "blue_contour_size": 30.0,
@@ -74,6 +75,26 @@ def _stats_record(**overrides):
 class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def setUp(self):
         self.table = CellTable([], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+
+    def test_cell_type_header_and_export_label_follow_cell_id(self):
+        record = _stats_record(cell_type="single_cell")
+        table = CellTable([record], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+        values = list(table.as_values())
+        header = values[0]
+
+        self.assertEqual(header[:2], ["Cell ID", "Cell Type"])
+        self.assertEqual(values[1][header.index("Cell Type")], "Single Cell")
+        self.assertEqual(list(table.rows)[0].get_cell("cell_type"), "Single Cell")
+
+    def test_missing_cell_type_renders_unknown(self):
+        record = _stats_record()
+        delattr(record, "cell_type")
+        table = CellTable([record], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+        values = list(table.as_values())
+        header = values[0]
+
+        self.assertEqual(list(table.rows)[0].get_cell("cell_type"), "Unknown")
+        self.assertEqual(values[1][header.index("Cell Type")], "Unknown")
 
     @staticmethod
     def _record_with_status(status: str):

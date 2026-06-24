@@ -151,6 +151,44 @@ def _first_record(data: Any) -> Any:
     return None
 
 
+def _iter_records(data: Any) -> list[Any]:
+    if data is None:
+        return []
+    if isinstance(data, Mapping):
+        return [data]
+    if isinstance(data, (list, tuple)):
+        return list(data)
+    if hasattr(data, "__iter__") and not isinstance(data, (str, bytes)):
+        try:
+            return list(data)
+        except Exception:
+            return []
+    return [data]
+
+
+def _visibility_from_properties(properties: Mapping[str, Any]) -> dict[str, bool] | None:
+    property_visibility = normalize_stat_visibility(properties.get("stat_visibility"))
+    if property_visibility is not None:
+        return property_visibility
+    selected_analysis = properties.get("selected_analysis")
+    if isinstance(selected_analysis, list):
+        return build_stat_visibility(selected_analysis)
+    return None
+
+
+def _union_visibility(records: list[Any]) -> dict[str, bool] | None:
+    aggregate: dict[str, bool] | None = None
+    for record in records:
+        row_visibility = _visibility_from_properties(_properties_from_source(record))
+        if row_visibility is None:
+            continue
+        if aggregate is None:
+            aggregate = {group_name: False for group_name in STAT_FIELD_GROUPS}
+        for group_name, visible in row_visibility.items():
+            aggregate[group_name] = bool(aggregate.get(group_name, False) or visible)
+    return aggregate
+
+
 def resolve_stat_visibility(
     source: Any = None,
     *,
@@ -162,16 +200,18 @@ def resolve_stat_visibility(
     if selected_plugins is not None:
         return build_stat_visibility(selected_plugins)
 
-    properties = _properties_from_source(_first_record(source) or source)
-    selected_analysis = properties.get("selected_analysis")
-    if isinstance(selected_analysis, list):
-        return build_stat_visibility(selected_analysis)
-
     explicit_visibility = normalize_stat_visibility(stat_visibility)
     if explicit_visibility is not None:
         return explicit_visibility
 
-    property_visibility = normalize_stat_visibility(properties.get("stat_visibility"))
+    records = _iter_records(source)
+    if len(records) > 1:
+        union_visibility = _union_visibility(records)
+        if union_visibility is not None:
+            return union_visibility
+
+    properties = _properties_from_source(_first_record(source) or source)
+    property_visibility = _visibility_from_properties(properties)
     if property_visibility is not None:
         return property_visibility
 

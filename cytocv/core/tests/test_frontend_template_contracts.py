@@ -13,6 +13,7 @@ from .frontend_contract_helpers import (
     login_user,
     response_text,
     set_transient_uuids,
+    static_text,
 )
 
 
@@ -230,6 +231,11 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="workflowDefaultsNav"', workflow_content)
         self.assertIn('data-workflow-card="plugin-defaults"', workflow_content)
         self.assertIn('data-workflow-card="result-display-defaults"', workflow_content)
+        self.assertIn('id="cell_inclusion_mode"', workflow_content)
+        self.assertIn("Cell Inclusion Mode", workflow_content)
+        self.assertIn(">Cell pairs only</option>", workflow_content)
+        self.assertIn(">Single cells only</option>", workflow_content)
+        self.assertIn(">Single cells and cell pairs</option>", workflow_content)
         self.assertIn('id="default_puncta_source_contour_count_filter"', workflow_content)
         self.assertIn("Result Display Defaults", workflow_content)
         self.assertIn("Default Source Contour Count Filter", workflow_content)
@@ -299,6 +305,30 @@ class FrontendTemplateContractTests(TestCase):
             content,
             'id="statsList"',
             "Dot Detection",
+        )
+        experiment_source = static_text("js/pages/experiment.js")
+        self.assertIn("renderCellDetectionInclusionModule(list);", experiment_source)
+        self.assertIn("select.id = 'cellInclusionMode';", experiment_source)
+        self.assertIn("select.name = 'cell_inclusion_mode';", experiment_source)
+        self.assertIn(
+            "Controls which detected cell objects are retained during analysis. To include a cell type that was excluded, rerun analysis with a different mode.",
+            experiment_source,
+        )
+        assert_in_order(
+            self,
+            experiment_source,
+            "renderCellDetectionInclusionModule(list);",
+            "renderSignalQuantificationModule(list);",
+        )
+        assert_in_order(
+            self,
+            experiment_source,
+            "title.textContent = 'Cell Detection / Inclusion';",
+            "modeLabel.textContent = 'Cell Inclusion Mode:';",
+            "title.textContent = 'Signal Quantification';",
+            "modeLabel.textContent = 'Primary Mode:';",
+            "punctaModeLabel.textContent = 'Puncta Source:';",
+            "contourLabel.textContent = 'Red/Green Contour Intensities';",
         )
         self.assertIn('id="uploadQuotaProjection"', content)
         self.assertIn('id="saveWorkflowDefaultsBackdrop"', content)
@@ -383,6 +413,15 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="punctaSourceContourFilterControl"', display_content)
         self.assertIn('id="punctaSourceContourFilterButton"', display_content)
         self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', display_content)
+        self.assertEqual(display_content.count('id="cellTypeFilterControl"'), 1)
+        self.assertIn('id="cellTypeFilterButton"', display_content)
+        self.assertIn(">Show all analyzed cell types</span>", display_content)
+        self.assertIn(">Show single cells only</button>", display_content)
+        self.assertIn(">Show cell pairs only</button>", display_content)
+        self.assertIn(
+            "This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.",
+            display_content,
+        )
         self.assertIn(
             'id="punctaSourceContourFilterStatus" aria-live="polite" class="table-filter-count-meta cell-card-filter-meta"',
             display_content,
@@ -500,6 +539,15 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="punctaSourceContourFilterControl"', dashboard_content)
         self.assertIn('id="punctaSourceContourFilterButton"', dashboard_content)
         self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', dashboard_content)
+        self.assertEqual(dashboard_content.count('id="cellTypeFilterControl"'), 1)
+        self.assertIn('id="cellTypeFilterButton"', dashboard_content)
+        self.assertIn(">Show all analyzed cell types</span>", dashboard_content)
+        self.assertIn(">Show single cells only</button>", dashboard_content)
+        self.assertIn(">Show cell pairs only</button>", dashboard_content)
+        self.assertIn(
+            "This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.",
+            dashboard_content,
+        )
         self.assertIn(
             'id="punctaSourceContourFilterStatus" aria-live="polite" class="table-filter-count-meta cell-card-filter-meta"',
             dashboard_content,

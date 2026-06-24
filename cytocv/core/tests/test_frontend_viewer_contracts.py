@@ -127,7 +127,7 @@ class FrontendViewerContractTests(TestCase):
                 self.assertIn("setCellPairImagesLoading,", source)
                 self.assertIn("setCellPairImagesLoading(true)", source)
                 self.assertIn("setCellPairImagesLoading(false)", source)
-                self.assertEqual(source.count("imageLoading: true"), 3)
+                self.assertEqual(source.count("imageLoading: true"), 4)
                 self.assertEqual(source.count("imageLoading: options.imageLoading === true"), 2)
                 file_swap_start = source.index("setFileSwapLoading(true, requestToken)")
                 file_swap_end = source.index("setFileSwapLoading(false, requestToken)", file_swap_start)

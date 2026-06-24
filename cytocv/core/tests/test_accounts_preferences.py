@@ -31,6 +31,10 @@ from core.channel_roles import (
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
 )
+from core.cell_types import (
+    CELL_INCLUSION_MODE_PAIRS_ONLY,
+    CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
+)
 from core.models import (
     CellStatistics,
     DVLayerTifPreview,
@@ -123,6 +127,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
         self.assertFalse(defaults["use_legacy_nuclear_cell_pair_pipeline"])
+        self.assertEqual(defaults["cell_inclusion_mode"], CELL_INCLUSION_MODE_PAIRS_ONLY)
         self.assertTrue(defaults["green_dot_split_enabled"])
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertTrue(defaults["red_dot_split_enabled"])
@@ -204,6 +209,7 @@ class PreferenceNormalizationTests(TestCase):
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "green_nucleus")
         self.assertEqual(defaults["nuclear_cell_pair_contour_mode"], "balanced")
         self.assertFalse(defaults["use_legacy_nuclear_cell_pair_pipeline"])
+        self.assertEqual(defaults["cell_inclusion_mode"], CELL_INCLUSION_MODE_PAIRS_ONLY)
         self.assertEqual(defaults["green_dot_split_mode"], "balanced")
         self.assertFalse(defaults["red_dot_split_enabled"])
         self.assertEqual(defaults["red_dot_split_mode"], "balanced")
@@ -439,6 +445,20 @@ class PreferenceNormalizationTests(TestCase):
 
         self.assertNotIn("puncta_source_contour_count_filter", normalized)
         self.assertNotIn("red_contour_count_filter", normalized)
+
+    def test_analysis_snapshot_normalizes_cell_inclusion_mode(self):
+        self.assertEqual(
+            normalize_analysis_config_snapshot(
+                {"cell_inclusion_mode": CELL_INCLUSION_MODE_SINGLES_AND_PAIRS}
+            )["cell_inclusion_mode"],
+            CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
+        )
+        self.assertEqual(
+            normalize_analysis_config_snapshot({"cell_inclusion_mode": "bad"})[
+                "cell_inclusion_mode"
+            ],
+            CELL_INCLUSION_MODE_PAIRS_ONLY,
+        )
 
     def test_signal_quantification_applies_alternate_detection_in_nuclear_mode(self):
         selection = resolve_signal_quantification_selection(
@@ -899,9 +919,12 @@ class DisplayManualSaveTests(TestCase):
         }
         if properties:
             stat_properties.update(properties)
+        cell_type = stat_properties.get("cell_type", "cell_pair")
+        stat_properties["cell_type"] = cell_type
         CellStatistics.objects.create(
             segmented_image=segmented,
             cell_id=cell_id,
+            cell_type=cell_type,
             puncta_distance=1.0,
             puncta_line_intensity=2.0,
             nucleus_intensity_sum=3.0,
@@ -1166,7 +1189,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            f'href="/dashboard/?file_uuid={saved_uuid}&amp;_export=csv&amp;_unit=px"',
+            f'href="/dashboard/?file_uuid={saved_uuid}&amp;_export=csv&amp;_unit=px&amp;_cell_type=all"',
             html=False,
         )
         self.assertNotContains(response, "_export=xlsx", html=False)
@@ -1881,13 +1904,17 @@ class DisplayManualSaveTests(TestCase):
             rows[0],
             [
                 "Cell ID",
+                "Cell Type",
                 "Distance Between Red Puncta (px)",
                 "Red Contour 1 Center (x,y) (px)",
                 "Red In Red Total Intensity 1",
                 "Cytoplasmic Intensity",
             ],
         )
-        self.assertEqual(rows[1], ["1", "1.000", "10.000, 20.000", "5.000", "0.000"])
+        self.assertEqual(
+            rows[1],
+            ["1", "Cell Pair", "1.000", "10.000, 20.000", "5.000", "0.000"],
+        )
 
     def test_dashboard_xlsx_export_filters_selected_columns(self):
         saved_uuid = self._create_display_file(
@@ -1911,6 +1938,7 @@ class DisplayManualSaveTests(TestCase):
             self._xlsx_headers(response),
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Measurement/Contour Ratio 1 (Green/Red)",
             ],
@@ -1927,6 +1955,7 @@ class DisplayManualSaveTests(TestCase):
         selected_columns = "puncta_distance,red_in_red_total_intensity_1"
         expected_headers = [
             "Cell ID",
+            "Cell Type",
             "Distance Between Red Puncta (px)",
             "Red In Red Total Intensity 1",
         ]
@@ -1952,11 +1981,14 @@ class DisplayManualSaveTests(TestCase):
                     if export_format == "csv":
                         rows = self._csv_rows(response)
                         self.assertEqual(rows[0], expected_headers)
-                        self.assertEqual(rows[1:], [["2", "1.000", "5.000"]])
+                        self.assertEqual(
+                            rows[1:],
+                            [["2", "Cell Pair", "1.000", "5.000"]],
+                        )
                     else:
                         rows = self._xlsx_rows(response)
                         self.assertEqual(rows[0], expected_headers)
-                        self.assertEqual(rows[1:], [[2, 1, 5]])
+                        self.assertEqual(rows[1:], [[2, "Cell Pair", 1, 5]])
 
                     all_response = self.client.get(
                         url,
@@ -2010,13 +2042,17 @@ class DisplayManualSaveTests(TestCase):
             rows[0],
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Green In Red Total Intensity 1",
                 "Red In Green Total Intensity 1",
                 "Green In Green Total Intensity 1",
             ],
         )
-        self.assertEqual(rows[1], ["1", "5.000", "6.000", "7.000", "8.000"])
+        self.assertEqual(
+            rows[1],
+            ["1", "Cell Pair", "5.000", "6.000", "7.000", "8.000"],
+        )
 
         response = self.client.get(
             reverse("dashboard"),
@@ -2030,13 +2066,14 @@ class DisplayManualSaveTests(TestCase):
             self._xlsx_headers(response),
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Green In Red Total Intensity 1",
                 "Red In Green Total Intensity 1",
                 "Green In Green Total Intensity 1",
             ],
         )
-        self.assertEqual(self._xlsx_rows(response)[1], [1, 5, 6, 7, 8])
+        self.assertEqual(self._xlsx_rows(response)[1], [1, "Cell Pair", 5, 6, 7, 8])
 
         response = self.client.get(
             reverse("dashboard"),
@@ -2056,6 +2093,7 @@ class DisplayManualSaveTests(TestCase):
             rows[0],
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Red In Red Max Intensity 1",
                 "Green In Red Total Intensity 1",
@@ -2063,7 +2101,10 @@ class DisplayManualSaveTests(TestCase):
             ],
         )
         self.assertNotIn("Red In Red Average Intensity 1", rows[0])
-        self.assertEqual(rows[1], ["1", "5.000", "4.000", "6.000", "5.000"])
+        self.assertEqual(
+            rows[1],
+            ["1", "Cell Pair", "5.000", "4.000", "6.000", "5.000"],
+        )
 
         response = self.client.get(
             reverse("dashboard"),
@@ -2082,13 +2123,17 @@ class DisplayManualSaveTests(TestCase):
             self._xlsx_headers(response),
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Average Intensity 1",
                 "Green In Red Average Intensity 1",
                 "Red In Green Average Intensity 1",
                 "Green In Green Average Intensity 1",
             ],
         )
-        self.assertEqual(self._xlsx_rows(response)[1], [1, 2.5, 3, 3.5, 4])
+        self.assertEqual(
+            self._xlsx_rows(response)[1],
+            [1, "Cell Pair", 2.5, 3, 3.5, 4],
+        )
 
     def test_display_selected_total_only_intensity_exports_all_slots_and_combinations(self):
         saved_uuid = self._create_display_file(
@@ -2113,10 +2158,10 @@ class DisplayManualSaveTests(TestCase):
         csv_headers = self._csv_rows(csv_response)[0]
         xlsx_headers = self._xlsx_headers(xlsx_response)
         self.assertEqual(csv_headers, xlsx_headers)
-        self.assertEqual(len(csv_headers), 13)
+        self.assertEqual(len(csv_headers), 14)
         self.assertIn("Red In Red Total Intensity 1", csv_headers)
         self.assertIn("Green In Green Total Intensity 3", csv_headers)
-        self.assertTrue(all("Total Intensity" in header for header in csv_headers[1:]))
+        self.assertTrue(all("Total Intensity" in header for header in csv_headers[2:]))
         self.assertFalse(any("Max Intensity" in header for header in csv_headers))
         self.assertFalse(any("Average Intensity" in header for header in csv_headers))
 
@@ -2145,7 +2190,7 @@ class DisplayManualSaveTests(TestCase):
                     if export_format == "csv"
                     else self._xlsx_headers(response)
                 )
-                self.assertEqual(len(headers), 25)
+                self.assertEqual(len(headers), 26)
                 self.assertIn("Red In Red Total Intensity 1", headers)
                 self.assertIn("Green In Green Average Intensity 2", headers)
                 self.assertFalse(any(header.endswith("Intensity 3") for header in headers))
@@ -2175,6 +2220,7 @@ class DisplayManualSaveTests(TestCase):
             self._csv_rows(response)[0],
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Red In Red Total Intensity 2",
                 "Green In Green Total Intensity 1",
@@ -2236,9 +2282,9 @@ class DisplayManualSaveTests(TestCase):
         rows = self._csv_rows(response)
         self.assertEqual(
             rows[0],
-            ["Cell ID", "Distance Between Red Puncta (µm)", "Red In Red Total Intensity 1"],
+            ["Cell ID", "Cell Type", "Distance Between Red Puncta (µm)", "Red In Red Total Intensity 1"],
         )
-        self.assertEqual(rows[1], ["1", "0.500", "5.000"])
+        self.assertEqual(rows[1], ["1", "Cell Pair", "0.500", "5.000"])
 
     def test_dashboard_xlsx_export_respects_micron_unit_request(self):
         saved_uuid = self._create_display_file(
@@ -2321,6 +2367,7 @@ class DisplayManualSaveTests(TestCase):
             [
                 "File Name",
                 "Cell ID",
+                "Cell Type",
                 "Puncta Distance (px)",
                 "Red Contour 1 Center (x,y) (px)",
                 "Red In Red Total Intensity 1",
@@ -2331,9 +2378,9 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(
             rows[1:],
             [
-                ["combined_second", "1", "1.000", "10.000, 20.000", "5.000"],
-                ["combined_first", "1", "1.000", "10.000, 20.000", "5.000"],
-                ["", "2", "1.000", "10.000, 20.000", "5.000"],
+                ["combined_second", "1", "Cell Pair", "1.000", "10.000, 20.000", "5.000"],
+                ["combined_first", "1", "Cell Pair", "1.000", "10.000, 20.000", "5.000"],
+                ["", "2", "Cell Pair", "1.000", "10.000, 20.000", "5.000"],
             ],
         )
 
@@ -2377,6 +2424,7 @@ class DisplayManualSaveTests(TestCase):
             [
                 "File Name",
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Measurement/Contour Ratio 1",
             ],
@@ -2389,8 +2437,8 @@ class DisplayManualSaveTests(TestCase):
         )
         workbook = load_workbook(BytesIO(response.content))
         sheet = workbook.active
-        red_intensity_cell = sheet.cell(row=2, column=3)
-        ratio_cell = sheet.cell(row=2, column=4)
+        red_intensity_cell = sheet.cell(row=2, column=4)
+        ratio_cell = sheet.cell(row=2, column=5)
         self.assertEqual(red_intensity_cell.value, 5)
         self.assertEqual(red_intensity_cell.data_type, "n")
         self.assertEqual(ratio_cell.data_type, "n")
@@ -2413,6 +2461,7 @@ class DisplayManualSaveTests(TestCase):
         expected_headers = [
             "File Name",
             "Cell ID",
+            "Cell Type",
             "Puncta Distance (px)",
             "Red In Red Total Intensity 1",
         ]
@@ -2460,6 +2509,7 @@ class DisplayManualSaveTests(TestCase):
                             [
                                 "combined_red_filter_first",
                                 "2" if export_format == "csv" else 2,
+                                "Cell Pair",
                                 "1.000" if export_format == "csv" else 1,
                                 "5.000" if export_format == "csv" else 5,
                             ]
@@ -2501,7 +2551,7 @@ class DisplayManualSaveTests(TestCase):
                     if export_format == "csv"
                     else self._xlsx_headers(response)
                 )
-                self.assertEqual(len(headers), 26)
+                self.assertEqual(len(headers), 27)
                 self.assertIn("File Name", headers)
                 self.assertIn("Red In Red Total Intensity 1", headers)
                 self.assertIn("Green In Green Max Intensity 3", headers)
@@ -2542,7 +2592,7 @@ class DisplayManualSaveTests(TestCase):
                     if export_format == "csv"
                     else self._xlsx_headers(response)
                 )
-                self.assertEqual(len(headers), 14)
+                self.assertEqual(len(headers), 15)
                 self.assertIn("Red In Red Average Intensity 1", headers)
                 self.assertIn("Green In Green Average Intensity 3", headers)
                 self.assertFalse(any("Total Intensity" in header for header in headers))
@@ -2646,7 +2696,10 @@ class DisplayManualSaveTests(TestCase):
             extension="csv",
         )
         rows = self._csv_rows(response)
-        self.assertEqual(rows[0], ["File Name", "Cell ID", "Red In Red Total Intensity 1"])
+        self.assertEqual(
+            rows[0],
+            ["File Name", "Cell ID", "Cell Type", "Red In Red Total Intensity 1"],
+        )
         self.assertEqual(
             [row[0] for row in rows[1:]],
             ["display_combined_first", "display_combined_second"],
@@ -2688,7 +2741,7 @@ class DisplayManualSaveTests(TestCase):
         )
         self.assertEqual(
             self._xlsx_headers(response),
-            ["File Name", "Cell ID", "Red In Red Total Intensity 1"],
+            ["File Name", "Cell ID", "Cell Type", "Red In Red Total Intensity 1"],
         )
 
     def test_display_combined_csv_export_respects_micron_unit_request(self):
@@ -2729,6 +2782,7 @@ class DisplayManualSaveTests(TestCase):
             [
                 "File Name",
                 "Cell ID",
+                "Cell Type",
                 "Puncta Distance (µm)",
                 "Red Contour 1 Center (x,y) (µm)",
                 "Red In Red Total Intensity 1",
@@ -2736,7 +2790,7 @@ class DisplayManualSaveTests(TestCase):
         )
         self.assertEqual(
             rows[1],
-            ["display_combined_um_export", "1", "0.500", "5.000, 10.000", "5.000"],
+            ["display_combined_um_export", "1", "Cell Pair", "0.500", "5.000, 10.000", "5.000"],
         )
 
     def test_display_combined_export_filename_scope_tracks_metric_selection(self):
@@ -2830,8 +2884,8 @@ class DisplayManualSaveTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         rows = self._csv_rows(response)
-        self.assertEqual(rows[0], ["File Name", "Cell ID", "Puncta Distance (µm)"])
-        self.assertEqual(rows[1], ["combined_um_export", "1", "0.500"])
+        self.assertEqual(rows[0], ["File Name", "Cell ID", "Cell Type", "Puncta Distance (µm)"])
+        self.assertEqual(rows[1], ["combined_um_export", "1", "Cell Pair", "0.500"])
 
     def test_combined_exports_reject_invalid_empty_and_inaccessible_requests(self):
         owned_uuid = self._create_display_file(
@@ -2977,12 +3031,14 @@ class DisplayManualSaveTests(TestCase):
             [
                 "File Name",
                 "Cell ID",
+                "Cell Type",
                 "Puncta Distance (px)",
                 "Measured Cell-Pair Intensity",
             ],
         )
         self.assertEqual(
-            rows[1], ["combined_nuclear_filtered_export", "1", "N/A", "4.000"]
+            rows[1],
+            ["combined_nuclear_filtered_export", "1", "Cell Pair", "N/A", "4.000"],
         )
 
     def test_display_csv_export_uses_generated_download_name(self):
@@ -3131,6 +3187,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(xlsx_response.status_code, 200)
         expected_headers = [
             "Cell ID",
+            "Cell Type",
             "Red Contour 1 Center (x,y) (px)",
             "Red In Red Total Intensity 1",
             "Measurement/Contour Ratio 1 (Green/Red)",
@@ -3140,7 +3197,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertNotIn("Red In Red Average Intensity 1", self._csv_rows(csv_response)[0])
         self.assertEqual(
             self._csv_rows(csv_response)[1],
-            ["1", "10.000, 20.000", "5.000", "1.200"],
+            ["1", "Cell Pair", "10.000, 20.000", "5.000", "1.200"],
         )
         self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
         self.assertNotIn("Red In Red Max Intensity 1", self._xlsx_headers(xlsx_response))
@@ -3184,6 +3241,7 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(xlsx_response.status_code, 200)
         expected_headers = [
             "Cell ID",
+            "Cell Type",
             "Distance Between Red Puncta (µm)",
             "Red Contour 1 Center (x,y) (µm)",
             "Red In Red Total Intensity 1",
@@ -3192,12 +3250,12 @@ class DisplayManualSaveTests(TestCase):
         self.assertEqual(self._csv_rows(csv_response)[0], expected_headers)
         self.assertEqual(
             self._csv_rows(csv_response)[1],
-            ["1", "0.500", "5.000, 10.000", "5.000", "1.200"],
+            ["1", "Cell Pair", "0.500", "5.000, 10.000", "5.000", "1.200"],
         )
         self.assertEqual(self._xlsx_headers(xlsx_response), expected_headers)
         self.assertEqual(
             self._xlsx_rows(xlsx_response)[1],
-            [1, 0.5, "5.000, 10.000", 5, 1.2],
+            [1, "Cell Pair", 0.5, "5.000, 10.000", 5, 1.2],
         )
 
     def test_filtered_exports_reject_invalid_or_empty_columns(self):
@@ -3251,11 +3309,12 @@ class DisplayManualSaveTests(TestCase):
             rows[0],
             [
                 "Cell ID",
+                "Cell Type",
                 "Distance Between Red Puncta (px)",
                 "Red Cell-Pair Intensity",
             ],
         )
-        self.assertEqual(rows[1], ["1", "N/A", "4.000"])
+        self.assertEqual(rows[1], ["1", "Cell Pair", "N/A", "4.000"])
 
     def test_green_red_intensity_disabled_export_does_not_emit_fake_values(self):
         saved_uuid = self._create_display_file(
@@ -3288,11 +3347,12 @@ class DisplayManualSaveTests(TestCase):
             rows[0],
             [
                 "Cell ID",
+                "Cell Type",
                 "Red In Red Total Intensity 1",
                 "Red In Red Max Intensity 1",
             ],
         )
-        self.assertEqual(rows[1], ["1", "N/A", "N/A"])
+        self.assertEqual(rows[1], ["1", "Cell Pair", "N/A", "N/A"])
 
     def test_display_save_endpoint_is_idempotent_for_saved_file(self):
         saved_uuid = self._create_display_file(
@@ -4929,6 +4989,7 @@ class ChannelVisibilityPreferenceTests(TestCase):
                 "biorientation_collinearity_threshold": "77",
                 "puncta_line_mode": "green_puncta",
                 "nuclear_cell_pair_mode": "red_nucleus",
+                "cell_inclusion_mode": CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
                 "green_contour_filter_enabled": "on",
                 "green_dot_split_enabled": "0",
                 "green_dot_split_mode": "aggressive",
@@ -4970,6 +5031,10 @@ class ChannelVisibilityPreferenceTests(TestCase):
         self.assertTrue(defaults["alternate_red_detection"])
         self.assertEqual(defaults["puncta_line_mode"], "green_puncta")
         self.assertEqual(defaults["nuclear_cell_pair_mode"], "red_nucleus")
+        self.assertEqual(
+            defaults["cell_inclusion_mode"],
+            CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
+        )
         self.assertEqual(defaults["microns_per_pixel"], 0.25)
         self.assertTrue(defaults["use_metadata_scale"])
         self.assertEqual(defaults["spatial_stats_unit"], "um")

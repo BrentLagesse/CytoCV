@@ -128,6 +128,7 @@ def add_cell_stat(file_uuid: str, *, cell_id: int = 1, properties: dict | None =
     CellStatistics.objects.create(
         segmented_image=segmented,
         cell_id=cell_id,
+        cell_type=(properties or {}).get("cell_type", "unknown"),
         puncta_distance=1.0,
         puncta_line_intensity=2.0,
         nucleus_intensity_sum=3.0,

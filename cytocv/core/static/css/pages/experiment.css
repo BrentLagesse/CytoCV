@@ -1522,6 +1522,12 @@
             border-color: rgba(86, 147, 220, 0.75);
             box-shadow: inset 0 0 0 1px rgba(86, 147, 220, 0.32);
         }
+        .cell-inclusion-mode-inline .module-help {
+            margin: 0;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.3;
+        }
         .info-dot {
             border: 1px solid var(--panel-border);
             border-radius: 999px;

@@ -11,7 +11,7 @@ from core.services.stat_applicability import STAT_FIELD_GROUPS
 from core.tables import CellTable
 
 
-ALWAYS_INCLUDED_EXPORT_COLUMNS = ("cell_id",)
+ALWAYS_INCLUDED_EXPORT_COLUMNS = ("cell_id", "cell_type")
 CLIENT_FIELD_ALIASES = {
     "measurement_contour_ratio_1": "green_red_intensity_1",
     "measurement_contour_ratio_2": "green_red_intensity_2",
@@ -131,6 +131,16 @@ def export_selection_config() -> dict[str, Any]:
                 "id": "cell_id",
                 "tableField": "cell_id",
                 "label": "Cell ID",
+                "group": "identity",
+                "defaultSelected": True,
+                "disabled": True,
+                "payloadParam": "_columns",
+            },
+            {
+                "type": "stat_column",
+                "id": "cell_type",
+                "tableField": "cell_type",
+                "label": "Cell Type",
                 "group": "identity",
                 "defaultSelected": True,
                 "disabled": True,

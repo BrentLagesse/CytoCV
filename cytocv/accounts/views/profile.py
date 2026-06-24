@@ -42,6 +42,11 @@ from core.channel_ordering import (
     normalize_channel_order,
 )
 from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
+from core.cell_types import (
+    filter_statistics_by_cell_type,
+    normalize_cell_inclusion_mode,
+    normalize_cell_type_filter,
+)
 from core.models import (
     CellStatistics,
     SegmentedImage,
@@ -275,6 +280,9 @@ def _extract_measurement_defaults(
     current_nuclear_contour_mode = _normalize_nuclear_contour_mode(
         defaults.get("nuclear_cell_pair_contour_mode"),
     )
+    current_cell_inclusion_mode = normalize_cell_inclusion_mode(
+        defaults.get("cell_inclusion_mode")
+    )
     current_legacy_nuclear_cell_pair = bool(
         defaults.get("use_legacy_nuclear_cell_pair_pipeline", False)
     )
@@ -375,6 +383,9 @@ def _extract_measurement_defaults(
         "nuclear_cell_pair_contour_mode": _normalize_nuclear_contour_mode(
             post_data.get("nuclear_cell_pair_contour_mode"),
             default=current_nuclear_contour_mode,
+        ),
+        "cell_inclusion_mode": normalize_cell_inclusion_mode(
+            post_data.get("cell_inclusion_mode", current_cell_inclusion_mode)
         ),
         "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
         "puncta_line_width_unit": puncta_line_width_unit,
@@ -549,6 +560,7 @@ def _build_cell_table_for_uuid(
     uuid: str,
     *,
     spatial_stats_unit: str = "px",
+    cell_type_filter: str = "all",
     puncta_source_contour_count_filter: str = "all",
 ) -> CellTable:
     preferences = get_user_preferences(user)
@@ -577,8 +589,9 @@ def _build_cell_table_for_uuid(
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
         "cell_id"
     )
+    stats = filter_statistics_by_cell_type(stats_qs, cell_type_filter)
     stats = filter_statistics_by_puncta_source_contour_count(
-        stats_qs,
+        stats,
         puncta_source_contour_count_filter,
     )
     intensity_mode, puncta_line_mode = resolve_cell_table_modes(stats)
@@ -715,6 +728,9 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
     initial_puncta_source_contour_count_filter = (
         resolve_initial_puncta_source_contour_count_filter(request, preferences)
     )
+    initial_cell_type_filter = normalize_cell_type_filter(
+        request.GET.get("_cell_type") if request is not None else None
+    )
 
     files_data: dict[str, Any] = {}
     file_list: list[dict[str, Any]] = []
@@ -751,8 +767,12 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
-            initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+            initial_table_stats = filter_statistics_by_cell_type(
                 stats_qs,
+                initial_cell_type_filter,
+            )
+            initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                initial_table_stats,
                 initial_puncta_source_contour_count_filter,
             )
             intensity_mode, puncta_line_mode = resolve_cell_table_modes(
@@ -945,6 +965,7 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
+        "cell_type_filter": initial_cell_type_filter,
         "puncta_source_contour_count_filter": initial_puncta_source_contour_count_filter,
         "export_selection_config": export_selection_config(),
     }
@@ -1072,6 +1093,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             request.user,
             export_uuid,
             spatial_stats_unit=export_unit,
+            cell_type_filter=request.GET.get("_cell_type"),
             puncta_source_contour_count_filter=request.GET.get(
                 "_puncta_source_contour_count",
                 request.GET.get("_red_contour_count"),
@@ -1197,6 +1219,7 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
+            cell_type_filter=payload.get("_cell_type"),
             puncta_source_contour_count_filter=payload.get(
                 "_puncta_source_contour_count",
                 payload.get("_red_contour_count"),

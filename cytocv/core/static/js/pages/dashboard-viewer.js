@@ -119,6 +119,7 @@
         };
         const tableFieldOrder = [
             'cell_id',
+            'cell_type',
             'puncta_distance',
             'puncta_line_intensity',
             'blue_contour_size',
@@ -293,6 +294,9 @@
             hasStatisticsTableRows,
             normalizePunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterLabel,
+            normalizeCellTypeFilter,
+            getCellTypeFilterLabel,
+            matchesCellTypeFilter,
             getPunctaSourceContourContext,
             matchesPunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterCounts,
@@ -312,6 +316,9 @@
                 currentSpatialStatsUnit = unit;
             },
         });
+        let currentCellTypeFilter = normalizeCellTypeFilter(
+            dashboardPageConfig.initialCellTypeFilter
+        );
         let currentPunctaSourceContourCountFilter = normalizePunctaSourceContourCountFilter(
             dashboardPageConfig.initialPunctaSourceContourCountFilter
         );
@@ -322,6 +329,10 @@
         const punctaSourceContourFilterValue = document.getElementById('punctaSourceContourFilterValue');
         const punctaSourceContourFilterMenu = document.getElementById('punctaSourceContourFilterMenu');
         const punctaSourceContourFilterLabel = document.getElementById('punctaSourceContourFilterLabel');
+        const cellTypeFilterControl = document.getElementById('cellTypeFilterControl');
+        const cellTypeFilterButton = document.getElementById('cellTypeFilterButton');
+        const cellTypeFilterValue = document.getElementById('cellTypeFilterValue');
+        const cellTypeFilterMenu = document.getElementById('cellTypeFilterMenu');
         let preferredMainImageChannel = normalizeMainImageChannel(initialPreferredMainImageChannel);
         let activeFileLoadToken = 0;
         let activeCellRenderToken = 0;
@@ -528,6 +539,7 @@
                 file_uuid: fileUUID,
                 _export: format,
                 _unit: getCurrentSpatialUnit(),
+                _cell_type: getCurrentCellTypeFilter(),
                 _puncta_source_contour_count: getCurrentPunctaSourceContourCountFilter(),
             });
             if (Array.isArray(selectedColumns) && selectedColumns.length > 0) {
@@ -596,10 +608,42 @@
                     _export: format,
                     _columns: columns,
                     _unit: getCurrentSpatialUnit(),
+                    _cell_type: getCurrentCellTypeFilter(),
                     _puncta_source_contour_count: getCurrentPunctaSourceContourCountFilter(),
                 }),
             });
             window.dashboardExportSelectionController = dashboardExportSelectionController;
+        }
+
+        function getCurrentCellTypeFilter() {
+            return normalizeCellTypeFilter(currentCellTypeFilter);
+        }
+
+        function setCurrentCellTypeFilter(value) {
+            currentCellTypeFilter = normalizeCellTypeFilter(value);
+            syncCellTypeFilterControl();
+            syncPunctaSourceContourFilterControl(filesData[fileUUIDs[currentFileIndex]] || null);
+            return currentCellTypeFilter;
+        }
+
+        function syncCellTypeFilterControl() {
+            const effectiveFilter = getCurrentCellTypeFilter();
+            if (cellTypeFilterValue) {
+                cellTypeFilterValue.textContent = getCellTypeFilterLabel(effectiveFilter);
+            }
+            if (cellTypeFilterMenu) {
+                cellTypeFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
+                    const selected = option.dataset.value === effectiveFilter;
+                    option.classList.toggle('is-selected', selected);
+                    option.setAttribute('aria-selected', selected ? 'true' : 'false');
+                });
+            }
+        }
+
+        function closeCellTypeFilterMenu() {
+            if (!cellTypeFilterMenu || !cellTypeFilterButton) return;
+            cellTypeFilterMenu.hidden = true;
+            cellTypeFilterButton.setAttribute('aria-expanded', 'false');
         }
 
         function getCurrentPunctaSourceContourCountFilter() {
@@ -613,28 +657,36 @@
         }
 
         function getEffectivePunctaSourceContourCountFilter(fileData) {
-            const context = getPunctaSourceContourContext(fileData?.Statistics || {});
-            return context.applicable ? getCurrentPunctaSourceContourCountFilter() : 'all';
+            const counts = getPunctaSourceContourCountFilterCounts(
+                fileData?.Statistics || {},
+                getCurrentPunctaSourceContourCountFilter(),
+                getCurrentCellTypeFilter(),
+            );
+            return counts.applicable ? getCurrentPunctaSourceContourCountFilter() : 'all';
         }
 
         function syncPunctaSourceContourFilterControl(fileData) {
-            const context = getPunctaSourceContourContext(fileData?.Statistics || {});
-            const effectiveFilter = context.applicable
+            const counts = getPunctaSourceContourCountFilterCounts(
+                fileData?.Statistics || {},
+                getCurrentPunctaSourceContourCountFilter(),
+                getCurrentCellTypeFilter(),
+            );
+            const effectiveFilter = counts.applicable
                 ? getCurrentPunctaSourceContourCountFilter()
                 : 'all';
             if (punctaSourceContourFilterLabel) {
-                punctaSourceContourFilterLabel.textContent = `${context.controlLabel}:`;
+                punctaSourceContourFilterLabel.textContent = `${counts.controlLabel}:`;
             }
             if (punctaSourceContourFilterValue) {
                 punctaSourceContourFilterValue.textContent = getPunctaSourceContourCountFilterLabel(effectiveFilter);
             }
             if (punctaSourceContourFilterControl) {
-                punctaSourceContourFilterControl.classList.toggle('is-disabled', !context.applicable);
-                punctaSourceContourFilterControl.dataset.sourceChannel = context.channel || '';
+                punctaSourceContourFilterControl.classList.toggle('is-disabled', !counts.applicable);
+                punctaSourceContourFilterControl.dataset.sourceChannel = counts.channel || '';
             }
             if (punctaSourceContourFilterButton) {
-                punctaSourceContourFilterButton.disabled = !context.applicable;
-                punctaSourceContourFilterButton.setAttribute('aria-disabled', context.applicable ? 'false' : 'true');
+                punctaSourceContourFilterButton.disabled = !counts.applicable;
+                punctaSourceContourFilterButton.setAttribute('aria-disabled', counts.applicable ? 'false' : 'true');
             }
             if (punctaSourceContourFilterMenu) {
                 punctaSourceContourFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
@@ -705,37 +757,49 @@
                 const counts = getPunctaSourceContourCountFilterCounts(
                     fileData?.Statistics || {},
                     getCurrentPunctaSourceContourCountFilter(),
+                    getCurrentCellTypeFilter(),
                 );
                 const shown = Number.isFinite(Number(renderedRowCount))
                     ? Number(renderedRowCount)
                     : counts.shown;
                 status.textContent = `Showing ${shown} of ${counts.total} cells`;
-                status.dataset.activeFilter = getPunctaSourceContourCountFilterLabel(counts.filter);
+                status.dataset.activeFilter = [
+                    getCellTypeFilterLabel(getCurrentCellTypeFilter()),
+                    getPunctaSourceContourCountFilterLabel(counts.filter),
+                ].join(' / ');
             }
             syncPunctaSourceContourCellCardState(fileData);
         }
 
         function getActiveCellNavigationIds(fileData) {
             const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
-            if (filterValue === 'all') {
-                return getSortedCellIds(fileData);
-            }
             const allIds = new Set(getSortedCellIds(fileData));
-            return getPunctaSourceContourFilteredCellIds(fileData, filterValue)
+            return getPunctaSourceContourFilteredCellIds(
+                fileData,
+                filterValue,
+                getCurrentCellTypeFilter(),
+            )
                 .filter((cellId) => allIds.has(cellId));
         }
 
         function getPunctaSourceContourCardFilterLabel(fileData) {
             const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
-            if (filterValue === 'all') return '';
-            const context = getPunctaSourceContourContext(fileData?.Statistics || {});
-            const countLabel = filterValue === 'exactly_1'
-                ? 'Exactly 1'
-                : 'Exactly 2';
-            const sourceLabel = context.channelLabel
-                ? `${context.channelLabel.toLowerCase()} source contour${filterValue === 'exactly_1' ? '' : 's'}`
-                : `source contour${filterValue === 'exactly_1' ? '' : 's'}`;
-            return `${countLabel} ${sourceLabel}`;
+            const parts = [];
+            const cellTypeFilter = getCurrentCellTypeFilter();
+            if (cellTypeFilter !== 'all') {
+                parts.push(cellTypeFilter === 'single_cell' ? 'Single cells only' : 'Cell pairs only');
+            }
+            if (filterValue !== 'all') {
+                const context = getPunctaSourceContourContext(fileData?.Statistics || {});
+                const countLabel = filterValue === 'exactly_1'
+                    ? 'Exactly 1'
+                    : 'Exactly 2';
+                const sourceLabel = context.channelLabel
+                    ? `${context.channelLabel.toLowerCase()} source contour${filterValue === 'exactly_1' ? '' : 's'}`
+                    : `source contour${filterValue === 'exactly_1' ? '' : 's'}`;
+                parts.push(`${countLabel} ${sourceLabel}`);
+            }
+            return parts.join(' / ');
         }
 
         function syncPunctaSourceContourCellCardState(fileData) {
@@ -760,7 +824,8 @@
 
             const message = document.getElementById('punctaSourceContourActiveCellMessage');
             if (!message) return;
-            if (filterValue === 'all') {
+            const cellTypeFilter = getCurrentCellTypeFilter();
+            if (filterValue === 'all' && cellTypeFilter === 'all') {
                 message.hidden = true;
                 message.textContent = '';
                 return;
@@ -772,8 +837,14 @@
                 return;
             }
             const row = fileData?.Statistics?.[String(currentCellNumber)] || null;
-            if (row && !matchesPunctaSourceContourCountFilter(row, filterValue)) {
-                message.textContent = 'Current cell is outside the active contour-count filter.';
+            if (
+                row
+                && (
+                    !matchesCellTypeFilter(row, cellTypeFilter)
+                    || !matchesPunctaSourceContourCountFilter(row, filterValue)
+                )
+            ) {
+                message.textContent = 'Current cell is outside the active row filters.';
                 message.hidden = false;
             } else {
                 message.hidden = true;
@@ -792,7 +863,7 @@
                 button.disabled = disableNavigation;
                 button.setAttribute('aria-disabled', disableNavigation ? 'true' : 'false');
                 button.title = disableNavigation
-                    ? 'No cells match the current contour-count filter.'
+                    ? 'No cells match the current table filters.'
                     : '';
             });
         }
@@ -887,6 +958,7 @@
                 fileData.Statistics || {},
                 fileData,
                 {
+                    cellTypeFilter: getCurrentCellTypeFilter(),
                     punctaSourceContourCountFilter: filterValue,
                     activeCellId: currentCellNumber,
                 },
@@ -894,14 +966,23 @@
             const filterCounts = getPunctaSourceContourCountFilterCounts(
                 fileData.Statistics || {},
                 getCurrentPunctaSourceContourCountFilter(),
+                getCurrentCellTypeFilter(),
             );
+            syncCellTypeFilterControl();
             syncPunctaSourceContourFilterControl(fileData);
+            const hasActiveRowFilter = (
+                getCurrentCellTypeFilter() !== 'all'
+                || filterValue !== 'all'
+            );
+            const analyzedRowCount = Object.values(fileData.Statistics || {}).filter(
+                (row) => row && typeof row === 'object',
+            ).length;
 
             if (fileData.NoCellsWarning) {
                 note.textContent = fileData.NoCellsWarning;
                 note.style.display = 'block';
-            } else if (filterCounts.total > 0 && renderedRowCount === 0 && filterValue !== 'all') {
-                note.textContent = 'No cells match the current contour-count filter. Switch back to All cells to view every cell.';
+            } else if (analyzedRowCount > 0 && renderedRowCount === 0 && hasActiveRowFilter) {
+                note.textContent = 'No cells match the current row filters. Show all analyzed cell types and all source contours to view every retained cell.';
                 note.style.display = 'block';
             } else {
                 note.style.display = 'none';
@@ -910,6 +991,43 @@
             syncPunctaSourceContourFilterStatus(fileData, renderedRowCount);
             syncCellNavigationState(fileData);
             syncDashboardExportButtons(fileUUID, fileData, renderedRowCount);
+        }
+
+        if (cellTypeFilterButton && cellTypeFilterMenu) {
+            cellTypeFilterButton.addEventListener('click', () => {
+                const isOpen = cellTypeFilterButton.getAttribute('aria-expanded') === 'true';
+                cellTypeFilterMenu.hidden = isOpen;
+                cellTypeFilterButton.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+            });
+            cellTypeFilterMenu.querySelectorAll('[data-value]').forEach((option) => {
+                option.addEventListener('click', async () => {
+                    const previousCellNumber = Number(currentCellNumber);
+                    setCurrentCellTypeFilter(option.dataset.value);
+                    startPunctaSourceContourFilterApplyVisualState();
+                    closeCellTypeFilterMenu();
+                    try {
+                        await waitForPunctaSourceContourFilterApplyFeedback();
+                        const fileUUID = fileUUIDs[currentFileIndex];
+                        const fileData = fileUUID ? filesData[fileUUID] : null;
+                        if (fileUUID && fileData) {
+                            await syncCurrentCellToActiveContourFilter(fileData, {
+                                anchorCellId: previousCellNumber,
+                                blendImages: true,
+                                blendText: true,
+                                imageLoading: true,
+                            });
+                            updateTableState(fileUUID, fileData);
+                        } else {
+                            syncPunctaSourceContourFilterStatus({ Statistics: {} }, 0);
+                        }
+                    } catch (error) {
+                        setPunctaSourceContourFilterApplying(false);
+                        throw error;
+                    } finally {
+                        clearPunctaSourceContourFilterApplyVisualState();
+                    }
+                });
+            });
         }
 
         if (punctaSourceContourFilterButton && punctaSourceContourFilterMenu) {
@@ -949,10 +1067,14 @@
                 });
             });
             document.addEventListener('click', (event) => {
-                if (!punctaSourceContourFilterControl || punctaSourceContourFilterControl.contains(event.target)) {
+                if (
+                    (punctaSourceContourFilterControl && punctaSourceContourFilterControl.contains(event.target))
+                    || (cellTypeFilterControl && cellTypeFilterControl.contains(event.target))
+                ) {
                     return;
                 }
                 closePunctaSourceContourFilterMenu();
+                closeCellTypeFilterMenu();
             });
         }
 

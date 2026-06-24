@@ -125,6 +125,8 @@ class FrontendJsonContractTests(TestCase):
             ],
         )
         self.assertEqual(list(display_file["Statistics"].keys()), ["1"])
+        self.assertEqual(display_file["Statistics"]["1"]["cell_type"], "unknown")
+        self.assertEqual(display_file["Statistics"]["1"]["cell_type_label"], "Unknown")
         display_config = assert_json_script_keys(
             self,
             display_content,
@@ -135,6 +137,7 @@ class FrontendJsonContractTests(TestCase):
                 "defaultSpatialStatsUnit",
                 "initialSidebarSpatialStatsUnit",
                 "initialPreferredMainImageChannel",
+                "initialCellTypeFilter",
                 "tableFileUuid",
             ),
         )
@@ -153,6 +156,8 @@ class FrontendJsonContractTests(TestCase):
         self.assertEqual(list(dashboard_file["CellPairImages"].keys()), ["1"])
         self.assertEqual(len(dashboard_file["CellPairImages"]["1"]), 8)
         self.assertEqual(list(dashboard_file["Statistics"].keys()), ["1"])
+        self.assertEqual(dashboard_file["Statistics"]["1"]["cell_type"], "unknown")
+        self.assertEqual(dashboard_file["Statistics"]["1"]["cell_type_label"], "Unknown")
         dashboard_config = assert_json_script_keys(
             self,
             dashboard_content,
@@ -164,6 +169,7 @@ class FrontendJsonContractTests(TestCase):
                 "defaultSpatialStatsUnit",
                 "initialSidebarSpatialStatsUnit",
                 "initialPreferredMainImageChannel",
+                "initialCellTypeFilter",
                 "tableFileUuid",
             ),
         )

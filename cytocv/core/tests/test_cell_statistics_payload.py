@@ -26,6 +26,7 @@ def _contour_intensity_fields(statistic: str | None = None):
 
 def _cell_stat(**overrides):
     defaults = {
+        "cell_type": "cell_pair",
         "puncta_distance": 10.0,
         "puncta_line_intensity": 20.0,
         "blue_contour_size": 30.0,
@@ -92,6 +93,21 @@ def _cell_stat(**overrides):
 
 
 class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
+    def test_payload_serializes_cell_type_and_label(self):
+        payload = serialize_cell_statistics_payload(_cell_stat(cell_type="single_cell"))
+
+        self.assertEqual(payload["cell_type"], "single_cell")
+        self.assertEqual(payload["cell_type_label"], "Single Cell")
+
+    def test_payload_without_cell_type_serializes_unknown(self):
+        stat = _cell_stat()
+        delattr(stat, "cell_type")
+
+        payload = serialize_cell_statistics_payload(stat)
+
+        self.assertEqual(payload["cell_type"], "unknown")
+        self.assertEqual(payload["cell_type_label"], "Unknown")
+
     def test_nuclear_payload_exposes_mode_and_applicability_for_cell_card(self):
         payload = serialize_cell_statistics_payload(
             _cell_stat(

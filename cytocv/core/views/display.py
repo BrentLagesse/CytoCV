@@ -18,6 +18,7 @@ from accounts.preferences import (
     normalize_main_image_channel,
     resolve_initial_puncta_source_contour_count_filter,
 )
+from core.cell_types import filter_statistics_by_cell_type, normalize_cell_type_filter
 from core.channel_roles import (
     CHANNEL_ROLE_BLUE,
     CHANNEL_ROLE_DIC,
@@ -194,6 +195,7 @@ def display(request, uuids):
     initial_puncta_source_contour_count_filter = (
         resolve_initial_puncta_source_contour_count_filter(request, preferences)
     )
+    initial_cell_type_filter = normalize_cell_type_filter(request.GET.get("_cell_type"))
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -258,8 +260,12 @@ def display(request, uuids):
             stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
-                initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                initial_table_stats = filter_statistics_by_cell_type(
                     cell_stats_qs,
+                    initial_cell_type_filter,
+                )
+                initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                    initial_table_stats,
                     initial_puncta_source_contour_count_filter,
                 )
                 table_mode, puncta_line_mode = resolve_cell_table_modes(
@@ -329,6 +335,9 @@ def display(request, uuids):
                     "_puncta_source_contour_count",
                     request.GET.get("_red_contour_count"),
                 )
+                export_cell_type_filter = normalize_cell_type_filter(
+                    request.GET.get("_cell_type")
+                )
                 try:
                     exclude_columns = export_exclude_columns(
                         raw_columns,
@@ -341,8 +350,12 @@ def display(request, uuids):
                 except ExportColumnSelectionError as exc:
                     return HttpResponse(str(exc), status=400)
                 if first_table_uuid == uuid:
-                    export_stats = filter_statistics_by_puncta_source_contour_count(
+                    export_stats = filter_statistics_by_cell_type(
                         cell_stats_qs,
+                        export_cell_type_filter,
+                    )
+                    export_stats = filter_statistics_by_puncta_source_contour_count(
+                        export_stats,
                         export_puncta_source_contour_count_filter,
                     )
                     export_table_mode, export_puncta_line_mode = resolve_cell_table_modes(
@@ -411,6 +424,7 @@ def display(request, uuids):
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'main_image_channel': main_image_channel,
+        'cell_type_filter': initial_cell_type_filter,
         'puncta_source_contour_count_filter': initial_puncta_source_contour_count_filter,
         'export_selection_config': export_selection_config(),
     })
@@ -798,6 +812,7 @@ def export_display_files(request):
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
+            cell_type_filter=payload.get("_cell_type"),
             puncta_source_contour_count_filter=payload.get(
                 "_puncta_source_contour_count",
                 payload.get("_red_contour_count"),

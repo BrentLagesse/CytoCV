@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from core.channel_roles import channel_display_label, normalize_channel_role
+from core.cell_types import cell_type_from_statistics, cell_type_label
 from core.models import CellStatistics, get_cen_dot_category_label
 from core.services.contour_coordinates import contour_center_payloads_from_properties
 from core.services.measurement_contour_ratio import (
@@ -81,6 +82,7 @@ def serialize_cell_statistics_payload(
             }
         )
     contour_center_payloads = contour_center_payloads_from_properties(properties)
+    cell_type = cell_type_from_statistics(cell_stat)
 
     def stat_value(field_name: str, value: Any) -> Any:
         group_name = stat_group_for_field(field_name)
@@ -104,6 +106,8 @@ def serialize_cell_statistics_payload(
                 )
 
     return {
+        "cell_type": cell_type,
+        "cell_type_label": cell_type_label(cell_type),
         "selected_analysis": selected_analysis if isinstance(selected_analysis, list) else [],
         "stat_visibility": stat_visibility,
         "signal_quantification_enabled": properties.get("signal_quantification_enabled"),
