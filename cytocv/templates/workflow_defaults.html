@@ -4,7 +4,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/components/workflow-controls.css' %}?v=icon-align-20260610-v5">
-<link rel="stylesheet" href="{% static 'css/pages/workflow-defaults.css' %}?v=channel-label-nudge-20260610">
+<link rel="stylesheet" href="{% static 'css/pages/workflow-defaults.css' %}?v=result-display-filter-width-20260626">
 {% endblock head %}
 
 {% block content %}
@@ -32,6 +32,27 @@
         </div></div>
         <div class="card" data-workflow-card="plugin-defaults"><p class="section-eyebrow card-title">Plugin Defaults</p><div class="plugins">
           <div id="signalSelectedPlugins"></div>
+          <div class="plugin cell-detection-inclusion" data-plugin-section="cell-detection-inclusion">
+            <div class="plugin-main">
+              <p><strong>Cell Detection &amp; Inclusion</strong></p>
+              <p class="desc">Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded.</p>
+              <p class="reqtxt">Requires: Red, Green.</p>
+            </div>
+            <div class="plugin-inline is-active" aria-hidden="false">
+              <div class="plugin-measure-line">
+                <div class="plugin-measure-copy">
+                  <label for="cell_inclusion_mode">Cell Inclusion Mode:</label>
+                </div>
+                <div class="mode-select-group plugin-measure-right">
+                  <select id="cell_inclusion_mode" name="cell_inclusion_mode">
+                    <option value="cell_pairs_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'cell_pairs_only' %}selected{% endif %}>Cell pairs only</option>
+                    <option value="single_cells_only" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_only' %}selected{% endif %}>Single cells only</option>
+                    <option value="single_cells_and_cell_pairs" {% if preferences.experiment_defaults.cell_inclusion_mode == 'single_cells_and_cell_pairs' %}selected{% endif %}>Single cells and cell pairs</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="plugin signal-quantification" id="signalQuantificationModule">
             <div class="plugin-main">
               <p><strong>Signal Quantification</strong></p>
@@ -70,7 +91,7 @@
                     <p class="module-help">Chooses which channel defines the two puncta and which opposite channel is measured. Red Puncta measures Green signal along the Red-puncta line; Green Puncta measures Red signal along the Green-puncta line.</p>
                   </div>
                   <div class="mode-select-group plugin-measure-right">
-                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option></select>
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option><option value="red_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta_only' %}selected{% endif %}>Red Puncta Only</option><option value="green_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta_only' %}selected{% endif %}>Green Puncta Only</option></select>
                   </div>
                 </div>
                 <div class="plugin-measure-line">
@@ -161,7 +182,7 @@
                     <p class="module-help">Chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.</p>
                   </div>
                   <div class="mode-select-group plugin-measure-right">
-                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option></select>
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option><option value="red_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta_only' %}selected{% endif %}>Red Puncta Only</option><option value="green_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta_only' %}selected{% endif %}>Green Puncta Only</option></select>
                   </div>
                 </div>
                 <div class="plugin-measure-line">
@@ -248,7 +269,7 @@
           {% endfor %}
         </div></div>
         <div class="card" data-workflow-card="dot-detection">
-          <p class="section-eyebrow card-title">Dot Detection</p>
+          <p class="section-eyebrow card-title">Puncta &amp; Contour Detection</p>
           <div class="row combo{% if not preferences.experiment_defaults.green_dot_split_enabled and not preferences.experiment_defaults.red_dot_split_enabled %} is-off{% endif %}" id="dotSplitRow">
             <div class="row-line">
               <div class="row-copy">
@@ -583,6 +604,23 @@
           <div class="row"><div class="row-copy"><label for="show_saved_file_channels">Show Channel Tags In Dashboard Sidebar</label><p class="module-help">Shows DIC, Blue, Red, and Green tags under each saved file so channel availability can be scanned from the dashboard sidebar.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_channels" name="show_saved_file_channels" {% if preferences.show_saved_file_channels %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><label for="show_saved_file_scales">Show Scale Details In File Sidebars</label><p class="module-help">Shows per-file scale details on dashboard, preprocess, and display sidebars, including whether metadata or manual fallback scale is being used.</p></div><label class="sw"><input type="checkbox" id="show_saved_file_scales" name="show_saved_file_scales" {% if preferences.show_saved_file_scales %}checked{% endif %}><span class="sl"></span></label></div>
           <div class="row"><div class="row-copy"><label for="sidebar_starts_open">Start Sidebars Open On Dashboard, Display, And Preprocess</label><p class="module-help">Sets the default sidebar state when those pages first render. Users can still open or collapse each sidebar during the session.</p></div><label class="sw"><input type="checkbox" id="sidebar_starts_open" name="sidebar_starts_open" {% if preferences.sidebar_starts_open %}checked{% endif %}><span class="sl"></span></label></div>
+        </div>
+        <div class="card" data-workflow-card="result-display-defaults">
+          <p class="section-eyebrow card-title">Result Display Defaults</p>
+          <div class="row">
+            <div class="row-copy">
+              <p><strong>Default Source Contour Count Filter</strong></p>
+              <label for="default_puncta_source_contour_count_filter">Include cells by default:</label>
+              <p class="module-help">Sets the default filter used when opening Display and Dashboard results. You can still change this filter on each results page.</p>
+            </div>
+            <div class="mode-select-group plugin-measure-right compact-control result-display-filter-control">
+              <select id="default_puncta_source_contour_count_filter" name="default_puncta_source_contour_count_filter">
+                <option value="all" {% if preferences.default_puncta_source_contour_count_filter == 'all' %}selected{% endif %}>All cells</option>
+                <option value="exactly_1" {% if preferences.default_puncta_source_contour_count_filter == 'exactly_1' %}selected{% endif %}>Exactly 1 source contour</option>
+                <option value="exactly_2" {% if preferences.default_puncta_source_contour_count_filter == 'exactly_2' %}selected{% endif %}>Exactly 2 source contours</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div class="card action-card" data-workflow-action-card="saving">
           <p class="section-eyebrow card-title">Save Preferences</p>

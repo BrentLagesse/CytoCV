@@ -326,6 +326,15 @@
             const sortedIds = getSortedCellIds(fileData);
             const deletedIdSet = new Set((deletedCellIds || []).map((cellId) => Number(cellId)));
             const previousCellNumber = Number(currentCellNumber);
+            if (typeof syncCurrentCellToActiveContourFilter === 'function') {
+                await syncCurrentCellToActiveContourFilter(fileData, {
+                    anchorCellId: previousCellNumber,
+                    blendImages: true,
+                    blendText: true,
+                    forceRender: deletedIdSet.has(previousCellNumber),
+                });
+                return;
+            }
             if (typeof currentCellNumber !== 'undefined' && deletedIdSet.has(previousCellNumber)) {
                 if (sortedIds.length === 0) {
                     currentCellNumber = 0;
@@ -412,6 +421,10 @@
                 updateLocalStateForDeletedCells(fileUuid, [cellId], payload);
                 removeTableRow(cellId);
                 await refreshDisplayedCellsAfterDelete(fileUuid, [cellId]);
+                const fileData = filesData[fileUuid];
+                if (typeof updateTableState === 'function' && fileData) {
+                    updateTableState(fileUuid, fileData);
+                }
             } catch (err) {
                 reportError(err && err.message ? err.message : 'Failed to delete cell.');
                 if (fromModal) {

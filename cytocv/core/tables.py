@@ -8,6 +8,7 @@ import django_tables2 as tables
 from django_tables2 import SingleTableView
 from django_tables2.export.views import ExportMixin
 
+from core.cell_types import cell_type_from_statistics, cell_type_label
 from core.models import CellStatistics, get_cen_dot_category_label
 from core.scale import (
     convert_area_pixels_to_display_units,
@@ -120,6 +121,7 @@ class CellTable(tables.Table):
     STAT_COLUMN_GROUPS = STAT_FIELD_GROUPS
 
     cell_id = tables.Column(verbose_name="Cell ID")
+    cell_type = tables.Column(verbose_name="Cell Type", empty_values=())
     puncta_distance = NumberColumn(verbose_name="Distance Between Red Puncta")
     puncta_line_intensity = NumberColumn(verbose_name="Green Intensity Over Red Line")
     blue_contour_size = NumberColumn(verbose_name="Blue Contour Size")
@@ -160,21 +162,45 @@ class CellTable(tables.Table):
         empty_values=(),
     )
 
-    red_intensity_1 = NumberColumn(verbose_name="Red In Red Intensity 1")
-    red_intensity_2 = NumberColumn(verbose_name="Red In Red Intensity 2")
-    red_intensity_3 = NumberColumn(verbose_name="Red In Red Intensity 3")
+    red_in_red_total_intensity_1 = NumberColumn(verbose_name="Red In Red Total Intensity 1")
+    red_in_red_max_intensity_1 = NumberColumn(verbose_name="Red In Red Max Intensity 1")
+    red_in_red_average_intensity_1 = NumberColumn(verbose_name="Red In Red Average Intensity 1")
+    red_in_red_total_intensity_2 = NumberColumn(verbose_name="Red In Red Total Intensity 2")
+    red_in_red_max_intensity_2 = NumberColumn(verbose_name="Red In Red Max Intensity 2")
+    red_in_red_average_intensity_2 = NumberColumn(verbose_name="Red In Red Average Intensity 2")
+    red_in_red_total_intensity_3 = NumberColumn(verbose_name="Red In Red Total Intensity 3")
+    red_in_red_max_intensity_3 = NumberColumn(verbose_name="Red In Red Max Intensity 3")
+    red_in_red_average_intensity_3 = NumberColumn(verbose_name="Red In Red Average Intensity 3")
 
-    green_intensity_1 = NumberColumn(verbose_name="Green In Red Intensity 1")
-    green_intensity_2 = NumberColumn(verbose_name="Green In Red Intensity 2")
-    green_intensity_3 = NumberColumn(verbose_name="Green In Red Intensity 3")
+    green_in_red_total_intensity_1 = NumberColumn(verbose_name="Green In Red Total Intensity 1")
+    green_in_red_max_intensity_1 = NumberColumn(verbose_name="Green In Red Max Intensity 1")
+    green_in_red_average_intensity_1 = NumberColumn(verbose_name="Green In Red Average Intensity 1")
+    green_in_red_total_intensity_2 = NumberColumn(verbose_name="Green In Red Total Intensity 2")
+    green_in_red_max_intensity_2 = NumberColumn(verbose_name="Green In Red Max Intensity 2")
+    green_in_red_average_intensity_2 = NumberColumn(verbose_name="Green In Red Average Intensity 2")
+    green_in_red_total_intensity_3 = NumberColumn(verbose_name="Green In Red Total Intensity 3")
+    green_in_red_max_intensity_3 = NumberColumn(verbose_name="Green In Red Max Intensity 3")
+    green_in_red_average_intensity_3 = NumberColumn(verbose_name="Green In Red Average Intensity 3")
 
-    red_in_green_intensity_1 = NumberColumn(verbose_name="Red In Green Intensity 1")
-    red_in_green_intensity_2 = NumberColumn(verbose_name="Red In Green Intensity 2")
-    red_in_green_intensity_3 = NumberColumn(verbose_name="Red In Green Intensity 3")
+    red_in_green_total_intensity_1 = NumberColumn(verbose_name="Red In Green Total Intensity 1")
+    red_in_green_max_intensity_1 = NumberColumn(verbose_name="Red In Green Max Intensity 1")
+    red_in_green_average_intensity_1 = NumberColumn(verbose_name="Red In Green Average Intensity 1")
+    red_in_green_total_intensity_2 = NumberColumn(verbose_name="Red In Green Total Intensity 2")
+    red_in_green_max_intensity_2 = NumberColumn(verbose_name="Red In Green Max Intensity 2")
+    red_in_green_average_intensity_2 = NumberColumn(verbose_name="Red In Green Average Intensity 2")
+    red_in_green_total_intensity_3 = NumberColumn(verbose_name="Red In Green Total Intensity 3")
+    red_in_green_max_intensity_3 = NumberColumn(verbose_name="Red In Green Max Intensity 3")
+    red_in_green_average_intensity_3 = NumberColumn(verbose_name="Red In Green Average Intensity 3")
 
-    green_in_green_intensity_1 = NumberColumn(verbose_name="Green In Green Intensity 1")
-    green_in_green_intensity_2 = NumberColumn(verbose_name="Green In Green Intensity 2")
-    green_in_green_intensity_3 = NumberColumn(verbose_name="Green In Green Intensity 3")
+    green_in_green_total_intensity_1 = NumberColumn(verbose_name="Green In Green Total Intensity 1")
+    green_in_green_max_intensity_1 = NumberColumn(verbose_name="Green In Green Max Intensity 1")
+    green_in_green_average_intensity_1 = NumberColumn(verbose_name="Green In Green Average Intensity 1")
+    green_in_green_total_intensity_2 = NumberColumn(verbose_name="Green In Green Total Intensity 2")
+    green_in_green_max_intensity_2 = NumberColumn(verbose_name="Green In Green Max Intensity 2")
+    green_in_green_average_intensity_2 = NumberColumn(verbose_name="Green In Green Average Intensity 2")
+    green_in_green_total_intensity_3 = NumberColumn(verbose_name="Green In Green Total Intensity 3")
+    green_in_green_max_intensity_3 = NumberColumn(verbose_name="Green In Green Max Intensity 3")
+    green_in_green_average_intensity_3 = NumberColumn(verbose_name="Green In Green Average Intensity 3")
 
     green_red_intensity_1 = NumberColumn(verbose_name="Measurement/Contour Ratio 1")
     green_red_intensity_2 = NumberColumn(verbose_name="Measurement/Contour Ratio 2")
@@ -207,6 +233,7 @@ class CellTable(tables.Table):
         orderable = False
         fields = (
             "cell_id",
+            "cell_type",
             "puncta_distance",
             "puncta_line_intensity",
             "blue_contour_size",
@@ -223,18 +250,42 @@ class CellTable(tables.Table):
             "green_contour_1_center_xy",
             "green_contour_2_center_xy",
             "green_contour_3_center_xy",
-            "red_intensity_1",
-            "red_intensity_2",
-            "red_intensity_3",
-            "green_intensity_1",
-            "green_intensity_2",
-            "green_intensity_3",
-            "red_in_green_intensity_1",
-            "red_in_green_intensity_2",
-            "red_in_green_intensity_3",
-            "green_in_green_intensity_1",
-            "green_in_green_intensity_2",
-            "green_in_green_intensity_3",
+            "red_in_red_total_intensity_1",
+            "red_in_red_max_intensity_1",
+            "red_in_red_average_intensity_1",
+            "red_in_red_total_intensity_2",
+            "red_in_red_max_intensity_2",
+            "red_in_red_average_intensity_2",
+            "red_in_red_total_intensity_3",
+            "red_in_red_max_intensity_3",
+            "red_in_red_average_intensity_3",
+            "green_in_red_total_intensity_1",
+            "green_in_red_max_intensity_1",
+            "green_in_red_average_intensity_1",
+            "green_in_red_total_intensity_2",
+            "green_in_red_max_intensity_2",
+            "green_in_red_average_intensity_2",
+            "green_in_red_total_intensity_3",
+            "green_in_red_max_intensity_3",
+            "green_in_red_average_intensity_3",
+            "red_in_green_total_intensity_1",
+            "red_in_green_max_intensity_1",
+            "red_in_green_average_intensity_1",
+            "red_in_green_total_intensity_2",
+            "red_in_green_max_intensity_2",
+            "red_in_green_average_intensity_2",
+            "red_in_green_total_intensity_3",
+            "red_in_green_max_intensity_3",
+            "red_in_green_average_intensity_3",
+            "green_in_green_total_intensity_1",
+            "green_in_green_max_intensity_1",
+            "green_in_green_average_intensity_1",
+            "green_in_green_total_intensity_2",
+            "green_in_green_max_intensity_2",
+            "green_in_green_average_intensity_2",
+            "green_in_green_total_intensity_3",
+            "green_in_green_max_intensity_3",
+            "green_in_green_average_intensity_3",
             "green_red_intensity_1",
             "green_red_intensity_2",
             "green_red_intensity_3",
@@ -422,6 +473,8 @@ class CellTable(tables.Table):
     def _export_cell_value(self, field_name: str, row, record: CellStatistics):
         if field_name == "cell_id":
             return self._export_int(getattr(record, field_name, None))
+        if field_name == "cell_type":
+            return cell_type_label(cell_type_from_statistics(record))
 
         if (
             field_name in self.SPATIAL_FIELDS
@@ -472,6 +525,12 @@ class CellTable(tables.Table):
             )
 
         return row.get_cell_value(field_name)
+
+    def render_cell_type(self, record: CellStatistics) -> str:
+        return cell_type_label(cell_type_from_statistics(record))
+
+    def value_cell_type(self, record: CellStatistics) -> str:
+        return self.render_cell_type(record)
 
     def render_cell_parentage(self, record: CellStatistics) -> str:
         if not self._field_is_applicable(record, "cell_parentage"):

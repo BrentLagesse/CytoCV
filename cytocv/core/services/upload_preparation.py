@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 from uuid import UUID
 
-from core.metadata_processing.dv_channel_parser import extract_channel_config
 from core.metadata_processing.dv_scale_parser import extract_dv_scale_metadata
 from core.metadata_processing.error_handling import (
     SourceImageValidationOptions,
@@ -32,6 +31,10 @@ from core.services.artifact_storage import (
     run_media_path,
 )
 from core.services.analysis_progress import normalize_progress_detail
+from core.services.channel_presence import (
+    resolve_channel_config_and_presence_for_source,
+    write_channel_presence,
+)
 from core.services.upload_preparation_jobs import (
     TERMINAL_UPLOAD_PREPARATION_STATUSES,
     finalize_upload_preparation_job,
@@ -65,6 +68,11 @@ def _normalize_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, 
         "enforce_layer_count": bool(validation.get("enforce_layer_count", False)),
         "enforce_wavelengths": bool(validation.get("enforce_wavelengths", False)),
         "required_channels": [str(channel) for channel in required_channels if str(channel)],
+        "configured_experiment_label": str(
+            validation.get("configured_experiment_label")
+            or payload.get("configured_experiment_label")
+            or "the configured experiment"
+        ),
     }
     payload["manual_um_per_px"] = float(
         payload.get("manual_um_per_px") or DEFAULT_MICRONS_PER_PIXEL
@@ -88,6 +96,13 @@ def _validation_options_from_snapshot(snapshot: dict[str, object]) -> SourceImag
         enforce_layer_count=bool(validation.get("enforce_layer_count", False)),
         enforce_wavelengths=bool(validation.get("enforce_wavelengths", False)),
         required_channels={str(channel) for channel in validation.get("required_channels", []) if str(channel)},
+        prefer_metadata_channel_order=bool(
+            snapshot.get("prefer_metadata_channel_order", True)
+        ),
+        configured_experiment_label=str(
+            validation.get("configured_experiment_label")
+            or "the configured experiment"
+        ),
     )
 
 
@@ -168,12 +183,13 @@ def _extract_upload_metadata(
     )
     uploaded.save(update_fields=["scale_info"])
 
-    channel_config = extract_channel_config(
+    channel_config, channel_presence = resolve_channel_config_and_presence_for_source(
         source_image_path,
         prefer_metadata=prefer_metadata_channel_order,
         fallback_order=fallback_channel_order,
     )
     _write_channel_config(str(uploaded.uuid), channel_config)
+    write_channel_presence(str(uploaded.uuid), channel_presence)
 
 
 def _prepare_upload_preview(*, uploaded: UploadedImage) -> None:

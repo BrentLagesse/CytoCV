@@ -520,7 +520,10 @@ def render_overlay_images_for_cell(
         render_config,
     )
     overlay_conf = _build_overlay_conf(run_uuid, render_config)
-    execution_plan = build_stats_execution_plan(render_config.get("selected_analysis", []))
+    execution_plan = build_stats_execution_plan(
+        render_config.get("selected_analysis", []),
+        puncta_line_mode=render_config.get("puncta_line_mode"),
+    )
     render_cp.properties = dict(render_cp.properties or {})
     render_cp.properties["stats_biorientation_red_min_distance_value"] = render_config.get(
         "stats_biorientation_red_min_distance_value",

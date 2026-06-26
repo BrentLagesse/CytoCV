@@ -1,0 +1,237 @@
+<div class="cell-stats-strip" data-ui-region="cell-metrics-strip" data-cell-card-root data-cell-card-mode="puncta_distance">
+    <div class="cell-stats-top-grid" data-ui-region="cell-metrics-top">
+        <div class="cell-stats-section reference-stat-section" data-cell-card-section="reference">
+            <div class="metric-lead-row">
+                <p class="metric-lead">Reference Channel</p>
+                <span
+                    class="selection-info-dot metric-info-dot"
+                    data-info-text="Shows the brightfield/DIC reference used to inspect cell outlines and segmentation overlays. Contours indicates whether the detected cell-pair outline is currently visible on the cell images."
+                    aria-label="Reference Channel Details"
+                    title="Reference Channel Details"
+                >i</span>
+            </div>
+            <p class="metric-note">Brightfield morphology reference.</p>
+            <div class="metric-row">
+                <span class="metric-label">Contours</span>
+                <span class="metric-value" id="contourStateValue">On</span>
+            </div>
+        </div>
+        <div class="cell-stats-section nuclear-stat-section" data-cell-card-section="nuclear_cell_pair_intensity" data-stat-section="nuclear_cell_pair_intensity">
+            <div class="metric-lead-row">
+                <p class="metric-lead">Nucleus + Measurement</p>
+                <span
+                    class="selection-info-dot metric-info-dot"
+                    data-info-text="Shows the selected nucleus contour channel, which fluorescence channel is measured, whether a nucleus contour is available, and the nuclear, whole cell-pair, and cytoplasmic intensity values."
+                    aria-label="Nucleus And Measurement Details"
+                    title="Nucleus And Measurement Details"
+                >i</span>
+            </div>
+            <div class="nuclear-metric-grid" data-nuclear-metric-grid>
+                <div class="nuclear-metric-group" data-nuclear-metric-group="setup">
+                    <p class="nuclear-metric-group-title">Setup</p>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="nucleus-contour-source">
+                        <span class="metric-label">Nucleus Contour Source</span>
+                        <span class="metric-value" id="nucleusContourChannel"></span>
+                    </div>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="measurement-channel">
+                        <span class="metric-label">Measurement Channel</span>
+                        <span class="metric-value" id="measurementChannel"></span>
+                    </div>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="nuclear-status">
+                        <span class="metric-label">Nuclear Status</span>
+                        <span class="metric-value" id="nuclearStatus"></span>
+                    </div>
+                </div>
+                <div class="nuclear-metric-group" data-nuclear-metric-group="intensity">
+                    <p class="nuclear-metric-group-title">Intensity</p>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="nuclear-intensity">
+                        <span class="metric-label"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span></span>
+                        <span class="metric-value" id="nucleusIntensitySum"></span>
+                    </div>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="cell-pair-intensity">
+                        <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
+                        <span class="metric-value" id="cellPairIntensitySum"></span>
+                    </div>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="cytoplasmic-intensity">
+                        <span class="metric-label">Cytoplasmic Intensity</span>
+                        <span class="metric-value" id="cytoplasmicIntensity"></span>
+                    </div>
+                    <div class="metric-row nuclear-metric-row" data-nuclear-metric-row="nuclear-cytoplasmic-ratio">
+                        <span class="metric-label">Nuclear / Cytoplasmic Ratio</span>
+                        <span class="metric-value" id="nuclearCytoplasmicRatio"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="cell-stats-section puncta-stat-section" data-cell-card-section="puncta_distance" data-stat-section="puncta_distance">
+            <div class="metric-lead-row">
+                <p class="metric-lead">Puncta Distance</p>
+                <span
+                    class="selection-info-dot metric-info-dot"
+                    data-info-text="Shows the selected puncta distance and the intensity measured along the line between the puncta for this cell pair."
+                    aria-label="Puncta Distance Details"
+                    title="Puncta Distance Details"
+                >i</span>
+            </div>
+            <div class="metric-row" data-stat-row="puncta_distance">
+                <span class="metric-label" id="distanceLabel">Distance Between Red Puncta</span>
+                <span class="metric-value" id="distance"></span>
+            </div>
+            <div class="metric-row" data-stat-row="puncta_distance">
+                <span class="metric-label" id="lineIntensityLabel">Green Intensity Over Red Line</span>
+                <span class="metric-value" id="punctaLineIntensity"></span>
+            </div>
+        </div>
+        <div class="cell-stats-section biorientation-stat-section" data-cell-card-section="biorientation" data-stat-section="biorientation">
+            <div class="metric-lead-row">
+                <p class="metric-lead">Biorientation</p>
+                <span
+                    class="selection-info-dot metric-info-dot"
+                    data-info-text="Counts Green dots inside the DIC-defined cell contour after the two Red puncta pass the configured min/max distance check. Colinear Dots project between the two Red puncta and lie close to the red-red line; other inside-cell Green dots are counted as Off Axis Dots."
+                    aria-label="Biorientation Details"
+                    title="Biorientation Details"
+                >i</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Colinear Dots</span>
+                <span class="metric-value" id="colinearDots"></span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Off Axis Dots</span>
+                <span class="metric-value" id="offAxisDots"></span>
+            </div>
+        </div>
+        <div class="cell-stats-section cen-dot-stat-section" data-cell-card-section="cen_dot" data-stat-section="cen_dot">
+            <div class="metric-lead-row">
+                <p class="metric-lead">CEN Dot Measurements</p>
+                <span
+                    class="selection-info-dot metric-info-dot"
+                    data-info-text="Shows the mother/daughter Cen Dot Location classification for this cell pair."
+                    aria-label="CEN Dot Measurement Details"
+                    title="CEN Dot Measurement Details"
+                >i</span>
+            </div>
+            <div class="metric-row" data-stat-row="cen_dot">
+                <span class="metric-label">Cell Parentage</span>
+                <span class="metric-value" id="cellParentage"></span>
+            </div>
+            <div class="metric-row" data-stat-row="cen_dot">
+                <span class="metric-label">Cen Dot Location</span>
+                <span class="metric-value" id="cenDot"></span>
+            </div>
+        </div>
+    </div>
+    <div class="cell-stats-detail-grid" data-cell-card-detail-row>
+        <div class="cell-stats-section measurement-contour-section" data-cell-card-section="measurement_contour" data-stat-section="red_green_intensity">
+            <div class="metric-lead-row">
+                <p class="metric-lead">Measurement/Contour</p>
+                <span
+                    class="selection-info-dot metric-info-dot"
+                    data-info-text="Shows normalized intensity ratios for contour slots 1 through 3. The formula divides the selected measurement channel by the selected contour channel so values can be compared across contour regions."
+                    aria-label="Measurement Contour Details"
+                    title="Measurement Contour Details"
+                >i</span>
+            </div>
+            <div class="metric-detail">
+                <span class="metric-detail-label">Formula</span>
+                <span class="metric-detail-value" id="measurementContourRatioFormula"></span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label" aria-label="Measurement/Contour Ratio 1" title="Measurement/Contour Ratio 1">Ratio 1</span>
+                <span class="metric-value" id="measurementContourRatio1"></span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label" aria-label="Measurement/Contour Ratio 2" title="Measurement/Contour Ratio 2">Ratio 2</span>
+                <span class="metric-value" id="measurementContourRatio2"></span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label" aria-label="Measurement/Contour Ratio 3" title="Measurement/Contour Ratio 3">Ratio 3</span>
+                <span class="metric-value" id="measurementContourRatio3"></span>
+            </div>
+        </div>
+        <div class="cell-stats-intensity-grid" data-ui-region="cell-intensity-totals" data-cell-card-section="contour_intensity" data-stat-section="red_green_intensity">
+            <div class="cell-stats-section raw-sum-section contour-intensity-section">
+                <div class="metric-lead-row contour-intensity-heading">
+                    <span class="contour-intensity-title-group">
+                        <p class="metric-lead">Contour Intensities</p>
+                        <span
+                            class="selection-info-dot metric-info-dot"
+                            data-info-text="Shows one raw contour-intensity statistic at a time for the four signal-in-contour combinations. Use the table or CSV/XLSX download for the full set of contour intensity columns."
+                            aria-label="Contour Intensity Details"
+                            title="Contour Intensity Details"
+                        >i</span>
+                        <span class="contour-intensity-type-pill" data-contour-intensity-type-label>Total</span>
+                    </span>
+                    <div class="contour-intensity-toggle" role="group" aria-label="Contour intensity statistic" data-active-intensity="total">
+                        <div class="contour-intensity-toggle-indicator" aria-hidden="true"></div>
+                        <button type="button" class="contour-intensity-toggle-btn active" data-contour-intensity-display="total" aria-pressed="true">Total</button>
+                        <button type="button" class="contour-intensity-toggle-btn" data-contour-intensity-display="max" aria-pressed="false">Max</button>
+                        <button type="button" class="contour-intensity-toggle-btn" data-contour-intensity-display="average" aria-pressed="false">Average</button>
+                    </div>
+                </div>
+                <div class="contour-intensity-groups">
+                    <div class="metric-subsection contour-intensity-combination" data-contour-intensity-combination="red_in_red">
+                        <p class="metric-sublead">Red In Red</p>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="redInRedIntensity1" data-contour-slot-label="Slot 1" aria-label="Red In Red Total Intensity 1" title="Red In Red Total Intensity 1">Slot 1</span>
+                            <span class="metric-value" id="redInRedIntensity1"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="redInRedIntensity2" data-contour-slot-label="Slot 2" aria-label="Red In Red Total Intensity 2" title="Red In Red Total Intensity 2">Slot 2</span>
+                            <span class="metric-value" id="redInRedIntensity2"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="redInRedIntensity3" data-contour-slot-label="Slot 3" aria-label="Red In Red Total Intensity 3" title="Red In Red Total Intensity 3">Slot 3</span>
+                            <span class="metric-value" id="redInRedIntensity3"></span>
+                        </div>
+                    </div>
+                    <div class="metric-subsection contour-intensity-combination" data-contour-intensity-combination="green_in_red">
+                        <p class="metric-sublead">Green In Red</p>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="greenInRedIntensity1" data-contour-slot-label="Slot 1" aria-label="Green In Red Total Intensity 1" title="Green In Red Total Intensity 1">Slot 1</span>
+                            <span class="metric-value" id="greenInRedIntensity1"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="greenInRedIntensity2" data-contour-slot-label="Slot 2" aria-label="Green In Red Total Intensity 2" title="Green In Red Total Intensity 2">Slot 2</span>
+                            <span class="metric-value" id="greenInRedIntensity2"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="greenInRedIntensity3" data-contour-slot-label="Slot 3" aria-label="Green In Red Total Intensity 3" title="Green In Red Total Intensity 3">Slot 3</span>
+                            <span class="metric-value" id="greenInRedIntensity3"></span>
+                        </div>
+                    </div>
+                    <div class="metric-subsection contour-intensity-combination" data-contour-intensity-combination="red_in_green">
+                        <p class="metric-sublead">Red In Green</p>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="redInGreenIntensity1" data-contour-slot-label="Slot 1" aria-label="Red In Green Total Intensity 1" title="Red In Green Total Intensity 1">Slot 1</span>
+                            <span class="metric-value" id="redInGreenIntensity1"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="redInGreenIntensity2" data-contour-slot-label="Slot 2" aria-label="Red In Green Total Intensity 2" title="Red In Green Total Intensity 2">Slot 2</span>
+                            <span class="metric-value" id="redInGreenIntensity2"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="redInGreenIntensity3" data-contour-slot-label="Slot 3" aria-label="Red In Green Total Intensity 3" title="Red In Green Total Intensity 3">Slot 3</span>
+                            <span class="metric-value" id="redInGreenIntensity3"></span>
+                        </div>
+                    </div>
+                    <div class="metric-subsection contour-intensity-combination" data-contour-intensity-combination="green_in_green">
+                        <p class="metric-sublead">Green In Green</p>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="greenInGreenIntensity1" data-contour-slot-label="Slot 1" aria-label="Green In Green Total Intensity 1" title="Green In Green Total Intensity 1">Slot 1</span>
+                            <span class="metric-value" id="greenInGreenIntensity1"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="greenInGreenIntensity2" data-contour-slot-label="Slot 2" aria-label="Green In Green Total Intensity 2" title="Green In Green Total Intensity 2">Slot 2</span>
+                            <span class="metric-value" id="greenInGreenIntensity2"></span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label" data-contour-intensity-label-for="greenInGreenIntensity3" data-contour-slot-label="Slot 3" aria-label="Green In Green Total Intensity 3" title="Green In Green Total Intensity 3">Slot 3</span>
+                            <span class="metric-value" id="greenInGreenIntensity3"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

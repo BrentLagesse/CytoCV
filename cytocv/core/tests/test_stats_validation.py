@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase
+﻿from django.test import SimpleTestCase
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -28,7 +28,11 @@ from core.metadata_processing.error_handling.source_image_validation import (
     get_effective_required_channels,
     validate_source_image_file,
 )
-from core.metadata_processing.dv_channel_parser import extract_channel_config
+from core.metadata_processing.dv_channel_parser import (
+    extract_channel_config,
+    extract_dv_metadata_channel_config,
+)
+from core.services.channel_presence import resolve_channel_config_and_presence_for_source
 from core.stats_plugins import build_plugin_ui_payload, build_requirement_summary, normalize_selected_plugins
 
 
@@ -67,6 +71,19 @@ class StatsRequirementTests(SimpleTestCase):
         summary = build_requirement_summary(["NuclearCellPairIntensity"])
         self.assertEqual(summary["required_channels"], ["DIC", "channel_red", "channel_green"])
 
+    def test_puncta_single_channel_modes_require_only_source_color_plus_dic(self):
+        red_only = build_requirement_summary(
+            ["PunctaDistance"],
+            puncta_line_mode="red_puncta_only",
+        )
+        green_only = build_requirement_summary(
+            ["PunctaDistance"],
+            puncta_line_mode="green_puncta_only",
+        )
+
+        self.assertEqual(red_only["required_channels"], ["DIC", "channel_red"])
+        self.assertEqual(green_only["required_channels"], ["DIC", "channel_green"])
+
     def test_exclusive_group_keeps_first_plugin_in_order(self):
         selected = normalize_selected_plugins(["NucleusIntensity", "NuclearCellPairIntensity", "BlueNucleusIntensity"])
         self.assertIn("NuclearCellPairIntensity", selected)
@@ -92,6 +109,27 @@ class StatsRequirementTests(SimpleTestCase):
         description = plugins["NuclearCellPairIntensity"]["description"].lower()
         self.assertIn("selected channel", description)
         self.assertIn("opposite", description)
+
+    def test_plugin_payload_exposes_all_puncta_line_modes(self):
+        payload = build_plugin_ui_payload()
+        plugins = {item["id"]: item for item in payload["plugins"]}
+        expected_modes = [
+            ("red_puncta", "Red Puncta (Measure Green)", {"channel_red", "channel_green"}),
+            ("green_puncta", "Green Puncta (Measure Red)", {"channel_red", "channel_green"}),
+            ("red_puncta_only", "Red Puncta Only", {"channel_red"}),
+            ("green_puncta_only", "Green Puncta Only", {"channel_green"}),
+        ]
+
+        for mode_options in (payload["puncta_line_modes"], plugins["PunctaDistance"]["puncta_line_modes"]):
+            with self.subTest(mode_options=mode_options):
+                self.assertEqual(
+                    [(item["value"], item["text"]) for item in mode_options],
+                    [(value, label) for value, label, _required in expected_modes],
+                )
+                for item, (_value, _label, required_channels) in zip(mode_options, expected_modes):
+                    self.assertEqual(set(item["required_channels"]), required_channels)
+
+        self.assertEqual(plugins["GreenRedIntensity"]["puncta_line_modes"], [])
 
 
 class SourceImageErrorMessageTests(SimpleTestCase):
@@ -153,11 +191,38 @@ class SourceImageErrorMessageTests(SimpleTestCase):
 
 
 class SourceImageValidationPresenceTests(SimpleTestCase):
+    def _validate_three_layer_metadata(
+        self,
+        metadata_config,
+        *,
+        required_channels,
+        configured_experiment_label="Puncta Distance - Red Puncta (Measure Green)",
+    ):
+        with patch(
+            "core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file",
+            return_value=True,
+        ), patch(
+            "core.metadata_processing.error_handling.source_image_validation.get_image_layer_count",
+            return_value=3,
+        ), patch(
+            "core.metadata_processing.error_handling.source_image_validation.extract_reliable_metadata_channel_config",
+            return_value=metadata_config,
+        ):
+            return validate_source_image_file(
+                Path("dummy.dv"),
+                SourceImageValidationOptions(
+                    enforce_layer_count=False,
+                    enforce_wavelengths=False,
+                    required_channels=set(required_channels),
+                    configured_experiment_label=configured_experiment_label,
+                ),
+            )
+
     @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
-    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=1)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=4)
     @patch(
         "core.metadata_processing.error_handling.source_image_validation.extract_channel_config",
-        return_value={"DIC": 0, "mCherry": 1, "GFP": 2},
+        return_value={"DIC": 0, "mCherry": 4, "GFP": 2},
     )
     def test_required_channels_must_exist_in_actual_layer_indices(self, _cfg, _layers, _recognized):
         options = SourceImageValidationOptions(
@@ -168,10 +233,10 @@ class SourceImageValidationPresenceTests(SimpleTestCase):
 
         result = validate_source_image_file(Path("dummy.dv"), options)
         self.assertFalse(result.is_valid)
-        self.assertEqual(result.missing_channels, {"channel_red", "channel_green"})
+        self.assertEqual(result.missing_channels, {"channel_red"})
 
     @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
-    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=3)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=4)
     @patch(
         "core.metadata_processing.error_handling.source_image_validation.extract_channel_config",
         return_value={"DIC": 0, "red": 1, "GFP": 2},
@@ -186,6 +251,122 @@ class SourceImageValidationPresenceTests(SimpleTestCase):
         result = validate_source_image_file(Path("dummy.dv"), options)
         self.assertTrue(result.is_valid)
         self.assertEqual(result.missing_channels, set())
+
+    def test_three_layer_metadata_missing_green_accepts_red_only_requirements(self):
+        result = self._validate_three_layer_metadata(
+            {"DIC": 0, "channel_blue": 1, "channel_red": 2},
+            required_channels={"DIC", "channel_red"},
+            configured_experiment_label="Puncta Distance - Red Puncta Only",
+        )
+        self.assertTrue(result.is_valid)
+        self.assertEqual(result.layer_count, 3)
+        self.assertEqual(result.missing_channels, set())
+        self.assertEqual(result.identified_channels, {"DIC", "channel_blue", "channel_red"})
+
+    def test_three_layer_metadata_missing_green_rejects_paired_requirements(self):
+        result = self._validate_three_layer_metadata(
+            {"DIC": 0, "channel_blue": 1, "channel_red": 2},
+            required_channels={"DIC", "channel_red", "channel_green"},
+            configured_experiment_label="Puncta Distance - Red Puncta (Measure Green)",
+        )
+
+        self.assertFalse(result.is_valid)
+        self.assertEqual(result.missing_channels, {"channel_green"})
+        self.assertIn("has 3 layers", result.error_message)
+        self.assertIn("Metadata identified: DIC, Blue, Red", result.error_message)
+        self.assertIn("requires: DIC, Red, Green", result.error_message)
+        self.assertIn("Missing required channel(s): Green", result.error_message)
+        self.assertIn("Red Puncta Only", result.error_message)
+        self.assertNotIn("select which non-DIC channel is missing", result.error_message)
+
+    def test_three_layer_metadata_missing_red_accepts_green_only_requirements(self):
+        result = self._validate_three_layer_metadata(
+            {"DIC": 0, "channel_blue": 1, "channel_green": 2},
+            required_channels={"DIC", "channel_green"},
+            configured_experiment_label="Puncta Distance - Green Puncta Only",
+        )
+        self.assertTrue(result.is_valid)
+        self.assertEqual(result.identified_channels, {"DIC", "channel_blue", "channel_green"})
+
+    def test_three_layer_metadata_missing_red_rejects_paired_requirements(self):
+        result = self._validate_three_layer_metadata(
+            {"DIC": 0, "channel_blue": 1, "channel_green": 2},
+            required_channels={"DIC", "channel_red", "channel_green"},
+            configured_experiment_label="Puncta Distance - Green Puncta (Measure Red)",
+        )
+        self.assertFalse(result.is_valid)
+        self.assertEqual(result.missing_channels, {"channel_red"})
+        self.assertIn("Missing required channel(s): Red", result.error_message)
+        self.assertIn("Green Puncta Only", result.error_message)
+
+    def test_three_layer_metadata_missing_blue_accepts_red_green_requirements(self):
+        result = self._validate_three_layer_metadata(
+            {"DIC": 0, "channel_red": 1, "channel_green": 2},
+            required_channels={"DIC", "channel_red", "channel_green"},
+        )
+        self.assertTrue(result.is_valid)
+        self.assertEqual(result.identified_channels, {"DIC", "channel_red", "channel_green"})
+
+    def test_three_layer_metadata_missing_blue_rejects_blue_dependent_requirements(self):
+        result = self._validate_three_layer_metadata(
+            {"DIC": 0, "channel_red": 1, "channel_green": 2},
+            required_channels={"DIC", "channel_blue"},
+            configured_experiment_label="Blue Nucleus Intensity",
+        )
+        self.assertFalse(result.is_valid)
+        self.assertEqual(result.missing_channels, {"channel_blue"})
+        self.assertIn("Missing required channel(s): Blue", result.error_message)
+        self.assertIn("Disable Blue-dependent analyses", result.error_message)
+
+    def test_three_layer_metadata_missing_dic_is_rejected_for_segmentation(self):
+        result = self._validate_three_layer_metadata(
+            {"channel_blue": 0, "channel_red": 1, "channel_green": 2},
+            required_channels={"DIC", "channel_red"},
+        )
+        self.assertFalse(result.is_valid)
+        self.assertEqual(result.missing_channels, {"DIC"})
+        self.assertIn("Metadata identified: Blue, Red, Green", result.error_message)
+        self.assertIn("DIC is required for cell segmentation", result.error_message)
+
+    @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=3)
+    def test_three_layer_without_metadata_or_declaration_is_ambiguous(self, _layers, _recognized):
+        options = SourceImageValidationOptions(
+            enforce_layer_count=False,
+            enforce_wavelengths=False,
+            required_channels={"DIC", "channel_red"},
+            prefer_metadata_channel_order=False,
+            configured_experiment_label="Puncta Distance - Red Puncta Only",
+        )
+
+        result = validate_source_image_file(Path("dummy.dv"), options)
+
+        self.assertFalse(result.is_valid)
+        self.assertIn("has 3 layers", result.error_message)
+        self.assertIn("could not identify the present channels from file metadata", result.error_message)
+        self.assertIn("requires: DIC, Red", result.error_message)
+        self.assertNotIn("select which non-DIC channel is missing", result.error_message)
+
+    @patch("core.services.channel_presence.get_image_layer_count", return_value=3)
+    @patch(
+        "core.services.channel_presence.extract_reliable_metadata_channel_config",
+        return_value={"DIC": 0, "channel_blue": 1, "channel_red": 2},
+    )
+    def test_three_layer_channel_config_and_presence_use_metadata_only(self, _metadata_config, _layers):
+        channel_config, presence = resolve_channel_config_and_presence_for_source(
+            Path("dummy.dv"),
+            fallback_order=["DIC", "channel_blue", "channel_green", "channel_red"],
+        )
+
+        self.assertEqual(
+            channel_config,
+            {"DIC": 0, "channel_blue": 1, "channel_red": 2},
+        )
+        self.assertEqual(presence.present_channels, frozenset({"DIC", "channel_blue", "channel_red"}))
+        self.assertEqual(presence.missing_channels, frozenset({"channel_green"}))
+        self.assertEqual(presence.source, "metadata")
+        self.assertEqual(presence.layer_count, 3)
+        self.assertTrue(presence.confirmed)
 
 
 class DVChannelParserTests(SimpleTestCase):
@@ -216,6 +397,31 @@ class DVChannelParserTests(SimpleTestCase):
             },
         )
 
+    @patch("core.metadata_processing.dv_channel_parser.DVFile")
+    def test_header_three_channel_metadata_maps_missing_green_stack(self, dv_file_cls):
+        dv = dv_file_cls.return_value
+        dv.metadata = {"header": {"nc": 3, "wave1": -50, "wave2": 435, "wave3": 625}}
+
+        config = extract_dv_metadata_channel_config(Path("dummy.dv"))
+
+        self.assertEqual(
+            config,
+            {
+                "DIC": 0,
+                "channel_blue": 1,
+                "channel_red": 2,
+            },
+        )
+
+    @patch("core.metadata_processing.dv_channel_parser.DVFile")
+    def test_header_duplicate_channel_roles_are_not_reliable_metadata(self, dv_file_cls):
+        dv = dv_file_cls.return_value
+        dv.metadata = {"header": {"nc": 3, "wave1": -50, "wave2": 625, "wave3": 625}}
+
+        config = extract_dv_metadata_channel_config(Path("dummy.dv"))
+
+        self.assertEqual(config, {})
+
     @patch("core.metadata_processing.dv_channel_parser.extract_dv_metadata_channel_config", return_value={})
     def test_dv_uses_fallback_order_when_metadata_unavailable(self, _metadata_config):
         config = extract_channel_config(
@@ -245,7 +451,7 @@ class DVChannelParserTests(SimpleTestCase):
         self.assertEqual(config, DEFAULT_CHANNEL_CONFIG)
 
     @patch("core.metadata_processing.error_handling.source_image_validation.is_recognized_image_file", return_value=True)
-    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=1)
+    @patch("core.metadata_processing.error_handling.source_image_validation.get_image_layer_count", return_value=4)
     @patch(
         "core.metadata_processing.error_handling.source_image_validation.extract_channel_config",
         return_value={"w1DIC": 0},
@@ -332,8 +538,12 @@ class AnalysisRegressionTests(SimpleTestCase):
             cen_dot_distance=37,
         )
 
-        self.assertEqual(cp.red_intensity_1, 0.0)
-        self.assertEqual(cp.green_in_green_intensity_1, 0.0)
+        self.assertEqual(cp.red_in_red_total_intensity_1, 0.0)
+        self.assertEqual(cp.red_in_red_max_intensity_1, 0.0)
+        self.assertEqual(cp.red_in_red_average_intensity_1, 0.0)
+        self.assertEqual(cp.green_in_green_total_intensity_1, 0.0)
+        self.assertEqual(cp.green_in_green_max_intensity_1, 0.0)
+        self.assertEqual(cp.green_in_green_average_intensity_1, 0.0)
 
     def test_green_red_intensity_uses_red_mode_ratio_when_toggle_targets_red_contours(self):
         plugin = GreenRedIntensity()
@@ -388,20 +598,34 @@ class AnalysisRegressionTests(SimpleTestCase):
         green_mask = np.zeros(green_image.shape, dtype=np.uint8)
         cv2.drawContours(green_mask, [green_contour], 0, 255, -1)
 
-        expected_red_in_red = float(np.sum(red_image[red_mask > 0]))
-        expected_green_in_red = float(np.sum(green_image[red_mask > 0]))
-        expected_red_in_green = float(np.sum(red_image[green_mask > 0]))
-        expected_green_in_green = float(np.sum(green_image[green_mask > 0]))
+        red_in_red_pixels = red_image[red_mask > 0]
+        green_in_red_pixels = green_image[red_mask > 0]
+        red_in_green_pixels = red_image[green_mask > 0]
+        green_in_green_pixels = green_image[green_mask > 0]
+        expected_red_in_red = float(np.sum(red_in_red_pixels))
+        expected_green_in_red = float(np.sum(green_in_red_pixels))
+        expected_red_in_green = float(np.sum(red_in_green_pixels))
+        expected_green_in_green = float(np.sum(green_in_green_pixels))
 
-        self.assertEqual(cp.red_intensity_1, expected_red_in_red)
-        self.assertEqual(cp.green_intensity_1, expected_green_in_red)
-        self.assertEqual(cp.red_in_green_intensity_1, expected_red_in_green)
-        self.assertEqual(cp.green_in_green_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.red_in_red_total_intensity_1, expected_red_in_red)
+        self.assertEqual(cp.red_in_red_max_intensity_1, float(np.max(red_in_red_pixels)))
+        self.assertEqual(cp.red_in_red_average_intensity_1, float(np.mean(red_in_red_pixels)))
+        self.assertEqual(cp.green_in_red_total_intensity_1, expected_green_in_red)
+        self.assertEqual(cp.green_in_red_max_intensity_1, float(np.max(green_in_red_pixels)))
+        self.assertEqual(cp.green_in_red_average_intensity_1, float(np.mean(green_in_red_pixels)))
+        self.assertEqual(cp.red_in_green_total_intensity_1, expected_red_in_green)
+        self.assertEqual(cp.red_in_green_max_intensity_1, float(np.max(red_in_green_pixels)))
+        self.assertEqual(cp.red_in_green_average_intensity_1, float(np.mean(red_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_total_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.green_in_green_max_intensity_1, float(np.max(green_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_average_intensity_1, float(np.mean(green_in_green_pixels)))
         self.assertEqual(
             cp.green_red_intensity_1,
             expected_green_in_red / expected_red_in_red,
         )
-        self.assertEqual(cp.red_intensity_2, 0.0)
+        self.assertEqual(cp.red_in_red_total_intensity_2, 0.0)
+        self.assertEqual(cp.red_in_red_max_intensity_2, 0.0)
+        self.assertEqual(cp.red_in_red_average_intensity_2, 0.0)
         self.assertEqual(cp.green_red_intensity_2, 0.0)
 
     def test_green_red_intensity_uses_green_mode_ratio_when_toggle_targets_green_contours(self):
@@ -454,11 +678,17 @@ class AnalysisRegressionTests(SimpleTestCase):
 
         green_mask = np.zeros(green_image.shape, dtype=np.uint8)
         cv2.drawContours(green_mask, [green_contour], 0, 255, -1)
-        expected_red_in_green = float(np.sum(red_image[green_mask > 0]))
-        expected_green_in_green = float(np.sum(green_image[green_mask > 0]))
+        red_in_green_pixels = red_image[green_mask > 0]
+        green_in_green_pixels = green_image[green_mask > 0]
+        expected_red_in_green = float(np.sum(red_in_green_pixels))
+        expected_green_in_green = float(np.sum(green_in_green_pixels))
 
-        self.assertEqual(cp.red_in_green_intensity_1, expected_red_in_green)
-        self.assertEqual(cp.green_in_green_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.red_in_green_total_intensity_1, expected_red_in_green)
+        self.assertEqual(cp.red_in_green_max_intensity_1, float(np.max(red_in_green_pixels)))
+        self.assertEqual(cp.red_in_green_average_intensity_1, float(np.mean(red_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_total_intensity_1, expected_green_in_green)
+        self.assertEqual(cp.green_in_green_max_intensity_1, float(np.max(green_in_green_pixels)))
+        self.assertEqual(cp.green_in_green_average_intensity_1, float(np.mean(green_in_green_pixels)))
         self.assertEqual(
             cp.green_red_intensity_1,
             expected_red_in_green / expected_green_in_green,
@@ -498,6 +728,90 @@ class AnalysisRegressionTests(SimpleTestCase):
         )
 
         self.assertEqual(cp.puncta_line_intensity, float(np.sum(raw_green[line_mask > 0])))
+
+    def test_red_only_puncta_distance_does_not_require_green_measurement_image(self):
+        plugin = PunctaDistance()
+        cp = SimpleNamespace(
+            properties={
+                "puncta_line_mode": "red_puncta_only",
+                "puncta_contour_intensity_enabled": True,
+            }
+        )
+        shape = (10, 10)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        left_red = self._rect_contour(1, 1, 3, 3)
+        right_red = self._rect_contour(6, 1, 8, 3)
+        red_gray[1:4, 1:4] = 5
+        red_gray[1:4, 6:9] = 7
+        preprocessed = GrayImage(
+            img={
+                "gray_red": red_gray,
+                "red_no_bg": red_gray,
+                "raw_red": red_gray,
+            }
+        )
+        plugin.setting_up(cp, preprocessed, output_dir="")
+
+        points = plugin.calculate_statistics(
+            best_contours={},
+            contours_data={"dot_contours": [left_red, right_red], "contours_green": []},
+            red_image=np.zeros((*shape, 3), dtype=np.uint8),
+            green_image=None,
+            puncta_line_width_input=1,
+            cen_dot_distance=37,
+        )
+
+        self.assertGreater(len(points), 0)
+        self.assertEqual(cp.puncta_distance, 5.0)
+        self.assertFalse(hasattr(cp, "puncta_line_intensity"))
+        self.assertGreater(cp.red_contour_1_size, 0.0)
+        self.assertGreater(cp.red_in_red_total_intensity_1, 0.0)
+        self.assertIn("puncta_line_intensity", cp.properties["unavailable_stat_fields"])
+        self.assertIn("green_contour_1_size", cp.properties["unavailable_stat_fields"])
+        self.assertIn(
+            "measurement_contour_ratio_1",
+            cp.properties["unavailable_stat_fields"],
+        )
+
+    def test_green_only_puncta_distance_does_not_require_red_measurement_image(self):
+        plugin = PunctaDistance()
+        cp = SimpleNamespace(
+            properties={
+                "puncta_line_mode": "green_puncta_only",
+                "puncta_contour_intensity_enabled": True,
+            }
+        )
+        shape = (10, 10)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        left_green = self._rect_contour(1, 1, 3, 3)
+        right_green = self._rect_contour(6, 1, 8, 3)
+        green_gray[1:4, 1:4] = 5
+        green_gray[1:4, 6:9] = 7
+        preprocessed = GrayImage(
+            img={
+                "green": green_gray,
+                "green_no_bg": green_gray,
+                "raw_green": green_gray,
+            }
+        )
+        plugin.setting_up(cp, preprocessed, output_dir="")
+
+        points = plugin.calculate_statistics(
+            best_contours={},
+            contours_data={"dot_contours": [], "contours_green": [left_green, right_green]},
+            red_image=None,
+            green_image=np.zeros((*shape, 3), dtype=np.uint8),
+            puncta_line_width_input=1,
+            cen_dot_distance=37,
+        )
+
+        self.assertGreater(len(points), 0)
+        self.assertEqual(cp.puncta_distance, 5.0)
+        self.assertFalse(hasattr(cp, "puncta_line_intensity"))
+        self.assertGreater(cp.green_contour_1_size, 0.0)
+        self.assertGreater(cp.green_in_green_total_intensity_1, 0.0)
+        self.assertIn("puncta_line_intensity", cp.properties["unavailable_stat_fields"])
+        self.assertIn("red_contour_1_size", cp.properties["unavailable_stat_fields"])
 
     def test_legacy_green_nucleus_intensity_prefers_raw_green_values(self):
         plugin = NucleusIntensity()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from core.channel_roles import channel_display_label, normalize_channel_role
+from core.cell_types import cell_type_from_statistics, cell_type_label
 from core.models import CellStatistics, get_cen_dot_category_label
 from core.services.contour_coordinates import contour_center_payloads_from_properties
 from core.services.measurement_contour_ratio import (
@@ -13,7 +14,7 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
-from core.services.stat_applicability import resolve_stat_visibility, stat_group_for_field
+from core.services.stat_applicability import resolve_stat_visibility, is_field_applicable
 
 
 def normalize_channel_display_name(value: Any, default: str = "") -> str:
@@ -80,15 +81,50 @@ def serialize_cell_statistics_payload(
                 "measurement_contour_ratio_display_text": "N/A",
             }
         )
+    else:
+        for index in range(1, 4):
+            field_name = f"measurement_contour_ratio_{index}"
+            if not is_field_applicable(
+                cell_stat,
+                field_name,
+                stat_visibility=stat_visibility,
+            ):
+                ratio_payload[field_name] = None
+        if all(
+            ratio_payload.get(f"measurement_contour_ratio_{index}") is None
+            for index in range(1, 4)
+        ):
+            ratio_payload["measurement_contour_ratio_display_text"] = "N/A"
     contour_center_payloads = contour_center_payloads_from_properties(properties)
+    cell_type = cell_type_from_statistics(cell_stat)
 
     def stat_value(field_name: str, value: Any) -> Any:
-        group_name = stat_group_for_field(field_name)
-        if group_name is not None and not stat_visibility.get(group_name, True):
+        if not is_field_applicable(
+            cell_stat,
+            field_name,
+            stat_visibility=stat_visibility,
+        ):
             return None
         return value
 
+    intensity_payload = {}
+    for prefix in (
+        "red_in_red",
+        "green_in_red",
+        "red_in_green",
+        "green_in_green",
+    ):
+        for index in range(1, 4):
+            for statistic in ("total", "max", "average"):
+                field_name = f"{prefix}_{statistic}_intensity_{index}"
+                intensity_payload[field_name] = stat_value(
+                    field_name,
+                    getattr(cell_stat, field_name),
+                )
+
     return {
+        "cell_type": cell_type,
+        "cell_type_label": cell_type_label(cell_type),
         "selected_analysis": selected_analysis if isinstance(selected_analysis, list) else [],
         "stat_visibility": stat_visibility,
         "signal_quantification_enabled": properties.get("signal_quantification_enabled"),
@@ -99,6 +135,17 @@ def serialize_cell_statistics_payload(
         ),
         "alternate_nucleus_detection_channel": properties.get(
             "alternate_nucleus_detection_channel"
+        ),
+        "red_contour_count": properties.get("red_contour_count"),
+        "green_contour_count": properties.get("green_contour_count"),
+        "red_contour_count_source": properties.get("red_contour_count_source"),
+        "green_contour_count_source": properties.get("green_contour_count_source"),
+        "puncta_source_contour_count": properties.get("puncta_source_contour_count"),
+        "puncta_source_contour_count_channel": properties.get(
+            "puncta_source_contour_count_channel"
+        ),
+        "puncta_source_contour_count_source": properties.get(
+            "puncta_source_contour_count_source"
         ),
         "puncta_distance": stat_value("puncta_distance", cell_stat.puncta_distance),
         "puncta_line_intensity": stat_value(
@@ -134,45 +181,7 @@ def serialize_cell_statistics_payload(
             "red_contour_3_center_xy",
             contour_center_payloads["red_contour_3_center_xy"],
         ),
-        "red_intensity_1": stat_value("red_intensity_1", cell_stat.red_intensity_1),
-        "red_intensity_2": stat_value("red_intensity_2", cell_stat.red_intensity_2),
-        "red_intensity_3": stat_value("red_intensity_3", cell_stat.red_intensity_3),
-        "green_intensity_1": stat_value(
-            "green_intensity_1",
-            cell_stat.green_intensity_1,
-        ),
-        "green_intensity_2": stat_value(
-            "green_intensity_2",
-            cell_stat.green_intensity_2,
-        ),
-        "green_intensity_3": stat_value(
-            "green_intensity_3",
-            cell_stat.green_intensity_3,
-        ),
-        "red_in_green_intensity_1": stat_value(
-            "red_in_green_intensity_1",
-            cell_stat.red_in_green_intensity_1,
-        ),
-        "red_in_green_intensity_2": stat_value(
-            "red_in_green_intensity_2",
-            cell_stat.red_in_green_intensity_2,
-        ),
-        "red_in_green_intensity_3": stat_value(
-            "red_in_green_intensity_3",
-            cell_stat.red_in_green_intensity_3,
-        ),
-        "green_in_green_intensity_1": stat_value(
-            "green_in_green_intensity_1",
-            cell_stat.green_in_green_intensity_1,
-        ),
-        "green_in_green_intensity_2": stat_value(
-            "green_in_green_intensity_2",
-            cell_stat.green_in_green_intensity_2,
-        ),
-        "green_in_green_intensity_3": stat_value(
-            "green_in_green_intensity_3",
-            cell_stat.green_in_green_intensity_3,
-        ),
+        **intensity_payload,
         "green_contour_1_size": stat_value(
             "green_contour_1_size",
             cell_stat.green_contour_1_size,

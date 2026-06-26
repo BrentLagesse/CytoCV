@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from core.channel_roles import CHANNEL_ROLE_GREEN, CHANNEL_ROLE_RED, normalize_channel_role
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
+    is_single_channel_puncta_line_mode,
     normalize_puncta_line_mode,
 )
 
@@ -23,6 +24,14 @@ GREEN_RED_INTENSITY_PLUGIN = "GreenRedIntensity"
 NUCLEAR_CELL_PAIR_PLUGIN = "NuclearCellPairIntensity"
 CEN_DOT_PLUGIN = "CENDot"
 BIORIENTATION_PLUGIN = "Biorientation"
+RED_GREEN_PAIRED_PLUGIN_IDS = frozenset(
+    {
+        GREEN_RED_INTENSITY_PLUGIN,
+        CEN_DOT_PLUGIN,
+        BIORIENTATION_PLUGIN,
+        NUCLEAR_CELL_PAIR_PLUGIN,
+    }
+)
 LEGACY_BLUE_INTENSITY_PLUGIN_IDS = frozenset(
     {"NucleusIntensity", "BlueNucleusIntensity", "RedBlueIntensity"}
 )
@@ -145,7 +154,7 @@ def measurement_ratio_mode_for_puncta_line_mode(puncta_line_mode: Any) -> str:
         puncta_line_mode,
         default=DEFAULT_PUNCTA_LINE_MODE,
     )
-    if mode == "green_puncta":
+    if mode in {"green_puncta", "green_puncta_only"}:
         return RATIO_MODE_GREEN_CONTOUR
     return RATIO_MODE_RED_CONTOUR
 
@@ -214,6 +223,13 @@ def resolve_signal_quantification_selection(
     """Resolve Signal Quantification fields and derived plugin selection."""
 
     payload = payload if isinstance(payload, dict) else {}
+    normalized_puncta_line_mode = normalize_puncta_line_mode(
+        puncta_line_mode,
+        default=DEFAULT_PUNCTA_LINE_MODE,
+    )
+    single_channel_puncta_mode = is_single_channel_puncta_line_mode(
+        normalized_puncta_line_mode
+    )
     legacy_plugins = tuple(expand_selected_plugins(selected_plugins or ()))
     legacy_plugin_set = set(legacy_plugins)
     has_primary_legacy = bool(legacy_plugin_set & SIGNAL_QUANTIFICATION_PLUGIN_IDS)
@@ -274,6 +290,7 @@ def resolve_signal_quantification_selection(
         plugin_id
         for plugin_id in legacy_plugins
         if plugin_id not in SIGNAL_QUANTIFICATION_PLUGIN_IDS
+        and not (single_channel_puncta_mode and plugin_id in RED_GREEN_PAIRED_PLUGIN_IDS)
     )
 
     configured: list[str] = []
@@ -282,7 +299,7 @@ def resolve_signal_quantification_selection(
             configured.append(NUCLEAR_CELL_PAIR_PLUGIN)
         else:
             configured.append(PUNCTA_DISTANCE_PLUGIN)
-            if puncta_contour_intensity_enabled:
+            if puncta_contour_intensity_enabled and not single_channel_puncta_mode:
                 configured.append(GREEN_RED_INTENSITY_PLUGIN)
     configured.extend(independent_plugins)
     configured_plugins_tuple = tuple(expand_selected_plugins(configured))
@@ -293,7 +310,7 @@ def resolve_signal_quantification_selection(
             effective.append(NUCLEAR_CELL_PAIR_PLUGIN)
         else:
             effective.append(PUNCTA_DISTANCE_PLUGIN)
-            if puncta_contour_intensity_enabled:
+            if puncta_contour_intensity_enabled and not single_channel_puncta_mode:
                 effective.append(GREEN_RED_INTENSITY_PLUGIN)
             effective.extend(independent_plugins)
     else:
@@ -321,7 +338,7 @@ def resolve_signal_quantification_selection(
         paused_plugins=paused_plugins_tuple,
         stat_visibility=build_stat_visibility(selected_plugins_tuple),
         measurement_contour_ratio_mode=measurement_ratio_mode_for_puncta_line_mode(
-            puncta_line_mode
+            normalized_puncta_line_mode
         ),
     )
 

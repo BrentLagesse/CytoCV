@@ -25,6 +25,7 @@ from accounts.preferences import (
     get_user_preferences,
     normalize_main_image_channel,
     MAIN_IMAGE_CHANNEL_SLUGS,
+    resolve_initial_puncta_source_contour_count_filter,
     should_auto_save_experiments,
     update_user_preferences,
 )
@@ -41,6 +42,12 @@ from core.channel_ordering import (
     normalize_channel_order,
 )
 from core.config import DEFAULT_CHANNEL_CONFIG, get_channel_config_for_uuid
+from core.cell_types import (
+    filter_statistics_by_cell_type,
+    normalize_cell_inclusion_mode,
+    normalize_cell_type_filter,
+    resolve_effective_cell_type_filter,
+)
 from core.models import (
     CellStatistics,
     SegmentedImage,
@@ -99,6 +106,11 @@ from core.services.result_view_payloads import (
     detected_channel_labels,
     resolve_cell_table_modes,
     sanitize_for_json,
+)
+from core.services.puncta_source_contour_count_filter import (
+    filter_statistics_by_puncta_source_contour_count,
+    normalize_puncta_source_contour_count_filter,
+    resolve_effective_puncta_source_contour_count_filter,
 )
 from core.scale import (
     get_scale_context_payload,
@@ -270,6 +282,9 @@ def _extract_measurement_defaults(
     current_nuclear_contour_mode = _normalize_nuclear_contour_mode(
         defaults.get("nuclear_cell_pair_contour_mode"),
     )
+    current_cell_inclusion_mode = normalize_cell_inclusion_mode(
+        defaults.get("cell_inclusion_mode")
+    )
     current_legacy_nuclear_cell_pair = bool(
         defaults.get("use_legacy_nuclear_cell_pair_pipeline", False)
     )
@@ -370,6 +385,9 @@ def _extract_measurement_defaults(
         "nuclear_cell_pair_contour_mode": _normalize_nuclear_contour_mode(
             post_data.get("nuclear_cell_pair_contour_mode"),
             default=current_nuclear_contour_mode,
+        ),
+        "cell_inclusion_mode": normalize_cell_inclusion_mode(
+            post_data.get("cell_inclusion_mode", current_cell_inclusion_mode)
         ),
         "use_legacy_nuclear_cell_pair_pipeline": use_legacy_nuclear_cell_pair_pipeline,
         "puncta_line_width_unit": puncta_line_width_unit,
@@ -544,6 +562,8 @@ def _build_cell_table_for_uuid(
     uuid: str,
     *,
     spatial_stats_unit: str = "px",
+    cell_type_filter: str = "all",
+    puncta_source_contour_count_filter: str = "all",
 ) -> CellTable:
     preferences = get_user_preferences(user)
     default_manual_scale = preferences.get("experiment_defaults", {}).get(
@@ -571,9 +591,24 @@ def _build_cell_table_for_uuid(
     stats_qs = CellStatistics.objects.filter(segmented_image=segmented_image).order_by(
         "cell_id"
     )
-    intensity_mode, puncta_line_mode = resolve_cell_table_modes(stats_qs)
-    return CellTable(
+    effective_cell_type_filter = resolve_effective_cell_type_filter(
         stats_qs,
+        cell_type_filter,
+    )
+    effective_puncta_source_contour_count_filter = (
+        resolve_effective_puncta_source_contour_count_filter(
+            stats_qs,
+            puncta_source_contour_count_filter,
+        )
+    )
+    stats = filter_statistics_by_cell_type(stats_qs, effective_cell_type_filter)
+    stats = filter_statistics_by_puncta_source_contour_count(
+        stats,
+        effective_puncta_source_contour_count_filter,
+    )
+    intensity_mode, puncta_line_mode = resolve_cell_table_modes(stats)
+    return CellTable(
+        stats,
         intensity_mode=intensity_mode,
         puncta_line_mode=puncta_line_mode,
         spatial_stats_unit=spatial_stats_unit,
@@ -670,7 +705,7 @@ def _scan_output_frames(output_dir: Path) -> dict[int, str]:
     return frames
 
 
-def _build_dashboard_payload(user: Any) -> dict[str, Any]:
+def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> dict[str, Any]:
     segmented_images = list(
         SegmentedImage.objects.filter(user=user).order_by("-uploaded_date")
     )
@@ -702,6 +737,16 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         preferences.get("main_image_channel"),
         default="",
     )
+    initial_puncta_source_contour_count_filter = (
+        resolve_initial_puncta_source_contour_count_filter(request, preferences)
+    )
+    initial_cell_type_filter = normalize_cell_type_filter(
+        request.GET.get("_cell_type") if request is not None else None
+    )
+    effective_initial_puncta_source_contour_count_filter = (
+        initial_puncta_source_contour_count_filter
+    )
+    effective_initial_cell_type_filter = initial_cell_type_filter
 
     files_data: dict[str, Any] = {}
     file_list: list[dict[str, Any]] = []
@@ -738,11 +783,29 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
             first_table_uuid = uuid
+            effective_initial_cell_type_filter = resolve_effective_cell_type_filter(
+                stats_qs,
+                initial_cell_type_filter,
+            )
+            effective_initial_puncta_source_contour_count_filter = (
+                resolve_effective_puncta_source_contour_count_filter(
+                    stats_qs,
+                    initial_puncta_source_contour_count_filter,
+                )
+            )
+            initial_table_stats = filter_statistics_by_cell_type(
+                stats_qs,
+                effective_initial_cell_type_filter,
+            )
+            initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                initial_table_stats,
+                effective_initial_puncta_source_contour_count_filter,
+            )
             intensity_mode, puncta_line_mode = resolve_cell_table_modes(
-                stats_by_id.values()
+                initial_table_stats
             )
             cell_table = CellTable(
-                stats_qs,
+                initial_table_stats,
                 intensity_mode=intensity_mode,
                 puncta_line_mode=puncta_line_mode,
                 spatial_stats_unit=sidebar_spatial_stats_unit,
@@ -928,6 +991,8 @@ def _build_dashboard_payload(user: Any) -> dict[str, Any]:
         "default_spatial_stats_unit": default_spatial_stats_unit,
         "sidebar_spatial_stats_unit": sidebar_spatial_stats_unit,
         "main_image_channel": main_image_channel,
+        "cell_type_filter": effective_initial_cell_type_filter,
+        "puncta_source_contour_count_filter": effective_initial_puncta_source_contour_count_filter,
         "export_selection_config": export_selection_config(),
     }
 
@@ -1054,6 +1119,11 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             request.user,
             export_uuid,
             spatial_stats_unit=export_unit,
+            cell_type_filter=request.GET.get("_cell_type"),
+            puncta_source_contour_count_filter=request.GET.get(
+                "_puncta_source_contour_count",
+                request.GET.get("_red_contour_count"),
+            ),
         )
         download_name = build_statistics_export_filename(
             scope=metric_scope,
@@ -1067,7 +1137,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         )
         return exporter.response(download_name)
 
-    context = _build_dashboard_payload(request.user)
+    context = _build_dashboard_payload(request.user, request=request)
     return TemplateResponse(request, "dashboard.html", context)
 
 
@@ -1175,6 +1245,11 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
+            cell_type_filter=payload.get("_cell_type"),
+            puncta_source_contour_count_filter=payload.get(
+                "_puncta_source_contour_count",
+                payload.get("_red_contour_count"),
+            ),
         )
     except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)
@@ -1543,6 +1618,12 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
                 request,
                 "confirm_multi_cell_deletion",
             )
+            if "default_puncta_source_contour_count_filter" in request.POST:
+                next_payload["default_puncta_source_contour_count_filter"] = (
+                    normalize_puncta_source_contour_count_filter(
+                        request.POST.get("default_puncta_source_contour_count_filter")
+                    )
+                )
             preferences = update_user_preferences(request.user, next_payload)
             if should_auto_save_experiments(request.user):
                 messages.success(

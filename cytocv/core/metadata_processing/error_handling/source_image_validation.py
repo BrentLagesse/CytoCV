@@ -13,6 +13,9 @@ from ...channel_roles import (
 from ...image_sources import get_image_layer_count, is_recognized_image_file
 from ..dv_channel_parser import extract_channel_config
 from ...stats_plugins import CHANNEL_ORDER
+from ...services.channel_presence import (
+    extract_reliable_metadata_channel_config,
+)
 
 EXPECTED_LAYER_COUNT = 4
 REQUIRED_CHANNELS = {CHANNEL_ROLE_DIC, CHANNEL_ROLE_BLUE, CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}
@@ -52,6 +55,8 @@ class SourceImageValidationOptions:
     enforce_layer_count: bool = False
     enforce_wavelengths: bool = False
     required_channels: Set[str] = field(default_factory=set)
+    prefer_metadata_channel_order: bool = True
+    configured_experiment_label: str = "the configured experiment"
 
 
 @dataclass(frozen=True)
@@ -63,6 +68,7 @@ class SourceImageValidationResult:
     missing_channels: Set[str]
     required_channels: Set[str] = field(default_factory=set)
     error_message: str | None = None
+    identified_channels: Set[str] = field(default_factory=set)
 
 
 def get_effective_required_channels(options: SourceImageValidationOptions) -> Set[str]:
@@ -92,7 +98,11 @@ def validate_source_image_file(
         )
 
     layer_count = None
-    if options.enforce_layer_count:
+    should_check_layer_count = bool(
+        options.enforce_layer_count
+        or required_channels
+    )
+    if should_check_layer_count:
         try:
             layer_count = get_image_layer_count(str(source_image_path))
         except Exception:
@@ -103,16 +113,27 @@ def validate_source_image_file(
                 required_channels=required_channels,
                 error_message="not a recognized supported image file",
             )
-        if layer_count != EXPECTED_LAYER_COUNT:
+        if options.enforce_layer_count and layer_count != EXPECTED_LAYER_COUNT:
             return SourceImageValidationResult(
                 is_valid=False,
                 layer_count=layer_count,
                 missing_channels=set(),
                 required_channels=required_channels,
             )
+        if not options.enforce_layer_count and layer_count not in {3, EXPECTED_LAYER_COUNT}:
+            suffix = "s" if layer_count != 1 else ""
+            return SourceImageValidationResult(
+                is_valid=False,
+                layer_count=layer_count,
+                missing_channels=set(),
+                required_channels=required_channels,
+                error_message=(
+                    f"has {layer_count} layer{suffix}; CytoCV supports 3 or "
+                    f"{EXPECTED_LAYER_COUNT} layers for this workflow"
+                ),
+            )
 
     if required_channels:
-        channel_config = extract_channel_config(source_image_path)
         if layer_count is None:
             try:
                 layer_count = get_image_layer_count(str(source_image_path))
@@ -125,7 +146,47 @@ def validate_source_image_file(
                     error_message="not a recognized supported image file",
                 )
 
-        available_channels = _available_channels_from_config(channel_config, layer_count)
+        if layer_count == 3:
+            metadata_config = extract_reliable_metadata_channel_config(
+                source_image_path,
+                prefer_metadata=options.prefer_metadata_channel_order,
+            )
+            identified_channels = _available_channels_from_config(
+                metadata_config,
+                layer_count,
+            )
+            if len(identified_channels) == layer_count and CHANNEL_ROLE_DIC not in identified_channels:
+                return SourceImageValidationResult(
+                    is_valid=False,
+                    layer_count=layer_count,
+                    missing_channels={CHANNEL_ROLE_DIC},
+                    required_channels=required_channels,
+                    error_message=_dic_missing_error(
+                        layer_count=layer_count,
+                        identified_channels=identified_channels,
+                    ),
+                    identified_channels=identified_channels,
+                )
+            if len(identified_channels) != layer_count:
+                return SourceImageValidationResult(
+                    is_valid=False,
+                    layer_count=layer_count,
+                    missing_channels=set(),
+                    required_channels=required_channels,
+                    error_message=_metadata_insufficient_error(
+                        layer_count=layer_count,
+                        required_channels=required_channels,
+                        options=options,
+                    ),
+                    identified_channels=identified_channels,
+                )
+            available_channels = identified_channels
+        else:
+            channel_config = extract_channel_config(
+                source_image_path,
+                prefer_metadata=options.prefer_metadata_channel_order,
+            )
+            available_channels = _available_channels_from_config(channel_config, layer_count)
         missing_channels = set(required_channels) - available_channels
         if missing_channels:
             return SourceImageValidationResult(
@@ -133,6 +194,18 @@ def validate_source_image_file(
                 layer_count=layer_count,
                 missing_channels=missing_channels,
                 required_channels=required_channels,
+                error_message=(
+                    _required_channels_missing_error(
+                        layer_count=layer_count,
+                        identified_channels=available_channels,
+                        required_channels=required_channels,
+                        missing_channels=missing_channels,
+                        options=options,
+                    )
+                    if layer_count == 3
+                    else None
+                ),
+                identified_channels=available_channels,
             )
 
     return SourceImageValidationResult(
@@ -140,6 +213,7 @@ def validate_source_image_file(
         layer_count=layer_count,
         missing_channels=set(),
         required_channels=required_channels,
+        identified_channels=available_channels if required_channels else set(),
     )
 
 
@@ -159,6 +233,82 @@ def _sorted_channels(channels: Set[str]) -> list[str]:
 
 def _sorted_channel_labels(channels: Set[str]) -> list[str]:
     return [channel_display_label(channel) for channel in _sorted_channels(channels)]
+
+
+def _channel_list(channels: Set[str]) -> str:
+    labels = _sorted_channel_labels(channels)
+    return ", ".join(labels) if labels else "none"
+
+
+def _configured_experiment_label(options: SourceImageValidationOptions) -> str:
+    return str(options.configured_experiment_label or "the configured experiment")
+
+
+def _suggestion_for_missing_channels(
+    *,
+    identified_channels: Set[str],
+    missing_channels: Set[str],
+) -> str:
+    if CHANNEL_ROLE_GREEN in missing_channels and CHANNEL_ROLE_RED in identified_channels:
+        return (
+            "Change the puncta source to Red Puncta Only for red-only stacks, "
+            "or upload a file containing Green."
+        )
+    if CHANNEL_ROLE_RED in missing_channels and CHANNEL_ROLE_GREEN in identified_channels:
+        return (
+            "Change the puncta source to Green Puncta Only for green-only stacks, "
+            "or upload a file containing Red."
+        )
+    if CHANNEL_ROLE_BLUE in missing_channels:
+        return "Disable Blue-dependent analyses, or upload a file containing Blue."
+    return "Upload a file containing the required channel(s)."
+
+
+def _metadata_insufficient_error(
+    *,
+    layer_count: int,
+    required_channels: Set[str],
+    options: SourceImageValidationOptions,
+) -> str:
+    return (
+        f"has {layer_count} layers, but CytoCV could not identify the present "
+        "channels from file metadata. "
+        f"The configured experiment requires: {_channel_list(required_channels)} "
+        f"for {_configured_experiment_label(options)}. "
+        "Use a metadata-supported file that identifies DIC and the required "
+        "fluorescence channels, or upload a stack containing the required channels."
+    )
+
+
+def _dic_missing_error(
+    *,
+    layer_count: int,
+    identified_channels: Set[str],
+) -> str:
+    return (
+        f"has {layer_count} layers. Metadata identified: "
+        f"{_channel_list(identified_channels)}. DIC was not identified, but DIC "
+        "is required for cell segmentation. This file cannot be processed with "
+        "the current workflow."
+    )
+
+
+def _required_channels_missing_error(
+    *,
+    layer_count: int,
+    identified_channels: Set[str],
+    required_channels: Set[str],
+    missing_channels: Set[str],
+    options: SourceImageValidationOptions,
+) -> str:
+    return (
+        f"has {layer_count} layers. Metadata identified: "
+        f"{_channel_list(identified_channels)}. The configured experiment "
+        f"requires: {_channel_list(required_channels)} for "
+        f"{_configured_experiment_label(options)}. Missing required channel(s): "
+        f"{_channel_list(missing_channels)}. "
+        f"{_suggestion_for_missing_channels(identified_channels=identified_channels, missing_channels=missing_channels)}"
+    )
 
 
 def _failure_file_name(name: object) -> str:
@@ -182,7 +332,8 @@ def build_source_image_error_messages(
     for name, result in failures:
         file_name = _failure_file_name(name)
         if result.error_message:
-            invalid_file_errors.append(f"- {file_name} is {result.error_message}")
+            prefix = "" if result.error_message.startswith("has ") else "is "
+            invalid_file_errors.append(f"- {file_name} {prefix}{result.error_message}")
             continue
 
         if (
@@ -210,7 +361,7 @@ def build_source_image_error_messages(
         messages.extend(items)
 
     append_section(
-        "Could not process the following files because they are not recognized supported image files:",
+        "Could not process the following files:",
         invalid_file_errors,
     )
     append_section(

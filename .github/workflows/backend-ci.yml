@@ -43,6 +43,11 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
       - name: Install OpenCV runtime libraries
         run: |
           sudo apt-get update
@@ -99,6 +104,15 @@ jobs:
       - name: Static collection dry-run
         working-directory: cytocv
         run: python manage.py collectstatic --dry-run --noinput
+
+      - name: JavaScript syntax check
+        working-directory: cytocv
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core/static/js -type f -name '*.js' -print0)
 
       - name: Frontend contract tests
         working-directory: cytocv

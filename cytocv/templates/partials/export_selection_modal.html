@@ -32,17 +32,109 @@
                 <button type="button" class="export-selection-btn secondary-nav" id="chooseExportFilesBtn">Edit files</button>
             </div>
             <div class="export-selection-status-row">
-                <div class="export-format-control">
-                    <span class="export-format-label">File Type:</span>
-                    <div class="export-format-toggle" id="exportFormatToggle" role="group" aria-label="Download format" data-active-format="csv">
-                        <div class="export-format-indicator" aria-hidden="true"></div>
-                        <button type="button" class="export-format-btn active" data-export-format="csv" aria-pressed="true">CSV</button>
-                        <button type="button" class="export-format-btn" data-export-format="xlsx" aria-pressed="false">Excel</button>
+                <div class="export-selection-download-controls">
+                    <div class="export-format-control">
+                        <span class="export-format-label">File Type:</span>
+                        <div class="export-format-toggle" id="exportFormatToggle" role="group" aria-label="Download format" data-active-format="csv">
+                            <div class="export-format-indicator" aria-hidden="true"></div>
+                            <button type="button" class="export-format-btn active" data-export-format="csv" aria-pressed="true">CSV</button>
+                            <button type="button" class="export-format-btn" data-export-format="xlsx" aria-pressed="false">Excel</button>
+                        </div>
+                    </div>
+                    <div class="export-spatial-unit-control">
+                        <span class="export-spatial-unit-label">Spatial Unit:</span>
+                        <div class="spatial-unit-track export-spatial-unit-toggle" role="group" aria-label="Download spatial units" data-spatial-unit-toggle data-active-unit="px">
+                            <div class="spatial-unit-indicator" aria-hidden="true"></div>
+                            <button type="button" class="spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                            <button type="button" class="spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                        </div>
                     </div>
                 </div>
                 <span class="export-selection-count" id="exportSelectionCount" aria-live="polite"></span>
             </div>
-            <div class="export-selection-list-box" id="exportSelectionList" role="group" aria-label="Statistics available for export"></div>
+            <div class="export-selection-workspace">
+                <aside class="export-quick-select-sidebar" aria-label="Quick Select">
+                    <section class="export-intensity-quick-select" id="exportIntensityQuickSelect" aria-labelledby="exportIntensityQuickSelectTitle" hidden>
+                        <div class="export-intensity-quick-select-header">
+                            <div class="export-intensity-title-row">
+                                <h4 id="exportIntensityQuickSelectTitle">Quick Select</h4>
+                                <button
+                                    type="button"
+                                    class="selection-info-dot info-dot compact export-intensity-info-dot"
+                                    data-info-text="Quick Select helps you choose contour-intensity columns for CSV or Excel downloads without manually checking every individual statistic.&#10;&#10;It does not rerun analysis, change the saved results, or change the table itself. It only checks or unchecks the download columns.&#10;&#10;Use Intensity Value to choose which intensity measurements to export:&#10;Total is the summed signal inside the contour.&#10;Max is the brightest pixel inside the contour.&#10;Average is the mean signal inside the contour.&#10;&#10;Use Contour Slot to choose contour 1, 2, or 3. These slots match the same contour numbering used by the contour size and contour center columns.&#10;&#10;Use Signal Measured Inside Contour to choose which signal is measured inside which contour. For example, Red in Green means the red signal is measured inside the green contour.&#10;&#10;After choosing filters, click Apply custom filters. You can still manually check or uncheck individual statistics on the right before downloading."
+                                    aria-label="Quick Select information"
+                                >i</button>
+                            </div>
+                            <p class="export-intensity-filter-status" id="exportIntensityFilterStatus" aria-live="polite">0 filters applied</p>
+                            <p class="export-intensity-unavailable-message" id="exportIntensityUnavailableMessage" hidden>
+                                Contour intensity columns are not available because Red/Green contour intensity was not computed for this file set.
+                            </p>
+                        </div>
+                        <div class="export-intensity-quick-select-body" id="exportIntensityQuickSelectBody">
+                            <div class="export-intensity-available-controls" id="exportIntensityAvailableControls">
+                                <section class="export-intensity-module export-intensity-presets-module" aria-label="Contour intensity presets">
+                                    <div class="export-intensity-section-title-row">
+                                        <h5 class="export-intensity-section-title">Presets</h5>
+                                        <button
+                                            type="button"
+                                            class="selection-info-dot info-dot compact export-intensity-info-dot export-intensity-section-info-dot"
+                                            data-info-text="Presets apply immediately. Clicking one changes the matching download columns and updates the Custom Filters below."
+                                            aria-label="Presets information"
+                                        >i</button>
+                                    </div>
+                                    <div class="export-intensity-action-row">
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="totals">Totals only</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="total_max">Totals + Max</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="average">Average only</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="slots_1_2">Slots 1 + 2 only</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="all">Select all intensity columns</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="clear">Clear intensity columns</button>
+                                    </div>
+                                </section>
+                                <section class="export-intensity-module export-intensity-custom-module" aria-label="Custom contour intensity filters">
+                                    <div class="export-intensity-section-title-row">
+                                        <h5 class="export-intensity-section-title">Custom Filters</h5>
+                                        <button
+                                            type="button"
+                                            class="selection-info-dot info-dot compact export-intensity-info-dot export-intensity-section-info-dot"
+                                            data-info-text="Custom Filters let you choose value type, contour slot, and signal pairing. Click Apply custom filters at the bottom to update the download columns."
+                                            aria-label="Custom Filters information"
+                                        >i</button>
+                                    </div>
+                                    <div class="export-intensity-filter-stack">
+                                        <div class="export-intensity-filter-module" role="group" aria-label="Intensity value filters">
+                                            <span class="export-intensity-filter-title">Intensity Value</span>
+                                            <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="statistic" value="total" checked> Total</label>
+                                            <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="statistic" value="max" checked> Max</label>
+                                            <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="statistic" value="average" checked> Average</label>
+                                        </div>
+                                        <div class="export-intensity-filter-module" role="group" aria-label="Contour slot filters">
+                                            <span class="export-intensity-filter-title">Contour Slot</span>
+                                            <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="slot" value="1" checked> Slot 1</label>
+                                            <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="slot" value="2" checked> Slot 2</label>
+                                            <label class="export-intensity-chip"><input type="checkbox" data-export-intensity-filter="slot" value="3" checked> Slot 3</label>
+                                        </div>
+                                        <div class="export-intensity-filter-module" role="group" aria-label="Signal measured inside contour filters">
+                                            <span class="export-intensity-filter-title">Signal Measured Inside Contour</span>
+                                            <label class="export-intensity-chip" title="Red signal measured inside red contour" aria-label="Red signal measured inside red contour"><input type="checkbox" data-export-intensity-filter="combination" value="red_in_red" checked> Red in Red</label>
+                                            <label class="export-intensity-chip" title="Green signal measured inside red contour" aria-label="Green signal measured inside red contour"><input type="checkbox" data-export-intensity-filter="combination" value="green_in_red" checked> Green in Red</label>
+                                            <label class="export-intensity-chip" title="Red signal measured inside green contour" aria-label="Red signal measured inside green contour"><input type="checkbox" data-export-intensity-filter="combination" value="red_in_green" checked> Red in Green</label>
+                                            <label class="export-intensity-chip" title="Green signal measured inside green contour" aria-label="Green signal measured inside green contour"><input type="checkbox" data-export-intensity-filter="combination" value="green_in_green" checked> Green in Green</label>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                        <div class="export-quick-select-actions">
+                            <button type="button" class="export-selection-btn export-intensity-btn export-quick-select-reset" data-export-intensity-action="reset">Reset changes</button>
+                            <button type="button" class="export-selection-btn export-intensity-btn export-quick-select-apply confirm" data-export-intensity-action="apply">Apply custom filters</button>
+                        </div>
+                    </section>
+                </aside>
+                <section class="export-stat-list-panel" aria-label="Statistics available for export">
+                    <div class="export-selection-list-box" id="exportSelectionList" role="group" aria-label="Statistics available for export"></div>
+                </section>
+            </div>
             <div class="export-selection-actions">
                 <button type="button" class="export-selection-btn cancel" id="cancelExportSelectionBtn">Cancel</button>
                 <div class="export-selection-actions-right">

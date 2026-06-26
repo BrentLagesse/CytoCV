@@ -62,6 +62,16 @@ class RefinePairLabelImageTests(SimpleTestCase):
         mask = original_nonzero != 0
         self.assertTrue(np.array_equal(result[mask], original_nonzero[mask]))
 
+    def test_single_label_survives_refinement(self):
+        """A retained single-cell label is not removed by pair refinement."""
+        seg = np.zeros((20, 20), dtype=np.float64)
+        seg[5:12, 5:12] = 1.0
+
+        result = refine_pair_label_image(seg)
+
+        self.assertEqual(set(np.unique(result)) - {0}, {1.0})
+        self.assertTrue(np.all(result[5:12, 5:12] == 1.0))
+
     def test_empty_image_noop(self):
         """An all-zeros input returns an all-zeros output."""
         seg = np.zeros((10, 10), dtype=np.float64)

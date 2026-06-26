@@ -125,6 +125,8 @@ class FrontendJsonContractTests(TestCase):
             ],
         )
         self.assertEqual(list(display_file["Statistics"].keys()), ["1"])
+        self.assertEqual(display_file["Statistics"]["1"]["cell_type"], "unknown")
+        self.assertEqual(display_file["Statistics"]["1"]["cell_type_label"], "Unknown")
         display_config = assert_json_script_keys(
             self,
             display_content,
@@ -135,11 +137,14 @@ class FrontendJsonContractTests(TestCase):
                 "defaultSpatialStatsUnit",
                 "initialSidebarSpatialStatsUnit",
                 "initialPreferredMainImageChannel",
+                "initialCellTypeFilter",
                 "tableFileUuid",
             ),
         )
         self.assertIsInstance(display_config["confirmCellDeletion"], bool)
-        self.assertIsInstance(parse_json_script(display_content, "exportSelectionConfig"), dict)
+        display_export_config = parse_json_script(display_content, "exportSelectionConfig")
+        self.assertIsInstance(display_export_config, dict)
+        self.assertContourIntensityExportMetadata(display_export_config)
 
         dashboard_response = self.client.get(reverse("dashboard") + f"?file_uuid={saved_uuid}")
         dashboard_content = response_text(dashboard_response)
@@ -151,6 +156,8 @@ class FrontendJsonContractTests(TestCase):
         self.assertEqual(list(dashboard_file["CellPairImages"].keys()), ["1"])
         self.assertEqual(len(dashboard_file["CellPairImages"]["1"]), 8)
         self.assertEqual(list(dashboard_file["Statistics"].keys()), ["1"])
+        self.assertEqual(dashboard_file["Statistics"]["1"]["cell_type"], "unknown")
+        self.assertEqual(dashboard_file["Statistics"]["1"]["cell_type_label"], "Unknown")
         dashboard_config = assert_json_script_keys(
             self,
             dashboard_content,
@@ -162,11 +169,14 @@ class FrontendJsonContractTests(TestCase):
                 "defaultSpatialStatsUnit",
                 "initialSidebarSpatialStatsUnit",
                 "initialPreferredMainImageChannel",
+                "initialCellTypeFilter",
                 "tableFileUuid",
             ),
         )
         self.assertIsInstance(dashboard_config["hasFiles"], bool)
-        self.assertIsInstance(parse_json_script(dashboard_content, "exportSelectionConfig"), dict)
+        dashboard_export_config = parse_json_script(dashboard_content, "exportSelectionConfig")
+        self.assertIsInstance(dashboard_export_config, dict)
+        self.assertContourIntensityExportMetadata(dashboard_export_config)
 
     def test_account_settings_json_contract_parses(self):
         login_user(self, "frontend-json-account@example.com")
@@ -178,3 +188,30 @@ class FrontendJsonContractTests(TestCase):
             ("openDeleteModal",),
         )
         self.assertIsInstance(payload["openDeleteModal"], bool)
+
+    def assertContourIntensityExportMetadata(self, config):
+        items = config["items"]
+        intensity_items = [
+            item for item in items if item.get("family") == "contour_intensity"
+        ]
+        self.assertEqual(len(intensity_items), 36)
+        fields = {item["tableField"]: item for item in intensity_items}
+        self.assertEqual(
+            fields["red_in_red_total_intensity_1"]["combination"],
+            "red_in_red",
+        )
+        self.assertEqual(fields["red_in_red_total_intensity_1"]["statistic"], "total")
+        self.assertEqual(fields["red_in_red_total_intensity_1"]["slot"], 1)
+        self.assertEqual(
+            fields["green_in_green_average_intensity_3"]["combination"],
+            "green_in_green",
+        )
+        self.assertEqual(
+            fields["green_in_green_average_intensity_3"]["statistic"],
+            "average",
+        )
+        self.assertEqual(fields["green_in_green_average_intensity_3"]["slot"], 3)
+        self.assertNotEqual(
+            next(item for item in items if item["tableField"] == "puncta_distance").get("family"),
+            "contour_intensity",
+        )

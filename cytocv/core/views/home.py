@@ -546,11 +546,11 @@ ABOUT_BIOLOGY_PAGE = {
             "title": "Reference and experimental fluorophore comparisons",
             "paragraphs": (
                 "Red/green intensity assays are designed to compare the abundance of a fluorescently tagged protein across strains, mutants, or other experimental conditions. In the experimental design, one tagged protein can serve as a reference control expected to stay relatively stable, while the other marks the experimental protein or signal being tested.",
-                "CytoCV draws contours around red and green puncta, measures red and green signal inside those contour masks, and reports raw integrated intensity summaries. The current public outputs also include Measurement/Contour Ratio columns derived from those raw sums, with Red/Green or Green/Red labeling determined by the selected measurement mode.",
+                "CytoCV draws contours around red and green puncta, measures red and green signal inside those contour masks, and reports total, maximum, and average raw intensity summaries. The current public outputs also include Measurement/Contour Ratio columns derived from the total intensity values, with Red/Green or Green/Red labeling determined by the selected measurement mode.",
             ),
             "highlights": (
                 "The user-facing Red and Green roles stay generic so the experiment can decide which marker is the reference control and which is the test signal.",
-                "Raw integrated intensity values remain primary outputs; ratio columns are derived interpretation aids and should be reviewed with the source images.",
+                "Raw total, maximum, and average intensity values remain primary outputs; ratio columns are derived interpretation aids and should be reviewed with the source images.",
             ),
         },
         {

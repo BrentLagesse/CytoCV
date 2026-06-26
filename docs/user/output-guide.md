@@ -51,7 +51,7 @@ Important stored measurement families include:
 - CEN dot location and classification outputs
 - Biorientation count fields such as `colinear_dots` and `off_axis_dots`
 
-For the red/green contour metrics, CytoCV stores integrated intensity sums inside the contour mask. These raw integrated sums are the primary output. They are not mean intensities, and they are not ratios.
+For the red/green contour metrics, CytoCV reports total, maximum, and average intensity inside the same contour mask. Total intensity is the integrated raw sum previously reported by the red/green contour workflow. The maximum and average values use the exact same raw image pixels and contour mask as the total.
 
 These values are software-generated measurements. They support review and downstream analysis, but they should still be interpreted alongside the source images, overlays, and experimental context.
 
@@ -62,8 +62,8 @@ For the puncta-line measurement, the persisted fields are `puncta_distance` and 
 
 For the modern red/green statistics, contour slots `1/2/3` are canonical ranked slots. Each raw detected contour is filled, clipped to the segmented cell mask, and then ranked by clipped area, then center `x`, then center `y`. This means:
 
-- `red_contour_1_size`, `red_intensity_1`, and `green_intensity_1` all refer to the same clipped Red contour slot
-- `green_contour_1_size`, `red_in_green_intensity_1`, and `green_in_green_intensity_1` all refer to the same clipped Green contour slot
+- `red_contour_1_size`, `red_in_red_total_intensity_1`, and `green_in_red_total_intensity_1` all refer to the same clipped Red contour slot
+- `green_contour_1_size`, `red_in_green_total_intensity_1`, and `green_in_green_total_intensity_1` all refer to the same clipped Green contour slot
 - `red_contour_1_center_xy` and `green_contour_1_center_xy` report the center of those same slot `1` masks
 - in `red_nucleus` mode, `nucleus_intensity_sum` uses Red slot `1`
 - in `green_nucleus` mode, `nucleus_intensity_sum` uses Green slot `1`
@@ -72,15 +72,15 @@ Contour center coordinates are measured relative to the full main image, not the
 
 As a result, when one contour defines the selected nucleus family, the matching nuclear measurement and cross-channel contour measurement can match exactly because they come from the same canonical contour slot:
 
-- `red_nucleus`: `Green nuclear intensity` matches `Green in Red intensity 1`
-- `green_nucleus`: `Red nuclear intensity` matches `Red in Green intensity 1`
+- `red_nucleus`: `Green nuclear intensity` matches `Green In Red Total Intensity 1`
+- `green_nucleus`: `Red nuclear intensity` matches `Red In Green Total Intensity 1`
 
 The viewer, statistics table, and CSV/XLSX exports show three derived `Measurement/Contour Ratio` values. Their meaning follows the selected nucleus/cell-pair mode:
 
 - `red_nucleus`: `Green in Red / Red in Red`
 - `green_nucleus`: `Red in Green / Green in Green`
 
-These ratios are derived values and should be interpreted as secondary output, not as replacements for the raw integrated sums. Older internal field names may not match the current public table labels exactly.
+These ratios are derived values and should be interpreted as secondary output, not as replacements for the raw total, maximum, and average intensity summaries. Older internal field names may not match the current public table labels exactly.
 
 Run metadata also stores contextual information such as:
 
@@ -98,12 +98,14 @@ CytoCV supports CSV and XLSX table exports. Export behavior is available in:
 
 The on-page statistics tables and the CSV/XLSX exports include both:
 
-- the raw integrated contour intensity sums as the primary table/export values
+- the raw total, maximum, and average contour intensity summaries as primary table/export values
 - the full-main-image contour center coordinate columns after the matching Red or Green size group
 - the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
 - canonical contour slot numbering, so size, center-coordinate, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
 
-When the statistics unit toggle is set to pixels, coordinate columns show full-image pixel coordinates. When the unit is set to micrometers, `x` and `y` are converted with the file's per-axis scale metadata or manual fallback scale.
+Spatial units can be changed from the page-level Spatial Unit controls or directly inside the Download Statistics modal. The selected unit applies to spatial measurements in CSV and XLSX exports, including distances, contour sizes, and contour center coordinates. When the statistics unit toggle is set to pixels, coordinate columns show full-image pixel coordinates. When the unit is set to micrometers, `x` and `y` are converted with the file's per-axis scale metadata or manual fallback scale.
+
+Intensity values, ratios, classifications, file names, and cell IDs are not spatial-unit-dependent. Combined exports apply the selected unit to every included file using each file's existing scale metadata or fallback behavior.
 
 Statistics downloads can include all metrics or a selected subset. Export filenames follow:
 

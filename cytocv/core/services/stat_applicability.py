@@ -26,18 +26,42 @@ STAT_FIELD_GROUPS: dict[str, tuple[str, ...]] = {
         "green_contour_1_center_xy",
         "green_contour_2_center_xy",
         "green_contour_3_center_xy",
-        "red_intensity_1",
-        "red_intensity_2",
-        "red_intensity_3",
-        "green_intensity_1",
-        "green_intensity_2",
-        "green_intensity_3",
-        "red_in_green_intensity_1",
-        "red_in_green_intensity_2",
-        "red_in_green_intensity_3",
-        "green_in_green_intensity_1",
-        "green_in_green_intensity_2",
-        "green_in_green_intensity_3",
+        "red_in_red_total_intensity_1",
+        "red_in_red_max_intensity_1",
+        "red_in_red_average_intensity_1",
+        "red_in_red_total_intensity_2",
+        "red_in_red_max_intensity_2",
+        "red_in_red_average_intensity_2",
+        "red_in_red_total_intensity_3",
+        "red_in_red_max_intensity_3",
+        "red_in_red_average_intensity_3",
+        "green_in_red_total_intensity_1",
+        "green_in_red_max_intensity_1",
+        "green_in_red_average_intensity_1",
+        "green_in_red_total_intensity_2",
+        "green_in_red_max_intensity_2",
+        "green_in_red_average_intensity_2",
+        "green_in_red_total_intensity_3",
+        "green_in_red_max_intensity_3",
+        "green_in_red_average_intensity_3",
+        "red_in_green_total_intensity_1",
+        "red_in_green_max_intensity_1",
+        "red_in_green_average_intensity_1",
+        "red_in_green_total_intensity_2",
+        "red_in_green_max_intensity_2",
+        "red_in_green_average_intensity_2",
+        "red_in_green_total_intensity_3",
+        "red_in_green_max_intensity_3",
+        "red_in_green_average_intensity_3",
+        "green_in_green_total_intensity_1",
+        "green_in_green_max_intensity_1",
+        "green_in_green_average_intensity_1",
+        "green_in_green_total_intensity_2",
+        "green_in_green_max_intensity_2",
+        "green_in_green_average_intensity_2",
+        "green_in_green_total_intensity_3",
+        "green_in_green_max_intensity_3",
+        "green_in_green_average_intensity_3",
         "green_red_intensity_1",
         "green_red_intensity_2",
         "green_red_intensity_3",
@@ -127,6 +151,51 @@ def _first_record(data: Any) -> Any:
     return None
 
 
+def _iter_records(data: Any) -> list[Any]:
+    if data is None:
+        return []
+    if isinstance(data, Mapping):
+        return [data]
+    if isinstance(data, (list, tuple)):
+        return list(data)
+    if hasattr(data, "__iter__") and not isinstance(data, (str, bytes)):
+        try:
+            return list(data)
+        except Exception:
+            return []
+    return [data]
+
+
+def _visibility_from_properties(properties: Mapping[str, Any]) -> dict[str, bool] | None:
+    property_visibility = normalize_stat_visibility(properties.get("stat_visibility"))
+    if property_visibility is not None:
+        return property_visibility
+    selected_analysis = properties.get("selected_analysis")
+    if isinstance(selected_analysis, list):
+        return build_stat_visibility(selected_analysis)
+    return None
+
+
+def _unavailable_fields_from_properties(properties: Mapping[str, Any]) -> set[str]:
+    raw_fields = properties.get("unavailable_stat_fields")
+    if not isinstance(raw_fields, (list, tuple, set)):
+        return set()
+    return {str(field) for field in raw_fields if str(field)}
+
+
+def _union_visibility(records: list[Any]) -> dict[str, bool] | None:
+    aggregate: dict[str, bool] | None = None
+    for record in records:
+        row_visibility = _visibility_from_properties(_properties_from_source(record))
+        if row_visibility is None:
+            continue
+        if aggregate is None:
+            aggregate = {group_name: False for group_name in STAT_FIELD_GROUPS}
+        for group_name, visible in row_visibility.items():
+            aggregate[group_name] = bool(aggregate.get(group_name, False) or visible)
+    return aggregate
+
+
 def resolve_stat_visibility(
     source: Any = None,
     *,
@@ -138,16 +207,18 @@ def resolve_stat_visibility(
     if selected_plugins is not None:
         return build_stat_visibility(selected_plugins)
 
-    properties = _properties_from_source(_first_record(source) or source)
-    selected_analysis = properties.get("selected_analysis")
-    if isinstance(selected_analysis, list):
-        return build_stat_visibility(selected_analysis)
-
     explicit_visibility = normalize_stat_visibility(stat_visibility)
     if explicit_visibility is not None:
         return explicit_visibility
 
-    property_visibility = normalize_stat_visibility(properties.get("stat_visibility"))
+    records = _iter_records(source)
+    if len(records) > 1:
+        union_visibility = _union_visibility(records)
+        if union_visibility is not None:
+            return union_visibility
+
+    properties = _properties_from_source(_first_record(source) or source)
+    property_visibility = _visibility_from_properties(properties)
     if property_visibility is not None:
         return property_visibility
 
@@ -168,6 +239,9 @@ def is_field_applicable(
 ) -> bool:
     """Return whether a field should display its stored value for ``record``."""
 
+    properties = _properties_from_source(record)
+    if field_name in _unavailable_fields_from_properties(properties):
+        return False
     group_name = stat_group_for_field(field_name)
     if group_name is None:
         return True

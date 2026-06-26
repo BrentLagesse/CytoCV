@@ -13,7 +13,16 @@ from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from accounts.preferences import get_user_preferences, normalize_main_image_channel
+from accounts.preferences import (
+    get_user_preferences,
+    normalize_main_image_channel,
+    resolve_initial_puncta_source_contour_count_filter,
+)
+from core.cell_types import (
+    filter_statistics_by_cell_type,
+    normalize_cell_type_filter,
+    resolve_effective_cell_type_filter,
+)
 from core.channel_roles import (
     CHANNEL_ROLE_BLUE,
     CHANNEL_ROLE_DIC,
@@ -50,6 +59,7 @@ from core.services.artifact_paths import (
     segmented_cell_image_url,
 )
 from core.services.main_image_urls import build_main_image_paths
+from core.services.channel_presence import get_channel_presence
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.result_view_payloads import (
     RESULT_CHANNEL_ORDER,
@@ -57,6 +67,10 @@ from core.services.result_view_payloads import (
     detected_channel_labels,
     resolve_cell_table_modes,
     sanitize_for_json,
+)
+from core.services.puncta_source_contour_count_filter import (
+    filter_statistics_by_puncta_source_contour_count,
+    resolve_effective_puncta_source_contour_count_filter,
 )
 from core.services.stat_export_selection import (
     ExportColumnSelectionError,
@@ -184,6 +198,14 @@ def display(request, uuids):
         preferences.get("main_image_channel"),
         default="",
     )
+    initial_puncta_source_contour_count_filter = (
+        resolve_initial_puncta_source_contour_count_filter(request, preferences)
+    )
+    initial_cell_type_filter = normalize_cell_type_filter(request.GET.get("_cell_type"))
+    effective_initial_puncta_source_contour_count_filter = (
+        initial_puncta_source_contour_count_filter
+    )
+    effective_initial_cell_type_filter = initial_cell_type_filter
 
     # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
@@ -196,6 +218,12 @@ def display(request, uuids):
             image_name = uploaded_image.name
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
+            presence = get_channel_presence(str(uuid))
+            present_channels = (
+                set(presence.present_channels)
+                if presence.present_channels or presence.source != "ambiguous"
+                else None
+            )
             # Sort by saved index so the sidebar mirrors the detected file order.
             detected = detected_channel_labels(channel_config)
 
@@ -248,11 +276,29 @@ def display(request, uuids):
             stats_by_id = {cell.cell_id: cell for cell in cell_stats_qs}
             if stats_by_id and first_table_uuid is None:
                 first_table_uuid = uuid
+                effective_initial_cell_type_filter = resolve_effective_cell_type_filter(
+                    cell_stats_qs,
+                    initial_cell_type_filter,
+                )
+                effective_initial_puncta_source_contour_count_filter = (
+                    resolve_effective_puncta_source_contour_count_filter(
+                        cell_stats_qs,
+                        initial_puncta_source_contour_count_filter,
+                    )
+                )
+                initial_table_stats = filter_statistics_by_cell_type(
+                    cell_stats_qs,
+                    effective_initial_cell_type_filter,
+                )
+                initial_table_stats = filter_statistics_by_puncta_source_contour_count(
+                    initial_table_stats,
+                    effective_initial_puncta_source_contour_count_filter,
+                )
                 table_mode, puncta_line_mode = resolve_cell_table_modes(
-                    stats_by_id.values()
+                    initial_table_stats
                 )
                 cell_table = CellTable(
-                    cell_stats_qs,
+                    initial_table_stats,
                     intensity_mode=table_mode,
                     puncta_line_mode=puncta_line_mode,
                     spatial_stats_unit=sidebar_spatial_stats_unit,
@@ -279,7 +325,13 @@ def display(request, uuids):
                 images[str(i)] = []
                 cell_stat = stats_by_id.get(i)
                 for channel_name in channel_order:
+                    if present_channels is not None and channel_name not in present_channels:
+                        images[str(i)].extend(["", ""])
+                        continue
                     channel_index = channel_config.get(channel_name)
+                    if channel_index is None:
+                        images[str(i)].extend(["", ""])
+                        continue
                     no_outline = segmented_cell_image_url(
                         uuid=uuid,
                         image_name=image_name_stem,
@@ -311,6 +363,13 @@ def display(request, uuids):
             if TableExport.is_valid_format(export_format) and cell_table is not None:
                 raw_columns = request.GET.getlist("_columns")
                 columns_present = "_columns" in request.GET
+                export_puncta_source_contour_count_filter = request.GET.get(
+                    "_puncta_source_contour_count",
+                    request.GET.get("_red_contour_count"),
+                )
+                export_cell_type_filter = normalize_cell_type_filter(
+                    request.GET.get("_cell_type")
+                )
                 try:
                     exclude_columns = export_exclude_columns(
                         raw_columns,
@@ -323,10 +382,31 @@ def display(request, uuids):
                 except ExportColumnSelectionError as exc:
                     return HttpResponse(str(exc), status=400)
                 if first_table_uuid == uuid:
-                    cell_table = CellTable(
+                    effective_export_cell_type_filter = resolve_effective_cell_type_filter(
                         cell_stats_qs,
-                        intensity_mode=table_mode,
-                        puncta_line_mode=puncta_line_mode,
+                        export_cell_type_filter,
+                    )
+                    effective_export_puncta_source_contour_count_filter = (
+                        resolve_effective_puncta_source_contour_count_filter(
+                            cell_stats_qs,
+                            export_puncta_source_contour_count_filter,
+                        )
+                    )
+                    export_stats = filter_statistics_by_cell_type(
+                        cell_stats_qs,
+                        effective_export_cell_type_filter,
+                    )
+                    export_stats = filter_statistics_by_puncta_source_contour_count(
+                        export_stats,
+                        effective_export_puncta_source_contour_count_filter,
+                    )
+                    export_table_mode, export_puncta_line_mode = resolve_cell_table_modes(
+                        export_stats
+                    )
+                    cell_table = CellTable(
+                        export_stats,
+                        intensity_mode=export_table_mode,
+                        puncta_line_mode=export_puncta_line_mode,
                         spatial_stats_unit=export_unit,
                         scale_context=scale_context,
                     )
@@ -386,6 +466,8 @@ def display(request, uuids):
         'default_spatial_stats_unit': default_spatial_stats_unit,
         'sidebar_spatial_stats_unit': sidebar_spatial_stats_unit,
         'main_image_channel': main_image_channel,
+        'cell_type_filter': effective_initial_cell_type_filter,
+        'puncta_source_contour_count_filter': effective_initial_puncta_source_contour_count_filter,
         'export_selection_config': export_selection_config(),
     })
 
@@ -772,6 +854,11 @@ def export_display_files(request):
             raw_columns=payload.get("_columns"),
             spatial_stats_unit=str(payload.get("_unit") or "px"),
             default_manual_scale=default_manual_scale,
+            cell_type_filter=payload.get("_cell_type"),
+            puncta_source_contour_count_filter=payload.get(
+                "_puncta_source_contour_count",
+                payload.get("_red_contour_count"),
+            ),
         )
     except (CombinedStatisticsExportError, ExportColumnSelectionError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)

@@ -384,18 +384,42 @@ class RouteSurfaceRefactorTests(TestCase):
             puncta_line_intensity=0.0,
             nucleus_intensity_sum=0.0,
             cell_pair_intensity_sum=0.0,
-            red_intensity_1=0.0,
-            red_intensity_2=0.0,
-            red_intensity_3=0.0,
-            green_intensity_1=0.0,
-            green_intensity_2=0.0,
-            green_intensity_3=0.0,
-            red_in_green_intensity_1=0.0,
-            red_in_green_intensity_2=0.0,
-            red_in_green_intensity_3=0.0,
-            green_in_green_intensity_1=0.0,
-            green_in_green_intensity_2=0.0,
-            green_in_green_intensity_3=0.0,
+            red_in_red_total_intensity_1=0.0,
+            red_in_red_max_intensity_1=0.0,
+            red_in_red_average_intensity_1=0.0,
+            red_in_red_total_intensity_2=0.0,
+            red_in_red_max_intensity_2=0.0,
+            red_in_red_average_intensity_2=0.0,
+            red_in_red_total_intensity_3=0.0,
+            red_in_red_max_intensity_3=0.0,
+            red_in_red_average_intensity_3=0.0,
+            green_in_red_total_intensity_1=0.0,
+            green_in_red_max_intensity_1=0.0,
+            green_in_red_average_intensity_1=0.0,
+            green_in_red_total_intensity_2=0.0,
+            green_in_red_max_intensity_2=0.0,
+            green_in_red_average_intensity_2=0.0,
+            green_in_red_total_intensity_3=0.0,
+            green_in_red_max_intensity_3=0.0,
+            green_in_red_average_intensity_3=0.0,
+            red_in_green_total_intensity_1=0.0,
+            red_in_green_max_intensity_1=0.0,
+            red_in_green_average_intensity_1=0.0,
+            red_in_green_total_intensity_2=0.0,
+            red_in_green_max_intensity_2=0.0,
+            red_in_green_average_intensity_2=0.0,
+            red_in_green_total_intensity_3=0.0,
+            red_in_green_max_intensity_3=0.0,
+            red_in_green_average_intensity_3=0.0,
+            green_in_green_total_intensity_1=0.0,
+            green_in_green_max_intensity_1=0.0,
+            green_in_green_average_intensity_1=0.0,
+            green_in_green_total_intensity_2=0.0,
+            green_in_green_max_intensity_2=0.0,
+            green_in_green_average_intensity_2=0.0,
+            green_in_green_total_intensity_3=0.0,
+            green_in_green_max_intensity_3=0.0,
+            green_in_green_average_intensity_3=0.0,
             green_red_intensity_1=0.0,
             green_red_intensity_2=0.0,
             green_red_intensity_3=0.0,
@@ -1783,7 +1807,14 @@ class RouteSurfaceRefactorTests(TestCase):
             "return value.toFixed(3);",
             "return 'N/A';",
             "return tableFieldOrder.slice();",
-            "section.hidden = false;",
+            "document.querySelectorAll('[data-cell-card-section]')",
+            "section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)",
+            "function buildCellCardMetricValues(cellStats",
+            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
+            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
+            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
+            "getContourIntensityDisplayFields(displayType).forEach((field) => {",
+            "metricValues[field.metricId] = formatStatValue(cellStats ? cellStats[field.fieldName] : null);",
             "function getSortedCellIds(fileData)",
             "function getWarmPriorityOffsets(direction = 'initial')",
             "function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells)",
@@ -1794,19 +1825,14 @@ class RouteSurfaceRefactorTests(TestCase):
         ):
             self.assertIn(expected, shared_source)
         for expected in (
-            "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
-            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
-            "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),",
-            "greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_intensity_1 : null),",
-            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
-            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
-            "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
+            "buildCellCardMetricValues(cellStats, {",
+            "contourIntensityType: currentContourIntensityDisplayType",
             "const getSortedCellIds = resultsViewerShared.getSortedCellIds;",
             "return resultsViewerShared.getCircularWarmQueue({",
-            "'measurement_contour_ratio_1',",
-            "'measurement_contour_ratio_3',",
         ):
             self.assertIn(expected, source)
+        self.assertNotIn("redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),", source)
+        self.assertNotIn("greenInGreenIntensity1: formatStatValue(cellStats ? cellStats.green_in_green_total_intensity_1 : null),", source)
         self.assertNotIn("function getWarmPriorityOffsets", source)
         self.assertNotIn("function buildFullCircularCellOrder", source)
         self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
@@ -1826,7 +1852,14 @@ class RouteSurfaceRefactorTests(TestCase):
         shared_source = _frontend_static_text("js/shared/results-viewer.js")
         for expected in (
             "return tableFieldOrder.slice();",
-            "section.hidden = false;",
+            "document.querySelectorAll('[data-cell-card-section]')",
+            "section.hidden = sectionName && Object.prototype.hasOwnProperty.call(sections, sectionName)",
+            "function buildCellCardMetricValues(cellStats",
+            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
+            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
+            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
+            "getContourIntensityDisplayFields(displayType).forEach((field) => {",
+            "metricValues[field.metricId] = formatStatValue(cellStats ? cellStats[field.fieldName] : null);",
             "function getSortedCellIds(fileData)",
             "function getWarmPriorityOffsets(direction = 'initial')",
             "function buildFullCircularCellOrder(sortedIds, activeCellNumber, totalCells)",
@@ -1837,19 +1870,14 @@ class RouteSurfaceRefactorTests(TestCase):
         ):
             self.assertIn(expected, shared_source)
         for expected in (
-            "distance: formatFieldValue('puncta_distance', cellStats ? cellStats.puncta_distance : null, cellStats, scaleContext),",
-            "punctaLineIntensity: formatStatValue(cellStats ? cellStats.puncta_line_intensity : null),",
-            "redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_intensity_1 : null),",
-            "redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_intensity_1 : null),",
-            "nucleusIntensitySum: (!cellStats || nuclearUnavailable) ? 'N/A' : formatStatValue(cellStats.nucleus_intensity_sum),",
-            "colinearDots: formatStatValue(cellStats ? cellStats.colinear_dots : null),",
-            "offAxisDots: formatStatValue(cellStats ? cellStats.off_axis_dots : null),",
+            "buildCellCardMetricValues(cellStats, {",
+            "contourIntensityType: currentContourIntensityDisplayType",
             "const getSortedCellIds = resultsViewerShared.getSortedCellIds;",
             "return resultsViewerShared.getCircularWarmQueue({",
-            "'measurement_contour_ratio_1',",
-            "'measurement_contour_ratio_3',",
         ):
             self.assertIn(expected, source)
+        self.assertNotIn("redInRedIntensity1: formatStatValue(cellStats ? cellStats.red_in_red_total_intensity_1 : null),", source)
+        self.assertNotIn("redInGreenIntensity1: formatStatValue(cellStats ? cellStats.red_in_green_total_intensity_1 : null),", source)
         self.assertNotIn("function getWarmPriorityOffsets", source)
         self.assertNotIn("function buildFullCircularCellOrder", source)
         self.assertNotIn("section.hidden = visibility[key] === false;", shared_source)
@@ -1866,10 +1894,10 @@ class RouteSurfaceRefactorTests(TestCase):
             self._create_cell_stats(
                 segmented,
                 "display-raw-intensity",
-                red_intensity_1=11.0,
-                green_intensity_1=7.0,
-                red_in_green_intensity_1=5.0,
-                green_in_green_intensity_1=13.0,
+                red_in_red_total_intensity_1=11.0,
+                green_in_red_total_intensity_1=7.0,
+                red_in_green_total_intensity_1=5.0,
+                green_in_green_total_intensity_1=13.0,
                 green_red_intensity_1=99.0,
                 properties={
                     "nuclear_cell_pair_mode": "red_nucleus",
@@ -1889,10 +1917,10 @@ class RouteSurfaceRefactorTests(TestCase):
             response = self.client.get(reverse("display", args=[uuid_value]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Red In Red Raw Sums")
-        self.assertContains(response, "Green In Red Raw Sums")
-        self.assertContains(response, "Red In Green Raw Sums")
-        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(response, "Red In Red Total Intensity")
+        self.assertContains(response, "Green In Red Total Intensity")
+        self.assertContains(response, "Red In Green Total Intensity")
+        self.assertContains(response, "Green In Green Total Intensity")
         self.assertContains(response, "Measurement/Contour Ratio 1")
         self.assertContains(response, "Measurement/Contour")
         self.assertContains(response, "Formula")
@@ -1903,11 +1931,14 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "CEN Dot Measurements")
         self.assertContains(response, "Distance Between Green Puncta")
         self.assertContains(response, "Red Intensity Over Green Line")
-        self.assertContains(response, "Raw Green-channel intensity summed inside each ranked Green contour slot")
+        self.assertContains(response, "Contour Intensities")
+        self.assertContains(response, 'data-contour-intensity-display="total"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="max"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="average"', html=False)
         self.assertNotContains(response, "Intensity + Green Output")
-        self.assertContains(response, '"red_intensity_1": 11.0', html=False)
-        self.assertContains(response, '"red_in_green_intensity_1": 5.0', html=False)
-        self.assertContains(response, '"green_in_green_intensity_1": 13.0', html=False)
+        self.assertContains(response, '"red_in_red_total_intensity_1": 11.0', html=False)
+        self.assertContains(response, '"red_in_green_total_intensity_1": 5.0', html=False)
+        self.assertContains(response, '"green_in_green_total_intensity_1": 13.0', html=False)
         self.assertContains(response, '"measurement_contour_ratio_1": 0.6363636363636364', html=False)
         self.assertContains(response, '"measurement_contour_ratio_formula": "Green In Red / Red In Red"', html=False)
         self.assertContains(response, '"puncta_distance_label": "Distance Between Green Puncta"', html=False)
@@ -1922,12 +1953,14 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
         display_source = _frontend_static_text("js/pages/display-viewer.js")
-        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", display_source)
+        shared_source = _frontend_static_text("js/shared/results-viewer.js")
+        self.assertIn("buildCellCardMetricValues", display_source)
+        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", shared_source)
         self.assertContains(response, "Cell Parentage")
-        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", display_source)
+        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", shared_source)
         self.assertNotIn("const categories = ['One green dot with each red dot'", display_source)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
-        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", display_source)
+        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", shared_source)
 
     def test_dashboard_surfaces_raw_contour_sums_and_labels_ratio_explicitly(self):
         uuid_value = str(uuid4())
@@ -1942,10 +1975,10 @@ class RouteSurfaceRefactorTests(TestCase):
             self._create_cell_stats(
                 segmented,
                 "dashboard-raw-intensity",
-                red_intensity_1=19.0,
-                green_intensity_1=23.0,
-                red_in_green_intensity_1=29.0,
-                green_in_green_intensity_1=31.0,
+                red_in_red_total_intensity_1=19.0,
+                green_in_red_total_intensity_1=23.0,
+                red_in_green_total_intensity_1=29.0,
+                green_in_green_total_intensity_1=31.0,
                 green_red_intensity_1=99.0,
                 properties={
                     "nuclear_cell_pair_mode": "green_nucleus",
@@ -1965,10 +1998,10 @@ class RouteSurfaceRefactorTests(TestCase):
             response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Red In Red Raw Sums")
-        self.assertContains(response, "Green In Red Raw Sums")
-        self.assertContains(response, "Red In Green Raw Sums")
-        self.assertContains(response, "Green In Green Raw Sums")
+        self.assertContains(response, "Red In Red Total Intensity")
+        self.assertContains(response, "Green In Red Total Intensity")
+        self.assertContains(response, "Red In Green Total Intensity")
+        self.assertContains(response, "Green In Green Total Intensity")
         self.assertContains(response, "Measurement/Contour Ratio 1")
         self.assertContains(response, "Measurement/Contour")
         self.assertContains(response, "Formula")
@@ -1979,11 +2012,14 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "CEN Dot Measurements")
         self.assertContains(response, "Distance Between Green Puncta")
         self.assertContains(response, "Red Intensity Over Green Line")
-        self.assertContains(response, "Raw Green-channel intensity summed inside each ranked Green contour slot")
+        self.assertContains(response, "Contour Intensities")
+        self.assertContains(response, 'data-contour-intensity-display="total"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="max"', html=False)
+        self.assertContains(response, 'data-contour-intensity-display="average"', html=False)
         self.assertNotContains(response, "Intensity + Green Output")
-        self.assertContains(response, '"red_intensity_1": 19.0', html=False)
-        self.assertContains(response, '"green_intensity_1": 23.0', html=False)
-        self.assertContains(response, '"green_in_green_intensity_1": 31.0', html=False)
+        self.assertContains(response, '"red_in_red_total_intensity_1": 19.0', html=False)
+        self.assertContains(response, '"green_in_red_total_intensity_1": 23.0', html=False)
+        self.assertContains(response, '"green_in_green_total_intensity_1": 31.0', html=False)
         self.assertContains(response, '"measurement_contour_ratio_formula": "Red In Green / Green In Green"', html=False)
         self.assertContains(response, '"puncta_distance_label": "Distance Between Green Puncta"', html=False)
         self.assertContains(
@@ -1997,12 +2033,14 @@ class RouteSurfaceRefactorTests(TestCase):
             html=False,
         )
         dashboard_source = _frontend_static_text("js/pages/dashboard-viewer.js")
-        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", dashboard_source)
+        shared_source = _frontend_static_text("js/shared/results-viewer.js")
+        self.assertIn("buildCellCardMetricValues", dashboard_source)
+        self.assertIn("cellStats.cell_parentage_label || 'Not identified'", shared_source)
         self.assertContains(response, "Cell Parentage")
-        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", dashboard_source)
+        self.assertIn("cellStats.category_cen_dot_label || 'N/A'", shared_source)
         self.assertNotIn("const categories = ['One green dot with each red dot'", dashboard_source)
         self.assertNotContains(response, "Green/Red Ratio 1 (Compatibility)")
-        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", dashboard_source)
+        self.assertNotIn("Green/Red Ratio 1 (Compatibility)", shared_source)
 
     def test_display_payload_marks_uncomputed_stats_na_for_nuclear_only(self):
         uuid_value = str(uuid4())
@@ -2018,10 +2056,10 @@ class RouteSurfaceRefactorTests(TestCase):
                 "display-nuclear-only",
                 puncta_distance=10.0,
                 puncta_line_intensity=20.0,
-                red_intensity_1=5.0,
-                green_intensity_1=6.0,
-                red_in_green_intensity_1=7.0,
-                green_in_green_intensity_1=8.0,
+                red_in_red_total_intensity_1=5.0,
+                green_in_red_total_intensity_1=6.0,
+                red_in_green_total_intensity_1=7.0,
+                green_in_green_total_intensity_1=8.0,
                 nucleus_intensity_sum=30.0,
                 cell_pair_intensity_sum=40.0,
                 cytoplasmic_intensity=10.0,
@@ -2045,7 +2083,7 @@ class RouteSurfaceRefactorTests(TestCase):
         payload = files_data[uuid_value]["Statistics"]["1"]
         self.assertIsNone(payload["puncta_distance"])
         self.assertIsNone(payload["puncta_line_intensity"])
-        self.assertIsNone(payload["red_intensity_1"])
+        self.assertIsNone(payload["red_in_red_total_intensity_1"])
         self.assertIsNone(payload["measurement_contour_ratio_1"])
         self.assertEqual(payload["measurement_contour_ratio_display_text"], "N/A")
         self.assertIsNone(payload["category_cen_dot"])
@@ -2069,10 +2107,10 @@ class RouteSurfaceRefactorTests(TestCase):
                 "dashboard-nuclear-only",
                 puncta_distance=10.0,
                 puncta_line_intensity=20.0,
-                red_intensity_1=5.0,
-                green_intensity_1=6.0,
-                red_in_green_intensity_1=7.0,
-                green_in_green_intensity_1=8.0,
+                red_in_red_total_intensity_1=5.0,
+                green_in_red_total_intensity_1=6.0,
+                red_in_green_total_intensity_1=7.0,
+                green_in_green_total_intensity_1=8.0,
                 nucleus_intensity_sum=30.0,
                 cell_pair_intensity_sum=40.0,
                 cytoplasmic_intensity=10.0,
@@ -2095,7 +2133,7 @@ class RouteSurfaceRefactorTests(TestCase):
         files_data = json.loads(response.context["files_data_json"])
         payload = files_data[uuid_value]["Statistics"]["1"]
         self.assertIsNone(payload["puncta_distance"])
-        self.assertIsNone(payload["red_intensity_1"])
+        self.assertIsNone(payload["red_in_red_total_intensity_1"])
         self.assertIsNone(payload["measurement_contour_ratio_1"])
         self.assertEqual(payload["category_cen_dot_label"], "N/A")
         self.assertIsNone(payload["colinear_dots"])
@@ -2115,12 +2153,12 @@ class RouteSurfaceRefactorTests(TestCase):
             self._create_cell_stats(
                 segmented,
                 "display-ratio-export",
-                red_in_green_intensity_1=11.0,
-                green_in_green_intensity_1=22.0,
-                red_in_green_intensity_2=8.0,
-                green_in_green_intensity_2=4.0,
-                red_in_green_intensity_3=18.0,
-                green_in_green_intensity_3=6.0,
+                red_in_green_total_intensity_1=11.0,
+                green_in_green_total_intensity_1=22.0,
+                red_in_green_total_intensity_2=8.0,
+                green_in_green_total_intensity_2=4.0,
+                red_in_green_total_intensity_3=18.0,
+                green_in_green_total_intensity_3=6.0,
                 green_red_intensity_1=99.0,
                 green_red_intensity_2=99.0,
                 green_red_intensity_3=99.0,
@@ -2136,12 +2174,12 @@ class RouteSurfaceRefactorTests(TestCase):
         csv_rows = list(csv.DictReader(StringIO(response.content.decode("utf-8"))))
         self.assertEqual(len(csv_rows), 1)
         header_row = csv_rows[0].keys()
-        self.assertIn("Red In Red Intensity 1", header_row)
+        self.assertIn("Red In Red Total Intensity 1", header_row)
         self.assertIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
         self.assertIn("Measurement/Contour Ratio 2 (Red/Green)", header_row)
         self.assertIn("Measurement/Contour Ratio 3 (Red/Green)", header_row)
         self.assertLess(
-            list(header_row).index("Green In Green Intensity 3"),
+            list(header_row).index("Green In Green Average Intensity 3"),
             list(header_row).index("Measurement/Contour Ratio 1 (Red/Green)"),
         )
         self.assertLess(

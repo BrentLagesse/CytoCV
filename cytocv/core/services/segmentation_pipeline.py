@@ -17,19 +17,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 import skimage
 from PIL import Image, ImageDraw, ImageFont
-from cv2_rolling_ball import subtract_background_rolling_ball
 from django.conf import settings
 from django.db import transaction
 
-from core.channel_roles import (
-    CHANNEL_ROLE_DIC,
-    CHANNEL_ROLE_RED,
+from core.channel_roles import CHANNEL_ROLE_DIC
+from core.cell_types import (
+    CELL_TYPE_PAIR,
+    CELL_TYPE_SINGLE,
+    CELL_TYPE_UNKNOWN,
+    normalize_cell_inclusion_mode,
 )
 from core.config import DEFAULT_CHANNEL_CONFIG, DEFAULT_PROCESS_CONFIG, input_dir
-from core.contour_processing import get_contour_center, get_neighbor_count
 from core.image_sources import load_image_stack
 from core.image_processing.dashed_line import draw_dashed_line
-from core.models import CellStatistics, SegmentedImage, UploadedImage, get_guest_user
+from core.models import (
+    CellStatistics,
+    SegmentedImage,
+    UploadedImage,
+    get_guest_user,
+)
 from core.scale import (
     convert_length_to_pixels,
     normalize_length_unit,
@@ -68,6 +74,10 @@ from core.services.overlay_rendering import (
 )
 from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
+)
+from core.services.cell_candidate_retention import build_retained_candidate_label_image
+from core.services.cell_type_statistics import (
+    mark_single_cell_pair_specific_statistics_na,
 )
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
@@ -511,6 +521,9 @@ def run_segmentation_batch(
     auto_save_experiments = bool(config_snapshot.get("auto_save_experiments", True))
     use_cache = True
     choice_var = "Metaphase Arrested"
+    cell_inclusion_mode = normalize_cell_inclusion_mode(
+        config_snapshot.get("cell_inclusion_mode")
+    )
     start_time = time.time()
     total_runs = len(uuid_list)
 
@@ -562,149 +575,12 @@ def run_segmentation_batch(
         lines_to_draw: dict[int, tuple[tuple[int, int], tuple[int, int]]] = {}
         outputdirectory = str(Path(settings.MEDIA_ROOT) / str(uuid) / "output") + "/"
 
+        cell_type_by_label: dict[int, str] = {}
         if choice_var == "Metaphase Arrested":
-            ignore_list: list[int] = []
-            single_cell_list: list[int] = []
-            closest_neighbors: dict[int, int] = {}
-            neighbor_count: dict[int, int] = {}
-
-            for i in range(1, int(np.max(seg) + 1)):
-                cells = np.where(seg == i)
-                for cell in zip(cells[0], cells[1]):
-                    try:
-                        neighbor_list = get_neighbor_count(seg, cell, 3)
-                    except Exception:
-                        continue
-                    for neighbor in neighbor_list:
-                        if int(neighbor) == i or int(neighbor) == 0:
-                            continue
-                        neighbor_count[neighbor] = neighbor_count.get(neighbor, 0) + 1
-
-                sorted_dict = {
-                    k: v
-                    for k, v in sorted(neighbor_count.items(), key=lambda item: item[1])
-                }
-                if len(sorted_dict) == 0:
-                    single_cell_list.append(int(i))
-                elif len(sorted_dict) == 1:
-                    closest_neighbors[i] = list(sorted_dict.items())[0][0]
-                else:
-                    top_val = list(sorted_dict.items())[0][1]
-                    second_val = list(sorted_dict.items())[1][1]
-                    if second_val > 0.5 * top_val:
-                        single_cell_list.append(int(i))
-                        for cluster_cell in neighbor_count:
-                            single_cell_list.append(int(cluster_cell))
-                    else:
-                        closest_neighbors[i] = list(sorted_dict.items())[0][0]
-                neighbor_count = {}
-
-            resolve_cells_using_spc110 = False
-            if resolve_cells_using_spc110:
-                red_index = channel_config.get(CHANNEL_ROLE_RED)
-                red_image = image_stack[red_index]
-
-                red_image = np.round(red_image * 255).astype(np.uint8)
-                if len(red_image.shape) != 3 or red_image.shape[2] != 3:
-                    red_image = np.expand_dims(red_image, axis=-1)
-                    red_image = np.tile(red_image, 3)
-                red_image_gray = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
-                red_image_gray, _ = subtract_background_rolling_ball(
-                    red_image_gray,
-                    50,
-                    light_background=False,
-                    use_paraboloid=False,
-                    do_presmooth=True,
-                )
-                _, red_image_thresh = cv2.threshold(
-                    red_image_gray,
-                    0,
-                    1,
-                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C | cv2.THRESH_OTSU,
-                )
-                red_image_cont, _ = cv2.findContours(red_image_thresh, 1, 2)
-
-                min_red_distance: dict[int, float] = {}
-                min_red_loc: dict[int, int] = {}
-                for cnt1 in red_image_cont:
-                    try:
-                        contour_area = cv2.contourArea(cnt1)
-                        if contour_area > 100000:
-                            logger.debug(
-                                "Discarded oversized bounding contour while pairing cells"
-                            )
-                            continue
-                        coordinate = get_contour_center([cnt1])
-                        c1y = coordinate[0][0]
-                        c1x = coordinate[0][1]
-                    except Exception:
-                        continue
-
-                    c_id = int(seg[c1x][c1y])
-                    if c_id == 0:
-                        continue
-
-                    for cnt2 in red_image_cont:
-                        try:
-                            coordinate = get_contour_center([cnt2])
-                            c2y = coordinate[0][0]
-                            c2x = coordinate[0][1]
-                        except Exception:
-                            continue
-                        if int(seg[c2x][c2y]) == 0:
-                            continue
-                        if seg[c1x][c1y] == seg[c2x][c2y]:
-                            continue
-                        distance = math.sqrt(pow(c1x - c2x, 2) + pow(c1y - c2y, 2))
-                        if min_red_distance.get(c_id) is None:
-                            min_red_distance[c_id] = distance
-                            min_red_loc[c_id] = int(seg[c2x][c2y])
-                            lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))
-                        elif distance < min_red_distance[c_id]:
-                            min_red_distance[c_id] = distance
-                            min_red_loc[c_id] = int(seg[c2x][c2y])
-                            lines_to_draw[c_id] = ((c1y, c1x), (c2y, c2x))
-                        elif distance == min_red_distance[c_id]:
-                            logger.debug(
-                                "Found tied Red pair distance while pairing cells: cell_a=%s cell_b=%s nearest=%s distance=%s",
-                                seg[c1x][c1y],
-                                seg[c2x][c2y],
-                                min_red_loc[c_id],
-                                distance,
-                            )
-
-            for k, v in closest_neighbors.items():
-                if v in closest_neighbors:
-                    if int(v) in ignore_list:
-                        single_cell_list.append(int(k))
-                        continue
-
-                    if (
-                        closest_neighbors[int(v)] == int(k)
-                        and int(k) not in ignore_list
-                    ):
-                        to_update = np.where(seg == v)
-                        ignore_list.append(int(v))
-                        for update in zip(to_update[0], to_update[1]):
-                            seg[update[0]][update[1]] = k
-                    elif int(k) not in ignore_list:
-                        single_cell_list.append(int(k))
-                elif int(k) not in ignore_list:
-                    single_cell_list.append(int(k))
-
-            for cell in single_cell_list:
-                seg[np.where(seg == cell)] = 0.0
-
-            to_rebase: list[int] = []
-            for k, _ in closest_neighbors.items():
-                if k in ignore_list or k in single_cell_list:
-                    continue
-                to_rebase.append(int(k))
-            to_rebase.sort()
-
-            for i, x in enumerate(to_rebase):
-                seg[np.where(seg == x)] = i + 1
-
+            seg, cell_type_by_label = build_retained_candidate_label_image(
+                seg,
+                cell_inclusion_mode,
+            )
             seg = refine_pair_label_image(seg)
 
             seg_image = Image.fromarray(seg)
@@ -867,6 +743,7 @@ def run_segmentation_batch(
                 ),
                 "CellPairPrefix": cell_pair_prefix_url(uuid=uuid),
                 "NumCells": num_cells,
+                "cell_inclusion_mode": cell_inclusion_mode,
             },
         )
         CellStatistics.objects.filter(segmented_image=instance).delete()
@@ -877,9 +754,18 @@ def run_segmentation_batch(
             else settings.DEFAULT_SEGMENT_CONFIG
         )
         execution_plan = build_stats_execution_plan(
-            config_snapshot.get("selected_analysis", [])
+            config_snapshot.get("selected_analysis", []),
+            puncta_line_mode=config_snapshot.get("puncta_line_mode"),
         )
         selected_analysis = list(execution_plan.selected_plugins)
+        single_cell_execution_plan = build_stats_execution_plan(
+            [
+                plugin_id
+                for plugin_id in selected_analysis
+                if plugin_id in {"PunctaDistance", "GreenRedIntensity"}
+            ],
+            puncta_line_mode=config_snapshot.get("puncta_line_mode"),
+        )
         raw_puncta_line_width = config_snapshot.get(
             "stats_puncta_line_width_value",
             config_snapshot.get(
@@ -1251,10 +1137,12 @@ def run_segmentation_batch(
                 dv_name,
                 uuid,
             )
+            cell_type = cell_type_by_label.get(cell_number, CELL_TYPE_UNKNOWN)
             cp, _ = CellStatistics.objects.get_or_create(
                 segmented_image=instance,
                 cell_id=cell_number,
                 defaults={
+                    "cell_type": cell_type,
                     "puncta_distance": 0.0,
                     "puncta_line_intensity": 0.0,
                     "nucleus_intensity_sum": 0.0,
@@ -1267,7 +1155,10 @@ def run_segmentation_batch(
                 },
             )
 
+            cp.cell_type = cell_type
             cp.properties = dict(cp.properties or {})
+            cp.properties["cell_type"] = cell_type
+            cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
             cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
                 config_snapshot.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
@@ -1350,9 +1241,17 @@ def run_segmentation_batch(
             )
 
             pair_entry = pair_geometry_cache.get(cell_number)
-            cp.properties["neck_split"] = _build_neck_split_properties(pair_entry)
+            cp.properties["neck_split"] = (
+                {"status": "not_applicable"}
+                if cell_type == CELL_TYPE_SINGLE
+                else _build_neck_split_properties(pair_entry)
+            )
             legacy_exact_cell_pair_mask = None
-            if use_legacy_nuclear_cell_pair_pipeline and pair_entry is not None:
+            if (
+                use_legacy_nuclear_cell_pair_pipeline
+                and pair_entry is not None
+                and cell_type == CELL_TYPE_PAIR
+            ):
                 legacy_exact_cell_pair_mask = (
                     seg[
                         pair_entry.min_x : pair_entry.max_x,
@@ -1361,10 +1260,15 @@ def run_segmentation_batch(
                     == cell_number
                 ).astype(np.uint8) * 255
 
+            row_execution_plan = (
+                single_cell_execution_plan
+                if cell_type == CELL_TYPE_SINGLE
+                else execution_plan
+            )
             debug_red, debug_green, debug_blue = get_stats(
                 cp,
                 conf,
-                execution_plan,
+                row_execution_plan,
                 puncta_line_width,
                 cen_dot_distance,
                 cen_dot_proximity_radius,
@@ -1386,6 +1290,10 @@ def run_segmentation_batch(
                 nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
                 legacy_exact_cell_pair_mask=legacy_exact_cell_pair_mask,
             )
+            cp.properties["cell_type"] = cell_type
+            cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
+            if cell_type == CELL_TYPE_SINGLE:
+                mark_single_cell_pair_specific_statistics_na(cp)
             rendered_overlay_images = {
                 "red": debug_red,
                 "green": debug_green,

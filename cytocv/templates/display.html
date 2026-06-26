@@ -5,11 +5,11 @@
 
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
-    <script src="{% static 'js/export_selection_modal.js' %}?v=selectable-export-format-pill-state"></script>
-    <script src="{% static 'js/shared/results-viewer.js' %}?v=results-viewer-shared-20260610"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=stat-table-header-align-20260610">
-    <link rel="stylesheet" href="{% static 'css/pages/display.css' %}?v=frontend-modularization-20260609">
-    <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=frontend-modularization-20260609">
+    <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-file-count-fade-20260622"></script>
+    <script src="{% static 'js/shared/results-viewer.js' %}?v=cell-type-filter-labels-20260626-v2"></script>
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=single-channel-contour-card-20260626">
+    <link rel="stylesheet" href="{% static 'css/pages/display.css' %}?v=cell-card-compact-20260623">
+    <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-file-count-fade-20260622">
 
     <!-- Sortable.js for drag & drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -66,10 +66,10 @@
                 </div>
                 <div class="sidebar-unit-controls">
                     <span class="sidebar-unit-label">Spatial Unit:</span>
-                    <div class="sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-active-unit="px">
-                        <div class="sidebar-unit-indicator" aria-hidden="true"></div>
+                    <div class="spatial-unit-track sidebar-unit-track" id="sidebarSpatialUnitToggle" role="group" aria-label="Spatial Units" data-spatial-unit-toggle data-active-unit="px">
+                        <div class="spatial-unit-indicator sidebar-unit-indicator" aria-hidden="true"></div>
                         <button type="button" class="sidebar-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
-                        <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                        <button type="button" class="sidebar-unit-btn" data-spatial-unit="um" aria-pressed="false">&micro;m</button>
                     </div>
                 </div>
             </div>
@@ -170,7 +170,11 @@
 
                             <div class="cell-pairs-card glass-card glass-section" data-ui-region="cell-pairs-card">
                                 <div class="glass-toolbar cell-pairs-toolbar">
-                                    <p class="section-eyebrow">Cell Pairs</p>
+                                    <div class="cell-pairs-title-group">
+                                        <p class="section-eyebrow">Cell Pairs</p>
+                                        <div class="cell-card-filter-badge cell-card-filter-meta" id="punctaSourceContourCellFilterBadge" aria-live="polite" hidden></div>
+                                        <div class="cell-card-filter-message cell-card-filter-warning" id="punctaSourceContourActiveCellMessage" aria-live="polite" hidden></div>
+                                    </div>
                                     <div class="cell-toolbar-actions">
                                         <div class="contour-toolbar">
                                             <span>Contours</span>
@@ -197,268 +201,54 @@
                                             {% csrf_token %}
                                             <span class="cell-label dic">DIC</span>
                                         </form>
-                                        <img id="cellImage1" class="cell-image" src="">
+                                        <div class="cell-image-frame" data-cell-image-frame>
+                                            <img id="cellImage1" class="cell-image" src="">
+                                            <div class="skeleton-shape cell-image-loading-skeleton" aria-hidden="true"></div>
+                                        </div>
                                     </div>
                                     <div class="cell-column">
                                         <form method="post" id="blue_form" class="channel-form">
                                             {% csrf_token %}
                                             <span class="cell-label blue">Blue</span>
                                         </form>
-                                        <img id="cellImage2" class="cell-image" src="">
+                                        <div class="cell-image-frame" data-cell-image-frame>
+                                            <img id="cellImage2" class="cell-image" src="">
+                                            <div class="skeleton-shape cell-image-loading-skeleton" aria-hidden="true"></div>
+                                        </div>
                                     </div>
                                     <div class="cell-column">
                                         <form method="post" id="red_form" class="channel-form">
                                             {% csrf_token %}
                                             <span class="cell-label red">Red</span>
                                         </form>
-                                        <img id="cellImage3" class="cell-image" src="">
+                                        <div class="cell-image-frame" data-cell-image-frame>
+                                            <img id="cellImage3" class="cell-image" src="">
+                                            <div class="skeleton-shape cell-image-loading-skeleton" aria-hidden="true"></div>
+                                        </div>
                                     </div>
                                     <div class="cell-column">
                                         <form method="post" id="green_form" class="channel-form">
                                             {% csrf_token %}
                                             <span class="cell-label green">Green</span>
                                         </form>
-                                        <img id="cellImage4" class="cell-image" src="">
-                                    </div>
-                                </div>
-                                <div class="cell-stats-strip" data-ui-region="cell-metrics-strip">
-                                    <div class="cell-stats-column">
-                                        <div class="cell-stats-section">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Reference Channel</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Shows the brightfield/DIC reference used to inspect cell outlines and segmentation overlays. Contours indicates whether the detected cell-pair outline is currently visible on the cell images."
-                                                    aria-label="Reference Channel Details"
-                                                    title="Reference Channel Details"
-                                                >i</span>
-                                            </div>
-                                            <p class="metric-note">Brightfield morphology reference used to inspect contours and segmentation.</p>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Contours</span>
-                                                <span class="metric-value" id="contourStateValue">On</span>
-                                            </div>
-                                        </div>
-                                        <div class="cell-stats-section" data-stat-section="biorientation">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Biorientation</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Counts Green dots inside the DIC-defined cell contour after the two Red puncta pass the configured min/max distance check. Colinear Dots project between the two Red puncta and lie close to the red-red line; other inside-cell Green dots are counted as Off Axis Dots."
-                                                    aria-label="Biorientation Details"
-                                                    title="Biorientation Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Colinear Dots</span>
-                                                <span class="metric-value" id="colinearDots"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Off Axis Dots</span>
-                                                <span class="metric-value" id="offAxisDots"></span>
-                                            </div>
-                                        </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Red In Red Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Red-channel intensity summed inside each ranked Red contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other raw-sum sections."
-                                                    aria-label="Red In Red Raw Sum Details"
-                                                    title="Red In Red Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Red Intensity 1</span>
-                                                <span class="metric-value" id="redInRedIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Red Intensity 2</span>
-                                                <span class="metric-value" id="redInRedIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Red Intensity 3</span>
-                                                <span class="metric-value" id="redInRedIntensity3"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-column">
-                                        <div class="cell-stats-section" data-stat-section="nuclear_cell_pair_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Nucleus + Measurement</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Shows the selected nucleus contour channel, which fluorescence channel is measured, whether a nucleus contour is available, and the nuclear, whole cell-pair, and cytoplasmic intensity values."
-                                                    aria-label="Nucleus And Measurement Details"
-                                                    title="Nucleus And Measurement Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Nucleus Contour Channel</span>
-                                                <span class="metric-value" id="nucleusContourChannel"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Measurement Channel</span>
-                                                <span class="metric-value" id="measurementChannel"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Nuclear Status</span>
-                                                <span class="metric-value" id="nuclearStatus"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label"><span id="nucleusIntensityLabel">Measured Nuclear Intensity</span></span>
-                                                <span class="metric-value" id="nucleusIntensitySum"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label"><span id="cellularIntensityLabel">Measured Cellular Intensity</span></span>
-                                                <span class="metric-value" id="cellPairIntensitySum"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Cytoplasmic Intensity</span>
-                                                <span class="metric-value" id="cytoplasmicIntensity"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Nuclear / Cytoplasmic Ratio</span>
-                                                <span class="metric-value" id="nuclearCytoplasmicRatio"></span>
-                                            </div>
-                                        </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Green In Red Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Green-channel intensity summed inside each ranked Red contour slot after clipping to the DIC cell mask. Use this to compare Green signal captured by Red contour regions."
-                                                    aria-label="Green In Red Raw Sum Details"
-                                                    title="Green In Red Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Red Intensity 1</span>
-                                                <span class="metric-value" id="greenInRedIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Red Intensity 2</span>
-                                                <span class="metric-value" id="greenInRedIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Red Intensity 3</span>
-                                                <span class="metric-value" id="greenInRedIntensity3"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-column">
-                                        <div class="cell-stats-section" data-stat-section="cen_puncta">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">CEN Dot Measurements</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Shows the selected puncta distance, the intensity measured along the line between the puncta, and the mother/daughter Cen Dot Location classification for this cell pair."
-                                                    aria-label="CEN Dot Measurement Details"
-                                                    title="CEN Dot Measurement Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row" data-stat-row="puncta_distance">
-                                                <span class="metric-label" id="distanceLabel">Distance Between Red Puncta</span>
-                                                <span class="metric-value" id="distance"></span>
-                                            </div>
-                                            <div class="metric-row" data-stat-row="puncta_distance">
-                                                <span class="metric-label" id="lineIntensityLabel">Green Intensity Over Red Line</span>
-                                                <span class="metric-value" id="punctaLineIntensity"></span>
-                                            </div>
-                                            <div class="metric-row" data-stat-row="cen_dot">
-                                                <span class="metric-label">Cell Parentage</span>
-                                                <span class="metric-value" id="cellParentage"></span>
-                                            </div>
-                                            <div class="metric-row" data-stat-row="cen_dot">
-                                                <span class="metric-label">Cen Dot Location</span>
-                                                <span class="metric-value" id="cenDot"></span>
-                                            </div>
-                                        </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Red In Green Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Red-channel intensity summed inside each ranked Green contour slot after clipping to the DIC cell mask. Use this to compare Red signal captured by Green contour regions."
-                                                    aria-label="Red In Green Raw Sum Details"
-                                                    title="Red In Green Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Green Intensity 1</span>
-                                                <span class="metric-value" id="redInGreenIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Green Intensity 2</span>
-                                                <span class="metric-value" id="redInGreenIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Red In Green Intensity 3</span>
-                                                <span class="metric-value" id="redInGreenIntensity3"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="cell-stats-column">
-                                        <div class="cell-stats-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Measurement/Contour</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Shows normalized intensity ratios for contour slots 1 through 3. The formula divides the selected measurement channel by the selected contour channel so values can be compared across contour regions."
-                                                    aria-label="Measurement Contour Details"
-                                                    title="Measurement Contour Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-detail">
-                                                <span class="metric-detail-label">Formula</span>
-                                                <span class="metric-detail-value" id="measurementContourRatioFormula"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Measurement/Contour Ratio 1</span>
-                                                <span class="metric-value" id="measurementContourRatio1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Measurement/Contour Ratio 2</span>
-                                                <span class="metric-value" id="measurementContourRatio2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Measurement/Contour Ratio 3</span>
-                                                <span class="metric-value" id="measurementContourRatio3"></span>
-                                            </div>
-                                        </div>
-                                        <div class="cell-stats-section raw-sum-section" data-stat-section="red_green_intensity">
-                                            <div class="metric-lead-row">
-                                                <p class="metric-lead">Green In Green Raw Sums</p>
-                                                <span
-                                                    class="selection-info-dot metric-info-dot"
-                                                    data-info-text="Raw Green-channel intensity summed inside each ranked Green contour slot after clipping to the DIC cell mask. Slots 1, 2, and 3 use the same ranked contour order as the other raw-sum sections."
-                                                    aria-label="Green In Green Raw Sum Details"
-                                                    title="Green In Green Raw Sum Details"
-                                                >i</span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Green Intensity 1</span>
-                                                <span class="metric-value" id="greenInGreenIntensity1"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Green Intensity 2</span>
-                                                <span class="metric-value" id="greenInGreenIntensity2"></span>
-                                            </div>
-                                            <div class="metric-row">
-                                                <span class="metric-label">Green In Green Intensity 3</span>
-                                                <span class="metric-value" id="greenInGreenIntensity3"></span>
-                                            </div>
+                                        <div class="cell-image-frame" data-cell-image-frame>
+                                            <img id="cellImage4" class="cell-image" src="">
+                                            <div class="skeleton-shape cell-image-loading-skeleton" aria-hidden="true"></div>
                                         </div>
                                     </div>
                                 </div>
+                                {% include "partials/cell_pair_stats_card.html" %}
 
                                 <div class="navigation-buttons">
-                                    <button type="button" onclick="previousCell()">Previous Cell</button>
-                                    <button type="button" onclick="nextCell()">Next Cell</button>
+                                    <button type="button" id="previousCellBtn" onclick="previousCell()">Previous Cell</button>
+                                    <button type="button" id="nextCellBtn" onclick="nextCell()">Next Cell</button>
                                 </div>
                                 <div class="file-swap-skeleton cell-swap-skeleton" aria-hidden="true">
                                     <div class="skeleton-cell-header">
-                                        <div class="skeleton-shape skeleton-cell-title"></div>
+                                        <div class="skeleton-cell-title-group">
+                                            <div class="skeleton-shape skeleton-cell-title"></div>
+                                            <div class="skeleton-shape skeleton-cell-filter-badge"></div>
+                                        </div>
                                         <div class="skeleton-cell-actions">
                                             <div class="skeleton-shape skeleton-toolbar-control skeleton-contour-control"></div>
                                             <div class="skeleton-shape skeleton-toolbar-control skeleton-cell-id-control"></div>
@@ -534,31 +324,98 @@
                         <div class="table-toolbar glass-toolbar">
                             <p class="section-eyebrow">Statistics Table</p>
                             <div class="toolbar-actions">
-                                <div class="unit-toggle" id="displaySpatialUnitToggleLegacy" role="group" aria-label="Spatial Units">
-                                    <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
-                                    <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
+                                <div class="table-puncta-source-contour-filter" id="cellTypeFilterControl" data-cell-type-filter>
+                                    <span class="table-filter-label" id="cellTypeFilterLabel">Cell Type Filter:</span>
+                                    <button type="button" class="table-filter-trigger" id="cellTypeFilterButton" aria-haspopup="listbox" aria-expanded="false" title="This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.">
+                                        <span id="cellTypeFilterValue">Both cells</span>
+                                        <span class="table-filter-caret" aria-hidden="true"></span>
+                                    </button>
+                                    <div class="table-filter-menu" id="cellTypeFilterMenu" role="listbox" aria-labelledby="cellTypeFilterLabel" hidden>
+                                        <button type="button" role="option" data-value="all">Both cells</button>
+                                        <button type="button" role="option" data-value="single_cell">Only single cells</button>
+                                        <button type="button" role="option" data-value="cell_pair">Only cell pairs</button>
+                                    </div>
+                                </div>
+                                <div class="table-puncta-source-contour-filter" id="punctaSourceContourFilterControl" data-puncta-source-contour-filter>
+                                    <span class="table-filter-label" id="punctaSourceContourFilterLabel">Puncta Source Contour Count:</span>
+                                    <button type="button" class="table-filter-trigger" id="punctaSourceContourFilterButton" aria-haspopup="listbox" aria-expanded="false">
+                                        <span id="punctaSourceContourFilterValue">All cells</span>
+                                        <span class="table-filter-caret" aria-hidden="true"></span>
+                                    </button>
+                                    <div class="table-filter-menu" id="punctaSourceContourFilterMenu" role="listbox" aria-labelledby="punctaSourceContourFilterLabel" hidden>
+                                        <button type="button" role="option" data-value="all">All cells</button>
+                                        <button type="button" role="option" data-value="exactly_1">1 contour</button>
+                                        <button type="button" role="option" data-value="exactly_2">2 contours</button>
+                                    </div>
+                                </div>
+                                <div class="table-spatial-unit-control">
+                                    <span class="table-spatial-unit-label">Spatial Unit:</span>
+                                    <div class="spatial-unit-track table-spatial-unit-toggle" role="group" aria-label="Statistics table spatial units" data-spatial-unit-toggle data-active-unit="px">
+                                        <div class="spatial-unit-indicator" aria-hidden="true"></div>
+                                        <button type="button" class="spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
+                                        <button type="button" class="spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">&micro;m</button>
+                                    </div>
                                 </div>
                                 <button type="button" class="table-fullscreen-btn" id="tableFullscreenBtn">
-                                    <span class="fullscreen-icon" aria-hidden="true">⛶</span>
+                                    <span class="fullscreen-icon" aria-hidden="true">&#x26F6;</span>
                                     <span class="fullscreen-label">Fullscreen</span>
                                 </button>
                             </div>
                         </div>
+                        <div class="table-filter-summary">
+                            <span id="punctaSourceContourFilterStatus" aria-live="polite" class="table-filter-count-meta cell-card-filter-meta">Showing 0 of 0 cells</span>
+                            <span class="table-filter-help">This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.</span>
+                        </div>
                         <div class="table-scroll-frame" id="tableScrollFrame">
                             {% render_table cell_table %}
+                            <div class="table-region-skeleton" aria-hidden="true">
+                                <div class="skeleton-table">
+                                    <div class="skeleton-table-row header">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                    <div class="skeleton-table-row">
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                        <div class="skeleton-shape skeleton-table-cell"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="cell-row-context-menu" id="cellRowContextMenu" role="menu">
                         <button type="button" class="cell-actions-menu-item delete" role="menuitem" data-action="delete-row-cell">Delete</button>
-                    </div>
-                    <div class="table-toolbar glass-toolbar">
-                        <p class="section-eyebrow">Statistics Table</p>
-                        <div class="toolbar-actions">
-                            <div class="unit-toggle" id="displaySpatialUnitToggleLegacySecondary" role="group" aria-label="Spatial Units">
-                                <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="px" aria-pressed="false">px</button>
-                                <button type="button" class="table-fullscreen-btn spatial-unit-btn" data-spatial-unit="um" aria-pressed="false">µm</button>
-                            </div>
-                        </div>
                     </div>
                     {% load export_url from django_tables2 %}
                     <div class="export-buttons" id="displayExportButtons">
@@ -568,8 +425,14 @@
                         <div class="skeleton-table-toolbar">
                             <div class="skeleton-shape skeleton-table-title"></div>
                             <div class="skeleton-table-actions">
+                                <div class="skeleton-shape skeleton-table-cell-type-filter"></div>
+                                <div class="skeleton-shape skeleton-table-source-contour-filter"></div>
+                                <div class="skeleton-shape skeleton-table-spatial-unit"></div>
                                 <div class="skeleton-shape skeleton-table-fullscreen"></div>
                             </div>
+                        </div>
+                        <div class="skeleton-table-filter-summary">
+                            <div class="skeleton-shape skeleton-table-filter-count"></div>
                         </div>
                         <div class="skeleton-table">
                             <div class="skeleton-table-row">
@@ -678,13 +541,13 @@
     {% include "partials/export_selection_modal.html" %}
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>
     <script id="displayFilesData" type="application/json">{{ files_data|safe }}</script>
-    <script id="displayPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
+    <script id="displayPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "initialCellTypeFilter": "{{ cell_type_filter|default:'all'|escapejs }}", "initialPunctaSourceContourCountFilter": "{{ puncta_source_contour_count_filter|default:'all'|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
 
-    <script src="{% static 'js/pages/display-viewer.js' %}?v=frontend-modularization-20260609"></script>
+    <script src="{% static 'js/pages/display-viewer.js' %}?v=single-channel-contour-card-20260626"></script>
 
     <script src="{% static 'js/pages/display-bfcache.js' %}?v=frontend-modularization-20260609"></script>
 
-    <script src="{% static 'js/shared/results-cell-actions.js' %}?v=results-cell-actions-shared-20260610"></script>
+    <script src="{% static 'js/shared/results-cell-actions.js' %}?v=puncta-source-contour-filter-20260621-v4"></script>
     <script src="{% static 'js/pages/display-cell-actions.js' %}?v=frontend-modularization-20260609"></script>
 
     <script src="{% static 'js/pages/display-info-message.js' %}?v=frontend-modularization-20260609"></script>

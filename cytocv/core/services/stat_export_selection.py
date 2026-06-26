@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from typing import Any
 
@@ -10,7 +11,7 @@ from core.services.stat_applicability import STAT_FIELD_GROUPS
 from core.tables import CellTable
 
 
-ALWAYS_INCLUDED_EXPORT_COLUMNS = ("cell_id",)
+ALWAYS_INCLUDED_EXPORT_COLUMNS = ("cell_id", "cell_type")
 CLIENT_FIELD_ALIASES = {
     "measurement_contour_ratio_1": "green_red_intensity_1",
     "measurement_contour_ratio_2": "green_red_intensity_2",
@@ -28,6 +29,10 @@ EXPORT_GROUP_LABELS = {
     "cen_dot": "Cen Dot",
     "biorientation": "Biorientation",
 }
+CONTOUR_INTENSITY_FIELD_RE = re.compile(
+    r"^(?P<combination>red_in_red|green_in_red|red_in_green|green_in_green)_"
+    r"(?P<statistic>total|max|average)_intensity_(?P<slot>[1-3])$"
+)
 
 
 class ExportColumnSelectionError(ValueError):
@@ -83,6 +88,18 @@ def _base_label_for_table_field(table_field: str) -> str:
         return table_field.replace("_", " ").title()
 
 
+def _contour_intensity_metadata(table_field: str) -> dict[str, Any]:
+    match = CONTOUR_INTENSITY_FIELD_RE.match(table_field)
+    if not match:
+        return {}
+    return {
+        "family": "contour_intensity",
+        "combination": match.group("combination"),
+        "statistic": match.group("statistic"),
+        "slot": int(match.group("slot")),
+    }
+
+
 def export_selection_config() -> dict[str, Any]:
     """Return generic selectable-item metadata for the export modal."""
 
@@ -92,18 +109,18 @@ def export_selection_config() -> dict[str, Any]:
         group_id = _group_for_table_field(table_field)
         if group_id not in group_ids:
             group_ids.append(group_id)
-        items.append(
-            {
-                "type": "stat_column",
-                "id": _client_id_for_table_field(table_field),
-                "tableField": table_field,
-                "label": _base_label_for_table_field(table_field),
-                "group": group_id,
-                "defaultSelected": True,
-                "disabled": False,
-                "payloadParam": "_columns",
-            }
-        )
+        item = {
+            "type": "stat_column",
+            "id": _client_id_for_table_field(table_field),
+            "tableField": table_field,
+            "label": _base_label_for_table_field(table_field),
+            "group": group_id,
+            "defaultSelected": True,
+            "disabled": False,
+            "payloadParam": "_columns",
+        }
+        item.update(_contour_intensity_metadata(table_field))
+        items.append(item)
 
     return {
         "version": 1,
@@ -114,6 +131,16 @@ def export_selection_config() -> dict[str, Any]:
                 "id": "cell_id",
                 "tableField": "cell_id",
                 "label": "Cell ID",
+                "group": "identity",
+                "defaultSelected": True,
+                "disabled": True,
+                "payloadParam": "_columns",
+            },
+            {
+                "type": "stat_column",
+                "id": "cell_type",
+                "tableField": "cell_type",
+                "label": "Cell Type",
                 "group": "identity",
                 "defaultSelected": True,
                 "disabled": True,

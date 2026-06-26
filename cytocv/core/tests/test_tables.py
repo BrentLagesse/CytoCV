@@ -9,6 +9,7 @@ from core.tables import CellTable
 def _stats_record(**overrides):
     defaults = {
         "cell_id": 1,
+        "cell_type": "cell_pair",
         "puncta_distance": 10.0,
         "puncta_line_intensity": 20.0,
         "blue_contour_size": 30.0,
@@ -18,18 +19,18 @@ def _stats_record(**overrides):
         "green_contour_1_size": 21.0,
         "green_contour_2_size": 22.0,
         "green_contour_3_size": 23.0,
-        "red_intensity_1": 2.0,
-        "red_intensity_2": 3.0,
-        "red_intensity_3": 4.0,
-        "green_intensity_1": 6.0,
-        "green_intensity_2": 9.0,
-        "green_intensity_3": 16.0,
-        "red_in_green_intensity_1": 5.0,
-        "red_in_green_intensity_2": 10.0,
-        "red_in_green_intensity_3": 15.0,
-        "green_in_green_intensity_1": 1.0,
-        "green_in_green_intensity_2": 2.0,
-        "green_in_green_intensity_3": 3.0,
+        "red_in_red_total_intensity_1": 2.0,
+        "red_in_red_total_intensity_2": 3.0,
+        "red_in_red_total_intensity_3": 4.0,
+        "green_in_red_total_intensity_1": 6.0,
+        "green_in_red_total_intensity_2": 9.0,
+        "green_in_red_total_intensity_3": 16.0,
+        "red_in_green_total_intensity_1": 5.0,
+        "red_in_green_total_intensity_2": 10.0,
+        "red_in_green_total_intensity_3": 15.0,
+        "green_in_green_total_intensity_1": 1.0,
+        "green_in_green_total_intensity_2": 2.0,
+        "green_in_green_total_intensity_3": 3.0,
         "green_red_intensity_1": 99.0,
         "green_red_intensity_2": 99.0,
         "green_red_intensity_3": 99.0,
@@ -57,6 +58,16 @@ def _stats_record(**overrides):
             },
         },
     }
+    for prefix in (
+        "red_in_red",
+        "green_in_red",
+        "red_in_green",
+        "green_in_green",
+    ):
+        for index in range(1, 4):
+            total = defaults[f"{prefix}_total_intensity_{index}"]
+            defaults.setdefault(f"{prefix}_max_intensity_{index}", total + 100.0)
+            defaults.setdefault(f"{prefix}_average_intensity_{index}", total / 2.0)
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
 
@@ -64,6 +75,26 @@ def _stats_record(**overrides):
 class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def setUp(self):
         self.table = CellTable([], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+
+    def test_cell_type_header_and_export_label_follow_cell_id(self):
+        record = _stats_record(cell_type="single_cell")
+        table = CellTable([record], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+        values = list(table.as_values())
+        header = values[0]
+
+        self.assertEqual(header[:2], ["Cell ID", "Cell Type"])
+        self.assertEqual(values[1][header.index("Cell Type")], "Single Cell")
+        self.assertEqual(list(table.rows)[0].get_cell("cell_type"), "Single Cell")
+
+    def test_missing_cell_type_renders_unknown(self):
+        record = _stats_record()
+        delattr(record, "cell_type")
+        table = CellTable([record], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+        values = list(table.as_values())
+        header = values[0]
+
+        self.assertEqual(list(table.rows)[0].get_cell("cell_type"), "Unknown")
+        self.assertEqual(values[1][header.index("Cell Type")], "Unknown")
 
     @staticmethod
     def _record_with_status(status: str):
@@ -183,7 +214,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
     def test_ratio_columns_follow_raw_contour_sums_and_precede_distance_triplet(self):
         header_row = list(self.table.as_values())[0]
 
-        green_in_green_index = header_row.index("Green In Green Intensity 3")
+        green_in_green_index = header_row.index("Green In Green Average Intensity 3")
         ratio_1_index = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
         ratio_2_index = header_row.index("Measurement/Contour Ratio 2 (Red/Green)")
         ratio_3_index = header_row.index("Measurement/Contour Ratio 3 (Red/Green)")
@@ -193,6 +224,53 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertLess(ratio_1_index, ratio_2_index)
         self.assertLess(ratio_2_index, ratio_3_index)
         self.assertLess(ratio_3_index, distance_triplet_index)
+
+    def test_contour_intensity_columns_use_slot_local_total_max_average_order(self):
+        header_row = list(self.table.as_values())[0]
+        start = header_row.index("Red In Red Total Intensity 1")
+        end = header_row.index("Measurement/Contour Ratio 1 (Red/Green)")
+
+        self.assertEqual(
+            list(header_row[start:end]),
+            [
+                "Red In Red Total Intensity 1",
+                "Red In Red Max Intensity 1",
+                "Red In Red Average Intensity 1",
+                "Red In Red Total Intensity 2",
+                "Red In Red Max Intensity 2",
+                "Red In Red Average Intensity 2",
+                "Red In Red Total Intensity 3",
+                "Red In Red Max Intensity 3",
+                "Red In Red Average Intensity 3",
+                "Green In Red Total Intensity 1",
+                "Green In Red Max Intensity 1",
+                "Green In Red Average Intensity 1",
+                "Green In Red Total Intensity 2",
+                "Green In Red Max Intensity 2",
+                "Green In Red Average Intensity 2",
+                "Green In Red Total Intensity 3",
+                "Green In Red Max Intensity 3",
+                "Green In Red Average Intensity 3",
+                "Red In Green Total Intensity 1",
+                "Red In Green Max Intensity 1",
+                "Red In Green Average Intensity 1",
+                "Red In Green Total Intensity 2",
+                "Red In Green Max Intensity 2",
+                "Red In Green Average Intensity 2",
+                "Red In Green Total Intensity 3",
+                "Red In Green Max Intensity 3",
+                "Red In Green Average Intensity 3",
+                "Green In Green Total Intensity 1",
+                "Green In Green Max Intensity 1",
+                "Green In Green Average Intensity 1",
+                "Green In Green Total Intensity 2",
+                "Green In Green Max Intensity 2",
+                "Green In Green Average Intensity 2",
+                "Green In Green Total Intensity 3",
+                "Green In Green Max Intensity 3",
+                "Green In Green Average Intensity 3",
+            ],
+        )
 
     def test_ratio_columns_use_mode_driven_headers_for_red_nucleus(self):
         header_row = list(CellTable([], intensity_mode="red_nucleus", puncta_line_mode="red_puncta").as_values())[0]
@@ -223,7 +301,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertIn("Nuclear / Cytoplasmic Ratio", header_row)
         self.assertIn("Distance Between Red Puncta (px)", header_row)
         self.assertIn("Green Intensity Over Red Line", header_row)
-        self.assertIn("Red In Red Intensity 1", header_row)
+        self.assertIn("Red In Red Total Intensity 1", header_row)
         self.assertIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
         self.assertIn("Distance Of Green From Red 1 (px)", header_row)
         self.assertIn("Cell Parentage", header_row)
@@ -242,7 +320,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
 
         self.assertIn("Distance Between Red Puncta (px)", header_row)
         self.assertIn("Green Intensity Over Red Line", header_row)
-        self.assertIn("Red In Red Intensity 1", header_row)
+        self.assertIn("Red In Red Total Intensity 1", header_row)
         self.assertIn("Measurement/Contour Ratio 1 (Red/Green)", header_row)
         self.assertIn("Distance Of Green From Red 1 (px)", header_row)
         self.assertIn("Nucleus Contour Source", header_row)
@@ -278,7 +356,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(row.get_cell("nuclear_cytoplasmic_ratio"), "2.000")
         self.assertEqual(row.get_cell("puncta_distance"), "N/A")
         self.assertEqual(row.get_cell("puncta_line_intensity"), "N/A")
-        self.assertEqual(row.get_cell("red_intensity_1"), "N/A")
+        self.assertEqual(row.get_cell("red_in_red_total_intensity_1"), "N/A")
         self.assertEqual(row.get_cell("green_red_intensity_1"), "N/A")
         self.assertEqual(row.get_cell("distance_of_green_from_red_1"), "N/A")
         self.assertEqual(row.get_cell("cell_parentage"), "N/A")
@@ -311,12 +389,46 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
 
         self.assertEqual(row.get_cell("puncta_distance"), "10.000")
         self.assertEqual(row.get_cell("puncta_line_intensity"), "20.000")
-        self.assertEqual(row.get_cell("red_intensity_1"), "N/A")
+        self.assertEqual(row.get_cell("red_in_red_total_intensity_1"), "N/A")
         self.assertEqual(row.get_cell("green_red_intensity_1"), "N/A")
         self.assertEqual(row.get_cell("distance_of_green_from_red_1"), "N/A")
         self.assertEqual(row.get_cell("nuclear_cell_pair_contour_source"), "N/A")
         self.assertEqual(row.get_cell("cell_pair_intensity_sum"), "N/A")
         self.assertEqual(row.get_cell("nuclear_cytoplasmic_ratio"), "N/A")
+
+    def test_unavailable_fields_render_and_export_as_na_within_selected_groups(self):
+        record = _stats_record(
+            properties={
+                "selected_analysis": ["PunctaDistance", "GreenRedIntensity"],
+                "puncta_line_mode": "red_puncta_only",
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "unavailable_stat_fields": [
+                    "puncta_line_intensity",
+                    "green_red_intensity_1",
+                ],
+            },
+        )
+        table = CellTable(
+            [record],
+            intensity_mode="green_nucleus",
+            puncta_line_mode="red_puncta_only",
+        )
+        row = list(table.rows)[0]
+        values = list(table.as_values())
+        header = values[0]
+        value_row = values[1]
+
+        self.assertEqual(row.get_cell("puncta_distance"), "10.000")
+        self.assertEqual(row.get_cell("puncta_line_intensity"), "N/A")
+        self.assertEqual(row.get_cell("green_red_intensity_1"), "N/A")
+        self.assertEqual(
+            value_row[header.index("Opposite-Channel Line Intensity (N/A)")],
+            "N/A",
+        )
+        self.assertEqual(
+            value_row[header.index("Measurement/Contour Ratio 1 (Red/Green)")],
+            "N/A",
+        )
 
     def test_cen_dot_disabled_outputs_na_despite_stored_values(self):
         record = _stats_record(
@@ -380,16 +492,16 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         )
 
     def test_ratio_values_are_derived_from_raw_sums_not_stale_stored_values(self):
-        record = SimpleNamespace(
+        record = _stats_record(
             green_red_intensity_1=99.0,
             green_red_intensity_2=88.0,
             green_red_intensity_3=77.0,
-            red_in_green_intensity_1=12.0,
-            red_in_green_intensity_2=9.0,
-            red_in_green_intensity_3=0.0,
-            green_in_green_intensity_1=4.0,
-            green_in_green_intensity_2=3.0,
-            green_in_green_intensity_3=0.0,
+            red_in_green_total_intensity_1=12.0,
+            red_in_green_total_intensity_2=9.0,
+            red_in_green_total_intensity_3=0.0,
+            green_in_green_total_intensity_1=4.0,
+            green_in_green_total_intensity_2=3.0,
+            green_in_green_total_intensity_3=0.0,
             properties={"nuclear_cell_pair_mode": "green_nucleus"},
             category_cen_dot=0,
         )
@@ -445,7 +557,7 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(
             header_row[
                 header_row.index("Red Contour 1 Size (px²)") :
-                header_row.index("Red In Red Intensity 1")
+                header_row.index("Red In Red Total Intensity 1")
             ],
             [
                 "Red Contour 1 Size (px²)",

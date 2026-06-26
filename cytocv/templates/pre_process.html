@@ -51,10 +51,9 @@
               <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                 <div class="file-title">{{ file.name }}</div>
                 <div class="channel-plane-row" aria-hidden="true">
-                  <span>Image 1</span>
-                  <span>Image 2</span>
-                  <span>Image 3</span>
-                  <span>Image 4</span>
+                  {% for channel in file.detected_channels %}
+                  <span>Image {{ forloop.counter }}</span>
+                  {% endfor %}
                 </div>
                 <div class="channel-bar">
                   {% for channel in file.detected_channels %}

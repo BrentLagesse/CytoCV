@@ -1,4 +1,4 @@
-"""Shared helpers for frontend contract tests."""
+﻿"""Shared helpers for frontend contract tests."""
 
 from __future__ import annotations
 
@@ -109,33 +109,47 @@ def create_display_file(
     return str(file_uuid)
 
 
-def add_cell_stat(file_uuid: str, *, cell_id: int = 1) -> None:
+def add_cell_stat(file_uuid: str, *, cell_id: int = 1, properties: dict | None = None) -> None:
     segmented = SegmentedImage.objects.get(UUID=file_uuid)
+    stat_properties = {
+        "signal_quantification_mode": "puncta_distance",
+        "puncta_line_mode": "red_puncta",
+        "nuclear_cell_pair_mode": "red_nucleus",
+        "cen_dot_schema_version": 3,
+        "puncta_distance_delta_x_px": 1.0,
+        "puncta_distance_delta_y_px": 0.0,
+        "red_contour_1_center_x_px": 10.0,
+        "red_contour_1_center_y_px": 20.0,
+        "green_contour_1_center_x_px": 30.0,
+        "green_contour_1_center_y_px": 40.0,
+    }
+    if properties:
+        stat_properties.update(properties)
     CellStatistics.objects.create(
         segmented_image=segmented,
         cell_id=cell_id,
+        cell_type=(properties or {}).get("cell_type", "unknown"),
         puncta_distance=1.0,
         puncta_line_intensity=2.0,
         nucleus_intensity_sum=3.0,
         cell_pair_intensity_sum=4.0,
         blue_contour_size=9.0,
         distance_of_green_from_red_1=6.0,
-        red_intensity_1=5.0,
-        green_intensity_1=6.0,
-        red_in_green_intensity_1=7.0,
-        green_in_green_intensity_1=8.0,
+        red_in_red_total_intensity_1=5.0,
+        red_in_red_max_intensity_1=4.0,
+        red_in_red_average_intensity_1=2.5,
+        green_in_red_total_intensity_1=6.0,
+        green_in_red_max_intensity_1=5.0,
+        green_in_red_average_intensity_1=3.0,
+        red_in_green_total_intensity_1=7.0,
+        red_in_green_max_intensity_1=6.0,
+        red_in_green_average_intensity_1=3.5,
+        green_in_green_total_intensity_1=8.0,
+        green_in_green_max_intensity_1=7.0,
+        green_in_green_average_intensity_1=4.0,
         green_red_intensity_1=6.0 / 5.0,
         category_cen_dot=1,
-        properties={
-            "nuclear_cell_pair_mode": "red_nucleus",
-            "cen_dot_schema_version": 3,
-            "puncta_distance_delta_x_px": 1.0,
-            "puncta_distance_delta_y_px": 0.0,
-            "red_contour_1_center_x_px": 10.0,
-            "red_contour_1_center_y_px": 20.0,
-            "green_contour_1_center_x_px": 30.0,
-            "green_contour_1_center_y_px": 40.0,
-        },
+        properties=stat_properties,
     )
 
 

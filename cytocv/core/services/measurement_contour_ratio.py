@@ -22,26 +22,26 @@ _MODE_RATIO_CONFIG = {
     "red_nucleus": {
         "pair_label": "Green/Red",
         "formula_text": "Green In Red / Red In Red",
-        "numerator_prefix": "green_intensity",
-        "denominator_prefix": "red_intensity",
+        "numerator_prefix": "green_in_red_total_intensity",
+        "denominator_prefix": "red_in_red_total_intensity",
     },
     "red_contour": {
         "pair_label": "Green/Red",
         "formula_text": "Green In Red / Red In Red",
-        "numerator_prefix": "green_intensity",
-        "denominator_prefix": "red_intensity",
+        "numerator_prefix": "green_in_red_total_intensity",
+        "denominator_prefix": "red_in_red_total_intensity",
     },
     "green_nucleus": {
         "pair_label": "Red/Green",
         "formula_text": "Red In Green / Green In Green",
-        "numerator_prefix": "red_in_green_intensity",
-        "denominator_prefix": "green_in_green_intensity",
+        "numerator_prefix": "red_in_green_total_intensity",
+        "denominator_prefix": "green_in_green_total_intensity",
     },
     "green_contour": {
         "pair_label": "Red/Green",
         "formula_text": "Red In Green / Green In Green",
-        "numerator_prefix": "red_in_green_intensity",
-        "denominator_prefix": "green_in_green_intensity",
+        "numerator_prefix": "red_in_green_total_intensity",
+        "denominator_prefix": "green_in_green_total_intensity",
     },
 }
 

@@ -12,6 +12,12 @@ from django.db import models
 from django.db.models import Q
 from PIL import Image
 
+from core.cell_types import (
+    CELL_INCLUSION_MODE_CHOICES,
+    CELL_INCLUSION_MODE_PAIRS_ONLY,
+    CELL_TYPE_CHOICES,
+    CELL_TYPE_UNKNOWN,
+)
 from core.config import get_channel_config_for_uuid
 from core.image_sources import is_supported_image_filename, load_image_stack
 
@@ -93,6 +99,11 @@ class SegmentedImage(models.Model):
     ImagePath = models.FilePathField(max_length=512)
     CellPairPrefix = models.FilePathField(max_length=512)
     NumCells = models.IntegerField()
+    cell_inclusion_mode = models.CharField(
+        max_length=32,
+        choices=CELL_INCLUSION_MODE_CHOICES,
+        default=CELL_INCLUSION_MODE_PAIRS_ONLY,
+    )
 
     def __str__(self) -> str:
         return (
@@ -270,6 +281,11 @@ class CellStatistics(models.Model):
 
     segmented_image = models.ForeignKey("SegmentedImage", on_delete=models.CASCADE)
     cell_id = models.IntegerField()
+    cell_type = models.CharField(
+        max_length=16,
+        choices=CELL_TYPE_CHOICES,
+        default=CELL_TYPE_UNKNOWN,
+    )
     puncta_distance = models.FloatField()
     puncta_line_intensity = models.FloatField()
     nucleus_intensity_sum = models.FloatField()
@@ -287,21 +303,45 @@ class CellStatistics(models.Model):
     red_contour_2_size = models.FloatField(default=0.0)
     red_contour_3_size = models.FloatField(default=0.0)
 
-    red_intensity_1 = models.FloatField(default=0.0)
-    red_intensity_2 = models.FloatField(default=0.0)
-    red_intensity_3 = models.FloatField(default=0.0)
+    red_in_red_total_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_max_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_average_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_total_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_max_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_average_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_total_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_max_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    red_in_red_average_intensity_3 = models.FloatField(null=True, blank=True, default=None)
 
-    green_intensity_1 = models.FloatField(default=0.0)
-    green_intensity_2 = models.FloatField(default=0.0)
-    green_intensity_3 = models.FloatField(default=0.0)
+    green_in_red_total_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_max_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_average_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_total_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_max_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_average_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_total_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_max_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    green_in_red_average_intensity_3 = models.FloatField(null=True, blank=True, default=None)
 
-    red_in_green_intensity_1 = models.FloatField(default=0.0)
-    red_in_green_intensity_2 = models.FloatField(default=0.0)
-    red_in_green_intensity_3 = models.FloatField(default=0.0)
+    red_in_green_total_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_max_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_average_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_total_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_max_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_average_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_total_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_max_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    red_in_green_average_intensity_3 = models.FloatField(null=True, blank=True, default=None)
 
-    green_in_green_intensity_1 = models.FloatField(default=0.0)
-    green_in_green_intensity_2 = models.FloatField(default=0.0)
-    green_in_green_intensity_3 = models.FloatField(default=0.0)
+    green_in_green_total_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_max_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_average_intensity_1 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_total_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_max_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_average_intensity_2 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_total_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_max_intensity_3 = models.FloatField(null=True, blank=True, default=None)
+    green_in_green_average_intensity_3 = models.FloatField(null=True, blank=True, default=None)
 
     green_contour_1_size = models.FloatField(default=0.0)
     green_contour_2_size = models.FloatField(default=0.0)

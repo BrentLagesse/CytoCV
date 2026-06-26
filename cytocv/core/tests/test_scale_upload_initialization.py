@@ -14,6 +14,7 @@ from core.metadata_processing.error_handling.source_image_validation import (
     SourceImageValidationResult,
 )
 from core.models import UploadedImage, UploadPreparationJob
+from core.services.channel_presence import ChannelPresence
 from core.services.upload_preparation import run_upload_preparation_job
 
 
@@ -63,13 +64,27 @@ class UploadScaleInitializationTests(TestCase):
                         return_value=metadata_payload,
                     ):
                         with patch(
-                            "core.services.upload_preparation.extract_channel_config",
-                            return_value={
-                                "DIC": 0,
-                                "channel_blue": 1,
-                                "channel_red": 2,
-                                "channel_green": 3,
-                            },
+                            "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                            return_value=(
+                                {
+                                    "DIC": 0,
+                                    "channel_blue": 1,
+                                    "channel_red": 2,
+                                    "channel_green": 3,
+                                },
+                                ChannelPresence(
+                                    present_channels=frozenset(
+                                        {
+                                            "DIC",
+                                            "channel_blue",
+                                            "channel_red",
+                                            "channel_green",
+                                        }
+                                    ),
+                                    missing_channels=frozenset(),
+                                    source="all_present",
+                                ),
+                            ),
                         ):
                             with patch(
                                 "core.services.upload_preparation.generate_preview_assets",
@@ -183,6 +198,32 @@ class UploadScaleInitializationTests(TestCase):
             self.client.session.get("signalQuantificationMode"), "puncta_distance"
         )
         self.assertFalse(self.client.session.get("punctaContourIntensityEnabled"))
+
+    def test_upload_persists_single_channel_puncta_line_modes_in_session(self):
+        for mode in ("red_puncta_only", "green_puncta_only"):
+            with self.subTest(mode=mode):
+                self._post_upload(
+                    metadata_payload={
+                        "metadata_um_per_px": 0.11,
+                        "status": "ok",
+                        "dx": 0.11,
+                        "dy": 0.11,
+                        "dz": 0.2,
+                        "note": "",
+                    },
+                    use_metadata_scale=True,
+                    puncta_line_mode=mode,
+                )
+
+                self.assertEqual(self.client.session.get("puncta_line_mode"), mode)
+                self.assertEqual(
+                    self.client.session.get("selected_analysis"), ["PunctaDistance"]
+                )
+                self.assertTrue(self.client.session.get("signalQuantificationEnabled"))
+                self.assertEqual(
+                    self.client.session.get("signalQuantificationMode"),
+                    "puncta_distance",
+                )
 
     def test_upload_signal_quantification_nuclear_mode_derives_session_selection(self):
         self._post_upload(

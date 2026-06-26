@@ -12,6 +12,10 @@ from core.channel_ordering import (
     normalize_channel_order,
     validate_channel_order,
 )
+from core.cell_types import (
+    CELL_INCLUSION_MODE_PAIRS_ONLY,
+    normalize_cell_inclusion_mode,
+)
 from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
 )
@@ -27,6 +31,10 @@ from core.services.nuclear_cell_pair_contour_mode import (
     DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
     NUCLEAR_CELL_PAIR_CONTOUR_MODES,
     normalize_nuclear_cell_pair_contour_mode,
+)
+from core.services.puncta_source_contour_count_filter import (
+    PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
+    normalize_puncta_source_contour_count_filter,
 )
 from core.services.signal_quantification import (
     DEFAULT_SIGNAL_SELECTED_PLUGINS,
@@ -82,6 +90,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
         "use_legacy_nuclear_cell_pair_pipeline": False,
         "green_contour_filter_enabled": False,
         "alternate_red_detection": False,
+        "cell_inclusion_mode": CELL_INCLUSION_MODE_PAIRS_ONLY,
         "puncta_line_width_unit": "px",
         "cen_dot_distance_unit": "px",
         "cen_dot_proximity_radius_unit": "px",
@@ -101,6 +110,7 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "confirm_multi_cell_deletion": True,
     "sidebar_spatial_stats_unit": "px",
     "main_image_channel": "",
+    "default_puncta_source_contour_count_filter": PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
 }
 
 
@@ -459,6 +469,9 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
             default=False,
         )
     )
+    normalized["experiment_defaults"]["cell_inclusion_mode"] = (
+        normalize_cell_inclusion_mode(defaults_payload.get("cell_inclusion_mode"))
+    )
 
     signal_selection = resolve_signal_quantification_selection(
         payload=defaults_payload,
@@ -520,6 +533,11 @@ def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
         raw_payload.get("main_image_channel"),
         default="",
     )
+    normalized["default_puncta_source_contour_count_filter"] = (
+        normalize_puncta_source_contour_count_filter(
+            raw_payload.get("default_puncta_source_contour_count_filter")
+        )
+    )
     return normalized
 
 
@@ -550,6 +568,7 @@ def build_experiment_defaults_from_popup_payload(
         "red_dot_split_enabled",
         "red_dot_split_mode",
         "alternate_red_detection",
+        "cell_inclusion_mode",
         "puncta_line_width",
         "puncta_line_width_unit",
         "cen_dot_distance",
@@ -565,6 +584,8 @@ def build_experiment_defaults_from_popup_payload(
         "nuclear_cell_pair_mode",
         "nuclear_cell_pair_contour_mode",
         "use_legacy_nuclear_cell_pair_pipeline",
+        "puncta_source_contour_count_filter",
+        "red_contour_count_filter",
         "microns_per_pixel",
         "use_metadata_scale",
         "use_metadata_channel_order",
@@ -683,7 +704,7 @@ def build_experiment_defaults_from_popup_payload(
     puncta_line_mode = _strict_mode(
         raw_payload.get("puncta_line_mode"),
         field="puncta_line_mode",
-        allowed={"red_puncta", "green_puncta"},
+        allowed={"red_puncta", "green_puncta", "red_puncta_only", "green_puncta_only"},
     )
     nuclear_cell_pair_mode = _strict_mode(
         raw_payload.get("nuclear_cell_pair_mode"),
@@ -721,7 +742,6 @@ def build_experiment_defaults_from_popup_payload(
         field="red_dot_split_mode",
         allowed={"balanced", "aggressive"},
     )
-
     signal_payload: dict[str, Any] = {}
     if "signal_quantification_enabled" in raw_payload:
         signal_payload["signal_quantification_enabled"] = _strict_bool(
@@ -822,6 +842,12 @@ def build_experiment_defaults_from_popup_payload(
             "alternate_red_detection": (
                 signal_selection.alternate_nucleus_detection_enabled
             ),
+            "cell_inclusion_mode": normalize_cell_inclusion_mode(
+                raw_payload.get(
+                    "cell_inclusion_mode",
+                    current.get("cell_inclusion_mode"),
+                )
+            ),
             "puncta_line_width": puncta_line_width,
             "puncta_line_width_unit": puncta_line_width_unit,
             "cen_dot_distance": cen_dot_distance,
@@ -862,6 +888,29 @@ def get_user_preferences(user: Any) -> dict[str, Any]:
         return deepcopy(DEFAULT_USER_PREFERENCES)
     config = user.config if isinstance(user.config, dict) else {}
     return normalize_preferences_payload(config.get("preferences"))
+
+
+def resolve_initial_puncta_source_contour_count_filter(
+    request: Any,
+    preferences: dict[str, Any] | None,
+) -> str:
+    """Resolve the result-page initial source-contour row filter."""
+
+    query_params = getattr(request, "GET", None)
+    if hasattr(query_params, "get"):
+        if query_params.get("_puncta_source_contour_count") is not None:
+            return normalize_puncta_source_contour_count_filter(
+                query_params.get("_puncta_source_contour_count")
+            )
+        if query_params.get("_red_contour_count") is not None:
+            return normalize_puncta_source_contour_count_filter(
+                query_params.get("_red_contour_count")
+            )
+
+    payload = preferences if isinstance(preferences, dict) else {}
+    return normalize_puncta_source_contour_count_filter(
+        payload.get("default_puncta_source_contour_count_filter")
+    )
 
 
 def update_user_preferences(

@@ -9,6 +9,10 @@ from uuid import UUID
 from django.conf import settings
 
 from accounts.preferences import should_auto_save_experiments
+from core.cell_types import (
+    CELL_INCLUSION_MODE_PAIRS_ONLY,
+    normalize_cell_inclusion_mode,
+)
 from core.services.biorientation_config import (
     DEFAULT_BIORIENTATION_COLLINEARITY_THRESHOLD_PX,
 )
@@ -63,6 +67,7 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "use_legacy_nuclear_cell_pair_pipeline": False,
     "greenContourFilterEnabled": False,
     "alternateRedDetection": False,
+    "cell_inclusion_mode": CELL_INCLUSION_MODE_PAIRS_ONLY,
     "auto_save_experiments": True,
     "execution_mode": "sync",
 }
@@ -380,6 +385,9 @@ def normalize_analysis_config_snapshot(
             default=False,
         ),
         "alternateRedDetection": effective_alternate_enabled,
+        "cell_inclusion_mode": normalize_cell_inclusion_mode(
+            payload.get("cell_inclusion_mode")
+        ),
         "auto_save_experiments": _parse_bool(
             payload.get("auto_save_experiments"),
             default=True,
@@ -519,6 +527,10 @@ def build_analysis_config_snapshot(request) -> dict[str, object]:
         "alternateRedDetection": request.session.get(
             "alternateRedDetection",
             request.session.get("alternateMCherryDetection", False),
+        ),
+        "cell_inclusion_mode": request.session.get(
+            "cell_inclusion_mode",
+            CELL_INCLUSION_MODE_PAIRS_ONLY,
         ),
         "auto_save_experiments": (
             should_auto_save_experiments(request.user)

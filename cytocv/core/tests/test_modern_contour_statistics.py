@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from pathlib import Path
@@ -326,6 +326,118 @@ class ModernContourStatisticsTests(SimpleTestCase):
             }
         )
 
+    def test_get_stats_stores_source_contour_counts_from_final_canonical_slots(self):
+        red_gray = np.zeros((36, 36), dtype=np.uint8)
+        green_gray = np.zeros_like(red_gray)
+        red_gray[5:10, 5:10] = 255
+        red_gray[16:21, 16:21] = 255
+        red_gray[30:35, 30:35] = 255
+        green_gray[6:11, 6:11] = 255
+        contours_data = {
+            "dot_contours": [
+                self._rect_contour(5, 5, 10, 10),
+                self._rect_contour(16, 16, 21, 21),
+                self._rect_contour(30, 30, 35, 35),
+            ],
+            "contours_green": [
+                self._rect_contour(6, 6, 11, 11),
+            ],
+        }
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["PunctaDistance"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, 26),
+            x_range=range(0, 26),
+            signal_quantification_mode=SIGNAL_MODE_PUNCTA_DISTANCE,
+        )
+
+        self.assertEqual(cp.properties["red_contour_count"], 2)
+        self.assertEqual(cp.properties["green_contour_count"], 1)
+        self.assertEqual(
+            cp.properties["red_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+        self.assertEqual(
+            cp.properties["green_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+        self.assertEqual(cp.properties["puncta_source_contour_count"], 2)
+        self.assertEqual(cp.properties["puncta_source_contour_count_channel"], "red")
+        self.assertEqual(
+            cp.properties["puncta_source_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+
+    def test_get_stats_green_puncta_uses_green_source_contour_count(self):
+        red_gray = np.zeros((36, 36), dtype=np.uint8)
+        green_gray = np.zeros_like(red_gray)
+        red_gray[5:10, 5:10] = 255
+        green_gray[6:11, 6:11] = 255
+        green_gray[18:23, 18:23] = 255
+        contours_data = {
+            "dot_contours": [
+                self._rect_contour(5, 5, 10, 10),
+            ],
+            "contours_green": [
+                self._rect_contour(6, 6, 11, 11),
+                self._rect_contour(18, 18, 23, 23),
+            ],
+        }
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["PunctaDistance"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, 30),
+            x_range=range(0, 30),
+            puncta_line_mode="green_puncta",
+            signal_quantification_mode=SIGNAL_MODE_PUNCTA_DISTANCE,
+        )
+
+        self.assertEqual(cp.properties["red_contour_count"], 1)
+        self.assertEqual(cp.properties["green_contour_count"], 2)
+        self.assertEqual(cp.properties["puncta_source_contour_count"], 2)
+        self.assertEqual(cp.properties["puncta_source_contour_count_channel"], "green")
+
+    def test_get_stats_does_not_count_alternate_red_nucleus_slots(self):
+        red_gray = np.zeros((36, 36), dtype=np.uint8)
+        green_gray = np.zeros_like(red_gray)
+        red_gray[10:20, 10:20] = 255
+        contours_data = {
+            "alternate_nucleus_contours_red": [
+                self._rect_contour(10, 10, 20, 20),
+            ],
+            "contours_green": [],
+        }
+
+        cp, _, _, _ = self._run_get_stats(
+            mode="red_nucleus",
+            selected_analysis=["NuclearCellPairIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, 30),
+            x_range=range(0, 30),
+            alternate_enabled=True,
+            alternate_channel=CHANNEL_ROLE_RED,
+            signal_quantification_mode=SIGNAL_MODE_NUCLEAR_CELL_PAIR,
+        )
+
+        self.assertEqual(cp.properties["red_contour_count"], 0)
+        self.assertEqual(cp.properties["green_contour_count"], 0)
+        self.assertIsNone(cp.properties["puncta_source_contour_count"])
+        self.assertIsNone(cp.properties["puncta_source_contour_count_channel"])
+        self.assertEqual(
+            cp.properties["red_contour_count_source"],
+            "standard_canonical_slots_v1",
+        )
+
     @staticmethod
     def _tightening_support_and_core_images(
         shape: tuple[int, int] = (96, 128),
@@ -386,7 +498,7 @@ class ModernContourStatisticsTests(SimpleTestCase):
         raw_mask = np.zeros(shape, np.uint8)
         raw_mask[4:11, 4:11] = 255
         expected_green = float(np.sum(green_gray[raw_mask > 0]))
-        self.assertEqual(cp.green_intensity_1, expected_green)
+        self.assertEqual(cp.green_in_red_total_intensity_1, expected_green)
         self.assertEqual(cp.nucleus_intensity_sum, expected_green)
         self.assertEqual(
             cp.properties["nuclear_cell_pair_contour_source"], "canonical_slot_1"
@@ -424,9 +536,9 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         expected_red = float(np.sum(red_gray[10:18, 10:18]))
         self.assertGreater(cp.green_contour_1_size, cp.green_contour_2_size)
-        self.assertEqual(cp.red_in_green_intensity_1, expected_red)
+        self.assertEqual(cp.red_in_green_total_intensity_1, expected_red)
         self.assertEqual(cp.nucleus_intensity_sum, expected_red)
-        self.assertLess(cp.red_in_green_intensity_2, cp.red_in_green_intensity_1)
+        self.assertLess(cp.red_in_green_total_intensity_2, cp.red_in_green_total_intensity_1)
 
     def test_get_stats_passes_legacy_exact_cell_pair_mask_to_nuclear_cell_pair(self):
         shape = (20, 20)
@@ -506,8 +618,14 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         self.assertGreater(cp.red_contour_1_size, cp.red_contour_2_size)
         self.assertGreater(cp.red_contour_2_size, cp.red_contour_3_size)
-        self.assertGreater(cp.red_intensity_1, cp.red_intensity_2)
-        self.assertGreater(cp.red_intensity_2, cp.red_intensity_3)
+        self.assertGreater(cp.red_in_red_total_intensity_1, cp.red_in_red_total_intensity_2)
+        self.assertGreater(cp.red_in_red_total_intensity_2, cp.red_in_red_total_intensity_3)
+        self.assertEqual(cp.red_in_red_max_intensity_1, 10.0)
+        self.assertEqual(cp.red_in_red_max_intensity_2, 10.0)
+        self.assertEqual(cp.red_in_red_max_intensity_3, 10.0)
+        self.assertEqual(cp.red_in_red_average_intensity_1, 10.0)
+        self.assertEqual(cp.red_in_red_average_intensity_2, 10.0)
+        self.assertEqual(cp.red_in_red_average_intensity_3, 10.0)
         self.assertAlmostEqual(
             cp.puncta_distance, math.dist((57.0, 17.0), (15.0, 55.0)), places=4
         )
@@ -1385,10 +1503,10 @@ class ModernContourStatisticsTests(SimpleTestCase):
         )
         self.assertNotIn("nuclear_cell_pair_contour_source", cp_on.properties)
         self.assertNotIn("nuclear_cell_pair_contour_source", cp_aggressive.properties)
-        self.assertEqual(getattr(cp_on, "red_intensity_1", 0.0), 0.0)
-        self.assertEqual(getattr(cp_on, "green_intensity_1", 0.0), 0.0)
-        self.assertGreater(getattr(cp_with_intensity, "red_intensity_1", 0.0), 0.0)
-        self.assertGreater(getattr(cp_with_intensity, "green_intensity_1", 0.0), 0.0)
+        self.assertEqual(getattr(cp_on, "red_in_red_total_intensity_1", 0.0), 0.0)
+        self.assertEqual(getattr(cp_on, "green_in_red_total_intensity_1", 0.0), 0.0)
+        self.assertGreater(getattr(cp_with_intensity, "red_in_red_total_intensity_1", 0.0), 0.0)
+        self.assertGreater(getattr(cp_with_intensity, "green_in_red_total_intensity_1", 0.0), 0.0)
 
     def test_live_puncta_mode_with_alternate_enabled_does_not_use_legacy_alternate_red_detection(
         self,
@@ -1541,8 +1659,14 @@ class ModernContourStatisticsTests(SimpleTestCase):
 
         mask = np.zeros(shape, np.uint8)
         cv2.drawContours(mask, [contour], 0, 255, -1)
-        self.assertEqual(cp.red_intensity_1, float(np.sum(raw_red[mask > 0])))
-        self.assertEqual(cp.green_intensity_1, float(np.sum(raw_green[mask > 0])))
+        raw_red_pixels = raw_red[mask > 0]
+        raw_green_pixels = raw_green[mask > 0]
+        self.assertEqual(cp.red_in_red_total_intensity_1, float(np.sum(raw_red_pixels)))
+        self.assertEqual(cp.red_in_red_max_intensity_1, float(np.max(raw_red_pixels)))
+        self.assertEqual(cp.red_in_red_average_intensity_1, float(np.mean(raw_red_pixels)))
+        self.assertEqual(cp.green_in_red_total_intensity_1, float(np.sum(raw_green_pixels)))
+        self.assertEqual(cp.green_in_red_max_intensity_1, float(np.max(raw_green_pixels)))
+        self.assertEqual(cp.green_in_red_average_intensity_1, float(np.mean(raw_green_pixels)))
         self.assertEqual(cp.green_red_intensity_1, 0.25)
         self.assertEqual(cp.properties["intensity_pixel_source"], "raw_dv_v1")
         self.assertFalse(cp.properties["intensity_display_scaled"])
