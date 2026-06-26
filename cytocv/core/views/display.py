@@ -59,6 +59,7 @@ from core.services.artifact_paths import (
     segmented_cell_image_url,
 )
 from core.services.main_image_urls import build_main_image_paths
+from core.services.channel_presence import get_channel_presence
 from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
 from core.services.result_view_payloads import (
     RESULT_CHANNEL_ORDER,
@@ -217,6 +218,12 @@ def display(request, uuids):
             image_name = uploaded_image.name
             # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
+            presence = get_channel_presence(str(uuid))
+            present_channels = (
+                set(presence.present_channels)
+                if presence.present_channels or presence.source != "ambiguous"
+                else None
+            )
             # Sort by saved index so the sidebar mirrors the detected file order.
             detected = detected_channel_labels(channel_config)
 
@@ -318,7 +325,13 @@ def display(request, uuids):
                 images[str(i)] = []
                 cell_stat = stats_by_id.get(i)
                 for channel_name in channel_order:
+                    if present_channels is not None and channel_name not in present_channels:
+                        images[str(i)].extend(["", ""])
+                        continue
                     channel_index = channel_config.get(channel_name)
+                    if channel_index is None:
+                        images[str(i)].extend(["", ""])
+                        continue
                     no_outline = segmented_cell_image_url(
                         uuid=uuid,
                         image_name=image_name_stem,

@@ -396,6 +396,40 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
         self.assertEqual(row.get_cell("cell_pair_intensity_sum"), "N/A")
         self.assertEqual(row.get_cell("nuclear_cytoplasmic_ratio"), "N/A")
 
+    def test_unavailable_fields_render_and_export_as_na_within_selected_groups(self):
+        record = _stats_record(
+            properties={
+                "selected_analysis": ["PunctaDistance", "GreenRedIntensity"],
+                "puncta_line_mode": "red_puncta_only",
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "unavailable_stat_fields": [
+                    "puncta_line_intensity",
+                    "green_red_intensity_1",
+                ],
+            },
+        )
+        table = CellTable(
+            [record],
+            intensity_mode="green_nucleus",
+            puncta_line_mode="red_puncta_only",
+        )
+        row = list(table.rows)[0]
+        values = list(table.as_values())
+        header = values[0]
+        value_row = values[1]
+
+        self.assertEqual(row.get_cell("puncta_distance"), "10.000")
+        self.assertEqual(row.get_cell("puncta_line_intensity"), "N/A")
+        self.assertEqual(row.get_cell("green_red_intensity_1"), "N/A")
+        self.assertEqual(
+            value_row[header.index("Opposite-Channel Line Intensity (N/A)")],
+            "N/A",
+        )
+        self.assertEqual(
+            value_row[header.index("Measurement/Contour Ratio 1 (Red/Green)")],
+            "N/A",
+        )
+
     def test_cen_dot_disabled_outputs_na_despite_stored_values(self):
         record = _stats_record(
             properties={

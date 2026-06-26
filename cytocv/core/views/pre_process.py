@@ -53,6 +53,7 @@ from core.services.nuclear_cell_pair_contour_mode import (
 from core.services.signal_quantification import (
     resolve_signal_quantification_selection,
 )
+from core.stats_plugins import build_requirement_summary
 from core.services.progress_request_helpers import (
     ProgressRequestError,
     current_owner_filter as _current_owner_filter,
@@ -108,6 +109,7 @@ from core.services.artifact_storage import (
     log_storage_capacity_failure,
     sweep_user_run_artifacts,
 )
+from core.services.channel_presence import get_channel_presence
 
 NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 PROCESSING_STORAGE_FULL_MESSAGE = (
@@ -167,6 +169,18 @@ def _channel_labels_from_config(config: dict[str, int]) -> list[str]:
     ]
 
 
+def _channel_labels_for_present_config(
+    config: dict[str, int],
+    present_channels,
+) -> list[str]:
+    present = set(present_channels or CHANNEL_ROLE_ORDER)
+    return [
+        channel_display_label(channel)
+        for channel, _ in sorted(config.items(), key=lambda item: item[1])
+        if channel in present
+    ]
+
+
 def _parse_bool(value, default: bool = False) -> bool:
     """Parse common truthy/falsy request/session values."""
 
@@ -191,6 +205,29 @@ def _delete_cancelled_runs(request, uuid_values: list[str]) -> None:
     for run_uuid in owned_uuids:
         delete_uploaded_run_by_uuid(run_uuid)
     prune_experiment_session_state(request, owned_uuids)
+
+
+def _missing_required_channels_for_batch(
+    uuid_values: list[str],
+    *,
+    selected_plugins,
+    puncta_line_mode: str,
+) -> dict[str, set[str]]:
+    required_channels = set(
+        build_requirement_summary(
+            selected_plugins,
+            puncta_line_mode=puncta_line_mode,
+        )["required_channels"]
+    )
+    missing_by_uuid: dict[str, set[str]] = {}
+    for run_uuid in uuid_values:
+        presence = get_channel_presence(run_uuid)
+        if not presence.present_channels:
+            continue
+        missing = required_channels - set(presence.present_channels)
+        if missing:
+            missing_by_uuid[str(run_uuid)] = missing
+    return missing_by_uuid
 
 
 @require_GET
@@ -304,7 +341,11 @@ def pre_process(request, uuids):
                 cfg,
                 prefer_metadata=prefer_metadata_channel_order,
             )
-            detected_channels = _channel_labels_from_config(cfg)
+            presence = get_channel_presence(uid)
+            detected_channels = _channel_labels_for_present_config(
+                cfg,
+                presence.present_channels or CHANNEL_ROLE_ORDER,
+            )
         else:
             # fallback: parse the stored source image file
             source_path = Path(MEDIA_ROOT) / str(uploaded.file_location)
@@ -314,7 +355,11 @@ def pre_process(request, uuids):
                     prefer_metadata=prefer_metadata_channel_order,
                     fallback_order=fallback_channel_order,
                 )
-                detected_channels = _channel_labels_from_config(cfg)
+                presence = get_channel_presence(uid)
+                detected_channels = _channel_labels_for_present_config(
+                    cfg,
+                    presence.present_channels or CHANNEL_ROLE_ORDER,
+                )
             else:
                 detected_channels = []
 
@@ -702,6 +747,24 @@ def pre_process(request, uuids):
         request.session["punctaContourIntensityEnabled"] = (
             signal_selection.puncta_contour_intensity_enabled
         )
+        missing_required = _missing_required_channels_for_batch(
+            uuid_list,
+            selected_plugins=signal_selection.selected_plugins,
+            puncta_line_mode=puncta_line_mode,
+        )
+        if missing_required:
+            first_missing = next(iter(missing_required.values()))
+            missing_labels = ", ".join(
+                channel_display_label(channel)
+                for channel in sorted(first_missing)
+            )
+            error_message = (
+                "Selected statistics require unavailable channel(s): "
+                f"{missing_labels}."
+            )
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"error": error_message}, status=400)
+            return HttpResponse(error_message, status=400)
         context = build_analysis_batch_context(request, uuid_list)
         batch_key = context.batch_key
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -944,10 +1007,11 @@ def update_channel_order(request, uuid):
             return JsonResponse({"error": "Invalid channel order."}, status=400)
 
         normalized_order = [normalize_channel_role(channel) for channel in new_order]
-        expected = set(CHANNEL_ROLE_ORDER)
+        presence = get_channel_presence(uuid)
+        expected = set(presence.present_channels or CHANNEL_ROLE_ORDER)
         if (
             any(channel is None for channel in normalized_order)
-            or len(normalized_order) != len(CHANNEL_ROLE_ORDER)
+            or len(normalized_order) != len(expected)
             or set(normalized_order) != expected
         ):
             return JsonResponse({"error": "Invalid channel order."}, status=400)

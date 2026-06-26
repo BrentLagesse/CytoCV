@@ -72,9 +72,9 @@ def map_tiff_label_to_channel_role(label: str) -> str | None:
 
 
 def build_tiff_channel_config_from_labels(labels: list[str]) -> dict[str, int] | None:
-    """Build a complete channel config from TIFF labels, or None when ambiguous."""
+    """Build a channel config from TIFF labels, or None when ambiguous."""
 
-    if len(labels) != len(_CHANNEL_ROLES):
+    if len(labels) not in {3, len(_CHANNEL_ROLES)}:
         return None
 
     config: dict[str, int] = {}
@@ -84,7 +84,10 @@ def build_tiff_channel_config_from_labels(labels: list[str]) -> dict[str, int] |
             return None
         config[role] = index
 
-    if set(config) != _CHANNEL_ROLES:
+    missing_roles = _CHANNEL_ROLES - set(config)
+    if len(labels) == len(_CHANNEL_ROLES) and missing_roles:
+        return None
+    if len(labels) == 3 and (len(missing_roles) != 1 or CHANNEL_ROLE_DIC in missing_roles):
         return None
     return config
 

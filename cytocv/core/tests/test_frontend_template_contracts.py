@@ -17,11 +17,11 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "table-filter-skeleton-align-20260624"
+RESULTS_VIEWER_CSS_VERSION = "source-contour-spatial-gap-v2-20260625"
 RESULTS_VIEWER_JS_VERSION = "source-contour-filter-copy-20260624"
 PAGE_VIEWER_JS_VERSION = "contour-intensity-toggle-slide-20260623"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
-EXPERIMENT_JS_VERSION = "cell-inclusion-ui-20260623"
+EXPERIMENT_JS_VERSION = "metadata-driven-3plane-20260626"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
 SCALE_REVERT_ICON_VERSION = "scale-revert-icon-20260610"
 PREPROCESS_CSS_VERSION = "preprocess-channel-label-nudge-20260610"
@@ -333,6 +333,11 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('accept=".dv,.tif,.tiff"', content)
         self.assertIn('id="uploadPreparationConfig"', content)
         self.assertIn('id="statsPluginPayload"', content)
+        self.assertIn('"puncta_line_modes"', content)
+        self.assertIn('"red_puncta_only"', content)
+        self.assertIn('"green_puncta_only"', content)
+        self.assertIn('"Red Puncta Only"', content)
+        self.assertIn('"Green Puncta Only"', content)
         self.assertNotIn('id="resultFiltersList"', content)
         self.assertNotIn("Result Filters", content)
         self.assertIn("Puncta &amp; Contour Detection", content)

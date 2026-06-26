@@ -176,6 +176,13 @@ def _visibility_from_properties(properties: Mapping[str, Any]) -> dict[str, bool
     return None
 
 
+def _unavailable_fields_from_properties(properties: Mapping[str, Any]) -> set[str]:
+    raw_fields = properties.get("unavailable_stat_fields")
+    if not isinstance(raw_fields, (list, tuple, set)):
+        return set()
+    return {str(field) for field in raw_fields if str(field)}
+
+
 def _union_visibility(records: list[Any]) -> dict[str, bool] | None:
     aggregate: dict[str, bool] | None = None
     for record in records:
@@ -232,6 +239,9 @@ def is_field_applicable(
 ) -> bool:
     """Return whether a field should display its stored value for ``record``."""
 
+    properties = _properties_from_source(record)
+    if field_name in _unavailable_fields_from_properties(properties):
+        return False
     group_name = stat_group_for_field(field_name)
     if group_name is None:
         return True

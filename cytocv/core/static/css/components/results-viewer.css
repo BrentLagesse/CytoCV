@@ -883,19 +883,20 @@ a:hover {
 }
 
 .table-puncta-source-contour-filter[data-puncta-source-contour-filter] {
-    flex: 0 0 348px;
-    width: 348px;
-    min-width: 348px;
+    flex: 0 0 auto;
+    width: fit-content;
+    min-width: 0;
+    padding-right: 9px;
 }
 
 .table-puncta-source-contour-filter[data-puncta-source-contour-filter] .table-filter-trigger {
-    flex-basis: 132px;
-    width: 132px;
-    min-width: 132px;
+    flex-basis: 104px;
+    width: 104px;
+    min-width: 104px;
 }
 
 .table-puncta-source-contour-filter[data-puncta-source-contour-filter] .table-filter-menu {
-    min-width: 132px;
+    min-width: 104px;
 }
 
 .table-puncta-source-contour-filter.is-disabled {
@@ -2240,7 +2241,7 @@ a:hover {
 }
 
 .skeleton-table-source-contour-filter {
-    width: 348px;
+    width: 298px;
 }
 
 .skeleton-table-spatial-unit {

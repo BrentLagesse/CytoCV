@@ -421,7 +421,10 @@ def get_stats(
         )
 
     if execution_plan is None:
-        execution_plan = build_stats_execution_plan(conf.get("analysis", []))
+        execution_plan = build_stats_execution_plan(
+            conf.get("analysis", []),
+            puncta_line_mode=conf.get("puncta_line_mode"),
+        )
     selected_plugins = list(execution_plan.selected_plugins)
     selected_plugin_set = set(selected_plugins)
     raw_alternate_detection_channel = (
@@ -523,7 +526,7 @@ def get_stats(
             cp.properties["puncta_source_contour_count"] = None
             cp.properties["puncta_source_contour_count_channel"] = None
             return
-        if cp.properties.get("puncta_line_mode") == "green_puncta":
+        if cp.properties.get("puncta_line_mode") in {"green_puncta", "green_puncta_only"}:
             cp.properties["puncta_source_contour_count"] = green_count
             cp.properties["puncta_source_contour_count_channel"] = "green"
         else:
@@ -1190,7 +1193,8 @@ def segment_image(request, uuids):
             configuration = settings.DEFAULT_SEGMENT_CONFIG
 
         execution_plan = build_stats_execution_plan(
-            request.session.get("selected_analysis", [])
+            request.session.get("selected_analysis", []),
+            puncta_line_mode=request.session.get("puncta_line_mode"),
         )
         selected_analysis = list(execution_plan.selected_plugins)
         single_cell_execution_plan = build_stats_execution_plan(
@@ -1198,7 +1202,8 @@ def segment_image(request, uuids):
                 plugin_id
                 for plugin_id in selected_analysis
                 if plugin_id in {"PunctaDistance", "GreenRedIntensity"}
-            ]
+            ],
+            puncta_line_mode=request.session.get("puncta_line_mode"),
         )
         raw_puncta_line_width = request.session.get(
             "stats_puncta_line_width_value",

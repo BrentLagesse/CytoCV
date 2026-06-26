@@ -33,6 +33,7 @@ from core.models import (
     get_guest_user,
 )
 from core.mrcnn.preprocess_images import PreprocessedImageArtifact, preprocess_images
+from core.services.channel_presence import ChannelPresence
 from core.services.artifact_storage import (
     PRE_PROCESS_FOLDER_NAME,
     PREVIEW_FOLDER_NAME,
@@ -776,9 +777,17 @@ class ExperimentStorageIntegrationTests(ArtifactStorageTestCase):
                 },
             )()
 
+            all_present = ChannelPresence(
+                present_channels=frozenset(
+                    {"DIC", "channel_blue", "channel_red", "channel_green"}
+                ),
+                missing_channels=frozenset(),
+                source="all_present",
+            )
+
             with patch("core.services.upload_preparation.validate_source_image_file", return_value=valid_result), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value=DEFAULT_CHANNEL_CONFIG,
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=(DEFAULT_CHANNEL_CONFIG, all_present),
             ), patch(
                 "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},

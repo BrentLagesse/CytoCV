@@ -288,7 +288,7 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             results_css,
-            r"\.skeleton-table-source-contour-filter\s*\{[^}]*width:\s*348px;",
+            r"\.skeleton-table-source-contour-filter\s*\{[^}]*width:\s*298px;",
         )
         self.assertRegex(
             results_css,
@@ -381,15 +381,15 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             results_css,
-            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s*\{[^}]*flex:\s*0 0 348px;[^}]*width:\s*348px;[^}]*min-width:\s*348px;",
+            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s*\{[^}]*flex:\s*0 0 auto;[^}]*width:\s*fit-content;[^}]*min-width:\s*0;[^}]*padding-right:\s*9px;",
         )
         self.assertRegex(
             results_css,
-            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-trigger\s*\{[^}]*flex-basis:\s*132px;[^}]*width:\s*132px;[^}]*min-width:\s*132px;",
+            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-trigger\s*\{[^}]*flex-basis:\s*104px;[^}]*width:\s*104px;[^}]*min-width:\s*104px;",
         )
         self.assertRegex(
             results_css,
-            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-menu\s*\{[^}]*min-width:\s*132px;",
+            r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-menu\s*\{[^}]*min-width:\s*104px;",
         )
         self.assertRegex(
             results_css,

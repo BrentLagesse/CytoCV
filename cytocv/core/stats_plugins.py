@@ -23,6 +23,10 @@ from core.channel_roles import (
     channel_display_label,
     channel_sort_key,
 )
+from core.services.puncta_line_mode import (
+    get_puncta_line_mode_options,
+    required_channels_for_puncta_line_mode,
+)
 
 CHANNEL_ORDER: tuple[str, ...] = CHANNEL_ROLE_ORDER
 ALWAYS_REQUIRED_CHANNELS: frozenset[str] = frozenset({CHANNEL_ROLE_DIC})
@@ -231,10 +235,15 @@ def _expand_normalized_plugins(normalized_plugins: Iterable[str]) -> list[str]:
 
 def _get_required_channels_for_expanded_plugins(
     expanded_plugins: Iterable[str],
+    *,
+    puncta_line_mode: Any = None,
 ) -> list[str]:
     required_channels = set(ALWAYS_REQUIRED_CHANNELS)
     for plugin_id in expanded_plugins:
-        required_channels.update(PLUGIN_DEFINITIONS[plugin_id].required_channels)
+        if plugin_id == "PunctaDistance":
+            required_channels.update(required_channels_for_puncta_line_mode(puncta_line_mode))
+        else:
+            required_channels.update(PLUGIN_DEFINITIONS[plugin_id].required_channels)
     return sorted(required_channels, key=_channel_sort_key)
 
 
@@ -248,17 +257,34 @@ def expand_selected_plugins(selected_plugins: Iterable[str]) -> list[str]:
     return _expand_normalized_plugins(normalize_selected_plugins(selected_plugins))
 
 
-def get_required_channels_for_plugins(selected_plugins: Iterable[str]) -> tuple[list[str], list[str]]:
+def get_required_channels_for_plugins(
+    selected_plugins: Iterable[str],
+    *,
+    puncta_line_mode: Any = None,
+) -> tuple[list[str], list[str]]:
     """Return sorted required channels and normalized+expanded plugin IDs."""
 
     expanded_plugins = expand_selected_plugins(selected_plugins)
-    return _get_required_channels_for_expanded_plugins(expanded_plugins), expanded_plugins
+    return (
+        _get_required_channels_for_expanded_plugins(
+            expanded_plugins,
+            puncta_line_mode=puncta_line_mode,
+        ),
+        expanded_plugins,
+    )
 
 
-def build_requirement_summary(selected_plugins: Iterable[str]) -> dict:
+def build_requirement_summary(
+    selected_plugins: Iterable[str],
+    *,
+    puncta_line_mode: Any = None,
+) -> dict:
     """Build channel requirement metadata for UI and validation."""
 
-    required_channels, expanded_plugins = get_required_channels_for_plugins(selected_plugins)
+    required_channels, expanded_plugins = get_required_channels_for_plugins(
+        selected_plugins,
+        puncta_line_mode=puncta_line_mode,
+    )
     required_channel_set = set(required_channels)
 
     required_sources: dict[str, list[str]] = {channel: [] for channel in CHANNEL_ORDER}
@@ -267,7 +293,12 @@ def build_requirement_summary(selected_plugins: Iterable[str]) -> dict:
             required_sources[channel].append(SEGMENTATION_REQUIREMENT_LABEL)
     for plugin_id in expanded_plugins:
         definition = PLUGIN_DEFINITIONS[plugin_id]
-        for channel in definition.required_channels:
+        plugin_required_channels = (
+            required_channels_for_puncta_line_mode(puncta_line_mode)
+            if plugin_id == "PunctaDistance"
+            else definition.required_channels
+        )
+        for channel in plugin_required_channels:
             required_sources.setdefault(channel, [])
             required_sources[channel].append(plugin_id)
 
@@ -279,12 +310,19 @@ def build_requirement_summary(selected_plugins: Iterable[str]) -> dict:
     }
 
 
-def build_stats_execution_plan(selected_plugins: Iterable[str]) -> StatsExecutionPlan:
+def build_stats_execution_plan(
+    selected_plugins: Iterable[str],
+    *,
+    puncta_line_mode: Any = None,
+) -> StatsExecutionPlan:
     """Build normalized stats setup once for reuse across all cells in a run."""
 
     normalized_plugins = normalize_selected_plugins(selected_plugins)
     expanded_plugins = _expand_normalized_plugins(normalized_plugins)
-    required_channels = _get_required_channels_for_expanded_plugins(expanded_plugins)
+    required_channels = _get_required_channels_for_expanded_plugins(
+        expanded_plugins,
+        puncta_line_mode=puncta_line_mode,
+    )
     return StatsExecutionPlan(
         normalized_plugins=tuple(normalized_plugins),
         selected_plugins=tuple(expanded_plugins),
@@ -297,6 +335,15 @@ def build_stats_execution_plan(selected_plugins: Iterable[str]) -> StatsExecutio
 def build_plugin_ui_payload() -> dict:
     """Return serializable metadata for upload-page statistics settings."""
 
+    puncta_line_modes = []
+    for option in get_puncta_line_mode_options():
+        option_payload = dict(option)
+        option_payload["required_channels"] = sorted(
+            option_payload.get("required_channels", []),
+            key=_channel_sort_key,
+        )
+        puncta_line_modes.append(option_payload)
+
     plugins = []
     for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
@@ -306,6 +353,29 @@ def build_plugin_ui_payload() -> dict:
                 "label": definition.label,
                 "description": definition.description,
                 "required_channels": sorted(definition.required_channels, key=_channel_sort_key),
+                "puncta_line_modes": puncta_line_modes if definition.plugin_id == "PunctaDistance" else [],
+                "puncta_line_mode_required_channels": (
+                    {
+                        "red_puncta": sorted(
+                            required_channels_for_puncta_line_mode("red_puncta"),
+                            key=_channel_sort_key,
+                        ),
+                        "green_puncta": sorted(
+                            required_channels_for_puncta_line_mode("green_puncta"),
+                            key=_channel_sort_key,
+                        ),
+                        "red_puncta_only": sorted(
+                            required_channels_for_puncta_line_mode("red_puncta_only"),
+                            key=_channel_sort_key,
+                        ),
+                        "green_puncta_only": sorted(
+                            required_channels_for_puncta_line_mode("green_puncta_only"),
+                            key=_channel_sort_key,
+                        ),
+                    }
+                    if definition.plugin_id == "PunctaDistance"
+                    else {}
+                ),
                 "required_channel_labels": [
                     channel_display_label(channel)
                     for channel in sorted(definition.required_channels, key=_channel_sort_key)
@@ -323,6 +393,7 @@ def build_plugin_ui_payload() -> dict:
         "always_required_channels": sorted(ALWAYS_REQUIRED_CHANNELS, key=_channel_sort_key),
         "channel_info": CHANNEL_INFO,
         "channel_labels": {channel: channel_display_label(channel) for channel in CHANNEL_ORDER},
+        "puncta_line_modes": puncta_line_modes,
     }
 
 

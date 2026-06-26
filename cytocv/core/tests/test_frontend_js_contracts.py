@@ -50,6 +50,79 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
         self.assertIn("Default Source Contour Count Filter:", source)
         self.assertIn("refreshCustomSelect(defaultPunctaSourceContourCountFilterInput)", source)
 
+    def test_experiment_puncta_source_dropdown_exposes_single_channel_modes(self):
+        source = static_text("js/pages/experiment.js")
+
+        for key, label in (
+            ("red_puncta", "Red Puncta (Measure Green)"),
+            ("green_puncta", "Green Puncta (Measure Red)"),
+            ("red_puncta_only", "Red Puncta Only"),
+            ("green_puncta_only", "Green Puncta Only"),
+        ):
+            with self.subTest(mode=key):
+                self.assertIn(key, source)
+                self.assertIn(label, source)
+
+        self.assertIn("statsPayload.puncta_line_modes", source)
+        self.assertIn("punctaPlugin.puncta_line_modes", source)
+        assert_in_order(
+            self,
+            source,
+            "function renderSignalQuantificationModule(list)",
+            "punctaLineModeSelect = buildCustomModeSelect(",
+            "punctaModeOptions,",
+        )
+        self.assertNotIn("getDisabledPunctaModeValues", source)
+
+    def test_experiment_upload_uses_metadata_not_manual_missing_channel_selector(self):
+        source = static_text("js/pages/experiment.js")
+
+        self.assertNotIn("Missing Channel For 3-Plane Files", source)
+        self.assertNotIn("Missing Blue", source)
+        self.assertNotIn("Missing Red", source)
+        self.assertNotIn("Missing Green", source)
+        self.assertNotIn("prepData.append('missing_channel'", source)
+        self.assertNotIn("normalizeMissingChannel", source)
+
+    def test_experiment_single_channel_puncta_modes_drive_required_channels(self):
+        source = static_text("js/pages/experiment.js")
+
+        self.assertIn("function getPunctaModeRequiredChannels", source)
+        self.assertIn("if (normalized === 'red_puncta_only') return ['channel_red'];", source)
+        self.assertIn("if (normalized === 'green_puncta_only') return ['channel_green'];", source)
+        self.assertIn("return ['channel_red', 'channel_green'];", source)
+        self.assertIn("return getPunctaModeRequiredChannels();", source)
+        self.assertIn("isSingleChannelPunctaSignalModeActive() && redGreenPairedPluginIds.has(pluginId)", source)
+        self.assertIn("Single-channel puncta mode on. Paired Red/Green modules disabled.", source)
+        self.assertIn("if (mode === 'red_puncta_only') return 'Red Contour Intensities';", source)
+        self.assertIn("if (mode === 'green_puncta_only') return 'Green Contour Intensities';", source)
+
+    def test_experiment_single_channel_puncta_modes_pause_without_forgetting_paired_modules(self):
+        source = static_text("js/pages/experiment.js")
+
+        self.assertNotIn(
+            "redGreenPairedPluginIds.forEach((pluginId) => statsState.selectedPlugins.delete(pluginId));",
+            source,
+        )
+        assert_in_order(
+            self,
+            source,
+            "function syncSignalSelectedPlugins()",
+            "statsState.selectedPlugins.add('PunctaDistance');",
+            "if (statsState.punctaContourIntensityEnabled && !isSingleChannelPunctaMode())",
+        )
+        assert_in_order(
+            self,
+            source,
+            "function getEffectiveSelectedPlugins()",
+            "if (isSingleChannelPunctaSignalModeActive())",
+            "[...statsState.selectedPlugins].filter((pluginId) => !redGreenPairedPluginIds.has(pluginId))",
+        )
+        self.assertIn(
+            "return isSingleChannelPunctaSignalModeActive() && redGreenPairedPluginIds.has(pluginId);",
+            source,
+        )
+
     def test_export_selection_quick_select_js_uses_metadata_not_labels(self):
         source = static_text("js/export_selection_modal.js")
 

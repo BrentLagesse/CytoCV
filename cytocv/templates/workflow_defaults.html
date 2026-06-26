@@ -91,7 +91,7 @@
                     <p class="module-help">Chooses which channel defines the two puncta and which opposite channel is measured. Red Puncta measures Green signal along the Red-puncta line; Green Puncta measures Red signal along the Green-puncta line.</p>
                   </div>
                   <div class="mode-select-group plugin-measure-right">
-                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option></select>
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option><option value="red_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta_only' %}selected{% endif %}>Red Puncta Only</option><option value="green_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta_only' %}selected{% endif %}>Green Puncta Only</option></select>
                   </div>
                 </div>
                 <div class="plugin-measure-line">
@@ -182,7 +182,7 @@
                     <p class="module-help">Chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.</p>
                   </div>
                   <div class="mode-select-group plugin-measure-right">
-                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option></select>
+                    <select id="puncta_line_mode" name="puncta_line_mode"><option value="red_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta' %}selected{% endif %}>Red Puncta (Measure Green)</option><option value="green_puncta" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta' %}selected{% endif %}>Green Puncta (Measure Red)</option><option value="red_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'red_puncta_only' %}selected{% endif %}>Red Puncta Only</option><option value="green_puncta_only" {% if preferences.experiment_defaults.puncta_line_mode == 'green_puncta_only' %}selected{% endif %}>Green Puncta Only</option></select>
                   </div>
                 </div>
                 <div class="plugin-measure-line">

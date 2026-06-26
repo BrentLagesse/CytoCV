@@ -47,6 +47,7 @@ from core.services.biorientation_config import (
 )
 from core.services.puncta_line_mode import (
     DEFAULT_PUNCTA_LINE_MODE,
+    get_puncta_line_mode_metadata,
     normalize_puncta_line_mode,
 )
 from core.services.dot_split import (
@@ -290,6 +291,24 @@ def _parse_puncta_line_mode(
     """Parse puncta-line mode for PunctaDistance."""
 
     return normalize_puncta_line_mode(value, default=default)
+
+
+def _configured_experiment_label(
+    *,
+    signal_selection,
+    puncta_line_mode: str,
+    selected_analysis: list[str],
+) -> str:
+    if getattr(signal_selection, "enabled", False):
+        mode = getattr(signal_selection, "mode", "")
+        if mode == "puncta_distance" and "PunctaDistance" in selected_analysis:
+            puncta_label = get_puncta_line_mode_metadata(puncta_line_mode)["selector_label"]
+            return f"Puncta Distance - {puncta_label}"
+        if mode == "nuclear_cell_pair" and "NuclearCellPairIntensity" in selected_analysis:
+            return "Nuclear, Cell-Pair Intensity"
+    if selected_analysis:
+        return ", ".join(selected_analysis)
+    return "Cell Segmentation"
 
 
 def _parse_restore_uuids(raw_values) -> list[str]:
@@ -753,7 +772,15 @@ def _parse_experiment_submission(
         ),
     )
     selected_analysis = list(signal_selection.selected_plugins)
-    requirement_summary = build_requirement_summary(selected_analysis)
+    configured_experiment_label = _configured_experiment_label(
+        signal_selection=signal_selection,
+        puncta_line_mode=puncta_line_mode,
+        selected_analysis=selected_analysis,
+    )
+    requirement_summary = build_requirement_summary(
+        selected_analysis,
+        puncta_line_mode=puncta_line_mode,
+    )
 
     module_enabled = _parse_bool(payload.get("cytocv_analysis_enabled"), default=False)
     enforce_layer_count = module_enabled and _parse_bool(
@@ -821,6 +848,7 @@ def _parse_experiment_submission(
             "enforce_layer_count": enforce_layer_count,
             "enforce_wavelengths": enforce_wavelengths,
             "required_channels": sorted(required_channels),
+            "configured_experiment_label": configured_experiment_label,
         },
     }
     return session_values, config_snapshot

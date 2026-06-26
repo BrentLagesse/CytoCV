@@ -4295,7 +4295,11 @@ class ChannelVisibilityPreferenceTests(TestCase):
             experiment_source,
         )
         self.assertIn(
-            "Red/Green Contour Intensities optionally calculates raw intensity sums inside detected Red and Green contour masks.",
+            "Contour Intensities optionally calculates raw intensity sums inside detected contour masks.",
+            experiment_source,
+        )
+        self.assertIn(
+            "Red Puncta Only and Green Puncta Only calculate same-channel contours and same-channel distance only.",
             experiment_source,
         )
         self.assertIn(
@@ -5071,6 +5075,24 @@ class ChannelVisibilityPreferenceTests(TestCase):
             defaults["fallback_channel_order"],
             [CHANNEL_ROLE_GREEN, CHANNEL_ROLE_DIC, CHANNEL_ROLE_RED, CHANNEL_ROLE_BLUE],
         )
+
+    def test_plugin_settings_form_persists_single_channel_puncta_modes(self):
+        for mode in ("red_puncta_only", "green_puncta_only"):
+            with self.subTest(mode=mode):
+                response = self.client.post(
+                    reverse("workflow_defaults"),
+                    {
+                        "action": "save_plugin_defaults",
+                        "selected_plugins": ["PunctaDistance"],
+                        "puncta_line_mode": mode,
+                    },
+                )
+                self.assertEqual(response.status_code, 302)
+
+                self.user.refresh_from_db()
+                defaults = get_user_preferences(self.user)["experiment_defaults"]
+                self.assertEqual(defaults["selected_plugins"], ["PunctaDistance"])
+                self.assertEqual(defaults["puncta_line_mode"], mode)
 
     def test_plugin_settings_form_preserves_paused_secondary_plugins_in_nuclear_mode(
         self,

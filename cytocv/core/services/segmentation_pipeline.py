@@ -754,7 +754,8 @@ def run_segmentation_batch(
             else settings.DEFAULT_SEGMENT_CONFIG
         )
         execution_plan = build_stats_execution_plan(
-            config_snapshot.get("selected_analysis", [])
+            config_snapshot.get("selected_analysis", []),
+            puncta_line_mode=config_snapshot.get("puncta_line_mode"),
         )
         selected_analysis = list(execution_plan.selected_plugins)
         single_cell_execution_plan = build_stats_execution_plan(
@@ -762,7 +763,8 @@ def run_segmentation_batch(
                 plugin_id
                 for plugin_id in selected_analysis
                 if plugin_id in {"PunctaDistance", "GreenRedIntensity"}
-            ]
+            ],
+            puncta_line_mode=config_snapshot.get("puncta_line_mode"),
         )
         raw_puncta_line_width = config_snapshot.get(
             "stats_puncta_line_width_value",

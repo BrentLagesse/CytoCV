@@ -14,7 +14,7 @@ from core.services.measurement_contour_ratio import (
 )
 from core.services.puncta_line_mode import get_puncta_line_mode_metadata
 from core.services.cell_parentage import cell_parentage_payload_from_properties
-from core.services.stat_applicability import resolve_stat_visibility, stat_group_for_field
+from core.services.stat_applicability import resolve_stat_visibility, is_field_applicable
 
 
 def normalize_channel_display_name(value: Any, default: str = "") -> str:
@@ -81,12 +81,29 @@ def serialize_cell_statistics_payload(
                 "measurement_contour_ratio_display_text": "N/A",
             }
         )
+    else:
+        for index in range(1, 4):
+            field_name = f"measurement_contour_ratio_{index}"
+            if not is_field_applicable(
+                cell_stat,
+                field_name,
+                stat_visibility=stat_visibility,
+            ):
+                ratio_payload[field_name] = None
+        if all(
+            ratio_payload.get(f"measurement_contour_ratio_{index}") is None
+            for index in range(1, 4)
+        ):
+            ratio_payload["measurement_contour_ratio_display_text"] = "N/A"
     contour_center_payloads = contour_center_payloads_from_properties(properties)
     cell_type = cell_type_from_statistics(cell_stat)
 
     def stat_value(field_name: str, value: Any) -> Any:
-        group_name = stat_group_for_field(field_name)
-        if group_name is not None and not stat_visibility.get(group_name, True):
+        if not is_field_applicable(
+            cell_stat,
+            field_name,
+            stat_visibility=stat_visibility,
+        ):
             return None
         return value
 

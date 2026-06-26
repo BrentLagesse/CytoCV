@@ -704,7 +704,7 @@ def build_experiment_defaults_from_popup_payload(
     puncta_line_mode = _strict_mode(
         raw_payload.get("puncta_line_mode"),
         field="puncta_line_mode",
-        allowed={"red_puncta", "green_puncta"},
+        allowed={"red_puncta", "green_puncta", "red_puncta_only", "green_puncta_only"},
     )
     nuclear_cell_pair_mode = _strict_mode(
         raw_payload.get("nuclear_cell_pair_mode"),

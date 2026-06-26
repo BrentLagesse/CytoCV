@@ -39,6 +39,51 @@
     const channelLabels = statsPayload.channel_labels || {};
     const pluginMap = new Map(statsPlugins.map((plugin) => [plugin.id, plugin]));
     const signalPrimaryPluginIds = new Set(['PunctaDistance', 'GreenRedIntensity', 'NuclearCellPairIntensity']);
+    const redGreenPairedPluginIds = new Set(['GreenRedIntensity', 'CENDot', 'Biorientation', 'NuclearCellPairIntensity']);
+    const defaultPunctaModeOptions = [
+        { value: 'red_puncta', text: 'Red Puncta (Measure Green)' },
+        { value: 'green_puncta', text: 'Green Puncta (Measure Red)' },
+        { value: 'red_puncta_only', text: 'Red Puncta Only' },
+        { value: 'green_puncta_only', text: 'Green Puncta Only' },
+    ];
+    const punctaModeOptions = (() => {
+        const punctaPlugin = pluginMap.get('PunctaDistance') || {};
+        const payloadModes = Array.isArray(statsPayload.puncta_line_modes) && statsPayload.puncta_line_modes.length
+            ? statsPayload.puncta_line_modes
+            : (Array.isArray(punctaPlugin.puncta_line_modes) ? punctaPlugin.puncta_line_modes : []);
+        const fallbackByValue = new Map(defaultPunctaModeOptions.map((option) => [option.value, option]));
+        const normalizedPayload = payloadModes
+            .map((option) => {
+                const value = String(option && (option.value || option.mode) || '').trim();
+                if (!fallbackByValue.has(value)) return null;
+                const fallback = fallbackByValue.get(value);
+                const text = String(option.text || option.label || option.selector_label || fallback.text || '').trim();
+                const requiredChannels = Array.isArray(option.required_channels)
+                    ? option.required_channels
+                    : (Array.isArray(option.requiredChannels) ? option.requiredChannels : []);
+                return {
+                    value,
+                    text: text || fallback.text,
+                    requiredChannels: requiredChannels.filter((channel) => channelOrder.includes(channel)),
+                    sourceChannel: option.source_channel || option.sourceChannel || '',
+                    measurementChannel: option.measurement_channel || option.measurementChannel || '',
+                    isSingleChannel: !!(option.is_single_channel || option.isSingleChannel),
+                };
+            })
+            .filter(Boolean);
+        const payloadByValue = new Map(normalizedPayload.map((option) => [option.value, option]));
+        return defaultPunctaModeOptions.map((fallback) => {
+            const payloadOption = payloadByValue.get(fallback.value);
+            return payloadOption || {
+                ...fallback,
+                requiredChannels: [],
+                sourceChannel: '',
+                measurementChannel: '',
+                isSingleChannel: fallback.value === 'red_puncta_only' || fallback.value === 'green_puncta_only',
+            };
+        });
+    })();
+    const punctaModeOptionMap = new Map(punctaModeOptions.map((option) => [option.value, option]));
     const CELL_INCLUSION_INFO_TEXT = 'Choose whether CytoCV analyzes cell pairs, single cells, or both. This affects which result rows are created during analysis. Rerun analysis to include a cell type that was previously excluded.';
 
     const selectionKey = 'cytocv.selected_analyses.v3';
@@ -213,6 +258,7 @@
     let signalNuclearPanel = null;
     let punctaContourIntensityToggle = null;
     let punctaContourIntensityRow = null;
+    let punctaContourIntensityLabel = null;
     let alternateNucleusDetectionToggle = null;
     let alternateNucleusDetectionRow = null;
     let legacyNuclearCellPairToggle = null;
@@ -304,7 +350,7 @@
     }
 
     const pluginInfoExplanations = {
-        PunctaDistance: 'Measures the distance between two puncta in the chosen source channel and sums the opposite-channel intensity along the line connecting them. It uses the first two detected source puncta, draws a line mask between their centers, and records the line intensity from the measurement channel.',
+        PunctaDistance: 'Measures the distance between two puncta in the chosen source channel. Paired modes also sum opposite-channel intensity along the line connecting them; single-channel modes report same-channel puncta contours and distance only.',
         CENDot: 'Classifies whether Green CEN dots are associated with the mother side, daughter side, both sides, or neither side. It uses automatic DIC mother/daughter parentage, checks for two usable Red puncta, then assigns nearby Green dots to the closest eligible Red punctum.',
         Biorientation: 'Counts Green dots as colinear or off-axis relative to the line between the two Red puncta. Counts are reported only when exactly two Red puncta are present and their separation is inside the configured distance range.',
         GreenRedIntensity: 'Measures raw intensity sums inside detected Red and Green contour masks. For Red contours it records Red and Green signal in the Red mask; for Green contours it records Red and Green signal in the Green mask and the distance to the nearest Red contour.',
@@ -316,8 +362,8 @@
 
     const pluginAdjustmentInfo = {
         PunctaDistance: [
-            'Puncta Source: chooses which channel supplies the two dots that define the line. Red Puncta measures Green along the Red-dot line; Green Puncta measures Red along the Green-dot line.',
-            'Puncta Line Width: sets the thickness of the line mask used for the intensity sum. Use px or um; um values are converted from the measurement scale.',
+            'Puncta Source: chooses which channel supplies the two dots that define the line. Paired modes measure the opposite channel; single-channel modes calculate source-channel contours and distance only.',
+            'Puncta Line Width: sets the thickness of the line mask used for paired intensity sums. Use px or um; um values are converted from the measurement scale.',
         ],
         CENDot: [
             'Minimum Signal Distance: minimum allowed distance between the two Red puncta before CEN dot location is classified.',
@@ -347,10 +393,10 @@
 
     const signalQuantificationInfoBase = 'Signal Quantification controls the primary Red/Green signal measurement workflow for this experiment. Choose one primary mode: Puncta Distance or Nuclear, Cell-Pair Intensity. The selected mode determines which statistics are calculated, which child controls are shown, and which results appear in the output.';
     const signalQuantificationPunctaInfo = [
-        'Puncta Distance detects the first two usable puncta in the selected source channel, measures the distance between their centers, draws a line mask between them, and sums intensity from the opposite measurement channel along that line. Results include puncta distance, puncta line intensity, and pixel/scale-adjusted distance values.',
-        'Puncta Source chooses which channel defines the two puncta and which opposite channel is measured. Red Puncta measures Green signal along the Red-puncta line; Green Puncta measures Red signal along the Green-puncta line.',
-        'Puncta Line Width sets the thickness of the line mask used for the line-intensity sum. Values can be entered in pixels or microns; micron values are converted using the active measurement scale.',
-        'Red/Green Contour Intensities optionally calculates raw intensity sums inside detected Red and Green contour masks. When enabled, results include Red in Red, Green in Red, Red in Green, Green in Green, Green-from-Red distance fields, and Measurement/Contour ratios for the selected puncta source.',
+        'Puncta Distance detects the first two usable puncta in the selected source channel and measures the distance between their centers. Paired modes also draw a line mask and sum intensity from the opposite measurement channel along that line.',
+        'Puncta Source chooses which channel defines the two puncta. Red Puncta and Green Puncta are paired Red/Green modes; Red Puncta Only and Green Puncta Only calculate same-channel contours and same-channel distance only.',
+        'Puncta Line Width sets the thickness of the line mask used for paired line-intensity sums. Values can be entered in pixels or microns; micron values are converted using the active measurement scale.',
+        'Contour Intensities optionally calculates raw intensity sums inside detected contour masks. Paired modes use Red and Green contour masks; single-channel modes calculate source-channel contour intensities only.',
     ];
     const signalQuantificationNuclearInfo = [
         'Nuclear, Cell-Pair Intensity measures signal from the selected measurement channel inside the selected nucleus contour and inside the full DIC cell-pair mask. Results include nucleus contour channel, measurement channel, nuclear intensity, cell-pair intensity, cytoplasmic intensity, and nuclear status.',
@@ -383,6 +429,55 @@
         return value === 'nuclear_cell_pair' ? 'nuclear_cell_pair' : 'puncta_distance';
     }
 
+    function normalizePunctaMode(value) {
+        return punctaModeOptions.some((option) => option.value === value)
+            ? value
+            : 'red_puncta';
+    }
+
+    function isSingleChannelPunctaMode(value = statsState.punctaLineMode) {
+        const mode = normalizePunctaMode(value);
+        return mode === 'red_puncta_only' || mode === 'green_puncta_only';
+    }
+
+    function fallbackPunctaModeRequiredChannels(mode) {
+        const normalized = normalizePunctaMode(mode);
+        if (normalized === 'red_puncta_only') return ['channel_red'];
+        if (normalized === 'green_puncta_only') return ['channel_green'];
+        return ['channel_red', 'channel_green'];
+    }
+
+    function getPunctaModeRequiredChannels(mode = statsState.punctaLineMode) {
+        const normalized = normalizePunctaMode(mode);
+        const option = punctaModeOptionMap.get(normalized);
+        if (option && Array.isArray(option.requiredChannels) && option.requiredChannels.length) {
+            return option.requiredChannels;
+        }
+        const plugin = pluginMap.get('PunctaDistance');
+        if (
+            plugin
+            && plugin.puncta_line_mode_required_channels
+            && Array.isArray(plugin.puncta_line_mode_required_channels[normalized])
+        ) {
+            return plugin.puncta_line_mode_required_channels[normalized];
+        }
+        return fallbackPunctaModeRequiredChannels(normalized);
+    }
+
+    function reconcilePunctaLineModeWithAvailableChannels() {
+        statsState.punctaLineMode = normalizePunctaMode(statsState.punctaLineMode);
+        return false;
+    }
+
+    function getPluginRequiredChannels(pluginId) {
+        const plugin = pluginMap.get(pluginId);
+        if (!plugin) return [];
+        if (pluginId === 'PunctaDistance') {
+            return getPunctaModeRequiredChannels();
+        }
+        return Array.isArray(plugin.required_channels) ? plugin.required_channels : [];
+    }
+
     function persistSignalQuantificationSettings() {
         localStorage.setItem(signalQuantificationKey, JSON.stringify({
             enabled: !!statsState.signalQuantificationEnabled,
@@ -403,7 +498,7 @@
             return;
         }
         statsState.selectedPlugins.add('PunctaDistance');
-        if (statsState.punctaContourIntensityEnabled) {
+        if (statsState.punctaContourIntensityEnabled && !isSingleChannelPunctaMode()) {
             statsState.selectedPlugins.add('GreenRedIntensity');
         }
     }
@@ -413,13 +508,27 @@
             && normalizeSignalMode(statsState.signalQuantificationMode) === 'nuclear_cell_pair';
     }
 
+    function isSingleChannelPunctaSignalModeActive() {
+        return !!statsState.signalQuantificationEnabled
+            && normalizeSignalMode(statsState.signalQuantificationMode) === 'puncta_distance'
+            && isSingleChannelPunctaMode();
+    }
+
     function isPluginPausedBySignalMode(pluginId) {
-        return isNuclearSignalModeActive() && pluginId !== 'NuclearCellPairIntensity';
+        if (isNuclearSignalModeActive()) {
+            return pluginId !== 'NuclearCellPairIntensity';
+        }
+        return isSingleChannelPunctaSignalModeActive() && redGreenPairedPluginIds.has(pluginId);
     }
 
     function getEffectiveSelectedPlugins() {
         if (isNuclearSignalModeActive()) {
             return new Set(['NuclearCellPairIntensity']);
+        }
+        if (isSingleChannelPunctaSignalModeActive()) {
+            return new Set(
+                [...statsState.selectedPlugins].filter((pluginId) => !redGreenPairedPluginIds.has(pluginId))
+            );
         }
         return new Set(statsState.selectedPlugins);
     }
@@ -430,6 +539,12 @@
             return {
                 state: 'paused',
                 text: 'Nuclear, Cell-Pair Intensity primary mode on. Other stat modules disabled.',
+            };
+        }
+        if (isSingleChannelPunctaMode()) {
+            return {
+                state: 'paused',
+                text: 'Single-channel puncta mode on. Paired Red/Green modules disabled.',
             };
         }
         return {
@@ -544,8 +659,8 @@
         const labels = [];
         getEffectiveSelectedPlugins().forEach((pluginId) => {
             const plugin = pluginMap.get(pluginId);
-            if (!plugin || !Array.isArray(plugin.required_channels)) return;
-            if (plugin.required_channels.includes(channel)) {
+            if (!plugin) return;
+            if (getPluginRequiredChannels(pluginId).includes(channel)) {
                 labels.push(plugin.label || plugin.id);
             }
         });
@@ -683,9 +798,7 @@
         const nuclearMode = serverPreferenceDefaults.nuclear_cell_pair_mode === 'red_nucleus'
             ? 'red_nucleus'
             : 'green_nucleus';
-        const punctaMode = serverPreferenceDefaults.puncta_line_mode === 'green_puncta'
-            ? 'green_puncta'
-            : 'red_puncta';
+        const punctaMode = normalizePunctaMode(serverPreferenceDefaults.puncta_line_mode);
         localStorage.setItem(punctaModeKey, punctaMode);
         localStorage.setItem(nuclearModeKey, nuclearMode);
     }
@@ -1866,14 +1979,14 @@
         punctaModeLabel.textContent = 'Puncta Source:';
         punctaModeTop.appendChild(punctaModeLabel);
         punctaLineModeSelect = buildCustomModeSelect(
-            [
-                { value: 'red_puncta', text: 'Red Puncta (Measure Green)' },
-                { value: 'green_puncta', text: 'Green Puncta (Measure Red)' },
-            ],
-            statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
+            punctaModeOptions,
+            normalizePunctaMode(statsState.punctaLineMode),
             (nextMode) => {
-                statsState.punctaLineMode = nextMode;
-                localStorage.setItem(punctaModeKey, nextMode);
+                statsState.punctaLineMode = normalizePunctaMode(nextMode);
+                localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
+                syncSignalSelectedPlugins();
+                persistSelectedPlugins();
+                syncStatsUI();
             },
         );
         punctaModeTop.appendChild(punctaLineModeSelect.root);
@@ -1915,6 +2028,7 @@
         const contourLabel = document.createElement('span');
         contourLabel.className = 'toggle-label';
         contourLabel.textContent = 'Red/Green Contour Intensities';
+        punctaContourIntensityLabel = contourLabel;
         contourText.appendChild(contourLabel);
         punctaContourIntensityRow.appendChild(contourText);
         const contourSwitch = document.createElement('label');
@@ -2076,6 +2190,7 @@
         signalNuclearPanel = null;
         punctaContourIntensityToggle = null;
         punctaContourIntensityRow = null;
+        punctaContourIntensityLabel = null;
         alternateNucleusDetectionToggle = null;
         alternateNucleusDetectionRow = null;
         legacyNuclearCellPairToggle = null;
@@ -2106,9 +2221,10 @@
             titleWrap.appendChild(title);
             left.appendChild(titleWrap);
 
-            const reqLabels = Array.isArray(plugin.required_channel_labels) && plugin.required_channel_labels.length
-                ? plugin.required_channel_labels
-                : (Array.isArray(plugin.required_channels) ? plugin.required_channels.map(displayChannelLabel) : []);
+            const dynamicRequiredChannels = getPluginRequiredChannels(plugin.id);
+            const reqLabels = dynamicRequiredChannels.length
+                ? dynamicRequiredChannels.map(displayChannelLabel)
+                : (Array.isArray(plugin.required_channel_labels) ? plugin.required_channel_labels : []);
             const info = buildInfoDot(buildPluginInfoText(plugin, reqLabels));
             left.appendChild(info);
             if (plugin.is_legacy) {
@@ -2166,14 +2282,14 @@
                 modeTop.appendChild(modeLabel);
 
                 const select = buildCustomModeSelect(
-                    [
-                        { value: 'red_puncta', text: 'Red Puncta (Measure Green)' },
-                        { value: 'green_puncta', text: 'Green Puncta (Measure Red)' },
-                    ],
-                    statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
+                    punctaModeOptions,
+                    normalizePunctaMode(statsState.punctaLineMode),
                     (nextMode) => {
-                        statsState.punctaLineMode = nextMode;
-                        localStorage.setItem(punctaModeKey, nextMode);
+                        statsState.punctaLineMode = normalizePunctaMode(nextMode);
+                        localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
+                        syncSignalSelectedPlugins();
+                        persistSelectedPlugins();
+                        syncStatsUI();
                     },
                 );
                 modeTop.appendChild(select.root);
@@ -3289,7 +3405,7 @@
 
     function loadStoredPunctaMode() {
         const raw = localStorage.getItem(punctaModeKey);
-        statsState.punctaLineMode = raw === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+        statsState.punctaLineMode = normalizePunctaMode(raw);
     }
 
     function loadStoredNuclearMode() {
@@ -3379,9 +3495,7 @@
     function getStatsRequiredChannels() {
         const required = new Set(alwaysRequiredChannels);
         getEffectiveSelectedPlugins().forEach((pluginId) => {
-            const plugin = pluginMap.get(pluginId);
-            if (!plugin || !Array.isArray(plugin.required_channels)) return;
-            plugin.required_channels.forEach((channel) => required.add(channel));
+            getPluginRequiredChannels(pluginId).forEach((channel) => required.add(channel));
         });
         return required;
     }
@@ -3389,9 +3503,7 @@
     function isChannelUsed(channel) {
         var used = statsState.manualRequiredChannels.has(channel);
         getEffectiveSelectedPlugins().forEach((pluginId) => {
-            const plugin = pluginMap.get(pluginId);
-            if (!plugin || !Array.isArray(plugin.required_channels)) return false;
-            plugin.required_channels.forEach((required_channel) => {
+            getPluginRequiredChannels(pluginId).forEach((required_channel) => {
                 if (required_channel === channel) used = true;
             });
         });
@@ -3400,8 +3512,7 @@
 
     function selectedStatsRequireChannel(channel) {
         for (const pluginId of getEffectiveSelectedPlugins()) {
-            const plugin = pluginMap.get(pluginId);
-            if (plugin && Array.isArray(plugin.required_channels) && plugin.required_channels.includes(channel)) {
+            if (getPluginRequiredChannels(pluginId).includes(channel)) {
                 return true;
             }
         }
@@ -3413,7 +3524,15 @@
         row.classList.toggle('is-off', !!isOff);
     }
 
+    function getPunctaContourIntensityLabel() {
+        const mode = normalizePunctaMode(statsState.punctaLineMode);
+        if (mode === 'red_puncta_only') return 'Red Contour Intensities';
+        if (mode === 'green_puncta_only') return 'Green Contour Intensities';
+        return 'Red/Green Contour Intensities';
+    }
+
     function syncStatsUI() {
+        reconcilePunctaLineModeWithAvailableChannels();
         syncSignalSelectedPlugins();
         const statsRequired = getStatsRequiredChannels();
         const moduleToggle = document.getElementById('cytocvAnalysisEnabled');
@@ -3468,6 +3587,9 @@
         if (punctaContourIntensityToggle) {
             punctaContourIntensityToggle.checked = !!statsState.punctaContourIntensityEnabled;
         }
+        if (punctaContourIntensityLabel) {
+            punctaContourIntensityLabel.textContent = getPunctaContourIntensityLabel();
+        }
         if (alternateNucleusDetectionToggle) {
             alternateNucleusDetectionToggle.checked = !!statsState.alternateNucleusDetectionEnabled;
         }
@@ -3484,7 +3606,7 @@
             punctaLineWidthRow.classList.toggle('visible', statsState.selectedPlugins.has('PunctaDistance'));
         }
         if (punctaLineModeSelect) {
-            punctaLineModeSelect.value = statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+            punctaLineModeSelect.value = normalizePunctaMode(statsState.punctaLineMode);
         }
         if (punctaLineModeRow) {
             punctaLineModeRow.classList.toggle('visible', statsState.selectedPlugins.has('PunctaDistance'));
@@ -3606,7 +3728,10 @@
             greenDotSplitModeSelect.setDisabled(!statsState.greenDotSplitEnabled);
         }
         if (greenDotSplitModeRow) {
-            greenDotSplitModeRow.classList.toggle('visible', dotSplitActive && !!dotSplitTarget);
+            greenDotSplitModeRow.classList.toggle(
+                'visible',
+                dotSplitActive && !!dotSplitTarget && statsState.greenDotSplitEnabled
+            );
             greenDotSplitModeRow.classList.toggle('disabled', !statsState.greenDotSplitEnabled);
         }
         if (redDotSplitModeSelect) {
@@ -3614,7 +3739,10 @@
             redDotSplitModeSelect.setDisabled(!statsState.redDotSplitEnabled);
         }
         if (redDotSplitModeRow) {
-            redDotSplitModeRow.classList.toggle('visible', dotSplitActive && !!dotSplitTarget);
+            redDotSplitModeRow.classList.toggle(
+                'visible',
+                dotSplitActive && !!dotSplitTarget && statsState.redDotSplitEnabled
+            );
             redDotSplitModeRow.classList.toggle('disabled', !statsState.redDotSplitEnabled);
         }
         if (moduleToggle) moduleToggle.checked = !!statsState.moduleEnabled;
@@ -3814,9 +3942,7 @@
             );
         }
         if (punctaLineModeSelect) {
-            statsState.punctaLineMode = punctaLineModeSelect.value === 'green_puncta'
-                ? 'green_puncta'
-                : 'red_puncta';
+            statsState.punctaLineMode = normalizePunctaMode(punctaLineModeSelect.value);
             localStorage.setItem(punctaModeKey, statsState.punctaLineMode);
         }
         if (signalQuantificationToggle) {
@@ -3924,7 +4050,7 @@
             biorientationRedMinDistance: Number.isFinite(Number(statsState.biorientationRedMinDistance)) ? Number(statsState.biorientationRedMinDistance) : 0,
             biorientationRedMaxDistance: Number.isFinite(Number(statsState.biorientationRedMaxDistance)) ? Number(statsState.biorientationRedMaxDistance) : 37,
             biorientationCollinearityThreshold: Number.isFinite(Number(statsState.biorientationCollinearityThreshold)) ? Number(statsState.biorientationCollinearityThreshold) : 3,
-            punctaLineMode: statsState.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta',
+            punctaLineMode: normalizePunctaMode(statsState.punctaLineMode),
             nuclearCellPairMode: statsState.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus',
             nuclearCellPairContourMode: normalizeNuclearContourMode(statsState.nuclearCellPairContourMode),
             useLegacyNuclearCellPairPipeline: !!statsState.useLegacyNuclearCellPairPipeline,
@@ -3997,7 +4123,7 @@
             );
             const parsedThreshold = parseInt(String(snapshot.biorientationCollinearityThreshold ?? 3), 10);
             statsState.biorientationCollinearityThreshold = Number.isFinite(parsedThreshold) && parsedThreshold >= 0 ? parsedThreshold : 3;
-            statsState.punctaLineMode = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+            statsState.punctaLineMode = normalizePunctaMode(snapshot.punctaLineMode);
             statsState.nuclearCellPairMode = snapshot.nuclearCellPairMode === 'red_nucleus' ? 'red_nucleus' : 'green_nucleus';
             statsState.nuclearCellPairContourMode = normalizeNuclearContourMode(snapshot.nuclearCellPairContourMode);
             statsState.useLegacyNuclearCellPairPipeline = !!snapshot.useLegacyNuclearCellPairPipeline;

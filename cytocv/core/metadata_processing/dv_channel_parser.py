@@ -7,6 +7,7 @@ from core.channel_roles import (
     CHANNEL_ROLE_DIC,
     CHANNEL_ROLE_GREEN,
     CHANNEL_ROLE_RED,
+    normalize_channel_role,
 )
 from core.channel_ordering import resolve_channel_config
 from core.image_sources import (
@@ -26,7 +27,7 @@ def _safe_float(value):
         return None
 
 
-def _map_channel_name(orig_name: str, wl_val: float | None) -> str:
+def _map_channel_name(orig_name: str, wl_val: float | None) -> str | None:
     name = (orig_name or "").strip()
     lower = name.lower()
 
@@ -51,7 +52,27 @@ def _map_channel_name(orig_name: str, wl_val: float | None) -> str:
     if "mcherry" in compact or "cherry" in compact:
         return CHANNEL_ROLE_RED
 
-    return name
+    return normalize_channel_role(name)
+
+
+def _store_channel_mapping(
+    config: dict[str, int],
+    used_indices: set[int],
+    channel: str | None,
+    raw_index,
+) -> bool:
+    role = normalize_channel_role(channel)
+    if role is None:
+        return True
+    try:
+        index = int(raw_index)
+    except (TypeError, ValueError):
+        return False
+    if role in config or index in used_indices or index < 0:
+        return False
+    config[role] = index
+    used_indices.add(index)
+    return True
 
 
 def _extract_from_dv_header(dv_file_path):
@@ -65,24 +86,25 @@ def _extract_from_dv_header(dv_file_path):
         metadata = getattr(dv, "metadata", {}) or {}
         header = metadata.get("header", {})
         if not isinstance(header, Mapping):
-            return {}
+            return None
 
         try:
             channel_count = int(header.get("nc", 0) or 0)
         except (TypeError, ValueError):
             channel_count = 0
         if channel_count <= 0:
-            return {}
+            return None
 
         config = {}
+        used_indices = set()
         for idx in range(channel_count):
             wl_val = _safe_float(header.get(f"wave{idx + 1}"))
             channel = _map_channel_name("", wl_val)
-            if channel:
-                config[channel] = idx
-        return config
+            if not _store_channel_mapping(config, used_indices, channel, idx):
+                return {}
+        return config or None
     except Exception:
-        return {}
+        return None
     finally:
         if dv is not None:
             dv.close()
@@ -96,7 +118,7 @@ def extract_dv_metadata_channel_config(dv_file_path):
     Secondary source: XML snippets in the DV header text.
     """
     header_config = _extract_from_dv_header(dv_file_path)
-    if header_config:
+    if header_config is not None:
         return header_config
 
     # Fallback XML parsing for legacy files where structured metadata is missing.
@@ -126,15 +148,14 @@ def extract_dv_metadata_channel_config(dv_file_path):
             wavelength_by_name[name_match.group(1).strip().lower()] = wl_val
 
     config = {}
+    used_indices = set()
     for i, (orig_name, idx) in enumerate(channel_matches):
         wl_val = wavelength_by_name.get((orig_name or "").strip().lower())
         if wl_val is None and i < len(wavelength_matches):
             wl_val = wavelength_matches[i]
         channel = _map_channel_name(orig_name, wl_val)
-        try:
-            config[channel] = int(idx)
-        except (TypeError, ValueError):
-            continue
+        if not _store_channel_mapping(config, used_indices, channel, idx):
+            return {}
     return config
 
 

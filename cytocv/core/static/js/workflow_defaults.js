@@ -1605,7 +1605,9 @@
     biorientationRedMaxDistance: captureNumericField(biorientationRedMaxDistanceInput),
     biorientationRedMaxDistanceUnit: normalizeLengthUnit(valueOrEmpty(biorientationRedMaxDistanceUnit)),
     biorientationCollinearityThreshold: captureNumericField(biorientationCollinearityThresholdInput),
-    punctaLineMode: valueOrEmpty(punctaLineModeInput) || 'red_puncta',
+    punctaLineMode: ['red_puncta', 'green_puncta', 'red_puncta_only', 'green_puncta_only'].includes(valueOrEmpty(punctaLineModeInput))
+      ? valueOrEmpty(punctaLineModeInput)
+      : 'red_puncta',
     nuclearCellPairMode: valueOrEmpty(nuclearCellPairModeInput) || 'green_nucleus',
     nuclearCellPairContourMode: normalizeNuclearContourMode(valueOrEmpty(nuclearCellPairContourModeInput)),
     useLegacyNuclearCellPairPipeline: !!(
@@ -1981,7 +1983,7 @@
       syncLengthInputConstraints(biorientationRedMaxDistanceInput, snapshot.biorientationRedMaxDistanceUnit, 0, 0);
     }
     if (biorientationCollinearityThresholdInput) biorientationCollinearityThresholdInput.value = snapshot.biorientationCollinearityThreshold.raw;
-    if (punctaLineModeInput) punctaLineModeInput.value = snapshot.punctaLineMode === 'green_puncta' ? 'green_puncta' : 'red_puncta';
+    if (punctaLineModeInput) punctaLineModeInput.value = ['red_puncta', 'green_puncta', 'red_puncta_only', 'green_puncta_only'].includes(snapshot.punctaLineMode) ? snapshot.punctaLineMode : 'red_puncta';
     if (nuclearCellPairModeInput) nuclearCellPairModeInput.value = snapshot.nuclearCellPairMode;
     if (nuclearCellPairContourModeInput) {
       nuclearCellPairContourModeInput.value = normalizeNuclearContourMode(snapshot.nuclearCellPairContourMode);

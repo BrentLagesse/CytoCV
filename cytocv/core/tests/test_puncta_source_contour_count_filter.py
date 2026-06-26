@@ -132,6 +132,18 @@ class PunctaSourceContourCountFilterTests(SimpleTestCase):
             [rows[2]],
         )
 
+    def test_green_puncta_only_exact_filters_use_green_source_counts(self):
+        rows = [
+            _row(..., puncta_line_mode="green_puncta_only", red_count=2, green_count=1),
+            _row(..., puncta_line_mode="green_puncta_only", red_count=1, green_count=2),
+        ]
+
+        self.assertEqual(puncta_source_channel_from_statistics(rows[0]), "green")
+        self.assertEqual(
+            filter_statistics_by_puncta_source_contour_count(rows, "exactly_2"),
+            [rows[1]],
+        )
+
     def test_nuclear_mode_treats_filter_as_all(self):
         row = _row(
             2,

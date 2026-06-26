@@ -1225,8 +1225,8 @@
 
             const storedChannel = normalizePunctaSourceChannel(row.puncta_source_contour_count_channel);
             if (storedChannel) return storedChannel;
-            if (row.puncta_line_mode === 'green_puncta') return 'green';
-            if (row.puncta_line_mode === 'red_puncta') return 'red';
+            if (row.puncta_line_mode === 'green_puncta' || row.puncta_line_mode === 'green_puncta_only') return 'green';
+            if (row.puncta_line_mode === 'red_puncta' || row.puncta_line_mode === 'red_puncta_only') return 'red';
             const sourceLabel = normalizePunctaSourceChannel(row.puncta_line_source_channel);
             if (sourceLabel) return sourceLabel;
             return 'red';

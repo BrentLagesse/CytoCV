@@ -195,6 +195,36 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
         self.assertIsNone(payload["measurement_contour_ratio_3"])
         self.assertEqual(payload["measurement_contour_ratio_display_text"], "N/A")
 
+    def test_unavailable_fields_are_null_without_hiding_valid_same_channel_values(self):
+        payload = serialize_cell_statistics_payload(
+            _cell_stat(
+                properties={
+                    "selected_analysis": ["PunctaDistance", "GreenRedIntensity"],
+                    "signal_quantification_mode": "puncta_distance",
+                    "puncta_line_mode": "red_puncta_only",
+                    "unavailable_stat_fields": [
+                        "puncta_line_intensity",
+                        "green_contour_1_size",
+                        "green_in_red_total_intensity_1",
+                        "measurement_contour_ratio_1",
+                        "measurement_contour_ratio_2",
+                        "measurement_contour_ratio_3",
+                    ],
+                },
+            )
+        )
+
+        self.assertEqual(payload["puncta_distance"], 10.0)
+        self.assertIsNone(payload["puncta_line_intensity"])
+        self.assertEqual(payload["red_contour_1_size"], 11.0)
+        self.assertEqual(payload["red_in_red_total_intensity_1"], 2.0)
+        self.assertIsNone(payload["green_contour_1_size"])
+        self.assertIsNone(payload["green_in_red_total_intensity_1"])
+        self.assertIsNone(payload["measurement_contour_ratio_1"])
+        self.assertIsNone(payload["measurement_contour_ratio_2"])
+        self.assertIsNone(payload["measurement_contour_ratio_3"])
+        self.assertEqual(payload["measurement_contour_ratio_display_text"], "N/A")
+
     def test_independent_cen_dot_and_biorientation_visibility_follow_selected_analysis(self):
         cen_payload = serialize_cell_statistics_payload(
             _cell_stat(

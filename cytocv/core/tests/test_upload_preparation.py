@@ -23,6 +23,7 @@ from core.services.upload_preparation import (
     UPLOAD_PREPARATION_STORAGE_FULL_MESSAGE,
     run_upload_preparation_job,
 )
+from core.services.channel_presence import ChannelPresence
 from core.services.upload_preparation_jobs import enqueue_upload_preparation_job
 from core.tests.test_artifact_storage import temporary_media_root
 
@@ -101,6 +102,19 @@ class UploadPreparationTestCase(TestCase):
             },
         }
 
+    @staticmethod
+    def _all_present_resolution():
+        return (
+            DEFAULT_CHANNEL_CONFIG,
+            ChannelPresence(
+                present_channels=frozenset(
+                    {"DIC", "channel_blue", "channel_red", "channel_green"}
+                ),
+                missing_channels=frozenset(),
+                source="all_present",
+            ),
+        )
+
     def test_upload_preparation_job_prepares_valid_files(self):
         with temporary_media_root() as media_root:
             uploaded = self._create_uploaded_image(media_root, name="valid")
@@ -125,8 +139,8 @@ class UploadPreparationTestCase(TestCase):
                     "note": "",
                 },
             ), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value=DEFAULT_CHANNEL_CONFIG,
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=self._all_present_resolution(),
             ), patch(
                 "core.services.upload_preparation.generate_preview_assets",
                 return_value=[],
@@ -139,6 +153,7 @@ class UploadPreparationTestCase(TestCase):
             self.assertEqual(job.valid_run_uuids, [str(uploaded.uuid)])
             self.assertEqual(uploaded.scale_info.get("source"), "metadata")
             self.assertTrue((media_root / str(uploaded.uuid) / "channel_config.json").exists())
+            self.assertTrue((media_root / str(uploaded.uuid) / "channel_presence.json").exists())
 
     def test_upload_preparation_job_reports_metadata_before_previews(self):
         with temporary_media_root() as media_root:
@@ -163,8 +178,8 @@ class UploadPreparationTestCase(TestCase):
                 "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},
             ), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value=DEFAULT_CHANNEL_CONFIG,
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=self._all_present_resolution(),
             ), patch(
                 "core.services.upload_preparation.generate_preview_assets",
                 return_value=[],
@@ -219,21 +234,30 @@ class UploadPreparationTestCase(TestCase):
                 "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},
             ), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value={
-                    "channel_green": 0,
-                    "DIC": 1,
-                    "channel_red": 2,
-                    "channel_blue": 3,
-                },
-            ) as extract_config, patch(
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=(
+                    {
+                        "channel_green": 0,
+                        "DIC": 1,
+                        "channel_red": 2,
+                        "channel_blue": 3,
+                    },
+                    ChannelPresence(
+                        present_channels=frozenset(
+                            {"DIC", "channel_blue", "channel_red", "channel_green"}
+                        ),
+                        missing_channels=frozenset(),
+                        source="all_present",
+                    ),
+                ),
+            ) as resolve_config, patch(
                 "core.services.upload_preparation.generate_preview_assets",
                 return_value=[],
             ):
                 run_upload_preparation_job(job)
 
-            extract_config.assert_called_once()
-            _, kwargs = extract_config.call_args
+            resolve_config.assert_called_once()
+            _, kwargs = resolve_config.call_args
             self.assertFalse(kwargs["prefer_metadata"])
             self.assertEqual(
                 kwargs["fallback_order"],
@@ -249,6 +273,79 @@ class UploadPreparationTestCase(TestCase):
                     "DIC": 1,
                     "channel_red": 2,
                     "channel_blue": 3,
+                },
+            )
+
+    def test_upload_preparation_writes_metadata_missing_channel_presence(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="missing_green")
+            job = enqueue_upload_preparation_job(
+                user_id=self.user.id,
+                new_run_uuids=[str(uploaded.uuid)],
+                restored_run_uuids=[],
+                config_snapshot={
+                    **self._config_snapshot(),
+                    "validation_options": {
+                        "enforce_layer_count": False,
+                        "enforce_wavelengths": False,
+                        "required_channels": ["DIC", "channel_red"],
+                        "configured_experiment_label": "Puncta Distance - Red Puncta Only",
+                    },
+                },
+            )
+            missing_green_presence = ChannelPresence(
+                present_channels=frozenset({"DIC", "channel_blue", "channel_red"}),
+                missing_channels=frozenset({"channel_green"}),
+                source="metadata",
+                layer_count=3,
+                confirmed=True,
+            )
+
+            with patch(
+                "core.services.upload_preparation.validate_source_image_file",
+                return_value=SourceImageValidationResult(
+                    is_valid=True,
+                    layer_count=3,
+                    missing_channels=set(),
+                    required_channels={"DIC", "channel_red"},
+                ),
+            ), patch(
+                "core.services.upload_preparation.extract_dv_scale_metadata",
+                return_value={},
+            ), patch(
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=(
+                    {"DIC": 0, "channel_blue": 1, "channel_red": 2},
+                    missing_green_presence,
+                ),
+            ) as resolve_config, patch(
+                "core.services.upload_preparation.generate_preview_assets",
+                return_value=[],
+            ):
+                run_upload_preparation_job(job)
+
+            job.refresh_from_db()
+            self.assertEqual(job.status, UploadPreparationJob.Status.SUCCEEDED)
+            _, kwargs = resolve_config.call_args
+            self.assertNotIn("declared_missing_channel", kwargs)
+            channel_config = json.loads(
+                (media_root / str(uploaded.uuid) / "channel_config.json").read_text()
+            )
+            channel_presence = json.loads(
+                (media_root / str(uploaded.uuid) / "channel_presence.json").read_text()
+            )
+            self.assertEqual(
+                channel_config,
+                {"DIC": 0, "channel_blue": 1, "channel_red": 2},
+            )
+            self.assertEqual(
+                channel_presence,
+                {
+                    "layer_count": 3,
+                    "present_channels": ["DIC", "channel_blue", "channel_red"],
+                    "missing_channels": ["channel_green"],
+                    "source": "metadata",
+                    "confirmed": True,
                 },
             )
 
@@ -294,8 +391,8 @@ class UploadPreparationTestCase(TestCase):
                 "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},
             ), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value=DEFAULT_CHANNEL_CONFIG,
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=self._all_present_resolution(),
             ), patch(
                 "core.services.upload_preparation.generate_preview_assets",
                 return_value=[],
@@ -325,8 +422,8 @@ class UploadPreparationTestCase(TestCase):
                 "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},
             ), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value=DEFAULT_CHANNEL_CONFIG,
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=self._all_present_resolution(),
             ), patch(
                 "core.services.upload_preparation.generate_preview_assets",
                 side_effect=OSError(errno.ENOSPC, "No space left on device"),
@@ -598,8 +695,8 @@ class UploadPreparationTestCase(TestCase):
                 "core.services.upload_preparation.extract_dv_scale_metadata",
                 return_value={},
             ), patch(
-                "core.services.upload_preparation.extract_channel_config",
-                return_value=DEFAULT_CHANNEL_CONFIG,
+                "core.services.upload_preparation.resolve_channel_config_and_presence_for_source",
+                return_value=self._all_present_resolution(),
             ), patch(
                 "core.services.upload_preparation.generate_preview_assets",
                 return_value=[],

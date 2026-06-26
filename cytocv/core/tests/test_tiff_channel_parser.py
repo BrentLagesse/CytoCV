@@ -55,6 +55,24 @@ class TiffChannelParserTests(SimpleTestCase):
             },
         )
 
+    def test_three_channel_labels_map_when_one_non_dic_channel_is_missing(self):
+        labels = [
+            "sample_R3D_REF.tif",
+            "sample_PRJ_w435.tif",
+            "sample_PRJ_w625.tif",
+        ]
+
+        config = build_tiff_channel_config_from_labels(labels)
+
+        self.assertEqual(
+            config,
+            {
+                "DIC": 0,
+                "channel_blue": 1,
+                "channel_red": 2,
+            },
+        )
+
     def test_ambiguous_labels_return_no_metadata_config(self):
         labels = [
             "sample_PRJ_w625.tif",

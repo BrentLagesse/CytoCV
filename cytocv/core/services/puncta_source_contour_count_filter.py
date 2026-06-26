@@ -124,7 +124,7 @@ def puncta_source_channel_from_statistics(stat: Any) -> str | None:
     if stored_channel in {"red", "green"}:
         return stored_channel
     puncta_line_mode = normalize_puncta_line_mode(properties.get("puncta_line_mode"))
-    return "green" if puncta_line_mode == "green_puncta" else "red"
+    return "green" if puncta_line_mode in {"green_puncta", "green_puncta_only"} else "red"
 
 
 def derive_puncta_source_contour_count_from_statistics(stat: Any) -> int | None:
