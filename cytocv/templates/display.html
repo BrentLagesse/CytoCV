@@ -6,8 +6,8 @@
 {% block head %}
     <script src="{% static 'js/viewer_overlay_prefetch.js' %}"></script>
     <script src="{% static 'js/export_selection_modal.js' %}?v=quick-select-file-count-fade-20260622"></script>
-    <script src="{% static 'js/shared/results-viewer.js' %}?v=source-contour-filter-copy-20260624"></script>
-    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=source-contour-spatial-gap-v2-20260625">
+    <script src="{% static 'js/shared/results-viewer.js' %}?v=single-channel-contour-card-20260626"></script>
+    <link rel="stylesheet" href="{% static 'css/components/results-viewer.css' %}?v=single-channel-contour-card-20260626">
     <link rel="stylesheet" href="{% static 'css/pages/display.css' %}?v=cell-card-compact-20260623">
     <link rel="stylesheet" href="{% static 'css/components/export-selection-modal.css' %}?v=quick-select-file-count-fade-20260622">
 
@@ -543,7 +543,7 @@
     <script id="displayFilesData" type="application/json">{{ files_data|safe }}</script>
     <script id="displayPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "initialCellTypeFilter": "{{ cell_type_filter|default:'all'|escapejs }}", "initialPunctaSourceContourCountFilter": "{{ puncta_source_contour_count_filter|default:'all'|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
 
-    <script src="{% static 'js/pages/display-viewer.js' %}?v=contour-intensity-toggle-slide-20260623"></script>
+    <script src="{% static 'js/pages/display-viewer.js' %}?v=single-channel-contour-card-20260626"></script>
 
     <script src="{% static 'js/pages/display-bfcache.js' %}?v=frontend-modularization-20260609"></script>
 

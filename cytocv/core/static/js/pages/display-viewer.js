@@ -411,6 +411,7 @@
                 cellId: (imageUrls || cellStats) ? cellNumber : 0,
                 mode: cellCard.mode,
                 sections: cellCard.sections,
+                visibleContourIntensityCombinations: cellCard.visibleContourIntensityCombinations,
                 metricValues: cellCard.metricValues,
                 labels: cellCard.labels,
             };
@@ -437,7 +438,10 @@
                 element.setAttribute('title', label);
                 element.textContent = element.dataset.contourSlotLabel || label;
             });
-            applyMetricVisibility(state.sections || { reference: true }, { mode: state.mode });
+            applyMetricVisibility(state.sections || { reference: true }, {
+                mode: state.mode,
+                contourIntensityCombinations: state.visibleContourIntensityCombinations,
+            });
 
             const imageIds = ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'];
             const imageUpdates = imageIds.map((id, index) =>

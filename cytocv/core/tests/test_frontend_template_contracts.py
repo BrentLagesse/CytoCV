@@ -17,9 +17,9 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "source-contour-spatial-gap-v2-20260625"
-RESULTS_VIEWER_JS_VERSION = "source-contour-filter-copy-20260624"
-PAGE_VIEWER_JS_VERSION = "contour-intensity-toggle-slide-20260623"
+RESULTS_VIEWER_CSS_VERSION = "single-channel-contour-card-20260626"
+RESULTS_VIEWER_JS_VERSION = "single-channel-contour-card-20260626"
+PAGE_VIEWER_JS_VERSION = "single-channel-contour-card-20260626"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "metadata-driven-3plane-20260626"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
@@ -97,6 +97,10 @@ class FrontendTemplateContractTests(TestCase):
             'data-contour-intensity-display="average"',
             'data-contour-intensity-display="total" aria-pressed="true"',
             'data-contour-intensity-type-label',
+            'data-contour-intensity-combination="red_in_red"',
+            'data-contour-intensity-combination="green_in_red"',
+            'data-contour-intensity-combination="red_in_green"',
+            'data-contour-intensity-combination="green_in_green"',
             'class="contour-intensity-title-group"',
             'data-active-intensity="total"',
             'class="contour-intensity-toggle-indicator" aria-hidden="true"',
@@ -462,12 +466,12 @@ class FrontendTemplateContractTests(TestCase):
         for image_id in ("cellImage1", "cellImage2", "cellImage3", "cellImage4"):
             self.assertIn(f'id="{image_id}" class="cell-image"', display_content)
         self.assertEqual(display_content.count('data-spatial-unit-toggle'), 3)
+        self.assertIn(">Both cells</span>", display_content)
+        self.assertIn(">Both cells</button>", display_content)
         self.assertIn('id="punctaSourceContourFilterControl"', display_content)
         self.assertIn('id="punctaSourceContourFilterButton"', display_content)
         self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', display_content)
         self.assertEqual(display_content.count('id="cellTypeFilterControl"'), 1)
-        self.assertIn(">Both cells</span>", display_content)
-        self.assertIn(">Both cells</button>", display_content)
         self.assertIn('id="cellTypeFilterButton"', display_content)
         self.assertIn(">All cells</span>", display_content)
         self.assertIn(">All cells</button>", display_content)
@@ -607,12 +611,12 @@ class FrontendTemplateContractTests(TestCase):
         for image_id in ("cellImage1", "cellImage2", "cellImage3", "cellImage4"):
             self.assertIn(f'id="{image_id}" class="cell-image"', dashboard_content)
         self.assertEqual(dashboard_content.count('data-spatial-unit-toggle'), 3)
+        self.assertIn(">Both cells</span>", dashboard_content)
+        self.assertIn(">Both cells</button>", dashboard_content)
         self.assertIn('id="punctaSourceContourFilterControl"', dashboard_content)
         self.assertIn('id="punctaSourceContourFilterButton"', dashboard_content)
         self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', dashboard_content)
         self.assertEqual(dashboard_content.count('id="cellTypeFilterControl"'), 1)
-        self.assertIn(">Both cells</span>", dashboard_content)
-        self.assertIn(">Both cells</button>", dashboard_content)
         self.assertIn('id="cellTypeFilterButton"', dashboard_content)
         self.assertIn(">All cells</span>", dashboard_content)
         self.assertIn(">All cells</button>", dashboard_content)

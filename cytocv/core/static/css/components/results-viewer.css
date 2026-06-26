@@ -2625,6 +2625,11 @@ a:hover {
     border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.cell-stats-detail-grid > .measurement-contour-section[hidden] + .cell-stats-intensity-grid {
+    grid-column: 1 / -1;
+    border-left: 0;
+}
+
 .cell-stats-section {
     display: grid;
     gap: 7px;
@@ -2772,6 +2777,7 @@ a:hover {
 }
 
 [data-cell-card-section][hidden],
+[data-contour-intensity-combination][hidden],
 .cell-stats-section[hidden],
 .cell-stats-detail-grid[hidden],
 .cell-stats-intensity-grid[hidden] {
@@ -2893,6 +2899,35 @@ a:hover {
     min-width: 0;
 }
 
+.cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-section {
+    grid-template-columns: minmax(0, 1fr) minmax(176px, 220px) minmax(0, 1fr);
+    grid-template-areas: "title combo toggle";
+    align-items: start;
+    column-gap: 18px;
+}
+
+.cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-heading {
+    display: contents;
+}
+
+.cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-title-group {
+    grid-area: title;
+    align-self: start;
+}
+
+.cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-toggle {
+    grid-area: toggle;
+    align-self: start;
+    justify-self: end;
+}
+
+.cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-groups {
+    grid-area: combo;
+    grid-template-columns: minmax(176px, 220px);
+    justify-self: center;
+    width: min(100%, 220px);
+}
+
 .cell-stats-strip .contour-intensity-combination {
     margin-top: 0;
     padding-top: 8px;
@@ -2932,6 +2967,30 @@ a:hover {
 
     .contour-intensity-groups {
         grid-template-columns: 1fr;
+    }
+
+    .cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-section {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "heading"
+            "combo";
+        row-gap: 8px;
+    }
+
+    .cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-heading {
+        display: flex;
+        grid-area: heading;
+    }
+
+    .cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-title-group,
+    .cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-toggle {
+        grid-area: auto;
+    }
+
+    .cell-stats-strip[data-contour-intensity-combination-count="1"] .contour-intensity-groups {
+        grid-template-columns: 1fr;
+        justify-self: stretch;
+        width: 100%;
     }
 
     .nuclear-metric-grid {

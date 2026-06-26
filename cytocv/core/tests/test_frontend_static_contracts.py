@@ -436,11 +436,12 @@ class FrontendStaticContractTests(SimpleTestCase):
         dashboard_css = static_text("css/pages/dashboard.css")
 
         self.assertIn("[data-cell-card-section][hidden]", results_css)
+        self.assertIn("[data-contour-intensity-combination][hidden]", results_css)
         self.assertIn(".cell-stats-detail-grid[hidden]", results_css)
         self.assertIn(".cell-stats-intensity-grid[hidden]", results_css)
         self.assertRegex(
             results_css,
-            r"\[data-cell-card-section\]\[hidden\],\s*\.cell-stats-section\[hidden\],\s*\.cell-stats-detail-grid\[hidden\],\s*\.cell-stats-intensity-grid\[hidden\]\s*\{[^}]*display:\s*none\s*!important;",
+            r"\[data-cell-card-section\]\[hidden\],\s*\[data-contour-intensity-combination\]\[hidden\],\s*\.cell-stats-section\[hidden\],\s*\.cell-stats-detail-grid\[hidden\],\s*\.cell-stats-intensity-grid\[hidden\]\s*\{[^}]*display:\s*none\s*!important;",
         )
         self.assertIn('.cell-stats-strip[data-cell-card-mode="nuclear_cell_pair"] .cell-stats-top-grid', results_css)
         self.assertIn('.cell-stats-strip[data-cell-card-mode="puncta_distance"] .nuclear-stat-section', results_css)
@@ -473,6 +474,10 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertRegex(
             results_css,
             r"\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.puncta-stat-section\s+\.metric-row\s+\+\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.biorientation-stat-section\s+\.metric-row\s+\+\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.cen-dot-stat-section\s+\.metric-row\s+\+\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.measurement-contour-section\s+\.metric-row,\s*\.cell-stats-strip\[data-cell-card-mode=\"puncta_distance\"\]\s+\.contour-intensity-combination\s+\.metric-row\s+\+\s+\.metric-row\s*\{[^}]*border-top:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.07\);",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-detail-grid\s*>\s*\.measurement-contour-section\[hidden\]\s*\+\s*\.cell-stats-intensity-grid\s*\{[^}]*grid-column:\s*1\s*/\s*-1;[^}]*border-left:\s*0;",
         )
         self.assertRegex(
             results_css,
@@ -516,6 +521,18 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             results_css,
+            r"\.cell-stats-strip\[data-contour-intensity-combination-count=\"1\"\]\s+\.contour-intensity-section\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(176px,\s*220px\)\s+minmax\(0,\s*1fr\);[^}]*grid-template-areas:\s*\"title combo toggle\";",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\[data-contour-intensity-combination-count=\"1\"\]\s+\.contour-intensity-heading\s*\{[^}]*display:\s*contents;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\[data-contour-intensity-combination-count=\"1\"\]\s+\.contour-intensity-groups\s*\{[^}]*grid-area:\s*combo;[^}]*grid-template-columns:\s*minmax\(176px,\s*220px\);[^}]*justify-self:\s*center;",
+        )
+        self.assertRegex(
+            results_css,
             r"\.cell-stats-strip\s+\.contour-intensity-combination\s*\{[^}]*border-top:\s*0;",
         )
         self.assertRegex(
@@ -524,6 +541,14 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertIn("@media (max-width: 1180px)", results_css)
         self.assertIn("@media (max-width: 760px)", results_css)
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\[data-contour-intensity-combination-count=\"1\"\]\s+\.contour-intensity-section\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-areas:\s*\"heading\"\s*\"combo\";",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-stats-strip\[data-contour-intensity-combination-count=\"1\"\]\s+\.contour-intensity-heading\s*\{[^}]*display:\s*flex;[^}]*grid-area:\s*heading;",
+        )
         self.assertIn(".nuclear-metric-grid {\n        grid-template-columns: 1fr;", results_css)
         self.assertNotIn(".cell-stats-column", display_css)
         self.assertNotIn(".cell-stats-column", dashboard_css)

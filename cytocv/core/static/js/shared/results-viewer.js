@@ -273,6 +273,13 @@
         ['red_in_green', 'Red In Green', 'redInGreenIntensity'],
         ['green_in_green', 'Green In Green', 'greenInGreenIntensity'],
     ];
+    const CONTOUR_INTENSITY_COMBINATION_KEYS = CONTOUR_INTENSITY_COMBINATIONS.map(
+        ([combination]) => combination
+    );
+    const SINGLE_CHANNEL_CONTOUR_INTENSITY_COMBINATIONS = {
+        red_puncta_only: ['red_in_red'],
+        green_puncta_only: ['green_in_green'],
+    };
     const CONTOUR_INTENSITY_STATISTICS = {
         total: 'Total',
         max: 'Max',
@@ -375,6 +382,35 @@
         ));
     }
 
+    function getContourIntensityFieldNamesForCombinations(combinations) {
+        const requestedCombinations = new Set(
+            (Array.isArray(combinations) ? combinations : CONTOUR_INTENSITY_COMBINATION_KEYS)
+                .map((combination) => String(combination || '').trim())
+                .filter((combination) => CONTOUR_INTENSITY_COMBINATION_KEYS.includes(combination))
+        );
+        if (!requestedCombinations.size) return [];
+        return getAllContourIntensityDisplayFields()
+            .filter((field) => requestedCombinations.has(field.combination))
+            .map((field) => field.fieldName);
+    }
+
+    function getForcedContourIntensityCombinations(cellStats) {
+        const mode = String(cellStats?.puncta_line_mode || '').trim();
+        return SINGLE_CHANNEL_CONTOUR_INTENSITY_COMBINATIONS[mode] || null;
+    }
+
+    function getVisibleContourIntensityCombinations(cellStats) {
+        if (!cellStats || typeof cellStats !== 'object') return [];
+        const forcedCombinations = getForcedContourIntensityCombinations(cellStats);
+        if (forcedCombinations) return forcedCombinations.slice();
+        return CONTOUR_INTENSITY_COMBINATION_KEYS.filter((combination) => (
+            hasUsableCellCardValue(
+                cellStats,
+                getContourIntensityFieldNamesForCombinations([combination])
+            )
+        ));
+    }
+
     function setContourIntensityDisplayButtonState(activeType = 'total') {
         const normalizedType = normalizeContourIntensityDisplayType(activeType);
         document.querySelectorAll('.contour-intensity-toggle').forEach((toggle) => {
@@ -411,7 +447,10 @@
         const visibility = getStatVisibility(cellStats);
         const mode = getEffectiveCellCardMode(cellStats);
         const hasCellStats = !!(cellStats && typeof cellStats === 'object');
-        const contourFields = getAllContourIntensityDisplayFields().map((field) => field.fieldName);
+        const visibleContourIntensityCombinations = getVisibleContourIntensityCombinations(cellStats);
+        const contourFields = getContourIntensityFieldNamesForCombinations(
+            visibleContourIntensityCombinations
+        );
         const ratioFields = [
             'measurement_contour_ratio_1',
             'measurement_contour_ratio_2',
@@ -442,7 +481,9 @@
                     && cellStats.measurement_contour_ratio_display_text !== 'N/A'
                 )
             ),
-            contour_intensity: redGreenVisible && hasUsableCellCardValue(cellStats, contourFields),
+            contour_intensity: redGreenVisible
+                && visibleContourIntensityCombinations.length > 0
+                && hasUsableCellCardValue(cellStats, contourFields),
         };
     }
 
@@ -938,13 +979,34 @@
             return tableFieldOrder.slice();
         }
 
-        function applyMetricVisibility(visibility, { mode = CELL_CARD_SIGNAL_MODES.puncta } = {}) {
+        function applyMetricVisibility(
+            visibility,
+            {
+                mode = CELL_CARD_SIGNAL_MODES.puncta,
+                contourIntensityCombinations = CONTOUR_INTENSITY_COMBINATION_KEYS,
+            } = {}
+        ) {
             const sections = visibility && typeof visibility === 'object'
                 ? visibility
                 : { reference: true };
             const normalizedMode = normalizeCellCardSignalMode(mode) || CELL_CARD_SIGNAL_MODES.puncta;
+            const visibleContourIntensityCombinations = new Set(
+                (Array.isArray(contourIntensityCombinations)
+                    ? contourIntensityCombinations
+                    : CONTOUR_INTENSITY_COMBINATION_KEYS
+                )
+                    .map((combination) => String(combination || '').trim())
+                    .filter((combination) => CONTOUR_INTENSITY_COMBINATION_KEYS.includes(combination))
+            );
             document.querySelectorAll('[data-cell-card-root]').forEach((root) => {
                 root.dataset.cellCardMode = normalizedMode;
+                root.dataset.contourIntensityCombinationCount = String(
+                    visibleContourIntensityCombinations.size
+                );
+            });
+            document.querySelectorAll('[data-contour-intensity-combination]').forEach((combinationSection) => {
+                const combination = combinationSection.dataset.contourIntensityCombination;
+                combinationSection.hidden = !visibleContourIntensityCombinations.has(combination);
             });
             document.querySelectorAll('[data-cell-card-section]').forEach((section) => {
                 const sectionName = section.dataset.cellCardSection;
@@ -1653,6 +1715,7 @@
                 nuclearStatus: cellStats ? (cellStats.nuclear_cell_pair_status || 'unknown') : 'N/A',
             };
             const contourIntensityLabels = {};
+            const visibleContourIntensityCombinations = getVisibleContourIntensityCombinations(cellStats);
             getContourIntensityDisplayFields(displayType).forEach((field) => {
                 metricValues[field.metricId] = formatStatValue(cellStats ? cellStats[field.fieldName] : null);
                 contourIntensityLabels[field.metricId] = field.label;
@@ -1662,6 +1725,7 @@
                 mode: getEffectiveCellCardMode(cellStats),
                 sections: getVisibleCellCardSections(cellStats),
                 contourIntensityType: displayType,
+                visibleContourIntensityCombinations,
                 metricValues,
                 labels: {
                     distanceLabel: formatSpatialLabel(distanceLabel, 'puncta_distance', spatialUnit),
@@ -1767,6 +1831,7 @@
             hasNoNucleusContour,
             getNuclearLabelPair,
             buildCellCardMetricValues,
+            getVisibleContourIntensityCombinations,
             normalizePunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterLabel,
             normalizeCellTypeFilter,
@@ -1804,6 +1869,7 @@
         getVisibleCellCardSections,
         getContourIntensityDisplayFields,
         getAllContourIntensityDisplayFields,
+        getVisibleContourIntensityCombinations,
         bindContourIntensityDisplayControls,
         setContourIntensityDisplayButtonState,
         ensureChannelMessageContainer,

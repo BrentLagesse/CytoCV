@@ -636,6 +636,10 @@ const biorientationSection = makeElement({{ cellCardSection: 'biorientation' }})
 const cenDotSection = makeElement({{ cellCardSection: 'cen_dot' }});
 const measurementSection = makeElement({{ cellCardSection: 'measurement_contour' }});
 const contourSection = makeElement({{ cellCardSection: 'contour_intensity' }});
+const redInRedCombination = makeElement({{ contourIntensityCombination: 'red_in_red' }});
+const greenInRedCombination = makeElement({{ contourIntensityCombination: 'green_in_red' }});
+const redInGreenCombination = makeElement({{ contourIntensityCombination: 'red_in_green' }});
+const greenInGreenCombination = makeElement({{ contourIntensityCombination: 'green_in_green' }});
 const detailRow = makeElement();
 detailRow.querySelectorAll = (selector) => (
   selector === '[data-cell-card-section]' ? [measurementSection, contourSection] : []
@@ -653,6 +657,12 @@ const cellCardSections = [
   measurementSection,
   contourSection,
 ];
+const contourIntensityCombinations = [
+  redInRedCombination,
+  greenInRedCombination,
+  redInGreenCombination,
+  greenInGreenCombination,
+];
 const context = {{
   window: {{}},
   document: {{
@@ -660,6 +670,7 @@ const context = {{
       if (selector === '.contour-intensity-toggle') return [contourIntensityToggle];
       if (selector === '[data-contour-intensity-display]') return selectorButtons;
       if (selector === '[data-cell-card-root]') return [rootEl];
+      if (selector === '[data-contour-intensity-combination]') return contourIntensityCombinations;
       if (selector === '[data-cell-card-section]') return cellCardSections;
       if (selector === '[data-stat-section]:not([data-cell-card-section])') return [];
       if (selector === '[data-stat-row]') return statRows;
@@ -674,6 +685,7 @@ const trueKeys = (sections) => Object.entries(sections)
   .filter(([, value]) => value === true)
   .map(([key]) => key)
   .sort();
+const ownArray = (values) => Array.from(values);
 
 assert.strictEqual(
   shared.getEffectiveCellCardMode({{ signal_quantification_mode: 'nuclear_cell_pair' }}),
@@ -788,14 +800,51 @@ assert.strictEqual(disabledSections.measurement_contour, false);
 assert.strictEqual(disabledSections.contour_intensity, false);
 
 const expectedCombinations = ['red_in_red', 'green_in_red', 'red_in_green', 'green_in_green'];
+assert.deepStrictEqual(
+  ownArray(shared.getVisibleContourIntensityCombinations(punctaStats)),
+  expectedCombinations
+);
+const redOnlyStats = {{
+  ...punctaStats,
+  puncta_line_mode: 'red_puncta_only',
+  measurement_contour_ratio_1: null,
+  measurement_contour_ratio_2: null,
+  measurement_contour_ratio_3: null,
+  measurement_contour_ratio_display_text: 'N/A',
+  green_in_red_total_intensity_1: 12,
+  red_in_green_total_intensity_1: 13,
+  green_in_green_total_intensity_1: 14,
+}};
+assert.deepStrictEqual(ownArray(shared.getVisibleContourIntensityCombinations(redOnlyStats)), ['red_in_red']);
+assert.deepStrictEqual(
+  trueKeys(shared.getVisibleCellCardSections(redOnlyStats)),
+  ['biorientation', 'cen_dot', 'contour_intensity', 'puncta_distance', 'reference']
+);
+const greenOnlyStats = {{
+  ...punctaStats,
+  puncta_line_mode: 'green_puncta_only',
+  measurement_contour_ratio_1: null,
+  measurement_contour_ratio_2: null,
+  measurement_contour_ratio_3: null,
+  measurement_contour_ratio_display_text: 'N/A',
+  red_in_red_total_intensity_1: 11,
+  green_in_red_total_intensity_1: 12,
+  red_in_green_total_intensity_1: 13,
+  green_in_green_total_intensity_1: 14,
+}};
+assert.deepStrictEqual(ownArray(shared.getVisibleContourIntensityCombinations(greenOnlyStats)), ['green_in_green']);
+assert.deepStrictEqual(
+  trueKeys(shared.getVisibleCellCardSections(greenOnlyStats)),
+  ['biorientation', 'cen_dot', 'contour_intensity', 'puncta_distance', 'reference']
+);
 for (const type of ['total', 'max', 'average']) {{
   const fields = shared.getContourIntensityDisplayFields(type);
   assert.strictEqual(fields.length, 12);
   assert.ok(fields.every((field) => field.statistic === type));
   assert.ok(fields.every((field) => field.fieldName.includes(`_${{type}}_intensity_`)));
-  assert.deepStrictEqual(
-    Array.from(new Set(fields.map((field) => field.combination))),
-    expectedCombinations
+  assert.strictEqual(
+    JSON.stringify(Array.from(new Set(fields.map((field) => field.combination)))),
+    JSON.stringify(expectedCombinations)
   );
 }}
 assert.strictEqual(
@@ -879,6 +928,15 @@ assert.strictEqual(builtTotal.metricValues.measurementContourRatio1, '0');
 assert.strictEqual(builtTotal.metricValues.colinearDots, '0');
 assert.strictEqual(builtTotal.labels.contourIntensityTypeLabel, 'Total');
 assert.strictEqual(builtTotal.labels.contourIntensityLabels.redInRedIntensity1, 'Red In Red Total Intensity 1');
+assert.deepStrictEqual(ownArray(builtTotal.visibleContourIntensityCombinations), expectedCombinations);
+const builtRedOnly = helpers.buildCellCardMetricValues(redOnlyStats, {{ contourIntensityType: 'total' }});
+assert.deepStrictEqual(ownArray(builtRedOnly.visibleContourIntensityCombinations), ['red_in_red']);
+assert.strictEqual(builtRedOnly.sections.measurement_contour, false);
+assert.strictEqual(builtRedOnly.sections.contour_intensity, true);
+const builtGreenOnly = helpers.buildCellCardMetricValues(greenOnlyStats, {{ contourIntensityType: 'total' }});
+assert.deepStrictEqual(ownArray(builtGreenOnly.visibleContourIntensityCombinations), ['green_in_green']);
+assert.strictEqual(builtGreenOnly.sections.measurement_contour, false);
+assert.strictEqual(builtGreenOnly.sections.contour_intensity, true);
 const builtMax = helpers.buildCellCardMetricValues(punctaStats, {{ contourIntensityType: 'max' }});
 assert.strictEqual(builtMax.contourIntensityType, 'max');
 assert.strictEqual(builtMax.metricValues.redInRedIntensity1, '111');
@@ -909,6 +967,7 @@ helpers.applyMetricVisibility(
   {{ mode: shared.getEffectiveCellCardMode(punctaStats) }}
 );
 assert.strictEqual(rootEl.dataset.cellCardMode, 'puncta_distance');
+assert.strictEqual(rootEl.dataset.contourIntensityCombinationCount, '4');
 assert.strictEqual(referenceSection.hidden, false);
 assert.strictEqual(nuclearSection.hidden, true);
 assert.strictEqual(punctaSection.hidden, false);
@@ -916,6 +975,41 @@ assert.strictEqual(biorientationSection.hidden, false);
 assert.strictEqual(cenDotSection.hidden, false);
 assert.strictEqual(measurementSection.hidden, false);
 assert.strictEqual(contourSection.hidden, false);
+assert.strictEqual(redInRedCombination.hidden, false);
+assert.strictEqual(greenInRedCombination.hidden, false);
+assert.strictEqual(redInGreenCombination.hidden, false);
+assert.strictEqual(greenInGreenCombination.hidden, false);
+assert.strictEqual(detailRow.hidden, false);
+
+helpers.applyMetricVisibility(
+  shared.getVisibleCellCardSections(redOnlyStats),
+  {{
+    mode: shared.getEffectiveCellCardMode(redOnlyStats),
+    contourIntensityCombinations: shared.getVisibleContourIntensityCombinations(redOnlyStats),
+  }}
+);
+assert.strictEqual(rootEl.dataset.cellCardMode, 'puncta_distance');
+assert.strictEqual(rootEl.dataset.contourIntensityCombinationCount, '1');
+assert.strictEqual(measurementSection.hidden, true);
+assert.strictEqual(contourSection.hidden, false);
+assert.strictEqual(redInRedCombination.hidden, false);
+assert.strictEqual(greenInRedCombination.hidden, true);
+assert.strictEqual(redInGreenCombination.hidden, true);
+assert.strictEqual(greenInGreenCombination.hidden, true);
+assert.strictEqual(detailRow.hidden, false);
+
+helpers.applyMetricVisibility(
+  shared.getVisibleCellCardSections(greenOnlyStats),
+  {{
+    mode: shared.getEffectiveCellCardMode(greenOnlyStats),
+    contourIntensityCombinations: shared.getVisibleContourIntensityCombinations(greenOnlyStats),
+  }}
+);
+assert.strictEqual(rootEl.dataset.contourIntensityCombinationCount, '1');
+assert.strictEqual(redInRedCombination.hidden, true);
+assert.strictEqual(greenInRedCombination.hidden, true);
+assert.strictEqual(redInGreenCombination.hidden, true);
+assert.strictEqual(greenInGreenCombination.hidden, false);
 assert.strictEqual(detailRow.hidden, false);
 """
         result = subprocess.run(
