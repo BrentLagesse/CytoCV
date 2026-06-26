@@ -838,7 +838,7 @@
             const parts = [];
             const cellTypeFilter = getCurrentCellTypeFilter();
             if (cellTypeFilter !== 'all') {
-                parts.push(cellTypeFilter === 'single_cell' ? 'Single cells only' : 'Cell pairs only');
+                parts.push(getCellTypeFilterLabel(cellTypeFilter));
             }
             if (filterValue !== 'all') {
                 const context = getPunctaSourceContourContext(fileData?.Statistics || {});
@@ -868,7 +868,7 @@
                 separator.textContent = '\u00b7';
                 const value = document.createElement('span');
                 value.className = 'cell-card-filter-value';
-                value.textContent = label || 'All cells';
+                value.textContent = label || getCellTypeFilterLabel('all');
                 badge.append(prefix, separator, value);
                 badge.hidden = false;
             }

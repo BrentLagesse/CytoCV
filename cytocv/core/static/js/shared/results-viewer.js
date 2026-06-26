@@ -1089,9 +1089,9 @@
 
         function getCellTypeFilterLabel(value) {
             const normalized = normalizeCellTypeFilter(value);
-            if (normalized === 'single_cell') return 'Single cells only';
-            if (normalized === 'cell_pair') return 'Cell pairs only';
-            return 'All cells';
+            if (normalized === 'single_cell') return 'Only single cells';
+            if (normalized === 'cell_pair') return 'Only cell pairs';
+            return 'Both cells';
         }
 
         function normalizeCellType(value) {
@@ -1120,7 +1120,16 @@
             return ['single_cell', 'cell_pair', 'unknown'].filter((cellType) => seen.has(cellType));
         }
 
-        function getCellTypeFilterUnavailableHelp(availableCellTypes, baseRowCount) {
+        function getDisabledCellTypeFilterLabel(availableCellTypes, baseRowCount) {
+            const hasSingle = availableCellTypes.includes('single_cell');
+            const hasPair = availableCellTypes.includes('cell_pair');
+            if (hasPair && !hasSingle) return getCellTypeFilterLabel('cell_pair');
+            if (hasSingle && !hasPair) return getCellTypeFilterLabel('single_cell');
+            if (baseRowCount === 0) return 'No cells';
+            return 'Cell types unknown';
+        }
+
+        function getCellTypeFilterDisabledHelp(availableCellTypes, baseRowCount) {
             if (baseRowCount === 0) {
                 return 'No retained cells are available for this result.';
             }
@@ -1130,7 +1139,7 @@
             if (availableCellTypes.includes('single_cell') && !availableCellTypes.includes('cell_pair')) {
                 return 'This result only contains single cells. To include cell pairs, rerun analysis with Cell Inclusion Mode set to Single cells and cell pairs.';
             }
-            return 'Cell type information is unavailable for this result.';
+            return 'Cell type information is not present for this result.';
         }
 
         function getCellTypeFilterUiState(statistics, requestedFilter) {
@@ -1143,18 +1152,9 @@
             const effectiveFilter = enabled && requested !== 'all' && availableCellTypes.includes(requested)
                 ? requested
                 : 'all';
-            let displayLabel = getCellTypeFilterLabel(effectiveFilter);
-            if (!enabled) {
-                if (entries.length === 0) {
-                    displayLabel = 'No cells available';
-                } else if (hasPair && !hasSingle) {
-                    displayLabel = 'Only cell pairs analyzed';
-                } else if (hasSingle && !hasPair) {
-                    displayLabel = 'Only single cells analyzed';
-                } else {
-                    displayLabel = 'Unavailable';
-                }
-            }
+            const displayLabel = enabled
+                ? getCellTypeFilterLabel(effectiveFilter)
+                : getDisabledCellTypeFilterLabel(availableCellTypes, entries.length);
             return {
                 enabled,
                 effectiveFilter,
@@ -1162,7 +1162,7 @@
                 displayLabel,
                 helpText: enabled
                     ? 'This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.'
-                    : getCellTypeFilterUnavailableHelp(availableCellTypes, entries.length),
+                    : getCellTypeFilterDisabledHelp(availableCellTypes, entries.length),
                 availableCellTypes,
                 baseRowCount: entries.length,
                 resetRequestedFilter: requested !== effectiveFilter,
@@ -1385,10 +1385,10 @@
                 && punctaSourceContourState.effectiveFilter !== 'all'
             );
             if (cellTypeActive && sourceContourActive) {
-                return 'No cells match the current row filters. Switch to All cells and all source contours to view every retained cell.';
+                return 'No cells match the current row filters. Switch to Both cells and all source contours to view every retained cell.';
             }
             if (cellTypeActive) {
-                return 'No cells match the current Cell Type Filter. Switch to All cells to view every retained cell.';
+                return 'No cells match the current Cell Type Filter. Switch to Both cells to view every retained cell.';
             }
             if (sourceContourActive) {
                 return 'No cells match the current source contour filter. Show all source contours to view every retained cell.';

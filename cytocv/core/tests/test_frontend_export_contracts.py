@@ -246,7 +246,7 @@ class FrontendExportContractTests(TestCase):
                 self.assertIn("closest('tbody tr[data-cell-id]')", source)
                 self.assertIn("prefix.textContent = 'Filtered view'", source)
                 self.assertIn("separator.textContent = '\\u00b7'", source)
-                self.assertIn("value.textContent = label || 'All cells'", source)
+                self.assertIn("value.textContent = label || getCellTypeFilterLabel('all')", source)
                 self.assertIn("cell-card-filter-value", source)
                 self.assertIn("PUNCTA_SOURCE_FILTER_APPLY_FEEDBACK_MS = 120", source)
                 self.assertIn("punctaSourceContourApplySkeletonTimer", source)

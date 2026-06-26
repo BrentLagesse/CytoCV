@@ -1113,30 +1113,35 @@ assert.deepStrictEqual(ownArray(helpers.getAvailableCellTypes(mixed)), ['single_
 let state = helpers.getCellTypeFilterUiState(mixed, 'single_cell');
 assert.strictEqual(state.enabled, true);
 assert.strictEqual(state.effectiveFilter, 'single_cell');
-assert.strictEqual(state.displayLabel, 'Single cells only');
+assert.strictEqual(state.displayLabel, 'Only single cells');
+
+state = helpers.getCellTypeFilterUiState(mixed, 'all');
+assert.strictEqual(state.enabled, true);
+assert.strictEqual(state.effectiveFilter, 'all');
+assert.strictEqual(state.displayLabel, 'Both cells');
 
 state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: 'cell_pair' }} }}, 'single_cell');
 assert.strictEqual(state.enabled, false);
 assert.strictEqual(state.effectiveFilter, 'all');
-assert.strictEqual(state.displayLabel, 'Only cell pairs analyzed');
+assert.strictEqual(state.displayLabel, 'Only cell pairs');
 assert.strictEqual(state.resetRequestedFilter, true);
 
 state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: 'single_cell' }} }}, 'cell_pair');
 assert.strictEqual(state.enabled, false);
 assert.strictEqual(state.effectiveFilter, 'all');
-assert.strictEqual(state.displayLabel, 'Only single cells analyzed');
+assert.strictEqual(state.displayLabel, 'Only single cells');
 assert.strictEqual(state.resetRequestedFilter, true);
 
 state = helpers.getCellTypeFilterUiState({{ '1': {{ cell_type: null }}, '2': {{}} }}, 'cell_pair');
 assert.deepStrictEqual(ownArray(state.availableCellTypes), ['unknown']);
 assert.strictEqual(state.enabled, false);
 assert.strictEqual(state.effectiveFilter, 'all');
-assert.strictEqual(state.displayLabel, 'Unavailable');
+assert.strictEqual(state.displayLabel, 'Cell types unknown');
 
 state = helpers.getCellTypeFilterUiState({{}}, 'single_cell');
 assert.strictEqual(state.enabled, false);
 assert.strictEqual(state.effectiveFilter, 'all');
-assert.strictEqual(state.displayLabel, 'No cells available');
+assert.strictEqual(state.displayLabel, 'No cells');
 
 const sourceState = helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_2');
 assert.strictEqual(sourceState.enabled, true);
@@ -1173,7 +1178,7 @@ assert.strictEqual(
     cellTypeState: helpers.getCellTypeFilterUiState(mixed, 'single_cell'),
     punctaSourceContourState: helpers.getPunctaSourceContourFilterUiState(mixed, 'all'),
   }}),
-  'No cells match the current Cell Type Filter. Switch to All cells to view every retained cell.'
+  'No cells match the current Cell Type Filter. Switch to Both cells to view every retained cell.'
 );
 assert.strictEqual(
   helpers.getRowFilterEmptyMessage(mixed, 0, {{

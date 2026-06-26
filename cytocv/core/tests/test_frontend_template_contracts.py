@@ -466,6 +466,8 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="punctaSourceContourFilterButton"', display_content)
         self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', display_content)
         self.assertEqual(display_content.count('id="cellTypeFilterControl"'), 1)
+        self.assertIn(">Both cells</span>", display_content)
+        self.assertIn(">Both cells</button>", display_content)
         self.assertIn('id="cellTypeFilterButton"', display_content)
         self.assertIn(">All cells</span>", display_content)
         self.assertIn(">All cells</button>", display_content)
@@ -473,8 +475,8 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn(">2 contours</button>", display_content)
         self.assertNotIn(">Exactly 1 source contour</button>", display_content)
         self.assertNotIn(">Exactly 2 source contours</button>", display_content)
-        self.assertIn(">Single cells only</button>", display_content)
-        self.assertIn(">Cell pairs only</button>", display_content)
+        self.assertIn(">Only single cells</button>", display_content)
+        self.assertIn(">Only cell pairs</button>", display_content)
         self.assertIn(
             "This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.",
             display_content,
@@ -609,6 +611,8 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="punctaSourceContourFilterButton"', dashboard_content)
         self.assertIn('id="punctaSourceContourFilterStatus" aria-live="polite"', dashboard_content)
         self.assertEqual(dashboard_content.count('id="cellTypeFilterControl"'), 1)
+        self.assertIn(">Both cells</span>", dashboard_content)
+        self.assertIn(">Both cells</button>", dashboard_content)
         self.assertIn('id="cellTypeFilterButton"', dashboard_content)
         self.assertIn(">All cells</span>", dashboard_content)
         self.assertIn(">All cells</button>", dashboard_content)
@@ -616,8 +620,8 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn(">2 contours</button>", dashboard_content)
         self.assertNotIn(">Exactly 1 source contour</button>", dashboard_content)
         self.assertNotIn(">Exactly 2 source contours</button>", dashboard_content)
-        self.assertIn(">Single cells only</button>", dashboard_content)
-        self.assertIn(">Cell pairs only</button>", dashboard_content)
+        self.assertIn(">Only single cells</button>", dashboard_content)
+        self.assertIn(">Only cell pairs</button>", dashboard_content)
         self.assertIn(
             "This filter only applies to cells retained during analysis. Rerun analysis with a different Cell Inclusion Mode to include excluded cell types.",
             dashboard_content,
