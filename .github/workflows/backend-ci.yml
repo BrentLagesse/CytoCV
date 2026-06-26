@@ -18,17 +18,126 @@ concurrency:
   group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CYTOCV_SECRET_KEY: ci-insecure-secret-key
+  CYTOCV_DEBUG: "1"
+  CYTOCV_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+  CYTOCV_ANALYSIS_EXECUTION_MODE: sync
+  CYTOCV_DB_BACKEND: sqlite
+
 jobs:
-  backend-tests:
-    name: backend-tests
+  backend-full-suite:
+    name: backend-full-suite
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      CYTOCV_SECRET_KEY: ci-insecure-secret-key
-      CYTOCV_DEBUG: "1"
-      CYTOCV_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
-      CYTOCV_ANALYSIS_EXECUTION_MODE: sync
-      CYTOCV_DB_BACKEND: sqlite
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install OpenCV runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Print Python version
+        working-directory: cytocv
+        run: python --version
+
+      - name: Print pip version
+        working-directory: cytocv
+        run: python -m pip --version
+
+      - name: Print Django version
+        working-directory: cytocv
+        run: python -c "import django; print('Django', django.get_version())"
+
+      - name: Django system check
+        working-directory: cytocv
+        run: python manage.py check
+
+      - name: Migration dry-run
+        working-directory: cytocv
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Static collection dry-run
+        working-directory: cytocv
+        run: python manage.py collectstatic --dry-run --noinput
+
+      - name: Full test suite
+        working-directory: cytocv
+        run: python manage.py test
+
+      - name: Final repository status
+        if: always()
+        run: git status --short
+
+  targeted-regressions:
+    name: targeted-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install OpenCV runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Scientific and workflow regression tests
+        working-directory: cytocv
+        run: |
+          python manage.py test \
+            core.tests.test_cell_inclusion_mode \
+            core.tests.test_puncta_source_contour_count_filter \
+            core.tests.test_intensity_helpers \
+            core.tests.test_stats_validation \
+            core.tests.test_modern_contour_statistics \
+            core.tests.test_tables \
+            core.tests.test_cell_statistics_payload \
+            core.tests.test_stat_export_selection \
+            core.tests.test_cell_deletion \
+            core.tests.test_analysis_async \
+            core.tests.test_accounts_preferences \
+            core.tests.test_tiff_channel_parser \
+            core.tests.test_tiff_scale_parser \
+            core.tests.test_upload_preparation \
+            core.tests.test_upload_length_scale
+
+  frontend-contracts:
+    name: frontend-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -58,6 +167,59 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install -r requirements.txt
 
+      - name: JavaScript syntax check
+        working-directory: cytocv
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core/static/js -type f -name '*.js' -print0)
+
+      - name: Frontend contract tests
+        working-directory: cytocv
+        run: |
+          python manage.py test \
+            core.tests.test_frontend_template_contracts \
+            core.tests.test_frontend_static_contracts \
+            core.tests.test_frontend_json_contracts \
+            core.tests.test_frontend_js_contracts \
+            core.tests.test_frontend_workflow_contracts \
+            core.tests.test_frontend_viewer_contracts \
+            core.tests.test_frontend_export_contracts \
+            core.tests.test_core_app
+
+  docs-and-ci-contracts:
+    name: docs-and-ci-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install OpenCV runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Python compile check
+        run: python -m compileall cytocv
+
       - name: Check whitespace in changed files
         shell: bash
         run: |
@@ -81,64 +243,10 @@ jobs:
             git diff --check
           fi
 
-      - name: Print Python version
-        working-directory: cytocv
-        run: python --version
-
-      - name: Print pip version
-        working-directory: cytocv
-        run: python -m pip --version
-
-      - name: Print Django version
-        working-directory: cytocv
-        run: python -c "import django; print('Django', django.get_version())"
-
-      - name: Django system check
-        working-directory: cytocv
-        run: python manage.py check
-
-      - name: Migration dry-run
-        working-directory: cytocv
-        run: python manage.py makemigrations --check --dry-run
-
-      - name: Static collection dry-run
-        working-directory: cytocv
-        run: python manage.py collectstatic --dry-run --noinput
-
-      - name: JavaScript syntax check
-        working-directory: cytocv
-        shell: bash
-        run: |
-          set -euo pipefail
-          while IFS= read -r -d '' file; do
-            node --check "$file"
-          done < <(find core/static/js -type f -name '*.js' -print0)
-
-      - name: Frontend contract tests
+      - name: Docs and CI contract tests
         working-directory: cytocv
         run: |
           python manage.py test \
-            core.tests.test_frontend_template_contracts \
-            core.tests.test_frontend_static_contracts \
-            core.tests.test_frontend_json_contracts \
-            core.tests.test_frontend_js_contracts \
-            core.tests.test_frontend_workflow_contracts \
-            core.tests.test_frontend_viewer_contracts \
-            core.tests.test_frontend_export_contracts \
-            core.tests.test_core_app
-
-      - name: Core tests
-        working-directory: cytocv
-        run: python manage.py test core
-
-      - name: Account tests
-        working-directory: cytocv
-        run: python manage.py test accounts
-
-      - name: Full test suite
-        working-directory: cytocv
-        run: python manage.py test
-
-      - name: Final repository status
-        if: always()
-        run: git status --short
+            core.tests.test_docs_contracts \
+            core.tests.test_backend_ci_contracts \
+            core.tests.test_settings_contracts

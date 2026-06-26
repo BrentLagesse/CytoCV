@@ -1281,6 +1281,13 @@ assert.strictEqual(
   }}),
   'No cells match the current source contour filter. Show all source contours to view every retained cell.'
 );
+assert.strictEqual(
+  helpers.getRowFilterEmptyMessage(mixed, 0, {{
+    cellTypeState: helpers.getCellTypeFilterUiState(mixed, 'single_cell'),
+    punctaSourceContourState: helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_2'),
+  }}),
+  'No cells match the current row filters. Switch to Both cells and all source contours to view every retained cell.'
+);
 """
         result = subprocess.run(
             [node, "-e", script],

@@ -217,7 +217,10 @@ class CellTable(tables.Table):
     cell_pair_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[0])
     nucleus_intensity_sum = NumberColumn(verbose_name=FALLBACK_NUCLEAR_CELL_PAIR_LABELS[1])
     cytoplasmic_intensity = NumberColumn(verbose_name="Cytoplasmic Intensity")
-    nuclear_cytoplasmic_ratio = NumberColumn(verbose_name="Nuclear / Cytoplasmic Ratio")
+    nuclear_cytoplasmic_ratio = NumberColumn(
+        verbose_name="Nuclear / Cytoplasmic Ratio",
+        empty_values=(),
+    )
 
     cell_parentage = tables.Column(verbose_name="Cell Parentage", empty_values=())
     category_cen_dot = ChoiceLabelColumn(

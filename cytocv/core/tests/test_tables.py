@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from django.test import RequestFactory, SimpleTestCase
 
+from core.services.cell_type_statistics import mark_single_cell_pair_specific_statistics_na
 from core.tables import CellTable
 
 
@@ -95,6 +96,43 @@ class CellTableNuclearCellPairRenderingTests(SimpleTestCase):
 
         self.assertEqual(list(table.rows)[0].get_cell("cell_type"), "Unknown")
         self.assertEqual(values[1][header.index("Cell Type")], "Unknown")
+
+    def test_single_cell_pair_specific_fields_render_and_export_as_na(self):
+        record = _stats_record(
+            cell_type="single_cell",
+            properties={
+                "selected_analysis": [
+                    "PunctaDistance",
+                    "CENDot",
+                    "Biorientation",
+                    "NuclearCellPairIntensity",
+                ],
+                "signal_quantification_mode": "nuclear_cell_pair",
+                "nuclear_cell_pair_mode": "green_nucleus",
+                "nuclear_cell_pair_status": "ok",
+                "cen_dot_schema_version": 3,
+            },
+        )
+        mark_single_cell_pair_specific_statistics_na(record)
+        table = CellTable([record], intensity_mode="green_nucleus", puncta_line_mode="red_puncta")
+        row = list(table.rows)[0]
+        values = list(table.as_values())
+        header = values[0]
+        value_row = values[1]
+
+        self.assertEqual(row.get_cell("cell_type"), "Single Cell")
+        self.assertEqual(row.get_cell("cell_pair_intensity_sum"), "N/A")
+        self.assertEqual(row.get_cell("nucleus_intensity_sum"), "N/A")
+        self.assertEqual(row.get_cell("cytoplasmic_intensity"), "N/A")
+        self.assertEqual(row.get_cell("nuclear_cytoplasmic_ratio"), "N/A")
+        self.assertEqual(row.get_cell("cell_parentage"), "N/A")
+        self.assertEqual(row.get_cell("category_cen_dot"), "N/A")
+        self.assertEqual(row.get_cell("colinear_dots"), "N/A")
+        self.assertEqual(row.get_cell("off_axis_dots"), "N/A")
+        self.assertEqual(value_row[header.index("Cell Type")], "Single Cell")
+        self.assertEqual(value_row[header.index("Red Cell-Pair Intensity")], "N/A")
+        self.assertEqual(value_row[header.index("Cell Parentage")], "N/A")
+        self.assertEqual(value_row[header.index("Cen Dot Location")], "N/A")
 
     @staticmethod
     def _record_with_status(status: str):

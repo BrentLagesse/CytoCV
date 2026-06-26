@@ -147,13 +147,26 @@ Observed output naming patterns include:
 
 ## Export Output
 
-CytoCV exports statistics tables as CSV and XLSX files from both Display and Dashboard. Single-file exports contain one statistics table. Multi-file exports contain one combined table with `File Name` as the first column, `Cell ID` as the second column, and selected metric columns after that. In combined exports, `File Name` is written only on the first row for each file group; following rows for the same file leave that cell blank.
+CytoCV exports statistics tables as CSV and XLSX files from both Display and Dashboard. Single-file exports contain one statistics table. Multi-file exports contain `Cell ID`, `Cell Type`, and the included metric columns. Multi-file exports contain one combined table with `File Name` as the first column, `Cell ID` as the second column, `Cell Type` as the third column, and selected metric columns after that. In combined exports, `File Name` is written only on the first row for each file group; following rows for the same file leave that cell blank.
 
 Download filenames use:
 
 `cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`
 
 The `all` or `selected` token describes metric scope, not file scope. `all` means every user-selectable cell metric was included. `selected` means the export includes only a subset of cell metrics. The `<number>files` token is the actual number of files included in the export, and the extension is `.csv` or `.xlsx`.
+
+Export row filters are separate from metric-column selection:
+
+- `_cell_type` filters retained serialized rows by Cell Type when both Single Cell and Cell Pair rows are present; otherwise it effectively behaves as all rows.
+- `_puncta_source_contour_count` filters retained rows by final valid Puncta Source contour count when source contour count data exists.
+- `_columns` selects metric columns and never changes which rows are exported.
+- deleted cells are excluded before Cell Type and source contour count filters are applied.
+
+The source contour count filter uses final canonical Red or Green source
+contour slots clipped to the retained cell mask. For single-cell rows, the
+count is inside the single-cell mask. For cell-pair rows, the count is inside
+the cell-pair mask. It does not use mother/daughter subregions for the generic
+row filter.
 
 Spatial table and export headers include the active unit. Contour area columns use square units, distance columns use length units, and contour center columns use coordinate length units. Red and Green contour columns are grouped by metric family: all three size columns first, then all three center coordinate columns for that color. Blue keeps its single center column after its single size column. Example order:
 

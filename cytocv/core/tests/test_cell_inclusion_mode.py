@@ -11,9 +11,11 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from core.cell_types import (
+    CELL_INCLUSION_MODE_CHOICES,
     CELL_INCLUSION_MODE_PAIRS_ONLY,
     CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
     CELL_INCLUSION_MODE_SINGLES_ONLY,
+    CELL_TYPE_CHOICES,
     CELL_TYPE_FILTER_ALL,
     CELL_TYPE_FILTER_PAIR,
     CELL_TYPE_FILTER_SINGLE,
@@ -22,6 +24,7 @@ from core.cell_types import (
     CELL_TYPE_UNKNOWN,
     filter_statistics_by_cell_type,
     matches_cell_type_filter,
+    normalize_cell_inclusion_mode,
     resolve_effective_cell_type_filter,
 )
 from core.models import CellStatistics, SegmentedImage, UploadedImage
@@ -128,6 +131,55 @@ class CellInclusionPersistenceAndFilteringTests(TestCase):
             NumCells=3,
             cell_inclusion_mode=CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
         )
+
+    def test_cell_inclusion_and_cell_type_defaults_are_canonical(self):
+        self.assertEqual(normalize_cell_inclusion_mode(None), CELL_INCLUSION_MODE_PAIRS_ONLY)
+        self.assertEqual(normalize_cell_inclusion_mode("bad"), CELL_INCLUSION_MODE_PAIRS_ONLY)
+        self.assertEqual(
+            tuple(value for value, _label in CELL_INCLUSION_MODE_CHOICES),
+            (
+                CELL_INCLUSION_MODE_PAIRS_ONLY,
+                CELL_INCLUSION_MODE_SINGLES_ONLY,
+                CELL_INCLUSION_MODE_SINGLES_AND_PAIRS,
+            ),
+        )
+        self.assertEqual(
+            SegmentedImage._meta.get_field("cell_inclusion_mode").default,
+            CELL_INCLUSION_MODE_PAIRS_ONLY,
+        )
+        self.assertEqual(
+            CellStatistics._meta.get_field("cell_type").default,
+            CELL_TYPE_UNKNOWN,
+        )
+        self.assertEqual(
+            tuple(value for value, _label in CELL_TYPE_CHOICES),
+            (CELL_TYPE_SINGLE, CELL_TYPE_PAIR, CELL_TYPE_UNKNOWN),
+        )
+
+    def test_segmented_image_and_cell_stat_persist_default_inclusion_values(self):
+        default_uuid = uuid4()
+        default_segmented = SegmentedImage.objects.create(
+            user_id=self.user.id,
+            UUID=default_uuid,
+            file_location=f"user_{default_uuid}/segmented.png",
+            ImagePath=f"{default_uuid}/output/default_frame_0.png",
+            CellPairPrefix=f"{default_uuid}/segmented/cell_",
+            NumCells=1,
+        )
+        stat = CellStatistics.objects.create(
+            segmented_image=default_segmented,
+            cell_id=1,
+            puncta_distance=1.0,
+            puncta_line_intensity=2.0,
+            nucleus_intensity_sum=3.0,
+            cell_pair_intensity_sum=4.0,
+        )
+
+        default_segmented.refresh_from_db()
+        stat.refresh_from_db()
+
+        self.assertEqual(default_segmented.cell_inclusion_mode, CELL_INCLUSION_MODE_PAIRS_ONLY)
+        self.assertEqual(stat.cell_type, CELL_TYPE_UNKNOWN)
 
     def _create_stat(self, *, cell_id: int, cell_type: str, source_count: int) -> CellStatistics:
         return CellStatistics.objects.create(

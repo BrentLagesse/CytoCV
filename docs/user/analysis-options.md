@@ -27,6 +27,25 @@ Legacy plugins remain available when legacy visibility is enabled:
 - `BlueNucleusIntensity`
 - `RedBlueIntensity`
 
+## Cell Detection And Inclusion
+
+Cell Inclusion Mode is an analysis-time setting. It controls which DIC-detected
+cell candidates are retained before crops, statistics, Display rows, Dashboard
+rows, and exports are created.
+
+The supported modes are:
+
+- Cell pairs only, the default and closest match to the historical workflow
+- Single cells only, which retains detected single-cell candidates and excludes pairs
+- Single cells and cell pairs, which retains both supported candidate types
+
+Candidates that are unknown or ambiguous are excluded by default. A Display or
+Dashboard Cell Type Filter can hide or show retained rows, but it cannot recover
+cells that were excluded before analysis. Single-cell rows are structurally
+supported for review and export; pair-specific outputs such as parentage, CEN
+dot location, biorientation, and nuclear/cell-pair intensity are shown as `N/A`
+when they do not apply.
+
 ## Channel Requirement Model
 
 CytoCV derives required channels in layers:
@@ -84,7 +103,7 @@ Length inputs can use:
 
 When `um` is used, values are converted to pixel-space thresholds using the effective scale context saved for the run.
 
-## Measurement Controls
+## Puncta & Contour Detection And Measurement Controls
 
 The active measurement-related controls include:
 
@@ -121,6 +140,13 @@ For the modern red/green measurements, CytoCV uses canonical contour slots acros
 In `red_nucleus`, nuclear intensity uses canonical Red slot `1`. In `green_nucleus`, nuclear intensity uses canonical Green slot `1`.
 
 Contour center coordinates use the same canonical slots as the size and intensity fields. Coordinates are reported relative to the full main image with a bottom-left origin, and the display/export unit toggle converts them from raw pixels to micrometers when requested.
+
+Red/Green Contour Intensities report Total, Max, and Average per contour slot.
+Total Intensity is the integrated raw pixel sum inside the contour mask. Max
+Intensity is the maximum raw pixel value inside the same mask. Average Intensity
+is the mean raw pixel value inside the same mask. Selected CSV/XLSX exports can
+include Total, Max, and Average independently rather than as one inseparable
+group.
 
 ## Expected Outputs
 

@@ -43,6 +43,7 @@ Each successful run can create one stored run record and multiple per-cell measu
 
 Important stored measurement families include:
 
+- Cell Type, reported as Single Cell, Cell Pair, or Unknown near Cell ID
 - puncta distance and puncta-line intensity
 - raw red/green contour intensity sums, including cross-channel contour measurements
 - full-main-image contour center coordinates for the same canonical contour slots
@@ -51,7 +52,7 @@ Important stored measurement families include:
 - CEN dot location and classification outputs
 - Biorientation count fields such as `colinear_dots` and `off_axis_dots`
 
-For the red/green contour metrics, CytoCV reports total, maximum, and average intensity inside the same contour mask. Total intensity is the integrated raw sum previously reported by the red/green contour workflow. The maximum and average values use the exact same raw image pixels and contour mask as the total.
+For the red/green contour metrics, CytoCV reports total, maximum, and average intensity inside the same contour mask. Total Intensity is the integrated raw sum previously reported by the red/green contour workflow. Max Intensity is the maximum raw pixel value inside the same contour mask. Average Intensity is the mean raw pixel value inside the same contour mask. These values use the same raw measurement image and fallback chain as the workflow; they are not measured from normalized display images, preview images, threshold masks, or cached thumbnails.
 
 These values are software-generated measurements. They support review and downstream analysis, but they should still be interpreted alongside the source images, overlays, and experimental context.
 
@@ -96,6 +97,19 @@ CytoCV supports CSV and XLSX table exports. Export behavior is available in:
 - the dashboard for a selected saved file
 - combined statistics downloads for selected files in Display or Dashboard
 
+Exports apply row filters before writing rows. Deleted cells are excluded first.
+The Cell Type Filter is a row filter over already-analyzed rows; it can show all
+retained cell types, single-cell rows, or cell-pair rows when both known types
+exist. If a result contains only one cell type, only unknown rows, or no rows,
+the effective Cell Type Filter is all rows. The Puncta Source / Source Contour
+Count filter is also a row filter. It uses final canonical source contour slots
+clipped to the retained row mask and composes with the Cell Type Filter.
+
+Selected metrics are column selection only. Selecting or clearing Total, Max, or
+Average intensity fields changes export columns, not which rows are exported.
+Display exports, Dashboard exports, and combined multi-file exports use the
+same distinction between row filters and selected metric columns.
+
 The on-page statistics tables and the CSV/XLSX exports include both:
 
 - the raw total, maximum, and average contour intensity summaries as primary table/export values
@@ -103,11 +117,18 @@ The on-page statistics tables and the CSV/XLSX exports include both:
 - the three mode-driven `Measurement/Contour Ratio` columns as explicitly labeled derived values
 - canonical contour slot numbering, so size, center-coordinate, intensity, line-distance, and nucleus-derived modern red/green outputs stay aligned
 
+The four Red/Green Contour Intensity combinations are exported in this order:
+Red In Red, Green In Red, Red In Green, and Green In Green. Within each
+combination, each slot is ordered Total Intensity, Max Intensity, then Average
+Intensity for slots 1 through 3.
+
 Spatial units can be changed from the page-level Spatial Unit controls or directly inside the Download Statistics modal. The selected unit applies to spatial measurements in CSV and XLSX exports, including distances, contour sizes, and contour center coordinates. When the statistics unit toggle is set to pixels, coordinate columns show full-image pixel coordinates. When the unit is set to micrometers, `x` and `y` are converted with the file's per-axis scale metadata or manual fallback scale.
 
 Intensity values, ratios, classifications, file names, and cell IDs are not spatial-unit-dependent. Combined exports apply the selected unit to every included file using each file's existing scale metadata or fallback behavior.
 
-Statistics downloads can include all metrics or a selected subset. Export filenames follow:
+Statistics downloads can include all metrics or a selected subset. Selected
+CSV/XLSX exports can include Total, Max, and Average intensity independently;
+they are not bundled into one inseparable export group. Export filenames follow:
 
 `cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`
 
