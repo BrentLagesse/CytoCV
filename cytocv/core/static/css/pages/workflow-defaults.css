@@ -949,25 +949,25 @@ main.main > section.panel > form.panel > .card {
   width: 100%;
 }
 
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control {
-  --result-display-filter-width: 288px;
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control {
+  --result-display-filter-width: var(--workflow-module-control-width);
   flex: 0 0 var(--result-display-filter-width);
   width: var(--result-display-filter-width);
   min-width: var(--result-display-filter-width);
   max-width: var(--result-display-filter-width);
 }
 
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control select,
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-dropdown,
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-trigger,
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-menu {
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control select,
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-dropdown,
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-trigger,
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-menu {
   width: var(--result-display-filter-width);
   min-width: var(--result-display-filter-width);
   max-width: var(--result-display-filter-width);
 }
 
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-trigger,
-#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-option {
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-trigger,
+#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control .length-unit-option {
   white-space: nowrap;
 }
 

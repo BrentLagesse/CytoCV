@@ -138,20 +138,20 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertNotIn(".experiment-page .channel-order-control .channel-chip-grip::before", experiment_css)
         self.assertNotIn(".experiment-page .channel-order-control .channel-chip-grip::before", defaults_css)
         self.assertIn(
-            '#pluginForm [data-workflow-card="result-display-defaults"] .result-display-filter-control',
+            '#savingForm [data-workflow-card="result-display-defaults"] .result-display-filter-control',
             defaults_css,
         )
         self.assertRegex(
             defaults_css,
-            r'#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control\s*\{[^}]*--result-display-filter-width:\s*288px;[^}]*flex:\s*0 0 var\(--result-display-filter-width\);[^}]*width:\s*var\(--result-display-filter-width\);[^}]*min-width:\s*var\(--result-display-filter-width\);[^}]*max-width:\s*var\(--result-display-filter-width\);',
+            r'#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control\s*\{[^}]*--result-display-filter-width:\s*var\(--workflow-module-control-width\);[^}]*flex:\s*0 0 var\(--result-display-filter-width\);[^}]*width:\s*var\(--result-display-filter-width\);[^}]*min-width:\s*var\(--result-display-filter-width\);[^}]*max-width:\s*var\(--result-display-filter-width\);',
         )
         self.assertRegex(
             defaults_css,
-            r'#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control select,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-dropdown,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-trigger,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-menu\s*\{[^}]*width:\s*var\(--result-display-filter-width\);[^}]*min-width:\s*var\(--result-display-filter-width\);[^}]*max-width:\s*var\(--result-display-filter-width\);',
+            r'#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control select,\s*#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-dropdown,\s*#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-trigger,\s*#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-menu\s*\{[^}]*width:\s*var\(--result-display-filter-width\);[^}]*min-width:\s*var\(--result-display-filter-width\);[^}]*max-width:\s*var\(--result-display-filter-width\);',
         )
         self.assertRegex(
             defaults_css,
-            r'#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-trigger,\s*#pluginForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-option\s*\{[^}]*white-space:\s*nowrap;',
+            r'#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-trigger,\s*#savingForm \[data-workflow-card="result-display-defaults"\] \.result-display-filter-control \.length-unit-option\s*\{[^}]*white-space:\s*nowrap;',
         )
 
         workflow_template = (TEMPLATE_ROOT / "workflow_defaults.html").read_text(encoding="utf-8")
