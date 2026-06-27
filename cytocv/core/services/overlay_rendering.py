@@ -1,3 +1,5 @@
+"""Exact fluorescence overlay replay and cache helpers for result viewers."""
+
 from __future__ import annotations
 
 import copy
@@ -68,6 +70,8 @@ OVERLAY_CACHE_LOCK_STALE_SECONDS = 45.0
 
 
 def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, object]:
+    """Normalize historical overlay snapshots to the current replay vocabulary."""
+
     normalized = dict(payload or {})
     channel_config = dict(normalized.get("channel_config", {}) or {})
     normalized["channel_config"] = {
@@ -142,19 +146,27 @@ def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, ob
 
 
 def overlay_render_config_path(run_uuid: str) -> Path:
+    """Return the per-run overlay replay snapshot path."""
+
     return Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented" / OVERLAY_RENDER_CONFIG_FILENAME
 
 
 def overlay_cache_dir(run_uuid: str) -> Path:
+    """Return the schema-versioned exact overlay cache directory."""
+
     return Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented" / OVERLAY_CACHE_DIRNAME
 
 
 def overlay_cache_image_path(run_uuid: str, cell_id: int, channel: str) -> Path:
+    """Return the stable cache filename for one cell/channel overlay image."""
+
     normalized_channel = normalize_overlay_channel(channel)
     return overlay_cache_dir(run_uuid) / f"cell-{cell_id}-{normalized_channel}.png"
 
 
 def overlay_cache_image_paths_for_cell(run_uuid: str, cell_id: int) -> dict[str, Path]:
+    """Return all exact overlay cache paths for a cell."""
+
     return {
         channel: overlay_cache_image_path(run_uuid, cell_id, channel)
         for channel in OVERLAY_RENDER_CHANNELS
@@ -162,10 +174,14 @@ def overlay_cache_image_paths_for_cell(run_uuid: str, cell_id: int) -> dict[str,
 
 
 def overlay_cache_lock_path(run_uuid: str, cell_id: int) -> Path:
+    """Return the cooperative per-cell cache lock marker path."""
+
     return overlay_cache_dir(run_uuid) / f"cell-{int(cell_id)}.lock"
 
 
 def build_overlay_image_url(run_uuid: str, cell_id: int, channel: str) -> str:
+    """Build the protected dynamic overlay endpoint URL for viewer payloads."""
+
     return reverse(
         "cell_overlay_image",
         kwargs={
@@ -211,6 +227,8 @@ def build_overlay_render_config(
     red_dot_split_mode: str = DEFAULT_DOT_SPLIT_MODE,
     nuclear_cell_pair_contour_mode: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
 ) -> dict[str, object]:
+    """Capture all parameters needed to replay contour-on fluorescence images."""
+
     effective_alternate_enabled, effective_alternate_channel = (
         resolve_effective_alternate_nucleus_detection(
             signal_quantification_enabled=signal_quantification_enabled,
@@ -273,6 +291,8 @@ def build_overlay_render_config(
 
 
 def write_overlay_render_config(run_uuid: str, render_config: dict[str, object]) -> Path:
+    """Persist the per-run snapshot used to replay overlay images later."""
+
     destination = overlay_render_config_path(run_uuid)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
@@ -283,6 +303,8 @@ def write_overlay_render_config(run_uuid: str, render_config: dict[str, object])
 
 
 def load_overlay_render_config(run_uuid: str) -> dict[str, object]:
+    """Load and validate the current overlay replay snapshot for a run."""
+
     path = overlay_render_config_path(run_uuid)
     payload = _normalize_render_config_payload(
         json.loads(path.read_text(encoding="utf-8"))
@@ -293,10 +315,14 @@ def load_overlay_render_config(run_uuid: str) -> dict[str, object]:
 
 
 def overlay_render_config_exists(run_uuid: str) -> bool:
+    """Return whether a replay snapshot exists for the run."""
+
     return overlay_render_config_path(run_uuid).exists()
 
 
 def overlay_render_config_supported(run_uuid: str) -> bool:
+    """Return whether the replay snapshot can be served by this code version."""
+
     try:
         payload = json.loads(
             overlay_render_config_path(run_uuid).read_text(encoding="utf-8")
@@ -327,6 +353,8 @@ def find_historical_overlay_cache_image_path(
     cell_id: int,
     channel: str,
 ) -> Path | None:
+    """Return the newest compatible overlay cache file from an older schema."""
+
     normalized_channel = normalize_overlay_channel(channel)
     segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
     if not segmented_dir.exists():
@@ -351,6 +379,8 @@ def find_historical_overlay_cache_image_path(
 
 
 def overlay_image_available(run_uuid: str, cell_id: int, channel: str) -> bool:
+    """Return whether any current, replayable, or legacy overlay source exists."""
+
     normalized_channel = normalize_overlay_channel(channel)
     if overlay_cache_image_path(run_uuid, cell_id, normalized_channel).exists():
         return True
@@ -362,6 +392,8 @@ def overlay_image_available(run_uuid: str, cell_id: int, channel: str) -> bool:
 
 
 def normalize_overlay_channel(channel: str) -> str:
+    """Normalize public channel names to overlay endpoint/cache slugs."""
+
     normalized_role = normalize_channel_role(channel)
     if normalized_role in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}:
         return channel_slug(normalized_role)
@@ -377,6 +409,8 @@ def build_legacy_debug_image_path(
     cell_id: int,
     channel: str,
 ) -> Path:
+    """Return the historical debug-overlay path preserved for old runs."""
+
     channel_label = OVERLAY_CHANNEL_LABELS[normalize_overlay_channel(channel)]
     return (
         Path(settings.MEDIA_ROOT)
@@ -387,6 +421,8 @@ def build_legacy_debug_image_path(
 
 
 def find_legacy_debug_image_path(run_uuid: str, cell_id: int, channel: str) -> Path | None:
+    """Find a historical debug-overlay PNG for runs without replay cache."""
+
     normalized_channel = normalize_overlay_channel(channel)
     channel_label = OVERLAY_CHANNEL_LABELS[normalized_channel]
     segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
@@ -397,6 +433,8 @@ def find_legacy_debug_image_path(run_uuid: str, cell_id: int, channel: str) -> P
 
 
 def clone_cell_statistics_for_overlay(cell_stat: CellStatistics) -> CellStatistics:
+    """Clone a statistics row so replay can mutate properties without saving."""
+
     clone = CellStatistics()
     for field in cell_stat._meta.concrete_fields:
         if field.primary_key:
@@ -483,6 +521,8 @@ def load_cached_overlay_images(
     cell_id: int,
     render_config: dict[str, object],
 ) -> dict[str, np.ndarray]:
+    """Load no-outline channel crops used as deterministic replay inputs."""
+
     image_stem = str(render_config["image_stem"])
     channel_config = {
         str(channel_name): int(channel_index)
@@ -511,6 +551,8 @@ def render_overlay_images_for_cell(
     *,
     cached_images: dict[str, np.ndarray] | None = None,
 ) -> dict[str, Image.Image]:
+    """Replay ``get_stats`` to render contour-on fluorescence overlays."""
+
     from core.views.segment_image import get_stats
 
     render_cp = clone_cell_statistics_for_overlay(cell_stat)
@@ -632,6 +674,8 @@ def persist_overlay_cache_images(
     *,
     overwrite: bool = False,
 ) -> dict[str, Path]:
+    """Write exact overlay cache PNGs using stable per-cell/channel names."""
+
     destination_dir = overlay_cache_dir(run_uuid)
     destination_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
@@ -653,6 +697,8 @@ def persist_debug_overlay_exports(
     *,
     overwrite: bool = True,
 ) -> dict[str, Path]:
+    """Write optional legacy debug overlays for deployments that enable them."""
+
     written: dict[str, Path] = {}
     for channel, image in images.items():
         debug_path = build_legacy_debug_image_path(run_uuid, image_stem, cell_id, channel)
@@ -737,6 +783,13 @@ def ensure_overlay_cache_images_for_cell(
     render_config: dict[str, object] | None = None,
     requested_channel: str = "green",
 ) -> dict[str, Path]:
+    """Ensure every overlay channel cache exists for one cell.
+
+    The function renders all overlay channels together because ``get_stats``
+    produces the red/green/blue debug images in one replay. The lock keeps
+    concurrent viewer requests from racing on the same cache files.
+    """
+
     normalized_channel = normalize_overlay_channel(requested_channel)
     cache_paths = overlay_cache_image_paths_for_cell(run_uuid, cell_id)
     started_at = time.perf_counter()
@@ -806,6 +859,8 @@ def ensure_overlay_cache_image(
     cell_stat: CellStatistics | None = None,
     render_config: dict[str, object] | None = None,
 ) -> Path:
+    """Return the exact overlay cache path for one requested channel."""
+
     normalized_channel = normalize_overlay_channel(channel)
     cache_path = overlay_cache_image_path(run_uuid, cell_id, normalized_channel)
     if cache_path.exists():

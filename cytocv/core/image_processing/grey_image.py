@@ -1,6 +1,10 @@
+"""Container for preprocessed grayscale planes used during statistics."""
+
 import numpy as np
 
 class GrayImage:
+    """Store optional grayscale images under the historical plugin key names."""
+
     _image_storage = {}
     def __init__(self, img:dict = None):
         if img:

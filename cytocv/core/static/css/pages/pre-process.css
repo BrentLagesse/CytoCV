@@ -1,3 +1,5 @@
+      /* Preprocess review page layout. Data attributes and ids are paired with
+         pre-process.js for scale overrides, channel ordering, and polling UI. */
       .channel-chip.dic { background-color: black; }
       .channel-chip.blue { background-color: blue; }
       .channel-chip.red { background-color: red; }

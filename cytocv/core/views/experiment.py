@@ -1,3 +1,5 @@
+"""Upload and workflow-default views for the experiment intake page."""
+
 from django.shortcuts import render, redirect
 import logging
 from core.forms import UploadImageForm
@@ -153,6 +155,8 @@ def _upload_preparation_redirect_for_request(
     job: UploadPreparationJob,
     status: str,
 ) -> str | None:
+    """Return the preprocess redirect and persist the approved UUID list."""
+
     if status != UploadPreparationJob.Status.SUCCEEDED or not job.valid_run_uuids:
         return None
 
@@ -168,6 +172,8 @@ def _build_upload_preparation_payload_for_request(
     *,
     stale_state: tuple[str, str, str] | None = None,
 ) -> dict[str, object]:
+    """Build the upload-prep payload with request/session redirect side effects."""
+
     status = stale_state[0] if stale_state is not None else job.status
     redirect_url = _upload_preparation_redirect_for_request(request, job, status)
     return build_upload_preparation_payload(
@@ -210,6 +216,8 @@ def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | N
             UploadPreparationJob.Status.CANCELLING,
         }:
             break
+        # Terminal resume payloads are shown once, then consumed so a later page
+        # load does not keep replaying old upload-preparation failures.
         consume_job_uuid = job_uuid
         break
 
@@ -861,10 +869,8 @@ def _persist_experiment_session(request, session_values: dict[str, object]) -> N
 
 
 def experiment(request):
-    """
-    Uploads and processes each image in the selected folder individually.
-    Generates a unique UUID for each image and applies the same process to each one.
-    """
+    """Render upload intake or preserve the legacy whole-form upload POST."""
+
     # Ensure session exists to derive a stable progress key
     if not request.session.session_key:
         request.session.save()
@@ -975,6 +981,8 @@ def experiment(request):
 
         requested_uuids = [*new_upload_uuids, *existing_uuids]
         owner_filter = _current_owner_filter(request)
+        # Restored UUIDs come from hidden form state; re-authorize the whole
+        # requested batch before upload preparation can validate or preview it.
         owned_uuids = set(
             str(value)
             for value in UploadedImage.objects.filter(
@@ -1105,7 +1113,7 @@ def save_experiment_workflow_defaults(request):
 
 @require_POST
 def upload_file_batch(request):
-    """Save a small batch of source image files and return queued upload UUIDs."""
+    """Save one staged browser upload batch and return pending run UUIDs."""
 
     files = request.FILES.getlist("files")
     if not files:
@@ -1177,7 +1185,12 @@ def upload_file_batch(request):
 
 @require_POST
 def enqueue_upload_preparation(request):
-    """Queue worker-owned upload validation and preview preparation."""
+    """Start upload validation, metadata extraction, and preview preparation.
+
+    The response shape is shared by sync and worker modes so the browser can
+    either follow an immediate terminal redirect or poll the status endpoint for
+    the same job UUID.
+    """
 
     reap_stale_upload_preparation_jobs(user_id=request.user.id)
     user_preferences = get_user_preferences(request.user)
@@ -1194,6 +1207,8 @@ def enqueue_upload_preparation(request):
     if not requested_uuids:
         return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
 
+    # Staged UUIDs arrive from hidden form fields after separate upload
+    # requests; the server still owns the authorization boundary.
     owned_uuids = set(
         str(value)
         for value in UploadedImage.objects.filter(
@@ -1243,7 +1258,7 @@ def enqueue_upload_preparation(request):
 
 @require_GET
 def upload_preparation_status(request, job_uuid):
-    """Return upload-preparation job status for the owning user."""
+    """Return the stable polling payload for an upload-preparation job."""
 
     job = get_upload_preparation_job_for_user(
         user_id=request.user.id,
@@ -1271,7 +1286,7 @@ def upload_preparation_status(request, job_uuid):
 
 @require_POST
 def cancel_upload_preparation(request, job_uuid):
-    """Cancel a queued or running upload-preparation job owned by the user."""
+    """Cancel queued/running upload preparation without changing response keys."""
 
     reap_stale_upload_preparation_jobs(user_id=request.user.id)
     job = get_upload_preparation_job_for_user(
@@ -1290,6 +1305,9 @@ def cancel_upload_preparation(request, job_uuid):
         return JsonResponse(build_upload_preparation_cancel_payload(job))
 
     if job.status == UploadPreparationJob.Status.QUEUED:
+        # Queued jobs have not been claimed by a worker, so newly uploaded
+        # source files can be deleted synchronously before persisting terminal
+        # state.
         for run_uuid in job.new_run_uuids:
             delete_uploaded_run_by_uuid(str(run_uuid))
         job = finalize_upload_preparation_job(

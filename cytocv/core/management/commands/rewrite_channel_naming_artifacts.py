@@ -1,3 +1,10 @@
+"""One-time maintenance command for legacy biology-specific channel names.
+
+The rewrite keeps old saved runs usable after the application moved to the
+generic DIC/Blue/Red/Green naming contract. It touches both database JSON and
+media artifacts, so the dry-run mode is the safety rail for operators.
+"""
+
 from __future__ import annotations
 
 import json
@@ -168,6 +175,8 @@ def _rewrite_cell_properties(properties: dict[str, Any]) -> dict[str, Any]:
 
 
 class Command(BaseCommand):
+    """Rewrite persisted channel identifiers without changing analysis outputs."""
+
     help = "Rewrite saved run artifacts and stored JSON blobs to the generic channel naming scheme."
 
     def add_arguments(self, parser):

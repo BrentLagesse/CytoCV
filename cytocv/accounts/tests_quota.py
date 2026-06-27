@@ -1,3 +1,5 @@
+"""Account quota and access-policy regression tests."""
+
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
@@ -34,6 +36,8 @@ from accounts.quota_config import (
     },
 )
 class UserQuotaPolicyTests(TestCase):
+    """Protect environment, domain, and per-user quota precedence rules."""
+
     def setUp(self):
         self.user_model = get_user_model()
 
@@ -155,6 +159,8 @@ class UserQuotaPolicyTests(TestCase):
 
 
 class QuotaConfigParsingTests(TestCase):
+    """Validate defensive parsing for quota-related environment settings."""
+
     def test_parse_user_fixed_quota_map_rejects_invalid_entries(self):
         with self.assertRaises(ImproperlyConfigured):
             parse_user_fixed_quota_map("invalid-entry-without-colon")

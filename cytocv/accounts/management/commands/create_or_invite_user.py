@@ -12,6 +12,8 @@ from accounts.email_addresses import (
 
 
 class Command(BaseCommand):
+    """Create or repair a user plus the allauth alias used for email login."""
+
     help = "Create an active user with an unusable password and synced email alias."
 
     def add_arguments(self, parser):
@@ -35,6 +37,9 @@ class Command(BaseCommand):
 
         from allauth.account.models import EmailAddress
 
+        # CustomUser.email and allauth EmailAddress must not point the same
+        # address at different accounts; password reset and login both rely on
+        # that alias remaining unambiguous.
         conflicting_alias = (
             EmailAddress.objects.filter(email__iexact=email)
             .select_related("user")

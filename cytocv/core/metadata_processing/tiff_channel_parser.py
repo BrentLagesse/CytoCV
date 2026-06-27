@@ -77,6 +77,9 @@ def build_tiff_channel_config_from_labels(labels: list[str]) -> dict[str, int] |
     if len(labels) not in {3, len(_CHANNEL_ROLES)}:
         return None
 
+    # Partial or duplicated label matches are intentionally rejected so callers
+    # fall back to the configured default order instead of writing a misleading
+    # channel_config.json.
     config: dict[str, int] = {}
     for index, label in enumerate(labels):
         role = map_tiff_label_to_channel_role(label)

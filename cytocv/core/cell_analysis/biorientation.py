@@ -1,3 +1,5 @@
+"""Biorientation statistics for paired red anchors and nearby green dots."""
+
 import logging
 import math
 
@@ -58,6 +60,8 @@ def _pixel_distance(center_1, center_2, properties: dict, unit: str) -> float:
 
 
 class Biorientation(Analysis):
+    """Classify green dots as collinear or off-axis relative to two red anchors."""
+
     name = "Biorientation"
 
     def calculate_statistics(

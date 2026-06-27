@@ -1,3 +1,5 @@
+"""Upload-time validation for supported source image files and channels."""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Set, Tuple
@@ -147,6 +149,9 @@ def validate_source_image_file(
                 )
 
         if layer_count == 3:
+            # Three-layer files are only accepted when metadata can identify all
+            # provided roles and DIC is among them; default-order fallback would
+            # otherwise hide which fluorescence channel is absent.
             metadata_config = extract_reliable_metadata_channel_config(
                 source_image_path,
                 prefer_metadata=options.prefer_metadata_channel_order,

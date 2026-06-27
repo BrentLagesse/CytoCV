@@ -1,3 +1,10 @@
+"""Compatibility loader for the legacy Keras Mask R-CNN weights file.
+
+The bundled weights were produced for an older Keras HDF5 layout. This module
+keeps loading explicit and local rather than depending on TensorFlow private
+helpers whose signatures changed across releases.
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -65,6 +72,8 @@ def _load_weights_topological(weights_group, model, excluded_names: set[str]) ->
 
 
 def _load_weights_by_name(weights_group, model, excluded_names: set[str]) -> None:
+    """Assign matching saved layer weights by layer name, preserving exclusions."""
+
     index = defaultdict(list)
     for layer in model.layers:
         index[layer.name].append(layer)

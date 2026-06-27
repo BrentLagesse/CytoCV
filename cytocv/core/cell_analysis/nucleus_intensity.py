@@ -1,3 +1,5 @@
+"""Legacy green-in-blue nucleus intensity statistics plugin."""
+
 import numpy as np
 
 from core.image_processing import calculate_intensity_mask
@@ -11,6 +13,8 @@ from .analysis import Analysis
 
 
 class NucleusIntensity(Analysis):
+    """Measure green signal inside the blue nucleus contour and cell mask."""
+
     name = 'Nucleus Intensity'
 
     def calculate_statistics(

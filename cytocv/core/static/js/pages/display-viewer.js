@@ -1,3 +1,6 @@
+        // Display is the transient post-analysis review surface. It consumes
+        // displayFilesData/displayPageConfig from display.html and keeps save
+        // selection behavior separate from Dashboard's persisted-run controls.
         const resultsViewerShared = window.CytoCVResultsViewerShared;
         const { readJsonConfig } = resultsViewerShared;
         const { bindContourIntensityDisplayControls } = resultsViewerShared;
@@ -5,7 +8,8 @@
         const displayPageConfig = readJsonConfig('displayPageConfig');
         window.CytoCVDisplayPageConfig = displayPageConfig;
 
-        // Parse JSON file data
+        // displayFilesData is emitted by the backend in table/sidebar order and
+        // includes per-cell image URLs, exportable statistics, and channel maps.
         let filesData = JSON.parse(document.getElementById('displayFilesData').textContent || '{}');
         let fileUUIDs = Object.keys(filesData);
         let currentFileIndex = 0;

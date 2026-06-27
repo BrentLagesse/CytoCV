@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
+    """Process upload-preparation and analysis queues with stable status semantics."""
+
     help = "Run the CytoCV database-backed analysis worker."
 
     def add_arguments(self, parser):
@@ -94,6 +96,9 @@ class Command(BaseCommand):
             if job_type in {"all", "analysis"}:
                 analysis_candidate = get_oldest_queued_analysis_job()
 
+            # In the combined worker, whichever queued item is older gets the
+            # next claim. This avoids upload preparation starving behind long
+            # analysis batches while preserving the existing single-loop model.
             if job_type == "upload-preparation":
                 should_claim_upload = upload_candidate is not None
             elif job_type == "all":

@@ -1,3 +1,5 @@
+"""Protected fluorescence overlay endpoint for Display and Dashboard viewers."""
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +25,8 @@ def cell_overlay_image(
     cell_id: int,
     channel: str,
 ) -> HttpResponse:
+    """Serve or regenerate the exact contour-on overlay image for one cell."""
+
     from .display import _can_access_display_uuid
 
     try:
@@ -43,6 +47,8 @@ def cell_overlay_image(
     started_at = time.perf_counter()
 
     def fallback_overlay_path() -> HttpResponse:
+        """Serve older overlay artifacts when exact replay is unavailable."""
+
         historical_cache = find_historical_overlay_cache_image_path(
             uuid,
             cell_id,
@@ -82,6 +88,8 @@ def cell_overlay_image(
     except CellStatistics.DoesNotExist as exc:
         raise Http404("Overlay not found") from exc
     except ValueError as exc:
+        # Unsupported replay snapshots should not break old results if a
+        # historical cache or debug overlay is still present.
         try:
             return fallback_overlay_path()
         except Http404 as fallback_exc:

@@ -188,6 +188,7 @@
         </div>
       </div>
     </div>
+    {# pre-process.js reads these JSON contracts for scale state and async analysis polling. #}
     <script id="preprocessScalePayload" type="application/json">{{ file_scale_map_json|safe }}</script>
     <script id="preprocessPageConfig" type="application/json">{"currentFileIndex": {{ current_file_index|default:0 }}, "totalFiles": {{ total_files|default:1 }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "uuids": "{{ uuids|escapejs }}", "experimentUrl": "{% url 'experiment' %}", "analysisExecutionMode": "{{ analysis_execution_mode|escapejs }}", "hasSelectedStats": {{ has_selected_stats|yesno:"true,false" }}}</script>
 

@@ -1,3 +1,5 @@
+"""Red/green contour intensity statistics plugin."""
+
 import math
 
 from core.image_processing import calculate_masked_intensity_stats
@@ -22,6 +24,8 @@ from .analysis import Analysis
 
 
 class GreenRedIntensity(Analysis):
+    """Store masked red/green intensity summaries for canonical contour slots."""
+
     name = "Green Red Intensity"
     intensity_prefixes = (
         "red_in_red",

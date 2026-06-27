@@ -12,6 +12,8 @@ from accounts.email_addresses import (
 
 
 class Command(BaseCommand):
+    """Backfill the allauth alias table from the canonical account email field."""
+
     help = "Create or repair django-allauth EmailAddress aliases for users."
 
     def add_arguments(self, parser):

@@ -38,6 +38,8 @@ ALL_CHANNELS = frozenset(CHANNEL_ROLE_ORDER)
 
 @dataclass(frozen=True, slots=True)
 class ChannelPresence:
+    """Sidecar-safe record of which logical channels a source can support."""
+
     present_channels: frozenset[str]
     missing_channels: frozenset[str]
     source: str = "unknown"
@@ -55,6 +57,8 @@ class ChannelPresence:
 
 
 def channel_presence_path(run_uuid: str) -> Path:
+    """Return the per-run sidecar path for missing-channel decisions."""
+
     return Path(settings.MEDIA_ROOT) / str(run_uuid) / CHANNEL_PRESENCE_FILE
 
 
@@ -101,6 +105,8 @@ def read_channel_presence(run_uuid: str) -> ChannelPresence | None:
 
 
 def write_channel_presence(run_uuid: str, presence: ChannelPresence) -> None:
+    """Persist channel presence atomically next to the uploaded run artifacts."""
+
     path = channel_presence_path(run_uuid)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f".json.{os.getpid()}.tmp")
@@ -135,6 +141,8 @@ def get_channel_presence(
 
 
 def is_channel_present(run_uuid: str, channel_role: object) -> bool:
+    """Return whether a logical channel is known to be usable for this run."""
+
     channel = normalize_channel_role(channel_role)
     if channel is None:
         return False
@@ -142,6 +150,8 @@ def is_channel_present(run_uuid: str, channel_role: object) -> bool:
 
 
 def missing_channels_for_uuid(run_uuid: str) -> frozenset[str]:
+    """Return missing channels from the sidecar or legacy fallback behavior."""
+
     return get_channel_presence(run_uuid).missing_channels
 
 
@@ -225,6 +235,8 @@ def resolve_channel_presence_for_source(
     layer_count: int | None = None,
     prefer_metadata: bool = True,
 ) -> ChannelPresence:
+    """Determine channel presence without inventing labels for ambiguous stacks."""
+
     if layer_count is None:
         layer_count = get_image_layer_count(str(source_image_path))
 
@@ -259,6 +271,8 @@ def channel_config_for_present_channels(
     present_channels: Iterable[str],
     fallback_order: Iterable[object] | None = None,
 ) -> dict[str, int]:
+    """Build a compact fallback channel map only for confirmed present channels."""
+
     present = _normalize_channel_set(present_channels)
     order = normalize_channel_order(
         fallback_order,
@@ -274,6 +288,8 @@ def resolve_channel_config_and_presence_for_source(
     prefer_metadata: bool = True,
     fallback_order: Iterable[object] | None = None,
 ) -> tuple[dict[str, int], ChannelPresence]:
+    """Return the upload-preparation channel map plus its presence sidecar."""
+
     layer_count = get_image_layer_count(str(source_image_path))
     presence = resolve_channel_presence_for_source(
         source_image_path,

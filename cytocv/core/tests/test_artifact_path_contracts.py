@@ -1,3 +1,5 @@
+"""Path stability tests for media artifacts consumed across the workflow."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,6 +30,8 @@ from core.services.overlay_rendering import (
 
 
 class ArtifactPathContractTests(SimpleTestCase):
+    """Lock down historical run, output, segmented, and overlay path layouts."""
+
     def test_run_artifact_paths_keep_current_layout(self):
         run_uuid = UUID("cef22bb0-b838-47f3-ab96-387cfb559b0b")
         image_stem = "sample"

@@ -1,3 +1,5 @@
+"""Base class for per-cell statistics plugins."""
+
 from abc import abstractmethod
 
 from core.image_processing import GrayImage
@@ -6,6 +8,8 @@ from core.models import CellStatistics
 
 
 class Analysis:
+    """Shared mutable context used by concrete cell-analysis plugins."""
+
     cp = None
     preprocessed_images = GrayImage()
     output_dir = None
@@ -18,6 +22,8 @@ class Analysis:
             self.output_dir = output_dir
 
     def setting_up(self, cp, preprocessed_images, output_dir):
+        """Attach the current statistics row and image bundle before execution."""
+
         self.cp = cp
         self.preprocessed_images = preprocessed_images
         self.output_dir = output_dir
@@ -33,4 +39,6 @@ class Analysis:
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
+        """Mutate ``self.cp`` with plugin-specific statistics."""
+
         pass

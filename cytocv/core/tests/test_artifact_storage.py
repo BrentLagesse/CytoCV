@@ -1,3 +1,5 @@
+"""Artifact storage, cleanup, quota, and transient-run behavior tests."""
+
 from __future__ import annotations
 
 import errno
@@ -71,6 +73,8 @@ def _frontend_static_text(relative_path: str) -> str:
 
 @contextmanager
 def temporary_media_root():
+    """Patch all legacy MEDIA_ROOT import sites for isolated artifact tests."""
+
     with TemporaryDirectory() as temp_media:
         with ExitStack() as stack:
             stack.enter_context(
@@ -93,6 +97,8 @@ def temporary_media_root():
 
 
 class ArtifactStorageTestCase(TestCase):
+    """Protect storage cleanup and quota behavior without touching real media."""
+
     def setUp(self):
         user_model = get_user_model()
         self.user = user_model.objects.create_user(

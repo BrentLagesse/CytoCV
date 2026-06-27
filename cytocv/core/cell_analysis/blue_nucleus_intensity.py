@@ -1,3 +1,5 @@
+"""Legacy blue-channel nucleus intensity statistics plugin."""
+
 import logging
 
 import numpy as np
@@ -15,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class BlueNucleusIntensity(Analysis):
+    """Measure blue-channel signal inside the nucleus and full cell-pair mask."""
+
     name = "BlueNucleusIntensity"
 
     def calculate_statistics(

@@ -1,3 +1,5 @@
+"""Nuclear and cell-pair intensity statistics for red/green workflows."""
+
 import cv2
 import math
 import numpy as np
@@ -24,6 +26,8 @@ from .nuclear_cell_pair_legacy_scaled import (
 
 
 class NuclearCellPairIntensity(Analysis):
+    """Measure one channel inside a nucleus contour and its paired-cell mask."""
+
     name = "Nuclear, Cell-Pair Intensity"
 
     _MODE_CONFIG = {
@@ -118,6 +122,8 @@ class NuclearCellPairIntensity(Analysis):
         use_legacy_scaled_measurement = truthy_legacy_flag(
             props.get("use_legacy_nuclear_cell_pair_pipeline")
         )
+        # The legacy-scaled option changes only the measurement pixel source;
+        # contour identity, clipping, and cell-pair masks remain CytoCV-native.
         if use_legacy_scaled_measurement:
             measure_keys = legacy_scaled_measurement_keys(mode)
         contour_img = self._first_available_image(contour_keys)

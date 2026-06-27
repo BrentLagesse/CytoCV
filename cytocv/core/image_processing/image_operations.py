@@ -1,3 +1,5 @@
+"""Image loading and grayscale preparation shared by statistics plugins."""
+
 import os
 
 import cv2
@@ -42,11 +44,8 @@ def _as_single_channel(image_array):
 
 
 def load_image(cp, output_dir, required_channels=None, cached_images=None):
-    """
-    This function loads an image from a file path and returns it as a numpy array.
-    :param cp: A CellStatistics object
-    :return: A dictionary containing red, green, blue, and DIC image arrays
-    """
+    """Load segmented channel crops required by the selected statistics plugins."""
+
     requested = set(required_channels or {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE})
     cached_images = cached_images or {}
     channel_map = {
@@ -83,14 +82,10 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
 
 
 def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
-    """
-    This function preprocesses an image and returns a gray scale of images and blurred version of it.
-    :param images: A dictionary containing red, green, and blue image arrays
-    :param kdev: Kernel deviation for blurring
-    :param ksize: Kernel size for blurring
-    :return: A dictionary containing grayscale and background-subtracted image data
-    """
-    # ksize must be odd
+    """Build the grayscale payload consumed by contour statistics plugins."""
+
+    # OpenCV Gaussian kernels must be odd; keep the historical "round up"
+    # behavior so saved workflow defaults do not need extra validation here.
     if ksize % 2 == 0:
         ksize += 1
         logger.debug("Adjusted even kernel size to next odd value: %s", ksize)

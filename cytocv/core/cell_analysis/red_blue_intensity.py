@@ -1,8 +1,12 @@
+"""Legacy red-in-blue contour intensity statistics plugin."""
+
 from core.image_processing import calculate_intensity_mask
 from core.services.canonical_contours import get_canonical_red_slots
 from .analysis import Analysis
 
 class RedBlueIntensity(Analysis):
+    """Measure blue-channel intensity under canonical red contour slots."""
+
     name = 'Red In Blue Intensity'
 
     def calculate_statistics(
@@ -15,8 +19,6 @@ class RedBlueIntensity(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
-        """
-        """
         for idx in range(1, 4):
             setattr(self.cp, f'red_blue_intensity_{idx}', 0.0)
 

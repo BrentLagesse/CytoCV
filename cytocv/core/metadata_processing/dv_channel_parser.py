@@ -1,3 +1,5 @@
+"""Channel-role resolution for DV files and the shared source-image facade."""
+
 import re
 from collections.abc import Mapping
 
@@ -121,7 +123,8 @@ def extract_dv_metadata_channel_config(dv_file_path):
     if header_config is not None:
         return header_config
 
-    # Fallback XML parsing for legacy files where structured metadata is missing.
+    # Legacy DV exports can omit structured wavelength fields but still include
+    # XML-like channel snippets in the header bytes.
     with open(dv_file_path, "rb") as f:
         header_bytes = f.read(16384)
     header_text = header_bytes.decode("latin1", errors="ignore")
@@ -174,6 +177,9 @@ def extract_channel_config(
     """
     extension = source_image_extension(dv_file_path)
     if extension in TIFF_IMAGE_EXTENSIONS:
+        # TIFF parsing lives in its own module because ImageJ labels and DV
+        # wavelength metadata have different failure modes, but both return the
+        # same channel_config.json shape.
         return extract_tiff_channel_config(
             dv_file_path,
             prefer_metadata=prefer_metadata,

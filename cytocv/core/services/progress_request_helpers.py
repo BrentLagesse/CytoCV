@@ -1,3 +1,5 @@
+"""Request-facing helpers for analysis progress authorization and errors."""
+
 from __future__ import annotations
 
 import re
@@ -25,12 +27,16 @@ class ProgressRequestError(Exception):
 
 
 def current_owner_filter(request) -> dict:
+    """Return the UploadedImage owner filter for authenticated or guest users."""
+
     if request.user.is_authenticated:
         return {"user": request.user}
     return {"user_id": get_guest_user()}
 
 
 def get_authorized_progress_batches(request) -> set[str]:
+    """Return session-authorized batch keys for transient analysis polling."""
+
     return {
         str(value)
         for value in request.session.get(PROGRESS_BATCH_SESSION_KEY, [])
@@ -39,6 +45,8 @@ def get_authorized_progress_batches(request) -> set[str]:
 
 
 def track_progress_batch(request, batch_key: str) -> None:
+    """Remember a batch key that this session is allowed to poll or cancel."""
+
     tracked = get_authorized_progress_batches(request)
     if batch_key in tracked:
         return
@@ -48,6 +56,8 @@ def track_progress_batch(request, batch_key: str) -> None:
 
 
 def release_progress_batch(request, batch_key: str) -> None:
+    """Remove a completed or cancelled batch from the session allowlist."""
+
     tracked = get_authorized_progress_batches(request)
     if batch_key not in tracked:
         return
@@ -57,6 +67,13 @@ def release_progress_batch(request, batch_key: str) -> None:
 
 
 def resolve_owned_progress_batch(request, raw_uuids: str) -> tuple[str, list[str]]:
+    """Authorize a progress batch and return its canonical key and UUID list.
+
+    Progress polling spans several ownership states: source uploads owned by
+    the user, saved segmented outputs owned by the user, transient runs tracked
+    in the session, and worker jobs that already bind the batch to the user.
+    """
+
     if not raw_uuids or not re.fullmatch(r"[0-9a-fA-F,-]+", raw_uuids):
         raise ProgressRequestError("Invalid analysis batch.", status_code=400)
     try:
@@ -86,6 +103,8 @@ def resolve_owned_progress_batch(request, raw_uuids: str) -> tuple[str, list[str
     if set(uuid_list).issubset(owned_uuids):
         return batch_key, uuid_list
 
+    # Session authorization keeps worker-mode and transient display polling
+    # working after ownership may have moved from UploadedImage to SegmentedImage.
     if batch_key in get_authorized_progress_batches(request):
         return batch_key, uuid_list
 
@@ -96,6 +115,8 @@ def resolve_owned_progress_batch(request, raw_uuids: str) -> tuple[str, list[str
 
 
 def progress_read_error_response(message: str, *, status_code: int) -> JsonResponse:
+    """Return the stable read-error shape expected by progress polling JS."""
+
     return JsonResponse(
         {
             "phase": PROGRESS_PHASE_FAILED,
@@ -108,4 +129,6 @@ def progress_read_error_response(message: str, *, status_code: int) -> JsonRespo
 
 
 def progress_write_error_response(message: str, *, status_code: int) -> JsonResponse:
+    """Return the compact write-error shape used by cancel/set endpoints."""
+
     return JsonResponse({"status": "error", "message": message}, status=status_code)

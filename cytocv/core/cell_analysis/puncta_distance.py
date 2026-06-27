@@ -1,3 +1,5 @@
+"""Puncta-distance and contour-intensity measurements for red/green modes."""
+
 import cv2
 import logging
 import math
@@ -26,8 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 class PunctaDistance(Analysis):
+    """Measure source-contour distance and optional same-channel intensities."""
+
     name = "PunctaDistance"
 
+    # Single-channel modes deliberately mark paired-channel fields unavailable
+    # while preserving computed same-channel contour metrics for exports/cards.
     _RED_ONLY_UNAVAILABLE_FIELDS = frozenset(
         {
             "puncta_line_intensity",
@@ -146,6 +152,8 @@ class PunctaDistance(Analysis):
         return self._measurement_image(CHANNEL_ROLE_RED)
 
     def _merge_unavailable_fields(self, fields):
+        """Merge plugin-specific unavailable field names into row properties."""
+
         properties = dict(getattr(self.cp, "properties", {}) or {})
         existing = properties.get("unavailable_stat_fields")
         if not isinstance(existing, list):
@@ -169,6 +177,8 @@ class PunctaDistance(Analysis):
             setattr(self.cp, f"red_in_red_average_intensity_{index}", 0.0)
 
     def _store_same_channel_contour_stats(self, contours_data, source_channel: str, shape_source):
+        """Store same-channel contour stats only for single-channel puncta modes."""
+
         if not is_single_channel_puncta_line_mode(self.cp.properties.get("puncta_line_mode")):
             return
         if not self.cp.properties.get("puncta_contour_intensity_enabled"):
@@ -236,6 +246,8 @@ class PunctaDistance(Analysis):
         puncta_line_points = []
         properties = dict(getattr(self.cp, "properties", {}) or {})
         metadata = get_puncta_line_mode_metadata(properties.get("puncta_line_mode"))
+        # Mode metadata normalizes legacy red/green wording into the current
+        # source-channel and measurement-channel contract used by exports.
         properties["puncta_line_mode"] = metadata["mode"]
         properties["puncta_line_source_channel"] = metadata["source_channel"]
         properties["puncta_line_measurement_channel"] = metadata["measurement_channel"]

@@ -1,3 +1,5 @@
+"""Preprocess verification, analysis progress, and channel/scale update views."""
+
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
@@ -232,6 +234,8 @@ def _missing_required_channels_for_batch(
 
 @require_GET
 def get_progress(request, uuids):
+    """Return analysis progress for a user/session-authorized UUID batch."""
+
     try:
         batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
@@ -281,10 +285,7 @@ def _finalize_terminal_progress_batch(
 
 
 def pre_process(request, uuids):
-    """
-    GET: Render previews + sidebar (with auto-detected channel order).
-    POST: Run preprocess + inference on every UUID, then redirect.
-    """
+    """Render preprocess controls or start sync/worker analysis for a batch."""
 
     uuid_list = uuids.split(",")
     owner_filter = _current_owner_filter(request)
@@ -392,6 +393,8 @@ def pre_process(request, uuids):
                 active_uuid_set.add(str(UUID(str(value))))
             except (TypeError, ValueError, AttributeError):
                 active_uuid_set.add(str(value))
+        # Scale controls are rendered per file but submitted as hidden JSON; the
+        # parser validates both shape and membership in this server-owned batch.
         scale_map, scale_error, scale_status = parse_file_scale_map_payload(
             request.POST.get("file_scale_map", ""),
             active_uuid_set=active_uuid_set,
@@ -797,6 +800,9 @@ def pre_process(request, uuids):
             return redirect("pre_process", uuids=batch_key)
 
         if context.execution_mode == "worker":
+            # Worker mode returns a polling contract immediately; the analysis
+            # job owns the long-running preprocess, inference, and statistics
+            # side effects.
             transient_uuids = {
                 str(value)
                 for value in request.session.get("transient_experiment_uuids", [])
@@ -921,6 +927,8 @@ def pre_process(request, uuids):
 
 @require_POST
 def set_progress(request, key):
+    """Write an explicit progress phase for an authorized batch."""
+
     try:
         body = json.loads(request.body or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -955,11 +963,15 @@ def set_progress(request, key):
 @csrf_protect
 @require_POST
 def cancel_progress(request, uuids):
+    """Request cancellation for sync or worker-backed analysis."""
+
     try:
         batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
         reap_stale_analysis_jobs(user_id=request.user.id, batch_key=batch_key)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
         if snapshot.status in {"idle", "succeeded", "failed", "cancelled"}:
+            # Idle or terminal batches have no active worker to notify; cleanup
+            # is the remaining cancellation effect for transient runs.
             _delete_cancelled_runs(request, uuid_list)
             progress = AnalysisProgressHandle(batch_key)
             progress.clear_cancel()
@@ -1009,6 +1021,8 @@ def update_channel_order(request, uuid):
         normalized_order = [normalize_channel_role(channel) for channel in new_order]
         presence = get_channel_presence(uuid)
         expected = set(presence.present_channels or CHANNEL_ROLE_ORDER)
+        # The browser may only reorder channels the server has confirmed for
+        # this run; missing-channel state must not be bypassed by JSON input.
         if (
             any(channel is None for channel in normalized_order)
             or len(normalized_order) != len(expected)

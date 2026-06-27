@@ -280,6 +280,7 @@
     </div>
 </form>
 
+{# experiment.js consumes these JSON script ids for upload, quota, resume, and workflow defaults. #}
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 <script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>

@@ -565,6 +565,8 @@ def _build_cell_table_for_uuid(
     cell_type_filter: str = "all",
     puncta_source_contour_count_filter: str = "all",
 ) -> CellTable:
+    """Build the saved-run table used by dashboard direct exports."""
+
     preferences = get_user_preferences(user)
     default_manual_scale = preferences.get("experiment_defaults", {}).get(
         "microns_per_pixel", 0.1
@@ -639,6 +641,8 @@ def _dashboard_available_export_uuid_set(user: Any) -> set[str]:
 def _serialize_cell_statistics(
     cell_stat: CellStatistics | None,
 ) -> dict[str, Any] | None:
+    """Serialize one dashboard cell row with the shared viewer payload shape."""
+
     return serialize_cell_statistics_payload(cell_stat)
 
 
@@ -656,6 +660,8 @@ def _scan_segmented_assets(segmented_dir: Path) -> tuple[
     dict[tuple[int, int], str],
     dict[tuple[int, int], str],
 ]:
+    """Index segmented crop/debug assets by the conventions viewers expect."""
+
     debug_images: dict[tuple[int, str], str] = {}
     outlined_images: dict[tuple[int, int], str] = {}
     no_outline_images: dict[tuple[int, int], str] = {}
@@ -706,6 +712,13 @@ def _scan_output_frames(output_dir: Path) -> dict[int, str]:
 
 
 def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> dict[str, Any]:
+    """Build the saved-run Dashboard payload and rendered context.
+
+    Display and Dashboard share serialization primitives, but Dashboard only
+    works with saved user-owned runs and therefore owns saved-file preferences,
+    quota state, and dashboard-specific export/delete behavior.
+    """
+
     segmented_images = list(
         SegmentedImage.objects.filter(user=user).order_by("-uploaded_date")
     )
@@ -1051,6 +1064,8 @@ def _delete_user_and_media(user: Any) -> None:
 
 
 def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
+    """Delete saved dashboard files and their run/user media directories."""
+
     uuid_set = {str(value) for value in uuids}
     if not uuid_set:
         return []
@@ -1091,6 +1106,8 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 @login_required
 @never_cache
 def dashboard_view(request: HttpRequest) -> HttpResponse:
+    """Render the saved-run Dashboard or direct single-file table export."""
+
     cleanup_summary = sweep_user_run_artifacts(
         request.user,
         protected_uuids=request.session.get("transient_experiment_uuids", []),
@@ -1144,6 +1161,8 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
+    """Delete selected saved dashboard files and return refreshed quota state."""
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -1190,6 +1209,8 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
+    """Return a combined export for selected saved dashboard files."""
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -1258,6 +1279,8 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
+    """Persist Dashboard viewer preferences from the static page controller."""
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -1353,6 +1376,8 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def account_settings_view(request: HttpRequest) -> HttpResponse:
+    """Render account settings and handle explicit account deletion."""
+
     delete_error: str | None = None
     if request.method == "POST" and request.POST.get("action") == "delete_account":
         entered_email = (request.POST.get("confirm_email") or "").strip()
@@ -1385,6 +1410,8 @@ def account_settings_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def preferences_view(request: HttpRequest) -> HttpResponse:
+    """Render and persist workflow defaults used by new experiment uploads."""
+
     preferences = get_user_preferences(request.user)
     defaults = dict(preferences.get("experiment_defaults", {}))
 

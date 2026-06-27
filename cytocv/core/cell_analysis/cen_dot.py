@@ -1,3 +1,5 @@
+"""CEN-dot classification from canonical red/green contour geometry."""
+
 import logging
 import math
 
@@ -35,6 +37,8 @@ _DISTANCE_TIE_EPSILON = 1e-9
 
 
 class CENDot(Analysis):
+    """Classify green-dot association with mother/daughter red contour context."""
+
     name = "CENDot"
 
     def _get_distance_threshold_unit(self) -> str:

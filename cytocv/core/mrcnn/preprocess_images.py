@@ -1,3 +1,5 @@
+"""Prepare DIC source frames for Mask R-CNN inference."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class PreprocessedImageArtifact:
+    """Paths and source dimensions passed from preprocessing to inference."""
+
     image_id: str
     preprocessed_path: Path
     original_height: int
@@ -53,51 +57,36 @@ def _preprocess_grayscale_image(image: np.ndarray) -> Image.Image:
     return Image.fromarray(rgb_image)
 
 
-#Original header
-# def preprocess_images(inputdirectory, mask_dir, outputdirectory, outputfile, verbose = False, use_cache=True):
 def preprocess_images(
     uuid,
     uploaded_image: UploadedImage,
     output_dir: Path,
     cancel_check=None,
 ) -> PreprocessedImageArtifact | None:
-    """
-        Most commented lines are from the old code base. Have kept until we have the entire product working
-    """
+    """Write the DIC preprocessing PNG expected by the inference pipeline."""
+
     if cancel_check and cancel_check():
         return None
 
-    # constants, easily can be changed 
     logger.debug("Preprocess output directory: %s", output_dir)
     
     image_path = resolve_uploaded_file_path(uploaded_image)
     image_stack = load_image_stack(image_path)
 
-    # gets raw image from uploaded source file
     channel_config = get_channel_config_for_uuid(str(uuid))
     dic_index = channel_config.get("DIC", 3)
     image = _select_dic_image_layer(image_stack, dic_index)
     if image is None:
         return None
-    # grabs only file name
- 
     height = image.shape[0]
     width = image.shape[1]
 
-    # Preprocessing operations
+    # The inference model consumes RGB PNGs even though the source signal is a
+    # single DIC plane, so grayscale intensity is normalized and tiled.
     rgb_image = _preprocess_grayscale_image(image)
-    #rgbimage = skimage.filters.gaussian(rgbimage, sigma=(1,1))   # blur it first?
 
-    # if not os.path.exists(outputdirectory + imagename) or not use_cache:
-    # if not os.path.exists(outputdirectory + imagename):
-    # os.makedirs(outputdirectory + imagename)
-    # os.makedirs(outputdirectory + imagename + "/images/")
-    # pre_process_dir_path = os.path.join(output_directory, PRE_PROCESS_FOLDER_NAME)
     pre_process_dir_path = Path(output_dir / PRE_PROCESS_FOLDER_NAME)
-    # makes dir if it already doesn't exist
     pre_process_dir_path.mkdir(parents=True, exist_ok=True)
-    # if not pre_process_dir_path.is_dir():
-    # os.makedirs(pre_process_dir_path)
     if cancel_check and cancel_check():
         return None
 
@@ -115,5 +104,3 @@ def preprocess_images(
         original_height=int(height),
         original_width=int(width),
     )
-    # except IOError:
-    #     pass

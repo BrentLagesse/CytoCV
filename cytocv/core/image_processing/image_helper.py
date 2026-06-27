@@ -1,32 +1,24 @@
+"""Small mask and intensity primitives used by statistics plugins."""
+
 import cv2
 import numpy as np
 
 def create_circular_mask(image_shape, contour, index):
-    """
-    Draw a circular mask around the center
-    :param image_shape: Gray scale image
-    :param contour: Contours to create a mask
-    :return: Masked image
-    """
+    """Rasterize one contour into a uint8 mask matching the source image shape."""
+
     mask = np.zeros(image_shape, dtype=np.uint8)
     cv2.drawContours(mask, contour, index, 255, -1)
     return mask
 
 def calculate_intensity_mask(image, mask):
-    """
-    :param image: Gray scale image
-    :param mask: Contour mask
-    :return: Sum of values in the mask from the image
-    """
+    """Return the summed grayscale intensity inside a positive mask."""
+
     masked_pixel = image[mask > 0]
     return np.sum(masked_pixel) if len(masked_pixel) > 0 else 0
 
 def calculate_masked_intensity_stats(image, mask):
-    """
-    :param image: Gray scale image
-    :param mask: Contour mask
-    :return: Total, maximum, and average values in the mask from the image
-    """
+    """Return total, max, and mean grayscale intensity for a masked region."""
+
     masked_pixel = image[mask > 0]
     if len(masked_pixel) == 0:
         return 0.0, 0.0, 0.0
@@ -37,16 +29,10 @@ def calculate_masked_intensity_stats(image, mask):
     )
 
 def ensure_3channel_bgr(img_array):
-    """
-    This function ensures that the image has 3 channels
-    :param img_array: an image in matrix form
-    :return: 3 channel image
-    """
-    # If single channel (shape: H x W), convert to BGR
+    """Return a 3-channel OpenCV-compatible image for contour drawing."""
+
     if len(img_array.shape) == 2:
         return cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-    # If RGBA (shape: H x W x 4), convert to BGR
     elif img_array.shape[2] == 4:
         return cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
-    # If already H x W x 3, we assume it's BGR or RGB, but let's treat as BGR
     return img_array

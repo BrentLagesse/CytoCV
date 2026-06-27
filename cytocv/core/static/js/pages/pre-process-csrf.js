@@ -1,3 +1,5 @@
+      // Persist per-file channel ordering from the preprocess sidebar. This is
+      // intentionally narrow because the analysis POST still owns validation.
       // CSRF helper
       function getCookie(name) {
         let val = null;

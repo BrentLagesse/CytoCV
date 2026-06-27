@@ -1,3 +1,6 @@
+// Shared Display/Dashboard viewer primitives. Both page controllers depend on
+// this global namespace, so exported helper names and payload assumptions are
+// treated as frontend contracts by the static contract tests.
 (function (global) {
     'use strict';
 

@@ -1,3 +1,5 @@
+"""Upload-preparation job and frontend polling contract tests."""
+
 from __future__ import annotations
 
 import errno
@@ -30,6 +32,8 @@ from core.tests.test_artifact_storage import temporary_media_root
 
 @override_settings(ANALYSIS_EXECUTION_MODE="worker")
 class UploadPreparationTestCase(TestCase):
+    """Exercise sync/worker-compatible upload-preparation status semantics."""
+
     def setUp(self):
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
@@ -104,6 +108,8 @@ class UploadPreparationTestCase(TestCase):
 
     @staticmethod
     def _all_present_resolution():
+        """Return the common four-channel resolution used by mocked valid uploads."""
+
         return (
             DEFAULT_CHANNEL_CONFIG,
             ChannelPresence(

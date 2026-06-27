@@ -1,3 +1,6 @@
+/* Shared Display/Dashboard viewer layout. Selectors here are coupled to the
+   Django templates and page controllers, so changes need frontend contract
+   coverage rather than purely visual review. */
 .channel-chip.dic {
     background-color: black;
 }

@@ -670,6 +670,7 @@
   </div>
 </div>
 
+{# workflow_defaults.js uses this payload to keep plugin/channel dependency controls in sync. #}
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{% static 'js/workflow_defaults.js' %}?v=channel-order-actions-20260525" defer></script>

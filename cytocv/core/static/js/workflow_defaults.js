@@ -1,3 +1,6 @@
+// Account workflow-defaults controller. It keeps plugin, validation, scale, and
+// dashboard display preferences synchronized with the server-rendered form
+// fields without changing the backend preference schema.
 (() => {
   const navButtons = [...document.querySelectorAll('.nav button')];
   const sections = {

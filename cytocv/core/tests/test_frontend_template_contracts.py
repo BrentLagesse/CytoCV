@@ -1,3 +1,5 @@
+"""Template-level frontend contracts for viewer, upload, and workflow pages."""
+
 from __future__ import annotations
 
 from django.test import TestCase
@@ -29,6 +31,8 @@ MOJIBAKE_TOKENS = ("Ã‚Âµ", "Âµ", "Ã¢â€º", "â›¶", "ï¿½")
 
 
 class FrontendTemplateContractTests(TestCase):
+    """Protect IDs, data attributes, script tags, and non-inline styling rules."""
+
     def _assert_viewer_encoding_and_stats_layout(self, content: str) -> None:
         for token in MOJIBAKE_TOKENS:
             with self.subTest(token=token):

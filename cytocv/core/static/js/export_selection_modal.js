@@ -1,3 +1,6 @@
+// Reusable export selector for Display and Dashboard. The server owns the
+// exportSelectionConfig schema; this controller only normalizes user choices
+// into the request parameters understood by the export views.
 (function () {
   'use strict';
 
@@ -24,6 +27,8 @@
   ];
 
   function parseConfig(scriptId) {
+    // A missing or invalid config disables the modal instead of changing export
+    // URLs or falling back to hard-coded column lists.
     const node = document.getElementById(scriptId || 'exportSelectionConfig');
     if (!node) return null;
     try {

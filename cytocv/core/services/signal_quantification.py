@@ -74,6 +74,8 @@ RATIO_MODE_GREEN_CONTOUR = "green_contour"
 
 @dataclass(frozen=True, slots=True)
 class SignalQuantificationSelection:
+    """Resolved plugin selection and visibility state for one workflow payload."""
+
     enabled: bool
     mode: str
     puncta_contour_intensity_enabled: bool
@@ -113,6 +115,8 @@ def normalize_signal_quantification_mode(
     value: Any,
     default: str = SIGNAL_MODE_PUNCTA_DISTANCE,
 ) -> str:
+    """Normalize legacy plugin and UI mode aliases into the two active modes."""
+
     mode = str(value or "").strip()
     aliases = {
         "puncta": SIGNAL_MODE_PUNCTA_DISTANCE,
@@ -126,6 +130,8 @@ def normalize_signal_quantification_mode(
 
 
 def expand_selected_plugins(selected_plugins: Iterable[Any]) -> tuple[str, ...]:
+    """Return known plugin ids in canonical execution/display order."""
+
     seen: set[str] = set()
     selected: list[str] = []
     known = set(PLUGIN_ORDER)
@@ -141,6 +147,8 @@ def expand_selected_plugins(selected_plugins: Iterable[Any]) -> tuple[str, ...]:
 
 
 def infer_signal_quantification_mode(selected_plugins: Iterable[Any]) -> str:
+    """Infer the primary Signal Quantification mode from legacy selections."""
+
     plugins = set(expand_selected_plugins(selected_plugins))
     if PUNCTA_DISTANCE_PLUGIN in plugins:
         return SIGNAL_MODE_PUNCTA_DISTANCE
@@ -346,6 +354,8 @@ def resolve_signal_quantification_selection(
 def resolve_signal_quantification_from_defaults(
     defaults: dict[str, Any] | None,
 ) -> SignalQuantificationSelection:
+    """Resolve account defaults through the same contract as request payloads."""
+
     defaults = defaults if isinstance(defaults, dict) else {}
     selected_plugins = defaults.get("selected_plugins", DEFAULT_SIGNAL_SELECTED_PLUGINS)
     return resolve_signal_quantification_selection(

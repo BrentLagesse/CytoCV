@@ -1,3 +1,6 @@
+        // Dashboard is the persisted-results viewer. It shares most rendering
+        // primitives with Display, but destructive file actions and quota state
+        // are intentionally dashboard-only contracts.
         const resultsViewerShared = window.CytoCVResultsViewerShared;
         const { readJsonConfig } = resultsViewerShared;
         const { bindContourIntensityDisplayControls } = resultsViewerShared;
@@ -21,7 +24,9 @@
         const confirmCellDeletion = dashboardPageConfig.confirmCellDeletion === true;
         const confirmMultiCellDeletion = dashboardPageConfig.confirmMultiCellDeletion === true;
 
-        // Parse JSON file data
+        // dashboardFilesData is allowed to be absent or malformed only as a
+        // defensive fallback; the normal contract is a backend-built object of
+        // saved runs keyed by UUID.
         let filesData = {};
         let filesDataParseError = false;
         try {

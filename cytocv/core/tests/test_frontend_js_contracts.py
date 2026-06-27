@@ -1,3 +1,5 @@
+"""JavaScript contract tests for source syntax and shared viewer/export APIs."""
+
 from __future__ import annotations
 
 import shutil
@@ -11,6 +13,8 @@ from .frontend_contract_helpers import CORE_STATIC_ROOT, assert_in_order, create
 
 
 class FrontendJavaScriptStaticContractTests(SimpleTestCase):
+    """Validate static JS without requiring a browser or Node build pipeline."""
+
     def test_static_javascript_passes_node_syntax_check_when_node_is_available(self):
         node = shutil.which("node")
         if not node:

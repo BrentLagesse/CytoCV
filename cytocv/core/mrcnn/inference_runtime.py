@@ -1,3 +1,10 @@
+"""Process-local Mask R-CNN runtime cache for segmentation inference.
+
+TensorFlow model construction is expensive and has global process side effects,
+so inference code loads one runtime per weights-file identity and serializes
+actual detection calls through the runtime lock.
+"""
+
 from __future__ import annotations
 
 import os

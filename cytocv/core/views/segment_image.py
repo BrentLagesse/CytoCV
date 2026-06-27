@@ -1,3 +1,10 @@
+"""Legacy segmentation/statistics view and exact artifact writer.
+
+The worker pipeline now wraps this behavior through services, but this module
+still owns the concrete segmentation outputs, per-cell statistics mutation, and
+legacy route compatibility used by current tests and older deployments.
+"""
+
 # =========================
 # Standard library imports
 # =========================
@@ -221,6 +228,8 @@ def _alternate_nucleus_overlay_suppression_channel(
     alternate_nucleus_detection_enabled,
     alternate_nucleus_detection_channel,
 ):
+    """Return the fluorescence channel whose standard contour overlay is hidden."""
+
     if not _truthy_config_flag(alternate_nucleus_detection_enabled):
         return None
 
@@ -257,6 +266,8 @@ def _alternate_nucleus_standard_contour_skip_channels(
     alternate_nucleus_detection_enabled,
     alternate_nucleus_detection_channel,
 ):
+    """Return standard contour channels skipped by alternate nucleus detection."""
+
     channel = _alternate_nucleus_overlay_suppression_channel(
         selected_plugins=selected_plugins,
         signal_quantification_mode=signal_quantification_mode,
@@ -313,9 +324,8 @@ def _resolve_uploaded_dv_path(uploaded_image: UploadedImage) -> Path:
 
 
 def set_options(opt):
-    """
-    This function sets global variables based on parsed arguments (like the old legacy code).
-    """
+    """Populate legacy globals consumed by existing image-processing helpers."""
+
     global input_dir, output_dir, ignore_btn, current_image, current_cell, outline_dict, image_dict, cp_dict, n
     input_dir = opt["input_dir"]
     output_dir = opt["output_dir"]
@@ -354,6 +364,12 @@ def get_stats(
     nuclear_cell_pair_contour_mode=None,
     legacy_exact_cell_pair_mask=None,
 ):
+    """Calculate configured statistics and return red/green/blue overlay images.
+
+    The function mutates the provided ``CellStatistics`` object in place because
+    the surrounding segmentation loop persists the row after plugin execution.
+    """
+
     # loading configuration
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(
         conf
@@ -731,6 +747,8 @@ def finalize_segmented_run_batch(
     guest_id = get_guest_user()
 
     if not auto_save_experiments:
+        # Manual-save users keep completed runs viewable through the current
+        # session until Display explicitly saves or discards them.
         transient.update(current_uuids)
         request.session["transient_experiment_uuids"] = sorted(transient)
         return
@@ -766,9 +784,8 @@ def finalize_segmented_run_batch(
 
 
 def segment_image(request, uuids):
-    """
-    Handles segmentation cell_analysis for multiple images passed as UUIDs.
-    """
+    """Run segmentation/statistics for uploaded UUIDs through the legacy route."""
+
     uuid_list = uuids.split(",")
     owner_filter = _current_owner_filter(request)
     cancelled = lambda: is_cancelled(uuids)
@@ -1548,6 +1565,8 @@ def segment_image(request, uuids):
                 red_dot_split_mode=red_dot_split_mode,
             ),
         )
+        # The replay snapshot above lets Display/Dashboard regenerate exact
+        # contour-on fluorescence overlays without relying on optional debug PNGs.
 
         if cancelled():
             write_progress(uuids, "Cancelled")
@@ -1595,6 +1614,9 @@ def segment_image(request, uuids):
             cp.properties = dict(cp.properties or {})
             cp.properties["cell_type"] = cell_type
             cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
+            # ``properties`` carries analysis-time context consumed by table
+            # rendering, export filtering, overlay replay, and backward-compatible
+            # payload serialization for older rows.
             cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
                 request.session.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,

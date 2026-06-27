@@ -1,3 +1,6 @@
+    // Experiment upload controller. The server-rendered JSON blocks below carry
+    // plugin defaults, quota policy, resume state, and upload-preparation URLs;
+    // localStorage only preserves client-side draft choices.
     const selectedFiles = new Map();
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
@@ -27,6 +30,9 @@
     }
 
     const statsPlugins = Array.isArray(statsPayload.plugins) ? statsPayload.plugins : [];
+    // Plugin/channel payload fields mirror backend service output. Keep ids and
+    // role tokens stable because upload validation and workflow defaults share
+    // this shape.
     const channelOrder = Array.isArray(statsPayload.channel_order) && statsPayload.channel_order.length
         ? statsPayload.channel_order
         : ['DIC', 'channel_blue', 'channel_red', 'channel_green'];

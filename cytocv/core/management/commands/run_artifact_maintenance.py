@@ -8,6 +8,8 @@ from core.services.artifact_maintenance import run_artifact_maintenance
 
 
 class Command(BaseCommand):
+    """Expose artifact cleanup as an operator-invoked, single-sweep command."""
+
     help = "Run one CytoCV artifact-maintenance sweep."
 
     def handle(self, *args, **options):

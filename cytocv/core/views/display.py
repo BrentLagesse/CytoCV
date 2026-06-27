@@ -1,3 +1,5 @@
+"""Transient Display views, saved-state sync, cell deletion, and exports."""
+
 import json
 import re
 from pathlib import Path
@@ -93,6 +95,8 @@ from django_tables2.export.export import TableExport
 
 
 def _scan_output_frames(uuid: str):
+    """Return available full-frame output URLs keyed by channel frame index."""
+
     output_dir = Path(MEDIA_ROOT) / str(uuid) / "output"
     frames = {}
     if not output_dir.exists():
@@ -108,6 +112,8 @@ def _scan_output_frames(uuid: str):
 
 
 def _current_transient_uuid_set(request):
+    """Return transient run UUIDs that remain visible in this session."""
+
     return {
         str(value)
         for value in request.session.get("transient_experiment_uuids", [])
@@ -121,6 +127,8 @@ MANUAL_SAVE_STORAGE_FULL_MESSAGE = (
 
 
 def _storage_full_json_response(exc: StorageQuotaExceeded) -> JsonResponse:
+    """Return the manual-save quota response expected by display JS."""
+
     return JsonResponse(
         {
             "error": MANUAL_SAVE_STORAGE_FULL_MESSAGE,
@@ -133,6 +141,8 @@ def _storage_full_json_response(exc: StorageQuotaExceeded) -> JsonResponse:
 
 
 def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
+    """Return whether a user may view a saved or session-transient run."""
+
     if request.user.is_authenticated:
         if uploaded_image.user_id != request.user.id:
             return False
@@ -149,28 +159,18 @@ def _can_access_display_uuid(request, uploaded_image, segmented_image) -> bool:
 
 @never_cache
 def display(request, uuids):
-    """Render cell display data for one or more uploaded image UUIDs.
+    """Render one or more transient/saved runs for the Display viewer."""
 
-    Args:
-        request: Incoming HTTP request.
-        uuids: Comma-separated UUIDs for images to display.
-
-    Returns:
-        An HTML response with image previews and statistics, or an error.
-    """
-    # Split the comma-separated UUIDs into a list
     uuid_list = [value for value in uuids.split(',') if value]
     protected_uuids = _current_transient_uuid_set(request)
     protected_uuids.update(uuid_list)
     sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
 
-    # Keep table output bound to the first UUID that has statistics.
+    # Keep table output bound to the first UUID that has statistics so the
+    # server-rendered table and ``displayFilesData`` agree on the active file.
     first_table_uuid = None
 
-    # Dictionary to store data for all files (UUIDs)
     all_files_data = {}
-
-    # List to store file information for sidebar navigation
     file_list = []
     cell_table = None
     channel_order = RESULT_CHANNEL_ORDER
@@ -207,16 +207,13 @@ def display(request, uuids):
     )
     effective_initial_cell_type_filter = initial_cell_type_filter
 
-    # Loop through each UUID and retrieve associated data
     for uuid in uuid_list:
         try:
-            # Get the uploaded image details, including the file name
             uploaded_image = UploadedImage.objects.get(uuid=uuid)
             cell_image = SegmentedImage.objects.get(UUID=uuid)
             if not _can_access_display_uuid(request, uploaded_image, cell_image):
                 return HttpResponse("You do not have access to this result.", status=401)
             image_name = uploaded_image.name
-            # get your channel-to-index mapping
             channel_config = get_channel_config_for_uuid(uuid)
             presence = get_channel_presence(str(uuid))
             present_channels = (
@@ -664,7 +661,7 @@ def unsave_display_files(request):
 
 @require_POST
 def sync_display_file_selection(request):
-    """Apply display selection state: selected => saved, unselected => unsaved."""
+    """Apply Display selection state: selected means saved, unselected transient."""
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -680,6 +677,8 @@ def sync_display_file_selection(request):
 
     visible_set = set(visible_uuids)
     selected_set = set(selected_uuids)
+    # The browser posts both the visible file order and selected subset; the
+    # backend treats the visible list as the authorization boundary for the page.
     if not selected_set.issubset(visible_set):
         return JsonResponse(
             {"error": "Selected files must be part of the current display list."},
@@ -808,6 +807,8 @@ def export_display_files(request):
             status=403,
         )
     ordered_uuids = [uuid for uuid in visible_uuids if uuid in selected_set]
+    # Preserve visible sidebar order in multi-file exports; metric selection is
+    # handled later by the shared export service.
 
     uploaded_map = {
         str(item.uuid): item
@@ -865,7 +866,7 @@ def export_display_files(request):
 
 
 def main_image_channel(request, uuid):
-    """Return the main image URL for a given channel without a full page reload."""
+    """Return one main-image URL without a full Display page reload."""
     if request.method != 'GET':
         return JsonResponse({'error': 'This action is not available.'}, status=405)
 
