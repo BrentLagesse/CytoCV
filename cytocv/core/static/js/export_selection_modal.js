@@ -124,6 +124,8 @@
   }
 
   function normalizeIntensityFilters(filters) {
+    // Intensity filters are normalized into Sets because modal presets and
+    // restored selections can arrive as arrays, Sets, or scalar query values.
     const source = filters || {};
     return {
       statistics: normalizedStringSet(
@@ -206,6 +208,8 @@
   }
 
   function applyContourIntensitySelection(items, selectedIds, filters, options) {
+    // Contour intensity is a derived export family. Rebuild only that family so
+    // unrelated selected export fields survive preset changes.
     const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
     const normalized = normalizeIntensityFilters(filters);
     const applicable = !options || options.applicable !== false;

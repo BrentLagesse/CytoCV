@@ -1,4 +1,6 @@
-﻿from types import SimpleNamespace
+﻿"""Protect serialized cell-statistics payload keys used by viewer/export code."""
+
+from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 

@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Broad Django surface tests for routes, artifacts, exports, and frontend contracts."""
+
+from __future__ import annotations
 
 import csv
 import threading

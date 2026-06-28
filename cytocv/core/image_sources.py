@@ -42,6 +42,8 @@ def _squeeze_singleton_non_spatial_axes(
     array: np.ndarray,
     axes: str | None,
 ) -> tuple[np.ndarray, str | None]:
+    # TIFF metadata often includes one-length time/channel/sample axes. Removing
+    # only non-spatial singleton axes keeps Y/X interpretation explicit.
     if not axes or len(axes) != array.ndim:
         return array, axes
 
@@ -77,6 +79,8 @@ def _normalize_stack_with_axes(
         index for index, axis in enumerate(axes) if axis not in _NON_STACK_AXES
     ]
     if "S" in axes and not stack_axes:
+        # RGB/sample images are display images, not supported channel stacks for
+        # analysis upload, so fail before a misleading channel count is inferred.
         raise ValueError(f"Unsupported RGB/sample image shape {array.shape} for {source_path}")
     if len(stack_axes) != 1:
         return None
@@ -95,6 +99,9 @@ def _normalize_stack_without_axes(array: np.ndarray, source_path: Path) -> np.nd
         return np.expand_dims(array, axis=0)
 
     if array.ndim == 3:
+        # Without reliable axes metadata, the smallest dimension is treated as the
+        # channel/layer axis. The small-axis shortcuts preserve common channel-first
+        # and channel-last stacks without relying on filename hints.
         if array.shape[0] <= _SMALL_AXIS_MAX:
             return array
         if array.shape[-1] <= _SMALL_AXIS_MAX:

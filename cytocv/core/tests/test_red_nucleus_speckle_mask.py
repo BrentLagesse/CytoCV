@@ -1,3 +1,5 @@
+"""Regression tests for alternate red-nucleus detection mask behavior."""
+
 from django.test import SimpleTestCase
 import cv2
 import numpy as np

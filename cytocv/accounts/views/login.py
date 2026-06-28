@@ -409,6 +409,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
         nonlocal page_error
         if user is not None and user.is_active:
             return False
+        # Keep the user-facing recovery response generic for missing/inactive
+        # accounts while logging only a salted fingerprint for operators.
         message = ACCOUNT_RECOVERY_UNAVAILABLE_MESSAGE
         normalized_email = normalize_auth_email(values.get("email"))
         logger.info(

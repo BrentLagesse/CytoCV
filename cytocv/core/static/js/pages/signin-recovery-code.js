@@ -1,3 +1,5 @@
+    // Login recovery CAPTCHA mirrors the signup gate: the token is injected into
+    // the same form the Django view already validates.
     (() => {
         const setCaptchaToken = (form, token) => {
             if (!form || !token) return;

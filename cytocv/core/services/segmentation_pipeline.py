@@ -318,6 +318,8 @@ def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEn
 
     cache: dict[int, PairGeometryCacheEntry] = {}
     for cell_id in range(1, int(np.max(seg) + 1)):
+        # Geometry is computed once per label and reused by frame rendering, crop
+        # generation, neck-split manifests, and statistics payloads.
         cell_mask_full = ((seg == cell_id).astype(np.uint8)) * 255
         if not np.any(cell_mask_full):
             continue
@@ -345,6 +347,8 @@ def _build_pair_geometry_cache(seg: np.ndarray) -> dict[int, PairGeometryCacheEn
         if local_contours:
             primary_contour = max(local_contours, key=len)
             try:
+                # Neck-split failures should not discard the segmented cell; missing
+                # split data is represented explicitly in persisted properties.
                 local_split = detect_neck_split(primary_contour, local_mask)
             except Exception:
                 logger.debug(
@@ -554,9 +558,13 @@ def run_segmentation_batch(
 
             channel_config = get_channel_config_for_uuid(uuid)
         except Exception:
+            # Older or partially restored runs may lack channel_config.json; the
+            # default mapping keeps legacy local workflows usable.
             logger.debug("Fell back to default channel config for %s", uuid)
         layer_channel_lookup = _build_layer_channel_lookup(channel_config)
 
+        # Source stacks are normalized channel-first before mask and crop generation
+        # so DV and TIFF inputs share the same downstream indexing behavior.
         image_stack = load_image_stack(dv_path)
         if image_stack.ndim == 2:
             image_stack = np.expand_dims(image_stack, axis=0)
@@ -577,6 +585,8 @@ def run_segmentation_batch(
 
         cell_type_by_label: dict[int, str] = {}
         if choice_var == "Metaphase Arrested":
+            # Retention/refinement can relabel the mask before any output artifacts
+            # are written, so every later path sees the same finalized labels.
             seg, cell_type_by_label = build_retained_candidate_label_image(
                 seg,
                 cell_inclusion_mode,
@@ -596,6 +606,8 @@ def run_segmentation_batch(
 
         for frame_idx in range(image_stack.shape[0]):
             _raise_if_cancelled(progress)
+            # Full-frame output images are display artifacts; measurement crops use
+            # the raw stack later so visualization normalization does not affect stats.
             image = Image.fromarray(image_stack[frame_idx])
             image = skimage.exposure.rescale_intensity(
                 np.float32(image), out_range=(0, 1)
@@ -691,6 +703,8 @@ def run_segmentation_batch(
 
                 outline_path = Path(f"{outputdirectory}{dv_name}-{i}.outline")
                 if not outline_path.exists() or not use_cache:
+                    # The output-side outline CSV path is kept for legacy lookup and
+                    # cleanup code that still expects this convention.
                     with open(outline_path, "w", newline="") as csvfile:
                         csvwriter = csv.writer(csvfile, lineterminator="\n")
                         for idx, contour in enumerate(local_contours):
@@ -704,6 +718,8 @@ def run_segmentation_batch(
                 if cached_channel_name == CHANNEL_ROLE_DIC:
                     _draw_pair_parentage_labels(cellpair_image, entry)
                 if cached_channel_name:
+                    # Display crops use normalized RGB arrays; measurement caches keep
+                    # raw channel data for intensity plugins.
                     cell_image_cache[i][cached_channel_name] = np.array(
                         not_outlined_image,
                         copy=True,
@@ -753,6 +769,8 @@ def run_segmentation_batch(
             if getattr(user, "is_authenticated", False)
             else settings.DEFAULT_SEGMENT_CONFIG
         )
+        # Plugin selection is normalized once here and reused for table visibility,
+        # overlay replay config, and per-cell execution.
         execution_plan = build_stats_execution_plan(
             config_snapshot.get("selected_analysis", []),
             puncta_line_mode=config_snapshot.get("puncta_line_mode"),
@@ -823,6 +841,8 @@ def run_segmentation_batch(
             cen_dot_distance_unit, default="px"
         )
 
+        # Length controls can be entered in pixels or microns. Convert to pixel
+        # values before plugin execution while preserving the original unit metadata.
         puncta_line_width = convert_length_to_pixels(
             raw_puncta_line_width,
             puncta_line_width_unit,
@@ -1056,6 +1076,8 @@ def run_segmentation_batch(
             "red_dot_split_enabled": red_dot_split_enabled,
             "red_dot_split_mode": red_dot_split_mode,
         }
+        # Overlay replay must receive the same normalized config used for statistics
+        # so protected overlay URLs can reproduce contour-on images later.
         write_overlay_render_config(
             uuid,
             build_overlay_render_config(
@@ -1159,6 +1181,8 @@ def run_segmentation_batch(
             cp.properties = dict(cp.properties or {})
             cp.properties["cell_type"] = cell_type
             cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
+            # Properties carry dynamic run metadata that would otherwise require new
+            # model fields for each analysis option or output variant.
             cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
                 config_snapshot.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,

@@ -181,6 +181,8 @@
         uploadResumePayload = {};
     }
 
+    // statsState is the single client-side draft used to build both the visible
+    // controls and the FormData sent to upload preparation.
     const statsState = {
         selectedPlugins: new Set(),
         moduleEnabled: false,
@@ -5061,6 +5063,8 @@
     const UPLOAD_PREPARATION_POLL_MAX_DELAY_MS = 500;
     const UPLOAD_CONTROL_SELECTOR = '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .workflow-default-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn';
 
+    // Upload preparation can run synchronously or through a worker, but the UI
+    // always treats it as a progress-producing job with the same terminal payload.
     function getUploadSubmitParts() {
         const submitBtn = document.getElementById('uploadSubmit');
         const btnText = submitBtn ? submitBtn.querySelector('.btn-text') : null;
@@ -5174,6 +5178,8 @@
     }
 
     function handleTerminalUploadPreparationPayload(payload, { submitBtn } = {}) {
+        // The backend owns final redirects and failure summaries; this controller
+        // only maps terminal statuses into navigation or user-facing messages.
         if (!payload || typeof payload.status !== 'string') return false;
         if (payload.status === 'succeeded') {
             clearUploadProgressForButton(submitBtn);

@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Protect cell deletion routes, artifacts, and viewer payload cleanup."""
+
+from __future__ import annotations
 
 import json
 import re

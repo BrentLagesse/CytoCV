@@ -1,3 +1,5 @@
+"""Protect documentation references that describe public routes and workflows."""
+
 from __future__ import annotations
 
 from pathlib import Path

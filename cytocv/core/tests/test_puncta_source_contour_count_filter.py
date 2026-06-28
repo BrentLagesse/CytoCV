@@ -1,3 +1,5 @@
+"""Protect puncta source-contour filters across table, card, and export payloads."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

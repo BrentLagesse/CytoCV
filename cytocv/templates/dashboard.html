@@ -470,6 +470,7 @@
         </div> <!-- end content-wrapper -->
     </div> <!-- end page-container -->
 
+    {# results-cell-actions.js expects these shared cell-delete modal IDs on Display and Dashboard. #}
     <div class="delete-modal-backdrop" id="deleteCellBackdrop" aria-hidden="true">
         <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteCellTitle">
             <h3 id="deleteCellTitle">Delete Cell</h3>
@@ -481,6 +482,7 @@
         </div>
     </div>
 
+    {# Multi-cell deletion uses a two-view modal populated from the current table rows. #}
     <div class="delete-modal-backdrop" id="selectCellsBackdrop" aria-hidden="true">
         <div class="delete-modal cell-select-modal" role="dialog" aria-modal="true" aria-labelledby="selectCellsTitle">
             <div class="cell-select-view" id="selectCellsView">
@@ -512,6 +514,7 @@
         </div>
     </div>
 
+    {# dashboard-file-actions.js owns bulk saved-file deletion UI; the view still checks ownership. #}
     <div class="delete-modal-backdrop" id="deleteFilesBackdrop" aria-hidden="true">
         <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFilesTitle">
             <h3 id="deleteFilesTitle">Delete saved files</h3>

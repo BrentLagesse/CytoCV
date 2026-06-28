@@ -1,3 +1,5 @@
+    // Login submit locking is client-side affordance only; the backend still owns
+    // credential validation and throttling.
     (() => {
         const form = document.querySelector('.login-form');
         const submit = document.getElementById('loginSubmit');

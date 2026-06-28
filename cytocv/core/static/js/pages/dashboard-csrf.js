@@ -1,5 +1,5 @@
-        // Sidebar drag & drop
-        // CSRF helper
+        // Dashboard AJAX helpers share this cookie-backed CSRF lookup with the
+        // saved-file/sidebar controls.
         function getCookie(name) {
             let val = null;
             document.cookie.split(';').forEach(c => {

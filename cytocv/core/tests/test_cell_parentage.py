@@ -1,3 +1,5 @@
+"""Regression tests for neck-split based mother/daughter cell parentage."""
+
 import cv2
 import numpy as np
 from django.test import SimpleTestCase

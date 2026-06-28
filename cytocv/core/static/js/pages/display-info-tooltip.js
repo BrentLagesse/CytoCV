@@ -1,3 +1,5 @@
+        // Display sidebar scrollbar state is recalculated after layout changes and
+        // fullscreen transitions.
         (function () {
         function setSidebarScrollHeight() {
             var sidebar = document.getElementById('sidebar');

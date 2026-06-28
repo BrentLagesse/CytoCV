@@ -125,6 +125,8 @@
             distance_of_green_from_red_2: 'distance',
             distance_of_green_from_red_3: 'distance',
         };
+        // The saved-results viewer preserves backend table/export order while
+        // applying Dashboard-only ownership and delete controls elsewhere.
         const tableFieldOrder = [
             'cell_id',
             'cell_type',
@@ -196,6 +198,8 @@
             'colinear_dots',
             'off_axis_dots',
         ];
+        // These groups drive display filtering only; export code still receives the
+        // complete per-file statistics payload and selected field IDs.
         const statFieldGroups = {
             puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
             legacy_blue_intensity: ['blue_contour_size', 'blue_contour_center_xy'],

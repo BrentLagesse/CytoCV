@@ -39,6 +39,8 @@ def serialize_cell_statistics_payload(
 
     properties = cell_stat.properties or {}
     cell_parentage = cell_parentage_payload_from_properties(properties)
+    # Payload keys are consumed by both display and dashboard viewers; visibility
+    # normalization happens before values are inserted so disabled stats become None.
     nuclear_cell_pair_mode = normalize_nuclear_cell_pair_mode(
         properties.get("nuclear_cell_pair_mode", properties.get("nuclear_cellular_mode"))
     )
@@ -71,6 +73,8 @@ def serialize_cell_statistics_payload(
         mode=measurement_contour_ratio_mode,
     )
     if not red_green_enabled:
+        # Disabled plugin groups still keep their public keys so frontend contract
+        # tests and old browser code do not need shape-specific branches.
         ratio_payload.update(
             {
                 "measurement_contour_ratio_1": None,
@@ -108,6 +112,8 @@ def serialize_cell_statistics_payload(
         return value
 
     intensity_payload = {}
+    # The contour intensity families are serialized programmatically to keep the
+    # public key order and naming pattern aligned across all channel combinations.
     for prefix in (
         "red_in_red",
         "green_in_red",

@@ -69,7 +69,9 @@ def preprocess_images(
         return None
 
     logger.debug("Preprocess output directory: %s", output_dir)
-    
+
+    # Channel configuration is written during upload preparation; falling back to
+    # index 3 preserves the earlier DIC-default assumption for older runs.
     image_path = resolve_uploaded_file_path(uploaded_image)
     image_stack = load_image_stack(image_path)
 
@@ -90,6 +92,8 @@ def preprocess_images(
     if cancel_check and cancel_check():
         return None
 
+    # The PNG filename is derived from the original upload stem because inference
+    # and cleanup helpers still discover preprocessed assets by that convention.
     image_name = Path(uploaded_image.name).stem + ".png"
     pre_process_image_path = pre_process_dir_path / image_name
     save_png_image(

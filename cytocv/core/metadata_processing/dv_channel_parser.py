@@ -33,6 +33,8 @@ def _map_channel_name(orig_name: str, wl_val: float | None) -> str | None:
     name = (orig_name or "").strip()
     lower = name.lower()
 
+    # Prefer wavelength metadata when present because DV channel labels are often
+    # generic, localized, or omitted.
     if wl_val is not None:
         if abs(wl_val - 625) < 12:
             return CHANNEL_ROLE_RED
@@ -153,6 +155,8 @@ def extract_dv_metadata_channel_config(dv_file_path):
     config = {}
     used_indices = set()
     for i, (orig_name, idx) in enumerate(channel_matches):
+        # Header snippets can list names and emission filters separately; match by
+        # name first, then fall back to positional wavelength order.
         wl_val = wavelength_by_name.get((orig_name or "").strip().lower())
         if wl_val is None and i < len(wavelength_matches):
             wl_val = wavelength_matches[i]

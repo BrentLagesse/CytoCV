@@ -1,3 +1,5 @@
+        // Dashboard sidebar height is recalculated after transitions/fullscreen so
+        // bulk-action controls and export messages stay inside the scroll region.
         (function () {
         function setSidebarScrollHeight() {
             var sidebar = document.getElementById('sidebar');

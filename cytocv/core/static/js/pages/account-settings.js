@@ -1,3 +1,5 @@
+    // Account settings only controls the destructive account-delete confirmation
+    // dialog; email matching and deletion are enforced by the Django view.
     (() => {
         const backdrop = document.getElementById('deleteAccountBackdrop');
         const openButton = document.getElementById('openDeleteAccountModal');

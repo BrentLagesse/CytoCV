@@ -37,6 +37,8 @@ PNG_SAVE_PROFILES = {
         "compress_level": 1,
     },
 }
+# Transient artifacts are regenerable intermediates. Keep these lists explicit so
+# cleanup never drifts into deleting source uploads or persisted segmented output.
 TRANSIENT_FILE_NAMES = (
     "compressed_masks.csv",
     "preprocessed_images_list.csv",
@@ -94,6 +96,8 @@ class MediaStorageFullError(Exception):
 def is_storage_full_error(exc: BaseException | None) -> bool:
     """Return whether an exception chain represents a disk-full condition."""
 
+    # Storage failures can arrive wrapped by Pillow, Django storage, or mocked test
+    # helpers, so inspect the whole exception chain instead of a single errno.
     current = exc
     seen: set[int] = set()
     while current is not None and id(current) not in seen:
@@ -232,6 +236,8 @@ def _calculate_user_storage_usage(
 ) -> dict[str, int]:
     """Calculate retained storage totals for an authenticated user."""
 
+    # Quota applies only to authenticated saved runs; transient guest-owned runs
+    # remain viewable by session but are not counted as retained user storage.
     if not getattr(user, "is_authenticated", False):
         return {
             "used_storage": 0,
@@ -341,6 +347,8 @@ def assert_user_can_save_runs(
     net_required_bytes = max(required_bytes - reclaimed_bytes, 0)
     available_bytes = int(storage_usage.get("available_storage", 0))
 
+    # Selection sync can unsave and save in one request; reclaimed bytes are
+    # credited in the same projection so users can swap retained runs atomically.
     if net_required_bytes > available_bytes:
         raise StorageQuotaExceeded(
             required_bytes=net_required_bytes,
@@ -497,6 +505,8 @@ def delete_preview_assets(uploaded_image: UploadedImage) -> bool:
         _media_path_from_field(item.file_location)
         for item in preview_rows
     ]
+    # Delete DB rows before files so stale preview records do not survive a partial
+    # cleanup; file deletion is guarded by MEDIA_ROOT safety checks below.
     if preview_rows:
         DVLayerTifPreview.objects.filter(uploaded_image_uuid=uploaded_image).delete()
         changed = True
@@ -510,6 +520,8 @@ def delete_preview_assets(uploaded_image: UploadedImage) -> bool:
     changed = _safe_remove_path(preview_dir) or changed
 
     legacy_preview_dir = preprocess_media_path(str(uploaded_image.uuid))
+    # Older uploads stored preview-style files in the preprocess directory. The
+    # compatibility sweep lets restored runs converge on the current preview tree.
     for pattern in LEGACY_PREVIEW_PATTERNS:
         for candidate in legacy_preview_dir.glob(pattern):
             changed = _safe_remove_path(candidate) or changed
@@ -528,6 +540,8 @@ def generate_preview_assets(
     layers = _load_source_layers(source_path)
     layer_count = min(expected_layers, int(layers.shape[0]))
 
+    # Regeneration starts from a clean slate so preview rows remain ordered and do
+    # not mix stale per-layer files with the current source stack.
     delete_preview_assets(uploaded_image)
 
     preview_dir = preview_media_path(str(uploaded_image.uuid))

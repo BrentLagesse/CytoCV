@@ -58,6 +58,8 @@ def map_tiff_label_to_channel_role(label: str) -> str | None:
     lower = normalized.lower()
     compact = "".join(ch for ch in lower if ch.isalnum())
 
+    # Wavelength tokens are more reliable than free-text labels when TIFF exports
+    # carry names like w525 or W_625.
     wavelength_match = _WAVELENGTH_PATTERN.search(lower)
     if wavelength_match:
         role = _role_from_wavelength(float(wavelength_match.group(1)))
@@ -114,6 +116,8 @@ def extract_tiff_channel_config(
 ) -> dict[str, int]:
     """Return TIFF channel config, falling back to the configured default order."""
 
+    # Metadata is advisory: incomplete or ambiguous labels intentionally route
+    # through resolve_channel_config so upload behavior matches DV fallback rules.
     metadata_config = extract_tiff_metadata_channel_config(path) if prefer_metadata else None
     return resolve_channel_config(
         metadata_config,

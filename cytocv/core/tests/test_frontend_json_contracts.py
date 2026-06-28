@@ -1,3 +1,5 @@
+"""Protect server-rendered JSON script payload shapes consumed by frontend code."""
+
 from __future__ import annotations
 
 from django.test import TestCase

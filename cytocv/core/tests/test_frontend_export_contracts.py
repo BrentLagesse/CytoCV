@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Protect Display/Dashboard export modal DOM, JSON config, and request contracts."""
+
+from __future__ import annotations
 
 import csv
 import json

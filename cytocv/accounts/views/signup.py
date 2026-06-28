@@ -465,6 +465,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 except ValidationError:
                     _add_error(errors, "email", "Enter a valid email address")
                     return
+                # Stop before code delivery when the normalized email already
+                # belongs to an account.
                 if email_matches_existing_account(email):
                     _add_error(errors, "email", "That email is already in use. Sign In instead.")
 
@@ -684,6 +686,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             if email_matches_existing_account(values["email"]):
+                # Recheck before creation because the multi-step flow stores email
+                # in session between requests.
                 _add_error(errors, "email", "That email is already in use. Sign In instead.")
                 step = 2
                 session["signup_step"] = 2

@@ -28,6 +28,7 @@
             <p class="verification-status" id="verificationStatus" role="status" aria-live="polite"></p>
             <div class="form-footer">
                 <a class="btn secondary" href="{% url 'signin' %}">Back</a>
+                {# account-verification-sent.js polls this URL and redirects only after the session is authenticated. #}
                 <button
                     class="btn primary"
                     type="button"

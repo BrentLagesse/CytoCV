@@ -1,3 +1,5 @@
+    // Home page interactions are intentionally standalone because CytoCV serves
+    // Django templates without a frontend build bundle.
     const uploadImageButton = document.getElementById('uploadImageButton');
     if (uploadImageButton) {
         uploadImageButton.addEventListener('click', function () {
@@ -11,6 +13,8 @@
     const homeLayout = document.querySelector('.home-layout');
     const homeDivider = document.getElementById('homeDivider');
     if (homeLayout && homeDivider) {
+        // The desktop divider writes a single CSS custom property; mobile layout
+        // falls back to stylesheet-defined stacking.
         let dragging = false;
         let pendingClientX = null;
         let resizeFrame = 0;
@@ -44,6 +48,8 @@
         };
 
         const getColumnBounds = () => {
+            // Bounds combine fixed minimums and proportional minimums so the two
+            // home columns stay readable across wide desktop sizes.
             const rect = homeLayout.getBoundingClientRect();
             const dividerWidth = homeDivider.offsetWidth;
             const gap = getGap();
@@ -151,6 +157,8 @@
     const storyDots = Array.from(document.querySelectorAll('[data-story-dot]'));
 
     if (storyViewport && storyTrack && storyDots.length) {
+        // The story cards become an infinite-feeling carousel only on mobile; on
+        // desktop they remain normal content.
         const mobileQuery = window.matchMedia('(max-width: 900px)');
         const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         const totalStories = storyDots.length;
@@ -206,6 +214,8 @@
         };
 
         const buildCarousel = () => {
+            // Cloned edge slides let swipes wrap without changing the original
+            // server-rendered story-card nodes.
             removeClones();
             const originals = getOriginalSlides();
             if (!mobileQuery.matches || originals.length < 2) {

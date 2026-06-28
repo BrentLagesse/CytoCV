@@ -680,6 +680,8 @@
       }
 
       const cancelClientAnalysis = () => {
+        // Client-side cancellation first stops local polling/fetches; the server
+        // cancellation endpoint below owns worker cleanup and status transitions.
         suppressAnalysisErrors = true;
         window.isAnalysisRunning = false;
         if (analysisPollTimer) {
@@ -693,6 +695,8 @@
       };
       let cancelPromise = null;
       const requestAnalysisCancel = async () => {
+        // A single shared promise prevents repeated navigation/logout handlers
+        // from issuing duplicate cancel requests for the same analysis job.
         if (!window.isAnalysisRunning) {
           return true;
         }
@@ -791,6 +795,8 @@
         }
 
         let pendingHref = null;
+        // Navigation uses the same cancel path as logout so workers see one
+        // cancellation contract regardless of how the user leaves the page.
         const defaultTitle = 'Leave experiment?';
         const defaultBody = 'You have an active experiment session. Are you sure you want to leave this page?';
         const runningTitle = 'Leave experiment and cancel analysis?';

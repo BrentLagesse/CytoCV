@@ -1,3 +1,5 @@
+    // Recovery-code verification keeps submission server-rendered while adding
+    // resend timers, enter-key affordances, and a duplicate-submit guard.
     (() => {
         const form = document.querySelector('.recovery-form');
         if (!form) return;

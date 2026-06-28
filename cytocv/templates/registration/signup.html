@@ -29,6 +29,7 @@
             </div>
             <form method="post" class="signup-form" novalidate>
                 {% csrf_token %}
+                {# signup.js submits this same Django form after reCAPTCHA succeeds. #}
                 <input type="hidden" name="pass_captcha_gate" value="1">
                 {% if recaptcha_enabled %}
                     <div class="recaptcha-wrap">
@@ -66,6 +67,7 @@
                 {% endif %}
             </div>
 
+            {# signup.js uses these flags to decide whether AJAX replacement may restore password fields. #}
             <form
                 method="post"
                 class="signup-form"
@@ -179,6 +181,7 @@
                         >
                     </div>
                     <div class="resend-row">
+                        {# signup.js reads data-resend and keeps the resend button disabled until the timer expires. #}
                         <button
                             type="submit"
                             name="resend_code"

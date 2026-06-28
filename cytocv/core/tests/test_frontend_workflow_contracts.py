@@ -1,3 +1,5 @@
+"""Protect workflow-defaults frontend hooks and preference form contracts."""
+
 from __future__ import annotations
 
 import json
@@ -97,5 +99,4 @@ class FrontendWorkflowContractTests(TestCase):
         self.assertEqual(config["uuids"], uuid_value)
         self.assertIn(config["analysisExecutionMode"], {"sync", "worker"})
         self.assertEqual(config["experimentUrl"], reverse("experiment"))
-
 

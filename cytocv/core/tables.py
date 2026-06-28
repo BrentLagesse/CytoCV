@@ -98,6 +98,8 @@ class ChoiceLabelColumn(tables.Column):
 class CellTable(tables.Table):
     """Table layout for per-cell statistics used in UI and export."""
 
+    # These field groups drive both browser rendering and export omission rules.
+    # Keep names aligned with CellStatistics fields and serialized payload keys.
     SPATIAL_FIELDS = {
         "puncta_distance": "distance",
         "blue_contour_size": "area",
@@ -319,6 +321,8 @@ class CellTable(tables.Table):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        # Resolve visibility once per table instance so hidden plugin groups render
+        # as N/A consistently across HTML cells and export values.
         self._resolved_stat_visibility = self._resolve_stat_visibility(
             args[0] if args else kwargs.get("data"),
             stat_visibility=stat_visibility,
@@ -353,6 +357,8 @@ class CellTable(tables.Table):
             self._intensity_mode,
             FALLBACK_NUCLEAR_CELL_PAIR_LABELS,
         )
+        # Column labels are user-facing contract text in exports, so mode-specific
+        # labels are applied without reordering fields.
         ratio_headers = get_measurement_contour_ratio_headers(self._intensity_mode)
         puncta_headers = get_puncta_line_mode_metadata(puncta_line_mode)
         self.columns["cell_pair_intensity_sum"].column.verbose_name = cellular_label
@@ -474,6 +480,8 @@ class CellTable(tables.Table):
         return self._export_decimal(value)
 
     def _export_cell_value(self, field_name: str, row, record: CellStatistics):
+        # Export values intentionally route through the same applicability and unit
+        # conversion helpers as table rendering while preserving field order.
         if field_name == "cell_id":
             return self._export_int(getattr(record, field_name, None))
         if field_name == "cell_type":

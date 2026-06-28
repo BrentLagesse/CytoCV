@@ -1,4 +1,6 @@
-﻿from datetime import datetime
+﻿"""Protect selected-stat export filtering, labels, and file ordering."""
+
+from datetime import datetime
 
 from django.test import SimpleTestCase
 from django.utils import timezone

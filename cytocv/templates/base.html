@@ -29,6 +29,7 @@
 </head>
 <body>
     {% block navbar %}
+        {# base-interactions.js depends on the about/account menu IDs and aria-expanded controls below. #}
         <nav class="navbar">
             <div class="nav-left">
                 <a href="{% url 'home' %}">Home</a>
@@ -127,6 +128,7 @@
     {% endblock navbar %}
 
     {% if messages %}
+      {# Shared message scripts normalize these server-rendered flash messages after load. #}
       <div class="message-container">
         {% for msg in messages %}
           <div class="message {{ msg.tags }}">{{ msg }}</div>
@@ -145,6 +147,7 @@
     </div>
 
     <div class="logout-modal-backdrop" id="logoutBackdrop" aria-hidden="true">
+        {# Logout may also cancel a running analysis through globals exposed by preprocess pages. #}
         <div class="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
             <div class="logout-modal-header">
                 <span class="logout-modal-title" id="logoutTitle">Confirm Log Out</span>
@@ -162,6 +165,7 @@
         </div>
     </div>
 
+    {# Shared scripts expose global helpers because the frontend is Django-template based, not bundled. #}
     <script src="{% static 'js/shared/async-progress.js' %}?v=frontend-modularization-20260609"></script>
     <script src="{% static 'js/shared/base-interactions.js' %}?v=frontend-modularization-20260609"></script>
     {% block scripts %}{% endblock scripts %}

@@ -30,6 +30,8 @@ class NuclearCellPairIntensity(Analysis):
 
     name = "Nuclear, Cell-Pair Intensity"
 
+    # Each mode defines contour-source keys, measurement-image keys, and labels
+    # stored in CellStatistics.properties for table cards and exports.
     _MODE_CONFIG = {
         "green_nucleus": (
             ("green_no_bg", "green"),
@@ -130,6 +132,8 @@ class NuclearCellPairIntensity(Analysis):
         measure_img = self._first_available_image(measure_keys)
 
         if contour_img is None or measure_img is None:
+            # Missing channel data clears numeric outputs and records a status so
+            # downstream display code does not mistake stale values for a result.
             self._clear_nuclear_cell_pair_sums()
             props["nuclear_cell_pair_mode"] = mode
             props["nuclear_cell_pair_contour_mode"] = contour_mode
@@ -142,6 +146,8 @@ class NuclearCellPairIntensity(Analysis):
         h, w = contour_img.shape[:2]
         cell_mask = contours_data.get("cell_mask")
         if cell_mask is None or cell_mask.shape[:2] != (h, w) or not np.any(cell_mask):
+            # Saved artifacts can outlive in-memory contour payloads, so reload the
+            # per-cell mask before failing the statistic.
             cell_mask = load_cell_mask(
                 self.cp.image_name, self.cp.cell_id, self.output_dir, (h, w)
             )
@@ -159,6 +165,8 @@ class NuclearCellPairIntensity(Analysis):
         slot_payload = dict(contours_data or {})
         slot_payload["cell_mask"] = cell_mask
         alternate_target_channel = self._resolved_alternate_target_channel(props)
+        # Alternate nucleus detection can supply a preselected canonical slot; the
+        # status field records which source was used.
         if mode == "red_nucleus":
             if alternate_target_channel == CHANNEL_ROLE_RED:
                 source_slots = list(
@@ -194,6 +202,8 @@ class NuclearCellPairIntensity(Analysis):
         cell_measurement_mask = cell_mask
         legacy_cell_mask_fallback = False
         if use_legacy_scaled_measurement:
+            # Legacy-scaled mode can use an exact historical cell-pair mask for
+            # measurement while preserving the current contour selection path.
             cell_measurement_mask, legacy_cell_mask_fallback = (
                 select_legacy_exact_cell_pair_mask(
                     slot_payload,

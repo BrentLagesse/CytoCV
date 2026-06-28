@@ -1,3 +1,5 @@
+        // Signup flow keeps server-rendered validation as the source of truth while
+        // updating the card with AJAX to preserve form context and resend timers.
         (() => {
             const initResendTimer = (root) => {
                 const resendButton = root.querySelector('#resendButton');
@@ -69,6 +71,8 @@
             };
 
             const restorePasswords = (card, preserved) => {
+                // The server marks which password fields should be cleared after a
+                // validation step; the browser only restores fields still allowed.
                 const form = card.querySelector('.signup-form');
                 if (!form) return;
                 const clearPassword = form.dataset.clearPassword === '1';
@@ -106,6 +110,8 @@
             };
 
             const autoSubmitCaptchaGate = (token) => {
+                // CAPTCHA success resumes the same form submission path so backend
+                // rate-limit and verification checks remain centralized.
                 const gateMarker = document.querySelector('.signup-form input[name="pass_captcha_gate"]');
                 const gateForm = gateMarker ? gateMarker.form : null;
                 if (!gateForm) return;
@@ -127,6 +133,8 @@
             };
 
             const initAjaxForm = (root) => {
+                // Form replacement expects the response to contain a fresh .signup-card
+                // with the same IDs and names used by the Django view.
                 const form = root.querySelector('.signup-form');
                 if (!form || form.dataset.bound === '1') return;
                 form.dataset.bound = '1';

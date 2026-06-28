@@ -55,6 +55,8 @@ class UploadPreparationCancelled(Exception):
 
 
 def _normalize_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, object]:
+    # Jobs persist only a whitelisted snapshot of upload-time options. Rehydrate it
+    # defensively because queued work may execute after code or preference changes.
     payload = dict(snapshot or {})
     validation = payload.get("validation_options")
     if not isinstance(validation, dict):
@@ -119,6 +121,7 @@ def _write_channel_config(run_uuid: str, channel_config: dict[str, object]) -> N
     output_dir.mkdir(parents=True, exist_ok=True)
     final_path = output_dir / "channel_config.json"
     tmp_path = final_path.with_suffix(f".json.{os.getpid()}.tmp")
+    # Write atomically so preprocess never reads a partially written channel map.
     tmp_path.write_text(json.dumps(channel_config), encoding="utf-8")
     tmp_path.replace(final_path)
 
@@ -171,6 +174,8 @@ def _extract_upload_metadata(
 ) -> None:
     source_image_path = _media_path_for_uploaded(uploaded)
     metadata_scale = extract_dv_scale_metadata(source_image_path)
+    # Scale metadata and channel presence are persisted before preview generation
+    # because the preprocess page reads them directly from the uploaded run.
     uploaded.scale_info = build_scale_info(
         manual_um_per_px=manual_um_per_px,
         prefer_metadata=prefer_metadata_scale,
@@ -234,6 +239,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                 },
             )
             if uploaded is None:
+                # Missing restored uploads are reported as validation failures, but
+                # missing newly staged uploads are also cleaned from media.
                 failures.append(
                     (
                         run_uuid,
@@ -247,6 +254,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             source_image_path = _media_path_for_uploaded(uploaded)
             validation_result = validate_source_image_file(source_image_path, validation_options)
             if not validation_result.is_valid:
+                # Invalid new uploads are deleted immediately; invalid restored runs
+                # are skipped without deleting the user's existing saved artifact.
                 failures.append((_display_file_name(uploaded, run_uuid), validation_result))
                 if run_uuid in new_run_uuids:
                     delete_uploaded_run(uploaded)
@@ -291,6 +300,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                 fallback_channel_order=fallback_channel_order,
             )
             _raise_if_cancelled(job)
+            # Preview generation is intentionally after validation and metadata so
+            # the browser only receives preview assets for approved runs.
             _set_phase(
                 job,
                 "Preparing Previews",

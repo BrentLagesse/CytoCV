@@ -112,6 +112,9 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
     "main_image_channel": "",
     "default_puncta_source_contour_count_filter": PUNCTA_SOURCE_CONTOUR_FILTER_ALL,
 }
+# The preferences shape is stored on CustomUser.config and mirrored into upload,
+# preprocess, dashboard, and workflow-default UI contracts. Add new keys here only
+# when the normalizers and frontend payload builders can preserve them safely.
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -238,6 +241,8 @@ def _first_present(*values: Any) -> Any:
 def normalize_preferences_payload(raw_payload: Any) -> dict[str, Any]:
     """Normalize stored/posted preferences into a safe canonical shape."""
 
+    # Stored config may come from older releases, POST payloads, or tests that only
+    # include a subset of keys; start from defaults and normalize every public knob.
     normalized = deepcopy(DEFAULT_USER_PREFERENCES)
     if not isinstance(raw_payload, dict):
         return normalized

@@ -370,6 +370,8 @@ def _upload_view_context(
 ):
     """Build template context for the upload page."""
 
+    # Static JS reads these JSON strings by stable script IDs; keep route URLs and
+    # preference/quota payloads server-rendered rather than embedding template syntax.
     context = {
         "form": form,
         "progress_key": progress_key,
@@ -405,6 +407,8 @@ def _create_upload_preparation_job_for_mode(
         **config_snapshot,
         "upload_preparation_execution_mode": execution_mode,
     }
+    # Sync mode exists for local/dev compatibility; worker mode uses the same job
+    # row and config snapshot so polling responses keep one shape.
     if execution_mode == "sync":
         job = start_inline_upload_preparation_job(
             user_id=user_id,
@@ -510,6 +514,8 @@ def _parse_experiment_submission(
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Parse upload settings once for session persistence and worker execution."""
 
+    # This helper emits two payloads: session values for the next request and a
+    # whitelisted snapshot that can safely be executed later by a worker.
     experiment_defaults = user_preferences.get("experiment_defaults", {})
     default_microns_per_pixel = parse_microns_per_pixel(
         experiment_defaults.get("microns_per_pixel"),
@@ -530,6 +536,8 @@ def _parse_experiment_submission(
         _getlist(payload, "selected_analysis")
     )
 
+    # Scale and channel-order preferences are resolved at upload preparation time
+    # because each source file may expose different metadata.
     posted_microns_per_pixel = parse_microns_per_pixel(
         payload.get("stats_microns_per_pixel"),
         default=default_microns_per_pixel,
@@ -618,6 +626,8 @@ def _parse_experiment_submission(
         minimum=0,
     )
 
+    # Persist both the original user-entered units and pixel equivalents so old
+    # session consumers and newer scale-aware workers can use the same snapshot.
     puncta_line_width = _convert_length_to_pixels(
         puncta_line_width_value,
         puncta_line_source_unit,
@@ -871,7 +881,7 @@ def _persist_experiment_session(request, session_values: dict[str, object]) -> N
 def experiment(request):
     """Render upload intake or preserve the legacy whole-form upload POST."""
 
-    # Ensure session exists to derive a stable progress key
+    # Ensure session exists to derive a stable progress key for upload preparation.
     if not request.session.session_key:
         request.session.save()
     progress_key = request.session.session_key
@@ -929,6 +939,8 @@ def experiment(request):
                 status=400,
             )
 
+        # New and restored runs share the same per-request access policy because
+        # they enter one upload-preparation queue and one preprocess selection.
         requested_file_count = len(files) + len(existing_uuids)
         if (
             access_policy.upload_max_files is not None
@@ -944,6 +956,8 @@ def experiment(request):
 
         new_upload_uuids: list[str] = []
         try:
+            # Legacy whole-form POSTs still create UploadedImage rows directly;
+            # staged uploads use upload_file_batch and join this path later.
             for image_location in files:
                 name = Path(str(image_location.name)).stem or "upload"
                 image_uuid = uuid.uuid4()
@@ -1150,6 +1164,8 @@ def upload_file_batch(request):
         )
 
     try:
+        # This endpoint only stages source files. Validation, metadata extraction,
+        # channel_config writing, and preview generation happen in upload prep.
         for image_location in files:
             name = Path(str(image_location.name)).stem or "upload"
             image_uuid = uuid.uuid4()
@@ -1233,6 +1249,8 @@ def enqueue_upload_preparation(request):
         access_policy.upload_max_files is not None
         and len(requested_uuids) > access_policy.upload_max_files
     ):
+        # New staged uploads are safe to delete on limit failure; restored files are
+        # existing user-owned runs and are left untouched.
         for cleanup_uuid in new_run_uuids:
             if cleanup_uuid in owned_uuids:
                 delete_uploaded_run_by_uuid(cleanup_uuid)

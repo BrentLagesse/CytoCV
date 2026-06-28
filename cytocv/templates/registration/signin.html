@@ -37,6 +37,7 @@
                 </div>
                 <form method="post" class="form" novalidate>
                     {% csrf_token %}
+                    {# signin-recovery-code.js submits this same Django form after reCAPTCHA succeeds. #}
                     <input type="hidden" name="pass_captcha_gate" value="1">
                     {% if recaptcha_enabled %}
                         <div class="recaptcha-wrap">
@@ -71,6 +72,7 @@
                     {% endif %}
                 </div>
 
+                {# signin-recovery-flow.js depends on .recovery-form, resend IDs, and submit button names. #}
                 <form method="post" action="{% url 'signin' %}?recover=1" class="form recovery-form" novalidate>
                     {% csrf_token %}
                     <input type="hidden" name="flow" value="recovery">
@@ -212,6 +214,7 @@
             </div>
         {% else %}
             {% if rate_limit_active %}
+                {# signin-code-input.js reads this data-remaining value for the client countdown. #}
                 <div class="rate-limit-banner" id="rateLimitBanner" data-remaining="{{ rate_limit_retry_after|default:0 }}">
                     Too many sign-in attempts. Please wait <span id="rateLimitCountdown"></span> before trying again.
                     <button type="button" class="message-close" id="rateLimitClose" aria-label="Dismiss">&times;</button>
@@ -225,6 +228,7 @@
                     <p class="subtitle">Sign in to access your dashboard and saved experiments.</p>
                 </div>
                 <div class="title">Credentials</div>
+                {# signin-password-toggle.js only guards duplicate submits; credentials remain server-validated. #}
                 <form method="post" class="form login-form" novalidate>
                     {% csrf_token %}
                     <div class="field">

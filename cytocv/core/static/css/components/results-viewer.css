@@ -138,6 +138,7 @@
     gap: var(--page-shell-gap);
 }
 
+/* Sidebar shell shared by Display and Dashboard result navigation. */
 .sidebar {
     position: sticky;
     top: calc(var(--nav-height) + var(--page-shell-gap));
@@ -356,6 +357,7 @@
     line-height: 1.35;
 }
 
+/* Main viewer panel containing channel images, cell cards, and table controls. */
 .viewer-panel {
     width: 100%;
     display: flex;
@@ -1263,6 +1265,7 @@ a:hover {
     overflow-y: auto;
 }
 
+/* Statistics table rows are updated by viewer JS and exported through shared field IDs. */
 .celltable {
     width: max-content;
     min-width: 100%;
@@ -1390,6 +1393,7 @@ a:hover {
     font-style: italic;
 }
 
+/* Row action menus are positioned and opened by results-cell-actions.js. */
 .cell-actions-wrapper {
     position: relative;
     display: inline-flex;

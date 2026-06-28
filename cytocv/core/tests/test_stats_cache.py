@@ -1,4 +1,6 @@
-﻿from pathlib import Path
+﻿"""Protect statistics cache artifacts and overlay replay behavior."""
+
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -136,4 +138,3 @@ class GetStatsCacheTests(SimpleTestCase):
         self.assertEqual(debug_gfp.size, (5, 5))
         self.assertEqual(debug_dapi.size, (5, 5))
         self.assertEqual(getattr(cp, "blue_contour_size", None), 0.0)
-

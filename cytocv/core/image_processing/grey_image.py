@@ -10,6 +10,8 @@ class GrayImage:
         if img:
             self._image_storage = img
         else:
+            # Plugin implementations still request these exact keys, including
+            # legacy blurred/background-subtracted names.
             self._image_storage = {
                 'gray_red_3': None,
                 'gray_red': None,

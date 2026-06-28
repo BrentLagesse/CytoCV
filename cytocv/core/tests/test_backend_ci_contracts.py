@@ -1,3 +1,5 @@
+"""Protect assumptions that local test commands and Backend CI share."""
+
 from __future__ import annotations
 
 import re

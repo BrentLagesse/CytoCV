@@ -1,3 +1,5 @@
+"""Regression tests for supported source-image detection and layer handling."""
+
 from __future__ import annotations
 
 from pathlib import Path

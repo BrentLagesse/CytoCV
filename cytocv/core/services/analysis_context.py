@@ -71,6 +71,9 @@ DEFAULT_ANALYSIS_CONFIG_SNAPSHOT = {
     "auto_save_experiments": True,
     "execution_mode": "sync",
 }
+# This default snapshot is the compatibility bridge between request-owned sync
+# analysis and queued worker analysis. New runtime-only options should be
+# normalized here before they are persisted on AnalysisJob.
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +120,8 @@ def _parse_float(
 def normalize_uuid_list(raw_values: Iterable[object] | str) -> tuple[str, ...]:
     """Return a normalized ordered UUID tuple."""
 
+    # Preserve input order while deduplicating so redirect URLs, progress payloads,
+    # and batch keys all agree on a single canonical UUID sequence.
     if isinstance(raw_values, str):
         values = [part.strip() for part in raw_values.split(",")]
     else:
@@ -160,6 +165,8 @@ def normalize_analysis_config_snapshot(
     if source_snapshot:
         payload.update(source_snapshot)
 
+    # The stored snapshot accepts legacy and current names, then emits one canonical
+    # set for both sync and worker execution paths.
     selected_analysis = payload.get("selected_analysis") or []
     if not isinstance(selected_analysis, list):
         selected_analysis = (

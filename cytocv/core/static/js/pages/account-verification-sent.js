@@ -1,3 +1,5 @@
+    // Verification status polling lets the waiting page continue once the email
+    // link authenticates this browser session.
     (() => {
         const button = document.getElementById('verifiedCheckButton');
         const statusEl = document.getElementById('verificationStatus');

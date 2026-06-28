@@ -1,8 +1,10 @@
+/* Dashboard saved-results layout and saved-file sidebar controls. */
 body {
     background-attachment: fixed;
     background-position: center top;
 }
 
+/* Saved file rows are also selection targets for bulk export/delete actions. */
 .file-item {
     margin: 8px 0 8px 12px;
     padding: 12px;
@@ -62,6 +64,7 @@ body {
     box-shadow: none;
 }
 
+/* Empty-state content fills the same main region used by the results viewer. */
 .empty-dashboard {
     width: 100%;
     flex: 1 1 auto;

@@ -148,10 +148,9 @@ def validate_source_image_file(
                     error_message="not a recognized supported image file",
                 )
 
+        # Three-layer stacks need reliable metadata because one canonical role is
+        # absent; default-order fallback would hide which channel is missing.
         if layer_count == 3:
-            # Three-layer files are only accepted when metadata can identify all
-            # provided roles and DIC is among them; default-order fallback would
-            # otherwise hide which fluorescence channel is absent.
             metadata_config = extract_reliable_metadata_channel_config(
                 source_image_path,
                 prefer_metadata=options.prefer_metadata_channel_order,

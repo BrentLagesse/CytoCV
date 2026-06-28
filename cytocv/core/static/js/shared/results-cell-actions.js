@@ -1,3 +1,5 @@
+// Shared cell deletion actions for Display and Dashboard viewers. The frontend
+// only chooses cell IDs and confirmation scope; the endpoints enforce ownership.
 (function (global) {
     'use strict';
 
@@ -131,6 +133,8 @@
         const deleteCellModal = createModalAnimator(modalBackdrop, modalPanel);
         const selectCellsModal = createModalAnimator(selectCellsBackdrop, selectCellsPanel);
 
+        // Context menus are moved into the fullscreen host when needed so they
+        // remain usable with the image/table viewer in fullscreen mode.
         function closeTriggerMenu() {
             if (!triggerMenu || !trigger) return;
             triggerMenu.dataset.open = 'false';
@@ -185,6 +189,8 @@
             closeContextMenu();
         }
 
+        // Multi-cell deletion uses a two-step modal so the selected IDs can be
+        // reviewed before the request is sent.
         function clearCellSelectAnim(view) {
             if (!view) return;
             cellSelectAnimClasses.forEach((className) => view.classList.remove(className));

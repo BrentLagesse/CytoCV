@@ -1,4 +1,6 @@
-﻿from decimal import Decimal
+﻿"""Protect result table visibility, labels, and export field ordering."""
+
+from decimal import Decimal
 from types import SimpleNamespace
 
 from django.test import RequestFactory, SimpleTestCase

@@ -1,3 +1,5 @@
+        // Shared async-progress popovers read worker payload fields emitted by Django views
+        // and keep that display logic out of individual page controllers.
         (function () {
             if (window.CytoCVAsyncProgress) return;
             const VIEWPORT_MARGIN = 12;
@@ -9,6 +11,8 @@
                 return target.closest('.async-progress-host');
             }
 
+            // Progress hosts own their panel reference so repeated polling updates can
+            // rewrite the same floating status element without duplicating DOM.
             function ensurePanel(host) {
                 let panel = host._cytocvAsyncProgressPanel || null;
                 if (!panel) {
@@ -22,6 +26,8 @@
                 return panel;
             }
 
+            // Hosts are wired lazily because several pages create or reveal controls
+            // only after a job has started.
             function wireHost(host) {
                 if (host.dataset.progressWired === '1') return;
                 host.dataset.progressWired = '1';
@@ -129,6 +135,8 @@
                 return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
             }
 
+            // Older backend status labels include page-specific wording; the shared
+            // progress UI normalizes only the display text and leaves payload keys intact.
             function displayPhase(value) {
                 const phase = cleanText(value);
                 if (phase.startsWith('Preprocessing Images')) {
@@ -148,6 +156,8 @@
                 }
             }
 
+            // The payload accepts the stable phase/message/count keys used by upload,
+            // preprocessing, and analysis polling responses.
             function format(payload) {
                 const data = payload && typeof payload === 'object' ? payload : {};
                 const phase = displayPhase(data.phase || data.status || '');
@@ -185,6 +195,8 @@
                 };
             }
 
+            // Expose a small public surface so page controllers can update or clear
+            // progress without knowing how the floating panel is positioned.
             function set(target, payload) {
                 const host = findHost(target);
                 if (!host) return;

@@ -1,3 +1,5 @@
+      // Preprocess sidebar scroll state is recalculated after browser history
+      // restores and fullscreen layout changes.
       (function () {
         function clampSidebar() {
           var sidebar = document.getElementById('sidebar');

@@ -130,6 +130,8 @@ class PunctaDistance(Analysis):
     )
 
     def _measurement_image(self, measurement_channel: str):
+        # Prefer raw measurement images for intensity values; normalized display
+        # fallbacks keep older cached runs measurable when raw variants are absent.
         if not measurement_channel:
             return None
         if measurement_channel == CHANNEL_ROLE_GREEN:
@@ -259,6 +261,8 @@ class PunctaDistance(Analysis):
         measurement_image = self._measurement_image(metadata["measurement_channel"])
         single_channel_mode = is_single_channel_puncta_line_mode(metadata["mode"])
         if single_channel_mode:
+            # Single-channel modes keep same-channel contour stats while explicitly
+            # hiding paired-channel fields from downstream table/export surfaces.
             self._merge_unavailable_fields(
                 self._GREEN_ONLY_UNAVAILABLE_FIELDS
                 if metadata["source_channel"] == CHANNEL_ROLE_GREEN

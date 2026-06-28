@@ -75,6 +75,7 @@
         animation: exportSelectionExitBackward 120ms ease-in both;
         pointer-events: none;
     }
+    /* Header controls switch format and spatial unit before the export URL is built. */
     .export-selection-toolbar {
         display: flex;
         align-items: center;
@@ -240,6 +241,7 @@
         padding: 1px 8px 0 2px;
         scrollbar-gutter: stable;
     }
+    /* File/stat rows are generated from the exportSelectionConfig payload. */
     .export-selection-group {
         display: grid;
         gap: 6px;
@@ -325,6 +327,7 @@
     .export-selection-actions-right[hidden] {
         display: none !important;
     }
+    /* Modal action buttons are wired by export_selection_modal.js. */
     .export-selection-btn {
         display: inline-flex;
         align-items: center;

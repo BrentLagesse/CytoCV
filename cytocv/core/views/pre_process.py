@@ -378,7 +378,8 @@ def pre_process(request, uuids):
             }
         )
 
-    # current file previews
+    # Preview rows are generated during upload preparation but can be regenerated
+    # here for restored runs whose preview files were cleaned up.
     current_uuid = uuid_list[current_file_index]
     uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid, **owner_filter)
     preview_images = ensure_preview_assets(uploaded_image)
@@ -897,7 +898,8 @@ def pre_process(request, uuids):
             }
         )
 
-    # Normal render
+    # Normal render: template JSON blocks expose file scale state and execution mode
+    # to pre-process.js while the server remains the source of validation truth.
     return TemplateResponse(
         request,
         "pre_process.html",

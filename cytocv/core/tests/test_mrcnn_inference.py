@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Protect Mask R-CNN inference wrapper contracts without exercising model weights."""
+
+from __future__ import annotations
 
 import threading
 import unittest

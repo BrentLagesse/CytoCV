@@ -1,3 +1,5 @@
+"""Protect account email backend configuration and verification send behavior."""
+
 import time
 from unittest.mock import patch
 

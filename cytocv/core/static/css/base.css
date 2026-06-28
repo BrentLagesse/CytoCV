@@ -1,3 +1,4 @@
+        /* Global theme, layout, and shared component tokens used by all Django-rendered pages. */
         :root {
             --app-font: 'Space Grotesk', 'Segoe UI', sans-serif;
             --page-bg: #1b1b1b;
@@ -102,6 +103,7 @@
             }
         }
 
+        /* Baseline document behavior and shared interactive element defaults. */
         * { box-sizing: border-box; }
 
         html {

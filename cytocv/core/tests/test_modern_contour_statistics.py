@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Regression tests for modern contour slotting, statistics, and viewer artifacts."""
+
+from __future__ import annotations
 
 import math
 from pathlib import Path

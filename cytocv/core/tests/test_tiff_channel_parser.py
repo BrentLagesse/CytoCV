@@ -1,3 +1,5 @@
+"""Regression tests for TIFF label metadata and fallback channel ordering."""
+
 from __future__ import annotations
 
 from pathlib import Path

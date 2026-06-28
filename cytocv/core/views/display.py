@@ -106,6 +106,8 @@ def _scan_output_frames(uuid: str):
         match = frame_pattern.match(path.name)
         if not match:
             continue
+        # Frame indexes are channel-layer indexes used by main-image preference
+        # selection, not display ordering.
         frame_idx = int(match.group(1))
         frames[frame_idx] = media_url(uuid, "output", path.name)
     return frames
@@ -164,6 +166,8 @@ def display(request, uuids):
     uuid_list = [value for value in uuids.split(',') if value]
     protected_uuids = _current_transient_uuid_set(request)
     protected_uuids.update(uuid_list)
+    # Display may show newly generated transient runs before the user saves them,
+    # so the stale-artifact sweep must protect both URL and session UUIDs.
     sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
 
     # Keep table output bound to the first UUID that has statistics so the
@@ -221,10 +225,12 @@ def display(request, uuids):
                 if presence.present_channels or presence.source != "ambiguous"
                 else None
             )
-            # Sort by saved index so the sidebar mirrors the detected file order.
+            # Sidebar channel labels follow the channel_config written during upload
+            # preparation, not hard-coded Red/Green/Blue/DIC order.
             detected = detected_channel_labels(channel_config)
 
-            # Append file info for the sidebar, INCLUDING the channel pills
+            # The sidebar payload is kept separate from displayFilesData because it
+            # includes saved/transient state and compact scale summaries.
             scale_payload = get_scale_sidebar_payload(
                 uploaded_image.scale_info,
                 manual_default=default_manual_scale,
@@ -266,7 +272,8 @@ def display(request, uuids):
                 channel_config=channel_config,
                 available_frames=available_frames,
             )
-            # Build the images for each cell based on the dynamic channel configuration
+            # Cell images are emitted in RESULT_CHANNEL_ORDER with outline/no-outline
+            # pairs so the static viewer can switch channels without new requests.
             images = {}
             statistics = {}
             cell_stats_qs = CellStatistics.objects.filter(segmented_image=cell_image).order_by('cell_id')
@@ -341,6 +348,8 @@ def display(request, uuids):
                         and cell_stat is not None
                         and overlay_image_available(uuid, i, channel_name)
                     ):
+                        # Fluorescence overlay URLs replay exact server-side contours
+                        # when cache/config data exists; DIC still uses stored crops.
                         image_url = build_overlay_image_url(uuid, i, channel_name)
                     else:
                         image_url = segmented_cell_image_url(
@@ -420,7 +429,8 @@ def display(request, uuids):
                     )
                 )
 
-            # Store all image details and statistics for this UUID
+            # Keep this JSON shape stable for display-viewer.js and export modal
+            # tests; dashboard emits the same primitives with saved-run semantics.
             all_files_data[str(uuid)] = {
                 'MainImagePath': full_outlined,
                 'MainImagePaths': main_image_paths,
@@ -447,7 +457,7 @@ def display(request, uuids):
             scale_context=None,
         )
 
-    # Convert the files_data to JSON to be used in the template
+    # The template writes this into displayFilesData for static JS to parse.
     json_files_data = json.dumps(sanitize_for_json(all_files_data), allow_nan=False)
 
     return render(request, "display.html", {
@@ -511,6 +521,8 @@ def save_display_files(request):
     guest_id = get_guest_user()
     already_saved = []
     to_save = []
+    # Saving is an ownership transition from guest/transient to the authenticated
+    # user; UUIDs outside the current display session are rejected generically.
     for uuid in requested_uuids:
         segmented = segmented_map.get(uuid)
         if segmented is None:
@@ -612,6 +624,8 @@ def unsave_display_files(request):
     guest_id = get_guest_user()
     already_unsaved = []
     to_unsave = []
+    # Unsaving moves a run back to the guest owner while keeping it visible in the
+    # current session so users do not lose the active display page.
     for uuid in requested_uuids:
         segmented = segmented_map.get(uuid)
         if segmented is None:

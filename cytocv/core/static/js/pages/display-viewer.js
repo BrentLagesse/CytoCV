@@ -102,6 +102,8 @@
             distance_of_green_from_red_2: 'distance',
             distance_of_green_from_red_3: 'distance',
         };
+        // Keep table/export field order aligned with backend result payloads. The
+        // viewer only decides visibility and display labels.
         const tableFieldOrder = [
             'cell_id',
             'cell_type',
@@ -173,6 +175,8 @@
             'colinear_dots',
             'off_axis_dots',
         ];
+        // Visibility groups mirror analysis plugin families so toggles can hide a
+        // whole plugin output without reshaping the underlying statistics object.
         const statFieldGroups = {
             puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
             legacy_blue_intensity: ['blue_contour_size', 'blue_contour_center_xy'],

@@ -255,6 +255,8 @@ class CENDot(Analysis):
         proximity_unit = self._get_proximity_radius_unit()
 
         def _finalize(category: int, status: str, extra: dict | None = None) -> None:
+            # Store one structured location payload so table/export/render layers can
+            # distinguish classification status from the numeric category field.
             has_parentage_neck_split = parentage_payload.get("has_neck_split")
             if has_parentage_neck_split is None:
                 has_parentage_neck_split = neck_split is not None and mother_mask is not None

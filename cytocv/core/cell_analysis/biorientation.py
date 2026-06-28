@@ -103,6 +103,8 @@ class Biorientation(Analysis):
         self.cp.colinear_dots = 0
         self.cp.off_axis_dots = 0
 
+        # Slot geometry comes from the same canonical red/green masks used by
+        # CEN-dot so biorientation counts align with related contour outputs.
         red_gray = self.preprocessed_images.get_image("gray_red")
         green_gray = self.preprocessed_images.get_image("green")
         base_shape = None
@@ -133,6 +135,8 @@ class Biorientation(Analysis):
             center_2 = red_slots[1].center
             distance_min = _pixel_distance(center_1, center_2, properties, min_unit)
             distance_max = _pixel_distance(center_1, center_2, properties, max_unit)
+            # Min and max may use different units because the upload/settings UI
+            # stores each threshold independently.
             if distance_min < red_min:
                 return
             if distance_max > red_max:
@@ -144,6 +148,8 @@ class Biorientation(Analysis):
             collinear_count = 0
             off_axis_count = 0
             for green_slot in green_slots:
+                # Only green dots inside the segmented cell pair contribute to the
+                # reported counts.
                 if not CENDot._green_slot_inside_pair_mask(green_slot, cell_mask):
                     continue
                 if not self._projects_within_segment(

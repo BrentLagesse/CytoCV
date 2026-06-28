@@ -1,3 +1,5 @@
+  // Upload-preparation validation errors are stored by experiment.js before the
+  // redirect and rendered once on the preprocess page.
   document.addEventListener("DOMContentLoaded", () => {
     const raw = sessionStorage.getItem("dvErrors");
     if (!raw) return;

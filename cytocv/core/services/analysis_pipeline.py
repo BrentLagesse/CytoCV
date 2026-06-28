@@ -93,6 +93,7 @@ def run_preprocess_and_inference_batch(
         uploaded_image = UploadedImage.objects.get(uuid=image_uuid, **owner_filter)
         output_dir = Path(settings.MEDIA_ROOT) / image_uuid
 
+        # Progress detail keys are shared with the async tooltip and polling UI.
         progress.set_phase(
             _phase_with_run_count(
                 "Preprocessing Images",
@@ -117,6 +118,8 @@ def run_preprocess_and_inference_batch(
 
         _raise_if_cancelled(progress)
 
+        # Inference writes the mask artifacts consumed by the segmentation batch;
+        # cancellation between stages should still clean up the whole batch below.
         progress.set_phase(
             _phase_with_run_count(
                 "Detecting Cells",
@@ -150,6 +153,8 @@ def run_analysis_batch(
     """Run the full preprocess, inference, segmentation, and statistics pipeline."""
 
     try:
+        # Keep sync and worker execution on the same orchestration path so failure,
+        # cancellation, progress, and cleanup semantics stay identical.
         run_preprocess_and_inference_batch(
             user=user,
             context=context,

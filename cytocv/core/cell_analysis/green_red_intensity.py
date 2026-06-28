@@ -65,6 +65,8 @@ class GreenRedIntensity(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
+        # Use raw red/green planes for measured intensity values when available;
+        # the no-background/display fallbacks preserve compatibility with older caches.
         red_gray = self.preprocessed_images.get_image("raw_red")
         if red_gray is None:
             red_gray = self.preprocessed_images.get_image("red_no_bg")
@@ -88,6 +90,8 @@ class GreenRedIntensity(Analysis):
         self.cp.properties = props
         center_context = contour_center_context_from_properties(props)
         if red_gray is None or green_gray is None:
+            # Missing measurement channels should zero this plugin's output fields
+            # instead of leaving stale values on a reused CellStatistics instance.
             self._set_default_intensity_stats()
             self._set_default_triplet("green_red_intensity")
             self._set_default_triplet("distance_of_green_from_red")
@@ -103,6 +107,8 @@ class GreenRedIntensity(Analysis):
         red_slots = get_canonical_red_slots(contours_data, red_gray.shape, limit=3)
         green_slots = get_canonical_green_slots(contours_data, green_gray.shape, limit=3)
         red_centers = [slot.center for slot in red_slots]
+        # Canonical contour slots keep table/export columns stable even when more
+        # contours are present in the source masks.
         self.cp.properties = store_contour_slot_centers(
             self.cp.properties,
             RED_CONTOUR_PREFIXES,
@@ -131,6 +137,8 @@ class GreenRedIntensity(Analysis):
 
         for i, slot in enumerate(green_slots):
             index = i + 1
+            # Distance fields describe the nearest red contour center to each
+            # canonical green slot; they are stored alongside raw intensity stats.
             if red_centers:
                 nearest_red_center = min(
                     red_centers,
