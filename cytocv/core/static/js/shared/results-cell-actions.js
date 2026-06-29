@@ -306,6 +306,8 @@
         function updateLocalStateForDeletedCells(fileUuid, cellIds, payload) {
             const fileData = filesData[fileUuid];
             if (!fileData) return;
+            // The server is the source of truth for deletion; local state is pruned
+            // only after a successful response so stale selections do not hide cells.
             (cellIds || []).forEach((cellId) => {
                 const idStr = String(cellId);
                 if (fileData.CellPairImages) {
@@ -332,6 +334,8 @@
             const sortedIds = getSortedCellIds(fileData);
             const deletedIdSet = new Set((deletedCellIds || []).map((cellId) => Number(cellId)));
             const previousCellNumber = Number(currentCellNumber);
+            // Prefer the shared contour-filter sync path when present so table,
+            // image, filter, and cell-number state stay aligned after deletion.
             if (typeof syncCurrentCellToActiveContourFilter === 'function') {
                 await syncCurrentCellToActiveContourFilter(fileData, {
                     anchorCellId: previousCellNumber,
@@ -368,6 +372,8 @@
         async function performDelete(fileUuid, cellId) {
             const csrfToken = readCsrfToken();
             const url = `/experiment/${fileUuid}/cell/${cellId}/delete/`;
+            // The endpoint owns authorization, artifact cleanup, and NumCells
+            // updates; this request only names the current file/cell.
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -455,6 +461,8 @@
             }
             try {
                 const payload = await performBulkDelete(fileUuid, normalizedIds);
+                // Use server-returned deleted IDs because stale selections may
+                // contain cells already removed by another action.
                 const deletedIds = Array.isArray(payload.deleted_cells)
                     ? payload.deleted_cells.map((cellId) => Number(cellId))
                     : normalizedIds;

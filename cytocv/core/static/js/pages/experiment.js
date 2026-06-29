@@ -5345,6 +5345,8 @@
                 ? [...statsState.manualRequiredChannels].filter((channel) => !statsRequired.has(channel))
                 : [];
 
+            // prepData becomes the backend job snapshot. Keep request field names
+            // stable because upload preparation, preprocessing, and analysis share it.
             const prepData = new FormData();
             restoredQueueItems.forEach((item) => prepData.append('existing_uuids', item.uuid));
             prepData.append('cytocv_analysis_enabled', moduleEnabled ? '1' : '0');
@@ -5409,6 +5411,8 @@
             const selectedFileList = [...selectedFiles.values()];
             const oversizedFiles = selectedFileList.filter((file) => file.size > UPLOAD_BATCH_TARGET_BYTES);
             const buildFileBatches = (files, targetBytes) => {
+                // Files are uploaded in bounded batches, but the following prepare
+                // request receives the combined UUID list as one logical job.
                 const batches = [];
                 let current = [];
                 let currentBytes = 0;
@@ -5440,6 +5444,8 @@
                 const uploadedRunUuids = [];
                 const batches = buildFileBatches(selectedFileList, UPLOAD_BATCH_TARGET_BYTES);
                 for (let index = 0; index < batches.length; index += 1) {
+                    // Upload batches create UploadedImage rows only; validation,
+                    // channel config, scale metadata, and previews happen below.
                     if (btnText) {
                         btnText.textContent = batches.length > 1
                             ? `Uploading ${index + 1}/${batches.length}`
@@ -5470,6 +5476,8 @@
 
                 uploadedRunUuids.forEach((uuid) => prepData.append('new_run_uuids', uuid));
                 const uploadPrepUsesWorker = UPLOAD_PREPARATION_EXECUTION_MODE === 'worker';
+                // The prepare endpoint may return terminal sync output or a job UUID
+                // for polling, so handle both through the same terminal payload path.
                 applyUploadPhaseText(btnText, uploadPrepUsesWorker ? 'Queued' : 'Preparing Upload');
                 setUploadProgressForButton(submitBtn, {
                     phase: uploadPrepUsesWorker ? 'Queued' : 'Preparing Upload',

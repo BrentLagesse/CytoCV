@@ -162,6 +162,8 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.properties = props
             return
 
+        # Slot selection is separated from measurement-mask selection so alternate
+        # nucleus detection and legacy scaled measurement can vary independently.
         slot_payload = dict(contours_data or {})
         slot_payload["cell_mask"] = cell_mask
         alternate_target_channel = self._resolved_alternate_target_channel(props)
@@ -227,6 +229,8 @@ class NuclearCellPairIntensity(Analysis):
             if contour is not None and len(contour) >= 3
         )
         if not clipped_nucleus_contours:
+            # A nucleus contour clipped entirely outside the pair mask is recorded
+            # as unavailable instead of preserving stale intensity values.
             self._clear_nuclear_cell_pair_sums()
             props["nuclear_cell_pair_mode"] = mode
             props["nuclear_cell_pair_contour_mode"] = contour_mode
@@ -237,6 +241,8 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.properties = props
             return
 
+        # Measurements are raw sums over the selected masks; downstream ratio
+        # fields derive from these same sums for table/export consistency.
         measure_values = measure_img.astype(np.float64, copy=False)
         cell_pixels = measure_values[cell_measurement_mask > 0]
         nucleus_pixels = measure_values[nucleus_mask > 0]

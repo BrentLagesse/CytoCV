@@ -494,6 +494,8 @@ def save_display_files(request):
     if not requested_uuids:
         return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
+    # The upload row proves the current user owns the source upload; missing rows
+    # usually mean the display sidebar is stale after cleanup or another tab.
     uploaded_map = {
         str(item.uuid): item
         for item in UploadedImage.objects.filter(
@@ -542,6 +544,8 @@ def save_display_files(request):
         )
 
     try:
+        # Quota is checked before the ownership update so a failed save leaves the
+        # run transient and visible in the current display session.
         assert_user_can_save_runs(request.user, to_save)
     except StorageQuotaExceeded as exc:
         log_storage_capacity_failure(
@@ -556,14 +560,20 @@ def save_display_files(request):
 
     if to_save:
         with transaction.atomic():
+            # The DB transition is isolated from the later session update; if it
+            # fails, the browser still has the same transient selection state.
             SegmentedImage.objects.filter(UUID__in=to_save, user_id=guest_id).update(
                 user=request.user
             )
 
     if to_save:
+        # Once ownership has moved to the user, remove those UUIDs from the
+        # transient session set so stale-artifact sweeps can treat them as saved.
         transient_uuids.difference_update(to_save)
         request.session["transient_experiment_uuids"] = sorted(transient_uuids)
 
+    # The response mirrors dashboard quota fields so shared frontend controls can
+    # update counters without a full page reload.
     refresh_user_storage_usage(request.user)
     saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
     total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
@@ -597,6 +607,8 @@ def unsave_display_files(request):
     if not requested_uuids:
         return JsonResponse({"error": "Select at least one file to continue."}, status=400)
 
+    # UploadedImage ownership is still required because unsaving should only move
+    # the user's own saved analysis back into this session's transient set.
     uploaded_map = {
         str(item.uuid): item
         for item in UploadedImage.objects.filter(
@@ -646,15 +658,21 @@ def unsave_display_files(request):
 
     if to_unsave:
         with transaction.atomic():
+            # Only saved rows owned by this user are moved back to guest ownership;
+            # stale or already-transient rows were classified before this update.
             SegmentedImage.objects.filter(
                 UUID__in=to_unsave,
                 user=request.user,
             ).update(user_id=guest_id)
 
     if to_unsave:
+        # Keeping unsaved UUIDs in session preserves the current Display page while
+        # allowing the dashboard to drop them from retained storage.
         transient_uuids.update(to_unsave)
         request.session["transient_experiment_uuids"] = sorted(transient_uuids)
 
+    # Recalculate after ownership changes because retained storage is derived from
+    # saved SegmentedImage rows, not from the Display selection alone.
     refresh_user_storage_usage(request.user)
     saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
     total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
@@ -699,6 +717,8 @@ def sync_display_file_selection(request):
             status=400,
         )
 
+    # Source rows are checked for every visible file, not only selected files, so
+    # stale sidebars cannot silently preserve unavailable saved state.
     uploaded_map = {
         str(item.uuid): item
         for item in UploadedImage.objects.filter(
@@ -725,6 +745,8 @@ def sync_display_file_selection(request):
     transient_uuids = _current_transient_uuid_set(request)
     guest_id = get_guest_user()
     current_saved = set()
+    # Classify current ownership before calculating the delta. Anything outside
+    # user-owned or current-session transient runs is treated as unavailable.
     for uuid in visible_uuids:
         segmented = segmented_map.get(uuid)
         if segmented is None:
@@ -746,6 +768,8 @@ def sync_display_file_selection(request):
     to_unsave = sorted(current_saved.difference(selected_set))
 
     try:
+        # Selection sync can swap saved and unsaved runs in one request; quota
+        # enforcement credits the bytes that will be reclaimed by to_unsave.
         assert_user_can_save_runs(request.user, to_save, to_unsave)
     except StorageQuotaExceeded as exc:
         log_storage_capacity_failure(
@@ -759,6 +783,8 @@ def sync_display_file_selection(request):
         return _storage_full_json_response(exc)
 
     with transaction.atomic():
+        # Apply both sides of the ownership transition in one DB transaction so
+        # saved counts cannot observe only half of a sidebar sync.
         if to_save:
             SegmentedImage.objects.filter(UUID__in=to_save, user_id=guest_id).update(
                 user=request.user
@@ -769,10 +795,14 @@ def sync_display_file_selection(request):
             )
 
     if to_save or to_unsave:
+        # The transient session set is the Display page's protection list for
+        # unsaved files, so update it only after the database transition succeeds.
         transient_uuids.difference_update(to_save)
         transient_uuids.update(to_unsave)
         request.session["transient_experiment_uuids"] = sorted(transient_uuids)
 
+    # Return storage counters after the DB transition because the frontend updates
+    # saved badges and quota meters from this payload.
     refresh_user_storage_usage(request.user)
     saved_file_count = SegmentedImage.objects.filter(user=request.user).count()
     total_storage = max(int(getattr(request.user, "total_storage", 0) or 0), 1)
@@ -839,6 +869,8 @@ def export_display_files(request):
         len(uploaded_map) != len(set(ordered_uuids))
         or len(segmented_map) != len(set(ordered_uuids))
     ):
+        # Export fails closed on stale selections so the downloaded file cannot
+        # silently omit rows that the modal claimed were selected.
         return JsonResponse(
             {"error": "One or more selected files are no longer available. Refresh and try again."},
             status=403,
@@ -847,6 +879,8 @@ def export_display_files(request):
     for uuid in ordered_uuids:
         uploaded = uploaded_map[uuid]
         segmented = segmented_map[uuid]
+        # Access checks are repeated per UUID because Display can mix saved and
+        # transient runs that have different ownership rules.
         if not _can_access_display_uuid(request, uploaded, segmented):
             return JsonResponse(
                 {"error": "One or more selected files are no longer available. Refresh and try again."},
@@ -935,10 +969,14 @@ def delete_cell_view(request, uuid, cell_id):
         return HttpResponseForbidden("You do not have access to this result.")
 
     try:
+        # Cell artifact deletion and NumCells updates live in the service layer so
+        # single and bulk endpoints preserve the same cleanup contract.
         delete_single_cell(segmented_image, int(cell_id))
     except CellStatistics.DoesNotExist:
         return HttpResponseNotFound("That cell has already been removed.")
 
+    # Refresh from the database after service cleanup because NumCells is updated
+    # as part of deletion, and the viewer uses this response to prune UI state.
     segmented_image.refresh_from_db(fields=["NumCells"])
     remaining_ids = list(
         CellStatistics.objects
@@ -983,6 +1021,8 @@ def delete_cells_view(request, uuid):
 
     cell_ids: list[int] = []
     seen_ids: set[int] = set()
+    # Normalize and deduplicate client IDs before hitting the service so repeated
+    # clicks or stale modal state cannot produce partial validation surprises.
     for raw_cell_id in raw_cell_ids:
         if isinstance(raw_cell_id, bool):
             return JsonResponse({"error": "Cell IDs must be positive integers."}, status=400)
@@ -1001,6 +1041,8 @@ def delete_cells_view(request, uuid):
     if not deleted_ids:
         return HttpResponseNotFound("Selected cells have already been removed.")
 
+    # The response carries the remaining IDs so the frontend can reconcile table,
+    # image, and multi-select state after service-layer artifact cleanup.
     segmented_image.refresh_from_db(fields=["NumCells"])
     remaining_ids = list(
         CellStatistics.objects

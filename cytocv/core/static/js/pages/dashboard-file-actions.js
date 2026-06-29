@@ -211,6 +211,8 @@
                 if (!uuids.length) return;
                 setDeleteLoading(true);
                 try {
+                    // The server revalidates ownership and returns stale-selection
+                    // errors; the client never removes rows optimistically.
                     const response = await fetch('/dashboard/files/delete/', {
                         method: 'POST',
                         headers: {
@@ -224,6 +226,8 @@
                     if (!response.ok) {
                         throw new Error(payload.error || 'Delete failed');
                     }
+                    // Reload after deletion so quota cards, sidebar counts, viewer
+                    // selection, and export state all come from one fresh payload.
                     window.location.reload();
                 } catch (err) {
                     setDeleteLoading(false);
@@ -255,6 +259,8 @@
                 const uuid = item.dataset.uuid;
                 const checkbox = item.querySelector('.file-select-check');
                 if (checkbox && uuid) {
+                    // Checkbox clicks only mutate local selection. Navigation and
+                    // destructive effects stay behind explicit toolbar actions.
                     checkbox.addEventListener('click', (event) => {
                         event.preventDefault();
                         event.stopPropagation();

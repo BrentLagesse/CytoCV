@@ -62,6 +62,8 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
     }
     loaded = {}
 
+    # Only requested channels are loaded because selected plugins determine which
+    # crop files are required; optional missing channels should not fail the run.
     for channel in requested:
         mapping = channel_map.get(channel)
         if not mapping:
@@ -104,6 +106,8 @@ def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
 
     green_image = images.get("green")
     if green_image is not None:
+        # Green is both a display contour source and a measurement source, so keep
+        # blurred and background-subtracted variants under stable GrayImage keys.
         cell_intensity_gray = cv2.cvtColor(green_image, cv2.COLOR_RGB2GRAY)
         original_gray_green = cv2.cvtColor(green_image, cv2.COLOR_RGB2GRAY)
         # Rolling-ball subtraction is part of the historical red/green contour
@@ -122,6 +126,8 @@ def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
 
     red_image = images.get("red")
     if red_image is not None:
+        # Red contour plugins rely on both historical fixed-blur and configurable
+        # blur keys; removing either would change saved workflow compatibility.
         original_gray_red = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
         # Red payloads expose both a fixed small blur and the user-configured blur
         # because different legacy and modern plugins consume different keys.
@@ -138,6 +144,8 @@ def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
 
     blue_image = images.get("blue")
     if blue_image is not None:
+        # Blue is used for optional nuclear/cell-pair modes and follows the same
+        # configurable blur contract as red for downstream plugins.
         original_gray_blue = cv2.cvtColor(blue_image, cv2.COLOR_RGB2GRAY)
         gray_payload["gray_blue_3"] = cv2.GaussianBlur(original_gray_blue, (3, 3), 1)
         gray_payload["gray_blue"] = cv2.GaussianBlur(original_gray_blue, (ksize, ksize), kdev)

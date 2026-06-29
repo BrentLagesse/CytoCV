@@ -479,10 +479,14 @@ def _finalize_segmented_run_batch_for_user(
     guest_id = get_guest_user()
 
     if not auto_save_experiments:
+        # Manual-save mode keeps completed results transient so Display can show
+        # them without counting them against retained Dashboard storage.
         SegmentedImage.objects.filter(UUID__in=current_uuids).update(user_id=guest_id)
         return SegmentationBatchResult()
 
     try:
+        # Autosave checks quota before ownership transfer; on failure the outputs
+        # remain transient instead of being deleted, which lets the user save later.
         assert_user_can_save_runs(user, current_uuids)
     except StorageQuotaExceeded as exc:
         log_storage_capacity_failure(
@@ -500,6 +504,8 @@ def _finalize_segmented_run_batch_for_user(
         )
 
     with transaction.atomic():
+        # Move the whole completed batch to the user in one transaction so saved
+        # counts cannot observe only a subset of runs as retained.
         SegmentedImage.objects.filter(UUID__in=current_uuids, user_id=guest_id).update(
             user=user
         )
@@ -532,6 +538,8 @@ def run_segmentation_batch(
     total_runs = len(uuid_list)
 
     for run_index, uuid in enumerate(uuid_list, start=1):
+        # Run boundaries are safe cancellation points before new artifacts and rows
+        # are written for the next source image.
         _raise_if_cancelled(progress)
         uploaded_image = UploadedImage.objects.get(pk=uuid, **owner_filter)
         dv_name = uploaded_image.name
@@ -597,6 +605,8 @@ def run_segmentation_batch(
             seg_image.save(str(outputdirectory) + "\\cellpairs.tif")
 
         pair_geometry_cache = _build_pair_geometry_cache(seg)
+        # The finalized mask geometry is reused by frame overlays, crop outlines,
+        # neck-split manifests, and per-cell statistic properties.
         _write_neck_split_manifest_for_run(
             os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
             image_name=source_image_name,
@@ -668,6 +678,8 @@ def run_segmentation_batch(
         cell_measurement_image_cache: dict[int, dict[str, np.ndarray]] = defaultdict(
             dict
         )
+        # Build display crops and raw measurement crops in one source-stack pass so
+        # plugins receive stable inputs without reopening channel files.
         if cell_stack.ndim == 2:
             cell_stack = np.expand_dims(cell_stack, axis=0)
 
@@ -762,6 +774,8 @@ def run_segmentation_batch(
                 "cell_inclusion_mode": cell_inclusion_mode,
             },
         )
+        # Re-running segmentation replaces all cell rows for this mask, preventing
+        # stale CellStatistics from old labels from appearing in tables/exports.
         CellStatistics.objects.filter(segmented_image=instance).delete()
 
         configuration = (
@@ -1137,6 +1151,8 @@ def run_segmentation_batch(
                 },
             )
 
+        # Statistic rows are created after segmentation artifacts and overlay
+        # replay config exist because UI/export payloads link rows back to files.
         for cell_number in range(1, int(np.max(seg)) + 1):
             _raise_if_cancelled(progress)
             if selected_analysis and (
@@ -1276,6 +1292,8 @@ def run_segmentation_batch(
                 and pair_entry is not None
                 and cell_type == CELL_TYPE_PAIR
             ):
+                # Legacy nuclear-cell-pair measurements can use the exact pair mask
+                # while the current pipeline still records the modern contour source.
                 legacy_exact_cell_pair_mask = (
                     seg[
                         pair_entry.min_x : pair_entry.max_x,
@@ -1325,6 +1343,8 @@ def run_segmentation_batch(
             }
 
             if str(config_snapshot.get("execution_mode", "sync")).lower() == "worker":
+                # Worker responses cannot carry in-memory overlays back to the
+                # browser, so persist cache files for protected-media replay.
                 persist_overlay_cache_images(
                     uuid,
                     cell_number,
@@ -1346,9 +1366,13 @@ def run_segmentation_batch(
 
     duration = time.time() - start_time
     if getattr(user, "is_authenticated", False):
+        # Processing time is recorded only after the batch finishes so cancelled or
+        # failed orchestration cannot overstate account usage.
         user.processing_used += duration
         user.save(update_fields=["processing_used"])
 
+    # Finalization owns the autosave/transient decision for the complete batch so
+    # quota warnings are reported once instead of per source image.
     return _finalize_segmented_run_batch_for_user(
         user,
         uuid_list,

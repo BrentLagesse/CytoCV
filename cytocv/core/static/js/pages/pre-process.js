@@ -1022,6 +1022,8 @@
           }));
         };
         const startPolling = () => {
+          // Polling begins while the POST is still in flight so sync and worker
+          // paths can share the same progress button contract.
           const poll = async () => {
             try {
               const pollUrl = new URL(`/api/progress/${encodeURIComponent(uuids)}/`, window.location.origin);
@@ -1067,6 +1069,8 @@
                 if (analysisPollTimer) clearInterval(analysisPollTimer);
                 analysisPollTimer = null;
                 if (isWorkerAnalysis && data.redirect) {
+                  // Worker completion redirects from the poll payload; sync mode
+                  // waits for the original POST response below to avoid double navigation.
                   if (data.failure_summary) {
                     persistDisplayInfoMessage(data.failure_summary);
                   }

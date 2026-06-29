@@ -1046,6 +1046,8 @@ def _safe_remove_media_path(path: Path) -> None:
 def _delete_user_and_media(user: Any) -> None:
     """Delete an account and the media namespaces it owns."""
 
+    # Capture all owned upload UUIDs before deleting the user so both direct
+    # uploads and segmented rows reachable only by UUID can be cleaned afterward.
     uploaded_qs = UploadedImage.objects.filter(user=user)
     uploaded_uuids = [
         str(value) for value in uploaded_qs.values_list("uuid", flat=True)
@@ -1072,6 +1074,8 @@ def _delete_user_and_media(user: Any) -> None:
     )
 
     removable_dirs = set()
+    # Remove both shared run namespaces and user-scoped artifact namespaces; old
+    # experiments can have files in either location depending on save history.
     for uuid in segmented_uuids.union(uploaded_uuids):
         removable_dirs.add(Path(MEDIA_ROOT) / uuid)
         removable_dirs.add(Path(MEDIA_ROOT) / f"user_{uuid}")
@@ -1083,6 +1087,8 @@ def _delete_user_and_media(user: Any) -> None:
         segmented_owned_qs.delete()
         user.delete()
 
+    # Filesystem cleanup happens after the database transaction because media
+    # deletion cannot roll back and should not leave active rows pointing at gone files.
     for path in sorted(file_locations, key=lambda item: len(item.parts), reverse=True):
         _safe_remove_media_path(path)
     for path in sorted(removable_dirs, key=lambda item: len(item.parts), reverse=True):
@@ -1096,6 +1102,8 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
     if not uuid_set:
         return []
 
+    # Dashboard deletion is scoped through UploadedImage ownership first; the UI
+    # treats missing ownership as a stale selection instead of a partial delete.
     uploaded_qs = UploadedImage.objects.filter(user=user, uuid__in=uuid_set)
     deleted_names = list(uploaded_qs.values_list("name", flat=True))
 
@@ -1117,14 +1125,20 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
     )
 
     with transaction.atomic():
+        # Delete related database rows together so saved-file counts never observe
+        # a segmented row without its uploaded source, or the reverse.
         segmented_qs.delete()
         uploaded_qs.delete()
 
+    # Media removal is best-effort and sorted deepest-first to avoid deleting a
+    # parent directory before a normalized field path inside it is checked.
     for path in sorted(file_locations, key=lambda item: len(item.parts), reverse=True):
         _safe_remove_media_path(path)
     for path in sorted(removable_dirs, key=lambda item: len(item.parts), reverse=True):
         _safe_remove_media_path(path)
 
+    # Recalculate after deletion so dashboard quota cards and subsequent save
+    # checks use the filesystem state that remains after cleanup.
     _recalculate_user_storage_usage(user)
     return deleted_names
 
@@ -1208,6 +1222,8 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
+    # Reject the whole request when any UUID is not currently owned. This keeps
+    # stale browser selections from deleting a different subset than the user saw.
     owned_uuids = {
         # Require ownership through UploadedImage before deleting rows or media.
         str(value)
@@ -1225,6 +1241,8 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
         )
 
     deleted_names = _delete_saved_files_for_user(request.user, requested_uuids)
+    # Rebuild the dashboard payload after deletion so response counters match the
+    # same serializer used for a full page refresh.
     context = _build_dashboard_payload(request.user)
     return JsonResponse(
         {

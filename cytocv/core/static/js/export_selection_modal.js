@@ -1094,6 +1094,8 @@
       downloading = true;
       updateStatCount();
       try {
+        // Bulk export posts the modal's ordered file IDs and selected columns; the
+        // Django endpoint revalidates stale selections before streaming a file.
         const response = await fetch(options.bulkExportUrl, {
           method: 'POST',
           headers: {
@@ -1108,6 +1110,8 @@
           })),
         });
         if (!response.ok) {
+          // Error payloads may be JSON contract errors or plain export responses,
+          // so support both without changing the modal's visible message shape.
           let message = 'Unable to download selected files.';
           const errorResponse = response.clone();
           try {

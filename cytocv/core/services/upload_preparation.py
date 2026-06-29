@@ -127,6 +127,8 @@ def _write_channel_config(run_uuid: str, channel_config: dict[str, object]) -> N
 
 
 def _raise_if_cancelled(job: UploadPreparationJob) -> None:
+    # Refresh from the database because cancellation can be requested by a
+    # separate polling/cancel request while the worker is processing files.
     job.refresh_from_db(fields=["cancellation_requested", "status"])
     if job.cancellation_requested or job.status == UploadPreparationJob.Status.CANCELLING:
         raise UploadPreparationCancelled()
@@ -145,6 +147,8 @@ def _set_phase(
     *,
     detail: dict[str, object] | None = None,
 ) -> None:
+    # Persist progress through a queryset update so pollers see changes even when
+    # the caller keeps using the in-memory job instance.
     progress_detail = normalize_progress_detail(detail)
     UploadPreparationJob.objects.filter(pk=job.pk).update(
         current_phase=phase,
@@ -173,6 +177,8 @@ def _extract_upload_metadata(
     fallback_channel_order: list[str],
 ) -> None:
     source_image_path = _media_path_for_uploaded(uploaded)
+    # Metadata is read from the original source file so scale/channel contracts
+    # describe the upload itself rather than any generated preview artifact.
     metadata_scale = extract_dv_scale_metadata(source_image_path)
     # Scale metadata and channel presence are persisted before preview generation
     # because the preprocess page reads them directly from the uploaded run.
@@ -193,6 +199,8 @@ def _extract_upload_metadata(
         prefer_metadata=prefer_metadata_channel_order,
         fallback_order=fallback_channel_order,
     )
+    # The preprocessing and analysis stages read these sidecars by UUID, so upload
+    # preparation is the single point that commits channel-order decisions.
     _write_channel_config(str(uploaded.uuid), channel_config)
     write_channel_presence(str(uploaded.uuid), channel_presence)
 
@@ -208,6 +216,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
     if job.status in TERMINAL_UPLOAD_PREPARATION_STATUSES:
         return job
 
+    # Normalize the persisted snapshot once at job start; later preference edits
+    # should not change validation behavior for this queued batch.
     snapshot = _normalize_config_snapshot(job.config_snapshot)
     validation_options = _validation_options_from_snapshot(snapshot)
     manual_um_per_px = float(snapshot["manual_um_per_px"])
@@ -225,6 +235,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
     try:
         _raise_if_cancelled(job)
         _set_phase(job, "Validating Files")
+        # Validation runs before metadata and preview work so invalid new uploads
+        # can be removed without generating downstream artifacts.
         for index, run_uuid in enumerate(requested_run_uuids, start=1):
             _raise_if_cancelled(job)
             uploaded = UploadedImage.objects.filter(uuid=run_uuid, **owner_filter).first()
@@ -264,6 +276,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             valid_run_uuids.append(run_uuid)
 
         if not valid_run_uuids:
+            # Surface all validation failures in the terminal job payload instead
+            # of raising, because the upload page renders these messages inline.
             error_lines = build_source_image_error_messages(failures, validation_options)
             if not error_lines:
                 error_lines = [
@@ -279,6 +293,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             )
 
         valid_total = len(valid_run_uuids)
+        # Only validated runs reach metadata extraction and preview generation;
+        # restored invalid runs remain untouched for the user to inspect later.
         for index, run_uuid in enumerate(valid_run_uuids, start=1):
             _raise_if_cancelled(job)
             uploaded = UploadedImage.objects.get(uuid=run_uuid, **owner_filter)
@@ -315,6 +331,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             _prepare_upload_preview(uploaded=uploaded)
 
         error_lines = build_source_image_error_messages(failures, validation_options)
+        # Succeeded jobs may still include warnings for skipped restored files, so
+        # keep error_lines in the successful payload shape.
         return finalize_upload_preparation_job(
             job,
             status=UploadPreparationJob.Status.SUCCEEDED,
@@ -323,6 +341,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             error_lines=error_lines,
         )
     except UploadPreparationCancelled:
+        # Cancellation deletes only newly staged uploads; restored runs existed
+        # before this job and must not be removed by an interrupted prepare step.
         for run_uuid in new_run_uuids:
             delete_uploaded_run_by_uuid(run_uuid)
         return finalize_upload_preparation_job(
@@ -334,6 +354,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
         )
     except Exception as exc:
         if is_storage_full_error(exc):
+            # Disk-full failures can leave partially written previews or sidecars,
+            # so clean new staging runs before returning the stable frontend error.
             log_storage_capacity_failure(
                 stage="upload_preparation",
                 user=job.user,
@@ -352,6 +374,8 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
             )
 
         logger.exception("Upload preparation job %s failed", job.job_uuid)
+        # Unexpected failures use a generic message because the polling UI exposes
+        # this summary to users while the detailed traceback stays in logs.
         return finalize_upload_preparation_job(
             job,
             status=UploadPreparationJob.Status.FAILED,

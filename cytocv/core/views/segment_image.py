@@ -761,6 +761,8 @@ def finalize_segmented_run_batch(
         return
 
     try:
+        # Autosave uses the same quota gate as Display save; failure keeps results
+        # transient and visible instead of deleting completed artifacts.
         assert_user_can_save_runs(request.user, current_uuids)
     except StorageQuotaExceeded as exc:
         log_storage_capacity_failure(
@@ -779,6 +781,8 @@ def finalize_segmented_run_batch(
         return
 
     with transaction.atomic():
+        # Move all completed rows in one transaction so saved counts do not show a
+        # partially retained batch.
         SegmentedImage.objects.filter(UUID__in=current_uuids, user_id=guest_id).update(
             user=request.user
         )
@@ -803,6 +807,8 @@ def segment_image(request, uuids):
     )
 
     def cancel_response():
+        # The legacy route treats cancellation as abandoning the staged upload, so
+        # source rows and artifacts are both removed before returning to the UI.
         for cleanup_uuid in uuid_list:
             delete_uploaded_run_by_uuid(cleanup_uuid)
         prune_experiment_session_state(request, uuid_list)
@@ -815,6 +821,8 @@ def segment_image(request, uuids):
             uuids=uuid_list,
             exc=exc,
         )
+        # Disk-full failures can leave partial masks/crops/stat rows; preserve the
+        # original upload but clear derived outputs before returning to preprocess.
         for cleanup_uuid in uuid_list:
             cleanup_failed_processing_artifacts(cleanup_uuid)
         write_progress(uuids, "Idle")
@@ -1044,6 +1052,8 @@ def segment_image(request, uuids):
             dict
         )
 
+        # Display-normalized crops and raw measurement crops are cached separately
+        # so statistics plugins can measure source intensities without rereading files.
         if image_stack.ndim == 2:
             image_stack = np.expand_dims(image_stack, axis=0)
 
@@ -1083,6 +1093,8 @@ def segment_image(request, uuids):
 
             image_outlined = image.copy()
             cell_contour_cache = {}
+            # Cache crop bounds and local contours once per layer because outline
+            # files, display crops, and legacy exact masks all depend on the same geometry.
             for i in range(1, int(np.max(seg) + 1)):
                 a = np.where(seg == i)
                 if a[0].size == 0:
@@ -1205,6 +1217,8 @@ def segment_image(request, uuids):
                 "cell_inclusion_mode": cell_inclusion_mode,
             },
         )
+        # Reprocessing a run replaces all statistics for the current mask; deleting
+        # first prevents old cell IDs or plugin outputs from leaking into exports.
         CellStatistics.objects.filter(segmented_image=instance).delete()
 
         configuration = DEFAULT_PROCESS_CONFIG
@@ -1713,6 +1727,8 @@ def segment_image(request, uuids):
                 and cell_type == CELL_TYPE_PAIR
             ):
                 _local_contours, min_x, max_x, min_y, max_y = contour_cache_entry
+                # Legacy nuclear-cell-pair mode uses the exact cropped pair mask
+                # while retaining the current row/property payload shape.
                 legacy_exact_cell_pair_mask = (
                     seg[min_x:max_x, min_y:max_y] == cell_number
                 ).astype(np.uint8) * 255
@@ -1750,6 +1766,8 @@ def segment_image(request, uuids):
                 mark_single_cell_pair_specific_statistics_na(cp)
 
             try:
+                # Overlay cache persistence happens before the final row save in
+                # this legacy path so storage failures can still abort and clean up.
                 persist_overlay_cache_images(
                     uuid,
                     cell_number,

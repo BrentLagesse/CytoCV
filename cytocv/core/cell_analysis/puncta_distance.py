@@ -190,6 +190,8 @@ class PunctaDistance(Analysis):
         if source_image is None:
             return
 
+        # Single-channel contour intensity reuses the red/green intensity table
+        # family, so explicitly mark that family visible when values are produced.
         self.cp.properties = dict(self.cp.properties or {})
         stat_visibility = dict(self.cp.properties.get("stat_visibility") or {})
         stat_visibility["red_green_intensity"] = True
@@ -280,6 +282,8 @@ class PunctaDistance(Analysis):
         if measurement_image is None and not single_channel_mode:
             return []
 
+        # Canonical source slots define both distance endpoints and the optional
+        # line-intensity mask, keeping exports stable when extra contours exist.
         if metadata["source_channel"] == CHANNEL_ROLE_GREEN:
             source_slots = get_canonical_green_slots(contours_data, shape_source, limit=2)
         else:
@@ -293,6 +297,8 @@ class PunctaDistance(Analysis):
             return []
 
         try:
+            # Draw the same line into overlay images and a binary mask so the UI
+            # visualization and measured line-intensity pixels stay aligned.
             center_1 = source_slots[0].center
             center_2 = source_slots[1].center
             puncta_distance = math.dist(center_1, center_2)
