@@ -72,11 +72,15 @@ def normalize_puncta_line_mode(
 
 
 def _channel_display(channel_role: Any) -> str:
+    """Return a channel display label for a role id or already-formatted value."""
+
     normalized = normalize_channel_role(channel_role)
     return channel_display_label(normalized or channel_role)
 
 
 def is_single_channel_puncta_line_mode(mode: Any = None) -> bool:
+    """Return whether the mode has no opposite-channel line-intensity output."""
+
     return normalize_puncta_line_mode(mode) in SINGLE_CHANNEL_PUNCTA_LINE_MODES
 
 

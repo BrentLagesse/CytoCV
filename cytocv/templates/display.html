@@ -77,6 +77,7 @@
                 <ul id="fileList">
                     {% for file in file_list %}
                         <li>
+                            {# data-index/data-uuid/data-saved drive Display sidebar selection and save-state sync. #}
                             <div class="file-item{% if file.is_saved %} saved{% endif %}" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}" data-saved="{{ file.is_saved|yesno:'true,false' }}">
                                 <button class="file-select-check" type="button" aria-label="Select file"><span>&#10003;</span></button>
                                 <div class="file-saved-badge">&#10003; Saved</div>
@@ -130,6 +131,7 @@
                                         </div>
                                     </div>
                                     <div class="main-channel-switcher" id="mainChannelSwitcher" aria-label="Main image channel">
+                                        {# data-main-channel values match backend channel-role slugs and preference payloads. #}
                                         <button class="main-channel-btn dic" type="button" data-main-channel="dic">DIC</button>
                                         <button class="main-channel-btn blue" type="button" data-main-channel="blue">Blue</button>
                                         <button class="main-channel-btn red" type="button" data-main-channel="red">Red</button>
@@ -237,6 +239,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                {# Shared stats card IDs are populated by display-viewer.js for the selected cell. #}
                                 {% include "partials/cell_pair_stats_card.html" %}
 
                                 <div class="navigation-buttons">

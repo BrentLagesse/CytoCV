@@ -2,6 +2,7 @@
    Django templates and page controllers, so changes need frontend contract
    coverage rather than purely visual review. */
 .channel-chip.dic {
+    /* Channel chips reuse role colors from page payloads and sidebar templates. */
     background-color: black;
 }
 
@@ -506,6 +507,7 @@
 }
 
 .file-item:hover {
+    /* File rows use hover/active states for both sidebar navigation and select mode. */
     background-color: #3399ff;
 }
 
@@ -771,6 +773,7 @@ a:hover {
 .image-stage-card,
         .cell-pairs-card,
         .table-section {
+    /* Stage sections are layout regions; their child panels carry visual frames. */
     width: 100%;
 }
 
@@ -1521,6 +1524,7 @@ a:hover {
 }
 
 .export-buttons {
+    /* Export buttons are shown/hidden by viewer JS based on rendered statistics rows. */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1874,6 +1878,7 @@ a:hover {
 }
 
 .file-swap-skeleton {
+    /* Skeletons cover async file swaps while preserving viewer dimensions. */
     position: absolute;
     inset: 0;
     z-index: 5;
@@ -2590,6 +2595,7 @@ a:hover {
 }
 
 .cell-stats-strip {
+    /* Cell metric strip visibility is controlled by plugin-derived sections in JS. */
     display: flex;
     flex-direction: column;
     width: min(100%, 1094px);
@@ -2947,6 +2953,7 @@ a:hover {
 }
 
 @media (max-width: 1180px) {
+    /* Medium viewport layout keeps the cell image row and metrics readable. */
     .cell-stats-detail-grid {
         grid-template-columns: 1fr;
     }
@@ -2966,6 +2973,7 @@ a:hover {
 }
 
 @media (max-width: 760px) {
+    /* Mobile viewer layout prioritizes single-column scanning and touch targets. */
     .cell-stats-top-grid,
     .cell-stats-strip[data-cell-card-mode="nuclear_cell_pair"] .cell-stats-top-grid,
     .cell-stats-detail-grid {

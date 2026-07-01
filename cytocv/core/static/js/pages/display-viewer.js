@@ -769,6 +769,8 @@
 
 
         function buildDisplayExportUrl(fileUUID, format, selectedColumns = null) {
+            // Display exports are scoped to transient experiment UUIDs and include
+            // current table filters so CSV/XLSX output matches the visible rows.
             const params = new URLSearchParams({
                 _export: format,
                 _unit: getCurrentSpatialUnit(),
@@ -813,6 +815,8 @@
 
         let displayExportSelectionController = null;
         if (window.CytoCVExportSelection) {
+            // The shared export modal owns column selection; this page supplies
+            // Display-specific endpoints, file labels, and active filter values.
             displayExportSelectionController = window.CytoCVExportSelection.init({
                 configScriptId: 'exportSelectionConfig',
                 modalId: 'exportSelectionBackdrop',
@@ -1232,6 +1236,8 @@
         }
 
         function updateTableState(fileUUID, fileData) {
+            // Table state is regenerated from the immutable backend payload plus
+            // current UI filters; no filtering mutates filesData.
             const exportButtons = document.getElementById('displayExportButtons');
             let note = document.getElementById('table-empty-note');
             if (!note) {
@@ -1533,6 +1539,8 @@
         }
 
         async function updateCellImages(cellPairImages, statistics, options = {}) {
+            // Render tokens prevent stale preloaded image sets from overwriting a
+            // newer file/cell selection after asynchronous image loads finish.
             const renderToken = ++activeCellRenderToken;
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;

@@ -121,6 +121,8 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_channel_config(config: dict[str, object]) -> dict[str, int]:
+    """Normalize a channel_config.json payload into role-to-layer indexes."""
+
     normalized: dict[str, int] = {}
     for channel, index in (config or {}).items():
         role = normalize_channel_role(channel)
@@ -129,11 +131,15 @@ def _normalize_channel_config(config: dict[str, object]) -> dict[str, int]:
         try:
             normalized[role] = int(index)
         except (TypeError, ValueError):
+            # Invalid indexes are ignored so a partially corrupt sidecar can be
+            # repaired by metadata refresh or user channel-order updates.
             continue
     return normalized
 
 
 def _write_channel_config(path: Path, config: dict[str, int]) -> None:
+    """Persist the sidecar channel mapping consumed by preprocess/statistics."""
+
     path.write_text(json.dumps(config), encoding="utf-8")
 
 
@@ -160,11 +166,15 @@ def _refresh_default_tiff_channel_config(
     if metadata_config is None or metadata_config == normalized_config:
         return normalized_config
 
+    # Historical TIFF uploads could keep a default order even when metadata later
+    # became parseable; rewrite only that default sidecar so user edits survive.
     _write_channel_config(config_path, metadata_config)
     return metadata_config
 
 
 def _channel_labels_from_config(config: dict[str, int]) -> list[str]:
+    """Return display labels sorted by layer order for sidebar summaries."""
+
     return [
         channel_display_label(channel)
         for channel, _ in sorted(config.items(), key=lambda item: item[1])
@@ -175,6 +185,8 @@ def _channel_labels_for_present_config(
     config: dict[str, int],
     present_channels,
 ) -> list[str]:
+    """Return display labels for channels confirmed present in this run."""
+
     present = set(present_channels or CHANNEL_ROLE_ORDER)
     return [
         channel_display_label(channel)
@@ -215,6 +227,8 @@ def _missing_required_channels_for_batch(
     selected_plugins,
     puncta_line_mode: str,
 ) -> dict[str, set[str]]:
+    """Return plugin-required channels missing from each prepared source image."""
+
     required_channels = set(
         build_requirement_summary(
             selected_plugins,
@@ -225,6 +239,8 @@ def _missing_required_channels_for_batch(
     for run_uuid in uuid_values:
         presence = get_channel_presence(run_uuid)
         if not presence.present_channels:
+            # Absence of a sidecar means legacy all-present behavior; validation
+            # should not fail restored runs that predate channel presence checks.
             continue
         missing = required_channels - set(presence.present_channels)
         if missing:
@@ -267,6 +283,8 @@ def get_progress(request, uuids):
         )
     except Exception:
         logger.exception("Progress read failed")
+        # Progress details are user-facing, so unexpected errors are logged with
+        # internals server-side and collapsed into a safe generic response.
         return _progress_read_error_response(
             SAFE_PROGRESS_ERROR_MESSAGE,
             status_code=500,
@@ -296,6 +314,8 @@ def pre_process(request, uuids):
         if str(value)
     }
     protected_uuids.update(str(value) for value in uuid_list if str(value))
+    # Preprocess can revisit transient runs; sweeping excludes both current and
+    # session-protected UUIDs so navigation does not delete active artifacts.
     sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
@@ -323,11 +343,13 @@ def pre_process(request, uuids):
         default=default_spatial_stats_unit,
     )
 
-    # clamp file_index into [0, total_files-1]
+    # Clamp file_index into [0, total_files-1] because the query parameter is
+    # controlled by browser navigation and bookmarks.
     current_file_index = int(request.GET.get("file_index", 0))
     current_file_index = max(0, min(current_file_index, total_files - 1))
 
-    # build sidebar list, including the 4-channel order per file
+    # Build sidebar list, including the per-file channel order and scale payload
+    # read by the preprocess page controller.
     file_list = []
     for uid in uuid_list:
         uploaded = get_object_or_404(UploadedImage, uuid=uid, **owner_filter)
@@ -348,7 +370,8 @@ def pre_process(request, uuids):
                 presence.present_channels or CHANNEL_ROLE_ORDER,
             )
         else:
-            # fallback: parse the stored source image file
+            # Fall back to parsing the stored source image file when the sidecar
+            # is missing, which supports legacy uploads and repaired artifacts.
             source_path = Path(MEDIA_ROOT) / str(uploaded.file_location)
             if source_path.exists():
                 cfg = extract_channel_config(
@@ -757,6 +780,8 @@ def pre_process(request, uuids):
             puncta_line_mode=puncta_line_mode,
         )
         if missing_required:
+            # Upload preparation records detailed missing-channel state; this
+            # guard prevents a stale POST from starting incompatible statistics.
             first_missing = next(iter(missing_required.values()))
             missing_labels = ", ".join(
                 channel_display_label(channel)
@@ -1036,6 +1061,8 @@ def update_channel_order(request, uuid):
             str(channel): index for index, channel in enumerate(normalized_order)
         }
 
+        # Ownership is checked before touching the sidecar so a guessed UUID
+        # cannot update channel order for another user's upload.
         if not UploadedImage.objects.filter(
             uuid=uuid,
             **_current_owner_filter(request),

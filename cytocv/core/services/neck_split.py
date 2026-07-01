@@ -60,13 +60,19 @@ class NeckSplit:
 
     @property
     def endpoints(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Return endpoints in OpenCV-friendly ``((x1, y1), (x2, y2))`` form."""
+
         return (self.x1, self.y1), (self.x2, self.y2)
 
     def to_dict(self) -> dict:
+        """Serialize the split for JSON sidecars and properties payloads."""
+
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "NeckSplit":
+        """Deserialize a split from persisted JSON-compatible data."""
+
         return cls(
             x1=int(data["x1"]),
             y1=int(data["y1"]),

@@ -4,6 +4,7 @@
 {% block title %}Preprocessing Review{% endblock title %}
 
 {% block head %}
+{# Error renderer reads sessionStorage entries created by the experiment upload controller. #}
 <script src="{% static 'js/pages/pre-process-errors.js' %}?v=frontend-modularization-20260609"></script>
 <link rel="stylesheet" href="{% static 'css/pages/pre-process.css' %}?v=preprocess-channel-label-nudge-20260610">
 
@@ -48,6 +49,7 @@
           <ul id="fileList">
             {% for file in file_list %}
             <li>
+              {# data-index/data-uuid are consumed by pre-process.js for AJAX file swaps and scale maps. #}
               <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                 <div class="file-title">{{ file.name }}</div>
                 <div class="channel-plane-row" aria-hidden="true">
@@ -64,6 +66,7 @@
                   {% endfor %}
                 </div>
                 <div class="scale-row">
+                  {# Scale input data attributes mirror backend scale_info fields and are revalidated on submit. #}
                   <label class="scale-label" for="scaleInput_{{ file.uuid }}">Scale:</label>
                   <input
                     id="scaleInput_{{ file.uuid }}"
@@ -129,6 +132,7 @@
             <div class="analysis">
               <form action="" method="post" enctype="multipart/form-data" id="preprocessForm" data-results-href="{% url 'display' uuids %}">
                 {% csrf_token %}
+                {# Hidden JSON fields carry per-file manual scale overrides and revert requests. #}
                 <input type="hidden" name="file_scale_map" id="fileScaleMapInput" value="{}" />
                 <input type="hidden" name="file_scale_revert_uuids" id="fileScaleRevertInput" value="[]" />
                 <div class="analysis-actions">

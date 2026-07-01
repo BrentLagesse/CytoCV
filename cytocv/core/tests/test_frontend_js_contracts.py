@@ -16,6 +16,8 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
     """Validate static JS without requiring a browser or Node build pipeline."""
 
     def test_static_javascript_passes_node_syntax_check_when_node_is_available(self):
+        # Node validation catches syntax regressions in comments-adjacent edits
+        # without requiring the full Django test client or a browser.
         node = shutil.which("node")
         if not node:
             self.skipTest("Node is not available for static JavaScript syntax checks.")
@@ -31,6 +33,8 @@ class FrontendJavaScriptStaticContractTests(SimpleTestCase):
                 self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
     def test_expected_window_globals_are_defined_by_their_owner_files(self):
+        # Shared page controllers communicate through explicit globals because
+        # the project serves Django templates without a frontend bundler.
         owner_contracts = {
             "js/export_selection_modal.js": "window.CytoCVExportSelection =",
             "js/viewer_overlay_prefetch.js": "window.CytoCVOverlayPrefetch =",
@@ -1494,7 +1498,11 @@ assert.strictEqual(
 
 
 class FrontendJavaScriptRenderedOrderTests(TestCase):
+    """Protect template script order for shared globals and page consumers."""
+
     def test_dashboard_and_display_load_shared_globals_before_consumers(self):
+        # Page controllers call shared namespaces during module load, so the
+        # rendered include order is part of the frontend runtime contract.
         user = login_user(self, "frontend-js-order@example.com")
         uuid_value = create_display_file(uploaded_owner=user, filename="js_order")
 

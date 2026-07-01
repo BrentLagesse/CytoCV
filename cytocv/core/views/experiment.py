@@ -190,6 +190,8 @@ def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | N
     if not recent_job_uuids:
         return None
 
+    # Session state is advisory: every remembered UUID is reloaded through the
+    # current user id before the browser sees a resumable job payload.
     jobs_by_uuid = {
         str(job.job_uuid): job
         for job in get_upload_preparation_jobs_for_user(
@@ -307,6 +309,8 @@ def _configured_experiment_label(
     puncta_line_mode: str,
     selected_analysis: list[str],
 ) -> str:
+    """Return the human-readable analysis label stored with validation errors."""
+
     if getattr(signal_selection, "enabled", False):
         mode = getattr(signal_selection, "mode", "")
         if mode == "puncta_distance" and "PunctaDistance" in selected_analysis:
@@ -427,6 +431,8 @@ def _create_upload_preparation_job_for_mode(
 
 
 def _track_active_upload_preparation_job(request, job: UploadPreparationJob) -> None:
+    """Keep the session resume list aligned with one upload-preparation job."""
+
     if job.status in ACTIVE_UPLOAD_PREPARATION_STATUSES:
         _remember_upload_preparation_job(request, str(job.job_uuid))
     else:
@@ -492,6 +498,8 @@ def _upload_limit_error_response(
 
 
 def _getlist(payload, key: str) -> list[str]:
+    """Read list-like values from Django QueryDicts or JSON-ish mappings."""
+
     if hasattr(payload, "getlist"):
         return list(payload.getlist(key))
     value = payload.get(key) if isinstance(payload, dict) else None
@@ -503,6 +511,8 @@ def _getlist(payload, key: str) -> list[str]:
 
 
 def _has_payload_key(payload, key: str) -> bool:
+    """Return whether a payload contains a key without assuming mapping type."""
+
     try:
         return key in payload
     except TypeError:
@@ -814,8 +824,12 @@ def _parse_experiment_submission(
     )
     required_channels = set(requirement_summary["required_channels"])
     if module_enabled:
+        # Extra channel requirements are honored only while the validation module
+        # is enabled; saved paused requirements are handled by profile defaults.
         required_channels.update(extra_required_channels)
 
+    # Session values preserve historical camelCase keys because downstream
+    # preprocess/statistics code and templates still read those names.
     session_values = {
         "selected_analysis": requirement_summary["selected_plugins"],
         "punctaLineWidth": puncta_line_width,
@@ -869,10 +883,14 @@ def _parse_experiment_submission(
             "configured_experiment_label": configured_experiment_label,
         },
     }
+    # Workers receive the sanitized snapshot; request/session objects are never
+    # passed into upload preparation outside this view boundary.
     return session_values, config_snapshot
 
 
 def _persist_experiment_session(request, session_values: dict[str, object]) -> None:
+    """Persist parsed experiment settings for preprocess and legacy views."""
+
     for key, value in session_values.items():
         request.session[key] = value
     request.session.modified = True
@@ -1072,6 +1090,8 @@ def experiment(request):
                 }
             )
         upload_resume_payload = _resolve_upload_preparation_resume_payload(request)
+    # GET and non-terminal POST fall through to the same template context so
+    # static upload code always receives stable JSON script payloads.
     return render(
         request,
         "form/experiment.html",

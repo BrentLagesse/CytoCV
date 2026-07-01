@@ -991,6 +991,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Boot order matters: server/default state is applied before renderers,
+        // then modal/file/upload handlers attach to the now-current controls.
         applyServerPreferenceDefaults();
         infoTooltipElement = document.getElementById('statsInfoTooltip');
         hydrateAdvancedInfoDots();
@@ -1795,6 +1797,8 @@
     }
 
     function initializeStatsSettings() {
+        // Hydrate persisted browser choices after server defaults so local draft
+        // state can override only user-editable preferences.
         renderRequiredChannels();
         loadStoredSelections();
         loadStoredAdvancedSettings();
@@ -1823,6 +1827,8 @@
     }
 
     function renderRequiredChannels() {
+        // Required-channel rows expose data-channel/data-state-for hooks used by
+        // later validation updates and template contract tests.
         const grid = document.getElementById('requiredChannelGrid');
         if (!grid) return;
         grid.innerHTML = '';
@@ -4001,6 +4007,8 @@
     }
 
     function setupSettingsModal() {
+        // The settings modal owns unsaved-default prompts, workflow-default API
+        // saves, and the primary/advanced view switcher.
         const settingsButton = document.getElementById('settingsButton');
         const backdrop = document.getElementById('settingsBackdrop');
         const closeButton = document.getElementById('settingsClose');
@@ -4042,6 +4050,8 @@
         let modalOpenSnapshot = null;
 
         const captureStatsSnapshot = () => ({
+            // Snapshots intentionally serialize only persisted workflow values;
+            // transient tooltip/modal animation state must not affect dirty checks.
             selectedPlugins: [...statsState.selectedPlugins].sort(),
             signalQuantificationEnabled: !!statsState.signalQuantificationEnabled,
             signalQuantificationMode: normalizeSignalMode(statsState.signalQuantificationMode),
@@ -4693,6 +4703,8 @@
     }
 
     function animateQueuePanelUpdate(fileList, mutateDom) {
+        // Queue panel animation measures before and after the DOM mutation so the
+        // quota display and scrollbar state stay synchronized with selected files.
         if (!fileList) {
             mutateDom();
             updateUploadQuotaStatus();
@@ -4746,6 +4758,8 @@
     }
 
     function animateQueueRowRemoval(listItem, removeItem) {
+        // Mark rows as removing so rapid duplicate clicks do not remove the same
+        // queued File object more than once.
         if (typeof removeItem !== 'function') return;
         if (!listItem || QUEUE_ROW_FADE_MS === 0) {
             removeItem();
@@ -5052,6 +5066,8 @@
     }
 
     function setupFileInputs() {
+        // File and folder inputs share the same handler so both produce the same
+        // queue entries and upload-preparation payload shape.
         const fileInput = document.getElementById('fileInput');
         const folderInput = document.getElementById('folderInput');
         if (fileInput) fileInput.addEventListener('change', handleFileSelection);
@@ -5146,6 +5162,8 @@
     }
 
     async function parseUploadJsonResponse(response) {
+        // Upload endpoints always return JSON on the expected path, but this
+        // tolerant parser keeps network/proxy HTML errors user-facing.
         const contentType = response.headers.get('content-type') || '';
         const payload = contentType.includes('application/json') ? await response.json() : {};
         if (!response.ok) {
@@ -5158,6 +5176,8 @@
     }
 
     function persistUploadPreparationErrors(payload) {
+        // Validation errors are stored for the preprocess page to render after
+        // redirect, keeping the backend redirect contract unchanged.
         if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
             sessionStorage.setItem('dvErrors', JSON.stringify(payload.errors));
         }

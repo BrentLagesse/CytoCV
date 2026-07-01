@@ -25,6 +25,8 @@ CELL_PARENTAGE_LABEL_NOT_IDENTIFIED = "Not identified"
 
 
 def _mask_centroid(mask: np.ndarray | None) -> tuple[int, int] | None:
+    """Return an x,y label anchor for a binary side mask."""
+
     if mask is None:
         return None
     binary = (mask > 0).astype(np.uint8)
@@ -46,6 +48,8 @@ def _mask_centroid(mask: np.ndarray | None) -> tuple[int, int] | None:
 
 
 def _point_payload(point: tuple[int, int] | None) -> list[int] | None:
+    """Serialize an optional x,y point for JSONField storage."""
+
     if point is None:
         return None
     return [int(point[0]), int(point[1])]
@@ -68,6 +72,8 @@ class CellParentageResult:
     has_neck_split: bool = False
 
     def to_payload(self) -> dict[str, Any]:
+        """Return the JSON-safe parentage payload stored on CellStatistics."""
+
         return {
             "status": self.status,
             "mode": CELL_PARENTAGE_MODE_BEST_EFFORT,
@@ -89,6 +95,8 @@ def _not_identified_result(
     reason: str,
     has_neck_split: bool = False,
 ) -> CellParentageResult:
+    """Return the standard unavailable parentage result."""
+
     return CellParentageResult(
         status=CELL_PARENTAGE_STATUS_NOT_IDENTIFIED,
         method=method,
@@ -105,6 +113,8 @@ def _identified_result(
     daughter_mask: np.ndarray,
     has_neck_split: bool,
 ) -> CellParentageResult:
+    """Build an identified result with area and label-position metadata."""
+
     mother_area = int(np.count_nonzero(mother_mask))
     daughter_area = int(np.count_nonzero(daughter_mask))
     return CellParentageResult(
@@ -126,6 +136,8 @@ def _derive_from_neck_split(
     cell_mask: np.ndarray,
     split: NeckSplit | None,
 ) -> CellParentageResult:
+    """Derive parentage from a persisted neck split when it is valid."""
+
     if split is None:
         return _not_identified_result(
             reason="no_neck_split",
@@ -144,6 +156,8 @@ def _derive_from_neck_split(
             has_neck_split=True,
         )
     if smaller_px <= 0 or not np.any(larger_mask) or not np.any(smaller_mask):
+        # A split line that does not separate foreground into two usable sides is
+        # recorded as unavailable instead of fabricating mother/daughter masks.
         return _not_identified_result(
             reason="split_did_not_separate_pair",
             has_neck_split=True,
@@ -161,6 +175,8 @@ def _split_best_effort_by_principal_axis(
     *,
     has_neck_split: bool,
 ) -> CellParentageResult:
+    """Split a pair mask by long-axis projection when no neck split is usable."""
+
     points_yx = np.column_stack(np.nonzero(cell_mask > 0))
     if points_yx.shape[0] < 2:
         return _not_identified_result(
@@ -176,6 +192,8 @@ def _split_best_effort_by_principal_axis(
         eigenvalues, eigenvectors = np.linalg.eigh(covariance)
         principal_axis = eigenvectors[:, int(np.argmax(eigenvalues))]
     except (np.linalg.LinAlgError, ValueError, FloatingPointError):
+        # Degenerate masks still get a deterministic horizontal fallback axis so
+        # Display and exports receive a stable best-effort payload.
         principal_axis = np.array([1.0, 0.0], dtype=np.float64)
 
     norm = float(np.linalg.norm(principal_axis))
@@ -200,6 +218,8 @@ def _split_best_effort_by_principal_axis(
     first_side = projections <= threshold
     second_side = ~first_side
     if not np.any(first_side) or not np.any(second_side):
+        # If the histogram threshold lands outside one side, split the sorted
+        # projection in half to preserve the best-effort contract.
         order = np.argsort(projections, kind="mergesort")
         first_side = np.zeros(projections.shape, dtype=bool)
         first_side[order[: max(1, len(order) // 2)]] = True
@@ -308,6 +328,8 @@ def derive_cell_parentage(
     neck_result = _derive_from_neck_split(cell_mask, neck_split)
     if neck_result.status == CELL_PARENTAGE_STATUS_IDENTIFIED:
         return neck_result
+    # Principal-axis fallback is intentionally labeled best-effort so downstream
+    # biology interpretation can distinguish it from a geometry neck split.
     return _split_best_effort_by_principal_axis(
         cell_mask,
         has_neck_split=neck_result.has_neck_split,
@@ -320,6 +342,8 @@ def cell_parentage_payload_from_properties(properties: dict[str, Any] | None) ->
     props = properties or {}
     payload = props.get("cell_parentage")
     if isinstance(payload, dict) and payload.get("status"):
+        # Normalize older payloads so templates and export code can rely on the
+        # current keys even when rows were produced before parentage expansion.
         normalized = dict(payload)
         normalized["mode"] = CELL_PARENTAGE_MODE_BEST_EFFORT
         normalized["mode_label"] = "Best Effort"
@@ -340,6 +364,8 @@ def cell_parentage_payload_from_properties(properties: dict[str, Any] | None) ->
 
     neck_payload = props.get("neck_split")
     if isinstance(neck_payload, dict) and neck_payload.get("status") == "ok":
+        # Legacy rows had neck-split metadata but no parentage object.  Treat that
+        # as identified via the neck-split method for backward-compatible display.
         return {
             "status": CELL_PARENTAGE_STATUS_IDENTIFIED,
             "mode": CELL_PARENTAGE_MODE_BEST_EFFORT,

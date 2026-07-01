@@ -18,6 +18,8 @@ def capture_previous_quota_state(sender, instance, **_kwargs) -> None:
     """Capture pre-save quota-relevant fields for change detection."""
 
     if instance._state.adding or not instance.pk:
+        # New users have no previous row to compare; post_save will initialize
+        # quota from policy.
         instance._quota_previous_state = None
         return
     instance._quota_previous_state = sender.objects.filter(pk=instance.pk).values(
@@ -39,9 +41,13 @@ def sync_effective_quota_after_save(
     """Apply env policy and admin overrides after relevant user saves."""
 
     if raw:
+        # Fixture loads should preserve serialized quota fields and avoid storage
+        # recount side effects.
         return
 
     if created:
+        # Newly created users receive effective quota and usage counters
+        # immediately so upload guards can rely on cached fields.
         sync_user_quota(instance, refresh_usage=True)
         return
 
@@ -71,6 +77,8 @@ def sync_primary_email_address_after_save(
     """Keep allauth's primary email alias aligned for native/admin users."""
 
     if raw or getattr(instance, "_skip_email_address_sync", False):
+        # Social-login adapters may already be managing EmailAddress objects for
+        # the save; the flag prevents duplicate synchronization.
         return
     if not created and update_fields is not None and "email" not in set(update_fields):
         return
@@ -81,6 +89,8 @@ def sync_primary_email_address_after_save(
         primary=True,
     )
     if result.conflict:
+        # Conflict details avoid logging raw email addresses while still making
+        # operational alias problems discoverable.
         import logging
 
         logger = logging.getLogger(__name__)

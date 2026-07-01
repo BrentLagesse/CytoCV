@@ -37,12 +37,16 @@ class CustomUserAdminForm(UserChangeForm):
         fields = "__all__"
 
     def __init__(self, *args, **kwargs):
+        """Populate the MB form field from the byte value stored on the model."""
+
         super().__init__(*args, **kwargs)
         override_bytes = getattr(self.instance, "quota_override_bytes", None)
         if override_bytes is not None:
             self.fields["quota_override_mb"].initial = int(int(override_bytes) / BYTES_PER_MB)
 
     def clean(self):
+        """Validate quota override mode and convert MB input into bytes."""
+
         cleaned_data = super().clean()
         mode = cleaned_data.get(
             "quota_override_mode",
@@ -63,6 +67,8 @@ class CustomUserAdminForm(UserChangeForm):
         return cleaned_data
 
     def save(self, commit: bool = True):
+        """Persist quota override bytes while leaving auth fields unchanged."""
+
         user = super().save(commit=False)
         mode = self.cleaned_data.get(
             "quota_override_mode",
@@ -157,28 +163,42 @@ class CustomUserAdmin(UserAdmin):
 
     @admin.display(description="Base quota source")
     def base_quota_source(self, obj) -> str:
+        """Display the environment rule that supplies the user's base quota."""
+
         return get_base_quota_source_for_email(getattr(obj, "email", ""))
 
     @admin.display(description="Base quota (MB)")
     def base_quota_mb(self, obj) -> float:
+        """Display the env-derived base quota in megabytes."""
+
         return _bytes_to_mb(get_base_quota_bytes_for_email(getattr(obj, "email", "")))
 
     @admin.display(description="Effective quota (MB)")
     def effective_quota_mb(self, obj) -> float:
+        """Display the final quota after admin overrides in megabytes."""
+
         return _bytes_to_mb(get_effective_quota_bytes(obj))
 
     @admin.display(description="Effective quota (GB)")
     def effective_quota_gb(self, obj) -> float:
+        """Display the final quota after admin overrides in gigabytes."""
+
         return round(_bytes_to_mb(get_effective_quota_bytes(obj)) / 1024, 2)
 
     @admin.display(description="Total storage (MB)")
     def total_storage_mb_display(self, obj) -> float:
+        """Display the cached total storage quota in megabytes."""
+
         return _bytes_to_mb(getattr(obj, "total_storage", 0))
 
     @admin.display(description="Used storage (MB)")
     def used_storage_mb_display(self, obj) -> float:
+        """Display the cached retained-artifact usage in megabytes."""
+
         return _bytes_to_mb(getattr(obj, "used_storage", 0))
 
     @admin.display(description="Available storage (MB)")
     def available_storage_mb_display(self, obj) -> float:
+        """Display the cached remaining quota in megabytes."""
+
         return _bytes_to_mb(getattr(obj, "available_storage", 0))

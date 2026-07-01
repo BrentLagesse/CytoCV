@@ -1,4 +1,10 @@
-"""Serialization helpers for renamed cell statistics payloads."""
+"""Serialization helpers for the public cell-statistics JSON payload.
+
+The display page, dashboard saved-file viewer, and profile download UI all read
+this shape directly.  The serializer therefore preserves legacy key names while
+using stat-visibility metadata to hide values that were not calculated for the
+selected plugin set.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +29,9 @@ def normalize_channel_display_name(value: Any, default: str = "") -> str:
     raw = str(value or "").strip()
     if not raw:
         return default
+    # Stored properties may contain role ids or already-formatted labels; role
+    # normalization keeps current channel names stable without rewriting legacy
+    # records that predate the display-label helper.
     normalized = normalize_channel_role(raw)
     if normalized:
         return channel_display_label(normalized)
@@ -58,6 +67,9 @@ def serialize_cell_statistics_payload(
         "measurement_contour_ratio_mode",
         nuclear_cell_pair_mode,
     )
+    # Cen-dot parentage fields are part of the long-lived browser contract; when
+    # that plugin was not selected the keys remain present but explicitly report
+    # a non-calculated state instead of leaking default stored values.
     cell_parentage = (
         cell_parentage
         if cen_dot_enabled
@@ -103,6 +115,8 @@ def serialize_cell_statistics_payload(
     cell_type = cell_type_from_statistics(cell_stat)
 
     def stat_value(field_name: str, value: Any) -> Any:
+        """Return a stored value only when its plugin group is applicable."""
+
         if not is_field_applicable(
             cell_stat,
             field_name,
@@ -128,6 +142,9 @@ def serialize_cell_statistics_payload(
                     getattr(cell_stat, field_name),
                 )
 
+    # The returned mapping intentionally stays flat because templates serialize
+    # it directly into JSON scripts and frontend tests assert the exact public
+    # keys used by older display/dashboard controllers.
     return {
         "cell_type": cell_type,
         "cell_type_label": cell_type_label(cell_type),
@@ -158,6 +175,9 @@ def serialize_cell_statistics_payload(
             "puncta_line_intensity",
             cell_stat.puncta_line_intensity,
         ),
+        # Contour sizes and centers are separated because measurement values come
+        # from model columns while coordinate displays are reconstructed from the
+        # properties JSON written by the contour canonicalization step.
         "blue_contour_size": stat_value("blue_contour_size", cell_stat.blue_contour_size),
         "blue_contour_center_xy": stat_value(
             "blue_contour_center_xy",
@@ -230,6 +250,9 @@ def serialize_cell_statistics_payload(
         "puncta_distance_delta_y_px": properties.get("puncta_distance_delta_y_px")
         if puncta_enabled
         else None,
+        # Delta components stay in pixels because the frontend uses them only as
+        # metadata for direction/diagnostics; display-unit conversion is handled
+        # by table/export services rather than this JSON payload.
         "distance_of_green_from_red_1_delta_x_px": properties.get(
             "distance_of_green_from_red_1_delta_x_px"
         )
@@ -300,6 +323,9 @@ def serialize_cell_statistics_payload(
         "puncta_distance_label": puncta_line_metadata["distance_label"],
         "puncta_line_intensity_label": puncta_line_metadata["intensity_label"],
         "nuclear_cell_pair_mode": nuclear_cell_pair_mode,
+        # Legacy records may still use nuclear_cellular_* property names, so the
+        # payload reads both spellings while publishing only the current
+        # nuclear_cell_pair_* contract.
         "nuclear_cell_pair_contour_channel": normalize_channel_display_name(
             properties.get(
                 "nuclear_cell_pair_contour_channel",

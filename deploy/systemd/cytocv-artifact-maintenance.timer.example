@@ -2,6 +2,8 @@
 Description=Run CytoCV artifact maintenance every 5 minutes
 
 [Timer]
+# Persistent timers catch up after downtime, which is useful for cleaning
+# regenerable overlay/preprocessing artifacts after deployments or reboots.
 OnBootSec=2min
 OnUnitActiveSec=5min
 Persistent=true

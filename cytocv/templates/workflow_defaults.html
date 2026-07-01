@@ -2,6 +2,7 @@
 {% block title %}Workflow Defaults{% endblock title %}
 {% load static %}
 
+{# This page is the account-level source of default workflow payloads consumed by experiment.js. #}
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/components/workflow-controls.css' %}?v=icon-align-20260610-v5">
 <link rel="stylesheet" href="{% static 'css/pages/workflow-defaults.css' %}?v=result-display-filter-width-20260626">
@@ -10,6 +11,7 @@
 {% block content %}
 <div class="workflow-defaults-page">
 <div class="layout soft-fade-in">
+  {# data-workflow-nav/data-sec are the tab contract used by workflow_defaults.js. #}
   <aside class="nav" id="workflowDefaultsNav" data-workflow-nav>
     <p class="section-eyebrow workflow-nav-title">Workflow Defaults</p>
     <button class="active" data-sec="plugins">Plugin Settings</button>
@@ -18,9 +20,11 @@
   </aside>
   <main class="main">
     <section class="panel" id="sec-plugins" data-workflow-section="plugins">
+      {# The action hidden field routes this form to the plugin-defaults save branch. #}
       <form method="post" class="panel" id="pluginForm" data-review-section="plugins">{% csrf_token %}<input type="hidden" name="action" value="save_plugin_defaults">
         <div class="card" data-workflow-card="plugin-required-channels"><p class="section-eyebrow card-title">Required Channels</p><div class="channel-summary">
           {% for row in required_channel_rows %}
+          {# data-req-row lets JS update channel requirement state without recomputing backend rules. #}
           <div class="channel-pill{% if row.summary_required %} required{% elif row.summary_paused %} paused{% endif %}" data-req-row="{{ row.channel }}" data-summary-scope="plugins">
             <div class="channel-pill-left">
               <span class="channel-pill-name">{{ row.channel_label }}</span>
@@ -60,6 +64,7 @@
               <p class="reqtxt">Requires: Red, Green.</p>
             </div>
             <input type="hidden" name="signal_quantification_enabled" value="0">
+            {# Signal Quantification controls submit explicit boolean/mode values expected by preferences.py. #}
             <label class="sw"><input type="checkbox" id="signal_quantification_enabled" name="signal_quantification_enabled" value="1" {% if preferences.experiment_defaults.signal_quantification_enabled %}checked{% endif %}><span class="sl"></span></label>
             <div class="plugin-inline{% if preferences.experiment_defaults.signal_quantification_enabled %} is-active{% endif %}" id="signalQuantificationInline" aria-hidden="{% if preferences.experiment_defaults.signal_quantification_enabled %}false{% else %}true{% endif %}">
                 <div class="plugin-measure-line">
@@ -78,6 +83,7 @@
                 </div>
               </div>
               <div class="signal-mode-stack">
+              {# data-signal-mode-panel values mirror backend signal mode constants. #}
               <div class="signal-mode-panel" id="signalPunctaPanel" data-signal-mode-panel="puncta_distance">
                 <div class="plugin-measure-line">
                   <div class="plugin-measure-copy">
@@ -167,6 +173,7 @@
           </div>
           {% for plugin in plugins %}
           {% if plugin.id != 'PunctaDistance' and plugin.id != 'GreenRedIntensity' and plugin.id != 'NuclearCellPairIntensity' %}
+          {# Plugin ids and checkbox names feed selected_plugins exactly as signal_quantification.py expands them. #}
           <div class="plugin">
             <div class="plugin-main">
               <p><strong>{{ plugin.label }}</strong>{% if plugin.is_legacy %}<span class="legacy">Legacy</span>{% endif %}</p>
@@ -506,6 +513,7 @@
     </section>
 
     <section class="panel" id="sec-advanced" hidden data-workflow-section="advanced">
+      {# Advanced form persists validation and metadata fallback controls separately from plugin defaults. #}
       <form method="post" class="panel" id="advancedForm" data-review-section="advanced">{% csrf_token %}<input type="hidden" name="action" value="save_advanced_settings"><div id="overrideChannels" hidden></div><div id="manualRequiredChannels" hidden>{% for row in required_channel_rows %}{% if row.manual_selected %}<input type="hidden" name="manual_required_channels" value="{{ row.channel }}" data-manual-required-input>{% endif %}{% endfor %}</div>
         <div class="card" data-workflow-card="advanced-required-channels"><p class="section-eyebrow card-title">Required Channels</p><div class="channel-summary">
           {% for row in required_channel_rows %}
@@ -589,6 +597,7 @@
     </section>
 
     <section class="panel" id="sec-saving" hidden data-workflow-section="saving">
+      {# Saving preferences affect result-page sidebars and filters, not analysis calculations. #}
       <form method="post" class="panel" id="savingForm" data-review-section="saving">{% csrf_token %}<input type="hidden" name="action" value="save_behavior">
         <div class="card" data-workflow-card="saving-preferences">
           <p class="section-eyebrow card-title">Saving Preferences</p>
@@ -632,6 +641,7 @@
 </div>
 
 <div class="confirm-back" id="confirmBack" aria-hidden="true">
+  {# Conflict modal is populated by JS when a channel preference disables required plugin inputs. #}
   <div class="confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <h3 id="confirmTitle">Channel requirement conflict</h3>
     <p id="confirmMsg"></p>
@@ -641,6 +651,7 @@
 </div>
 
 <div class="review-backdrop popup-backdrop" id="reviewChangesBackdrop" aria-hidden="true">
+  {# Review modal lists changed defaults before submitting the underlying form. #}
   <div class="review-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="reviewChangesTitle">
     <h3 id="reviewChangesTitle">Review Workflow Defaults Changes</h3>
     <p id="reviewChangesMessage">Are you sure you want to apply these changes?</p>
@@ -672,6 +683,7 @@
 
 {# workflow_defaults.js uses this payload to keep plugin/channel dependency controls in sync. #}
 <script id="pluginDependencyPayload" type="application/json">{{ plugin_dependency_payload_json|safe }}</script>
+{# Sortable powers fallback wavelength order chips; script ID/data attributes above stay stable. #}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{% static 'js/workflow_defaults.js' %}?v=channel-order-actions-20260525" defer></script>
 </div>

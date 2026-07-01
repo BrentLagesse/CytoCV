@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Start the local Django server from a Windows/Git Bash checkout after verifying
+# the installer-created environment is present and migrations are applied.
+
 set -euo pipefail
 
 readonly REQUIRED_PYTHON_VERSION="3.11.5"
@@ -27,6 +30,8 @@ fail() {
 }
 
 require_git_bash() {
+    # Match the installer environment so path conversion and Windows executables
+    # behave consistently when launching Django.
     local uname_out
     uname_out="$(uname -s)"
     case "${uname_out}" in
@@ -46,6 +51,8 @@ require_git_bash() {
 }
 
 find_repo_root() {
+    # Allow the script to be launched from any subdirectory while anchoring on
+    # files that uniquely identify the CytoCV repository layout.
     local current_dir
     current_dir="$(pwd)"
 
@@ -61,6 +68,8 @@ find_repo_root() {
 }
 
 resolve_venv_python() {
+    # Support the current installer directory and the older venv name so users
+    # with previous local setup are not forced to recreate their environment.
     local repo_root="$1"
     local candidate
 
@@ -75,6 +84,8 @@ resolve_venv_python() {
 }
 
 validate_local_setup() {
+    # Fail early for missing local-only prerequisites; missing weights are a
+    # warning because browsing the app is still possible without analysis.
     local repo_root="$1"
     local venv_python env_file manage_file python_version weights_file
 
@@ -98,6 +109,8 @@ validate_local_setup() {
 }
 
 require_applied_migrations() {
+    # Starting with unapplied migrations can create confusing runtime errors, so
+    # inspect the plan before handing control to runserver.
     local repo_root="$1"
     local venv_python
 
@@ -116,6 +129,8 @@ require_applied_migrations() {
 }
 
 main() {
+    # Keep validation before runserver so failures explain the missing local
+    # setup step instead of surfacing as Django import or database errors.
     local repo_root venv_python django_dir
 
     require_git_bash

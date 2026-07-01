@@ -339,6 +339,8 @@ def overlay_render_config_supported(run_uuid: str) -> bool:
 
 
 def _overlay_cache_dir_version(path: Path) -> int:
+    """Extract the numeric schema version from an overlay cache directory name."""
+
     name = path.name
     if not name.startswith(OVERLAY_CACHE_DIR_PREFIX):
         return -1
@@ -367,6 +369,8 @@ def find_historical_overlay_cache_image_path(
             continue
         candidate = cache_dir / image_name
         if candidate.exists():
+            # Historical cache directories may be left behind after schema bumps;
+            # use the newest compatible image only as a fallback.
             candidates.append(candidate)
 
     if not candidates:
@@ -449,6 +453,8 @@ def clone_cell_statistics_for_overlay(cell_stat: CellStatistics) -> CellStatisti
 
 
 def _build_overlay_conf(run_uuid: str, render_config: dict[str, object]) -> dict[str, object]:
+    """Translate a replay snapshot back into the get_stats configuration shape."""
+
     signal_quantification_enabled = bool(
         render_config.get("signal_quantification_enabled", True)
     )
@@ -537,6 +543,8 @@ def load_cached_overlay_images(
             continue
         image_path = segmented_dir / f"{image_stem}-{channel_index}-{cell_id}-no_outline.png"
         if not image_path.exists():
+            # Missing crops are tolerated because some channels are optional or
+            # absent in legacy runs; get_stats receives only available inputs.
             continue
         with Image.open(image_path) as image:
             cached_images[channel_name] = np.array(image, copy=True)
@@ -567,6 +575,8 @@ def render_overlay_images_for_cell(
         puncta_line_mode=render_config.get("puncta_line_mode"),
     )
     render_cp.properties = dict(render_cp.properties or {})
+    # Replay properties mirror the original run configuration so plugin overlay
+    # rendering follows the same paths as initial statistics calculation.
     render_cp.properties["stats_biorientation_red_min_distance_value"] = render_config.get(
         "stats_biorientation_red_min_distance_value",
         0.0,
@@ -653,6 +663,8 @@ def render_overlay_images_for_cell(
 
 
 def _atomic_save_overlay_cache_image(image: Image.Image, destination: Path) -> Path:
+    """Persist one cache image through a temporary file and atomic replace."""
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     temp_path = destination.with_name(f"{destination.name}.{uuid4().hex}.tmp")
     try:
@@ -711,10 +723,14 @@ def persist_debug_overlay_exports(
 
 
 def _overlay_cache_is_complete(paths: dict[str, Path]) -> bool:
+    """Return whether all channel cache files for a cell are present."""
+
     return all(path.exists() for path in paths.values())
 
 
 def _overlay_lock_is_stale(lock_path: Path) -> bool:
+    """Return whether a cooperative overlay cache lock can be discarded."""
+
     try:
         age_seconds = max(time.time() - lock_path.stat().st_mtime, 0.0)
     except OSError:
@@ -730,6 +746,8 @@ def _log_overlay_cache_event(
     channel: str,
     started_at: float,
 ) -> None:
+    """Log overlay-cache timing without exposing filesystem paths."""
+
     elapsed_ms = (time.perf_counter() - started_at) * 1000.0
     logger.info(
         "Overlay cache event=%s run_uuid=%s cell_id=%s channel=%s elapsed_ms=%.2f",
@@ -742,6 +760,8 @@ def _log_overlay_cache_event(
 
 
 def _acquire_overlay_cache_lock(run_uuid: str, cell_id: int) -> tuple[Path, bool]:
+    """Acquire the per-cell overlay cache lock, waiting on active writers."""
+
     lock_path = overlay_cache_lock_path(run_uuid, cell_id)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     waited = False
@@ -754,6 +774,8 @@ def _acquire_overlay_cache_lock(run_uuid: str, cell_id: int) -> tuple[Path, bool
         except FileExistsError:
             waited = True
             if _overlay_lock_is_stale(lock_path):
+                # Stale locks can remain after worker/request crashes; remove them
+                # so overlay endpoints do not block indefinitely.
                 try:
                     lock_path.unlink()
                     logger.warning(
@@ -818,6 +840,8 @@ def ensure_overlay_cache_images_for_cell(
         resolved_render_config = render_config or load_overlay_render_config(run_uuid)
         resolved_cell_stat = cell_stat
         if resolved_cell_stat is None:
+            # Load the row only after the cache miss is confirmed, keeping the hit
+            # path cheap for viewer navigation and prefetch.
             resolved_cell_stat = (
                 CellStatistics.objects.select_related("segmented_image")
                 .get(segmented_image_id=run_uuid, cell_id=cell_id)

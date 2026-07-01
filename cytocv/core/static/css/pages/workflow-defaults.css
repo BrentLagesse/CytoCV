@@ -1,3 +1,5 @@
+/* Account workflow-defaults editor. Selectors are paired with
+   workflow_defaults.js and the saved JSON payload accepted by account views. */
 .workflow-defaults-page {
   --workflow-module-control-width: 196px;
   --workflow-module-compact-control-width: 112px;
@@ -20,6 +22,7 @@
 }
 
 .layout {
+  /* Two-column editor shell: nav buttons on the left, active settings panel on the right. */
   width: 100%;
   max-width: 1160px;
   margin: 0 auto;
@@ -171,6 +174,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 .channel-summary {
+  /* Required-channel summary mirrors backend plugin/channel applicability state. */
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
@@ -246,6 +250,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 .plugins {
+  /* Plugin rows expose switch state, pause state, and nested measurement controls. */
   display: grid;
   gap: 8px;
 }
@@ -506,6 +511,8 @@ main.main > section.panel > form.panel > .card {
 .length-input-group,
 .boxed-number-group,
 .mode-select-group {
+  /* Numeric controls and custom unit/mode dropdowns share stable dimensions so
+     toggling options does not shift the workflow editor layout. */
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--panel-border);
@@ -675,6 +682,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 .row {
+  /* Generic preference rows are reused by plugin, validation, scale, and display cards. */
   border: 1px solid var(--workflow-module-border);
   border-radius: 10px;
   background: var(--workflow-module-bg);
@@ -976,6 +984,8 @@ main.main > section.panel > form.panel > .card {
 }
 
 .validation-subgroup {
+  /* Validation subgroups group channel/layer/wavelength gates without changing
+     the submitted field names consumed by Django. */
   position: relative;
   margin-left: 10px;
   padding: 10px 0 0 10px;
@@ -1055,6 +1065,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 .measurement-scale-copy {
+  /* Scale guidance explains manual and metadata modes next to their controls. */
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -1186,6 +1197,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 .channel-order-control {
+  /* Wavelength fallback order chips are drag/reorder targets for workflow_defaults.js. */
   --channel-order-track-width: 260px;
   --channel-order-slot-min: 58px;
   --channel-order-gap: 4px;
@@ -1474,6 +1486,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 .confirm {
+  /* Confirmation popup for saving defaults and resolving unsaved changes. */
   width: min(420px, 92vw);
   max-width: calc(100vw - 24px);
   max-height: calc(var(--safe-viewport-height) - 24px);
@@ -1663,6 +1676,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 @media (max-width: 920px) {
+  /* Collapse the editor shell before control rows become too narrow. */
   .layout {
     grid-template-columns: 1fr;
   }
@@ -1741,6 +1755,7 @@ main.main > section.panel > form.panel > .card {
 }
 
 @media (max-width: 520px) {
+  /* Mobile rules keep switches and compact controls tappable without horizontal scroll. */
   .workflow-defaults-page {
     padding: calc(var(--nav-height) + 10px) 10px 12px;
   }

@@ -61,6 +61,8 @@ class CustomAccountAdapter(DefaultAccountAdapter):
     def send_confirmation_mail(self, request, emailconfirmation, signup) -> None:
         """Send a branded email-confirmation link email."""
         if app_settings.EMAIL_VERIFICATION_BY_CODE_ENABLED:
+            # When allauth is configured for code-based verification, defer to its
+            # native sender because the link-based template below is not valid.
             super().send_confirmation_mail(request, emailconfirmation, signup)
             return
 
@@ -105,6 +107,8 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def save_user(self, request: HttpRequest, sociallogin, form=None):
         """Persist new social users with normalized email fields."""
         sociallogin.user.email = normalize_auth_email(sociallogin.user.email)
+        # The adapter is already normalizing provider EmailAddress objects; skip
+        # the post-save native-email sync to avoid duplicate alias work.
         sociallogin.user._skip_email_address_sync = True
         for addr in getattr(sociallogin, "email_addresses", []):
             addr.email = normalize_auth_email(getattr(addr, "email", ""))
@@ -132,6 +136,8 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         if not email:
             return False
         lookup = resolve_user_by_email(email)
+        # Ambiguous provider emails are not safe for auto-signup or linking
+        # because they could attach a social account to the wrong local user.
         return not lookup.ambiguous
 
     def on_authentication_error(

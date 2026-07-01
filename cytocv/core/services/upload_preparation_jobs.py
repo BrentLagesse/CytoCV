@@ -55,6 +55,8 @@ def enqueue_upload_preparation_job(
 ) -> UploadPreparationJob:
     """Create a queued upload-preparation job."""
 
+    # Reaping stale rows before enqueue keeps a dead worker from permanently
+    # blocking a user-visible upload attempt or quota-related retry.
     reap_stale_upload_preparation_jobs(user_id=user_id)
     return UploadPreparationJob.objects.create(
         user_id=user_id,
@@ -79,6 +81,8 @@ def start_inline_upload_preparation_job(
 ) -> UploadPreparationJob:
     """Create an upload-preparation job already owned by the request thread."""
 
+    # Inline mode still persists a job row so the frontend uses the same polling
+    # and terminal payload contract as worker mode.
     reap_stale_upload_preparation_jobs(user_id=user_id)
     return UploadPreparationJob.objects.create(
         user_id=user_id,
@@ -156,10 +160,14 @@ def claim_next_upload_preparation_job() -> UploadPreparationJob | None:
 
     reap_stale_upload_preparation_jobs()
     with transaction.atomic():
+        # Select and transition within one transaction so two workers cannot
+        # process the same staged upload batch.
         queryset = UploadPreparationJob.objects.filter(
             status=UploadPreparationJob.Status.QUEUED
         ).order_by("created_at")
         if connection.vendor == "postgresql":
+            # Production can skip rows locked by another worker; SQLite test/local
+            # paths use a regular lock because skip_locked is unavailable.
             queryset = queryset.select_for_update(skip_locked=True)
         else:
             queryset = queryset.select_for_update()
@@ -190,6 +198,9 @@ def request_upload_preparation_cancellation(
 
     if job.status in TERMINAL_UPLOAD_PREPARATION_STATUSES:
         return job
+    # Queued jobs keep their queued status but carry the cancellation flag; running
+    # jobs move to CANCELLING so pollers can show immediate feedback while the
+    # worker reaches its next cooperative cancellation check.
     next_status = (
         UploadPreparationJob.Status.CANCELLING
         if job.status == UploadPreparationJob.Status.RUNNING
@@ -227,8 +238,12 @@ def finalize_upload_preparation_job(
         "finished_at": timezone.now(),
     }
     if valid_run_uuids is not None:
+        # Terminal payloads expose approved UUIDs to the preprocess redirect, so
+        # normalize them here rather than trusting worker-local lists.
         update_fields["valid_run_uuids"] = normalize_uuid_values(valid_run_uuids)
     if error_lines is not None:
+        # Error lines are rendered directly by upload-page UI code; stringify and
+        # drop blanks to keep the frontend payload predictable.
         update_fields["error_lines"] = [str(line) for line in error_lines if str(line)]
 
     UploadPreparationJob.objects.filter(pk=job.pk).update(**update_fields)
@@ -258,6 +273,8 @@ def get_stale_upload_preparation_terminal_state(
         age_seconds = (now - job.created_at).total_seconds()
         if age_seconds < queue_stale_seconds:
             return None
+        # GET status endpoints can surface this synthetic failure without mutating
+        # persistence; non-GET queue code later calls the reaper to commit it.
         return (
             UploadPreparationJob.Status.FAILED,
             "Failed",
@@ -272,6 +289,8 @@ def get_stale_upload_preparation_terminal_state(
         age_seconds = (now - started_at).total_seconds()
         if age_seconds < running_stale_seconds:
             return None
+        # A stale CANCELLING job is treated as cancelled because the user already
+        # requested cancellation; stale RUNNING without that flag is a failure.
         terminal_status = (
             UploadPreparationJob.Status.CANCELLED
             if job.status == UploadPreparationJob.Status.CANCELLING
@@ -313,6 +332,8 @@ def reap_stale_upload_preparation_jobs(
         stale_state = get_stale_upload_preparation_terminal_state(job)
         if stale_state is None:
             continue
+        # The reaper is intentionally explicit and called from mutating paths or
+        # workers, avoiding hidden writes from read-only polling endpoints.
         status, current_phase, failure_summary = stale_state
         finalize_upload_preparation_job(
             job,

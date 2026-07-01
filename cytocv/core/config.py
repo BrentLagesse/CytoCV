@@ -20,6 +20,8 @@ input_dir = ""
 output_dir = ""
 
 DEFAULT_CHANNEL_CONFIG: dict[str, int] = {
+    # Default stack order is the legacy fallback used only when no per-run
+    # channel_config.json sidecar is available.
     CHANNEL_ROLE_RED: 3,
     CHANNEL_ROLE_GREEN: 2,
     CHANNEL_ROLE_BLUE: 1,
@@ -53,6 +55,8 @@ def get_channel_config_for_uuid(uuid: str) -> dict[str, Any]:
     """
     config_path = os.path.join(MEDIA_ROOT, str(uuid), "channel_config.json")
     if os.path.exists(config_path):
+        # Sidecar keys may be legacy display/biology names; normalize to
+        # canonical roles before callers use indexes for preprocessing/stats.
         with open(config_path, "r") as f:
             payload = json.load(f)
         config = {
@@ -61,4 +65,6 @@ def get_channel_config_for_uuid(uuid: str) -> dict[str, Any]:
             if channel_index is not None
         }
         return config or fallback_channel_config()
+    # Missing sidecars occur for older runs and tests; keep the historical
+    # default mapping rather than failing display or analysis immediately.
     return DEFAULT_CHANNEL_CONFIG

@@ -213,6 +213,8 @@ STANDARD_GREEN_CONTOUR_CONSUMER_PLUGINS = frozenset(
 
 
 def _truthy_config_flag(value) -> bool:
+    """Parse analysis config booleans from session, JSON, or stored settings."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)) and value in {0, 1, 0.0, 1.0}:
@@ -231,10 +233,13 @@ def _alternate_nucleus_overlay_suppression_channel(
     """Return the fluorescence channel whose standard contour overlay is hidden."""
 
     if not _truthy_config_flag(alternate_nucleus_detection_enabled):
+        # Disabled alternate detection leaves standard contour overlays visible.
         return None
 
     selected_plugin_set = set(selected_plugins or [])
     if NUCLEAR_CELL_PAIR_PLUGIN not in selected_plugin_set:
+        # Suppression is only relevant when the alternate contour is used by the
+        # nuclear/cell-pair plugin.
         return None
 
     normalized_signal_mode = str(signal_quantification_mode or "").strip()
@@ -306,6 +311,8 @@ def _process_config_value(
     legacy_key: str,
     default,
 ):
+    """Read a current config key while accepting one legacy key spelling."""
+
     return config.get(key, config.get(legacy_key, default))
 
 
@@ -503,6 +510,8 @@ def get_stats(
         key for key in ("red", "green", "blue", "dic") if key in images
     ]
     if not available_image_keys:
+        # Missing all crop images should not crash a partially restored run; the
+        # caller receives blank debug overlays and persists default statistics.
         blank = np.zeros((64, 64, 3), dtype=np.uint8)
         return Image.fromarray(blank), Image.fromarray(blank), Image.fromarray(blank)
 
@@ -518,6 +527,8 @@ def get_stats(
     )
 
     def _canvas_for(channel_key: str) -> np.ndarray:
+        """Return a drawable BGR canvas for a channel, falling back to reference."""
+
         base = images.get(channel_key, reference)
         return ensure_3channel_bgr(np.array(base, copy=True))
 
@@ -526,6 +537,8 @@ def get_stats(
     edit_blue_img = _canvas_for("blue")
 
     def _store_contour_count_metadata(canonical_payload):
+        """Persist contour counts used by table filters and export labels."""
+
         red_count = count_valid_contour_slots(
             canonical_payload.get(CANONICAL_RED_SLOTS_KEY, [])
         )
@@ -541,6 +554,8 @@ def get_stats(
             PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE
         )
         if cp.properties.get("signal_quantification_mode") != SIGNAL_MODE_PUNCTA_DISTANCE:
+            # Puncta source contour count is only meaningful for puncta-distance
+            # mode; nuclear/cell-pair rows keep the keys but mark them absent.
             cp.properties["puncta_source_contour_count"] = None
             cp.properties["puncta_source_contour_count_channel"] = None
             return
@@ -552,6 +567,8 @@ def get_stats(
             cp.properties["puncta_source_contour_count_channel"] = "red"
 
     def _attach_canonical_parentage(contour_payload):
+        """Attach canonical contour metadata without requiring plugin execution."""
+
         canonical_payload = build_canonical_contour_payload(
             contour_payload,
             image_name=cp.image_name,
@@ -618,6 +635,8 @@ def get_stats(
         and nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE
         and effective_alternate_channel in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}
     ):
+        # Aggressive alternate nucleus detection needs the exact cell-pair mask so
+        # red/green candidate contours are constrained to the current crop.
         alternate_cell_mask = load_cell_mask(
             cp.image_name,
             cp.cell_id,
@@ -663,6 +682,8 @@ def get_stats(
     ):
         red_nucleus_debug = contours_data.get(RED_NUCLEUS_DEBUG_PAYLOAD_KEY)
         if red_nucleus_debug is not None:
+            # Debug artifact sources prefer background-corrected arrays when they
+            # exist, falling back to the available grayscale preprocessing output.
             red_debug_source = preprocessed_images.get_image("gray_red_3")
             if red_debug_source is None:
                 red_debug_source = preprocessed_images.get_image("gray_red")
@@ -679,6 +700,8 @@ def get_stats(
                     green_image=green_debug_source,
                 )
             except OSError:
+                # Debug artifacts are diagnostic; failed writes are logged but the
+                # statistics row remains valid.
                 logger.exception("Failed to save alternate Red nucleus debug artifacts")
     canonical_red_contours = flatten_slot_contours(
         contours_data.get("canonical_red_slots", [])
@@ -743,6 +766,8 @@ def finalize_segmented_run_batch(
     """Persist a completed batch when quota allows, otherwise keep it transient."""
 
     if not getattr(request.user, "is_authenticated", False):
+        # Guest runs stay in the guest namespace and are controlled by transient
+        # session cleanup rather than account quota.
         return
 
     current_uuids = {str(item) for item in uuid_list if str(item)}
@@ -1273,6 +1298,8 @@ def segment_image(request, uuids):
             ),
         )
         if uploaded_image.scale_info != scale_info:
+            # Persist normalized scale info once so later display/export paths do
+            # not repeat metadata/manual fallback normalization.
             uploaded_image.scale_info = scale_info
             uploaded_image.save(update_fields=["scale_info"])
         scale_context = resolve_scale_context(
@@ -1301,6 +1328,8 @@ def segment_image(request, uuids):
             um_per_px=line_width_proxy_um_per_px,
         )
         if cen_dot_distance_unit == "um":
+            # Physical-mode Cen Dot distance keeps the user-facing micrometer
+            # value in properties while also storing a pixel equivalent for masks.
             try:
                 cen_dot_distance = float(raw_cen_dot_distance)
             except (TypeError, ValueError):
@@ -1316,6 +1345,8 @@ def segment_image(request, uuids):
             )
             cen_dot_distance_mode = "physical_um"
         else:
+            # Pixel-mode distances are converted through the scalar scale helper
+            # only to normalize invalid inputs and preserve downstream types.
             cen_dot_distance = float(
                 convert_length_to_pixels(
                     raw_cen_dot_distance,
@@ -1336,6 +1367,8 @@ def segment_image(request, uuids):
             default="px",
         )
         if cen_dot_proximity_radius_unit == "um":
+            # Proximity radius follows the same dual storage pattern as distance:
+            # display value plus pixel equivalent for contour proximity tests.
             try:
                 cen_dot_proximity_radius = float(raw_cen_dot_proximity_radius)
             except (TypeError, ValueError):
@@ -1607,7 +1640,8 @@ def segment_image(request, uuids):
             )
             cell_type = cell_type_by_label.get(cell_number, CELL_TYPE_UNKNOWN)
 
-            # Create or get a CellStatistics row
+            # Create or get one row per retained label; fields below are reset or
+            # overwritten so reprocessing cannot leak stale per-cell measurements.
             cp, created = CellStatistics.objects.get_or_create(
                 segmented_image=instance,
                 cell_id=cell_number,

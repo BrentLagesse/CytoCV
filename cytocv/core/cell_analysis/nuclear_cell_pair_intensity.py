@@ -48,6 +48,8 @@ class NuclearCellPairIntensity(Analysis):
     }
 
     def _first_available_image(self, keys):
+        """Return the first GrayImage plane available for a mode-specific role."""
+
         for key in keys:
             image = self.preprocessed_images.get_image(key)
             if image is not None:
@@ -56,6 +58,8 @@ class NuclearCellPairIntensity(Analysis):
 
     @staticmethod
     def _resolved_alternate_target_channel(props: dict) -> str | None:
+        """Return the alternate nucleus channel only when the toggle is enabled."""
+
         raw_enabled = props.get("alternate_nucleus_detection_enabled")
         if isinstance(raw_enabled, str):
             normalized = raw_enabled.strip().lower()
@@ -67,6 +71,8 @@ class NuclearCellPairIntensity(Analysis):
 
     @staticmethod
     def _draw_nucleus_contours(red_image, green_image, contours, mode: str) -> None:
+        """Draw selected nucleus contours onto mutable overlay images."""
+
         if not contours:
             return
         color = (0, 0, 255) if mode == "red_nucleus" else (0, 255, 0)
@@ -84,6 +90,8 @@ class NuclearCellPairIntensity(Analysis):
         nucleus_intensity: float,
         cytoplasmic_intensity: float,
     ) -> float | None:
+        """Return nucleus/cytoplasm ratio when the denominator is usable."""
+
         try:
             numerator = float(nucleus_intensity)
             denominator = float(cytoplasmic_intensity)
@@ -95,6 +103,8 @@ class NuclearCellPairIntensity(Analysis):
         return ratio if math.isfinite(ratio) else None
 
     def _clear_nuclear_cell_pair_sums(self) -> None:
+        """Reset persisted numeric fields before storing unavailable statuses."""
+
         self.cp.nucleus_intensity_sum = 0.0
         self.cp.cell_pair_intensity_sum = 0.0
         self.cp.cytoplasmic_intensity = 0.0
@@ -110,6 +120,8 @@ class NuclearCellPairIntensity(Analysis):
         cen_dot_distance=0,
         cen_dot_proximity_radius=13,
     ):
+        """Compute nuclear and cell-pair sums for the configured red/green mode."""
+
         props = dict(getattr(self.cp, "properties", {}) or {})
         mode = props.get("nuclear_cell_pair_mode", "green_nucleus")
         if mode not in self._MODE_CONFIG:
@@ -215,6 +227,8 @@ class NuclearCellPairIntensity(Analysis):
             )
         nucleus_mask = np.asarray(nucleus_slot.mask)
         if nucleus_mask.ndim == 3:
+            # Canonical slots should normally be grayscale masks, but some replay
+            # paths can hand back RGB debug-derived masks; normalize before clipping.
             nucleus_mask = cv2.cvtColor(nucleus_mask, cv2.COLOR_BGR2GRAY)
         nucleus_mask = np.where(nucleus_mask > 0, 255, 0).astype(np.uint8)
         nucleus_mask = cv2.bitwise_and(nucleus_mask, cell_measurement_mask)

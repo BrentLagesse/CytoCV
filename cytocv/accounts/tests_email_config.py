@@ -35,6 +35,8 @@ from accounts.views.signup import VERIFY_CODE_TTL_SECONDS
 
 
 class AuthEmailSenderConfigTests(SimpleTestCase):
+    """Protect sender-address fallback order for signup and recovery email."""
+
     @override_settings(
         AUTH_EMAIL_FROM="CytoCV<cytocv-noreply@uw.edu>",
         DEFAULT_FROM_EMAIL="cytocv@uw.edu",
@@ -72,6 +74,8 @@ class AuthEmailSenderConfigTests(SimpleTestCase):
 
 
 class AuthGlobalMessagingTests(SimpleTestCase):
+    """Protect CSS treatment for informational auth messages."""
+
     def test_global_info_messages_use_success_treatment(self):
         base_css = (
             settings.BASE_DIR / "core" / "static" / "css" / "base.css"
@@ -88,6 +92,8 @@ class AuthGlobalMessagingTests(SimpleTestCase):
 
 
 class OAuthProviderConfigTests(SimpleTestCase):
+    """Protect provider parameters that reduce wrong-account OAuth selection."""
+
     def test_microsoft_provider_requests_account_picker(self):
         provider_settings = settings.SOCIALACCOUNT_PROVIDERS["microsoft"]
 
@@ -98,6 +104,8 @@ class OAuthProviderConfigTests(SimpleTestCase):
 
 
 class AuthVerificationExpiryPolicyTests(SimpleTestCase):
+    """Protect the short-lived verification and recovery code policy."""
+
     def test_account_verification_expiry_policy_is_five_minutes(self):
         self.assertEqual(settings.AUTH_VERIFICATION_EXPIRY_MINUTES, 5)
         self.assertEqual(settings.AUTH_VERIFICATION_EXPIRY_SECONDS, 300)
@@ -107,6 +115,8 @@ class AuthVerificationExpiryPolicyTests(SimpleTestCase):
 
 
 class AuthEmailContentTests(SimpleTestCase):
+    """Protect branded email content and safe recipient-name normalization."""
+
     def test_recipient_name_normalization_drops_placeholder_provider_names(self):
         self.assertEqual(normalize_recipient_name("Ada Lovelace"), "Ada Lovelace")
         self.assertEqual(normalize_recipient_name("  Ada   Lovelace  "), "Ada Lovelace")

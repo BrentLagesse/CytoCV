@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 def _segmented_dir(run_uuid: str) -> Path:
+    """Return the generated per-run segmented artifact directory."""
+
     return Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
 
 
@@ -71,11 +73,16 @@ def _collect_artifact_paths(
         paths.extend(segmented_dir.glob(f"*-*-{cell_id}-no_outline.png"))
         paths.extend(segmented_dir.glob(f"*-{cell_id}.outline"))
 
+    # Exact overlay replay caches live outside the historical segmented debug
+    # image naming convention and include a lock file that can otherwise leave
+    # stale cache state for a deleted cell.
     for channel in OVERLAY_RENDER_CHANNELS:
         paths.append(overlay_cache_image_path(str(run_uuid), cell_id, channel))
     paths.append(overlay_cache_lock_path(str(run_uuid), cell_id))
 
     if segmented_dir.is_dir():
+        # Legacy debug overlays are still served for old runs, so deletion checks
+        # their historical channel-label suffixes in addition to current cache paths.
         for channel_label in OVERLAY_CHANNEL_LABELS.values():
             paths.extend(
                 segmented_dir.glob(f"*-{cell_id}-{channel_label}_debug.png")
@@ -114,6 +121,8 @@ def delete_single_cell(
     run_uuid = str(segmented_image.UUID)
 
     with transaction.atomic():
+        # The database mutation is atomic so the row delete and parent counter
+        # update cannot be observed separately by dashboard/display refreshes.
         cell_row = (
             CellStatistics.objects
             .select_for_update()
@@ -127,9 +136,14 @@ def delete_single_cell(
 
     segmented_image.refresh_from_db(fields=["NumCells"])
     if (segmented_image.NumCells or 0) < 0:
+        # Defensive clamp for corrupted counters or repeated legacy deletes; this
+        # preserves the invariant exposed in result-table metadata.
         SegmentedImage.objects.filter(pk=segmented_image.pk).update(NumCells=0)
         segmented_image.refresh_from_db(fields=["NumCells"])
 
+    # Filesystem cleanup intentionally runs after commit.  A disk failure should
+    # not resurrect the deleted database row, and remaining artifacts can be swept
+    # by maintenance or manually investigated from logs.
     for path in _collect_artifact_paths(run_uuid, cell_id_int, image_name):
         try:
             _safe_remove_path(path)
@@ -160,6 +174,8 @@ def delete_multiple_cells(
     image_names_by_cell: dict[int, str] = {}
 
     with transaction.atomic():
+        # Lock only rows that still exist.  Stale selections from an open browser
+        # tab are ignored so bulk delete remains idempotent from the user's view.
         rows = list(
             CellStatistics.objects
             .select_for_update()
@@ -177,6 +193,8 @@ def delete_multiple_cells(
             segmented_image=segmented_image,
             cell_id__in=deleted_ids,
         ).delete()
+        # Bulk delete recomputes the counter rather than decrementing by request
+        # length because stale or duplicate submitted IDs may not correspond to rows.
         remaining_count = CellStatistics.objects.filter(
             segmented_image=segmented_image,
         ).count()
@@ -186,6 +204,9 @@ def delete_multiple_cells(
 
     segmented_image.refresh_from_db(fields=["NumCells"])
 
+    # Per-cell artifact deletion is best-effort for the same reason as single
+    # delete: the database state is authoritative, and filesystem failures are
+    # logged without failing the completed user action.
     for cell_id_int, image_name in image_names_by_cell.items():
         for path in _collect_artifact_paths(run_uuid, cell_id_int, image_name):
             try:

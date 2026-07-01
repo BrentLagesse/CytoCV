@@ -225,6 +225,8 @@ def display(request, uuids):
                 if presence.present_channels or presence.source != "ambiguous"
                 else None
             )
+            # Ambiguous channel presence means legacy all-present display; explicit
+            # sidecars hide missing channel slots by emitting empty image pairs.
             # Sidebar channel labels follow the channel_config written during upload
             # preparation, not hard-coded Red/Green/Blue/DIC order.
             detected = detected_channel_labels(channel_config)
@@ -367,6 +369,8 @@ def display(request, uuids):
             export_format = request.GET.get('_export', None)
             export_unit = normalize_spatial_stats_unit(request.GET.get('_unit'), default="px")
             if TableExport.is_valid_format(export_format) and cell_table is not None:
+                # Direct Display export reuses the currently authorized table data
+                # and applies query-string column/filter options before streaming.
                 raw_columns = request.GET.getlist("_columns")
                 columns_present = "_columns" in request.GET
                 export_puncta_source_contour_count_filter = request.GET.get(
@@ -915,9 +919,12 @@ def export_display_files(request):
 
 def main_image_channel(request, uuid):
     """Return one main-image URL without a full Display page reload."""
+
     if request.method != 'GET':
         return JsonResponse({'error': 'This action is not available.'}, status=405)
 
+    # The channel slug is normalized before any filesystem path is built so the
+    # endpoint cannot be used to request arbitrary output filenames.
     channel = (request.GET.get('channel') or '').strip().lower()
     channel_role = channel_role_from_slug(channel)
     if not channel_role:
@@ -936,6 +943,8 @@ def main_image_channel(request, uuid):
     if not _can_access_display_uuid(request, uploaded_image, cell_image):
         return JsonResponse({'error': 'You do not have access to this result.'}, status=401)
 
+    # Main-image URLs come from the same helper used during full page rendering,
+    # keeping AJAX channel switches aligned with template JSON payloads.
     channel_config = get_channel_config_for_uuid(str(uuid))
     available_frames = _scan_output_frames(str(uuid))
     main_image_paths = build_main_image_paths(

@@ -486,6 +486,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_verify_code()
+            # The verification code is session-scoped until account creation so
+            # abandoned signups do not create user or allauth alias rows.
             from_email = _sender_email()
             email_content = build_signup_verification_email(
                 code=verify_code,
@@ -694,6 +696,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             try:
+                # User creation is the first database mutation in the signup flow;
+                # previous steps intentionally held only session state and email.
                 user = user_model.objects.create_user(
                     email=values["email"],
                     password=password,

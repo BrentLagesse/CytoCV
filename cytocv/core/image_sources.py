@@ -31,6 +31,8 @@ def is_supported_image_filename(name: object) -> bool:
 
 
 def _load_dv_array(path: str | Path) -> np.ndarray:
+    """Read a DV file into a numpy array and always close the file handle."""
+
     dv_file = DVFile(path)
     try:
         return np.asarray(dv_file.asarray())
@@ -42,6 +44,8 @@ def _squeeze_singleton_non_spatial_axes(
     array: np.ndarray,
     axes: str | None,
 ) -> tuple[np.ndarray, str | None]:
+    """Drop singleton non-XY axes before stack-axis inference."""
+
     # TIFF metadata often includes one-length time/channel/sample axes. Removing
     # only non-spatial singleton axes keeps Y/X interpretation explicit.
     if not axes or len(axes) != array.ndim:
@@ -65,6 +69,8 @@ def _normalize_stack_with_axes(
     axes: str | None,
     source_path: Path,
 ) -> np.ndarray | None:
+    """Normalize arrays with trustworthy axes metadata to channel-first order."""
+
     if not axes or len(axes) != array.ndim:
         return None
 
@@ -88,6 +94,8 @@ def _normalize_stack_with_axes(
     y_axis = axes.index("Y")
     x_axis = axes.index("X")
     stack_axis = stack_axes[0]
+    # Downstream preprocessing assumes stack[logical_channel, y, x] regardless of
+    # how tifffile exposed the original axis order.
     normalized = np.moveaxis(array, [stack_axis, y_axis, x_axis], [0, 1, 2])
     if normalized.ndim != 3:
         raise ValueError(f"Unsupported image stack shape {array.shape} for {source_path}")
@@ -95,6 +103,8 @@ def _normalize_stack_with_axes(
 
 
 def _normalize_stack_without_axes(array: np.ndarray, source_path: Path) -> np.ndarray:
+    """Infer channel-first order when the source lacks reliable axes metadata."""
+
     if array.ndim == 2:
         return np.expand_dims(array, axis=0)
 
@@ -118,6 +128,8 @@ def _normalize_image_stack(
     *,
     axes: str | None = None,
 ) -> np.ndarray:
+    """Return a channel-first stack or raise a source-format error."""
+
     array = np.asarray(array)
     if array.ndim == 0:
         raise ValueError(f"Unsupported scalar image data for {source_path}")
@@ -135,6 +147,8 @@ def _normalize_image_stack(
 
 
 def _load_tiff_stack(path: Path) -> np.ndarray:
+    """Load the first TIFF series and normalize it as an analysis stack."""
+
     with tifffile.TiffFile(path) as tiff:
         series = tiff.series[0]
         axes = getattr(series, "axes", None)
@@ -168,5 +182,6 @@ def is_recognized_image_file(path: str | Path) -> bool:
         get_image_layer_count(path)
         return True
     except Exception:
+        # Validation treats unreadable/unsupported sources uniformly so upload UI
+        # can show a safe file-level error without surfacing parser internals.
         return False
-

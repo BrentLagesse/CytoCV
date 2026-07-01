@@ -1,3 +1,5 @@
+        /* Cross-page popup surface overrides keep modal contrast consistent
+           across independently styled page bundles. */
         body [role="dialog"],
         body .popup-surface,
         body .settings-modal,
@@ -16,6 +18,8 @@
             backdrop-filter: var(--popup-surface-filter) !important;
             -webkit-backdrop-filter: var(--popup-surface-filter) !important;
         }
+        /* Secondary/destructive-confirmation buttons share one readable treatment
+           even when the owning page defines its own modal component classes. */
         body .logout-btn.confirm,
         body .nav-exit-btn.confirm,
         body .reset-btn.confirm,

@@ -38,25 +38,35 @@ class AnalysisBatchResult:
 
 
 def _current_owner_filter_for_user(user) -> dict[str, object]:
+    """Return the ownership filter for uploaded files in this execution context."""
+
     if getattr(user, "is_authenticated", False):
         return {"user": user}
     from core.models import get_guest_user
 
+    # Anonymous analysis runs are owned by the shared guest account until a user
+    # explicitly saves them under an authenticated account.
     return {"user_id": get_guest_user()}
 
 
 def _raise_if_cancelled(progress: AnalysisProgressHandle) -> None:
+    """Convert cooperative cancel state into the shared cancellation exception."""
+
     if progress.is_cancel_requested():
         raise AnalysisCancelled()
 
 
 def _phase_with_run_count(phase: str, *, index: int, total: int) -> str:
+    """Append batch progress counts only when there is more than one run."""
+
     if total <= 1:
         return phase
     return f"{phase} ({index}/{total})"
 
 
 def _display_file_name(uploaded: UploadedImage) -> str:
+    """Return the safe file name shown in analysis progress detail."""
+
     file_name = Path(str(uploaded.file_location.name or "")).name
     return file_name or f"{uploaded.name}.dv"
 

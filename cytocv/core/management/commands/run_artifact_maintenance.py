@@ -13,5 +13,7 @@ class Command(BaseCommand):
     help = "Run one CytoCV artifact-maintenance sweep."
 
     def handle(self, *args, **options):
+        """Execute the same sweep used by the background worker once."""
+
         run_artifact_maintenance()
         self.stdout.write(self.style.SUCCESS("Artifact maintenance completed"))

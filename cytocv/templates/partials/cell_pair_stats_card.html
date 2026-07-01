@@ -1,5 +1,7 @@
+{# Shared cell metrics card. IDs and data-cell-card-section values are updated by results-viewer.js. #}
 <div class="cell-stats-strip" data-ui-region="cell-metrics-strip" data-cell-card-root data-cell-card-mode="puncta_distance">
     <div class="cell-stats-top-grid" data-ui-region="cell-metrics-top">
+        {# Reference section always remains available so contour-toggle state can be displayed. #}
         <div class="cell-stats-section reference-stat-section" data-cell-card-section="reference">
             <div class="metric-lead-row">
                 <p class="metric-lead">Reference Channel</p>
@@ -16,6 +18,7 @@
                 <span class="metric-value" id="contourStateValue">On</span>
             </div>
         </div>
+        {# Nuclear section IDs mirror JSON keys produced by cell_statistics_payload.py. #}
         <div class="cell-stats-section nuclear-stat-section" data-cell-card-section="nuclear_cell_pair_intensity" data-stat-section="nuclear_cell_pair_intensity">
             <div class="metric-lead-row">
                 <p class="metric-lead">Nucleus + Measurement</p>
@@ -63,6 +66,7 @@
                 </div>
             </div>
         </div>
+        {# Puncta/CEN/Biorientation sections are hidden or shown by plugin visibility groups. #}
         <div class="cell-stats-section puncta-stat-section" data-cell-card-section="puncta_distance" data-stat-section="puncta_distance">
             <div class="metric-lead-row">
                 <p class="metric-lead">Puncta Distance</p>
@@ -150,6 +154,7 @@
             </div>
         </div>
         <div class="cell-stats-intensity-grid" data-ui-region="cell-intensity-totals" data-cell-card-section="contour_intensity" data-stat-section="red_green_intensity">
+            {# Contour-intensity labels and display mode buttons are wired by shared viewer helpers. #}
             <div class="cell-stats-section raw-sum-section contour-intensity-section">
                 <div class="metric-lead-row contour-intensity-heading">
                     <span class="contour-intensity-title-group">

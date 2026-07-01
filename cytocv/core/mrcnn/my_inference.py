@@ -1,3 +1,11 @@
+"""Active Mask R-CNN inference wrapper for one preprocessed DIC artifact.
+
+The public ``predict_images`` entrypoint is called by the segmentation pipeline.
+It loads a cached inference runtime, keeps random seeds deterministic for the
+legacy model, and writes the stable ``output/mask.tif`` artifact consumed by
+post-segmentation contour extraction.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -68,6 +76,8 @@ def _resolved_output_shape(
     *,
     rescale: bool,
 ) -> tuple[int, int] | None:
+    """Return original output dimensions when downsampled inference is used."""
+
     if not rescale:
         return None
     return (
@@ -84,6 +94,8 @@ def _write_prediction_mask(
     output_dir: Path,
     rescale: bool,
 ) -> Path:
+    """Convert model instance masks into the canonical labeled mask TIFF."""
+
     output_mask = build_labeled_mask_image(
         pred_masks,
         scores=scores_masks,
@@ -101,6 +113,8 @@ def predict_images(
     verbose=True,
     cancel_check=None,
 ) -> Path | None:
+    """Run model detection unless cancelled and return the generated mask path."""
+
     if cancel_check and cancel_check():
         return None
 

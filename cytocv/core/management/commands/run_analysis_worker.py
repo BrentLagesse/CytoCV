@@ -35,6 +35,8 @@ class Command(BaseCommand):
     help = "Run the CytoCV database-backed analysis worker."
 
     def add_arguments(self, parser):
+        """Register worker-loop controls without changing queue semantics."""
+
         parser.add_argument(
             "--poll-interval",
             type=float,
@@ -65,6 +67,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Poll upload-preparation and analysis queues until stopped or ``--once`` exits."""
+
         poll_interval = max(float(options["poll_interval"]), 0.1)
         run_once = bool(options["once"])
         job_type = str(options["job_type"])
@@ -83,6 +87,8 @@ class Command(BaseCommand):
             ):
                 last_maintenance_at = time.monotonic()
                 try:
+                    # Maintenance is best-effort inside the worker; a cleanup
+                    # failure must not prevent queued analysis from running.
                     run_artifact_maintenance()
                 except Exception:
                     logger.exception("Worker maintenance sweep failed")
@@ -111,6 +117,8 @@ class Command(BaseCommand):
                 )
 
             if should_claim_upload and upload_candidate is not None:
+                # Upload-preparation jobs are claimed atomically by the service
+                # layer so multiple workers can poll without duplicating work.
                 upload_job = claim_next_upload_preparation_job()
                 if upload_job is not None:
                     run_upload_preparation_job(upload_job)
@@ -132,6 +140,8 @@ class Command(BaseCommand):
                 continue
 
             progress = AnalysisProgressHandle(job.batch_key, job=job)
+            # The persisted job snapshot is the worker contract: request/session
+            # state is not available in the background process.
             context = AnalysisBatchContext(
                 batch_key=job.batch_key,
                 run_uuids=tuple(str(value) for value in job.run_uuids if str(value)),
@@ -144,6 +154,8 @@ class Command(BaseCommand):
             try:
                 result = run_analysis_batch(user=user, context=context, progress=progress)
             except AnalysisCancelled:
+                # Cancellation is a normal terminal state and should not expose
+                # a failure payload to polling clients.
                 finalize_job(
                     job,
                     status=job.Status.CANCELLED,
@@ -157,6 +169,8 @@ class Command(BaseCommand):
                     timezone.now().isoformat(),
                 )
             except Exception:
+                # Unexpected errors are surfaced through a safe failure summary
+                # while full details stay in server logs.
                 finalize_job(
                     job,
                     status=job.Status.FAILED,
@@ -171,6 +185,8 @@ class Command(BaseCommand):
                     timezone.now().isoformat(),
                 )
             else:
+                # Successful completion may still carry a storage warning that
+                # display/export views can show without marking the job failed.
                 finalize_job(
                     job,
                     status=job.Status.SUCCEEDED,

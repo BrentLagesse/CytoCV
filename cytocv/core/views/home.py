@@ -298,6 +298,8 @@ COLLABORATOR_GROUPS = (
 
 
 def _github_blob(path: str) -> str:
+    """Return a repository blob URL for public documentation links."""
+
     return f"{GITHUB_BLOB_BASE_URL}/{path}"
 
 
@@ -308,6 +310,8 @@ def _doc_link(
     description: str,
     link_type: str,
 ) -> dict[str, object]:
+    """Build one external documentation-card payload for public templates."""
+
     return {
         "label": label,
         "href": _github_blob(path),
@@ -841,10 +845,14 @@ def _shared_public_context() -> dict[str, object]:
 
 
 def home(request):
+    """Render the public homepage using shared static context."""
+
     return TemplateResponse(request, "home.html", _shared_public_context())
 
 
 def about(request):
+    """Render the public About overview page."""
+
     context = _shared_public_context()
     context.update(
         {
@@ -856,6 +864,8 @@ def about(request):
 
 
 def about_technical(request):
+    """Render the technical detail page from the shared detail schema."""
+
     context = _shared_public_context()
     context.update(ABOUT_TECHNICAL_PAGE)
     context.update(
@@ -868,6 +878,8 @@ def about_technical(request):
 
 
 def about_biology(request):
+    """Render the biology detail page from the shared detail schema."""
+
     context = _shared_public_context()
     context.update(ABOUT_BIOLOGY_PAGE)
     context.update(
@@ -880,8 +892,12 @@ def about_biology(request):
 
 
 def collaborators(request):
+    """Render the public collaborator/team page."""
+
     return TemplateResponse(request, "collaborators.html", _shared_public_context())
 
 
 def license_page(request):
+    """Render the public license summary page."""
+
     return TemplateResponse(request, "license.html", _shared_public_context())

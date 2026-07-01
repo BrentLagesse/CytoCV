@@ -35,14 +35,20 @@ class GreenRedIntensity(Analysis):
     )
 
     def _set_default_triplet(self, prefix):
+        """Zero a three-slot legacy numeric field family."""
+
         for idx in range(1, 4):
             setattr(self.cp, f"{prefix}_{idx}", 0.0)
 
     def _set_default_red_contour_sizes(self):
+        """Zero red contour sizes before canonical slots are applied."""
+
         for idx in range(1, 4):
             setattr(self.cp, f"red_contour_{idx}_size", 0.0)
 
     def _set_default_intensity_stats(self):
+        """Zero every red/green masked-intensity field family."""
+
         for prefix in self.intensity_prefixes:
             for idx in range(1, 4):
                 setattr(self.cp, f"{prefix}_total_intensity_{idx}", 0.0)
@@ -50,6 +56,8 @@ class GreenRedIntensity(Analysis):
                 setattr(self.cp, f"{prefix}_average_intensity_{idx}", 0.0)
 
     def _store_intensity_stats(self, prefix, index, image, mask):
+        """Store total, max, and mean intensity for one contour slot."""
+
         total, maximum, average = calculate_masked_intensity_stats(image, mask)
         setattr(self.cp, f"{prefix}_total_intensity_{index}", total)
         setattr(self.cp, f"{prefix}_max_intensity_{index}", maximum)
@@ -65,6 +73,8 @@ class GreenRedIntensity(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
+        """Populate red/green contour intensity fields for one statistics row."""
+
         # Use raw red/green planes for measured intensity values when available;
         # the no-background/display fallbacks preserve compatibility with older caches.
         red_gray = self.preprocessed_images.get_image("raw_red")

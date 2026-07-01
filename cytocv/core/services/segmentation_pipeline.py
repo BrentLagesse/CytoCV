@@ -129,6 +129,8 @@ def _process_config_value(
     legacy_key: str,
     default,
 ):
+    """Return a current config value while accepting one legacy key alias."""
+
     return config.get(key, config.get(legacy_key, default))
 
 
@@ -159,23 +161,32 @@ class PairGeometryCacheEntry:
 
 
 def _current_owner_filter_for_user(user) -> dict[str, object]:
+    """Return the UploadedImage owner filter for authenticated or guest users."""
+
     if getattr(user, "is_authenticated", False):
         return {"user": user}
+    # Anonymous/transient runs are owned by the shared guest account until saved.
     return {"user_id": get_guest_user()}
 
 
 def _raise_if_cancelled(progress: AnalysisProgressHandle) -> None:
+    """Raise the shared cancellation exception when a batch has been cancelled."""
+
     if progress.is_cancel_requested():
         raise AnalysisCancelled()
 
 
 def _phase_with_run_count(phase: str, *, index: int, total: int) -> str:
+    """Append batch position to progress phases for multi-run batches."""
+
     if total <= 1:
         return phase
     return f"{phase} ({index}/{total})"
 
 
 def _display_file_name(uploaded: UploadedImage) -> str:
+    """Return the basename shown in polling progress payloads."""
+
     file_name = Path(str(uploaded.file_location.name or "")).name
     return file_name or f"{uploaded.name}.dv"
 
@@ -514,6 +525,8 @@ def _finalize_segmented_run_batch_for_user(
 
 
 def _save_segmentation_frame(fig, output_file: str) -> None:
+    """Save the full-frame segmented overlay with the historical render profile."""
+
     fig.savefig(output_file, dpi=600, bbox_inches="tight", pad_inches=0)
 
 

@@ -21,6 +21,8 @@ class ProgressRequestError(Exception):
     """Controlled progress request error carrying an HTTP status code."""
 
     def __init__(self, message: str, *, status_code: int) -> None:
+        """Persist the safe message and HTTP status for endpoint responses."""
+
         super().__init__(message)
         self.message = message
         self.status_code = status_code

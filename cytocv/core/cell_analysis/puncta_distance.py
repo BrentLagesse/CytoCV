@@ -130,6 +130,8 @@ class PunctaDistance(Analysis):
     )
 
     def _measurement_image(self, measurement_channel: str):
+        """Return the raw-or-compatible image used for line intensity sums."""
+
         # Prefer raw measurement images for intensity values; normalized display
         # fallbacks keep older cached runs measurable when raw variants are absent.
         if not measurement_channel:
@@ -149,6 +151,8 @@ class PunctaDistance(Analysis):
         return image
 
     def _source_image(self, source_channel: str):
+        """Return the image used to derive source contour geometry."""
+
         if source_channel == CHANNEL_ROLE_GREEN:
             return self._measurement_image(CHANNEL_ROLE_GREEN)
         return self._measurement_image(CHANNEL_ROLE_RED)
@@ -165,6 +169,8 @@ class PunctaDistance(Analysis):
         self.cp.properties = properties
 
     def _set_default_same_channel_stats(self, source_channel: str):
+        """Zero same-channel contour fields before optional values are stored."""
+
         if source_channel == CHANNEL_ROLE_GREEN:
             for index in range(1, 4):
                 setattr(self.cp, f"green_contour_{index}_size", 0.0)
@@ -247,6 +253,8 @@ class PunctaDistance(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
+        """Measure puncta distance and optional line intensity for one cell row."""
+
         puncta_line_points = []
         properties = dict(getattr(self.cp, "properties", {}) or {})
         metadata = get_puncta_line_mode_metadata(properties.get("puncta_line_mode"))
@@ -294,6 +302,8 @@ class PunctaDistance(Analysis):
             shape_source,
         )
         if len(source_slots) < 2:
+            # Fewer than two source contours means no line can be defined; leave
+            # numeric defaults and return an empty overlay mask coordinate list.
             return []
 
         try:
@@ -338,5 +348,7 @@ class PunctaDistance(Analysis):
                 self.cp.puncta_line_intensity = float(line_intensity_sum)
             return puncta_line_points
         except Exception as exc:
+            # Contour/image mismatches should not abort the entire statistics run;
+            # this row simply contributes no puncta line.
             logger.debug("Puncta-distance analysis skipped: %s", exc)
             return []

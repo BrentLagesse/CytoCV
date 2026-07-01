@@ -86,6 +86,8 @@ JSON_KEY_RENAMES = {
 
 
 def _rewrite_plugin_id(value: Any) -> Any:
+    """Follow chained plugin-name aliases until the canonical id is reached."""
+
     rewritten = value
     while rewritten in PLUGIN_RENAMES:
         next_value = PLUGIN_RENAMES[rewritten]
@@ -96,6 +98,8 @@ def _rewrite_plugin_id(value: Any) -> Any:
 
 
 def _rewrite_json_key(key: str) -> str:
+    """Follow chained JSON-key aliases for legacy saved configuration blobs."""
+
     rewritten = key
     while rewritten in JSON_KEY_RENAMES:
         next_key = JSON_KEY_RENAMES[rewritten]
@@ -106,16 +110,22 @@ def _rewrite_json_key(key: str) -> str:
 
 
 def _rewrite_channel_role(value: Any) -> Any:
+    """Normalize biology-specific channel labels while preserving unknown values."""
+
     normalized = normalize_channel_role(value)
     return normalized or value
 
 
 def _rewrite_channel_display(value: Any) -> Any:
+    """Return the current display label for known channel-role values."""
+
     normalized = normalize_channel_role(value)
     return channel_display_label(normalized) if normalized else value
 
 
 def _rewrite_user_config_payload(payload: Any) -> Any:
+    """Recursively rewrite user preference/config payloads without schema changes."""
+
     if isinstance(payload, list):
         return [_rewrite_user_config_payload(item) for item in payload]
     if not isinstance(payload, dict):
@@ -146,6 +156,8 @@ def _rewrite_user_config_payload(payload: Any) -> Any:
 
 
 def _rewrite_overlay_render_config(payload: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite overlay-cache render config keys used to validate cached images."""
+
     rewritten = _rewrite_user_config_payload(payload)
     channel_config = rewritten.get("channel_config")
     if isinstance(channel_config, dict):
@@ -160,6 +172,8 @@ def _rewrite_overlay_render_config(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _rewrite_cell_properties(properties: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite per-cell statistics properties while preserving measured values."""
+
     rewritten = {}
     for key, value in properties.items():
         new_key = _rewrite_json_key(key)
@@ -180,6 +194,8 @@ class Command(BaseCommand):
     help = "Rewrite saved run artifacts and stored JSON blobs to the generic channel naming scheme."
 
     def add_arguments(self, parser):
+        """Register the dry-run guard before any destructive rewrite is possible."""
+
         parser.add_argument(
             "--dry-run",
             action="store_true",
@@ -187,6 +203,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Run DB and media rewrites, respecting dry-run for every mutation."""
+
         dry_run = bool(options.get("dry_run"))
         media_root = Path(settings.MEDIA_ROOT)
 
@@ -201,6 +219,8 @@ class Command(BaseCommand):
         )
 
     def _rewrite_cell_statistics(self, *, dry_run: bool) -> int:
+        """Rewrite CellStatistics JSON properties row by row."""
+
         rewritten = 0
         for cell_stat in CellStatistics.objects.iterator():
             properties = dict(cell_stat.properties or {})
@@ -211,11 +231,15 @@ class Command(BaseCommand):
                 continue
             rewritten += 1
             if not dry_run:
+                # This is a database side effect: only the JSON naming layer is
+                # changed, not numeric statistics or model relationships.
                 cell_stat.properties = next_properties
                 cell_stat.save(update_fields=["properties"])
         return rewritten
 
     def _rewrite_user_configs(self, *, dry_run: bool) -> int:
+        """Rewrite stored account defaults/configuration payloads."""
+
         rewritten = 0
         user_model = get_user_model()
         for user in user_model.objects.iterator():
@@ -225,13 +249,18 @@ class Command(BaseCommand):
                 continue
             rewritten += 1
             if not dry_run:
+                # User config drives future workflow defaults, so rewrites stay
+                # limited to canonical key/channel/plugin names.
                 user.config = next_config
                 user.save(update_fields=["config"])
         return rewritten
 
     def _rewrite_run_artifacts(self, media_root: Path, *, dry_run: bool) -> int:
+        """Rewrite JSON sidecars and overlay filenames under MEDIA_ROOT."""
+
         rewritten = 0
         if not media_root.exists():
+            # Missing media roots are valid in fresh deployments and dry-run CI.
             return rewritten
 
         for run_dir in media_root.iterdir():
@@ -241,6 +270,8 @@ class Command(BaseCommand):
             for filename in CHANNEL_CONFIG_FILES:
                 config_path = run_dir / filename
                 if config_path.exists():
+                    # Channel config sidecars are small JSON maps from logical
+                    # channel role to stack index; only keys are canonicalized.
                     payload = json.loads(config_path.read_text(encoding="utf-8"))
                     next_payload = {
                         _rewrite_channel_role(channel): index
@@ -256,6 +287,8 @@ class Command(BaseCommand):
 
             overlay_render_path = run_dir / "segmented" / OVERLAY_RENDER_CONFIG_FILENAME
             if overlay_render_path.exists():
+                # Overlay render config is the cache validity contract, so it is
+                # rewritten alongside filenames to avoid stale cache misses.
                 payload = json.loads(overlay_render_path.read_text(encoding="utf-8"))
                 next_payload = _rewrite_overlay_render_config(payload)
                 if next_payload != payload:
@@ -271,6 +304,8 @@ class Command(BaseCommand):
         return rewritten
 
     def _rewrite_overlay_filenames(self, segmented_dir: Path, *, dry_run: bool) -> int:
+        """Rename legacy overlay PNG cache files inside one segmented directory."""
+
         if not segmented_dir.exists():
             return 0
 
@@ -292,6 +327,8 @@ class Command(BaseCommand):
 
             rewritten += 1
             if not dry_run:
+                # Destination replacement is intentional: the rewritten name is
+                # the canonical cache key for the same rendered image.
                 destination = path.with_name(new_name)
                 if destination.exists():
                     destination.unlink()

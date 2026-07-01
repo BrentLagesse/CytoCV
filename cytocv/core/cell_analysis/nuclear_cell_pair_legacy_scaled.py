@@ -17,6 +17,8 @@ LEGACY_EXACT_CELL_PAIR_MASK_KEY = "legacy_exact_cell_pair_mask"
 
 
 def truthy_legacy_flag(value: Any) -> bool:
+    """Return whether a persisted workflow flag enables legacy-scaled pixels."""
+
     if isinstance(value, bool):
         return value
     if value is None:
@@ -62,9 +64,13 @@ def select_legacy_exact_cell_pair_mask(
 
     candidate = contours_data.get(LEGACY_EXACT_CELL_PAIR_MASK_KEY)
     if candidate is None:
+        # Current runs may not carry the exact label-pixel mask; the filled CytoCV
+        # cell-pair mask remains the supported fallback.
         return fallback_mask, True
     mask = np.asarray(candidate)
     if mask.shape[:2] != shape:
+        # Shape mismatches indicate the candidate belongs to a different crop or
+        # replay context, so do not use it for measurement.
         return fallback_mask, True
     if mask.ndim == 3:
         mask = mask[:, :, 0]

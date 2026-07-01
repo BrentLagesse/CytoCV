@@ -80,6 +80,8 @@ class StorageQuotaExceeded(Exception):
         available_bytes: int,
         reclaimed_bytes: int = 0,
     ) -> None:
+        """Store quota byte counts for JSON responses and logs."""
+
         self.required_bytes = max(int(required_bytes), 0)
         self.available_bytes = max(int(available_bytes), 0)
         self.reclaimed_bytes = max(int(reclaimed_bytes), 0)

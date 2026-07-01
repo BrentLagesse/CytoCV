@@ -88,6 +88,8 @@ class AnalysisBatchContext:
 
 
 def _parse_bool(value: object, *, default: bool) -> bool:
+    """Coerce legacy session booleans in persisted analysis snapshots."""
+
     if value is None:
         return default
     if isinstance(value, bool):
@@ -96,6 +98,8 @@ def _parse_bool(value: object, *, default: bool) -> bool:
 
 
 def _parse_int(value: object, *, default: int, minimum: int | None = None) -> int:
+    """Coerce integer snapshot values with optional lower-bound fallback."""
+
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -108,6 +112,8 @@ def _parse_int(value: object, *, default: int, minimum: int | None = None) -> in
 def _parse_float(
     value: object, *, default: float, minimum: float | None = None
 ) -> float:
+    """Coerce float snapshot values with optional lower-bound fallback."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):

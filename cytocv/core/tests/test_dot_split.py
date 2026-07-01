@@ -1,4 +1,9 @@
-"""Tests for shared dot contour splitting."""
+"""Tests for shared dot contour splitting.
+
+These tests protect tuned image-processing gates rather than biological claims:
+merged synthetic blobs should split only when geometry, peak, and validation
+evidence all satisfy the runtime contour contracts.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +36,8 @@ from core.image_processing import GrayImage
 
 
 def _dumbbell(radius_a: int, radius_b: int, center_distance: int, shape=(80, 100)) -> np.ndarray:
+    """Build a two-lobe binary mask used to exercise neck-split candidates."""
+
     mask = np.zeros(shape, dtype=np.uint8)
     cy = shape[0] // 2
     cx = shape[1] // 2
@@ -67,6 +74,8 @@ def _gaussian_pair_image(
     amplitude_b: float = 220.0,
     shape=(96, 128),
 ) -> np.ndarray:
+    """Build a two-peak grayscale evidence image with a controllable bridge."""
+
     y_grid, x_grid = np.mgrid[0 : shape[0], 0 : shape[1]]
     dot_a = amplitude_a * np.exp(
         -(
@@ -86,6 +95,8 @@ def _gaussian_pair_image(
 
 
 def _one_sided_notch_mask(shape=(96, 128)) -> np.ndarray:
+    """Return an asymmetric mask that exercises the one-sided saddle fallback."""
+
     mask = np.zeros(shape, dtype=np.uint8)
     cv2.ellipse(mask, (64, 48), (26, 10), 0, 0, 360, 255, -1)
     cv2.circle(mask, (63, 38), 1, 0, -1)

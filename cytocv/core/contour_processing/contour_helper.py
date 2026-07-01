@@ -1,13 +1,21 @@
+"""Small contour-list helpers shared by segmentation and statistics code.
+
+The helpers in this module operate on OpenCV contour arrays and labeled
+segmentation images. They intentionally return simple Python containers because
+callers pass the results into JSON/debug payloads and table-building code.
+"""
+
 import cv2
 import logging
 
 logger = logging.getLogger(__name__)
 
 def get_contour_center(contour_list):
-    """
-    This function calculate the center of the contours
-    :param contour_list: list of contours
-    :return: Dictionary with x,y coordinates of centers
+    """Return contour centroids keyed by original contour index.
+
+    Zero-area contours are skipped because OpenCV moments cannot produce a
+    stable centroid for them and downstream pairing code treats absence as a
+    safer signal than a fabricated coordinate.
     """
     coordinates = {}
     for i in range(len(contour_list)):
@@ -24,6 +32,7 @@ def get_contour_center(contour_list):
 
 def get_largest(contours):
     """Return up to two contour indices sorted by descending area."""
+
     ranked = []
     for i, contour in enumerate(contours):
         if contour is None or len(contour) == 0:
@@ -34,13 +43,11 @@ def get_largest(contours):
     return [idx for idx, _ in ranked[:2]]
 
 def get_neighbor_count(seg_image, center, radius=1, loss=0):
-    """
-    This function output the number of neighbors between center and radius
-    :param seg_image: 2D matrix represent a cell segmented image
-    :param center: coordinate of the center of the cell in (y,x)
-    :param radius: radius of searching for neighbor
-    :param loss:
-    :return: list of cell's id of cell that is within the radius
+    """Return labels surrounding a cell center within a square search radius.
+
+    ``seg_image`` is a 2D label image and ``center`` is interpreted as ``(y, x)``.
+    The current cell label and background are excluded so callers receive only
+    neighboring cell identifiers.
     """
     #TODO:  account for loss as distance gets larger
     neighbor_list = list()

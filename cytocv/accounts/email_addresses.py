@@ -61,6 +61,8 @@ def sync_user_email_address(
 
     normalized_email = normalize_account_email(getattr(user, "email", None))
     if not normalized_email:
+        # Blank emails cannot participate in email login/recovery and are reported
+        # as skipped instead of creating invalid allauth aliases.
         return EmailAddressSyncResult(
             user=user,
             normalized_email=normalized_email,
@@ -68,6 +70,8 @@ def sync_user_email_address(
             message="blank email",
         )
     if getattr(user, "pk", None) is None:
+        # Unsaved users are skipped because allauth aliases require a persisted
+        # foreign key and signals will retry after save.
         return EmailAddressSyncResult(
             user=user,
             normalized_email=normalized_email,
@@ -84,6 +88,8 @@ def sync_user_email_address(
         .first()
     )
     if conflicting_alias is not None:
+        # Conflicts are never repaired automatically because moving an alias could
+        # break login/recovery for another account.
         return EmailAddressSyncResult(
             user=user,
             normalized_email=normalized_email,
@@ -103,6 +109,8 @@ def sync_user_email_address(
 
     if email_address is None:
         if dry_run:
+            # Dry-run reports the intended create without demoting any existing
+            # primary alias or inserting an EmailAddress row.
             return EmailAddressSyncResult(
                 user=user,
                 normalized_email=normalized_email,
@@ -110,6 +118,8 @@ def sync_user_email_address(
                 message="would create alias",
             )
         with transaction.atomic():
+            # Primary alias updates and creation are atomic so allauth never sees
+            # two primary aliases for one account mid-repair.
             if primary:
                 EmailAddress.objects.filter(user=user, primary=True).update(primary=False)
             email_address = EmailAddress.objects.create(
@@ -138,6 +148,8 @@ def sync_user_email_address(
         update_fields.append("primary")
 
     if dry_run:
+        # Dry-run reports whether the row would change but leaves verified/primary
+        # flags untouched.
         return EmailAddressSyncResult(
             user=user,
             normalized_email=normalized_email,
@@ -148,6 +160,8 @@ def sync_user_email_address(
 
     if update_fields:
         with transaction.atomic():
+            # Demote any other primary alias in the same transaction as the target
+            # alias update so password recovery resolves a single primary address.
             if primary:
                 EmailAddress.objects.filter(user=user, primary=True).exclude(
                     pk=email_address.pk
@@ -186,5 +200,7 @@ def ensure_user_email_address(
         dry_run=dry_run,
     )
     if result.conflict and raise_on_conflict:
+        # Callers that run in account-creation paths need a hard failure so they
+        # cannot silently create an ambiguous email-login state.
         raise EmailAddressConflictError(result.message)
     return result.email_address

@@ -1,4 +1,9 @@
-"""Helpers for deciding whether stored stat values were actually calculated."""
+"""Helpers for deciding whether stored stat values were actually calculated.
+
+Older rows may contain zero/default values for plugins that were not selected.
+This module centralizes visibility decisions so JSON payloads, HTML tables, and
+exports all hide non-calculated groups in the same way.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,8 @@ from core.services.signal_quantification import build_stat_visibility
 
 
 STAT_FIELD_GROUPS: dict[str, tuple[str, ...]] = {
+    # Group names mirror plugin ids used by signal_quantification.py; field
+    # names mirror serialized/table contracts that need applicability checks.
     "puncta_distance": (
         "puncta_distance",
         "puncta_line_intensity",
@@ -129,6 +136,8 @@ def normalize_stat_visibility(value: Any) -> dict[str, bool] | None:
 
 
 def _properties_from_source(source: Any) -> dict[str, Any]:
+    """Return a mutable properties dict from a model, row dict, or raw mapping."""
+
     if source is None:
         return {}
     if isinstance(source, Mapping):
@@ -139,12 +148,16 @@ def _properties_from_source(source: Any) -> dict[str, Any]:
 
 
 def _first_record(data: Any) -> Any:
+    """Return one representative record without forcing all callers to be lists."""
+
     if data is None:
         return None
     if hasattr(data, "first"):
         try:
             return data.first()
         except Exception:
+            # QuerySet-like objects can fail if their DB context has gone away;
+            # applicability should degrade to default visibility instead.
             return None
     if isinstance(data, (list, tuple)) and data:
         return data[0]
@@ -152,6 +165,8 @@ def _first_record(data: Any) -> Any:
 
 
 def _iter_records(data: Any) -> list[Any]:
+    """Materialize record collections for aggregate visibility decisions."""
+
     if data is None:
         return []
     if isinstance(data, Mapping):
@@ -162,11 +177,15 @@ def _iter_records(data: Any) -> list[Any]:
         try:
             return list(data)
         except Exception:
+            # Non-repeatable or DB-backed iterables should not break rendering;
+            # callers fall back to the representative/default visibility path.
             return []
     return [data]
 
 
 def _visibility_from_properties(properties: Mapping[str, Any]) -> dict[str, bool] | None:
+    """Read explicit visibility or derive it from legacy selected-analysis data."""
+
     property_visibility = normalize_stat_visibility(properties.get("stat_visibility"))
     if property_visibility is not None:
         return property_visibility
@@ -177,6 +196,8 @@ def _visibility_from_properties(properties: Mapping[str, Any]) -> dict[str, bool
 
 
 def _unavailable_fields_from_properties(properties: Mapping[str, Any]) -> set[str]:
+    """Return field-level exceptions recorded during a stats run."""
+
     raw_fields = properties.get("unavailable_stat_fields")
     if not isinstance(raw_fields, (list, tuple, set)):
         return set()
@@ -184,6 +205,8 @@ def _unavailable_fields_from_properties(properties: Mapping[str, Any]) -> set[st
 
 
 def _union_visibility(records: list[Any]) -> dict[str, bool] | None:
+    """Combine row visibility for tables that render mixed plugin selections."""
+
     aggregate: dict[str, bool] | None = None
     for record in records:
         row_visibility = _visibility_from_properties(_properties_from_source(record))
@@ -205,6 +228,8 @@ def resolve_stat_visibility(
     """Resolve calculated stat groups from selected plugins or row metadata."""
 
     if selected_plugins is not None:
+        # Explicit plugin selections come from the current request/config and
+        # take precedence over per-row properties.
         return build_stat_visibility(selected_plugins)
 
     explicit_visibility = normalize_stat_visibility(stat_visibility)
@@ -213,6 +238,8 @@ def resolve_stat_visibility(
 
     records = _iter_records(source)
     if len(records) > 1:
+        # Multi-row tables use a union so a column group remains visible if any
+        # record actually calculated that statistic.
         union_visibility = _union_visibility(records)
         if union_visibility is not None:
             return union_visibility
@@ -222,6 +249,8 @@ def resolve_stat_visibility(
     if property_visibility is not None:
         return property_visibility
 
+    # Rows predating stat_visibility are treated as fully calculated to preserve
+    # legacy exports and avoid hiding historical measurements.
     return default_stat_visibility()
 
 

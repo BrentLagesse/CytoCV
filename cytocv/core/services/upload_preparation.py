@@ -55,6 +55,8 @@ class UploadPreparationCancelled(Exception):
 
 
 def _normalize_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, object]:
+    """Return a sanitized upload-preparation option snapshot."""
+
     # Jobs persist only a whitelisted snapshot of upload-time options. Rehydrate it
     # defensively because queued work may execute after code or preference changes.
     payload = dict(snapshot or {})
@@ -91,6 +93,8 @@ def _normalize_config_snapshot(snapshot: dict[str, object] | None) -> dict[str, 
 
 
 def _validation_options_from_snapshot(snapshot: dict[str, object]) -> SourceImageValidationOptions:
+    """Translate a persisted job snapshot into validator options."""
+
     validation = snapshot.get("validation_options") or {}
     if not isinstance(validation, dict):
         validation = {}
@@ -109,14 +113,20 @@ def _validation_options_from_snapshot(snapshot: dict[str, object]) -> SourceImag
 
 
 def _owner_filter_for_job(job: UploadPreparationJob) -> dict[str, object]:
+    """Return the ownership filter used for job-owned uploads."""
+
     return {"user_id": job.user_id}
 
 
 def _media_path_for_uploaded(uploaded: UploadedImage) -> Path:
+    """Resolve the protected filesystem path for an uploaded source file."""
+
     return resolve_uploaded_file_path(uploaded)
 
 
 def _write_channel_config(run_uuid: str, channel_config: dict[str, object]) -> None:
+    """Write the run's channel_config.json sidecar."""
+
     output_dir = run_media_path(run_uuid)
     output_dir.mkdir(parents=True, exist_ok=True)
     final_path = output_dir / "channel_config.json"
@@ -127,6 +137,8 @@ def _write_channel_config(run_uuid: str, channel_config: dict[str, object]) -> N
 
 
 def _raise_if_cancelled(job: UploadPreparationJob) -> None:
+    """Raise when a concurrent cancel request has reached this job."""
+
     # Refresh from the database because cancellation can be requested by a
     # separate polling/cancel request while the worker is processing files.
     job.refresh_from_db(fields=["cancellation_requested", "status"])
@@ -135,6 +147,8 @@ def _raise_if_cancelled(job: UploadPreparationJob) -> None:
 
 
 def _display_file_name(uploaded: UploadedImage | None, fallback: str) -> str:
+    """Return a safe progress-display name for an uploaded file."""
+
     if uploaded is None:
         return fallback
     file_name = Path(str(uploaded.file_location.name or "")).name
@@ -147,6 +161,8 @@ def _set_phase(
     *,
     detail: dict[str, object] | None = None,
 ) -> None:
+    """Persist upload-preparation phase and sanitized detail for pollers."""
+
     # Persist progress through a queryset update so pollers see changes even when
     # the caller keeps using the in-memory job instance.
     progress_detail = normalize_progress_detail(detail)
@@ -159,6 +175,8 @@ def _set_phase(
 
 
 def _missing_upload_result(required_channels: set[str]) -> SourceImageValidationResult:
+    """Build the validation result for a staged upload that disappeared."""
+
     return SourceImageValidationResult(
         is_valid=False,
         layer_count=None,
@@ -176,6 +194,8 @@ def _extract_upload_metadata(
     prefer_metadata_channel_order: bool,
     fallback_channel_order: list[str],
 ) -> None:
+    """Persist source-derived scale, channel config, and presence sidecars."""
+
     source_image_path = _media_path_for_uploaded(uploaded)
     # Metadata is read from the original source file so scale/channel contracts
     # describe the upload itself rather than any generated preview artifact.
@@ -206,6 +226,11 @@ def _extract_upload_metadata(
 
 
 def _prepare_upload_preview(*, uploaded: UploadedImage) -> None:
+    """Generate the four-layer browser preview assets for an approved upload."""
+
+    # Preview generation still expects the historical four preview slots because
+    # the preprocess page uses stable image/script contracts even when optional
+    # fluorescence channels are later marked missing.
     generate_preview_assets(uploaded, expected_layers=4)
 
 
@@ -251,8 +276,10 @@ def run_upload_preparation_job(job: UploadPreparationJob) -> UploadPreparationJo
                 },
             )
             if uploaded is None:
-                # Missing restored uploads are reported as validation failures, but
-                # missing newly staged uploads are also cleaned from media.
+                # Missing restored uploads are reported as validation failures so
+                # users see why a selected prior run cannot continue.  Missing
+                # newly staged uploads are also cleaned from media to avoid orphaned
+                # source files for a failed browser retry.
                 failures.append(
                     (
                         run_uuid,

@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def _copy_cached_image(image_array):
+    """Return copy-safe PIL and numpy views of an in-memory channel crop."""
+
     # Statistics plugins may mutate PIL images or numpy arrays while drawing and
     # measuring, so cached crop data is always copied before reuse.
     cached_array = np.array(image_array, copy=True)
@@ -26,6 +28,8 @@ def _copy_cached_image(image_array):
 
 
 def _get_mapping_value(mapping, *keys):
+    """Return the first non-null value for canonical or legacy payload keys."""
+
     # Measurement images can be keyed by canonical channel role or by older plugin
     # payload names; accepting both keeps saved analysis paths compatible.
     for key in keys:
@@ -35,6 +39,8 @@ def _get_mapping_value(mapping, *keys):
 
 
 def _as_single_channel(image_array):
+    """Normalize RGB/RGBA/single-channel measurement input to one gray plane."""
+
     # Raw measurement planes are normalized to one grayscale array so downstream
     # plugins receive the same shape regardless of RGB/RGBA/TIFF source layout.
     array = np.asarray(image_array)
@@ -50,7 +56,13 @@ def _as_single_channel(image_array):
 
 
 def load_image(cp, output_dir, required_channels=None, cached_images=None):
-    """Load segmented channel crops required by the selected statistics plugins."""
+    """Load segmented channel crops required by the selected statistics plugins.
+
+    ``CellStatistics.get_image`` resolves the persisted crop-name convention from
+    channel roles and ``cell_id``.  Missing optional crop files are skipped so a
+    plugin that does not require that channel cannot fail the entire statistics
+    pass for the cell.
+    """
 
     requested = set(required_channels or {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE})
     cached_images = cached_images or {}
@@ -94,7 +106,12 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
 
 
 def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
-    """Build the grayscale payload consumed by contour statistics plugins."""
+    """Build the grayscale payload consumed by contour statistics plugins.
+
+    The returned ``GrayImage`` keys are a public in-process contract for the
+    plugin layer: blurred display planes support contour detection and raw planes
+    support total/max/average measurement values.
+    """
 
     # OpenCV Gaussian kernels must be odd; keep the historical "round up"
     # behavior so saved workflow defaults do not need extra validation here.

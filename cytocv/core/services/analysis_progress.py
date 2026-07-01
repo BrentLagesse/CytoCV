@@ -37,13 +37,19 @@ _DETAIL_INT_KEYS = frozenset(
 
 
 def _safe_detail_string(value: object, *, file_name: bool = False) -> str:
+    """Normalize progress text for frontend display and logs."""
+
     text = str(value or "").strip()
     if file_name:
+        # Progress payloads are user-visible, so strip client/system path prefixes
+        # and keep only the displayed file name.
         text = text.replace("\\", "/").rsplit("/", 1)[-1]
     return text[:240]
 
 
 def _safe_detail_int(value: object) -> int | None:
+    """Return a non-negative progress counter value, or ``None``."""
+
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -59,6 +65,8 @@ def normalize_progress_detail(detail: object | None) -> dict[str, object]:
 
     normalized: dict[str, object] = {}
     for key in _DETAIL_STRING_KEYS:
+        # Whitelisting prevents arbitrary worker detail keys from being exposed
+        # through polling JSON.
         value = _safe_detail_string(detail.get(key), file_name=key == "fileName")
         if value:
             normalized[key] = value
@@ -77,6 +85,8 @@ def _log_inconsistent_snapshot(
     phase: str,
     status: str,
 ) -> None:
+    """Warn when stored progress state would confuse frontend status mapping."""
+
     terminal_phase = str(phase).strip().lower() in {"completed", "failed", "cancelled", "canceled"}
     terminal_status = status in {"succeeded", "failed", "cancelled"}
     if terminal_phase and not terminal_status:
@@ -116,6 +126,9 @@ def read_file_progress(key: str) -> dict[str, object]:
         if path.exists():
             return json.loads(path.read_text() or "{}")
     except (OSError, IOError, PermissionError, json.JSONDecodeError):
+        # Filesystem progress is a compatibility mirror for sync flows; unreadable
+        # or corrupt JSON should fall back to an idle snapshot instead of failing
+        # the polling endpoint.
         return {}
     return {}
 
@@ -139,6 +152,8 @@ def write_file_progress(
     try:
         progress_path(key).write_text(json.dumps(payload))
     except (OSError, IOError, PermissionError):
+        # Database-backed jobs remain authoritative in worker mode, so filesystem
+        # mirror failures are logged at debug level only.
         logger.debug("Failed to write progress payload for ref %s", progress_log_ref(key))
 
 
@@ -185,6 +200,8 @@ class AnalysisProgressHandle:
     """Update a batch's progress while optionally mirroring into an AnalysisJob."""
 
     def __init__(self, batch_key: str, *, job: AnalysisJob | None = None) -> None:
+        """Bind progress writes to a batch key and optional database job."""
+
         self.batch_key = batch_key
         self.job = job
 
@@ -196,8 +213,12 @@ class AnalysisProgressHandle:
         failure_summary: str | None = None,
         detail: dict[str, object] | None = None,
     ) -> None:
+        """Persist progress to the job row when worker-mode state exists."""
+
         if self.job is None:
             return
+        # Queryset update makes the progress write visible to pollers immediately
+        # without depending on the caller's in-memory job instance.
         update_fields: dict[str, object] = {"current_phase": phase}
         if status is not None:
             update_fields["status"] = status
@@ -216,7 +237,11 @@ class AnalysisProgressHandle:
         failure_summary: str = "",
         detail: dict[str, object] | None = None,
     ) -> None:
+        """Write a progress phase to both database and filesystem mirrors."""
+
         normalized_detail = normalize_progress_detail(detail)
+        # Keep the database job and legacy filesystem mirror synchronized so sync
+        # and worker execution expose the same polling response shape.
         self._update_job(
             phase=phase,
             status=status,
@@ -232,14 +257,22 @@ class AnalysisProgressHandle:
         )
 
     def request_cancel(self) -> None:
+        """Request cooperative cancellation for sync and worker execution."""
+
+        # The filesystem marker preserves legacy sync cancellation; the job flag
+        # drives worker-mode cooperative cancellation.
         set_cancelled(self.batch_key)
         if self.job is not None:
             self.job = request_job_cancellation(self.job)
 
     def clear_cancel(self) -> None:
+        """Clear the legacy filesystem cancellation marker for this batch."""
+
         clear_cancelled(self.batch_key)
 
     def is_cancel_requested(self) -> bool:
+        """Return whether cancellation was requested through either state path."""
+
         if is_cancelled(self.batch_key):
             return True
         if self.job is None:
@@ -255,6 +288,7 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
     if job is not None:
         stale_state = get_stale_job_terminal_state(job)
         if stale_state is None:
+            # A live job row is authoritative over the legacy file mirror.
             phase = job.current_phase or "Idle"
             status = normalize_progress_status(
                 phase=phase,
@@ -263,6 +297,8 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
             failure_summary = job.failure_summary or ""
             detail = normalize_progress_detail(job.progress_detail)
         else:
+            # Stale state is reported as a synthetic snapshot here; persistence is
+            # updated only by explicit reaper calls from mutating code paths.
             status, phase, failure_summary = stale_state
             detail = {}
         _log_inconsistent_snapshot(
@@ -278,6 +314,8 @@ def get_progress_snapshot(*, batch_key: str, user_id: int) -> AnalysisProgressSn
         )
 
     file_progress = read_file_progress(batch_key)
+    # If no job row exists, fall back to the filesystem mirror used by older sync
+    # execution paths and tests that exercise direct progress writes.
     phase = str(file_progress.get("phase") or "Idle")
     raw_status = str(file_progress.get("status") or "")
     status = normalize_progress_status(phase=phase, status=raw_status)

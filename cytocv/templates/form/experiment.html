@@ -31,6 +31,7 @@
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Puncta &amp; Contour Detection</div>
                     <div class="stats-list dot-detection-list">
+                        {# Dot-split control IDs map directly to localStorage keys and upload-prep payload fields. #}
                         <div class="toggle-row combo" id="dotSplitRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
@@ -95,6 +96,7 @@
                     </div>
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Measurement Scale</div>
+                    {# Measurement scale and wavelength order groups are rendered by experiment.js from server defaults. #}
                     <div class="measurement-scale-card" id="measurementScaleGroup"></div>
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Wavelength Channel Assignment</div>
@@ -207,6 +209,7 @@
     </div>
 
     <div class="reset-modal-backdrop popup-backdrop" id="resetBackdrop" aria-hidden="true">
+        {# Queue reset modal mutates only the client-side File queue before upload. #}
         <div class="reset-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
             <div class="reset-modal-header">
                 <span class="reset-modal-title" id="resetTitle">Reset Uploaded Files</span>

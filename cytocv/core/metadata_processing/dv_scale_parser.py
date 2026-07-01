@@ -17,6 +17,8 @@ from core.metadata_processing.tiff_scale_parser import extract_tiff_scale_metada
 
 
 def _safe_float(value: Any) -> float | None:
+    """Parse a finite numeric metadata field, returning None on bad input."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -27,10 +29,14 @@ def _safe_float(value: Any) -> float | None:
 
 
 def _valid_scale_value(value: float | None) -> bool:
+    """Return whether a parsed metadata scale can be used as um/px."""
+
     return value is not None and value > 0
 
 
 def _empty_scale_result() -> dict[str, Any]:
+    """Return the stable scale-metadata payload shape used by upload prep."""
+
     return {
         "metadata_um_per_px": None,
         "status": "missing",
@@ -45,6 +51,8 @@ def extract_dv_scale_metadata(dv_file_path: str | Path) -> dict[str, Any]:
     """Extract um/px scale metadata from supported source image metadata."""
 
     if source_image_extension(dv_file_path) in TIFF_IMAGE_EXTENSIONS:
+        # The public DV scale facade also handles TIFF so upload preparation can
+        # call one function for every supported source extension.
         return extract_tiff_scale_metadata(dv_file_path)
 
     result = _empty_scale_result()
@@ -73,6 +81,8 @@ def extract_dv_scale_metadata(dv_file_path: str | Path) -> dict[str, Any]:
         dx_valid = _valid_scale_value(dx)
         dy_valid = _valid_scale_value(dy)
         if dx_valid and dy_valid:
+            # Statistics store both axes separately but keep a scalar average for
+            # legacy fields and UI controls that expect one microns-per-pixel value.
             metadata_scale = (dx + dy) / 2.0
             result["metadata_um_per_px"] = metadata_scale
             if abs(dx - dy) > 1e-9:
@@ -91,6 +101,8 @@ def extract_dv_scale_metadata(dv_file_path: str | Path) -> dict[str, Any]:
             result["note"] = "DV header scale values are missing, non-finite, or non-positive."
         return result
     except Exception:
+        # Metadata extraction failure should not reject the upload; callers fall
+        # back to manual scale while showing a safe note.
         result["status"] = "invalid"
         result["note"] = "Unable to read DV metadata scale from file header."
         return result

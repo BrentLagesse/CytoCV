@@ -34,6 +34,8 @@ class FrontendTemplateContractTests(TestCase):
     """Protect IDs, data attributes, script tags, and non-inline styling rules."""
 
     def _assert_viewer_encoding_and_stats_layout(self, content: str) -> None:
+        """Assert the shared stats card keeps every JS-owned hook in place."""
+
         for token in MOJIBAKE_TOKENS:
             with self.subTest(token=token):
                 self.assertNotIn(token, content)

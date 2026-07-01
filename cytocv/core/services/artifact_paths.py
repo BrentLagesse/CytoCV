@@ -15,10 +15,14 @@ from django.conf import settings
 
 
 def _path_stem(value: object) -> str:
+    """Strip extensions from user-visible file names for artifact stems."""
+
     return Path(str(value or "")).stem
 
 
 def _clean_url_part(value: object) -> str:
+    """Normalize one URL path fragment without interpreting it as a filesystem path."""
+
     return str(value or "").replace("\\", "/").strip("/")
 
 

@@ -1,4 +1,5 @@
 {% load static %}
+{# Base layout owns shared metadata, navigation IDs, flash messages, and global scripts. #}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -146,6 +147,7 @@
         {% endblock site_footer %}
     </div>
 
+    {# base-interactions.js controls this modal and may call page-provided cancellation hooks. #}
     <div class="logout-modal-backdrop" id="logoutBackdrop" aria-hidden="true">
         {# Logout may also cancel a running analysis through globals exposed by preprocess pages. #}
         <div class="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">

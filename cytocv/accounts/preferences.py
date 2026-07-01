@@ -118,6 +118,8 @@ DEFAULT_USER_PREFERENCES: dict[str, Any] = {
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
+    """Coerce stored preference booleans without rejecting old payloads."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -130,6 +132,8 @@ def _as_bool(value: Any, default: bool = False) -> bool:
 
 
 def _as_int(value: Any, default: int, minimum: int) -> int:
+    """Coerce stored integer preferences with a lower-bound fallback."""
+
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -140,6 +144,8 @@ def _as_int(value: Any, default: int, minimum: int) -> int:
 
 
 def _as_float(value: Any, default: float, minimum: float) -> float:
+    """Coerce stored float preferences with a lower-bound fallback."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -150,6 +156,8 @@ def _as_float(value: Any, default: float, minimum: float) -> float:
 
 
 def _normalize_unit(value: Any, default: str) -> str:
+    """Normalize stored length units while preserving a caller default."""
+
     unit = str(value or "").strip().lower()
     if unit not in LENGTH_UNITS:
         return default
@@ -157,6 +165,8 @@ def _normalize_unit(value: Any, default: str) -> str:
 
 
 def normalize_main_image_channel(value: Any, default: str = "") -> str:
+    """Normalize the dashboard/display main-image channel slug preference."""
+
     slug = str(value or "").strip().lower()
     if not slug:
         return default
@@ -166,6 +176,8 @@ def normalize_main_image_channel(value: Any, default: str = "") -> str:
 
 
 def _strict_bool(value: Any, *, field: str) -> bool:
+    """Validate a popup payload boolean and raise a field-specific error."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, int) and value in {0, 1}:
@@ -182,6 +194,8 @@ def _strict_bool(value: Any, *, field: str) -> bool:
 
 
 def _strict_float(value: Any, *, field: str, minimum: float) -> float:
+    """Validate a finite popup payload float above the supplied minimum."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -192,6 +206,8 @@ def _strict_float(value: Any, *, field: str, minimum: float) -> float:
 
 
 def _strict_int(value: Any, *, field: str, minimum: int) -> int:
+    """Validate a popup payload integer above the supplied minimum."""
+
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -202,6 +218,8 @@ def _strict_int(value: Any, *, field: str, minimum: int) -> int:
 
 
 def _strict_unit(value: Any, *, field: str) -> str:
+    """Validate a popup payload unit exactly as px or um."""
+
     unit = str(value or "").strip().lower()
     if unit not in LENGTH_UNITS:
         raise PreferenceValidationError(f"{field} must be 'px' or 'um'.")
@@ -214,6 +232,8 @@ def _strict_mode(
     field: str,
     allowed: set[str],
 ) -> str:
+    """Validate a popup payload mode against an explicit allowlist."""
+
     mode = str(value or "").strip()
     if mode not in allowed:
         raise PreferenceValidationError(f"{field} is invalid.")
@@ -221,6 +241,8 @@ def _strict_mode(
 
 
 def _strict_channel_order(value: Any, *, field: str) -> list[str]:
+    """Validate a complete fallback channel order from the workflow popup."""
+
     if not isinstance(value, list):
         raise PreferenceValidationError(f"{field} must be a list.")
     normalized = validate_channel_order(value)
@@ -232,6 +254,8 @@ def _strict_channel_order(value: Any, *, field: str) -> list[str]:
 
 
 def _first_present(*values: Any) -> Any:
+    """Return the first non-None value across current and legacy preference keys."""
+
     for value in values:
         if value is not None:
             return value

@@ -1,3 +1,4 @@
+    /* Email confirmation result page shared by valid, expired, and resumed-login states. */
     .auth-page {
         flex: 1 0 auto;
         min-height: 100%;
@@ -52,6 +53,7 @@
     .auth-note strong {
         color: var(--text);
     }
+    /* Status panel groups provider/account details without changing allauth context data. */
     .auth-panel {
         background:
             var(--liquid-linear-highlight-soft),

@@ -136,12 +136,16 @@ LENGTH_UNITS = {"px", "um"}
 
 
 def _post_bool(request: HttpRequest, key: str) -> bool:
+    """Parse checkbox-style POST booleans used by preferences forms."""
+
     return str(request.POST.get(key, "")).strip().lower() in {"1", "true", "on", "yes"}
 
 
 def _payload_bool(
     post_data: Any, key: str, *, default: bool = False, legacy_key: str | None = None
 ) -> bool:
+    """Parse a boolean from current or legacy preference field names."""
+
     raw_value = post_data.get(key)
     if raw_value is None and legacy_key is not None:
         raw_value = post_data.get(legacy_key)
@@ -151,6 +155,8 @@ def _payload_bool(
 
 
 def _parse_positive_int(raw_value: Any, default: int, minimum: int = 0) -> int:
+    """Return a bounded integer preference value or its existing default."""
+
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
@@ -161,6 +167,8 @@ def _parse_positive_int(raw_value: Any, default: int, minimum: int = 0) -> int:
 
 
 def _parse_positive_float(raw_value: Any, default: float, minimum: float = 0) -> float:
+    """Return a bounded float preference value or its existing default."""
+
     try:
         value = float(raw_value)
     except (TypeError, ValueError):
@@ -171,6 +179,8 @@ def _parse_positive_float(raw_value: Any, default: float, minimum: float = 0) ->
 
 
 def _normalize_unit(value: Any, default: str = "px") -> str:
+    """Normalize stored/requested length units for workflow defaults."""
+
     unit = str(value or "").strip().lower()
     if unit not in LENGTH_UNITS:
         return default
@@ -178,6 +188,8 @@ def _normalize_unit(value: Any, default: str = "px") -> str:
 
 
 def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
+    """Normalize nuclear/cell-pair mode names from preference forms."""
+
     mode = str(value or "").strip()
     if mode not in NUCLEAR_CELL_PAIR_MODES:
         return default
@@ -188,10 +200,14 @@ def _normalize_nuclear_contour_mode(
     value: Any,
     default: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
 ) -> str:
+    """Normalize the contour-source mode used by nuclear/cell-pair analysis."""
+
     return normalize_nuclear_cell_pair_contour_mode(value, default=default)
 
 
 def _normalize_puncta_mode(value: Any, default: str = DEFAULT_PUNCTA_LINE_MODE) -> str:
+    """Normalize puncta-line mode names from preference forms."""
+
     return normalize_puncta_line_mode(value, default=default)
 
 
@@ -418,6 +434,8 @@ def _extract_measurement_defaults(
 
 
 def _channel_summary_meta(channel: str) -> str:
+    """Return concise help text for the required-channel summary UI."""
+
     if channel == CHANNEL_ROLE_DIC:
         return "Brightfield morphology reference"
     if channel == CHANNEL_ROLE_BLUE:
@@ -437,7 +455,11 @@ def _resolve_required_channel_state(
     module_enabled: bool,
     enforce_wavelengths: bool,
 ) -> dict[str, Any]:
+    """Resolve one channel's required/paused/toggle state for preferences."""
+
     if channel in ALWAYS_REQUIRED_CHANNELS:
+        # DIC remains locked because segmentation depends on a morphology channel
+        # regardless of optional statistics plugins.
         return {
             "summary_label": "Always required",
             "summary_required": True,
@@ -450,6 +472,8 @@ def _resolve_required_channel_state(
         }
 
     if channel in stats_required:
+        # Plugin-required channels can be inspected but not unchecked while their
+        # dependent plugins remain selected.
         return {
             "summary_label": "Required by stats",
             "summary_required": True,
@@ -462,6 +486,8 @@ def _resolve_required_channel_state(
         }
 
     if module_enabled and enforce_wavelengths:
+        # All-channel enforcement makes every logical channel mandatory without
+        # implying that a specific statistics plugin uses that channel.
         return {
             "summary_label": "Required by all-channels",
             "summary_required": True,
@@ -486,6 +512,8 @@ def _resolve_required_channel_state(
         }
 
     if enforce_wavelengths:
+        # Saved all-channel enforcement is paused, not discarded, when the
+        # validation module is disabled.
         return {
             "summary_label": "Paused by all-channels",
             "summary_required": False,
@@ -529,6 +557,8 @@ def _build_required_channel_rows(
     defaults: dict[str, Any],
     selected_plugins: list[str],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Build channel rows plus plugin-derived requirement metadata."""
+
     requirement_summary = build_requirement_summary(selected_plugins)
     stats_required = set(requirement_summary["required_channels"])
     manual_required = {
@@ -562,6 +592,8 @@ def _build_required_channel_rows(
 
 
 def _recalculate_user_storage_usage(user: Any) -> None:
+    """Refresh cached quota usage after dashboard/account media mutations."""
+
     refresh_user_storage_usage(user)
 
 
@@ -655,10 +687,14 @@ def _serialize_cell_statistics(
 
 
 def _media_url_for_file(path: Path) -> str:
+    """Return a MEDIA_URL for a file only when it is under MEDIA_ROOT."""
+
     media_root = Path(MEDIA_ROOT).resolve()
     try:
         relative = path.resolve().relative_to(media_root)
     except ValueError:
+        # Asset scanners ignore paths outside MEDIA_ROOT rather than exposing
+        # filesystem locations in serialized dashboard payloads.
         return ""
     return f"{MEDIA_URL}{relative.as_posix()}"
 
@@ -706,6 +742,8 @@ def _scan_segmented_assets(segmented_dir: Path) -> tuple[
 
 
 def _scan_output_frames(output_dir: Path) -> dict[int, str]:
+    """Index preprocessed output frames by their logical channel index."""
+
     frames: dict[int, str] = {}
     if not output_dir.exists():
         return frames
@@ -781,6 +819,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         uuid = str(segmented_image.UUID)
         uploaded = uploaded_map.get(uuid)
         if not uploaded:
+            # Segmented rows without a saved upload row are ignored on Dashboard;
+            # cleanup handles stale artifacts separately.
             continue
 
         image_name = uploaded.name
@@ -882,6 +922,9 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                 else:
                     outlined_url = outlined_images.get((channel_index, cell_id), "")
                 if not outlined_url:
+                    # Legacy saved runs may have channel indexes that no longer
+                    # match the current channel config; fall back by cell id so
+                    # available outlines remain visible.
                     outlined_url = next(
                         (
                             url
@@ -896,6 +939,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
 
                 no_outline_url = no_outline_images.get((channel_index, cell_id), "")
                 if not no_outline_url:
+                    # The same by-cell fallback keeps raw crop previews available
+                    # for restored runs with incomplete channel metadata.
                     no_outline_url = next(
                         (
                             url
@@ -934,6 +979,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                 "Check channel mapping (DIC/Blue/Red/Green) and run the experiment again."
             )
         elif not output_frames:
+            # Main-image paths are optional because statistics tables can still be
+            # useful when preview frame artifacts were cleaned up or not produced.
             no_cells_warning = (
                 "Preview images are unavailable for this saved file. "
                 "The statistics table is still available when data exists."
@@ -969,6 +1016,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         }
 
     if cell_table is None:
+        # Empty dashboards still receive a table instance so the template and
+        # static table/export code can use a single rendering path.
         cell_table = CellTable(
             CellStatistics.objects.none(),
             intensity_mode=None,
@@ -1473,6 +1522,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "save_plugin_defaults":
+            # Plugin defaults are saved as configured plugins plus derived
+            # visibility/mode fields so new experiments do not have to infer from
+            # legacy plugin lists on every request.
             selected_plugins = expand_selected_plugins(
                 request.POST.getlist("selected_plugins")
             )
@@ -1586,6 +1638,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             return _preferences_redirect(request, section="plugins")
 
         if action == "save_advanced_settings":
+            # Advanced channel validation can remove plugins whose required
+            # channels the user explicitly disables; that keeps future experiment
+            # defaults internally consistent.
             module_enabled = _post_bool(request, "module_enabled")
             enforce_layer_count = _post_bool(request, "enforce_layer_count")
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
@@ -1675,6 +1730,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             return _preferences_redirect(request, section="advanced")
 
         if action == "save_behavior":
+            # Behavior settings live at the top level of the preference payload
+            # because Dashboard and Display read them outside experiment defaults.
             next_payload = dict(preferences)
             next_payload["auto_save_experiments"] = _post_bool(
                 request,
@@ -1723,6 +1780,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
     signal_defaults = resolve_signal_quantification_from_defaults(defaults)
     selected_plugins = set(signal_defaults.configured_plugins)
     effective_selected_plugins = set(signal_defaults.selected_plugins)
+    # The rendered plugin list carries both dependency metadata and legacy flags;
+    # the frontend reads the JSON dependency payload for interactive disabling.
     for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugin_rows.append(

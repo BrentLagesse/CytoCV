@@ -17,6 +17,8 @@ class Command(BaseCommand):
     help = "Create or repair django-allauth EmailAddress aliases for users."
 
     def add_arguments(self, parser):
+        """Register optional email filter and dry-run mode."""
+
         parser.add_argument(
             "--email",
             help="Limit sync to one user email address, matched case-insensitively.",
@@ -28,12 +30,16 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Backfill allauth aliases while reporting skipped/conflicting rows."""
+
         target_email = normalize_account_email(options.get("email"))
         dry_run = bool(options.get("dry_run"))
         user_model = get_user_model()
 
         users = user_model.objects.all()
         if target_email:
+            # Email filters are case-insensitive to match login and recovery
+            # lookup behavior.
             users = users.filter(email__iexact=target_email)
         elif options.get("email") is not None:
             raise CommandError("--email cannot be blank.")
@@ -49,6 +55,8 @@ class Command(BaseCommand):
         conflict_lines: list[str] = []
 
         for user in users.order_by("email", "pk").iterator():
+            # Iterator use keeps the command safe for larger deployments while
+            # sync_user_email_address owns per-user mutation/transaction rules.
             counts["users_scanned"] += 1
             result = sync_user_email_address(
                 user,

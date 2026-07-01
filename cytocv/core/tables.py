@@ -1,4 +1,9 @@
-"""Table definitions for rendering and exporting cell statistics."""
+"""Table definitions for rendering and exporting cell statistics.
+
+``CellTable`` is the shared formatting boundary for browser tables, single-file
+exports, and combined exports.  Comments in this file focus on the parts where
+stored model values become public labels, units, and export cell values.
+"""
 
 from __future__ import annotations
 
@@ -40,6 +45,8 @@ NUCLEAR_CELL_PAIR_LABELS = {
     "red_nucleus": ("Green Cell-Pair Intensity", "Green Nuclear Intensity"),
     "green_nucleus": ("Red Cell-Pair Intensity", "Red Nuclear Intensity"),
 }
+# Fallback labels cover legacy rows and generic exports where no mode-specific
+# contour/measurement channel was recorded.
 FALLBACK_NUCLEAR_CELL_PAIR_LABELS = ("Measured Cell-Pair Intensity", "Measured Nuclear Intensity")
 EXPORT_DECIMAL_PLACES = Decimal("0.001")
 
@@ -66,6 +73,8 @@ class NumberColumn(tables.Column):
             return "N/A"
 
     def value(self, value: float, record=None) -> str:
+        """Use display formatting for exported numeric cells by default."""
+
         return self.render(value, record=record)
 
 
@@ -79,10 +88,14 @@ class ChoiceLabelColumn(tables.Column):
 
     @staticmethod
     def _schema_version(record) -> int | None:
+        """Read the cen-dot schema version stored alongside statistics."""
+
         properties = getattr(record, "properties", {}) or {}
         return properties.get("cen_dot_schema_version")
 
     def render(self, value: int, record=None) -> str:
+        """Render choice codes while respecting plugin visibility metadata."""
+
         if self.stat_field and record is not None and not is_field_applicable(
             record,
             self.stat_field,
@@ -92,6 +105,8 @@ class ChoiceLabelColumn(tables.Column):
         return get_cen_dot_category_label(value, schema_version=self._schema_version(record))
 
     def value(self, value: int, record=None) -> str:
+        """Export the same label shown in the table."""
+
         return self.render(value, record=record)
 
 
@@ -386,6 +401,8 @@ class CellTable(tables.Table):
         stat_visibility: dict[str, bool] | None = None,
         selected_plugins: list[str] | tuple[str, ...] | None = None,
     ) -> dict[str, bool]:
+        """Resolve plugin visibility once for the whole table instance."""
+
         return resolve_stat_visibility(
             data,
             stat_visibility=stat_visibility,
@@ -393,6 +410,8 @@ class CellTable(tables.Table):
         )
 
     def _field_is_applicable(self, record: CellStatistics, field_name: str) -> bool:
+        """Return whether one field should render/export a stored value."""
+
         return is_field_applicable(
             record,
             field_name,
@@ -401,6 +420,8 @@ class CellTable(tables.Table):
 
     @staticmethod
     def _has_no_nucleus_contour(record: CellStatistics) -> bool:
+        """Return whether nuclear/cell-pair metrics should display as unavailable."""
+
         properties = getattr(record, "properties", {}) or {}
         return properties.get(
             "nuclear_cell_pair_status",
@@ -409,6 +430,8 @@ class CellTable(tables.Table):
 
     @staticmethod
     def _format_number(value: float) -> str:
+        """Format browser-visible numbers with the table's fixed precision."""
+
         try:
             return "{:0.3f}".format(float(value))
         except (TypeError, ValueError):
@@ -416,6 +439,8 @@ class CellTable(tables.Table):
 
     @staticmethod
     def _export_decimal(value: float) -> Decimal | str:
+        """Quantize export numbers without raising on missing or non-finite values."""
+
         try:
             decimal_value = Decimal(str(value))
         except (InvalidOperation, TypeError, ValueError):
@@ -426,6 +451,8 @@ class CellTable(tables.Table):
 
     @staticmethod
     def _export_int(value: int) -> int | str:
+        """Return integer export cells or an unavailable marker."""
+
         try:
             return int(value)
         except (TypeError, ValueError):
@@ -559,8 +586,12 @@ class CellTable(tables.Table):
         value: float,
         record: CellStatistics,
     ) -> float | None:
+        """Convert pixel-space measurements to the table's selected display unit."""
+
         spatial_kind = self.SPATIAL_FIELDS.get(field_name)
         if spatial_kind == "area":
+            # Areas use separate x/y scale values because non-square pixels
+            # affect area conversion differently from distance conversion.
             return convert_area_pixels_to_display_units(
                 value,
                 unit=self._spatial_stats_unit,
@@ -570,6 +601,8 @@ class CellTable(tables.Table):
 
         if spatial_kind == "distance":
             properties = getattr(record, "properties", {}) or {}
+            # Directional deltas are preferred for distances when available so
+            # anisotropic pixel scale is applied along the measured vector.
             return convert_distance_pixels_to_display_units(
                 value,
                 unit=self._spatial_stats_unit,
@@ -593,6 +626,8 @@ class CellTable(tables.Table):
         contour_prefix: str,
         record: CellStatistics,
     ) -> str:
+        """Render contour centers from properties JSON using current unit settings."""
+
         if not self._field_is_applicable(record, field_name):
             return "N/A"
         return format_contour_center_from_properties(
@@ -604,6 +639,8 @@ class CellTable(tables.Table):
         )
 
     def _render_nuclear_cell_pair_value(self, record: CellStatistics, value: float) -> str:
+        """Render nuclear/cell-pair metrics with the no-contour sentinel honored."""
+
         if not self._field_is_applicable(record, "cell_pair_intensity_sum"):
             return "N/A"
         if self._has_no_nucleus_contour(record):
@@ -612,6 +649,8 @@ class CellTable(tables.Table):
 
     @staticmethod
     def _nuclear_cell_pair_contour_source(record: CellStatistics) -> str:
+        """Return the stored source of the contour used for nuclear measurements."""
+
         properties = getattr(record, "properties", {}) or {}
         value = properties.get("nuclear_cell_pair_contour_source")
         return str(value or "N/A")
@@ -651,6 +690,8 @@ class CellTable(tables.Table):
         return self._render_nuclear_cell_pair_value(record, value)
 
     def _measurement_contour_ratio_value(self, record: CellStatistics, index: int) -> float:
+        """Resolve ratio values from properties/model fields for one contour slot."""
+
         properties = getattr(record, "properties", {}) or {}
         record_mode = properties.get(
             "nuclear_cell_pair_mode",
@@ -829,6 +870,8 @@ class CellTable(tables.Table):
         return self._render_spatial_value("distance_of_green_from_red_3", value, record)
 
     def render_colinear_dots(self, value: int, record: CellStatistics) -> str:
+        """Render biorientation counts only when that plugin was selected."""
+
         if not self._field_is_applicable(record, "colinear_dots"):
             return "N/A"
         try:
@@ -840,6 +883,8 @@ class CellTable(tables.Table):
         return self.render_colinear_dots(value, record)
 
     def render_off_axis_dots(self, value: int, record: CellStatistics) -> str:
+        """Render off-axis biorientation counts only when applicable."""
+
         if not self._field_is_applicable(record, "off_axis_dots"):
             return "N/A"
         try:
@@ -851,9 +896,13 @@ class CellTable(tables.Table):
         return self.render_off_axis_dots(value, record)
 
     def as_values(self, exclude_columns=None):
+        """Yield export headers and rows while preserving table column order."""
+
         if exclude_columns is None:
             exclude_columns = ()
 
+        # Exclusions come from the export modal; django-tables2 native export
+        # exclusions are also honored for fields that should never leave the UI.
         columns = [
             column
             for column in self.columns.iterall()

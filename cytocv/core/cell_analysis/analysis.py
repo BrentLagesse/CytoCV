@@ -16,6 +16,8 @@ class Analysis:
     name = ""
 
     def __init__(self, cp: CellStatistics = None, image: GrayImage = None, output_dir=None):
+        """Optionally attach row, image bundle, and output directory at creation."""
+
         if cp is not None and image is not None and output_dir is not None:
             self.cp = cp
             self.preprocessed_images = image

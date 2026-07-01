@@ -7,6 +7,8 @@ class GrayImage:
 
     _image_storage = {}
     def __init__(self, img:dict = None):
+        """Initialize the plugin image store with caller data or default keys."""
+
         if img:
             self._image_storage = img
         else:
@@ -25,10 +27,16 @@ class GrayImage:
                 'raw_blue': None,
             }
     def set_image(self, key:str, image:np.ndarray):
+        """Legacy key-based setter retained for callers that pass one image."""
+
         self._image_storage[key] = image
 
     def set_image(self, images:dict):
+        """Replace the full image map used by statistics plugins."""
+
         self._image_storage = images
 
     def get_image(self, key):
+        """Return a plugin image by historical key, or ``None`` when unavailable."""
+
         return self._image_storage.get(key)

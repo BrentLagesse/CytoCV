@@ -5,6 +5,8 @@
     'use strict';
 
     function readJsonConfig(scriptId) {
+        // Templates render page configuration in JSON script tags; missing tags
+        // fall back to an empty object so inactive pages can share this bundle.
         const node = document.getElementById(scriptId);
         return JSON.parse(node ? node.textContent || '{}' : '{}');
     }
@@ -1866,6 +1868,8 @@
         };
     }
 
+    // Public namespace consumed by Display and Dashboard page controllers. Keep
+    // these names stable because static contract tests look for shared helpers.
     global.CytoCVResultsViewerShared = {
         readJsonConfig,
         createBlendHelpers,

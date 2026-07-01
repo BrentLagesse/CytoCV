@@ -42,6 +42,8 @@ CHANNEL_INFO: dict[str, str] = {
 
 @dataclass(frozen=True)
 class StatsPluginDefinition:
+    """Static metadata for one selectable statistics plugin."""
+
     plugin_id: str
     label: str
     description: str
@@ -194,6 +196,8 @@ PLUGIN_DEFINITIONS: dict[str, StatsPluginDefinition] = {
 
 
 def _channel_sort_key(channel: str) -> int:
+    """Return the canonical logical-channel sort index."""
+
     return channel_sort_key(channel)
 
 
@@ -238,6 +242,8 @@ def _get_required_channels_for_expanded_plugins(
     *,
     puncta_line_mode: Any = None,
 ) -> list[str]:
+    """Return required channels after plugin dependencies are expanded."""
+
     required_channels = set(ALWAYS_REQUIRED_CHANNELS)
     for plugin_id in expanded_plugins:
         if plugin_id == "PunctaDistance":
@@ -248,6 +254,8 @@ def _get_required_channels_for_expanded_plugins(
 
 
 def _instantiate_plugin_ids(plugin_ids: Iterable[str]) -> list[Any]:
+    """Instantiate analysis plugin classes in execution order."""
+
     return [get_plugin_class(plugin_id)() for plugin_id in plugin_ids]
 
 

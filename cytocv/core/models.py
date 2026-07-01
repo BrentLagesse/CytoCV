@@ -75,6 +75,8 @@ class UploadedImage(models.Model):
     scale_info = models.JSONField(default=default_scale_info)
 
     def __str__(self) -> str:
+        """Return a compact admin/debug label for the uploaded source file."""
+
         return f"User: {self.user_id} Name: {self.name} UUID: {self.uuid}"
 
 
@@ -106,6 +108,8 @@ class SegmentedImage(models.Model):
     )
 
     def __str__(self) -> str:
+        """Return a compact admin/debug label for segmented run outputs."""
+
         return (
             f"UUID: {self.UUID} Path: {self.ImagePath} "
             f"Prefix: {self.CellPairPrefix} Number of Cells: {self.NumCells}"
@@ -163,6 +167,8 @@ class AnalysisJob(models.Model):
         ordering = ["created_at"]
 
     def __str__(self) -> str:
+        """Return a compact admin/debug label for queued analysis work."""
+
         return (
             f"AnalysisJob(job_uuid={self.job_uuid}, batch_key={self.batch_key}, "
             f"status={self.status}, phase={self.current_phase})"
@@ -209,6 +215,8 @@ class UploadPreparationJob(models.Model):
         ordering = ["created_at"]
 
     def __str__(self) -> str:
+        """Return a compact admin/debug label for upload-preparation work."""
+
         return (
             f"UploadPreparationJob(job_uuid={self.job_uuid}, "
             f"status={self.status}, phase={self.current_phase})"
@@ -389,6 +397,8 @@ class CellStatistics(models.Model):
     properties = models.JSONField(default=dict)
 
     def __str__(self) -> str:
+        """Return a compact admin/debug label for one cell's statistics row."""
+
         return (
             f"Cell ID: {self.cell_id} - Dist: {self.puncta_distance}, "
             f"Puncta Line: {self.puncta_line_intensity}"

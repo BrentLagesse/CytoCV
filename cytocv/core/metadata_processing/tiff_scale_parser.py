@@ -10,6 +10,8 @@ import tifffile
 
 
 def _empty_scale_result() -> dict[str, Any]:
+    """Return the stable scale-metadata payload shape used by upload prep."""
+
     return {
         "metadata_um_per_px": None,
         "status": "missing",
@@ -21,6 +23,8 @@ def _empty_scale_result() -> dict[str, Any]:
 
 
 def _safe_float(value: Any) -> float | None:
+    """Parse a finite numeric metadata value."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -31,10 +35,14 @@ def _safe_float(value: Any) -> float | None:
 
 
 def _valid_scale_value(value: float | None) -> bool:
+    """Return whether a parsed resolution/scale value is usable."""
+
     return value is not None and value > 0
 
 
 def _ratio_to_float(value: Any) -> float | None:
+    """Convert TIFF rational tag values into floats."""
+
     if isinstance(value, tuple) and len(value) == 2:
         numerator = _safe_float(value[0])
         denominator = _safe_float(value[1])
@@ -45,6 +53,8 @@ def _ratio_to_float(value: Any) -> float | None:
 
 
 def _unit_um_from_resolution_unit(unit: Any) -> float | None:
+    """Return microns per TIFF resolution unit for standard TIFF units."""
+
     raw_value = getattr(unit, "value", unit)
     try:
         unit_int = int(raw_value)
@@ -65,6 +75,8 @@ def _unit_um_from_resolution_unit(unit: Any) -> float | None:
 
 
 def _unit_um_from_imagej_unit(unit: Any) -> float | None:
+    """Return microns per ImageJ unit string when it names a physical unit."""
+
     unit_text = str(unit or "").strip().lower()
     if unit_text in {"um", "µm", "micron", "microns", "micrometer", "micrometers"}:
         return 1.0
@@ -100,6 +112,8 @@ def _build_scale_result(
     y_resolution: float | None,
     missing_unit_note: str,
 ) -> dict[str, Any]:
+    """Build the normalized scale result from resolution and unit metadata."""
+
     result = _empty_scale_result()
     if unit_um is None:
         result["status"] = "missing"
@@ -112,6 +126,8 @@ def _build_scale_result(
 
     dx = unit_um / x_resolution
     dy = unit_um / y_resolution
+    # Keep x/y axes available for anisotropic distance calculations while also
+    # preserving the historical scalar metadata_um_per_px average.
     result["dx"] = dx
     result["dy"] = dy
     result["metadata_um_per_px"] = (dx + dy) / 2.0
@@ -129,6 +145,8 @@ def extract_tiff_scale_metadata(path: str | Path) -> dict[str, Any]:
     try:
         metadata = read_tiff_scale_metadata(path)
     except Exception:
+        # Scale extraction is non-fatal: the upload can proceed with manual scale
+        # while the UI reports that TIFF metadata could not be read.
         result = _empty_scale_result()
         result["status"] = "invalid"
         result["note"] = "Unable to read TIFF resolution metadata."
@@ -148,6 +166,8 @@ def extract_tiff_scale_metadata(path: str | Path) -> dict[str, Any]:
         )
 
     imagej_unit_um = _unit_um_from_imagej_unit(imagej_metadata.get("unit"))
+    # ImageJ unit metadata is used only when standard TIFF ResolutionUnit is
+    # absent, keeping tag-defined physical units authoritative.
     return _build_scale_result(
         unit_um=imagej_unit_um,
         x_resolution=x_resolution,

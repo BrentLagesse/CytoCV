@@ -40,6 +40,8 @@ def center_axis_key(contour_prefix: str, axis: str) -> str:
 
 
 def _finite_float(value: Any) -> float | None:
+    """Return a finite float or None for missing/invalid coordinate data."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):
