@@ -11,10 +11,11 @@ The active Django test suite is split across:
 - `cytocv/core/tests/`
 - `cytocv/accounts/tests_*.py`
 
-The current baseline is 774 tests: 703 under `core` and 71 under `accounts`.
-The suite includes upload preparation, TIFF/DV parsing, artifact storage,
-progress and worker behavior, scientific-stat calculations, exports, frontend
-contracts, account preferences, email alias behavior, and quota policy.
+The exact test count changes as regression contracts are added. The suite
+includes upload preparation, TIFF/DV parsing, artifact storage, progress and
+worker behavior, scientific-stat calculations, exports, frontend contracts,
+account preferences, email alias behavior, quota policy, documentation
+contracts, and CI workflow contracts.
 
 ## What The Tests Cover
 
@@ -24,6 +25,7 @@ contracts, account preferences, email alias behavior, and quota policy.
 - staged upload-preparation APIs and worker jobs
 - async analysis jobs, worker claiming, and progress endpoints
 - table rendering and export support
+- Cell Inclusion Mode, Cell Type row filtering, source contour count row filtering, and deleted-row export exclusion
 - scale initialization and upload-time scale handling
 - plugin and stats validation behavior
 - exact artifact path contracts for generated media and overlay files
@@ -56,9 +58,12 @@ From `cytocv/`:
 python manage.py check
 python manage.py makemigrations --check --dry-run
 python manage.py collectstatic --dry-run --noinput
+python -m compileall cytocv
+Get-ChildItem -Path core/static/js -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 python manage.py test core
 python manage.py test accounts
 python manage.py test
+git diff --check
 ```
 
 When working on a narrower area, run the relevant subset first and then rerun the full suite before finalizing.
@@ -67,11 +72,16 @@ When working on a narrower area, run the relevant subset first and then rerun th
 
 GitHub Actions runs the backend safety gate in `.github/workflows/backend-ci.yml`.
 The workflow uses Python 3.11.5 from `.python-version`, installs
-`requirements.txt`, and runs `manage.py check`,
-`manage.py makemigrations --check --dry-run`,
-`manage.py collectstatic --dry-run --noinput`, explicit Django frontend-contract
-tests, `manage.py test core`, `manage.py test accounts`, and the full
-`manage.py test` suite.
+`requirements.txt`, sets `CYTOCV_DB_BACKEND=sqlite`, and avoids production
+secrets, OAuth credentials, SMTP credentials, external services, production
+media, and heavyweight unmocked ML fixtures.
+
+The workflow is split into four jobs:
+
+- `backend-full-suite`: Django system check, migration dry-run, collectstatic dry-run, and the full `python manage.py test` suite.
+- `targeted-regressions`: high-signal scientific statistics, Cell Inclusion Mode, row-filter, export, deletion, async, account preference, TIFF/DV, and scale modules.
+- `frontend-contracts`: `node --check` for checked-in JavaScript plus rendered-template, static, JSON, shared-JS, viewer, workflow, export, and core app contracts.
+- `docs-and-ci-contracts`: `python -m compileall cytocv`, changed-file whitespace checks with `git diff --check`, docs contract tests, backend CI contract tests, and settings environment contracts.
 
 There is no separate Node frontend toolchain or frontend build CI. The
 frontend safety rail in CI is contract coverage for Django-rendered templates,
@@ -84,6 +94,16 @@ project dependency. Add coverage as a test/development dependency before
 introducing an informational coverage step in Backend CI. Lint/format gates,
 typechecking, browser E2E, Docker build, and deployment validation are also
 deferred until the baseline CI stays stable.
+
+For targeted regression work, run:
+
+```powershell
+python manage.py test core.tests.test_cell_inclusion_mode core.tests.test_puncta_source_contour_count_filter
+python manage.py test core.tests.test_intensity_helpers core.tests.test_stats_validation core.tests.test_modern_contour_statistics
+python manage.py test core.tests.test_tables core.tests.test_cell_statistics_payload core.tests.test_stat_export_selection
+python manage.py test core.tests.test_cell_deletion core.tests.test_analysis_async core.tests.test_accounts_preferences
+python manage.py test core.tests.test_docs_contracts core.tests.test_backend_ci_contracts
+```
 
 For frontend template/static changes, run:
 

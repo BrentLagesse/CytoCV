@@ -1,3 +1,5 @@
+"""Protected fluorescence overlay endpoint for Display and Dashboard viewers."""
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +25,8 @@ def cell_overlay_image(
     cell_id: int,
     channel: str,
 ) -> HttpResponse:
+    """Serve or regenerate the exact contour-on overlay image for one cell."""
+
     from .display import _can_access_display_uuid
 
     try:
@@ -33,6 +37,8 @@ def cell_overlay_image(
     uploaded_image = get_object_or_404(UploadedImage, uuid=uuid)
     segmented_image = get_object_or_404(SegmentedImage, UUID=uuid)
     if not _can_access_display_uuid(request, uploaded_image, segmented_image):
+        # Unauthorized overlays are hidden as not found so callers cannot
+        # distinguish missing cells from inaccessible runs.
         raise Http404("Overlay not found")
 
     cell_stat = get_object_or_404(
@@ -43,6 +49,10 @@ def cell_overlay_image(
     started_at = time.perf_counter()
 
     def fallback_overlay_path() -> HttpResponse:
+        """Serve older overlay artifacts when exact replay is unavailable."""
+
+        # New overlay-cache versions are preferred, but historical caches remain
+        # valid artifacts for runs generated before the current replay snapshot.
         historical_cache = find_historical_overlay_cache_image_path(
             uuid,
             cell_id,
@@ -61,6 +71,8 @@ def cell_overlay_image(
         legacy_debug = find_legacy_debug_image_path(uuid, cell_id, normalized_channel)
         if legacy_debug is None or not legacy_debug.exists():
             raise Http404("Overlay not found")
+        # Legacy debug PNGs are less exact than replayed overlays, but they let
+        # older saved runs remain inspectable when no cache entry can be built.
         logger.info(
             "Overlay cache event=legacy_fallback run_uuid=%s cell_id=%s channel=%s elapsed_ms=%.2f",
             uuid,
@@ -78,10 +90,14 @@ def cell_overlay_image(
             cell_stat=cell_stat,
         )
     except FileNotFoundError:
+        # Missing source crop/config files are expected for some restored or old
+        # results, so the endpoint falls back before returning a not-found error.
         return fallback_overlay_path()
     except CellStatistics.DoesNotExist as exc:
         raise Http404("Overlay not found") from exc
     except ValueError as exc:
+        # Unsupported replay snapshots should not break old results if a
+        # historical cache or debug overlay is still present.
         try:
             return fallback_overlay_path()
         except Http404 as fallback_exc:

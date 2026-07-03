@@ -1,3 +1,5 @@
+"""Artifact storage, cleanup, quota, and transient-run behavior tests."""
+
 from __future__ import annotations
 
 import errno
@@ -66,11 +68,15 @@ CORE_STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
 
 
 def _frontend_static_text(relative_path: str) -> str:
+    """Read tracked static source used by contract tests without collectstatic."""
+
     return (CORE_STATIC_ROOT / relative_path).read_text(encoding="utf-8")
 
 
 @contextmanager
 def temporary_media_root():
+    """Patch all legacy MEDIA_ROOT import sites for isolated artifact tests."""
+
     with TemporaryDirectory() as temp_media:
         with ExitStack() as stack:
             stack.enter_context(
@@ -93,7 +99,11 @@ def temporary_media_root():
 
 
 class ArtifactStorageTestCase(TestCase):
+    """Protect storage cleanup and quota behavior without touching real media."""
+
     def setUp(self):
+        """Create one authenticated owner for quota and saved-run scenarios."""
+
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             email="artifact-tests@example.com",
@@ -119,6 +129,8 @@ class ArtifactStorageTestCase(TestCase):
         name: str = "sample",
         created_at=None,
     ) -> UploadedImage:
+        """Create an UploadedImage row with a matching source artifact on disk."""
+
         file_uuid = uuid_value or str(uuid4())
         source_path = media_root / file_uuid / f"{name}.dv"
         source_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,6 +153,8 @@ class ArtifactStorageTestCase(TestCase):
         owner_id,
         name: str = "sample",
     ) -> SegmentedImage:
+        """Create the saved-run row shape used by cleanup and display contracts."""
+
         return SegmentedImage.objects.create(
             user_id=owner_id,
             UUID=uuid_value,

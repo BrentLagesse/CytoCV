@@ -43,6 +43,8 @@ def normalize_puncta_source_contour_count_filter(value: Any) -> str:
 
 
 def _as_nonnegative_int(value: Any) -> int | None:
+    """Return a nonnegative integer count or None for invalid filter data."""
+
     if value is None or isinstance(value, bool):
         return None
     try:
@@ -55,6 +57,8 @@ def _as_nonnegative_int(value: Any) -> int | None:
 
 
 def _as_positive_number(value: Any) -> float | None:
+    """Return a positive finite contour size or None for empty/NA slots."""
+
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, str) and value.strip().upper() in {"", "N/A", "NA", "NONE"}:
@@ -69,12 +73,16 @@ def _as_positive_number(value: Any) -> float | None:
 
 
 def _get_mapping_or_attr(stat: Any, key: str, default: Any = None) -> Any:
+    """Read the same field from serialized rows or model instances."""
+
     if isinstance(stat, dict):
         return stat.get(key, default)
     return getattr(stat, key, default)
 
 
 def _get_properties(stat: Any) -> dict[str, Any]:
+    """Return a properties mapping from serialized rows or model instances."""
+
     if isinstance(stat, dict):
         properties = stat.get("properties")
         if isinstance(properties, dict):

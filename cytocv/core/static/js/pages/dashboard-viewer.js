@@ -1,3 +1,6 @@
+        // Dashboard is the persisted-results viewer. It shares most rendering
+        // primitives with Display, but destructive file actions and quota state
+        // are intentionally dashboard-only contracts.
         const resultsViewerShared = window.CytoCVResultsViewerShared;
         const { readJsonConfig } = resultsViewerShared;
         const { bindContourIntensityDisplayControls } = resultsViewerShared;
@@ -21,7 +24,9 @@
         const confirmCellDeletion = dashboardPageConfig.confirmCellDeletion === true;
         const confirmMultiCellDeletion = dashboardPageConfig.confirmMultiCellDeletion === true;
 
-        // Parse JSON file data
+        // dashboardFilesData is allowed to be absent or malformed only as a
+        // defensive fallback; the normal contract is a backend-built object of
+        // saved runs keyed by UUID.
         let filesData = {};
         let filesDataParseError = false;
         try {
@@ -120,6 +125,8 @@
             distance_of_green_from_red_2: 'distance',
             distance_of_green_from_red_3: 'distance',
         };
+        // The saved-results viewer preserves backend table/export order while
+        // applying Dashboard-only ownership and delete controls elsewhere.
         const tableFieldOrder = [
             'cell_id',
             'cell_type',
@@ -191,6 +198,8 @@
             'colinear_dots',
             'off_axis_dots',
         ];
+        // These groups drive display filtering only; export code still receives the
+        // complete per-file statistics payload and selected field IDs.
         const statFieldGroups = {
             puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
             legacy_blue_intensity: ['blue_contour_size', 'blue_contour_center_xy'],
@@ -551,6 +560,8 @@
 
 
         function buildDashboardExportUrl(fileUUID, format, selectedColumns = null) {
+            // Dashboard exports are scoped to persisted saved files and carry the
+            // same filter/unit parameters that determine the visible table rows.
             const params = new URLSearchParams({
                 file_uuid: fileUUID,
                 _export: format,
@@ -596,6 +607,8 @@
 
         let dashboardExportSelectionController = null;
         if (window.CytoCVExportSelection) {
+            // The shared export modal owns column selection; Dashboard supplies
+            // saved-file endpoints and omits transient visible_uuids state.
             dashboardExportSelectionController = window.CytoCVExportSelection.init({
                 configScriptId: 'exportSelectionConfig',
                 modalId: 'exportSelectionBackdrop',
@@ -1014,6 +1027,8 @@
         }
 
         function updateTableState(fileUUID, fileData) {
+            // Table state is regenerated from saved-file payloads plus current UI
+            // filters so export buttons, empty notes, and cell navigation agree.
             const exportButtons = document.getElementById('exportButtons');
             let note = document.getElementById('table-empty-note');
             if (!note) {
@@ -1551,6 +1566,8 @@
         }
 
         async function updateCellImages(cellPairImages, statistics, options = {}) {
+            // Render tokens prevent stale preloaded image sets from overwriting a
+            // newer file/cell selection after asynchronous image loads finish.
             const renderToken = ++activeCellRenderToken;
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;

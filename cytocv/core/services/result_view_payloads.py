@@ -1,3 +1,5 @@
+"""Shared serialization helpers for Display and Dashboard result viewers."""
+
 from __future__ import annotations
 
 import math
@@ -23,6 +25,8 @@ NUCLEAR_CELL_PAIR_MODES = {"green_nucleus", "red_nucleus"}
 
 
 def resolve_nuclear_cell_pair_mode(stats_iterable: Any) -> str | None:
+    """Return one unambiguous nuclear cell-pair mode for a rendered table."""
+
     modes = set()
     for stat in stats_iterable:
         props = stat.properties or {}
@@ -33,6 +37,8 @@ def resolve_nuclear_cell_pair_mode(stats_iterable: Any) -> str | None:
 
 
 def resolve_puncta_line_mode(stats_iterable: Any) -> str | None:
+    """Return one unambiguous puncta-line mode for a rendered table."""
+
     modes = set()
     for stat in stats_iterable:
         props = stat.properties or {}
@@ -43,6 +49,8 @@ def resolve_puncta_line_mode(stats_iterable: Any) -> str | None:
 
 
 def resolve_cell_table_modes(stats_iterable: Any) -> tuple[str | None, str | None]:
+    """Resolve table-level mode hints shared by page payloads and templates."""
+
     return (
         resolve_nuclear_cell_pair_mode(stats_iterable),
         resolve_puncta_line_mode(stats_iterable),
@@ -50,6 +58,8 @@ def resolve_cell_table_modes(stats_iterable: Any) -> tuple[str | None, str | Non
 
 
 def sanitize_for_json(value: Any) -> Any:
+    """Recursively replace non-finite floats with JSON-safe ``None`` values."""
+
     if isinstance(value, float):
         return value if math.isfinite(value) else None
     if isinstance(value, dict):
@@ -60,6 +70,8 @@ def sanitize_for_json(value: Any) -> Any:
 
 
 def detected_channel_labels(channel_config: dict[str, int]) -> list[str]:
+    """Return display labels in the stored channel-index order."""
+
     return [
         channel_display_label(channel_name)
         for channel_name, _ in sorted(channel_config.items(), key=lambda entry: entry[1])
@@ -67,6 +79,8 @@ def detected_channel_labels(channel_config: dict[str, int]) -> list[str]:
 
 
 def channel_config_payload(channel_config: dict[str, int]) -> dict[str, int]:
+    """Serialize channel config with frontend-facing slug keys."""
+
     return {
         channel_slug(channel_name): channel_index
         for channel_name, channel_index in channel_config.items()

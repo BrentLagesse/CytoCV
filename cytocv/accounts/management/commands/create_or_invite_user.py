@@ -12,9 +12,13 @@ from accounts.email_addresses import (
 
 
 class Command(BaseCommand):
+    """Create or repair a user plus the allauth alias used for email login."""
+
     help = "Create an active user with an unusable password and synced email alias."
 
     def add_arguments(self, parser):
+        """Register operator-facing creation and dry-run flags."""
+
         parser.add_argument("--email", required=True, help="Email address for the user.")
         parser.add_argument("--first-name", default="", help="Optional first name.")
         parser.add_argument("--last-name", default="", help="Optional last name.")
@@ -25,6 +29,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Create or repair one account without assigning a usable password."""
+
         email = normalize_account_email(options["email"])
         if not email:
             raise CommandError("--email cannot be blank.")
@@ -35,6 +41,9 @@ class Command(BaseCommand):
 
         from allauth.account.models import EmailAddress
 
+        # CustomUser.email and allauth EmailAddress must not point the same
+        # address at different accounts; password reset and login both rely on
+        # that alias remaining unambiguous.
         conflicting_alias = (
             EmailAddress.objects.filter(email__iexact=email)
             .select_related("user")
@@ -54,6 +63,8 @@ class Command(BaseCommand):
             )
 
         if existing_user is not None:
+            # Existing accounts are repaired in place so operators can safely run
+            # the command after an invite or alias-sync problem.
             result = sync_user_email_address(
                 existing_user,
                 verified=True,
@@ -67,6 +78,8 @@ class Command(BaseCommand):
             return
 
         if dry_run:
+            # Dry-run intentionally stops before both CustomUser and EmailAddress
+            # writes, making the command safe for account-audit workflows.
             self.stdout.write(f"Would create active user with unusable password: {email}")
             return
 

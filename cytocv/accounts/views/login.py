@@ -409,6 +409,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
         nonlocal page_error
         if user is not None and user.is_active:
             return False
+        # Keep the user-facing recovery response generic for missing/inactive
+        # accounts while logging only a salted fingerprint for operators.
         message = ACCOUNT_RECOVERY_UNAVAILABLE_MESSAGE
         normalized_email = normalize_auth_email(values.get("email"))
         logger.info(
@@ -488,6 +490,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_recovery_code()
+            # Codes remain session-scoped until the final reset step so account
+            # state is unchanged if the recovery flow is abandoned.
             if not send_code_email(values["email"], verify_code, recovery_user):
                 page_error = "We couldn't send a recovery code right now. Try again."
                 step = 1
@@ -616,6 +620,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
         if "reset_password" in request.POST:
             # Step 3: validate passwords and update the account password.
             if not code_verified:
+                # Password mutation requires the verification flag set by this
+                # session's code-validation step.
                 page_error = "Verify your email before changing the password."
                 session["recovery_step"] = 2
                 step = 2
@@ -665,6 +671,8 @@ def _handle_password_recovery(request: HttpRequest) -> HttpResponse:
                 user.set_password(password)
                 user.save(update_fields=["password"])
             except Exception:
+                # The exact persistence error is logged server-side; the browser
+                # receives a retryable message without account internals.
                 logger.exception("Failed to save password during recovery reset.")
                 page_error = "We couldn't reset the password right now. Try again."
                 step = 3

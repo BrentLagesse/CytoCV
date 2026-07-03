@@ -7,12 +7,12 @@ This guide documents the end-to-end user workflow from upload through review and
 ## Prerequisites
 
 - a signed-in account
-- one or more supported `.dv` files
+- one or more supported `.dv`, `.tif`, or `.tiff` files
 - a working CytoCV deployment
 
 ## Step 1: Upload Files
 
-Use the `Experiment` page to submit one or more `.dv` files. During upload, CytoCV:
+Use the `Experiment` page to submit one or more supported microscopy stack files. During upload, CytoCV:
 
 - assigns a run UUID to each uploaded file
 - stores the source `.dv` file in protected run storage
@@ -30,6 +30,7 @@ Validation failures are reported after the background preparation job finishes. 
 The upload step also captures the active analysis configuration. This includes:
 
 - selected statistics plugins
+- Cell Inclusion Mode
 - puncta source mode and Puncta line width
 - CEN dot distance threshold and proximity radius
 - Biorientation minimum and maximum Red-distance settings
@@ -43,6 +44,11 @@ The upload step also captures the active analysis configuration. This includes:
 These selections are stored with the current workflow state and reused in later steps. Signed-in users can also save them as workflow defaults for future runs.
 
 The current workflow defaults select `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`. That default set requires `DIC`, `Red`, and `Green`. Mother/daughter parentage is computed automatically from DIC geometry and consumed by `CENDot`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
+
+Cell Inclusion Mode is resolved at analysis time. The default is Cell pairs
+only. Single cells only and Single cells and cell pairs can be selected when the
+review task needs single-cell rows. Display and Dashboard filters cannot recover
+cells that were excluded by this analysis-time setting.
 
 ## Step 3: Review Preprocess Sidebar
 
@@ -75,6 +81,7 @@ During segmentation, CytoCV:
 - builds outlined full-frame result images
 - writes segmented cell crops
 - caches per-cell channel imagery when possible
+- retains only the cell candidate types allowed by Cell Inclusion Mode
 - computes the selected statistics plugins
 - writes per-cell debug images when the active plugins need them
 - stores run-level and per-cell results for later review
@@ -88,6 +95,8 @@ The display view provides:
 - one main outlined image per file
 - per-cell image panels in channel order
 - software-generated measurements for each cell
+- a Cell Type Filter for retained single-cell and cell-pair rows
+- a Puncta Source / Red or Green Source Contour Count row filter when source contour count data is available
 - CSV and XLSX statistics export for the current table, with optional metric selection
 - save, unsave, and selection synchronization actions
 
@@ -99,6 +108,7 @@ From display or dashboard, users can:
 
 - export single-file or selected-file statistics as CSV or XLSX
 - choose all metrics or a selected subset of metrics for statistics downloads
+- apply effective row filters before export while keeping selected metrics as column selection only
 - save transient runs to their account if quota allows
 - unsave retained runs back to transient status
 - bulk-delete saved runs from the dashboard

@@ -1,9 +1,11 @@
+{# Shared export modal config; export_selection_modal.js owns the client interaction only. #}
 {{ export_selection_config|json_script:"exportSelectionConfig" }}
 
 
 
 <div class="export-selection-backdrop popup-backdrop" id="exportSelectionBackdrop" aria-hidden="true">
     <div class="export-selection-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="exportSelectionTitle">
+        {# File and statistic selection views share one controller and swap without changing export URLs. #}
         <div class="export-selection-view" id="exportFileSelectionView" hidden>
             <div>
                 <h3 id="exportFileSelectionTitle">Download selected files</h3>
@@ -54,6 +56,7 @@
             </div>
             <div class="export-selection-workspace">
                 <aside class="export-quick-select-sidebar" aria-label="Quick Select">
+                    {# Quick-select controls only check/uncheck derived contour-intensity export columns. #}
                     <section class="export-intensity-quick-select" id="exportIntensityQuickSelect" aria-labelledby="exportIntensityQuickSelectTitle" hidden>
                         <div class="export-intensity-quick-select-header">
                             <div class="export-intensity-title-row">

@@ -1,3 +1,6 @@
+    // Experiment upload controller. The server-rendered JSON blocks below carry
+    // plugin defaults, quota policy, resume state, and upload-preparation URLs;
+    // localStorage only preserves client-side draft choices.
     const selectedFiles = new Map();
     const pluginPayloadElement = document.getElementById('statsPluginPayload');
     const restoredQueuePayloadElement = document.getElementById('restoredQueuePayload');
@@ -27,6 +30,9 @@
     }
 
     const statsPlugins = Array.isArray(statsPayload.plugins) ? statsPayload.plugins : [];
+    // Plugin/channel payload fields mirror backend service output. Keep ids and
+    // role tokens stable because upload validation and workflow defaults share
+    // this shape.
     const channelOrder = Array.isArray(statsPayload.channel_order) && statsPayload.channel_order.length
         ? statsPayload.channel_order
         : ['DIC', 'channel_blue', 'channel_red', 'channel_green'];
@@ -175,6 +181,8 @@
         uploadResumePayload = {};
     }
 
+    // statsState is the single client-side draft used to build both the visible
+    // controls and the FormData sent to upload preparation.
     const statsState = {
         selectedPlugins: new Set(),
         moduleEnabled: false,
@@ -983,6 +991,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Boot order matters: server/default state is applied before renderers,
+        // then modal/file/upload handlers attach to the now-current controls.
         applyServerPreferenceDefaults();
         infoTooltipElement = document.getElementById('statsInfoTooltip');
         hydrateAdvancedInfoDots();
@@ -1787,6 +1797,8 @@
     }
 
     function initializeStatsSettings() {
+        // Hydrate persisted browser choices after server defaults so local draft
+        // state can override only user-editable preferences.
         renderRequiredChannels();
         loadStoredSelections();
         loadStoredAdvancedSettings();
@@ -1815,6 +1827,8 @@
     }
 
     function renderRequiredChannels() {
+        // Required-channel rows expose data-channel/data-state-for hooks used by
+        // later validation updates and template contract tests.
         const grid = document.getElementById('requiredChannelGrid');
         if (!grid) return;
         grid.innerHTML = '';
@@ -3993,6 +4007,8 @@
     }
 
     function setupSettingsModal() {
+        // The settings modal owns unsaved-default prompts, workflow-default API
+        // saves, and the primary/advanced view switcher.
         const settingsButton = document.getElementById('settingsButton');
         const backdrop = document.getElementById('settingsBackdrop');
         const closeButton = document.getElementById('settingsClose');
@@ -4034,6 +4050,8 @@
         let modalOpenSnapshot = null;
 
         const captureStatsSnapshot = () => ({
+            // Snapshots intentionally serialize only persisted workflow values;
+            // transient tooltip/modal animation state must not affect dirty checks.
             selectedPlugins: [...statsState.selectedPlugins].sort(),
             signalQuantificationEnabled: !!statsState.signalQuantificationEnabled,
             signalQuantificationMode: normalizeSignalMode(statsState.signalQuantificationMode),
@@ -4685,6 +4703,8 @@
     }
 
     function animateQueuePanelUpdate(fileList, mutateDom) {
+        // Queue panel animation measures before and after the DOM mutation so the
+        // quota display and scrollbar state stay synchronized with selected files.
         if (!fileList) {
             mutateDom();
             updateUploadQuotaStatus();
@@ -4738,6 +4758,8 @@
     }
 
     function animateQueueRowRemoval(listItem, removeItem) {
+        // Mark rows as removing so rapid duplicate clicks do not remove the same
+        // queued File object more than once.
         if (typeof removeItem !== 'function') return;
         if (!listItem || QUEUE_ROW_FADE_MS === 0) {
             removeItem();
@@ -5044,6 +5066,8 @@
     }
 
     function setupFileInputs() {
+        // File and folder inputs share the same handler so both produce the same
+        // queue entries and upload-preparation payload shape.
         const fileInput = document.getElementById('fileInput');
         const folderInput = document.getElementById('folderInput');
         if (fileInput) fileInput.addEventListener('change', handleFileSelection);
@@ -5055,6 +5079,8 @@
     const UPLOAD_PREPARATION_POLL_MAX_DELAY_MS = 500;
     const UPLOAD_CONTROL_SELECTOR = '.upload-btn, .submit-btn, .settings-btn, .settings-close, .advanced-btn, .back-btn, .workflow-default-btn, .upload-page-back-btn, .folder-issue-btn, input[type="file"], input[type="checkbox"], input[type="number"], .remove-btn';
 
+    // Upload preparation can run synchronously or through a worker, but the UI
+    // always treats it as a progress-producing job with the same terminal payload.
     function getUploadSubmitParts() {
         const submitBtn = document.getElementById('uploadSubmit');
         const btnText = submitBtn ? submitBtn.querySelector('.btn-text') : null;
@@ -5136,6 +5162,8 @@
     }
 
     async function parseUploadJsonResponse(response) {
+        // Upload endpoints always return JSON on the expected path, but this
+        // tolerant parser keeps network/proxy HTML errors user-facing.
         const contentType = response.headers.get('content-type') || '';
         const payload = contentType.includes('application/json') ? await response.json() : {};
         if (!response.ok) {
@@ -5148,6 +5176,8 @@
     }
 
     function persistUploadPreparationErrors(payload) {
+        // Validation errors are stored for the preprocess page to render after
+        // redirect, keeping the backend redirect contract unchanged.
         if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
             sessionStorage.setItem('dvErrors', JSON.stringify(payload.errors));
         }
@@ -5168,6 +5198,8 @@
     }
 
     function handleTerminalUploadPreparationPayload(payload, { submitBtn } = {}) {
+        // The backend owns final redirects and failure summaries; this controller
+        // only maps terminal statuses into navigation or user-facing messages.
         if (!payload || typeof payload.status !== 'string') return false;
         if (payload.status === 'succeeded') {
             clearUploadProgressForButton(submitBtn);
@@ -5333,6 +5365,8 @@
                 ? [...statsState.manualRequiredChannels].filter((channel) => !statsRequired.has(channel))
                 : [];
 
+            // prepData becomes the backend job snapshot. Keep request field names
+            // stable because upload preparation, preprocessing, and analysis share it.
             const prepData = new FormData();
             restoredQueueItems.forEach((item) => prepData.append('existing_uuids', item.uuid));
             prepData.append('cytocv_analysis_enabled', moduleEnabled ? '1' : '0');
@@ -5397,6 +5431,8 @@
             const selectedFileList = [...selectedFiles.values()];
             const oversizedFiles = selectedFileList.filter((file) => file.size > UPLOAD_BATCH_TARGET_BYTES);
             const buildFileBatches = (files, targetBytes) => {
+                // Files are uploaded in bounded batches, but the following prepare
+                // request receives the combined UUID list as one logical job.
                 const batches = [];
                 let current = [];
                 let currentBytes = 0;
@@ -5428,6 +5464,8 @@
                 const uploadedRunUuids = [];
                 const batches = buildFileBatches(selectedFileList, UPLOAD_BATCH_TARGET_BYTES);
                 for (let index = 0; index < batches.length; index += 1) {
+                    // Upload batches create UploadedImage rows only; validation,
+                    // channel config, scale metadata, and previews happen below.
                     if (btnText) {
                         btnText.textContent = batches.length > 1
                             ? `Uploading ${index + 1}/${batches.length}`
@@ -5458,6 +5496,8 @@
 
                 uploadedRunUuids.forEach((uuid) => prepData.append('new_run_uuids', uuid));
                 const uploadPrepUsesWorker = UPLOAD_PREPARATION_EXECUTION_MODE === 'worker';
+                // The prepare endpoint may return terminal sync output or a job UUID
+                // for polling, so handle both through the same terminal payload path.
                 applyUploadPhaseText(btnText, uploadPrepUsesWorker ? 'Queued' : 'Preparing Upload');
                 setUploadProgressForButton(submitBtn, {
                     phase: uploadPrepUsesWorker ? 'Queued' : 'Preparing Upload',

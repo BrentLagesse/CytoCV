@@ -42,6 +42,7 @@
 </div>
 
 <div class="delete-modal-backdrop" id="deleteAccountBackdrop" aria-hidden="true">
+    {# account-settings.js opens this modal; the view still validates the typed email before deletion. #}
     <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
         <h3 id="deleteAccountTitle">Confirm account deletion</h3>
         <p>Are you sure? This action cannot be undone.</p>
@@ -72,6 +73,7 @@
     </div>
 </div>
 
+{# Keep this script ID stable for account-settings.js after a failed delete attempt. #}
 <script id="accountSettingsConfig" type="application/json">{"openDeleteModal": {{ open_delete_modal|yesno:"true,false" }}}</script>
 <script src="{% static 'js/pages/account-settings.js' %}?v=frontend-modularization-20260609"></script>
 </div>

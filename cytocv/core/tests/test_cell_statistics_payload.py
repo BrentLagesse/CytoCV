@@ -1,4 +1,6 @@
-﻿from types import SimpleNamespace
+﻿"""Protect serialized cell-statistics payload keys used by viewer/export code."""
+
+from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
@@ -171,6 +173,39 @@ class CellStatisticsPayloadApplicabilityTests(SimpleTestCase):
                 self.assertIsNotNone(payload[field_name])
         self.assertNotIn("red_in_red_intensity_1", payload)
         self.assertNotIn("green_in_red_intensity_1", payload)
+
+    def test_payload_uses_only_canonical_total_max_average_intensity_keys(self):
+        payload = serialize_cell_statistics_payload(
+            _cell_stat(
+                properties={
+                    "selected_analysis": ["GreenRedIntensity"],
+                    "signal_quantification_mode": "puncta_distance",
+                    "puncta_line_mode": "red_puncta",
+                },
+            )
+        )
+
+        for field_name in _contour_intensity_fields():
+            with self.subTest(field=field_name):
+                self.assertIn(field_name, payload)
+                self.assertIsNotNone(payload[field_name])
+
+        for old_name in (
+            "red_intensity_1",
+            "red_intensity_2",
+            "red_intensity_3",
+            "green_intensity_1",
+            "green_intensity_2",
+            "green_intensity_3",
+            "red_in_green_intensity_1",
+            "red_in_green_intensity_2",
+            "red_in_green_intensity_3",
+            "green_in_green_intensity_1",
+            "green_in_green_intensity_2",
+            "green_in_green_intensity_3",
+        ):
+            with self.subTest(old_name=old_name):
+                self.assertNotIn(old_name, payload)
 
     def test_green_red_disabled_payload_does_not_imply_contour_card_visibility(self):
         payload = serialize_cell_statistics_payload(

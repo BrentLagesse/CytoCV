@@ -1,3 +1,6 @@
+        // Display is the transient post-analysis review surface. It consumes
+        // displayFilesData/displayPageConfig from display.html and keeps save
+        // selection behavior separate from Dashboard's persisted-run controls.
         const resultsViewerShared = window.CytoCVResultsViewerShared;
         const { readJsonConfig } = resultsViewerShared;
         const { bindContourIntensityDisplayControls } = resultsViewerShared;
@@ -5,7 +8,8 @@
         const displayPageConfig = readJsonConfig('displayPageConfig');
         window.CytoCVDisplayPageConfig = displayPageConfig;
 
-        // Parse JSON file data
+        // displayFilesData is emitted by the backend in table/sidebar order and
+        // includes per-cell image URLs, exportable statistics, and channel maps.
         let filesData = JSON.parse(document.getElementById('displayFilesData').textContent || '{}');
         let fileUUIDs = Object.keys(filesData);
         let currentFileIndex = 0;
@@ -98,6 +102,8 @@
             distance_of_green_from_red_2: 'distance',
             distance_of_green_from_red_3: 'distance',
         };
+        // Keep table/export field order aligned with backend result payloads. The
+        // viewer only decides visibility and display labels.
         const tableFieldOrder = [
             'cell_id',
             'cell_type',
@@ -169,6 +175,8 @@
             'colinear_dots',
             'off_axis_dots',
         ];
+        // Visibility groups mirror analysis plugin families so toggles can hide a
+        // whole plugin output without reshaping the underlying statistics object.
         const statFieldGroups = {
             puncta_distance: ['puncta_distance', 'puncta_line_intensity'],
             legacy_blue_intensity: ['blue_contour_size', 'blue_contour_center_xy'],
@@ -761,6 +769,8 @@
 
 
         function buildDisplayExportUrl(fileUUID, format, selectedColumns = null) {
+            // Display exports are scoped to transient experiment UUIDs and include
+            // current table filters so CSV/XLSX output matches the visible rows.
             const params = new URLSearchParams({
                 _export: format,
                 _unit: getCurrentSpatialUnit(),
@@ -805,6 +815,8 @@
 
         let displayExportSelectionController = null;
         if (window.CytoCVExportSelection) {
+            // The shared export modal owns column selection; this page supplies
+            // Display-specific endpoints, file labels, and active filter values.
             displayExportSelectionController = window.CytoCVExportSelection.init({
                 configScriptId: 'exportSelectionConfig',
                 modalId: 'exportSelectionBackdrop',
@@ -1224,6 +1236,8 @@
         }
 
         function updateTableState(fileUUID, fileData) {
+            // Table state is regenerated from the immutable backend payload plus
+            // current UI filters; no filtering mutates filesData.
             const exportButtons = document.getElementById('displayExportButtons');
             let note = document.getElementById('table-empty-note');
             if (!note) {
@@ -1525,6 +1539,8 @@
         }
 
         async function updateCellImages(cellPairImages, statistics, options = {}) {
+            // Render tokens prevent stale preloaded image sets from overwriting a
+            // newer file/cell selection after asynchronous image loads finish.
             const renderToken = ++activeCellRenderToken;
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;

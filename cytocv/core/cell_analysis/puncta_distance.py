@@ -1,3 +1,5 @@
+"""Puncta-distance and contour-intensity measurements for red/green modes."""
+
 import cv2
 import logging
 import math
@@ -26,8 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 class PunctaDistance(Analysis):
+    """Measure source-contour distance and optional same-channel intensities."""
+
     name = "PunctaDistance"
 
+    # Single-channel modes deliberately mark paired-channel fields unavailable
+    # while preserving computed same-channel contour metrics for exports/cards.
     _RED_ONLY_UNAVAILABLE_FIELDS = frozenset(
         {
             "puncta_line_intensity",
@@ -124,6 +130,10 @@ class PunctaDistance(Analysis):
     )
 
     def _measurement_image(self, measurement_channel: str):
+        """Return the raw-or-compatible image used for line intensity sums."""
+
+        # Prefer raw measurement images for intensity values; normalized display
+        # fallbacks keep older cached runs measurable when raw variants are absent.
         if not measurement_channel:
             return None
         if measurement_channel == CHANNEL_ROLE_GREEN:
@@ -141,11 +151,15 @@ class PunctaDistance(Analysis):
         return image
 
     def _source_image(self, source_channel: str):
+        """Return the image used to derive source contour geometry."""
+
         if source_channel == CHANNEL_ROLE_GREEN:
             return self._measurement_image(CHANNEL_ROLE_GREEN)
         return self._measurement_image(CHANNEL_ROLE_RED)
 
     def _merge_unavailable_fields(self, fields):
+        """Merge plugin-specific unavailable field names into row properties."""
+
         properties = dict(getattr(self.cp, "properties", {}) or {})
         existing = properties.get("unavailable_stat_fields")
         if not isinstance(existing, list):
@@ -155,6 +169,8 @@ class PunctaDistance(Analysis):
         self.cp.properties = properties
 
     def _set_default_same_channel_stats(self, source_channel: str):
+        """Zero same-channel contour fields before optional values are stored."""
+
         if source_channel == CHANNEL_ROLE_GREEN:
             for index in range(1, 4):
                 setattr(self.cp, f"green_contour_{index}_size", 0.0)
@@ -169,6 +185,8 @@ class PunctaDistance(Analysis):
             setattr(self.cp, f"red_in_red_average_intensity_{index}", 0.0)
 
     def _store_same_channel_contour_stats(self, contours_data, source_channel: str, shape_source):
+        """Store same-channel contour stats only for single-channel puncta modes."""
+
         if not is_single_channel_puncta_line_mode(self.cp.properties.get("puncta_line_mode")):
             return
         if not self.cp.properties.get("puncta_contour_intensity_enabled"):
@@ -178,6 +196,8 @@ class PunctaDistance(Analysis):
         if source_image is None:
             return
 
+        # Single-channel contour intensity reuses the red/green intensity table
+        # family, so explicitly mark that family visible when values are produced.
         self.cp.properties = dict(self.cp.properties or {})
         stat_visibility = dict(self.cp.properties.get("stat_visibility") or {})
         stat_visibility["red_green_intensity"] = True
@@ -233,9 +253,13 @@ class PunctaDistance(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
+        """Measure puncta distance and optional line intensity for one cell row."""
+
         puncta_line_points = []
         properties = dict(getattr(self.cp, "properties", {}) or {})
         metadata = get_puncta_line_mode_metadata(properties.get("puncta_line_mode"))
+        # Mode metadata normalizes legacy red/green wording into the current
+        # source-channel and measurement-channel contract used by exports.
         properties["puncta_line_mode"] = metadata["mode"]
         properties["puncta_line_source_channel"] = metadata["source_channel"]
         properties["puncta_line_measurement_channel"] = metadata["measurement_channel"]
@@ -247,6 +271,8 @@ class PunctaDistance(Analysis):
         measurement_image = self._measurement_image(metadata["measurement_channel"])
         single_channel_mode = is_single_channel_puncta_line_mode(metadata["mode"])
         if single_channel_mode:
+            # Single-channel modes keep same-channel contour stats while explicitly
+            # hiding paired-channel fields from downstream table/export surfaces.
             self._merge_unavailable_fields(
                 self._GREEN_ONLY_UNAVAILABLE_FIELDS
                 if metadata["source_channel"] == CHANNEL_ROLE_GREEN
@@ -264,6 +290,8 @@ class PunctaDistance(Analysis):
         if measurement_image is None and not single_channel_mode:
             return []
 
+        # Canonical source slots define both distance endpoints and the optional
+        # line-intensity mask, keeping exports stable when extra contours exist.
         if metadata["source_channel"] == CHANNEL_ROLE_GREEN:
             source_slots = get_canonical_green_slots(contours_data, shape_source, limit=2)
         else:
@@ -274,9 +302,13 @@ class PunctaDistance(Analysis):
             shape_source,
         )
         if len(source_slots) < 2:
+            # Fewer than two source contours means no line can be defined; leave
+            # numeric defaults and return an empty overlay mask coordinate list.
             return []
 
         try:
+            # Draw the same line into overlay images and a binary mask so the UI
+            # visualization and measured line-intensity pixels stay aligned.
             center_1 = source_slots[0].center
             center_2 = source_slots[1].center
             puncta_distance = math.dist(center_1, center_2)
@@ -316,5 +348,7 @@ class PunctaDistance(Analysis):
                 self.cp.puncta_line_intensity = float(line_intensity_sum)
             return puncta_line_points
         except Exception as exc:
+            # Contour/image mismatches should not abort the entire statistics run;
+            # this row simply contributes no puncta line.
             logger.debug("Puncta-distance analysis skipped: %s", exc)
             return []

@@ -37,6 +37,8 @@ CHANNEL_DISPLAY_TO_ROLE: dict[str, str] = {
 }
 
 CHANNEL_NORMALIZATION_ALIASES: dict[str, str] = {
+    # Biology-specific legacy names remain accepted at boundaries so saved
+    # configs, old artifacts, and user preferences can normalize to role keys.
     "dic": CHANNEL_ROLE_DIC,
     "channel_blue": CHANNEL_ROLE_BLUE,
     "blue": CHANNEL_ROLE_BLUE,

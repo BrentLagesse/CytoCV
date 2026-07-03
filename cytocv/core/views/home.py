@@ -1,7 +1,11 @@
+"""Static content payloads for the public informational pages."""
+
 from __future__ import annotations
 
 from django.template.response import TemplateResponse
 
+# These constants are intentionally kept in Python rather than templates so the
+# public pages can share links, licensing text, and institutional branding data.
 UWB_STEM_URL = "https://www.uwb.edu/stem"
 UWB_STEM_FACT_SHEET_URL = "https://www.uwb.edu/wp-content/uploads/2026/02/School_of_STEM_Fact_Sheet.pdf"
 UWB_STEM_LOGO_STATIC_PATH = "assets/uwb/web-left-school-signature-uw-bothell.png"
@@ -40,6 +44,8 @@ LICENSE_DISCLAIMER = (
     "legal code."
 )
 
+# Home-page card payloads are template data, not navigation configuration; route
+# names and authentication behavior remain defined in URL/view modules.
 HOME_PROOF_CARDS = (
     {
         "eyebrow": "Team",
@@ -120,6 +126,7 @@ HOME_SECTION_CARDS = (
     },
 )
 
+# The section IDs here are consumed by template anchors and page CSS.
 ABOUT_PAGE_SECTION_ITEMS = (
     {"id": "overview", "label": "Overview"},
     {"id": "research-need", "label": "Research Need"},
@@ -130,6 +137,8 @@ ABOUT_PAGE_SECTION_ITEMS = (
     {"id": "biological-value", "label": "Biological Value"},
 )
 
+# Collaborator content is grouped to keep the template focused on layout while
+# preserving a single server-side source for team-card ordering.
 COLLABORATOR_GROUPS = (
     {
         "id": "engineering-team",
@@ -289,6 +298,8 @@ COLLABORATOR_GROUPS = (
 
 
 def _github_blob(path: str) -> str:
+    """Return a repository blob URL for public documentation links."""
+
     return f"{GITHUB_BLOB_BASE_URL}/{path}"
 
 
@@ -299,6 +310,8 @@ def _doc_link(
     description: str,
     link_type: str,
 ) -> dict[str, object]:
+    """Build one external documentation-card payload for public templates."""
+
     return {
         "label": label,
         "href": _github_blob(path),
@@ -308,6 +321,8 @@ def _doc_link(
     }
 
 
+# Detail pages share the same template schema: metadata, navigation sections,
+# grouped copy blocks, and repository links.
 ABOUT_TECHNICAL_PAGE = {
     "template_title": "CytoCV Technical Overview",
     "meta_description": (
@@ -508,6 +523,8 @@ ABOUT_TECHNICAL_PAGE = {
     ),
 }
 
+# Biology copy is intentionally descriptive rather than a substitute for formal
+# validation; the research documents remain the authoritative methods references.
 ABOUT_BIOLOGY_PAGE = {
     "template_title": "CytoCV Biological Context",
     "meta_description": (
@@ -764,6 +781,8 @@ RESEARCH_SECTIONS = (
 def _build_page_section_nav(
     items: tuple[dict[str, str], ...] | list[dict[str, str]],
 ) -> dict[str, object] | None:
+    """Build the shared anchor navigation payload used by public pages."""
+
     if not items:
         return None
     return {
@@ -779,6 +798,8 @@ def _build_page_section_nav(
 
 
 def _build_detail_page_section_nav(page_data: dict[str, object]) -> dict[str, object] | None:
+    """Build anchor navigation from the shared detail-page data schema."""
+
     items: list[dict[str, str]] = []
     for section in page_data.get("detail_sections", ()):
         items.append(
@@ -798,6 +819,8 @@ def _build_detail_page_section_nav(page_data: dict[str, object]) -> dict[str, ob
 
 
 def _shared_public_context() -> dict[str, object]:
+    """Return public-page context shared by home, about, team, and license views."""
+
     return {
         "proof_cards": HOME_PROOF_CARDS,
         "section_cards": HOME_SECTION_CARDS,
@@ -822,10 +845,14 @@ def _shared_public_context() -> dict[str, object]:
 
 
 def home(request):
+    """Render the public homepage using shared static context."""
+
     return TemplateResponse(request, "home.html", _shared_public_context())
 
 
 def about(request):
+    """Render the public About overview page."""
+
     context = _shared_public_context()
     context.update(
         {
@@ -837,6 +864,8 @@ def about(request):
 
 
 def about_technical(request):
+    """Render the technical detail page from the shared detail schema."""
+
     context = _shared_public_context()
     context.update(ABOUT_TECHNICAL_PAGE)
     context.update(
@@ -849,6 +878,8 @@ def about_technical(request):
 
 
 def about_biology(request):
+    """Render the biology detail page from the shared detail schema."""
+
     context = _shared_public_context()
     context.update(ABOUT_BIOLOGY_PAGE)
     context.update(
@@ -861,8 +892,12 @@ def about_biology(request):
 
 
 def collaborators(request):
+    """Render the public collaborator/team page."""
+
     return TemplateResponse(request, "collaborators.html", _shared_public_context())
 
 
 def license_page(request):
+    """Render the public license summary page."""
+
     return TemplateResponse(request, "license.html", _shared_public_context())

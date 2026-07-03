@@ -1,3 +1,5 @@
+"""Regression tests for biorientation thresholds and red/green dot counting."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

@@ -1,3 +1,5 @@
+      // Persist per-file channel ordering from the preprocess sidebar. This is
+      // intentionally narrow because the analysis POST still owns validation.
       // CSRF helper
       function getCookie(name) {
         let val = null;
@@ -10,7 +12,8 @@
         return val;
       }
 
-      // Make each .channel-bar sortable
+      // The sortable channel bar updates only the per-file display order; the
+      // analysis form still validates the submitted channel mapping.
       document.querySelectorAll(".channel-bar").forEach((bar) => {
         const uuid = bar.parentElement.dataset.uuid;
         Sortable.create(bar, {

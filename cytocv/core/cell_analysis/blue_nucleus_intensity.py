@@ -1,3 +1,5 @@
+"""Legacy blue-channel nucleus intensity statistics plugin."""
+
 import logging
 
 import numpy as np
@@ -15,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class BlueNucleusIntensity(Analysis):
+    """Measure blue-channel signal inside the nucleus and full cell-pair mask."""
+
     name = "BlueNucleusIntensity"
 
     def calculate_statistics(
@@ -31,10 +35,15 @@ class BlueNucleusIntensity(Analysis):
 
         blue_intensity_image = self.preprocessed_images.get_image("raw_blue")
         if blue_intensity_image is None:
+            # Legacy Blue runs may only have the blurred display key.  Apply the
+            # historical rolling-ball subtraction so the measurement path remains
+            # compatible with older cache payloads.
             gray_blue = self.preprocessed_images.get_image("gray_blue")
         else:
             gray_blue = None
         if blue_intensity_image is None and gray_blue is None:
+            # Missing Blue data should clear the legacy outputs rather than leave
+            # stale values on a reused CellStatistics row.
             self._set_defaults()
             return
 
@@ -51,6 +60,8 @@ class BlueNucleusIntensity(Analysis):
 
         blue_slots = get_canonical_blue_slots(contours_data, shape, limit=1)
         if not blue_slots:
+            # Without a nucleus slot there is no reliable Blue nucleus support for
+            # this cell; default-zero fields preserve export shape.
             self._set_defaults()
             return
 
@@ -58,6 +69,8 @@ class BlueNucleusIntensity(Analysis):
 
         cell_mask = contours_data.get(CELL_MASK_KEY)
         if cell_mask is None or cell_mask.shape[:2] != shape or not np.any(cell_mask):
+            # Some replay paths provide canonical contours but not the in-memory
+            # cell mask; reload the saved mask before giving up on cell-pair sums.
             cell_mask = load_cell_mask(
                 self.cp.image_name, self.cp.cell_id, self.output_dir, shape,
             )
@@ -77,6 +90,8 @@ class BlueNucleusIntensity(Analysis):
         self.cp.cytoplasmic_intensity_blue = cell_intensity - nucleus_intensity
 
     def _set_defaults(self):
+        """Zero legacy Blue intensity fields when the metric is unavailable."""
+
         self.cp.nucleus_intensity_sum_blue = 0.0
         self.cp.cell_pair_intensity_sum_blue = 0.0
         self.cp.cytoplasmic_intensity_blue = 0.0

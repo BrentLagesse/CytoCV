@@ -1,3 +1,5 @@
+"""Protect Display/Dashboard viewer DOM hooks, globals, and static JS contracts."""
+
 from __future__ import annotations
 
 from django.test import TestCase

@@ -9,6 +9,8 @@ from core.services.artifact_storage import refresh_user_storage_usage
 
 
 def _normalized_domain(email: str | None) -> str:
+    """Return the normalized domain portion used for quota-domain rules."""
+
     normalized_email = normalize_quota_email(email)
     if "@" not in normalized_email:
         return ""
@@ -16,6 +18,8 @@ def _normalized_domain(email: str | None) -> str:
 
 
 def _domain_matches_suffix(domain: str, suffix: str) -> bool:
+    """Return whether a normalized domain matches an exact or suffix rule."""
+
     token = str(suffix or "").strip().lower()
     if not domain or not token:
         return False
@@ -37,6 +41,8 @@ def get_base_quota_source_for_email(email: str | None) -> str:
     normalized_email = normalize_quota_email(email)
     fixed_quota = get_env_fixed_quota_bytes_for_email(normalized_email)
     if fixed_quota is not None:
+        # Exact email quota overrides beat domain tiers so one account can be
+        # adjusted without changing all users at the same institution.
         return f"Env fixed-email override ({normalized_email})"
 
     domain = _normalized_domain(normalized_email)
@@ -82,8 +88,10 @@ def get_effective_quota_bytes(user: object) -> int:
     )
 
     if mode == "fixed" and normalized_override is not None:
+        # Fixed overrides replace the environment-derived base quota entirely.
         return normalized_override
     if mode == "bonus" and normalized_override is not None:
+        # Bonus overrides preserve the base tier and add admin-granted capacity.
         return base_quota + normalized_override
     return base_quota
 
@@ -96,6 +104,8 @@ def sync_user_quota(user: object, *, refresh_usage: bool = True) -> int:
     current_available = max(effective_quota - current_used, 0)
 
     if getattr(user, "pk", None) is None:
+        # Unsaved users receive in-memory values so creation flows can persist a
+        # coherent quota state in their first save.
         user.total_storage = effective_quota
         user.available_storage = current_available
         return effective_quota
@@ -111,6 +121,8 @@ def sync_user_quota(user: object, *, refresh_usage: bool = True) -> int:
         user.__class__.objects.filter(pk=user.pk).update(**update_payload)
 
     if refresh_usage:
+        # Full refresh re-counts retained artifacts after possible save/delete
+        # operations; otherwise only policy fields are synchronized.
         refreshed = refresh_user_storage_usage(user)
         user.available_storage = int(refreshed.get("available_storage", 0) or 0)
         user.used_storage = int(refreshed.get("used_storage", 0) or 0)

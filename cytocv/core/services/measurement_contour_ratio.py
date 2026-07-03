@@ -67,12 +67,16 @@ def normalize_measurement_contour_ratio_mode(
 
 
 def _source_value(source: Any, field_name: str) -> Any:
+    """Read a ratio source field from a model-like object or mapping."""
+
     if isinstance(source, Mapping):
         return source.get(field_name)
     return getattr(source, field_name, None)
 
 
 def _float_or_zero(value: Any) -> float:
+    """Coerce missing intensity sums to zero for ratio calculations."""
+
     try:
         return float(value)
     except (TypeError, ValueError):

@@ -1,7 +1,10 @@
-﻿from __future__ import annotations
+﻿"""Protect cell deletion routes, artifacts, and viewer payload cleanup."""
+
+from __future__ import annotations
 
 import json
 import re
+import csv
 from io import BytesIO
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
@@ -597,3 +600,52 @@ class CellDeletionEndpointTests(TestCase):
             self.assertEqual(_csv_cell_ids(filtered_csv_response), [1, 4])
             self.assertEqual(_csv_cell_ids(selected_intensity_csv_response), [1, 4])
             self.assertEqual(_xlsx_cell_ids(selected_intensity_xlsx_response), [1, 4])
+
+    def test_display_and_dashboard_exports_exclude_deleted_mixed_cell_type_rows(self):
+        with temporary_media_root() as media_root:
+            uuid_value, segmented = self._setup_run(media_root, num_cells=3)
+            for cell_id, cell_type in ((1, "single_cell"), (2, "cell_pair"), (3, "cell_pair")):
+                stat = CellStatistics.objects.get(
+                    segmented_image=segmented,
+                    cell_id=cell_id,
+                )
+                properties = dict(stat.properties or {})
+                properties.update(
+                    {
+                        "cell_type": cell_type,
+                        "signal_quantification_mode": "puncta_distance",
+                        "puncta_line_mode": "red_puncta",
+                    }
+                )
+                stat.cell_type = cell_type
+                stat.properties = properties
+                stat.save(update_fields=["cell_type", "properties"])
+            self.client.login(
+                email=self.user.email, password="TestPass123!"
+            )
+
+            delete_url = reverse("delete_cell", kwargs={"uuid": uuid_value, "cell_id": 2})
+            self.assertEqual(self.client.post(delete_url).status_code, 200)
+
+            urls = (
+                reverse("display", kwargs={"uuids": uuid_value})
+                + "?_export=csv&_unit=px&_columns=red_in_red_total_intensity_1",
+                reverse("dashboard")
+                + f"?file_uuid={uuid_value}&_export=csv&_unit=px"
+                + "&_columns=red_in_red_total_intensity_1",
+            )
+            for url in urls:
+                with self.subTest(url=url):
+                    response = self.client.get(url)
+                    self.assertEqual(response.status_code, 200)
+                    rows = list(csv.reader(response.content.decode("utf-8").splitlines()))
+
+                    self.assertEqual(
+                        rows[0],
+                        ["Cell ID", "Cell Type", "Red In Red Total Intensity 1"],
+                    )
+                    self.assertEqual(
+                        [(row[0], row[1]) for row in rows[1:]],
+                        [("1", "Single Cell"), ("3", "Cell Pair")],
+                    )
+                    self.assertNotIn(("2", "Cell Pair"), [(row[0], row[1]) for row in rows[1:]])

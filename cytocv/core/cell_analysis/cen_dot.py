@@ -1,3 +1,5 @@
+"""CEN-dot classification from canonical red/green contour geometry."""
+
 import logging
 import math
 
@@ -35,9 +37,13 @@ _DISTANCE_TIE_EPSILON = 1e-9
 
 
 class CENDot(Analysis):
+    """Classify green-dot association with mother/daughter red contour context."""
+
     name = "CENDot"
 
     def _get_distance_threshold_unit(self) -> str:
+        """Return the saved unit for the red-red distance threshold."""
+
         properties = getattr(self.cp, "properties", {}) or {}
         return normalize_length_unit(properties.get("stats_cen_dot_distance_unit"), default="px")
 
@@ -48,6 +54,8 @@ class CENDot(Analysis):
         *,
         threshold_unit: str,
     ) -> float:
+        """Measure distance between centers in the configured threshold unit."""
+
         if threshold_unit == "um":
             properties = getattr(self.cp, "properties", {}) or {}
             x_scale = properties.get("scale_x_um_per_px", properties.get("scale_effective_um_per_px", 0.1))
@@ -61,6 +69,8 @@ class CENDot(Analysis):
         return float(math.dist(center_1, center_2))
 
     def _distance_meets_threshold(self, center_1, center_2, threshold_value) -> tuple[bool, float, float]:
+        """Return threshold pass/fail plus measured/effective distance values."""
+
         threshold_unit = self._get_distance_threshold_unit()
         distance = self._distance_between_centers(
             center_1,
@@ -74,10 +84,14 @@ class CENDot(Analysis):
         return distance >= threshold, distance, threshold
 
     def _get_proximity_radius_unit(self) -> str:
+        """Return the saved unit for green-to-red proximity matching."""
+
         properties = getattr(self.cp, "properties", {}) or {}
         return normalize_length_unit(properties.get("stats_cen_dot_proximity_radius_unit"), default="px")
 
     def _proximity_radius_in_pixels(self, proximity_radius: float) -> float:
+        """Convert the proximity radius to pixels for mask-space matching."""
+
         proximity_radius_unit = self._get_proximity_radius_unit()
         if proximity_radius_unit == "um":
             properties = getattr(self.cp, "properties", {}) or {}
@@ -96,6 +110,8 @@ class CENDot(Analysis):
 
     @staticmethod
     def _center_distance_sq(center_1, center_2) -> float:
+        """Return squared Euclidean distance without a sqrt for comparisons."""
+
         dx = float(center_1[0]) - float(center_2[0])
         dy = float(center_1[1]) - float(center_2[1])
         return dx * dx + dy * dy
@@ -177,6 +193,8 @@ class CENDot(Analysis):
         ambiguous_centers: list[tuple[float, float]] = []
 
         for green_slot in green_slots:
+            # Only green contours with foreground inside the DIC pair mask can be
+            # associated; outside-pair signal is ignored for this classification.
             if not cls._green_slot_inside_pair_mask(green_slot, cell_mask):
                 continue
 
@@ -209,6 +227,8 @@ class CENDot(Analysis):
 
     @staticmethod
     def _set_location_properties(cp, payload: dict) -> None:
+        """Persist the structured CEN-dot payload alongside legacy category."""
+
         properties = dict(getattr(cp, "properties", {}) or {})
         properties["cen_dot_schema_version"] = CEN_DOT_SCHEMA_VERSION
         properties["cen_dot_location"] = payload
@@ -224,6 +244,8 @@ class CENDot(Analysis):
         cen_dot_distance=37,
         cen_dot_proximity_radius=13,
     ):
+        """Classify CEN-dot location and store the table/export payload."""
+
         prox_radius = self._proximity_radius_in_pixels(cen_dot_proximity_radius)
         cen_dot_distance = cen_dot_distance if (cen_dot_distance >= 0) else 37
 
@@ -251,6 +273,8 @@ class CENDot(Analysis):
         proximity_unit = self._get_proximity_radius_unit()
 
         def _finalize(category: int, status: str, extra: dict | None = None) -> None:
+            # Store one structured location payload so table/export/render layers can
+            # distinguish classification status from the numeric category field.
             has_parentage_neck_split = parentage_payload.get("has_neck_split")
             if has_parentage_neck_split is None:
                 has_parentage_neck_split = neck_split is not None and mother_mask is not None
@@ -278,6 +302,8 @@ class CENDot(Analysis):
                 base_shape,
                 limit=_MAX_RED_SLOTS_FOR_CLASSIFICATION,
             )
+            # CEN-dot classification consumes canonical contour slots instead of
+            # raw OpenCV contours so related plugins see the same selected geometry.
             red_slots = self._deduplicate_slots(raw_red_slots)
 
             raw_green_slots = get_canonical_green_slots(
@@ -334,6 +360,8 @@ class CENDot(Analysis):
                     side_by_red_index[index] = side
 
             if len(side_by_red_index) != 2:
+                # Without one assigned red on each parentage side, the location
+                # category would be misleading, so record a non-applicable status.
                 _finalize(
                     _CATEGORY_NA,
                     "red_side_unassigned",
@@ -342,6 +370,8 @@ class CENDot(Analysis):
                 return
 
             if side_by_red_index[0] == side_by_red_index[1]:
+                # Two red anchors on the same side do not define a mother/daughter
+                # pair for this metric even if both contours are otherwise valid.
                 _finalize(
                     _CATEGORY_NA,
                     "reds_same_side",
@@ -421,6 +451,8 @@ class CENDot(Analysis):
                 },
             )
         except Exception as exc:
+            # Contour payloads may be absent for legacy or filtered cells.  Mark
+            # the metric unavailable for this row and let the broader run continue.
             logger.debug("CENDot analysis skipped due to contour error: %s", exc)
             self.cp.category_cen_dot = _CATEGORY_NA
             self._set_location_properties(

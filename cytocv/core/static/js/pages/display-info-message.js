@@ -1,3 +1,5 @@
+        // Display warnings are passed through sessionStorage across redirects from
+        // analysis/preprocess flows.
         (function () {
             const raw = sessionStorage.getItem('cytocvDisplayInfoMessage');
             if (!raw) return;

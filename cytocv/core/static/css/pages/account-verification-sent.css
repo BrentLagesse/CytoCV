@@ -1,3 +1,4 @@
+    /* Email-verification waiting page, including polling status and resend controls. */
     .auth-page {
         flex: 1 0 auto;
         min-height: 100%;

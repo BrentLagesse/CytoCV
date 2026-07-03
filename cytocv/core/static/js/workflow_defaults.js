@@ -1,3 +1,6 @@
+// Account workflow-defaults controller. It keeps plugin, validation, scale, and
+// dashboard display preferences synchronized with the server-rendered form
+// fields without changing the backend preference schema.
 (() => {
   const navButtons = [...document.querySelectorAll('.nav button')];
   const sections = {
@@ -53,6 +56,8 @@
   const sectionFromUrl = new URLSearchParams(window.location.search).get('section');
   showSection(validSections.has(sectionFromUrl) ? sectionFromUrl : 'plugins', { syncUrl: false });
 
+  // Plugin dependency data is server-rendered so the account settings page uses
+  // the same required-channel rules as upload validation.
   let payload = {};
   try {
     payload = JSON.parse(document.getElementById('pluginDependencyPayload').textContent || '{}');
@@ -148,6 +153,8 @@
     saving: null,
   };
 
+  // Review and leave-confirmation modals intentionally share animation helpers
+  // because each form section can route through either modal.
   const clearPopupAnim = (backdrop, panel) => {
     if (backdrop) backdrop.classList.remove('modal-enter', 'modal-exit');
     if (panel) panel.classList.remove('modal-enter', 'modal-exit');
@@ -219,6 +226,8 @@
   };
 
   const requiredByStatsChannels = () => {
+    // Always-required channels stay required even when user overrides remove
+    // plugin-specific channel requirements.
     const required = new Set(alwaysRequired);
     effectiveSelectedPluginIds().forEach((pluginId) => {
       const plugin = pluginMap.get(pluginId);

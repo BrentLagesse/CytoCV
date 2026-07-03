@@ -1,3 +1,5 @@
+"""Static source contracts that keep templates, CSS, and JS loadable together."""
+
 from __future__ import annotations
 
 import re
@@ -13,6 +15,8 @@ CSS_URL_RE = re.compile(r"url\(\s*([\"']?)(.*?)\1\s*\)")
 
 
 class FrontendStaticContractTests(SimpleTestCase):
+    """Catch broken static references and accidental frontend encoding regressions."""
+
     def test_frontend_sources_do_not_contain_known_mojibake_tokens_or_bom(self):
         forbidden_tokens = ("Âµ", "â›", "�")
         for root in (TEMPLATE_ROOT, CORE_STATIC_ROOT):

@@ -15,16 +15,22 @@ from django.conf import settings
 
 
 def _path_stem(value: object) -> str:
+    """Strip extensions from user-visible file names for artifact stems."""
+
     return Path(str(value or "")).stem
 
 
 def _clean_url_part(value: object) -> str:
+    """Normalize one URL path fragment without interpreting it as a filesystem path."""
+
     return str(value or "").replace("\\", "/").strip("/")
 
 
 def media_url(*parts: object) -> str:
     """Return a public URL under MEDIA_URL for the supplied path parts."""
 
+    # Public URLs are stored on SegmentedImage and consumed by templates/JS, so
+    # normalize separators without changing the historical MEDIA_URL contract.
     base = str(settings.MEDIA_URL or "/media/").rstrip("/")
     cleaned = [part for part in (_clean_url_part(value) for value in parts) if part]
     if not cleaned:
@@ -77,6 +83,7 @@ def segmented_cell_image_url(
 ) -> str:
     """Return the public URL for a generated segmented cell image."""
 
+    # The outline suffix is part of the display/dashboard image lookup contract.
     suffix = "" if outline else "-no_outline"
     file_name = f"{_path_stem(image_name)}-{int(channel_index)}-{int(cell_id)}{suffix}.png"
     return media_url(uuid, "segmented", file_name)

@@ -1,3 +1,10 @@
+"""Legacy segmentation/statistics view and exact artifact writer.
+
+The worker pipeline now wraps this behavior through services, but this module
+still owns the concrete segmentation outputs, per-cell statistics mutation, and
+legacy route compatibility used by current tests and older deployments.
+"""
+
 # =========================
 # Standard library imports
 # =========================
@@ -206,6 +213,8 @@ STANDARD_GREEN_CONTOUR_CONSUMER_PLUGINS = frozenset(
 
 
 def _truthy_config_flag(value) -> bool:
+    """Parse analysis config booleans from session, JSON, or stored settings."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)) and value in {0, 1, 0.0, 1.0}:
@@ -221,11 +230,16 @@ def _alternate_nucleus_overlay_suppression_channel(
     alternate_nucleus_detection_enabled,
     alternate_nucleus_detection_channel,
 ):
+    """Return the fluorescence channel whose standard contour overlay is hidden."""
+
     if not _truthy_config_flag(alternate_nucleus_detection_enabled):
+        # Disabled alternate detection leaves standard contour overlays visible.
         return None
 
     selected_plugin_set = set(selected_plugins or [])
     if NUCLEAR_CELL_PAIR_PLUGIN not in selected_plugin_set:
+        # Suppression is only relevant when the alternate contour is used by the
+        # nuclear/cell-pair plugin.
         return None
 
     normalized_signal_mode = str(signal_quantification_mode or "").strip()
@@ -257,6 +271,8 @@ def _alternate_nucleus_standard_contour_skip_channels(
     alternate_nucleus_detection_enabled,
     alternate_nucleus_detection_channel,
 ):
+    """Return standard contour channels skipped by alternate nucleus detection."""
+
     channel = _alternate_nucleus_overlay_suppression_channel(
         selected_plugins=selected_plugins,
         signal_quantification_mode=signal_quantification_mode,
@@ -295,6 +311,8 @@ def _process_config_value(
     legacy_key: str,
     default,
 ):
+    """Read a current config key while accepting one legacy key spelling."""
+
     return config.get(key, config.get(legacy_key, default))
 
 
@@ -313,9 +331,8 @@ def _resolve_uploaded_dv_path(uploaded_image: UploadedImage) -> Path:
 
 
 def set_options(opt):
-    """
-    This function sets global variables based on parsed arguments (like the old legacy code).
-    """
+    """Populate legacy globals consumed by existing image-processing helpers."""
+
     global input_dir, output_dir, ignore_btn, current_image, current_cell, outline_dict, image_dict, cp_dict, n
     input_dir = opt["input_dir"]
     output_dir = opt["output_dir"]
@@ -354,7 +371,14 @@ def get_stats(
     nuclear_cell_pair_contour_mode=None,
     legacy_exact_cell_pair_mask=None,
 ):
-    # loading configuration
+    """Calculate configured statistics and return red/green/blue overlay images.
+
+    The function mutates the provided ``CellStatistics`` object in place because
+    the surrounding segmentation loop persists the row after plugin execution.
+    """
+
+    # Normalize plugin and rendering options before touching image payloads so the
+    # mutated CellStatistics.properties record describes the exact run contract.
     kernel_size_input, puncta_line_width_input, kernel_deviation_input, _ = set_options(
         conf
     )
@@ -467,7 +491,8 @@ def get_stats(
         if channel in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}
     }
 
-    # Always try to load all analysis channels if present so debug images remain available.
+    # Always try to load all analysis channels if present so debug/overlay images
+    # remain available even when only a subset of plugins is selected.
     channels_to_load = {
         CHANNEL_ROLE_RED,
         CHANNEL_ROLE_GREEN,
@@ -485,6 +510,8 @@ def get_stats(
         key for key in ("red", "green", "blue", "dic") if key in images
     ]
     if not available_image_keys:
+        # Missing all crop images should not crash a partially restored run; the
+        # caller receives blank debug overlays and persists default statistics.
         blank = np.zeros((64, 64, 3), dtype=np.uint8)
         return Image.fromarray(blank), Image.fromarray(blank), Image.fromarray(blank)
 
@@ -500,6 +527,8 @@ def get_stats(
     )
 
     def _canvas_for(channel_key: str) -> np.ndarray:
+        """Return a drawable BGR canvas for a channel, falling back to reference."""
+
         base = images.get(channel_key, reference)
         return ensure_3channel_bgr(np.array(base, copy=True))
 
@@ -508,6 +537,8 @@ def get_stats(
     edit_blue_img = _canvas_for("blue")
 
     def _store_contour_count_metadata(canonical_payload):
+        """Persist contour counts used by table filters and export labels."""
+
         red_count = count_valid_contour_slots(
             canonical_payload.get(CANONICAL_RED_SLOTS_KEY, [])
         )
@@ -523,6 +554,8 @@ def get_stats(
             PUNCTA_SOURCE_CONTOUR_COUNT_SOURCE
         )
         if cp.properties.get("signal_quantification_mode") != SIGNAL_MODE_PUNCTA_DISTANCE:
+            # Puncta source contour count is only meaningful for puncta-distance
+            # mode; nuclear/cell-pair rows keep the keys but mark them absent.
             cp.properties["puncta_source_contour_count"] = None
             cp.properties["puncta_source_contour_count_channel"] = None
             return
@@ -534,6 +567,8 @@ def get_stats(
             cp.properties["puncta_source_contour_count_channel"] = "red"
 
     def _attach_canonical_parentage(contour_payload):
+        """Attach canonical contour metadata without requiring plugin execution."""
+
         canonical_payload = build_canonical_contour_payload(
             contour_payload,
             image_name=cp.image_name,
@@ -564,6 +599,8 @@ def get_stats(
         measurement_images=cached_measurement_images,
     )
     if cached_measurement_images:
+        # Raw cached measurement images come from the source stack crops and are not
+        # display-normalized, which keeps intensity totals tied to analysis input data.
         cp.properties = dict(cp.properties or {})
         cp.properties["intensity_pixel_source"] = "raw_dv_v1"
         cp.properties["intensity_display_scaled"] = False
@@ -598,6 +635,8 @@ def get_stats(
         and nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE
         and effective_alternate_channel in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN}
     ):
+        # Aggressive alternate nucleus detection needs the exact cell-pair mask so
+        # red/green candidate contours are constrained to the current crop.
         alternate_cell_mask = load_cell_mask(
             cp.image_name,
             cp.cell_id,
@@ -618,6 +657,8 @@ def get_stats(
         nuclear_cell_pair_contour_mode=nuclear_cell_pair_contour_mode,
         cell_mask=alternate_cell_mask,
     )
+    # Canonical slots stabilize contour ordering across statistics, overlays,
+    # tables, and exports before plugins write their individual measurements.
     contours_data = build_canonical_contour_payload(
         contours_data,
         image_name=cp.image_name,
@@ -641,6 +682,8 @@ def get_stats(
     ):
         red_nucleus_debug = contours_data.get(RED_NUCLEUS_DEBUG_PAYLOAD_KEY)
         if red_nucleus_debug is not None:
+            # Debug artifact sources prefer background-corrected arrays when they
+            # exist, falling back to the available grayscale preprocessing output.
             red_debug_source = preprocessed_images.get_image("gray_red_3")
             if red_debug_source is None:
                 red_debug_source = preprocessed_images.get_image("gray_red")
@@ -657,6 +700,8 @@ def get_stats(
                     green_image=green_debug_source,
                 )
             except OSError:
+                # Debug artifacts are diagnostic; failed writes are logged but the
+                # statistics row remains valid.
                 logger.exception("Failed to save alternate Red nucleus debug artifacts")
     canonical_red_contours = flatten_slot_contours(
         contours_data.get("canonical_red_slots", [])
@@ -702,7 +747,8 @@ def get_stats(
             cen_dot_proximity_radius,
         )
 
-    # Convert BGR back to RGB so PIL shows correct colors
+    # OpenCV drawing uses BGR; convert back before returning PIL images for overlay
+    # persistence and protected replay.
     edit_red_img_rgb = cv2.cvtColor(edit_red_img, cv2.COLOR_BGR2RGB)
     edit_green_img_rgb = cv2.cvtColor(edit_green_img, cv2.COLOR_BGR2RGB)
     edit_blue_img_rgb = cv2.cvtColor(edit_blue_img, cv2.COLOR_BGR2RGB)
@@ -720,6 +766,8 @@ def finalize_segmented_run_batch(
     """Persist a completed batch when quota allows, otherwise keep it transient."""
 
     if not getattr(request.user, "is_authenticated", False):
+        # Guest runs stay in the guest namespace and are controlled by transient
+        # session cleanup rather than account quota.
         return
 
     current_uuids = {str(item) for item in uuid_list if str(item)}
@@ -731,11 +779,15 @@ def finalize_segmented_run_batch(
     guest_id = get_guest_user()
 
     if not auto_save_experiments:
+        # Manual-save users keep completed runs viewable through the current
+        # session until Display explicitly saves or discards them.
         transient.update(current_uuids)
         request.session["transient_experiment_uuids"] = sorted(transient)
         return
 
     try:
+        # Autosave uses the same quota gate as Display save; failure keeps results
+        # transient and visible instead of deleting completed artifacts.
         assert_user_can_save_runs(request.user, current_uuids)
     except StorageQuotaExceeded as exc:
         log_storage_capacity_failure(
@@ -754,6 +806,8 @@ def finalize_segmented_run_batch(
         return
 
     with transaction.atomic():
+        # Move all completed rows in one transaction so saved counts do not show a
+        # partially retained batch.
         SegmentedImage.objects.filter(UUID__in=current_uuids, user_id=guest_id).update(
             user=request.user
         )
@@ -766,9 +820,8 @@ def finalize_segmented_run_batch(
 
 
 def segment_image(request, uuids):
-    """
-    Handles segmentation cell_analysis for multiple images passed as UUIDs.
-    """
+    """Run segmentation/statistics for uploaded UUIDs through the legacy route."""
+
     uuid_list = uuids.split(",")
     owner_filter = _current_owner_filter(request)
     cancelled = lambda: is_cancelled(uuids)
@@ -779,6 +832,8 @@ def segment_image(request, uuids):
     )
 
     def cancel_response():
+        # The legacy route treats cancellation as abandoning the staged upload, so
+        # source rows and artifacts are both removed before returning to the UI.
         for cleanup_uuid in uuid_list:
             delete_uploaded_run_by_uuid(cleanup_uuid)
         prune_experiment_session_state(request, uuid_list)
@@ -791,6 +846,8 @@ def segment_image(request, uuids):
             uuids=uuid_list,
             exc=exc,
         )
+        # Disk-full failures can leave partial masks/crops/stat rows; preserve the
+        # original upload but clear derived outputs before returning to preprocess.
         for cleanup_uuid in uuid_list:
             cleanup_failed_processing_artifacts(cleanup_uuid)
         write_progress(uuids, "Idle")
@@ -803,8 +860,9 @@ def segment_image(request, uuids):
         clear_cancelled(uuids)
         return cancel_response()
 
-    # Initialize some variables that would normally be a part of config
-    choice_var = "Metaphase Arrested"  # We need to be able to change this
+    # The legacy route keeps the historical metaphase path as the only active mode;
+    # worker/sync batch paths mirror this behavior through segmentation_pipeline.
+    choice_var = "Metaphase Arrested"
     seg = None
     use_cache = True
 
@@ -833,8 +891,8 @@ def segment_image(request, uuids):
         image_dict = dict()
         image_dict[DV_Name] = list()
 
-        # Need to grab the original source image file
-        # Load the original raw image and rescale its intensity values
+        # Load the channel-first source stack; display artifacts are normalized, but
+        # raw cropped planes below are retained for measurement plugins.
         im = load_image_stack(DV_path)
         if im.ndim == 2:
             im = np.expand_dims(im, axis=0)
@@ -854,9 +912,8 @@ def segment_image(request, uuids):
             image = np.expand_dims(image, axis=-1)
             image = np.tile(image, 3)
 
-        # TODO -- make it show it is choosing the correct segmented
-        # Open the segmentation file (the mask generated in convert_to_image)
-        # TODO:  on first run, this can't find outputs/masks/M***.tif'
+        # Open the postprocessed mask generated by inference; downstream artifacts
+        # and CellStatistics rows all derive from this label image.
         seg = np.array(
             Image.open(Path(MEDIA_ROOT) / str(uuid) / "output" / "mask.tif")
         )  # create a 2D matrix of the image
@@ -875,7 +932,7 @@ def segment_image(request, uuids):
             )
             seg = refine_pair_label_image(seg)
 
-            # now seg has the updated masks, so lets save them so we don't have to do this every time
+            # Persist the refined label image for display/debug compatibility.
             outputdirectory = str(Path(MEDIA_ROOT)) + "/" + str(uuid) + "/output/"
             seg_image = Image.fromarray(seg)
             try:
@@ -909,8 +966,8 @@ def segment_image(request, uuids):
             im = np.expand_dims(im, axis=0)
 
         for frame_idx in range(im.shape[0]):
-            # begin drawing the cell contours all over 4 DV images
-            # TODO: Make this a method
+            # Render full-frame outlined images for every source layer so the viewer
+            # can switch channels without re-running segmentation.
             image = Image.fromarray(im[frame_idx])
             image = skimage.exposure.rescale_intensity(
                 np.float32(image), out_range=(0, 1)
@@ -979,11 +1036,11 @@ def segment_image(request, uuids):
 
         # TODO:  Combine the two iterations over the input directory images
 
-        # This is where we overlay what we learned in the DIC onto the other images
+        # Per-cell masks and channel crops reuse the DIC-derived segmentation labels
+        # across every available layer.
 
         # filter_dir = input_dir  + base_image_name + '_PRJ_TIFFS/'
         segmented_directory = Path(MEDIA_ROOT) / str(uuid) / "segmented"
-        # Ensure directory exists
         try:
             segmented_directory.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
@@ -991,15 +1048,12 @@ def segment_image(request, uuids):
                 return storage_full_response(exc)
             raise
 
-        # Iterate over the segmented cells
         for cell_number in range(1, int(np.max(seg)) + 1):
             cell_image = np.zeros_like(seg)
-            cell_image[seg == cell_number] = 255  # Mark cell areas
+            cell_image[seg == cell_number] = 255
 
-            # File paths
             cell_image_path = segmented_directory / f"cell_{cell_number}.png"
 
-            # Save each cell image as PNG
             try:
                 save_png_array(
                     cell_image.astype(np.uint8),
@@ -1023,6 +1077,8 @@ def segment_image(request, uuids):
             dict
         )
 
+        # Display-normalized crops and raw measurement crops are cached separately
+        # so statistics plugins can measure source intensities without rereading files.
         if image_stack.ndim == 2:
             image_stack = np.expand_dims(image_stack, axis=0)
 
@@ -1062,6 +1118,8 @@ def segment_image(request, uuids):
 
             image_outlined = image.copy()
             cell_contour_cache = {}
+            # Cache crop bounds and local contours once per layer because outline
+            # files, display crops, and legacy exact masks all depend on the same geometry.
             for i in range(1, int(np.max(seg) + 1)):
                 a = np.where(seg == i)
                 if a[0].size == 0:
@@ -1184,6 +1242,8 @@ def segment_image(request, uuids):
                 "cell_inclusion_mode": cell_inclusion_mode,
             },
         )
+        # Reprocessing a run replaces all statistics for the current mask; deleting
+        # first prevents old cell IDs or plugin outputs from leaking into exports.
         CellStatistics.objects.filter(segmented_image=instance).delete()
 
         configuration = DEFAULT_PROCESS_CONFIG
@@ -1238,6 +1298,8 @@ def segment_image(request, uuids):
             ),
         )
         if uploaded_image.scale_info != scale_info:
+            # Persist normalized scale info once so later display/export paths do
+            # not repeat metadata/manual fallback normalization.
             uploaded_image.scale_info = scale_info
             uploaded_image.save(update_fields=["scale_info"])
         scale_context = resolve_scale_context(
@@ -1266,6 +1328,8 @@ def segment_image(request, uuids):
             um_per_px=line_width_proxy_um_per_px,
         )
         if cen_dot_distance_unit == "um":
+            # Physical-mode Cen Dot distance keeps the user-facing micrometer
+            # value in properties while also storing a pixel equivalent for masks.
             try:
                 cen_dot_distance = float(raw_cen_dot_distance)
             except (TypeError, ValueError):
@@ -1281,6 +1345,8 @@ def segment_image(request, uuids):
             )
             cen_dot_distance_mode = "physical_um"
         else:
+            # Pixel-mode distances are converted through the scalar scale helper
+            # only to normalize invalid inputs and preserve downstream types.
             cen_dot_distance = float(
                 convert_length_to_pixels(
                     raw_cen_dot_distance,
@@ -1301,6 +1367,8 @@ def segment_image(request, uuids):
             default="px",
         )
         if cen_dot_proximity_radius_unit == "um":
+            # Proximity radius follows the same dual storage pattern as distance:
+            # display value plus pixel equivalent for contour proximity tests.
             try:
                 cen_dot_proximity_radius = float(raw_cen_dot_proximity_radius)
             except (TypeError, ValueError):
@@ -1475,7 +1543,8 @@ def segment_image(request, uuids):
             DEFAULT_PROCESS_CONFIG.get("puncta_line_width", 1),
         )
 
-        # Build a proper 'conf' dict with required keys for get_stats
+        # get_stats consumes the same config structure in this legacy route and in
+        # the shared segmentation pipeline.
         conf = {
             "input_dir": input_dir,
             "output_dir": os.path.join(str(settings.MEDIA_ROOT), str(uuid)),
@@ -1548,6 +1617,8 @@ def segment_image(request, uuids):
                 red_dot_split_mode=red_dot_split_mode,
             ),
         )
+        # The replay snapshot above lets Display/Dashboard regenerate exact
+        # contour-on fluorescence overlays without relying on optional debug PNGs.
 
         if cancelled():
             write_progress(uuids, "Cancelled")
@@ -1558,8 +1629,8 @@ def segment_image(request, uuids):
         if selected_analysis:
             write_progress(uuids, "Calculating Statistics")
 
-        # For each cell_number in the segmentation, create/fetch a CellStatistics object
-        # and call get_stats so it can mutate the fields on cp.
+        # For each label, create/fetch one CellStatistics row and let get_stats
+        # mutate fields before the row is saved.
         for cell_number in range(1, int(np.max(seg)) + 1):
             logger.debug(
                 "Calculating statistics for cell %s in image %s (UUID: %s)",
@@ -1569,7 +1640,8 @@ def segment_image(request, uuids):
             )
             cell_type = cell_type_by_label.get(cell_number, CELL_TYPE_UNKNOWN)
 
-            # Create or get a CellStatistics row
+            # Create or get one row per retained label; fields below are reset or
+            # overwritten so reprocessing cannot leak stale per-cell measurements.
             cp, created = CellStatistics.objects.get_or_create(
                 segmented_image=instance,
                 cell_id=cell_number,
@@ -1589,12 +1661,13 @@ def segment_image(request, uuids):
                 },
             )
 
-            # Now pass the real model object + conf to get_stats
-            # This modifies cp's fields in place
             cp.cell_type = cell_type
             cp.properties = dict(cp.properties or {})
             cp.properties["cell_type"] = cell_type
             cp.properties["cell_inclusion_mode"] = cell_inclusion_mode
+            # ``properties`` carries analysis-time context consumed by table
+            # rendering, export filtering, overlay replay, and backward-compatible
+            # payload serialization for older rows.
             cp.properties["puncta_line_mode"] = normalize_puncta_line_mode(
                 request.session.get("puncta_line_mode"),
                 default=DEFAULT_PUNCTA_LINE_MODE,
@@ -1688,10 +1761,13 @@ def segment_image(request, uuids):
                 and cell_type == CELL_TYPE_PAIR
             ):
                 _local_contours, min_x, max_x, min_y, max_y = contour_cache_entry
+                # Legacy nuclear-cell-pair mode uses the exact cropped pair mask
+                # while retaining the current row/property payload shape.
                 legacy_exact_cell_pair_mask = (
                     seg[min_x:max_x, min_y:max_y] == cell_number
                 ).astype(np.uint8) * 255
-            # Call get_stats to do the real work
+            # Single-cell rows use only plugins that are meaningful without a
+            # paired-cell contour.
             row_execution_plan = (
                 single_cell_execution_plan
                 if cell_type == CELL_TYPE_SINGLE
@@ -1724,6 +1800,8 @@ def segment_image(request, uuids):
                 mark_single_cell_pair_specific_statistics_na(cp)
 
             try:
+                # Overlay cache persistence happens before the final row save in
+                # this legacy path so storage failures can still abort and clean up.
                 persist_overlay_cache_images(
                     uuid,
                     cell_number,
@@ -1756,7 +1834,6 @@ def segment_image(request, uuids):
                         return storage_full_response(exc)
                     raise
 
-            # Save the updated fields to the DB
             cp.save()
 
         if cancelled():
@@ -1769,7 +1846,7 @@ def segment_image(request, uuids):
             remove_preview_assets=True,
         )
 
-    # saving processing time
+    # Processing time is account-level usage accounting, not a scientific metric.
     duration = time.time() - start_time
     if request.user.is_authenticated:
         user = request.user

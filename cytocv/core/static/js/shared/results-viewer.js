@@ -1,11 +1,18 @@
+// Shared Display/Dashboard viewer primitives. Both page controllers depend on
+// this global namespace, so exported helper names and payload assumptions are
+// treated as frontend contracts by the static contract tests.
 (function (global) {
     'use strict';
 
     function readJsonConfig(scriptId) {
+        // Templates render page configuration in JSON script tags; missing tags
+        // fall back to an empty object so inactive pages can share this bundle.
         const node = document.getElementById(scriptId);
         return JSON.parse(node ? node.textContent || '{}' : '{}');
     }
 
+    // Blend helpers are shared so Display and Dashboard update file/cell content
+    // with the same reduced-motion and placeholder behavior.
     function createBlendHelpers({
         reducedMotion = false,
         isInitialized = () => false,
@@ -247,6 +254,8 @@
         };
     }
 
+    // Contour toggles intentionally read the canonical checkbox ID used by both
+    // viewer templates.
     function getContourToggleState(forceShowContours = null) {
         if (forceShowContours !== null) {
             return !!forceShowContours;
@@ -255,6 +264,8 @@
         return !!(toggleElement && toggleElement.checked);
     }
 
+    // Cell image URLs are ordered outline/no-outline pairs by channel; missing
+    // entries fall back to the no-cell placeholder instead of breaking navigation.
     function getVisibleCellImageUrls(imageUrls, showContours, noCellPlaceholder) {
         if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
             return [noCellPlaceholder, noCellPlaceholder, noCellPlaceholder, noCellPlaceholder];
@@ -1857,6 +1868,8 @@
         };
     }
 
+    // Public namespace consumed by Display and Dashboard page controllers. Keep
+    // these names stable because static contract tests look for shared helpers.
     global.CytoCVResultsViewerShared = {
         readJsonConfig,
         createBlendHelpers,

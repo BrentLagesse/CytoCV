@@ -1,3 +1,5 @@
+"""Upload-time validation for supported source image files and channels."""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Set, Tuple
@@ -22,6 +24,8 @@ REQUIRED_CHANNELS = {CHANNEL_ROLE_DIC, CHANNEL_ROLE_BLUE, CHANNEL_ROLE_RED, CHAN
 
 
 def _channel_sort_key(channel: str) -> int:
+    """Return the configured display/order index for a channel role."""
+
     try:
         return CHANNEL_ORDER.index(channel)
     except ValueError:
@@ -29,11 +33,15 @@ def _channel_sort_key(channel: str) -> int:
 
 
 def _normalize_channel_name(channel: str) -> str | None:
+    """Normalize validation input to a recognized channel role."""
+
     normalized = normalize_channel_role(channel)
     return normalized if normalized in CHANNEL_ORDER else None
 
 
 def _available_channels_from_config(channel_config: dict, layer_count: int) -> Set[str]:
+    """Return configured channels whose indices exist in the source stack."""
+
     available: Set[str] = set()
     for raw_name, raw_index in (channel_config or {}).items():
         channel_name = _normalize_channel_name(str(raw_name))
@@ -76,6 +84,7 @@ def get_effective_required_channels(options: SourceImageValidationOptions) -> Se
 
     required = set(options.required_channels or set())
     if options.enforce_wavelengths:
+        # Full wavelength enforcement is the legacy "all channels required" mode.
         required.update(REQUIRED_CHANNELS)
     return required
 
@@ -89,6 +98,7 @@ def validate_source_image_file(
     required_channels = get_effective_required_channels(options)
 
     if not is_recognized_image_file(str(source_image_path)):
+        # Treat parser/open failures as a safe generic file recognition failure.
         return SourceImageValidationResult(
             is_valid=False,
             layer_count=None,
@@ -103,6 +113,8 @@ def validate_source_image_file(
         or required_channels
     )
     if should_check_layer_count:
+        # Layer count is skipped only when no validation option depends on it; this
+        # keeps upload fast for minimal workflows while preserving required-channel checks.
         try:
             layer_count = get_image_layer_count(str(source_image_path))
         except Exception:
@@ -146,6 +158,8 @@ def validate_source_image_file(
                     error_message="not a recognized supported image file",
                 )
 
+        # Three-layer stacks need reliable metadata because one canonical role is
+        # absent; default-order fallback would hide which channel is missing.
         if layer_count == 3:
             metadata_config = extract_reliable_metadata_channel_config(
                 source_image_path,
@@ -186,6 +200,8 @@ def validate_source_image_file(
                 source_image_path,
                 prefer_metadata=options.prefer_metadata_channel_order,
             )
+            # Four-layer stacks can use the normal parser/fallback path because no
+            # optional channel is absent from the logical role set.
             available_channels = _available_channels_from_config(channel_config, layer_count)
         missing_channels = set(required_channels) - available_channels
         if missing_channels:
@@ -218,6 +234,8 @@ def validate_source_image_file(
 
 
 def _join_words(parts: list[str]) -> str:
+    """Return a short English list for user-facing validation messages."""
+
     if not parts:
         return ""
     if len(parts) == 1:
@@ -228,6 +246,8 @@ def _join_words(parts: list[str]) -> str:
 
 
 def _sorted_channels(channels: Set[str]) -> list[str]:
+    """Sort logical channels in the same order as the stats/plugin UI."""
+
     return sorted(channels, key=_channel_sort_key)
 
 
@@ -241,6 +261,8 @@ def _channel_list(channels: Set[str]) -> str:
 
 
 def _configured_experiment_label(options: SourceImageValidationOptions) -> str:
+    """Return the workflow label shown in validation errors."""
+
     return str(options.configured_experiment_label or "the configured experiment")
 
 
@@ -249,6 +271,8 @@ def _suggestion_for_missing_channels(
     identified_channels: Set[str],
     missing_channels: Set[str],
 ) -> str:
+    """Return a safe remediation hint for missing required channels."""
+
     if CHANNEL_ROLE_GREEN in missing_channels and CHANNEL_ROLE_RED in identified_channels:
         return (
             "Change the puncta source to Red Puncta Only for red-only stacks, "
@@ -312,6 +336,8 @@ def _required_channels_missing_error(
 
 
 def _failure_file_name(name: object) -> str:
+    """Return a display filename for validation failures."""
+
     file_name = Path(str(name or "")).name
     if Path(file_name).suffix:
         return file_name
@@ -332,6 +358,8 @@ def build_source_image_error_messages(
     for name, result in failures:
         file_name = _failure_file_name(name)
         if result.error_message:
+            # Error messages here are already sanitized and intentionally grouped
+            # by validation class for upload-page display.
             prefix = "" if result.error_message.startswith("has ") else "is "
             invalid_file_errors.append(f"- {file_name} {prefix}{result.error_message}")
             continue
@@ -374,6 +402,8 @@ def build_source_image_error_messages(
             messages.append("")
         messages.append("Could not process the following files due to missing required wavelengths:")
         if required_channels:
+            # Include the effective required set once so grouped file lines can be
+            # concise even for batches with many failures.
             required_list = ", ".join(_sorted_channel_labels(required_channels))
             messages.append(f"The following wavelengths are required: {required_list}.")
 

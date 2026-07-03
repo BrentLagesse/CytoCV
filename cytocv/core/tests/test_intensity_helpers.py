@@ -1,3 +1,5 @@
+"""Regression tests for shared masked-intensity helper calculations."""
+
 import numpy as np
 from django.test import SimpleTestCase
 

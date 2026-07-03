@@ -1,3 +1,5 @@
+"""Nuclear and cell-pair intensity statistics for red/green workflows."""
+
 import cv2
 import math
 import numpy as np
@@ -24,8 +26,12 @@ from .nuclear_cell_pair_legacy_scaled import (
 
 
 class NuclearCellPairIntensity(Analysis):
+    """Measure one channel inside a nucleus contour and its paired-cell mask."""
+
     name = "Nuclear, Cell-Pair Intensity"
 
+    # Each mode defines contour-source keys, measurement-image keys, and labels
+    # stored in CellStatistics.properties for table cards and exports.
     _MODE_CONFIG = {
         "green_nucleus": (
             ("green_no_bg", "green"),
@@ -42,6 +48,8 @@ class NuclearCellPairIntensity(Analysis):
     }
 
     def _first_available_image(self, keys):
+        """Return the first GrayImage plane available for a mode-specific role."""
+
         for key in keys:
             image = self.preprocessed_images.get_image(key)
             if image is not None:
@@ -50,6 +58,8 @@ class NuclearCellPairIntensity(Analysis):
 
     @staticmethod
     def _resolved_alternate_target_channel(props: dict) -> str | None:
+        """Return the alternate nucleus channel only when the toggle is enabled."""
+
         raw_enabled = props.get("alternate_nucleus_detection_enabled")
         if isinstance(raw_enabled, str):
             normalized = raw_enabled.strip().lower()
@@ -61,6 +71,8 @@ class NuclearCellPairIntensity(Analysis):
 
     @staticmethod
     def _draw_nucleus_contours(red_image, green_image, contours, mode: str) -> None:
+        """Draw selected nucleus contours onto mutable overlay images."""
+
         if not contours:
             return
         color = (0, 0, 255) if mode == "red_nucleus" else (0, 255, 0)
@@ -78,6 +90,8 @@ class NuclearCellPairIntensity(Analysis):
         nucleus_intensity: float,
         cytoplasmic_intensity: float,
     ) -> float | None:
+        """Return nucleus/cytoplasm ratio when the denominator is usable."""
+
         try:
             numerator = float(nucleus_intensity)
             denominator = float(cytoplasmic_intensity)
@@ -89,6 +103,8 @@ class NuclearCellPairIntensity(Analysis):
         return ratio if math.isfinite(ratio) else None
 
     def _clear_nuclear_cell_pair_sums(self) -> None:
+        """Reset persisted numeric fields before storing unavailable statuses."""
+
         self.cp.nucleus_intensity_sum = 0.0
         self.cp.cell_pair_intensity_sum = 0.0
         self.cp.cytoplasmic_intensity = 0.0
@@ -104,6 +120,8 @@ class NuclearCellPairIntensity(Analysis):
         cen_dot_distance=0,
         cen_dot_proximity_radius=13,
     ):
+        """Compute nuclear and cell-pair sums for the configured red/green mode."""
+
         props = dict(getattr(self.cp, "properties", {}) or {})
         mode = props.get("nuclear_cell_pair_mode", "green_nucleus")
         if mode not in self._MODE_CONFIG:
@@ -118,12 +136,16 @@ class NuclearCellPairIntensity(Analysis):
         use_legacy_scaled_measurement = truthy_legacy_flag(
             props.get("use_legacy_nuclear_cell_pair_pipeline")
         )
+        # The legacy-scaled option changes only the measurement pixel source;
+        # contour identity, clipping, and cell-pair masks remain CytoCV-native.
         if use_legacy_scaled_measurement:
             measure_keys = legacy_scaled_measurement_keys(mode)
         contour_img = self._first_available_image(contour_keys)
         measure_img = self._first_available_image(measure_keys)
 
         if contour_img is None or measure_img is None:
+            # Missing channel data clears numeric outputs and records a status so
+            # downstream display code does not mistake stale values for a result.
             self._clear_nuclear_cell_pair_sums()
             props["nuclear_cell_pair_mode"] = mode
             props["nuclear_cell_pair_contour_mode"] = contour_mode
@@ -136,6 +158,8 @@ class NuclearCellPairIntensity(Analysis):
         h, w = contour_img.shape[:2]
         cell_mask = contours_data.get("cell_mask")
         if cell_mask is None or cell_mask.shape[:2] != (h, w) or not np.any(cell_mask):
+            # Saved artifacts can outlive in-memory contour payloads, so reload the
+            # per-cell mask before failing the statistic.
             cell_mask = load_cell_mask(
                 self.cp.image_name, self.cp.cell_id, self.output_dir, (h, w)
             )
@@ -150,9 +174,13 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.properties = props
             return
 
+        # Slot selection is separated from measurement-mask selection so alternate
+        # nucleus detection and legacy scaled measurement can vary independently.
         slot_payload = dict(contours_data or {})
         slot_payload["cell_mask"] = cell_mask
         alternate_target_channel = self._resolved_alternate_target_channel(props)
+        # Alternate nucleus detection can supply a preselected canonical slot; the
+        # status field records which source was used.
         if mode == "red_nucleus":
             if alternate_target_channel == CHANNEL_ROLE_RED:
                 source_slots = list(
@@ -188,6 +216,8 @@ class NuclearCellPairIntensity(Analysis):
         cell_measurement_mask = cell_mask
         legacy_cell_mask_fallback = False
         if use_legacy_scaled_measurement:
+            # Legacy-scaled mode can use an exact historical cell-pair mask for
+            # measurement while preserving the current contour selection path.
             cell_measurement_mask, legacy_cell_mask_fallback = (
                 select_legacy_exact_cell_pair_mask(
                     slot_payload,
@@ -197,6 +227,8 @@ class NuclearCellPairIntensity(Analysis):
             )
         nucleus_mask = np.asarray(nucleus_slot.mask)
         if nucleus_mask.ndim == 3:
+            # Canonical slots should normally be grayscale masks, but some replay
+            # paths can hand back RGB debug-derived masks; normalize before clipping.
             nucleus_mask = cv2.cvtColor(nucleus_mask, cv2.COLOR_BGR2GRAY)
         nucleus_mask = np.where(nucleus_mask > 0, 255, 0).astype(np.uint8)
         nucleus_mask = cv2.bitwise_and(nucleus_mask, cell_measurement_mask)
@@ -211,6 +243,8 @@ class NuclearCellPairIntensity(Analysis):
             if contour is not None and len(contour) >= 3
         )
         if not clipped_nucleus_contours:
+            # A nucleus contour clipped entirely outside the pair mask is recorded
+            # as unavailable instead of preserving stale intensity values.
             self._clear_nuclear_cell_pair_sums()
             props["nuclear_cell_pair_mode"] = mode
             props["nuclear_cell_pair_contour_mode"] = contour_mode
@@ -221,6 +255,8 @@ class NuclearCellPairIntensity(Analysis):
             self.cp.properties = props
             return
 
+        # Measurements are raw sums over the selected masks; downstream ratio
+        # fields derive from these same sums for table/export consistency.
         measure_values = measure_img.astype(np.float64, copy=False)
         cell_pixels = measure_values[cell_measurement_mask > 0]
         nucleus_pixels = measure_values[nucleus_mask > 0]

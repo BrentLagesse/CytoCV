@@ -1,3 +1,4 @@
+        /* License page layout and reusable legal-content card. */
         .license-page {
             flex: 1 0 auto;
             width: 100%;
@@ -29,6 +30,7 @@
         .license-card strong {
             color: rgba(247, 250, 255, 0.98);
         }
+        /* Metadata block highlights the license identifier rendered by Django. */
         .license-meta {
             display: grid;
             gap: 6px;

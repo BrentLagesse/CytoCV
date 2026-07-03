@@ -1,3 +1,5 @@
+"""Resolve result-viewer main-image URLs from stored channel configuration."""
+
 from __future__ import annotations
 
 from typing import Mapping
@@ -30,6 +32,13 @@ def resolve_main_image_url(
     available_frames: Mapping[int, str],
     present_channels=None,
 ) -> str:
+    """Return the best main-image frame URL for one logical channel.
+
+    The fallback order preserves older runs whose stored frame filenames or
+    channel sidecars may be incomplete while keeping absent-channel responses
+    empty for confirmed missing channels.
+    """
+
     if present_channels is not None and channel_role not in set(present_channels):
         return ""
     fallback_frame_idx = int(DEFAULT_CHANNEL_CONFIG.get(channel_role, 0))
@@ -57,6 +66,8 @@ def build_main_image_paths(
     channel_config: Mapping[str, int],
     available_frames: Mapping[int, str],
 ) -> dict[str, str]:
+    """Build the frontend channel-slug to image-URL map for one run."""
+
     presence = get_channel_presence(uuid)
     present_channels = (
         presence.present_channels

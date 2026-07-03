@@ -1,3 +1,5 @@
+"""Legacy view utility wrappers for image conversion and progress state."""
+
 import cv2
 from pathlib import Path
 from cytocv.settings import MEDIA_ROOT
@@ -20,6 +22,8 @@ from core.services.analysis_progress import (
 
 
 def tif_to_jpg(tif_path :Path, output_dir :Path) -> Path:
+    """Write a JPEG preview next to a TIFF-like source image."""
+
     filename = tif_path.stem
     read = cv2.imread(str(tif_path))
     temp =filename+ '.jpg'
@@ -74,6 +78,8 @@ def prune_experiment_session_state(request, uuids) -> None:
     for session_key in ("last_experiment_uuids", "transient_experiment_uuids"):
         existing = request.session.get(session_key, [])
         if not isinstance(existing, list):
+            # Ignore malformed session values; downstream views rebuild valid
+            # lists from current request and database ownership state.
             continue
         filtered = [str(value) for value in existing if str(value) not in normalized]
         if filtered != existing:
@@ -105,6 +111,8 @@ def sync_transient_run_session_state(request, uuids) -> None:
         ).values_list("UUID", flat=True)
     }
 
+    # Runs not saved under the current user remain transient; saved runs are
+    # removed so stale-artifact cleanup can manage them as retained results.
     next_transient = (current | (normalized - saved_by_current_user)) - saved_by_current_user
     if next_transient == current:
         return

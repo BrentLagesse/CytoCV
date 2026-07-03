@@ -1,3 +1,5 @@
+// Shared cell deletion actions for Display and Dashboard viewers. The frontend
+// only chooses cell IDs and confirmation scope; the endpoints enforce ownership.
 (function (global) {
     'use strict';
 
@@ -131,6 +133,8 @@
         const deleteCellModal = createModalAnimator(modalBackdrop, modalPanel);
         const selectCellsModal = createModalAnimator(selectCellsBackdrop, selectCellsPanel);
 
+        // Context menus are moved into the fullscreen host when needed so they
+        // remain usable with the image/table viewer in fullscreen mode.
         function closeTriggerMenu() {
             if (!triggerMenu || !trigger) return;
             triggerMenu.dataset.open = 'false';
@@ -185,6 +189,8 @@
             closeContextMenu();
         }
 
+        // Multi-cell deletion uses a two-step modal so the selected IDs can be
+        // reviewed before the request is sent.
         function clearCellSelectAnim(view) {
             if (!view) return;
             cellSelectAnimClasses.forEach((className) => view.classList.remove(className));
@@ -300,6 +306,8 @@
         function updateLocalStateForDeletedCells(fileUuid, cellIds, payload) {
             const fileData = filesData[fileUuid];
             if (!fileData) return;
+            // The server is the source of truth for deletion; local state is pruned
+            // only after a successful response so stale selections do not hide cells.
             (cellIds || []).forEach((cellId) => {
                 const idStr = String(cellId);
                 if (fileData.CellPairImages) {
@@ -326,6 +334,8 @@
             const sortedIds = getSortedCellIds(fileData);
             const deletedIdSet = new Set((deletedCellIds || []).map((cellId) => Number(cellId)));
             const previousCellNumber = Number(currentCellNumber);
+            // Prefer the shared contour-filter sync path when present so table,
+            // image, filter, and cell-number state stay aligned after deletion.
             if (typeof syncCurrentCellToActiveContourFilter === 'function') {
                 await syncCurrentCellToActiveContourFilter(fileData, {
                     anchorCellId: previousCellNumber,
@@ -362,6 +372,8 @@
         async function performDelete(fileUuid, cellId) {
             const csrfToken = readCsrfToken();
             const url = `/experiment/${fileUuid}/cell/${cellId}/delete/`;
+            // The endpoint owns authorization, artifact cleanup, and NumCells
+            // updates; this request only names the current file/cell.
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -449,6 +461,8 @@
             }
             try {
                 const payload = await performBulkDelete(fileUuid, normalizedIds);
+                // Use server-returned deleted IDs because stale selections may
+                // contain cells already removed by another action.
                 const deletedIds = Array.isArray(payload.deleted_cells)
                     ? payload.deleted_cells.map((cellId) => Number(cellId))
                     : normalizedIds;

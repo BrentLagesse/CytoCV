@@ -1,3 +1,4 @@
+        /* Signup flow styles cover AJAX-replaced cards, verification timers, and CAPTCHA gates. */
         body {
             background-color: var(--page-bg);
             color: var(--text);
@@ -66,6 +67,7 @@
             width: min(720px, calc(100% - 32px));
             z-index: 1500;
         }
+        /* The form card is replaced after AJAX validation, so selector names stay stable. */
         .signup-form {
             display: grid;
             gap: 16px;

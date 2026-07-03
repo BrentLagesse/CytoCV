@@ -1,3 +1,5 @@
+"""Protect puncta source-contour filters across table, card, and export payloads."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -14,6 +16,7 @@ from core.services.puncta_source_contour_count_filter import (
     matches_puncta_source_contour_count_filter,
     normalize_puncta_source_contour_count_filter,
     puncta_source_channel_from_statistics,
+    resolve_effective_puncta_source_contour_count_filter,
 )
 
 
@@ -250,6 +253,24 @@ class PunctaSourceContourCountFilterTests(SimpleTestCase):
         self.assertEqual(result, [rows[1]])
         self.assertEqual([id(row) for row in rows], original_ids)
         self.assertEqual([row.properties for row in rows], original_properties)
+
+    def test_effective_filter_stays_available_from_base_rows_when_selection_is_empty(self):
+        rows = [_row(1), _row(2)]
+
+        self.assertEqual(
+            resolve_effective_puncta_source_contour_count_filter(
+                rows,
+                PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
+            ),
+            PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
+        )
+        self.assertEqual(
+            filter_statistics_by_puncta_source_contour_count(
+                [rows[0]],
+                PUNCTA_SOURCE_CONTOUR_FILTER_EXACTLY_2,
+            ),
+            [],
+        )
 
     def test_count_valid_contour_slots_counts_only_positive_area_slots(self):
         slots = [

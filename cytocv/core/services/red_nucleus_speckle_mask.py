@@ -36,10 +36,14 @@ class RedNucleusSpeckleMaskResult:
 
 
 def _height_width(image: np.ndarray) -> tuple[int, int]:
+    """Return the 2D shape used by masks derived from an image."""
+
     return int(image.shape[0]), int(image.shape[1])
 
 
 def _as_gray_float(image: np.ndarray | None) -> np.ndarray | None:
+    """Normalize a source image to a float grayscale plane."""
+
     if image is None:
         return None
     array = np.asarray(image)
@@ -49,7 +53,11 @@ def _as_gray_float(image: np.ndarray | None) -> np.ndarray | None:
 
 
 def _support_mask(cell_mask: np.ndarray | None, shape: tuple[int, int]) -> np.ndarray:
+    """Return a binary support mask constrained to the expected shape."""
+
     if cell_mask is None:
+        # Without a cell mask, allow the whole crop so callers can still render
+        # explainable debug artifacts for malformed or legacy payloads.
         return np.full(shape, 255, dtype=np.uint8)
     mask = np.asarray(cell_mask)
     if mask.shape[:2] != shape:
@@ -60,6 +68,8 @@ def _support_mask(cell_mask: np.ndarray | None, shape: tuple[int, int]) -> np.nd
 
 
 def _masked_values(image: np.ndarray, support: np.ndarray) -> np.ndarray:
+    """Return finite pixel values inside the support mask."""
+
     values = image[support > 0]
     return values[np.isfinite(values)]
 
@@ -94,6 +104,8 @@ def _empty_result(
     base_contours: Iterable[np.ndarray] | None,
     reason: str,
 ) -> RedNucleusSpeckleMaskResult:
+    """Build a zero-area result that preserves debug image/payload shape."""
+
     shape = _height_width(image)
     empty = np.zeros(shape, dtype=np.uint8)
     return RedNucleusSpeckleMaskResult(
@@ -111,6 +123,8 @@ def _empty_result(
 
 
 def _scale_to_uint8(image: np.ndarray, *, support: np.ndarray | None = None) -> np.ndarray:
+    """Scale an image plane for debug visualization without changing metrics."""
+
     values = _masked_values(image, support) if support is not None else image[np.isfinite(image)]
     if values.size == 0:
         return np.zeros(image.shape[:2], dtype=np.uint8)
@@ -126,6 +140,8 @@ def _scale_to_uint8(image: np.ndarray, *, support: np.ndarray | None = None) -> 
 
 
 def _otsu_threshold_abs(image: np.ndarray, support: np.ndarray) -> float:
+    """Return an Otsu threshold mapped back into original intensity units."""
+
     values = _masked_values(image, support)
     if values.size == 0 or float(np.max(values)) <= 0.0:
         return 0.0
@@ -145,6 +161,8 @@ def _otsu_threshold_abs(image: np.ndarray, support: np.ndarray) -> float:
 
 
 def _robust_noise_sigma(values: np.ndarray) -> float:
+    """Estimate background noise using MAD with a standard-deviation fallback."""
+
     if values.size == 0:
         return 0.0
     low_band = values[values <= np.percentile(values, 85.0)]
@@ -159,6 +177,8 @@ def _robust_noise_sigma(values: np.ndarray) -> float:
 
 
 def _component_centers(mask: np.ndarray) -> list[tuple[int, float, float]]:
+    """Return label ids and centroids for connected foreground components."""
+
     count, labels, stats, centroids = cv2.connectedComponentsWithStats((mask > 0).astype(np.uint8), 8)
     centers: list[tuple[int, float, float]] = []
     for label in range(1, count):
@@ -176,6 +196,8 @@ def _try_add_minimal_bridges(
     bridge_distance_px: float,
     max_expansion_ratio: float,
 ) -> np.ndarray:
+    """Add short bridges between nearby accepted Red components when supported."""
+
     if bridge_distance_px <= 0 or not np.any(accepted_mask):
         return accepted_mask
 
@@ -204,6 +226,8 @@ def _try_add_minimal_bridges(
             if line_values.size == 0:
                 continue
             if float(np.percentile(line_values, 50.0)) < bridge_threshold:
+                # Bridge only through pixels that still carry local Red support;
+                # this avoids connecting separated noise islands across background.
                 continue
             proposed = cv2.bitwise_or(proposed, line_mask)
 
@@ -231,6 +255,8 @@ def build_red_nucleus_speckle_mask(
 
     gray = _as_gray_float(red_image)
     if gray is None:
+        # Missing Red imagery is not exceptional for optional alternate detection;
+        # return a structured empty result that callers can serialize.
         placeholder = np.zeros((1, 1), dtype=np.uint8)
         return _empty_result(
             placeholder,
@@ -251,6 +277,8 @@ def build_red_nucleus_speckle_mask(
         return _empty_result(source, cell_mask=support, base_contours=base_contours, reason="empty_cell_mask")
 
     background = float(np.median(support_values))
+    # Background correction is local to the cell support so thresholds are driven
+    # by the current crop rather than global image brightness.
     corrected = np.maximum(gray - background, 0.0).astype(np.float32, copy=False)
     corrected = np.where(support > 0, corrected, 0.0).astype(np.float32, copy=False)
     processed = cv2.GaussianBlur(corrected, (3, 3), 0)
@@ -281,6 +309,8 @@ def build_red_nucleus_speckle_mask(
     count, labels, stats, _ = cv2.connectedComponentsWithStats((threshold_mask > 0).astype(np.uint8), 8)
     ring_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
     for label in range(1, count):
+        # Each thresholded component must contain a high-confidence seed, remain
+        # within size limits, and stand above its local ring background.
         component = np.where(labels == label, 255, 0).astype(np.uint8)
         area = int(stats[label, cv2.CC_STAT_AREA])
         has_seed = bool(np.any(seed_mask[component > 0]))
@@ -362,6 +392,8 @@ def build_red_nucleus_speckle_mask(
 
 
 def _rgb_gray_tint(image: np.ndarray, color: tuple[int, int, int]) -> np.ndarray:
+    """Render a grayscale plane as a tinted RGB debug image."""
+
     gray = _as_gray_float(image)
     if gray is None:
         gray = np.zeros((1, 1), dtype=np.float32)
@@ -374,6 +406,8 @@ def _rgb_gray_tint(image: np.ndarray, color: tuple[int, int, int]) -> np.ndarray
 
 
 def _mask_rgb(mask: np.ndarray, color: tuple[int, int, int]) -> np.ndarray:
+    """Render a binary mask as an RGB debug image."""
+
     rgb = np.zeros((*mask.shape, 3), dtype=np.uint8)
     for channel, value in enumerate(color):
         if value:
@@ -388,6 +422,8 @@ def _overlay_mask(
     *,
     alpha: float = 0.45,
 ) -> np.ndarray:
+    """Alpha-composite a binary mask over an RGB debug image."""
+
     rgb = np.array(base, copy=True)
     selector = mask > 0
     if not np.any(selector):
@@ -402,6 +438,8 @@ def _overlay_mask(
 
 
 def _draw_mask_contours(rgb: np.ndarray, mask: np.ndarray | None, color: tuple[int, int, int]) -> np.ndarray:
+    """Draw mask outlines on a debug RGB image when foreground exists."""
+
     if mask is None or not np.any(mask):
         return rgb
     contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -470,6 +508,8 @@ def save_red_nucleus_debug_artifacts(
     rendered = render_red_nucleus_debug_images(result, red_image=red_image, green_image=green_image)
     written: dict[str, Path] = {}
     for name, image in rendered.items():
+        # Debug artifact names are stable because tests and operators use them to
+        # compare alternate detection checkpoints across runs.
         path = destination_dir / f"{prefix}_{name}.png"
         written[name] = save_png_image(image, path, profile=PNG_PROFILE_ANALYSIS_FAST)
     return written

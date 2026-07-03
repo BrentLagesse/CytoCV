@@ -1,3 +1,4 @@
+    /* Sign-in and account recovery form layout shared by the login flow templates. */
     .login-page {
         flex: 1 0 auto;
         min-height: 100%;
@@ -66,6 +67,7 @@
         text-transform: uppercase;
         color: rgba(211, 220, 242, 0.72);
     }
+    /* Form controls keep validation errors adjacent to fields returned by Django views. */
     .form {
         display: grid;
         gap: 14px;

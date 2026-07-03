@@ -41,6 +41,8 @@ class EmailBackend(ModelBackend):
             return None
         lookup = resolve_user_by_email(identifier)
         if lookup.ambiguous:
+            # Ambiguous email ownership is treated as an auth failure rather than
+            # choosing one account, protecting verified-alias recovery semantics.
             raise PermissionDenied
         user = lookup.user
         if user is None:
@@ -48,5 +50,7 @@ class EmailBackend(ModelBackend):
         if user.check_password(password) and self.user_can_authenticate(user):
             return user
         if lookup.source == "custom_user":
+            # Direct account-email matches raise PermissionDenied on bad passwords
+            # so Django does not continue into username-style fallback backends.
             raise PermissionDenied
         return None

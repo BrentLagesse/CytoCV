@@ -26,10 +26,14 @@ class AccessPolicy:
 
     @property
     def is_unrestricted(self) -> bool:
+        """Return whether the policy removes upload and analysis caps."""
+
         return self.tier == ACCESS_TIER_UNRESTRICTED
 
 
 def _normalized_domain(email: str | None) -> str:
+    """Return the lower-cased domain portion used for tier matching."""
+
     normalized_email = normalize_quota_email(email)
     if "@" not in normalized_email:
         return ""
@@ -37,6 +41,8 @@ def _normalized_domain(email: str | None) -> str:
 
 
 def _domain_matches_suffix(domain: str, suffix: str) -> bool:
+    """Return whether an email domain matches an exact or dotted suffix rule."""
+
     token = str(suffix or "").strip().lower()
     if not domain or not token:
         return False
@@ -46,6 +52,8 @@ def _domain_matches_suffix(domain: str, suffix: str) -> bool:
 
 
 def _education_domain_matches(email: str | None) -> bool:
+    """Return whether the email belongs to an education-domain quota tier."""
+
     domain = _normalized_domain(email)
     suffixes = tuple(getattr(settings, "STORAGE_QUOTA_EDU_SUFFIXES", ()))
     for suffix in suffixes:
@@ -60,6 +68,8 @@ def get_access_policy_for_email(email: str | None) -> AccessPolicy:
     normalized_email = normalize_quota_email(email)
     unrestricted_emails = set(getattr(settings, "ACCESS_UNRESTRICTED_EMAILS", ()))
     if normalized_email and normalized_email in unrestricted_emails:
+        # Exact email allowlist wins over domain rules so specific collaborators
+        # can be granted uncapped uploads without changing global tier settings.
         return AccessPolicy(
             tier=ACCESS_TIER_UNRESTRICTED,
             upload_max_files=None,
@@ -69,6 +79,8 @@ def get_access_policy_for_email(email: str | None) -> AccessPolicy:
         )
 
     if _education_domain_matches(normalized_email):
+        # Education-tier caps are intentionally higher but still finite to protect
+        # worker and storage capacity for shared deployments.
         upload_max_files = int(getattr(settings, "UPLOAD_LIMIT_EDU_MAX_FILES", 20))
         analysis_max_active_jobs = int(
             getattr(settings, "ANALYSIS_LIMIT_EDU_MAX_ACTIVE_JOBS", 2)

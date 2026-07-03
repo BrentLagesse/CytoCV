@@ -1,3 +1,5 @@
+    // Rate-limit metadata is rendered as data attributes so the login page can
+    // count down without exposing extra endpoints.
     (() => {
         const meta = document.getElementById('rateLimitMeta');
         const countdownEl = document.getElementById('rateLimitCountdown');

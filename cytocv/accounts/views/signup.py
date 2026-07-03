@@ -465,6 +465,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 except ValidationError:
                     _add_error(errors, "email", "Enter a valid email address")
                     return
+                # Stop before code delivery when the normalized email already
+                # belongs to an account.
                 if email_matches_existing_account(email):
                     _add_error(errors, "email", "That email is already in use. Sign In instead.")
 
@@ -484,6 +486,8 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             verify_code = _generate_verify_code()
+            # The verification code is session-scoped until account creation so
+            # abandoned signups do not create user or allauth alias rows.
             from_email = _sender_email()
             email_content = build_signup_verification_email(
                 code=verify_code,
@@ -684,12 +688,16 @@ def signup(request: HttpRequest) -> HttpResponse:
                 return render_current()
 
             if email_matches_existing_account(values["email"]):
+                # Recheck before creation because the multi-step flow stores email
+                # in session between requests.
                 _add_error(errors, "email", "That email is already in use. Sign In instead.")
                 step = 2
                 session["signup_step"] = 2
                 return render_current()
 
             try:
+                # User creation is the first database mutation in the signup flow;
+                # previous steps intentionally held only session state and email.
                 user = user_model.objects.create_user(
                     email=values["email"],
                     password=password,

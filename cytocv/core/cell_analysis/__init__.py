@@ -1,3 +1,5 @@
+"""Public imports for the per-cell statistics plugin implementations."""
+
 from .analysis import Analysis
 from .blue_nucleus_intensity import BlueNucleusIntensity
 from .cen_dot import CENDot

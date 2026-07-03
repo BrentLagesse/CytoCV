@@ -1,4 +1,7 @@
+        // Shared navigation and message interactions used by Django-rendered pages.
         (() => {
+            // Runtime-created containers keep AJAX/page-controller errors consistent
+            // with server-rendered flash messages.
             const ensureMessageContainer = (scope = 'global', top = 'calc(var(--nav-height) + 12px)') => {
                 let container = document.querySelector(`.message-container[data-scope="${scope}"]`);
                 if (container) {
@@ -37,6 +40,8 @@
                 return msg;
             };
 
+            // Page scripts depend on these globals for scoped, de-duplicated error and
+            // success messages without importing a module bundle.
             window.showGlobalMessage = (message, tone = 'error', options = {}) => {
                 const normalized = String(message ?? '').trim();
                 if (!normalized) {
@@ -97,6 +102,8 @@
         })();
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Normalize server-rendered messages by adding dismiss buttons and enforcing
+            // the same duplicate handling used by client-created messages.
             const initializeMessages = () => {
                 const messages = Array.from(document.querySelectorAll('.message-container .message'));
                 const seen = new Set();
@@ -140,6 +147,8 @@
             const accountMenuToggle = document.getElementById('accountMenuToggle');
             const accountMenuPanel = document.getElementById('accountMenuPanel');
 
+            // The about/account dropdowns are optional because many templates share
+            // this script without rendering both navigation regions.
             const closeAboutNavMenu = () => {
                 if (!aboutNavMenu || !aboutNavToggle) {
                     return;
@@ -202,6 +211,8 @@
                 const prefersReducedMotion = !!(
                     window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
                 );
+                // Logout can become a job-cancel action on analysis pages, so the modal
+                // reads the shared analysis-running globals before it submits navigation.
                 const clearModalAnim = () => {
                     logoutBackdrop.classList.remove('modal-enter', 'modal-exit');
                     if (logoutPanel) {

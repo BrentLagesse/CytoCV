@@ -1,3 +1,5 @@
+"""Protect Django settings assumptions that tests and deployment rely on."""
+
 from __future__ import annotations
 
 import os

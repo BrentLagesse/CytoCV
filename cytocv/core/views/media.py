@@ -36,6 +36,8 @@ def serve_media(request: HttpRequest, relative_path: str) -> HttpResponse:
     try:
         file_uuid = str(uuid_lib.UUID(first_segment))
     except (ValueError, TypeError, AttributeError):
+        # Media URLs must start with a run UUID; invalid prefixes are treated as
+        # not found instead of exposing path-validation details.
         raise Http404("File not found")
 
     # Ensure the requesting user owns this UUID namespace.
@@ -51,5 +53,7 @@ def serve_media(request: HttpRequest, relative_path: str) -> HttpResponse:
     if not file_path.is_file():
         raise Http404("File not found")
 
+    # Mimetype guessing is best effort; browsers can still download unknown
+    # artifacts as octet streams without revealing storage internals.
     content_type, _ = mimetypes.guess_type(file_path.name)
     return FileResponse(file_path.open("rb"), content_type=content_type or "application/octet-stream")

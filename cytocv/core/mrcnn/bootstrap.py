@@ -1,3 +1,5 @@
+"""Import-time environment setup for the legacy Mask R-CNN stack."""
+
 from __future__ import annotations
 
 import os

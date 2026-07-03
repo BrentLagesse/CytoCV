@@ -1,3 +1,5 @@
+        // Dashboard selection tooltips read server-rendered data-info-text values
+        // and position a single floating tooltip for all info dots.
         (() => {
             const selectionInfoDots = Array.from(document.querySelectorAll('.selection-info-dot[data-info-text]'));
             const infoTooltipElement = document.getElementById('selectionInfoTooltip');

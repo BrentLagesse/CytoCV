@@ -42,6 +42,8 @@ class AnalysisJobLimitExceeded(Exception):
         max_active_jobs: int,
         current_active_jobs: int,
     ) -> None:
+        """Store concurrency-limit context for user-facing view responses."""
+
         self.max_active_jobs = int(max_active_jobs)
         self.current_active_jobs = int(current_active_jobs)
         super().__init__(message)
@@ -74,6 +76,8 @@ def get_latest_analysis_job(*, user_id: int, batch_key: str) -> AnalysisJob | No
 def count_active_analysis_jobs(*, user_id: int) -> int:
     """Return the count of active analysis jobs for a user."""
 
+    # Active means queue, run, or cooperative-cancel in progress; terminal rows
+    # remain for polling/history and do not count against concurrency limits.
     return AnalysisJob.objects.filter(
         user_id=user_id,
         status__in=ACTIVE_ANALYSIS_JOB_STATUSES,
@@ -94,18 +98,24 @@ def enqueue_analysis_job(
     reap_stale_analysis_jobs(user_id=user_id, batch_key=batch_key)
 
     with transaction.atomic():
+        # Lock the user row when the database supports row locks so active-job
+        # quota checks and job creation are evaluated against a stable user state.
         user_queryset = get_user_model().objects.filter(pk=user_id)
         if connection.vendor == "postgresql":
             user_queryset = user_queryset.select_for_update()
         user_email = user_queryset.values_list("email", flat=True).first()
         existing = get_active_analysis_job(user_id=user_id, batch_key=batch_key)
         if existing is not None:
+            # Reusing an active job makes repeated Start Analysis submissions
+            # idempotent for the same normalized UUID batch.
             return existing, False
         access_policy = get_access_policy_for_email(user_email)
         max_active_jobs = access_policy.analysis_max_active_jobs
         if max_active_jobs is not None:
             active_count = count_active_analysis_jobs(user_id=user_id)
             if active_count >= max_active_jobs:
+                # The policy layer owns the user-facing wording so auth/quota
+                # changes do not leak implementation details from this service.
                 raise AnalysisJobLimitExceeded(
                     build_analysis_limit_error_message(access_policy),
                     max_active_jobs=max_active_jobs,
@@ -122,6 +132,8 @@ def enqueue_analysis_job(
                 config_snapshot=normalized_snapshot,
             )
         except IntegrityError:
+            # A database-level uniqueness race can still happen if two requests
+            # enqueue the same active batch concurrently; resolve it as reuse.
             existing = get_active_analysis_job(user_id=user_id, batch_key=batch_key)
             if existing is None:
                 raise
@@ -145,10 +157,13 @@ def claim_next_analysis_job() -> AnalysisJob | None:
 
     reap_stale_analysis_jobs()
     with transaction.atomic():
+        # Claiming is a status transition, not just a read.  Keep it atomic so a
+        # background worker owns exactly one queued job.
         queryset = AnalysisJob.objects.filter(status=AnalysisJob.Status.QUEUED).order_by(
             "created_at"
         )
         if connection.vendor == "postgresql":
+            # Production workers can safely skip rows already locked by peers.
             queryset = queryset.select_for_update(skip_locked=True)
         else:
             queryset = queryset.select_for_update()
@@ -177,6 +192,8 @@ def request_job_cancellation(job: AnalysisJob) -> AnalysisJob:
 
     if job.status in TERMINAL_ANALYSIS_JOB_STATUSES:
         return job
+    # Queued jobs are cancelled by flag before they start; running jobs move into
+    # CANCELLING so pollers and cleanup code see the user's intent immediately.
     next_status = (
         AnalysisJob.Status.CANCELLING
         if job.status == AnalysisJob.Status.RUNNING
@@ -244,6 +261,8 @@ def get_stale_job_terminal_state(job: AnalysisJob) -> tuple[str, str, str] | Non
         age_seconds = (now - job.created_at).total_seconds()
         if age_seconds < queue_stale_seconds:
             return None
+        # Read paths can report this synthetic failure without mutating the row;
+        # worker/enqueue paths call the reaper to persist it.
         return (
             AnalysisJob.Status.FAILED,
             "Failed",
@@ -255,6 +274,8 @@ def get_stale_job_terminal_state(job: AnalysisJob) -> tuple[str, str, str] | Non
         age_seconds = (now - started_at).total_seconds()
         if age_seconds < running_stale_seconds:
             return None
+        # Preserve a user-requested cancel distinction for stale cancelling jobs;
+        # otherwise stale running jobs become failures for troubleshooting.
         terminal_status = (
             AnalysisJob.Status.CANCELLED
             if job.status == AnalysisJob.Status.CANCELLING
@@ -293,6 +314,8 @@ def reap_stale_analysis_jobs(
         stale_state = get_stale_job_terminal_state(job)
         if stale_state is None:
             continue
+        # Reaping is intentionally opt-in from mutating code paths so polling can
+        # stay side-effect-free while still surfacing stale-state messages.
         status, current_phase, failure_summary = stale_state
         finalize_job(
             job,

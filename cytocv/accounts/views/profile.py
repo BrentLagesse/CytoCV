@@ -136,12 +136,16 @@ LENGTH_UNITS = {"px", "um"}
 
 
 def _post_bool(request: HttpRequest, key: str) -> bool:
+    """Parse checkbox-style POST booleans used by preferences forms."""
+
     return str(request.POST.get(key, "")).strip().lower() in {"1", "true", "on", "yes"}
 
 
 def _payload_bool(
     post_data: Any, key: str, *, default: bool = False, legacy_key: str | None = None
 ) -> bool:
+    """Parse a boolean from current or legacy preference field names."""
+
     raw_value = post_data.get(key)
     if raw_value is None and legacy_key is not None:
         raw_value = post_data.get(legacy_key)
@@ -151,6 +155,8 @@ def _payload_bool(
 
 
 def _parse_positive_int(raw_value: Any, default: int, minimum: int = 0) -> int:
+    """Return a bounded integer preference value or its existing default."""
+
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
@@ -161,6 +167,8 @@ def _parse_positive_int(raw_value: Any, default: int, minimum: int = 0) -> int:
 
 
 def _parse_positive_float(raw_value: Any, default: float, minimum: float = 0) -> float:
+    """Return a bounded float preference value or its existing default."""
+
     try:
         value = float(raw_value)
     except (TypeError, ValueError):
@@ -171,6 +179,8 @@ def _parse_positive_float(raw_value: Any, default: float, minimum: float = 0) ->
 
 
 def _normalize_unit(value: Any, default: str = "px") -> str:
+    """Normalize stored/requested length units for workflow defaults."""
+
     unit = str(value or "").strip().lower()
     if unit not in LENGTH_UNITS:
         return default
@@ -178,6 +188,8 @@ def _normalize_unit(value: Any, default: str = "px") -> str:
 
 
 def _normalize_nuclear_mode(value: Any, default: str = "green_nucleus") -> str:
+    """Normalize nuclear/cell-pair mode names from preference forms."""
+
     mode = str(value or "").strip()
     if mode not in NUCLEAR_CELL_PAIR_MODES:
         return default
@@ -188,14 +200,20 @@ def _normalize_nuclear_contour_mode(
     value: Any,
     default: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
 ) -> str:
+    """Normalize the contour-source mode used by nuclear/cell-pair analysis."""
+
     return normalize_nuclear_cell_pair_contour_mode(value, default=default)
 
 
 def _normalize_puncta_mode(value: Any, default: str = DEFAULT_PUNCTA_LINE_MODE) -> str:
+    """Normalize puncta-line mode names from preference forms."""
+
     return normalize_puncta_line_mode(value, default=default)
 
 
 def _preferences_redirect(request: HttpRequest, section: str) -> HttpResponse:
+    """Return to a safe caller-provided URL or the workflow-defaults section."""
+
     next_url = (request.POST.get("next") or "").strip()
     if next_url and url_has_allowed_host_and_scheme(
         next_url,
@@ -210,6 +228,10 @@ def _extract_measurement_defaults(
     post_data: Any,
     defaults: dict[str, Any],
 ) -> dict[str, Any]:
+    """Merge posted workflow-default measurements with existing preferences."""
+
+    # Existing preferences provide defaults for partial section saves, so unrelated
+    # workflow-default controls do not reset when one form group is submitted.
     current_puncta_line_width_unit = _normalize_unit(
         defaults.get("puncta_line_width_unit", defaults.get("red_line_width_unit")),
         default="px",
@@ -342,6 +364,8 @@ def _extract_measurement_defaults(
         if hasattr(post_data, "getlist")
         else post_data.get("fallback_channel_order")
     )
+    # Channel-order fallbacks are persisted as role names rather than layer indexes
+    # because upload preparation resolves the actual source stack later.
     fallback_channel_order = normalize_channel_order(
         raw_fallback_channel_order,
         default=current_fallback_channel_order,
@@ -410,6 +434,8 @@ def _extract_measurement_defaults(
 
 
 def _channel_summary_meta(channel: str) -> str:
+    """Return concise help text for the required-channel summary UI."""
+
     if channel == CHANNEL_ROLE_DIC:
         return "Brightfield morphology reference"
     if channel == CHANNEL_ROLE_BLUE:
@@ -429,7 +455,11 @@ def _resolve_required_channel_state(
     module_enabled: bool,
     enforce_wavelengths: bool,
 ) -> dict[str, Any]:
+    """Resolve one channel's required/paused/toggle state for preferences."""
+
     if channel in ALWAYS_REQUIRED_CHANNELS:
+        # DIC remains locked because segmentation depends on a morphology channel
+        # regardless of optional statistics plugins.
         return {
             "summary_label": "Always required",
             "summary_required": True,
@@ -442,6 +472,8 @@ def _resolve_required_channel_state(
         }
 
     if channel in stats_required:
+        # Plugin-required channels can be inspected but not unchecked while their
+        # dependent plugins remain selected.
         return {
             "summary_label": "Required by stats",
             "summary_required": True,
@@ -454,6 +486,8 @@ def _resolve_required_channel_state(
         }
 
     if module_enabled and enforce_wavelengths:
+        # All-channel enforcement makes every logical channel mandatory without
+        # implying that a specific statistics plugin uses that channel.
         return {
             "summary_label": "Required by all-channels",
             "summary_required": True,
@@ -478,6 +512,8 @@ def _resolve_required_channel_state(
         }
 
     if enforce_wavelengths:
+        # Saved all-channel enforcement is paused, not discarded, when the
+        # validation module is disabled.
         return {
             "summary_label": "Paused by all-channels",
             "summary_required": False,
@@ -521,6 +557,8 @@ def _build_required_channel_rows(
     defaults: dict[str, Any],
     selected_plugins: list[str],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Build channel rows plus plugin-derived requirement metadata."""
+
     requirement_summary = build_requirement_summary(selected_plugins)
     stats_required = set(requirement_summary["required_channels"])
     manual_required = {
@@ -554,6 +592,8 @@ def _build_required_channel_rows(
 
 
 def _recalculate_user_storage_usage(user: Any) -> None:
+    """Refresh cached quota usage after dashboard/account media mutations."""
+
     refresh_user_storage_usage(user)
 
 
@@ -565,6 +605,8 @@ def _build_cell_table_for_uuid(
     cell_type_filter: str = "all",
     puncta_source_contour_count_filter: str = "all",
 ) -> CellTable:
+    """Build the saved-run table used by dashboard direct exports."""
+
     preferences = get_user_preferences(user)
     default_manual_scale = preferences.get("experiment_defaults", {}).get(
         "microns_per_pixel", 0.1
@@ -639,14 +681,20 @@ def _dashboard_available_export_uuid_set(user: Any) -> set[str]:
 def _serialize_cell_statistics(
     cell_stat: CellStatistics | None,
 ) -> dict[str, Any] | None:
+    """Serialize one dashboard cell row with the shared viewer payload shape."""
+
     return serialize_cell_statistics_payload(cell_stat)
 
 
 def _media_url_for_file(path: Path) -> str:
+    """Return a MEDIA_URL for a file only when it is under MEDIA_ROOT."""
+
     media_root = Path(MEDIA_ROOT).resolve()
     try:
         relative = path.resolve().relative_to(media_root)
     except ValueError:
+        # Asset scanners ignore paths outside MEDIA_ROOT rather than exposing
+        # filesystem locations in serialized dashboard payloads.
         return ""
     return f"{MEDIA_URL}{relative.as_posix()}"
 
@@ -656,6 +704,8 @@ def _scan_segmented_assets(segmented_dir: Path) -> tuple[
     dict[tuple[int, int], str],
     dict[tuple[int, int], str],
 ]:
+    """Index segmented crop/debug assets by the conventions viewers expect."""
+
     debug_images: dict[tuple[int, str], str] = {}
     outlined_images: dict[tuple[int, int], str] = {}
     no_outline_images: dict[tuple[int, int], str] = {}
@@ -692,6 +742,8 @@ def _scan_segmented_assets(segmented_dir: Path) -> tuple[
 
 
 def _scan_output_frames(output_dir: Path) -> dict[int, str]:
+    """Index preprocessed output frames by their logical channel index."""
+
     frames: dict[int, str] = {}
     if not output_dir.exists():
         return frames
@@ -706,6 +758,13 @@ def _scan_output_frames(output_dir: Path) -> dict[int, str]:
 
 
 def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> dict[str, Any]:
+    """Build the saved-run Dashboard payload and rendered context.
+
+    Display and Dashboard share serialization primitives, but Dashboard only
+    works with saved user-owned runs and therefore owns saved-file preferences,
+    quota state, and dashboard-specific export/delete behavior.
+    """
+
     segmented_images = list(
         SegmentedImage.objects.filter(user=user).order_by("-uploaded_date")
     )
@@ -715,6 +774,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         for item in UploadedImage.objects.filter(user=user, uuid__in=uuid_list)
     }
     preferences = get_user_preferences(user)
+    # Dashboard preferences are view-specific; display uses the same payload shape
+    # but keeps transient-run ownership and saved warnings separate.
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
     show_saved_file_scales = bool(preferences.get("show_saved_file_scales", True))
     sidebar_starts_open = bool(preferences.get("sidebar_starts_open", True))
@@ -758,6 +819,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         uuid = str(segmented_image.UUID)
         uploaded = uploaded_map.get(uuid)
         if not uploaded:
+            # Segmented rows without a saved upload row are ignored on Dashboard;
+            # cleanup handles stale artifacts separately.
             continue
 
         image_name = uploaded.name
@@ -769,6 +832,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         )
         output_frames = _scan_output_frames(output_dir)
         detected_channels = detected_channel_labels(channel_config)
+        # Sidebar scale payloads are compact display data; table conversions below
+        # use the full scale context so exported units remain consistent.
         scale_payload = get_scale_sidebar_payload(
             uploaded.scale_info,
             manual_default=default_manual_scale,
@@ -782,6 +847,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         ).order_by("cell_id")
         stats_by_id = {cell.cell_id: cell for cell in stats_qs}
         if stats_by_id and cell_table is None:
+            # The first file with statistics owns the initial table; later files are
+            # serialized for the viewer and can be selected client-side.
             first_table_uuid = uuid
             effective_initial_cell_type_filter = resolve_effective_cell_type_filter(
                 stats_qs,
@@ -821,6 +888,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                 if path.stem.split("_", 1)[1].isdigit()
             )
         if not cell_ids:
+            # Some restored artifacts may have images before statistics rows. Infer
+            # IDs from asset names so the viewer can still present available crops.
             inferred_ids = sorted(
                 {cell_id for (_, cell_id) in outlined_images.keys()}
                 | {cell_id for (_, cell_id) in no_outline_images.keys()}
@@ -847,10 +916,15 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                     and cell_stat is not None
                     and overlay_image_available(uuid, cell_id, channel_name)
                 ):
+                    # Dashboard overlay URLs replay server-rendered contours instead
+                    # of trusting stale debug PNGs when cache data is available.
                     outlined_url = build_overlay_image_url(uuid, cell_id, channel_name)
                 else:
                     outlined_url = outlined_images.get((channel_index, cell_id), "")
                 if not outlined_url:
+                    # Legacy saved runs may have channel indexes that no longer
+                    # match the current channel config; fall back by cell id so
+                    # available outlines remain visible.
                     outlined_url = next(
                         (
                             url
@@ -865,6 +939,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
 
                 no_outline_url = no_outline_images.get((channel_index, cell_id), "")
                 if not no_outline_url:
+                    # The same by-cell fallback keeps raw crop previews available
+                    # for restored runs with incomplete channel metadata.
                     no_outline_url = next(
                         (
                             url
@@ -903,6 +979,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                 "Check channel mapping (DIC/Blue/Red/Green) and run the experiment again."
             )
         elif not output_frames:
+            # Main-image paths are optional because statistics tables can still be
+            # useful when preview frame artifacts were cleaned up or not produced.
             no_cells_warning = (
                 "Preview images are unavailable for this saved file. "
                 "The statistics table is still available when data exists."
@@ -938,6 +1016,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
         }
 
     if cell_table is None:
+        # Empty dashboards still receive a table instance so the template and
+        # static table/export code can use a single rendering path.
         cell_table = CellTable(
             CellStatistics.objects.none(),
             intensity_mode=None,
@@ -948,6 +1028,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
 
     saved_file_count = len(file_list)
     storage_projection = get_user_storage_projection(user)
+    # Capacity projections are advisory UI values; quota enforcement remains in
+    # artifact_storage when a save/delete action is attempted.
     total_storage = max(int(storage_projection.get("total_storage", 0) or 0), 1)
     used_storage = max(int(storage_projection.get("used_storage", 0) or 0), 0)
     used_percentage = min(100, max(0, (used_storage / total_storage) * 100))
@@ -998,6 +1080,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
 
 
 def _safe_remove_media_path(path: Path) -> None:
+    """Remove media only after confirming it stays under MEDIA_ROOT."""
+
     media_root = Path(MEDIA_ROOT).resolve()
     candidate = path.resolve()
     if candidate != media_root and media_root not in candidate.parents:
@@ -1009,6 +1093,10 @@ def _safe_remove_media_path(path: Path) -> None:
 
 
 def _delete_user_and_media(user: Any) -> None:
+    """Delete an account and the media namespaces it owns."""
+
+    # Capture all owned upload UUIDs before deleting the user so both direct
+    # uploads and segmented rows reachable only by UUID can be cleaned afterward.
     uploaded_qs = UploadedImage.objects.filter(user=user)
     uploaded_uuids = [
         str(value) for value in uploaded_qs.values_list("uuid", flat=True)
@@ -1035,15 +1123,21 @@ def _delete_user_and_media(user: Any) -> None:
     )
 
     removable_dirs = set()
+    # Remove both shared run namespaces and user-scoped artifact namespaces; old
+    # experiments can have files in either location depending on save history.
     for uuid in segmented_uuids.union(uploaded_uuids):
         removable_dirs.add(Path(MEDIA_ROOT) / uuid)
         removable_dirs.add(Path(MEDIA_ROOT) / f"user_{uuid}")
 
     with transaction.atomic():
+        # Database ownership is removed before files so a failed filesystem cleanup
+        # cannot leave an active account pointing at partially deleted media.
         segmented_by_uuid_qs.delete()
         segmented_owned_qs.delete()
         user.delete()
 
+    # Filesystem cleanup happens after the database transaction because media
+    # deletion cannot roll back and should not leave active rows pointing at gone files.
     for path in sorted(file_locations, key=lambda item: len(item.parts), reverse=True):
         _safe_remove_media_path(path)
     for path in sorted(removable_dirs, key=lambda item: len(item.parts), reverse=True):
@@ -1051,10 +1145,14 @@ def _delete_user_and_media(user: Any) -> None:
 
 
 def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
+    """Delete saved dashboard files and their run/user media directories."""
+
     uuid_set = {str(value) for value in uuids}
     if not uuid_set:
         return []
 
+    # Dashboard deletion is scoped through UploadedImage ownership first; the UI
+    # treats missing ownership as a stale selection instead of a partial delete.
     uploaded_qs = UploadedImage.objects.filter(user=user, uuid__in=uuid_set)
     deleted_names = list(uploaded_qs.values_list("name", flat=True))
 
@@ -1076,14 +1174,20 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
     )
 
     with transaction.atomic():
+        # Delete related database rows together so saved-file counts never observe
+        # a segmented row without its uploaded source, or the reverse.
         segmented_qs.delete()
         uploaded_qs.delete()
 
+    # Media removal is best-effort and sorted deepest-first to avoid deleting a
+    # parent directory before a normalized field path inside it is checked.
     for path in sorted(file_locations, key=lambda item: len(item.parts), reverse=True):
         _safe_remove_media_path(path)
     for path in sorted(removable_dirs, key=lambda item: len(item.parts), reverse=True):
         _safe_remove_media_path(path)
 
+    # Recalculate after deletion so dashboard quota cards and subsequent save
+    # checks use the filesystem state that remains after cleanup.
     _recalculate_user_storage_usage(user)
     return deleted_names
 
@@ -1091,6 +1195,10 @@ def _delete_saved_files_for_user(user: Any, uuids: list[str]) -> list[str]:
 @login_required
 @never_cache
 def dashboard_view(request: HttpRequest) -> HttpResponse:
+    """Render the saved-run Dashboard or direct single-file table export."""
+
+    # The dashboard is the retained-file view, so it can safely sweep stale saved
+    # artifacts while protecting transient session runs still in display flows.
     cleanup_summary = sweep_user_run_artifacts(
         request.user,
         protected_uuids=request.session.get("transient_experiment_uuids", []),
@@ -1102,6 +1210,8 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     export_uuid = str(request.GET.get("file_uuid") or "").strip()
     export_unit = normalize_spatial_stats_unit(request.GET.get("_unit"), default="px")
     if TableExport.is_valid_format(export_format) and export_uuid:
+        # Single-file export uses the same column-selection contract as the modal,
+        # but ownership is enforced by the table builder below.
         raw_columns = request.GET.getlist("_columns")
         columns_present = "_columns" in request.GET
         try:
@@ -1144,6 +1254,8 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
+    """Delete selected saved dashboard files and return refreshed quota state."""
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -1159,7 +1271,10 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
+    # Reject the whole request when any UUID is not currently owned. This keeps
+    # stale browser selections from deleting a different subset than the user saw.
     owned_uuids = {
+        # Require ownership through UploadedImage before deleting rows or media.
         str(value)
         for value in UploadedImage.objects.filter(
             user=request.user,
@@ -1175,6 +1290,8 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
         )
 
     deleted_names = _delete_saved_files_for_user(request.user, requested_uuids)
+    # Rebuild the dashboard payload after deletion so response counters match the
+    # same serializer used for a full page refresh.
     context = _build_dashboard_payload(request.user)
     return JsonResponse(
         {
@@ -1190,6 +1307,8 @@ def dashboard_bulk_delete_view(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
+    """Return a combined export for selected saved dashboard files."""
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -1222,6 +1341,8 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
     if len(uploaded_map) != len(set(requested_uuids)) or len(segmented_map) != len(
         set(requested_uuids)
     ):
+        # Keep the error generic so missing and unauthorized UUIDs are not
+        # distinguishable to the caller.
         return JsonResponse(
             {
                 "error": "One or more selected files are no longer available. Refresh and try again."
@@ -1258,6 +1379,8 @@ def dashboard_bulk_export_view(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
+    """Persist Dashboard viewer preferences from the static page controller."""
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -1270,6 +1393,8 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
     has_scales = "show_saved_file_scales" in payload
     has_sidebar_unit = "sidebar_spatial_stats_unit" in payload
     has_main_image_channel = "main_image_channel" in payload
+    # The endpoint supports partial preference updates because separate dashboard
+    # controls post independently from the static page controller.
     if (
         not has_channels
         and not has_scales
@@ -1353,8 +1478,12 @@ def dashboard_channel_visibility_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def account_settings_view(request: HttpRequest) -> HttpResponse:
+    """Render account settings and handle explicit account deletion."""
+
     delete_error: str | None = None
     if request.method == "POST" and request.POST.get("action") == "delete_account":
+        # Email confirmation is case-insensitive, but the response stays generic
+        # enough to avoid revealing anything beyond the signed-in user's account.
         entered_email = (request.POST.get("confirm_email") or "").strip()
         expected_email = (request.user.email or "").strip()
         if not entered_email or entered_email.lower() != expected_email.lower():
@@ -1385,12 +1514,17 @@ def account_settings_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def preferences_view(request: HttpRequest) -> HttpResponse:
+    """Render and persist workflow defaults used by new experiment uploads."""
+
     preferences = get_user_preferences(request.user)
     defaults = dict(preferences.get("experiment_defaults", {}))
 
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "save_plugin_defaults":
+            # Plugin defaults are saved as configured plugins plus derived
+            # visibility/mode fields so new experiments do not have to infer from
+            # legacy plugin lists on every request.
             selected_plugins = expand_selected_plugins(
                 request.POST.getlist("selected_plugins")
             )
@@ -1504,6 +1638,9 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             return _preferences_redirect(request, section="plugins")
 
         if action == "save_advanced_settings":
+            # Advanced channel validation can remove plugins whose required
+            # channels the user explicitly disables; that keeps future experiment
+            # defaults internally consistent.
             module_enabled = _post_bool(request, "module_enabled")
             enforce_layer_count = _post_bool(request, "enforce_layer_count")
             enforce_wavelengths = _post_bool(request, "enforce_wavelengths")
@@ -1593,6 +1730,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
             return _preferences_redirect(request, section="advanced")
 
         if action == "save_behavior":
+            # Behavior settings live at the top level of the preference payload
+            # because Dashboard and Display read them outside experiment defaults.
             next_payload = dict(preferences)
             next_payload["auto_save_experiments"] = _post_bool(
                 request,
@@ -1641,6 +1780,8 @@ def preferences_view(request: HttpRequest) -> HttpResponse:
     signal_defaults = resolve_signal_quantification_from_defaults(defaults)
     selected_plugins = set(signal_defaults.configured_plugins)
     effective_selected_plugins = set(signal_defaults.selected_plugins)
+    # The rendered plugin list carries both dependency metadata and legacy flags;
+    # the frontend reads the JSON dependency payload for interactive disabling.
     for plugin_id in PLUGIN_UI_ORDER:
         definition = PLUGIN_DEFINITIONS[plugin_id]
         plugin_rows.append(

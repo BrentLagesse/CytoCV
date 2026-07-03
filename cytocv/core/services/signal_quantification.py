@@ -1,4 +1,9 @@
-"""Shared Signal Quantification mode resolution."""
+"""Shared Signal Quantification mode resolution.
+
+Request payloads, account defaults, and legacy ``selected_plugins`` arrays all
+flow through this module before analysis execution.  The resulting dataclass is
+both an execution plan and a display-visibility contract for downstream stats.
+"""
 
 from __future__ import annotations
 
@@ -61,6 +66,8 @@ PLUGIN_ORDER = (
     "RedBlueIntensity",
 )
 PLUGIN_ID_ALIASES = {
+    # Historical plugin names are accepted so saved account defaults and older
+    # session payloads continue to resolve to the active implementation ids.
     "MCherryLine": PUNCTA_DISTANCE_PLUGIN,
     "RedLineIntensity": PUNCTA_DISTANCE_PLUGIN,
     "GFPIntensity": CEN_DOT_PLUGIN,
@@ -74,6 +81,8 @@ RATIO_MODE_GREEN_CONTOUR = "green_contour"
 
 @dataclass(frozen=True, slots=True)
 class SignalQuantificationSelection:
+    """Resolved plugin selection and visibility state for one workflow payload."""
+
     enabled: bool
     mode: str
     puncta_contour_intensity_enabled: bool
@@ -88,6 +97,8 @@ class SignalQuantificationSelection:
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
+    """Coerce form, JSON, and stored preference booleans without raising."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, int) and value in {0, 1}:
@@ -104,6 +115,8 @@ def _as_bool(value: Any, default: bool = False) -> bool:
 
 
 def _has_key(payload: dict[str, Any] | None, *keys: str) -> bool:
+    """Return whether any spelling of a preference key was supplied."""
+
     if not isinstance(payload, dict):
         return False
     return any(key in payload for key in keys)
@@ -113,6 +126,8 @@ def normalize_signal_quantification_mode(
     value: Any,
     default: str = SIGNAL_MODE_PUNCTA_DISTANCE,
 ) -> str:
+    """Normalize legacy plugin and UI mode aliases into the two active modes."""
+
     mode = str(value or "").strip()
     aliases = {
         "puncta": SIGNAL_MODE_PUNCTA_DISTANCE,
@@ -126,6 +141,8 @@ def normalize_signal_quantification_mode(
 
 
 def expand_selected_plugins(selected_plugins: Iterable[Any]) -> tuple[str, ...]:
+    """Return known plugin ids in canonical execution/display order."""
+
     seen: set[str] = set()
     selected: list[str] = []
     known = set(PLUGIN_ORDER)
@@ -141,6 +158,8 @@ def expand_selected_plugins(selected_plugins: Iterable[Any]) -> tuple[str, ...]:
 
 
 def infer_signal_quantification_mode(selected_plugins: Iterable[Any]) -> str:
+    """Infer the primary Signal Quantification mode from legacy selections."""
+
     plugins = set(expand_selected_plugins(selected_plugins))
     if PUNCTA_DISTANCE_PLUGIN in plugins:
         return SIGNAL_MODE_PUNCTA_DISTANCE
@@ -150,6 +169,8 @@ def infer_signal_quantification_mode(selected_plugins: Iterable[Any]) -> str:
 
 
 def measurement_ratio_mode_for_puncta_line_mode(puncta_line_mode: Any) -> str:
+    """Select which contour channel acts as the ratio denominator."""
+
     mode = normalize_puncta_line_mode(
         puncta_line_mode,
         default=DEFAULT_PUNCTA_LINE_MODE,
@@ -164,6 +185,8 @@ def alternate_detection_channel_for_nuclear_mode(
     *,
     enabled: bool,
 ) -> str | None:
+    """Return the contour-detection channel implied by the nuclear workflow mode."""
+
     # Alternate contour selection only applies to the nuclear workflow.
     if not enabled:
         return None
@@ -181,8 +204,11 @@ def resolve_effective_alternate_nucleus_detection(
     """Return the operational alternate nucleus setting for stats execution."""
 
     if not _as_bool(signal_quantification_enabled, default=False):
+        # Disabled Signal Quantification suppresses the alternate contour path
+        # even if older form fields still post an enabled flag.
         return False, None
     if normalize_signal_quantification_mode(signal_quantification_mode) != SIGNAL_MODE_NUCLEAR_CELL_PAIR:
+        # Alternate nucleus detection belongs only to the nuclear/cell-pair mode.
         return False, None
     if not _as_bool(alternate_nucleus_detection_enabled, default=False):
         return False, None
@@ -194,10 +220,14 @@ def resolve_effective_alternate_nucleus_detection(
     requested_channel = normalize_channel_role(alternate_nucleus_detection_channel)
     if requested_channel == derived_channel:
         return True, requested_channel
+    # A stale or missing requested channel is corrected to the channel implied by
+    # the nuclear mode so execution and display labels stay synchronized.
     return bool(derived_channel), derived_channel
 
 
 def build_stat_visibility(selected_plugins: Iterable[Any]) -> dict[str, bool]:
+    """Return plugin-group visibility for tables, payloads, and exports."""
+
     plugins = set(expand_selected_plugins(selected_plugins))
     return {
         "puncta_distance": PUNCTA_DISTANCE_PLUGIN in plugins,
@@ -223,6 +253,9 @@ def resolve_signal_quantification_selection(
     """Resolve Signal Quantification fields and derived plugin selection."""
 
     payload = payload if isinstance(payload, dict) else {}
+    # Puncta line mode affects whether paired red/green contour plugins are
+    # meaningful; single-channel modes pause paired plugins without deleting the
+    # user's saved configuration.
     normalized_puncta_line_mode = normalize_puncta_line_mode(
         puncta_line_mode,
         default=DEFAULT_PUNCTA_LINE_MODE,
@@ -237,6 +270,8 @@ def resolve_signal_quantification_selection(
     inferred_enabled = has_primary_legacy
     if default_enabled is not None:
         inferred_enabled = bool(default_enabled)
+    # Both snake_case and camelCase keys are accepted because views may receive
+    # Django forms, JSON payloads, or saved browser state.
     enabled = _as_bool(
         payload.get(
             "signal_quantification_enabled",
@@ -267,6 +302,8 @@ def resolve_signal_quantification_selection(
     )
 
     legacy_alternate = payload.get(
+        # The nested fallback chain preserves older names used by the first
+        # alternate-red-detection UI before the nuclear workflow was renamed.
         "alternate_nucleus_detection_enabled",
         payload.get(
             "alternateNucleusDetectionEnabled",
@@ -287,6 +324,8 @@ def resolve_signal_quantification_selection(
     )
 
     independent_plugins = tuple(
+        # Independent plugins can still run when Signal Quantification is turned
+        # off; paired red/green plugins are paused in single-channel puncta mode.
         plugin_id
         for plugin_id in legacy_plugins
         if plugin_id not in SIGNAL_QUANTIFICATION_PLUGIN_IDS
@@ -294,6 +333,8 @@ def resolve_signal_quantification_selection(
     )
 
     configured: list[str] = []
+    # Configured plugins record what the user selected, including plugins paused
+    # by mode.  Selected plugins below are the effective execution set.
     if enabled:
         if mode == SIGNAL_MODE_NUCLEAR_CELL_PAIR:
             configured.append(NUCLEAR_CELL_PAIR_PLUGIN)
@@ -318,6 +359,8 @@ def resolve_signal_quantification_selection(
     selected_plugins_tuple = tuple(expand_selected_plugins(effective))
     effective_plugin_set = set(selected_plugins_tuple)
     paused_plugins_tuple = tuple(
+        # Paused plugins are persisted so the UI can restore them if the user
+        # switches back to a compatible Signal Quantification mode.
         plugin_id
         for plugin_id in configured_plugins_tuple
         if plugin_id not in effective_plugin_set
@@ -346,6 +389,8 @@ def resolve_signal_quantification_selection(
 def resolve_signal_quantification_from_defaults(
     defaults: dict[str, Any] | None,
 ) -> SignalQuantificationSelection:
+    """Resolve account defaults through the same contract as request payloads."""
+
     defaults = defaults if isinstance(defaults, dict) else {}
     selected_plugins = defaults.get("selected_plugins", DEFAULT_SIGNAL_SELECTED_PLUGINS)
     return resolve_signal_quantification_selection(

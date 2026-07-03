@@ -1,3 +1,5 @@
+"""Protect canonical contour slot selection and side-mask helper behavior."""
+
 from pathlib import Path
 import tempfile
 

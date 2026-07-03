@@ -64,6 +64,7 @@
                 <ul id="fileList">
                     {% for file in file_list %}
                         <li>
+                            {# data-index/data-uuid drive Dashboard sidebar navigation and persisted-file actions. #}
                             <div class="file-item" data-index="{{ forloop.counter0 }}" data-uuid="{{ file.uuid }}">
                                 <button class="file-select-check" type="button" aria-label="Select file"><span>&#10003;</span></button>
                                 <div class="file-title">{{ file.name }}</div>
@@ -132,6 +133,7 @@
                                         </div>
                                     </div>
                                     <div class="main-channel-switcher" id="mainChannelSwitcher" aria-label="Main image channel">
+                                        {# data-main-channel values match backend channel-role slugs and preference payloads. #}
                                         <button class="main-channel-btn dic" type="button" data-main-channel="dic">DIC</button>
                                         <button class="main-channel-btn blue" type="button" data-main-channel="blue">Blue</button>
                                         <button class="main-channel-btn red" type="button" data-main-channel="red">Red</button>
@@ -227,6 +229,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                {# Shared stats card IDs are populated by dashboard-viewer.js for the selected cell. #}
                                 {% include "partials/cell_pair_stats_card.html" %}
 
                                 <div class="navigation-buttons">
@@ -470,6 +473,7 @@
         </div> <!-- end content-wrapper -->
     </div> <!-- end page-container -->
 
+    {# results-cell-actions.js expects these shared cell-delete modal IDs on Display and Dashboard. #}
     <div class="delete-modal-backdrop" id="deleteCellBackdrop" aria-hidden="true">
         <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteCellTitle">
             <h3 id="deleteCellTitle">Delete Cell</h3>
@@ -481,6 +485,7 @@
         </div>
     </div>
 
+    {# Multi-cell deletion uses a two-view modal populated from the current table rows. #}
     <div class="delete-modal-backdrop" id="selectCellsBackdrop" aria-hidden="true">
         <div class="delete-modal cell-select-modal" role="dialog" aria-modal="true" aria-labelledby="selectCellsTitle">
             <div class="cell-select-view" id="selectCellsView">
@@ -512,6 +517,7 @@
         </div>
     </div>
 
+    {# dashboard-file-actions.js owns bulk saved-file deletion UI; the view still checks ownership. #}
     <div class="delete-modal-backdrop" id="deleteFilesBackdrop" aria-hidden="true">
         <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFilesTitle">
             <h3 id="deleteFilesTitle">Delete saved files</h3>
@@ -531,6 +537,7 @@
     </div>
 
     {% include "partials/export_selection_modal.html" %}
+    {# dashboard-viewer.js depends on these ids for saved-run state and viewer preferences. #}
     <script id="dashboardFilesData" type="application/json">{{ files_data_json|safe }}</script>
     <script id="dashboardPageConfig" type="application/json">{"confirmCellDeletion": {{ confirm_cell_deletion|yesno:"true,false" }}, "confirmMultiCellDeletion": {{ confirm_multi_cell_deletion|yesno:"true,false" }}, "hasFiles": {{ has_files|yesno:"true,false" }}, "defaultSpatialStatsUnit": "{{ default_spatial_stats_unit|default:'px'|escapejs }}", "initialSidebarSpatialStatsUnit": "{{ sidebar_spatial_stats_unit|default:default_spatial_stats_unit|escapejs }}", "initialPreferredMainImageChannel": "{{ main_image_channel|default:''|escapejs }}", "initialCellTypeFilter": "{{ cell_type_filter|default:'all'|escapejs }}", "initialPunctaSourceContourCountFilter": "{{ puncta_source_contour_count_filter|default:'all'|escapejs }}", "tableFileUuid": "{{ table_uuid|escapejs }}"}</script>
     <div id="selectionInfoTooltip" class="info-tooltip" role="tooltip" hidden></div>

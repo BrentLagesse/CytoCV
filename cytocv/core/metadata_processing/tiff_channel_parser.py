@@ -42,6 +42,8 @@ def extract_tiff_channel_labels_from_metadata(metadata: dict[str, Any]) -> list[
 
 
 def _role_from_wavelength(wavelength: float) -> str | None:
+    """Map known softWoRx-style wavelength labels to logical channel roles."""
+
     if abs(wavelength - 625) < 12:
         return CHANNEL_ROLE_RED
     if abs(wavelength - 525) < 12:
@@ -58,6 +60,8 @@ def map_tiff_label_to_channel_role(label: str) -> str | None:
     lower = normalized.lower()
     compact = "".join(ch for ch in lower if ch.isalnum())
 
+    # Wavelength tokens are more reliable than free-text labels when TIFF exports
+    # carry names like w525 or W_625.
     wavelength_match = _WAVELENGTH_PATTERN.search(lower)
     if wavelength_match:
         role = _role_from_wavelength(float(wavelength_match.group(1)))
@@ -77,6 +81,9 @@ def build_tiff_channel_config_from_labels(labels: list[str]) -> dict[str, int] |
     if len(labels) not in {3, len(_CHANNEL_ROLES)}:
         return None
 
+    # Partial or duplicated label matches are intentionally rejected so callers
+    # fall back to the configured default order instead of writing a misleading
+    # channel_config.json.
     config: dict[str, int] = {}
     for index, label in enumerate(labels):
         role = map_tiff_label_to_channel_role(label)
@@ -88,6 +95,8 @@ def build_tiff_channel_config_from_labels(labels: list[str]) -> dict[str, int] |
     if len(labels) == len(_CHANNEL_ROLES) and missing_roles:
         return None
     if len(labels) == 3 and (len(missing_roles) != 1 or CHANNEL_ROLE_DIC in missing_roles):
+        # Three-label stacks are only accepted when DIC plus two fluorescence
+        # roles are identified; missing DIC cannot be safely recovered later.
         return None
     return config
 
@@ -100,6 +109,8 @@ def extract_tiff_metadata_channel_config(path: str | Path) -> dict[str, int] | N
         labels = extract_tiff_channel_labels_from_metadata(metadata)
         return build_tiff_channel_config_from_labels(labels)
     except Exception:
+        # TIFF label parsing is advisory.  Invalid metadata falls back to default
+        # order through the caller instead of failing upload preparation.
         return None
 
 
@@ -111,6 +122,8 @@ def extract_tiff_channel_config(
 ) -> dict[str, int]:
     """Return TIFF channel config, falling back to the configured default order."""
 
+    # Metadata is advisory: incomplete or ambiguous labels intentionally route
+    # through resolve_channel_config so upload behavior matches DV fallback rules.
     metadata_config = extract_tiff_metadata_channel_config(path) if prefer_metadata else None
     return resolve_channel_config(
         metadata_config,

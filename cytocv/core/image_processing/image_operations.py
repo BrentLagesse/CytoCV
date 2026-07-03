@@ -1,3 +1,5 @@
+"""Image loading and grayscale preparation shared by statistics plugins."""
+
 import os
 
 import cv2
@@ -17,11 +19,19 @@ logger = logging.getLogger(__name__)
 
 
 def _copy_cached_image(image_array):
+    """Return copy-safe PIL and numpy views of an in-memory channel crop."""
+
+    # Statistics plugins may mutate PIL images or numpy arrays while drawing and
+    # measuring, so cached crop data is always copied before reuse.
     cached_array = np.array(image_array, copy=True)
     return Image.fromarray(cached_array.copy()), cached_array
 
 
 def _get_mapping_value(mapping, *keys):
+    """Return the first non-null value for canonical or legacy payload keys."""
+
+    # Measurement images can be keyed by canonical channel role or by older plugin
+    # payload names; accepting both keeps saved analysis paths compatible.
     for key in keys:
         if key in mapping and mapping[key] is not None:
             return mapping[key]
@@ -29,6 +39,10 @@ def _get_mapping_value(mapping, *keys):
 
 
 def _as_single_channel(image_array):
+    """Normalize RGB/RGBA/single-channel measurement input to one gray plane."""
+
+    # Raw measurement planes are normalized to one grayscale array so downstream
+    # plugins receive the same shape regardless of RGB/RGBA/TIFF source layout.
     array = np.asarray(image_array)
     if array.ndim == 2:
         return np.array(array, copy=True)
@@ -42,11 +56,14 @@ def _as_single_channel(image_array):
 
 
 def load_image(cp, output_dir, required_channels=None, cached_images=None):
+    """Load segmented channel crops required by the selected statistics plugins.
+
+    ``CellStatistics.get_image`` resolves the persisted crop-name convention from
+    channel roles and ``cell_id``.  Missing optional crop files are skipped so a
+    plugin that does not require that channel cannot fail the entire statistics
+    pass for the cell.
     """
-    This function loads an image from a file path and returns it as a numpy array.
-    :param cp: A CellStatistics object
-    :return: A dictionary containing red, green, blue, and DIC image arrays
-    """
+
     requested = set(required_channels or {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE})
     cached_images = cached_images or {}
     channel_map = {
@@ -57,12 +74,16 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
     }
     loaded = {}
 
+    # Only requested channels are loaded because selected plugins determine which
+    # crop files are required; optional missing channels should not fail the run.
     for channel in requested:
         mapping = channel_map.get(channel)
         if not mapping:
             continue
         im_key, mat_key = mapping
         if channel in cached_images and cached_images[channel] is not None:
+            # Segmentation already cropped these arrays from the source stack; reusing
+            # them avoids round-tripping through PNG files while preserving copy safety.
             cached_image, cached_array = _copy_cached_image(cached_images[channel])
             loaded[im_key] = cached_image
             loaded[mat_key] = cached_array
@@ -75,6 +96,8 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
             with Image.open(image_path) as image:
                 image_array = np.array(image)
         except FileNotFoundError:
+            # A missing optional channel crop should skip that plugin input rather
+            # than fail statistics for the whole cell/run.
             continue
         loaded[im_key] = Image.fromarray(np.array(image_array, copy=True))
         loaded[mat_key] = image_array
@@ -83,14 +106,15 @@ def load_image(cp, output_dir, required_channels=None, cached_images=None):
 
 
 def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
+    """Build the grayscale payload consumed by contour statistics plugins.
+
+    The returned ``GrayImage`` keys are a public in-process contract for the
+    plugin layer: blurred display planes support contour detection and raw planes
+    support total/max/average measurement values.
     """
-    This function preprocesses an image and returns a gray scale of images and blurred version of it.
-    :param images: A dictionary containing red, green, and blue image arrays
-    :param kdev: Kernel deviation for blurring
-    :param ksize: Kernel size for blurring
-    :return: A dictionary containing grayscale and background-subtracted image data
-    """
-    # ksize must be odd
+
+    # OpenCV Gaussian kernels must be odd; keep the historical "round up"
+    # behavior so saved workflow defaults do not need extra validation here.
     if ksize % 2 == 0:
         ksize += 1
         logger.debug("Adjusted even kernel size to next odd value: %s", ksize)
@@ -99,8 +123,12 @@ def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
 
     green_image = images.get("green")
     if green_image is not None:
+        # Green is both a display contour source and a measurement source, so keep
+        # blurred and background-subtracted variants under stable GrayImage keys.
         cell_intensity_gray = cv2.cvtColor(green_image, cv2.COLOR_RGB2GRAY)
         original_gray_green = cv2.cvtColor(green_image, cv2.COLOR_RGB2GRAY)
+        # Rolling-ball subtraction is part of the historical red/green contour
+        # measurement payload; keep these raw-minus-background keys stable.
         original_gray_green_no_bg, _ = subtract_background_rolling_ball(
             original_gray_green,
             50,
@@ -115,7 +143,11 @@ def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
 
     red_image = images.get("red")
     if red_image is not None:
+        # Red contour plugins rely on both historical fixed-blur and configurable
+        # blur keys; removing either would change saved workflow compatibility.
         original_gray_red = cv2.cvtColor(red_image, cv2.COLOR_RGB2GRAY)
+        # Red payloads expose both a fixed small blur and the user-configured blur
+        # because different legacy and modern plugins consume different keys.
         red_no_bg, _ = subtract_background_rolling_ball(
             original_gray_red,
             50,
@@ -129,11 +161,15 @@ def preprocess_image_to_gray(images, kdev, ksize, measurement_images=None):
 
     blue_image = images.get("blue")
     if blue_image is not None:
+        # Blue is used for optional nuclear/cell-pair modes and follows the same
+        # configurable blur contract as red for downstream plugins.
         original_gray_blue = cv2.cvtColor(blue_image, cv2.COLOR_RGB2GRAY)
         gray_payload["gray_blue_3"] = cv2.GaussianBlur(original_gray_blue, (3, 3), 1)
         gray_payload["gray_blue"] = cv2.GaussianBlur(original_gray_blue, (ksize, ksize), kdev)
 
     measurement_images = measurement_images or {}
+    # Raw planes are supplied separately so total/max/average intensity metrics
+    # use measurement input data rather than normalized display crops.
     raw_green = _get_mapping_value(measurement_images, CHANNEL_ROLE_GREEN, "green")
     if raw_green is not None:
         gray_payload["raw_green"] = _as_single_channel(raw_green)

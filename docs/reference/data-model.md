@@ -118,6 +118,11 @@ Important fields:
 - `ImagePath`
 - `CellPairPrefix`
 - `NumCells`
+- `cell_inclusion_mode`
+
+`cell_inclusion_mode` stores the resolved analysis-time retention mode for the
+run. Current values are `cell_pairs_only`, `single_cells_only`, and
+`single_cells_and_cell_pairs`; the default is `cell_pairs_only`.
 
 ## `core.CellStatistics`
 
@@ -133,7 +138,8 @@ Important direct fields include:
 - `cell_pair_intensity_sum`
 - `cytoplasmic_intensity`
 - contour sizes
-- red, green, and mixed intensity fields
+- Cell Type in `cell_type`
+- red, green, and mixed Total/Max/Average intensity fields
 - legacy Blue-derived fields when corresponding legacy plugins are selected
 - DIC-derived mother/daughter parentage in `properties.cell_parentage`
 - CEN dot classification fields when `CENDot` is selected
@@ -142,9 +148,11 @@ Important direct fields include:
 `properties` carries dynamic run context such as:
 
 - nuclear or cell-pair mode
+- cell inclusion mode and cell type context
 - cell parentage status, mode, method, lobe areas, and label positions
 - scale source and effective scale
 - line width and distance threshold context
+- final Puncta Source contour count metadata used by Display/Dashboard row filters
 - contour center coordinate metadata:
   - `contour_center_schema_version`
   - `contour_center_origin`, currently `main_image_bottom_left`

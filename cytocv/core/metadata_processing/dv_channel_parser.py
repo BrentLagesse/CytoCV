@@ -1,3 +1,5 @@
+"""Channel-role resolution for DV files and the shared source-image facade."""
+
 import re
 from collections.abc import Mapping
 
@@ -21,6 +23,8 @@ from core.metadata_processing.tiff_channel_parser import extract_tiff_channel_co
 
 
 def _safe_float(value):
+    """Parse a DV wavelength field without raising on malformed metadata."""
+
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -28,9 +32,13 @@ def _safe_float(value):
 
 
 def _map_channel_name(orig_name: str, wl_val: float | None) -> str | None:
+    """Map DV channel label/wavelength metadata to a logical channel role."""
+
     name = (orig_name or "").strip()
     lower = name.lower()
 
+    # Prefer wavelength metadata when present because DV channel labels are often
+    # generic, localized, or omitted.
     if wl_val is not None:
         if abs(wl_val - 625) < 12:
             return CHANNEL_ROLE_RED
@@ -61,6 +69,8 @@ def _store_channel_mapping(
     channel: str | None,
     raw_index,
 ) -> bool:
+    """Store one unique channel role/index pair into a parsed config."""
+
     role = normalize_channel_role(channel)
     if role is None:
         return True
@@ -98,12 +108,16 @@ def _extract_from_dv_header(dv_file_path):
         config = {}
         used_indices = set()
         for idx in range(channel_count):
+            # Structured DV headers list channel count and waveN fields in order;
+            # indices therefore come from header position, not from fallback order.
             wl_val = _safe_float(header.get(f"wave{idx + 1}"))
             channel = _map_channel_name("", wl_val)
             if not _store_channel_mapping(config, used_indices, channel, idx):
                 return {}
         return config or None
     except Exception:
+        # Header parsing is optional metadata enrichment.  Return None so the XML
+        # snippet parser or fallback order can still run.
         return None
     finally:
         if dv is not None:
@@ -121,7 +135,8 @@ def extract_dv_metadata_channel_config(dv_file_path):
     if header_config is not None:
         return header_config
 
-    # Fallback XML parsing for legacy files where structured metadata is missing.
+    # Legacy DV exports can omit structured wavelength fields but still include
+    # XML-like channel snippets in the header bytes.
     with open(dv_file_path, "rb") as f:
         header_bytes = f.read(16384)
     header_text = header_bytes.decode("latin1", errors="ignore")
@@ -130,6 +145,8 @@ def extract_dv_metadata_channel_config(dv_file_path):
     channel_tags = re.findall(channel_tag_pattern, header_text)
     channel_matches = []
     for attrs in channel_tags:
+        # XML-like snippets may appear in older DV files; extract only explicit
+        # name/index pairs so the parser does not infer channels from arbitrary text.
         name_match = re.search(r'\bname="([^"]+)"', attrs)
         index_match = re.search(r'\bindex="(\d+)"', attrs)
         if name_match and index_match:
@@ -150,6 +167,8 @@ def extract_dv_metadata_channel_config(dv_file_path):
     config = {}
     used_indices = set()
     for i, (orig_name, idx) in enumerate(channel_matches):
+        # Header snippets can list names and emission filters separately; match by
+        # name first, then fall back to positional wavelength order.
         wl_val = wavelength_by_name.get((orig_name or "").strip().lower())
         if wl_val is None and i < len(wavelength_matches):
             wl_val = wavelength_matches[i]
@@ -174,6 +193,9 @@ def extract_channel_config(
     """
     extension = source_image_extension(dv_file_path)
     if extension in TIFF_IMAGE_EXTENSIONS:
+        # TIFF parsing lives in its own module because ImageJ labels and DV
+        # wavelength metadata have different failure modes, but both return the
+        # same channel_config.json shape.
         return extract_tiff_channel_config(
             dv_file_path,
             prefer_metadata=prefer_metadata,
@@ -182,6 +204,8 @@ def extract_channel_config(
     if extension != DV_IMAGE_EXTENSION:
         return {}
 
+    # The final resolution step centralizes preference and fallback behavior so
+    # DV and TIFF channel_config.json payloads stay in the same shape.
     metadata_config = extract_dv_metadata_channel_config(dv_file_path) if prefer_metadata else {}
     return resolve_channel_config(
         metadata_config,
@@ -208,4 +232,6 @@ def is_valid_dv_file(dv_file_path):
     """
     Returns True only if the DV actually contains exactly 4 image layers.
     """
+    # This legacy helper remains intentionally strict for older call sites that
+    # predate conditional required-channel validation.
     return get_dv_layer_count(dv_file_path) == 4

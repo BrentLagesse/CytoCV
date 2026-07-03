@@ -1,4 +1,8 @@
+        // Dashboard saved-file controls coordinate sidebar selection, bulk export, and
+        // persisted visibility preferences for server-rendered file rows.
         (() => {
+            // These IDs and data attributes are rendered by dashboard.html and are also
+            // covered by frontend contract tests.
             const sidebar = document.getElementById('sidebar');
             const fileItems = Array.from(document.querySelectorAll('.file-item[data-uuid]'));
             const fileUUIDs = fileItems.map((item) => item.dataset.uuid).filter(Boolean);
@@ -29,6 +33,8 @@
             let scaleLabelFadeTimer = null;
             let isDeletingFiles = false;
 
+            // Dashboard actions use fetch POSTs, so CSRF remains cookie-backed instead
+            // of embedding a token in each control.
             function getCookie(name) {
                 let value = null;
                 document.cookie.split(';').forEach((cookie) => {
@@ -40,6 +46,8 @@
                 return value;
             }
 
+            // Keep sidebar-specific errors visually near the controls while reusing the
+            // same message markup expected by the shared CSS.
             function showMessage(message) {
                 let container = document.querySelector('.message-container.channel-switch');
                 if (!container) {
@@ -61,6 +69,8 @@
                 setTimeout(() => msg.remove(), 7000);
             }
 
+            // Selection state is local to the dashboard page; export/delete endpoints
+            // still perform ownership checks server-side.
             function syncSelectionUI() {
                 fileItems.forEach((item) => item.classList.toggle('selected', selectedFileUUIDs.has(item.dataset.uuid)));
                 deleteSelectedBtn.disabled = selectedFileUUIDs.size === 0;
@@ -90,6 +100,8 @@
                 syncSelectionUI();
             }
 
+            // Channel and scale visibility are immediate UI preferences. Persistence is
+            // best-effort so a failed preference save does not block browsing saved files.
             function applyChannelVisibility(visible, persist) {
                 sidebar.classList.toggle('channels-hidden', !visible);
                 channelVisibilityBtn.classList.add('label-fade');
@@ -138,6 +150,8 @@
                 }
             }
 
+            // The modal lists selected display names, but deletion is keyed only by UUIDs
+            // submitted to the dashboard delete endpoint.
             function setDeleteLoading(isLoading) {
                 isDeletingFiles = isLoading;
                 if (confirmDeleteFilesBtn) {
@@ -197,6 +211,8 @@
                 if (!uuids.length) return;
                 setDeleteLoading(true);
                 try {
+                    // The server revalidates ownership and returns stale-selection
+                    // errors; the client never removes rows optimistically.
                     const response = await fetch('/dashboard/files/delete/', {
                         method: 'POST',
                         headers: {
@@ -210,6 +226,8 @@
                     if (!response.ok) {
                         throw new Error(payload.error || 'Delete failed');
                     }
+                    // Reload after deletion so quota cards, sidebar counts, viewer
+                    // selection, and export state all come from one fresh payload.
                     window.location.reload();
                 } catch (err) {
                     setDeleteLoading(false);
@@ -217,6 +235,8 @@
                 }
             }
 
+            // Event handlers preserve the sidebar's normal navigation until explicit
+            // select mode is active.
             selectModeBtn.addEventListener('click', () => setSelectMode(!selectModeActive));
             selectAllBtn.addEventListener('click', toggleSelectAll);
             deleteSelectedBtn.addEventListener('click', openDeleteModal);
@@ -239,6 +259,8 @@
                 const uuid = item.dataset.uuid;
                 const checkbox = item.querySelector('.file-select-check');
                 if (checkbox && uuid) {
+                    // Checkbox clicks only mutate local selection. Navigation and
+                    // destructive effects stay behind explicit toolbar actions.
                     checkbox.addEventListener('click', (event) => {
                         event.preventDefault();
                         event.stopPropagation();

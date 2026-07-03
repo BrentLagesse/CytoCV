@@ -1,3 +1,10 @@
+"""Compatibility loader for the legacy Keras Mask R-CNN weights file.
+
+The bundled weights were produced for an older Keras HDF5 layout. This module
+keeps loading explicit and local rather than depending on TensorFlow private
+helpers whose signatures changed across releases.
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -27,6 +34,8 @@ def load_legacy_hdf5_weights(model, filepath, *, by_name: bool = False, exclude=
 
 
 def _load_weights_topological(weights_group, model, excluded_names: set[str]) -> None:
+    """Assign saved layers in file order when the caller does not load by name."""
+
     filtered_layers = [
         layer
         for layer in model.layers
@@ -65,6 +74,8 @@ def _load_weights_topological(weights_group, model, excluded_names: set[str]) ->
 
 
 def _load_weights_by_name(weights_group, model, excluded_names: set[str]) -> None:
+    """Assign matching saved layer weights by layer name, preserving exclusions."""
+
     index = defaultdict(list)
     for layer in model.layers:
         index[layer.name].append(layer)
@@ -81,6 +92,8 @@ def _load_weights_by_name(weights_group, model, excluded_names: set[str]) -> Non
 
 
 def _assign_layer_weights(layer, *, weight_values: list[np.ndarray]) -> None:
+    """Assign one saved HDF5 layer payload to the matching Keras layer."""
+
     symbolic_weights = _legacy_layer_weights(layer)
     if len(weight_values) != len(symbolic_weights):
         raise ValueError(
@@ -92,17 +105,23 @@ def _assign_layer_weights(layer, *, weight_values: list[np.ndarray]) -> None:
 
 
 def _assign_symbolic_weights(symbolic_weights, weight_values: list[np.ndarray]) -> None:
+    """Write concrete arrays into Keras symbolic weight variables."""
+
     for reference, value in zip(symbolic_weights, weight_values):
         reference.assign(value)
 
 
 def _decode_attribute_value(value):
+    """Normalize HDF5 attribute values across bytes/string storage variants."""
+
     if isinstance(value, bytes):
         return value.decode("utf-8")
     return str(value)
 
 
 def _load_attributes_from_hdf5_group(group, name: str) -> list[str]:
+    """Read legacy Keras attributes that may be stored in numbered chunks."""
+
     values = []
     if name in group.attrs:
         values.extend(group.attrs[name])
@@ -115,14 +134,20 @@ def _load_attributes_from_hdf5_group(group, name: str) -> list[str]:
 
 
 def _legacy_model_weights(model) -> list[object]:
+    """Return model-level weights in the order expected by legacy Keras files."""
+
     return list(model.trainable_weights) + list(model.non_trainable_weights)
 
 
 def _legacy_layer_weights(layer) -> list[object]:
+    """Return layer weights in the trainable then non-trainable legacy order."""
+
     return list(layer.trainable_weights) + list(layer.non_trainable_weights)
 
 
 def _load_subset_weights_from_hdf5_group(group) -> list[np.ndarray]:
+    """Load one layer/group weight array list by its saved weight-name order."""
+
     return [
         np.asarray(group[weight_name])
         for weight_name in _load_attributes_from_hdf5_group(group, "weight_names")

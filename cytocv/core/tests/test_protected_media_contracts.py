@@ -1,3 +1,5 @@
+"""Protect authenticated media access and artifact ownership assumptions."""
+
 from __future__ import annotations
 
 import tempfile

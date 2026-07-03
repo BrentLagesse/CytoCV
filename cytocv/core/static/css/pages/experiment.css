@@ -1,3 +1,5 @@
+        /* Experiment upload page layout. Form, modal, and queue selectors are
+           used by experiment.js and should stay stable across visual edits. */
         .experiment-page {
             --stats-popup-control-width: 196px;
             --stats-popup-compact-control-width: 112px;

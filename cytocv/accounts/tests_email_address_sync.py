@@ -1,3 +1,5 @@
+"""Account email alias synchronization and login/reset compatibility tests."""
+
 from __future__ import annotations
 
 from io import StringIO
@@ -19,6 +21,8 @@ from accounts.email_addresses import (
 
 
 def create_legacy_user(email: str, password: str | None = "TestPass123!", **extra):
+    """Create a user before signal-driven allauth alias repair is applied."""
+
     user_model = get_user_model()
     user = user_model(email=email, **extra)
     if password is None:
@@ -35,7 +39,11 @@ def create_legacy_user(email: str, password: str | None = "TestPass123!", **extr
     RECAPTCHA_ENABLED=False,
 )
 class EmailAddressSyncTests(TestCase):
+    """Verify CustomUser.email and allauth EmailAddress stay in sync."""
+
     def test_normalize_account_email_strips_lowercases_and_blanks_null(self):
+        # Normalization is the first account-enumeration safety layer: every
+        # lookup path compares canonical lower-case emails.
         self.assertEqual(
             normalize_account_email("  Researcher@Example.EDU  "),
             "researcher@example.edu",
@@ -44,6 +52,8 @@ class EmailAddressSyncTests(TestCase):
         self.assertEqual(normalize_account_email(None), "")
 
     def test_existing_user_missing_alias_gets_repaired(self):
+        # Legacy users may predate allauth EmailAddress aliases; the command
+        # backfills the alias without changing the CustomUser primary key.
         user = create_legacy_user("active-user@example.edu")
         self.assertFalse(EmailAddress.objects.filter(user=user).exists())
 

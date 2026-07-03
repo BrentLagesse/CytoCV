@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Protect Display/Dashboard export modal DOM, JSON config, and request contracts."""
+
+from __future__ import annotations
 
 import csv
 import json
@@ -433,6 +435,95 @@ class FrontendExportContractTests(TestCase):
                 self.assertEqual(rows[1][0], "1")
                 self.assertEqual(rows[1][1], "Cell Pair")
                 self.assertNotIn("Single Cell", csv_text)
+
+    def test_direct_exports_compose_cell_type_and_source_contour_filters(self):
+        user = login_user(self, "frontend-direct-composed-row-filters@example.com")
+        uuid_value = create_display_file(uploaded_owner=user, filename="direct_composed_filters")
+        source_props = {
+            "signal_quantification_mode": "puncta_distance",
+            "puncta_line_mode": "red_puncta",
+        }
+        add_cell_stat(
+            uuid_value,
+            cell_id=1,
+            properties={
+                **source_props,
+                "cell_type": "single_cell",
+                "puncta_source_contour_count": 1,
+                "puncta_source_contour_count_channel": "red",
+            },
+        )
+        add_cell_stat(
+            uuid_value,
+            cell_id=2,
+            properties={
+                **source_props,
+                "cell_type": "single_cell",
+                "puncta_source_contour_count": 2,
+                "puncta_source_contour_count_channel": "red",
+            },
+        )
+        add_cell_stat(
+            uuid_value,
+            cell_id=3,
+            properties={
+                **source_props,
+                "cell_type": "cell_pair",
+                "puncta_source_contour_count": 2,
+                "puncta_source_contour_count_channel": "red",
+            },
+        )
+
+        query = (
+            f"?file_uuid={uuid_value}&_export=csv&_columns=red_in_red_total_intensity_1"
+            "&_unit=px&_cell_type=single_cell&_puncta_source_contour_count=exactly_2"
+        )
+        for url in (
+            reverse("dashboard") + query,
+            reverse("display", args=[uuid_value])
+            + "?_export=csv&_columns=red_in_red_total_intensity_1"
+            + "&_unit=px&_cell_type=single_cell&_puncta_source_contour_count=exactly_2",
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                rows = list(csv.reader(StringIO(response.content.decode("utf-8"))))
+                self.assertEqual(
+                    rows[0],
+                    ["Cell ID", "Cell Type", "Red In Red Total Intensity 1"],
+                )
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[1], ["2", "Single Cell", "5.000"])
+
+    def test_direct_exports_use_all_when_source_contour_filter_unavailable(self):
+        user = login_user(self, "frontend-direct-disabled-source-filter@example.com")
+        uuid_value = create_display_file(uploaded_owner=user, filename="disabled_source_filter")
+        add_cell_stat(
+            uuid_value,
+            cell_id=1,
+            properties={
+                "signal_quantification_mode": "puncta_distance",
+                "puncta_line_mode": "red_puncta",
+                "cell_type": "cell_pair",
+            },
+        )
+
+        for url in (
+            reverse("dashboard")
+            + f"?file_uuid={uuid_value}&_export=csv&_columns=red_in_red_total_intensity_1"
+            + "&_unit=px&_puncta_source_contour_count=exactly_2",
+            reverse("display", args=[uuid_value])
+            + "?_export=csv&_columns=red_in_red_total_intensity_1"
+            + "&_unit=px&_puncta_source_contour_count=exactly_2",
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                rows = list(csv.reader(StringIO(response.content.decode("utf-8"))))
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[1], ["1", "Cell Pair", "5.000"])
 
     def test_display_export_preserves_visible_subset_order(self):
         user = login_user(self, "frontend-display-export-order@example.com")

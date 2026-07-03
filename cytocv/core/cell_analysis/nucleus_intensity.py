@@ -1,3 +1,5 @@
+"""Legacy green-in-blue nucleus intensity statistics plugin."""
+
 import numpy as np
 
 from core.image_processing import calculate_intensity_mask
@@ -11,6 +13,8 @@ from .analysis import Analysis
 
 
 class NucleusIntensity(Analysis):
+    """Measure green signal inside the blue nucleus contour and cell mask."""
+
     name = 'Nucleus Intensity'
 
     def calculate_statistics(
@@ -27,11 +31,15 @@ class NucleusIntensity(Analysis):
 
         green_intensity_image = self.preprocessed_images.get_image('raw_green')
         if green_intensity_image is None:
+            # Legacy runs may not have raw planes; fall back through the historical
+            # background-subtracted and blurred display keys.
             green_intensity_image = self.preprocessed_images.get_image('green_no_bg')
         if green_intensity_image is None:
             green_intensity_image = self.preprocessed_images.get_image('green')
 
         if green_intensity_image is None:
+            # Missing measurement data clears the old Green-in-Blue fields instead
+            # of preserving values from a prior plugin invocation.
             self._set_defaults()
             return
 
@@ -39,6 +47,8 @@ class NucleusIntensity(Analysis):
 
         blue_slots = get_canonical_blue_slots(contours_data, shape, limit=1)
         if not blue_slots:
+            # This legacy plugin is defined by the Blue nucleus contour; without it
+            # the numeric fields remain zero and exports keep their column shape.
             self._set_defaults()
             return
 
@@ -46,6 +56,8 @@ class NucleusIntensity(Analysis):
 
         cell_mask = contours_data.get(CELL_MASK_KEY)
         if cell_mask is None or cell_mask.shape[:2] != shape or not np.any(cell_mask):
+            # Saved mask reload keeps display/replay analysis paths aligned with
+            # live segmentation when contour data is partially reconstructed.
             cell_mask = load_cell_mask(
                 self.cp.image_name, self.cp.cell_id, self.output_dir, shape,
             )
@@ -62,6 +74,8 @@ class NucleusIntensity(Analysis):
         self.cp.cytoplasmic_intensity = cell_intensity - nucleus_intensity
 
     def _set_defaults(self):
+        """Zero legacy Green-in-Blue fields when the metric is unavailable."""
+
         self.cp.nucleus_intensity[Contour.CONTOUR.name] = 0
         self.cp.nucleus_total_points = 0
         self.cp.nucleus_intensity_sum = 0.0

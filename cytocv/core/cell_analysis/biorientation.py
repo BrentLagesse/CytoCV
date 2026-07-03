@@ -1,3 +1,5 @@
+"""Biorientation statistics for paired red anchors and nearby green dots."""
+
 import logging
 import math
 
@@ -21,6 +23,8 @@ _MAX_REPORTED_DOTS = 2
 
 
 def _coerce_float(value, default: float) -> float:
+    """Return a numeric workflow setting or the provided conservative default."""
+
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -28,6 +32,8 @@ def _coerce_float(value, default: float) -> float:
 
 
 def _anchor_radius_from_area(area) -> float:
+    """Approximate a circular contour radius from an area value."""
+
     try:
         area_value = float(area)
     except (TypeError, ValueError):
@@ -38,7 +44,11 @@ def _anchor_radius_from_area(area) -> float:
 
 
 def _pixel_distance(center_1, center_2, properties: dict, unit: str) -> float:
+    """Measure two contour centers in pixels or calibrated microns."""
+
     if unit == "um":
+        # Biorientation thresholds can be stored in microns; convert independent
+        # x/y scales so anisotropic metadata still produces the requested unit.
         x_scale = _coerce_float(
             properties.get("scale_x_um_per_px", properties.get("scale_effective_um_per_px")),
             default=0.1,
@@ -58,6 +68,8 @@ def _pixel_distance(center_1, center_2, properties: dict, unit: str) -> float:
 
 
 class Biorientation(Analysis):
+    """Classify green dots as collinear or off-axis relative to two red anchors."""
+
     name = "Biorientation"
 
     def calculate_statistics(
@@ -70,6 +82,8 @@ class Biorientation(Analysis):
         cen_dot_distance,
         cen_dot_proximity_radius=13,
     ):
+        """Populate biorientation counts for a single cell statistics row."""
+
         properties = dict(getattr(self.cp, "properties", {}) or {})
 
         red_min = _coerce_float(
@@ -99,6 +113,8 @@ class Biorientation(Analysis):
         self.cp.colinear_dots = 0
         self.cp.off_axis_dots = 0
 
+        # Slot geometry comes from the same canonical red/green masks used by
+        # CEN-dot so biorientation counts align with related contour outputs.
         red_gray = self.preprocessed_images.get_image("gray_red")
         green_gray = self.preprocessed_images.get_image("green")
         base_shape = None
@@ -129,6 +145,8 @@ class Biorientation(Analysis):
             center_2 = red_slots[1].center
             distance_min = _pixel_distance(center_1, center_2, properties, min_unit)
             distance_max = _pixel_distance(center_1, center_2, properties, max_unit)
+            # Min and max may use different units because the upload/settings UI
+            # stores each threshold independently.
             if distance_min < red_min:
                 return
             if distance_max > red_max:
@@ -140,6 +158,8 @@ class Biorientation(Analysis):
             collinear_count = 0
             off_axis_count = 0
             for green_slot in green_slots:
+                # Only green dots inside the segmented cell pair contribute to the
+                # reported counts.
                 if not CENDot._green_slot_inside_pair_mask(green_slot, cell_mask):
                     continue
                 if not self._projects_within_segment(
@@ -165,6 +185,8 @@ class Biorientation(Analysis):
             self.cp.colinear_dots = min(collinear_count, _MAX_REPORTED_DOTS)
             self.cp.off_axis_dots = min(off_axis_count, _MAX_REPORTED_DOTS)
         except Exception as exc:
+            # This plugin should not fail the whole run when contour geometry is
+            # incomplete; the absence is encoded as zero counts and debug logging.
             logger.debug("Biorientation analysis skipped: %s", exc)
             self.cp.colinear_dots = 0
             self.cp.off_axis_dots = 0
@@ -178,6 +200,8 @@ class Biorientation(Analysis):
         endpoint1_padding: float = 0.0,
         endpoint2_padding: float = 0.0,
     ) -> bool:
+        """Return whether ``point`` projects onto the padded anchor segment."""
+
         px, py = float(point[0]), float(point[1])
         x1, y1 = float(endpoint1[0]), float(endpoint1[1])
         x2, y2 = float(endpoint2[0]), float(endpoint2[1])
@@ -202,6 +226,8 @@ class Biorientation(Analysis):
         endpoint1_padding: float = 0.0,
         endpoint2_padding: float = 0.0,
     ) -> bool:
+        """Return whether a dot lies near the padded red-anchor centerline."""
+
         px, py = float(point[0]), float(point[1])
         x1, y1 = float(endpoint1[0]), float(endpoint1[1])
         x2, y2 = float(endpoint2[0]), float(endpoint2[1])

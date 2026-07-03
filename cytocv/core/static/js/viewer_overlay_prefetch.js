@@ -1,3 +1,5 @@
+// Viewer overlay prefetch warms nearby cell overlay URLs without coupling the
+// shared viewer controllers to any specific Display or Dashboard payload shape.
 (function () {
     'use strict';
 
@@ -38,6 +40,8 @@
     }
 
     function buildFullCircularCellOrder(currentCell, maxCells) {
+        // Prioritize the active cell, then alternate forward/backward so keyboard
+        // and button navigation both get useful warm candidates.
         const normalizedMaxCells = normalizeMaxCells(maxCells);
         if (!normalizedMaxCells) {
             return [];
@@ -62,6 +66,8 @@
         const stateByFileKey = new Map();
 
         function getFileState(fileKey) {
+            // Warm state is partitioned by file because cell numbers restart for
+            // every analyzed image.
             const normalizedKey = String(fileKey || '');
             if (!stateByFileKey.has(normalizedKey)) {
                 stateByFileKey.set(normalizedKey, {
@@ -75,6 +81,8 @@
         }
 
         async function drain(fileKey) {
+            // Drain serially per file so repeated navigation schedules work without
+            // launching duplicate warm requests for the same cell.
             const normalizedKey = String(fileKey || '');
             const state = getFileState(normalizedKey);
             if (state.draining) {

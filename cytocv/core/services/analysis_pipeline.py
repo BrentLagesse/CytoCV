@@ -38,25 +38,35 @@ class AnalysisBatchResult:
 
 
 def _current_owner_filter_for_user(user) -> dict[str, object]:
+    """Return the ownership filter for uploaded files in this execution context."""
+
     if getattr(user, "is_authenticated", False):
         return {"user": user}
     from core.models import get_guest_user
 
+    # Anonymous analysis runs are owned by the shared guest account until a user
+    # explicitly saves them under an authenticated account.
     return {"user_id": get_guest_user()}
 
 
 def _raise_if_cancelled(progress: AnalysisProgressHandle) -> None:
+    """Convert cooperative cancel state into the shared cancellation exception."""
+
     if progress.is_cancel_requested():
         raise AnalysisCancelled()
 
 
 def _phase_with_run_count(phase: str, *, index: int, total: int) -> str:
+    """Append batch progress counts only when there is more than one run."""
+
     if total <= 1:
         return phase
     return f"{phase} ({index}/{total})"
 
 
 def _display_file_name(uploaded: UploadedImage) -> str:
+    """Return the safe file name shown in analysis progress detail."""
+
     file_name = Path(str(uploaded.file_location.name or "")).name
     return file_name or f"{uploaded.name}.dv"
 
@@ -64,6 +74,8 @@ def _display_file_name(uploaded: UploadedImage) -> str:
 def cleanup_cancelled_batch(run_uuids: tuple[str, ...]) -> None:
     """Delete uploaded runs for a cancelled in-flight batch."""
 
+    # A cancelled analysis is treated like abandoning the batch, so remove source
+    # uploads as well as generated artifacts.
     for run_uuid in run_uuids:
         delete_uploaded_run_by_uuid(run_uuid)
 
@@ -71,6 +83,8 @@ def cleanup_cancelled_batch(run_uuids: tuple[str, ...]) -> None:
 def cleanup_failed_batch(run_uuids: tuple[str, ...]) -> None:
     """Remove transient preprocessing/inference artifacts after a failed batch."""
 
+    # Failed processing keeps the uploaded source and previews so the user can
+    # retry without re-uploading, but clears masks/statistics from partial runs.
     for run_uuid in run_uuids:
         cleanup_failed_processing_artifacts(run_uuid)
 
@@ -89,10 +103,13 @@ def run_preprocess_and_inference_batch(
     total_runs = len(context.run_uuids)
 
     for index, image_uuid in enumerate(context.run_uuids, start=1):
+        # Check cancellation before fetching or writing per-file artifacts so a
+        # queued cancel request stops cleanly between files.
         _raise_if_cancelled(progress)
         uploaded_image = UploadedImage.objects.get(uuid=image_uuid, **owner_filter)
         output_dir = Path(settings.MEDIA_ROOT) / image_uuid
 
+        # Progress detail keys are shared with the async tooltip and polling UI.
         progress.set_phase(
             _phase_with_run_count(
                 "Preprocessing Images",
@@ -113,10 +130,14 @@ def run_preprocess_and_inference_batch(
             cancel_check=progress.is_cancel_requested,
         )
         if preprocessed_image is None:
+            # Runtime helpers use None as a cooperative cancel signal; convert it
+            # into the shared exception so cleanup is centralized below.
             raise AnalysisCancelled()
 
         _raise_if_cancelled(progress)
 
+        # Inference writes the mask artifacts consumed by the segmentation batch;
+        # cancellation between stages should still clean up the whole batch below.
         progress.set_phase(
             _phase_with_run_count(
                 "Detecting Cells",
@@ -136,6 +157,8 @@ def run_preprocess_and_inference_batch(
             cancel_check=progress.is_cancel_requested,
         )
         if prediction_result is None:
+            # Inference may cancel after preprocessing has written files, so the
+            # caller must still run full cancellation cleanup for the batch.
             raise AnalysisCancelled()
 
 
@@ -150,6 +173,8 @@ def run_analysis_batch(
     """Run the full preprocess, inference, segmentation, and statistics pipeline."""
 
     try:
+        # Keep sync and worker execution on the same orchestration path so failure,
+        # cancellation, progress, and cleanup semantics stay identical.
         run_preprocess_and_inference_batch(
             user=user,
             context=context,
@@ -164,11 +189,15 @@ def run_analysis_batch(
             progress=progress,
         )
         progress.clear_cancel()
+        # Completed clears the cancellation marker after all stages finish so a
+        # reused progress key cannot poison a later retry.
         progress.set_phase("Completed", status="succeeded", detail={})
         return AnalysisBatchResult(
             storage_warning_message=segmentation_result.storage_warning_message,
         )
     except AnalysisCancelled:
+        # Cancellation removes uploaded staging runs because the user explicitly
+        # abandoned this batch before Display can own the outputs.
         cleanup_cancelled_batch(context.run_uuids)
         progress.clear_cancel()
         progress.set_phase("Cancelled", status="cancelled", detail={})
@@ -181,6 +210,8 @@ def run_analysis_batch(
                 uuids=context.run_uuids,
                 exc=exc,
             )
+        # Non-cancel failures preserve uploads for retry while removing derived
+        # partial artifacts that could confuse Display or export paths.
         cleanup_failed_batch(context.run_uuids)
         progress.clear_cancel()
         progress.set_phase(

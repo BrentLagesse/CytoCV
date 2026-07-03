@@ -4,6 +4,10 @@ param(
     [string[]]$RunserverArgs
 )
 
+# PowerShell wrapper for users who launch from Windows shells. It discovers the
+# repository, locates Git Bash, and delegates to the Bash run script so there is
+# one source of truth for environment validation.
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -19,6 +23,8 @@ function Fail {
 }
 
 function Find-RepoRoot {
+    # Walk upward from the current directory so the wrapper works from nested
+    # folders while still verifying the expected Django project layout.
     param([string]$StartDirectory)
 
     $current = Get-Item -LiteralPath $StartDirectory
@@ -35,6 +41,8 @@ function Find-RepoRoot {
 }
 
 function Find-GitBash {
+    # Check standard install locations before falling back to the git.exe path
+    # so portable or custom Git for Windows installs can still be used.
     $candidates = New-Object System.Collections.Generic.List[string]
 
     if ($env:ProgramFiles) {

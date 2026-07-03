@@ -37,6 +37,8 @@ PNG_SAVE_PROFILES = {
         "compress_level": 1,
     },
 }
+# Transient artifacts are regenerable intermediates. Keep these lists explicit so
+# cleanup never drifts into deleting source uploads or persisted segmented output.
 TRANSIENT_FILE_NAMES = (
     "compressed_masks.csv",
     "preprocessed_images_list.csv",
@@ -78,6 +80,8 @@ class StorageQuotaExceeded(Exception):
         available_bytes: int,
         reclaimed_bytes: int = 0,
     ) -> None:
+        """Store quota byte counts for JSON responses and logs."""
+
         self.required_bytes = max(int(required_bytes), 0)
         self.available_bytes = max(int(available_bytes), 0)
         self.reclaimed_bytes = max(int(reclaimed_bytes), 0)
@@ -94,6 +98,8 @@ class MediaStorageFullError(Exception):
 def is_storage_full_error(exc: BaseException | None) -> bool:
     """Return whether an exception chain represents a disk-full condition."""
 
+    # Storage failures can arrive wrapped by Pillow, Django storage, or mocked test
+    # helpers, so inspect the whole exception chain instead of a single errno.
     current = exc
     seen: set[int] = set()
     while current is not None and id(current) not in seen:
@@ -232,6 +238,8 @@ def _calculate_user_storage_usage(
 ) -> dict[str, int]:
     """Calculate retained storage totals for an authenticated user."""
 
+    # Quota applies only to authenticated saved runs; transient guest-owned runs
+    # remain viewable by session but are not counted as retained user storage.
     if not getattr(user, "is_authenticated", False):
         return {
             "used_storage": 0,
@@ -268,6 +276,8 @@ def _persist_user_storage_usage(user: object, storage_usage: dict[str, int]) -> 
 def refresh_user_storage_usage(user: object) -> dict[str, int]:
     """Recalculate and persist retained storage usage for an authenticated user."""
 
+    # This is the authoritative persisted quota refresh used after save/delete
+    # flows; callers should not trust earlier advisory projection values.
     storage_usage = _calculate_user_storage_usage(user)
     _persist_user_storage_usage(user, storage_usage)
     return {
@@ -291,6 +301,8 @@ def get_user_storage_projection(user: object) -> dict[str, int | float | bool]:
         }
 
     saved_uuids = _saved_run_uuids_for_user(user)
+    # Dashboard capacity estimates intentionally refresh persisted usage first so
+    # stale filesystem state does not leak into the next save/delete decision.
     storage_usage = _calculate_user_storage_usage(user, saved_uuids=saved_uuids)
     _persist_user_storage_usage(user, storage_usage)
 
@@ -335,12 +347,16 @@ def assert_user_can_save_runs(
         return
     unsave_set.difference_update(save_set)
 
+    # Recalculate immediately before enforcing quota because browser selections
+    # can be stale and media cleanup may have changed retained bytes.
     storage_usage = refresh_user_storage_usage(user)
     required_bytes = sum(get_run_storage_bytes(run_uuid) for run_uuid in save_set)
     reclaimed_bytes = sum(get_run_storage_bytes(run_uuid) for run_uuid in unsave_set)
     net_required_bytes = max(required_bytes - reclaimed_bytes, 0)
     available_bytes = int(storage_usage.get("available_storage", 0))
 
+    # Selection sync can unsave and save in one request; reclaimed bytes are
+    # credited in the same projection so users can swap retained runs atomically.
     if net_required_bytes > available_bytes:
         raise StorageQuotaExceeded(
             required_bytes=net_required_bytes,
@@ -361,6 +377,8 @@ def _safe_remove_path(path: Path) -> bool:
     if candidate != media_root and media_root not in candidate.parents:
         return False
 
+    # Filesystem cleanup is best-effort after database state has moved on; callers
+    # use the boolean only to report whether any cleanup work was attempted.
     try:
         if candidate.is_file():
             candidate.unlink(missing_ok=True)
@@ -490,6 +508,8 @@ def delete_preview_assets(uploaded_image: UploadedImage) -> bool:
     """Delete stored preview rows and files for an uploaded run."""
 
     changed = False
+    # Capture file paths before deleting rows so a partially missing preview file
+    # does not leave stale database records that the preprocess page would render.
     preview_rows = list(
         DVLayerTifPreview.objects.filter(uploaded_image_uuid=uploaded_image)
     )
@@ -497,6 +517,8 @@ def delete_preview_assets(uploaded_image: UploadedImage) -> bool:
         _media_path_from_field(item.file_location)
         for item in preview_rows
     ]
+    # Delete DB rows before files so stale preview records do not survive a partial
+    # cleanup; file deletion is guarded by MEDIA_ROOT safety checks below.
     if preview_rows:
         DVLayerTifPreview.objects.filter(uploaded_image_uuid=uploaded_image).delete()
         changed = True
@@ -510,6 +532,8 @@ def delete_preview_assets(uploaded_image: UploadedImage) -> bool:
     changed = _safe_remove_path(preview_dir) or changed
 
     legacy_preview_dir = preprocess_media_path(str(uploaded_image.uuid))
+    # Older uploads stored preview-style files in the preprocess directory. The
+    # compatibility sweep lets restored runs converge on the current preview tree.
     for pattern in LEGACY_PREVIEW_PATTERNS:
         for candidate in legacy_preview_dir.glob(pattern):
             changed = _safe_remove_path(candidate) or changed
@@ -528,6 +552,8 @@ def generate_preview_assets(
     layers = _load_source_layers(source_path)
     layer_count = min(expected_layers, int(layers.shape[0]))
 
+    # Regeneration starts from a clean slate so preview rows remain ordered and do
+    # not mix stale per-layer files with the current source stack.
     delete_preview_assets(uploaded_image)
 
     preview_dir = preview_media_path(str(uploaded_image.uuid))
@@ -567,6 +593,8 @@ def ensure_preview_assets(
     )
     if preview_rows:
         all_files_exist = True
+        # Existing rows are reusable only when every referenced file is present;
+        # a single missing preview triggers regeneration to keep layer order stable.
         for preview in preview_rows:
             preview_path = _media_path_from_field(preview.file_location)
             if preview_path is None or not preview_path.exists():
@@ -595,6 +623,8 @@ def cleanup_transient_processing_artifacts(
     run_uuid = str(run_uuid)
     run_dir = run_media_path(run_uuid)
 
+    # These artifacts are regenerable intermediates, so cleanup can remove them
+    # without changing saved source uploads or persisted analysis results.
     for file_name in TRANSIENT_FILE_NAMES:
         changed = _safe_remove_path(run_dir / file_name) or changed
 
@@ -602,10 +632,14 @@ def cleanup_transient_processing_artifacts(
         changed = _safe_remove_path(run_dir / dir_name) or changed
 
     for pattern in TRANSIENT_ROOT_GLOBS:
+        # Root globs preserve compatibility with older preprocessing runs that
+        # wrote transient JPEGs beside the upload rather than inside a subfolder.
         for candidate in run_dir.glob(pattern):
             changed = _safe_remove_path(candidate) or changed
 
     if remove_preview_assets:
+        # Preview rows need model-aware deletion when the upload row still exists;
+        # orphaned preview directories are still removed by path for failed jobs.
         uploaded = UploadedImage.objects.filter(uuid=run_uuid).first()
         if uploaded is not None:
             changed = delete_preview_assets(uploaded) or changed
@@ -621,6 +655,8 @@ def cleanup_processing_results(run_uuid: str) -> bool:
     run_uuid = str(run_uuid)
     changed = False
 
+    # SegmentedImage owns CellStatistics through cascade in normal cases; the
+    # fallback deletes orphaned statistics left by partial legacy runs.
     if SegmentedImage.objects.filter(UUID=run_uuid).exists():
         SegmentedImage.objects.filter(UUID=run_uuid).delete()
         changed = True
@@ -638,6 +674,8 @@ def cleanup_failed_processing_artifacts(run_uuid: str) -> bool:
     """Delete partial processing outputs while preserving the source upload and previews."""
 
     normalized_uuid = str(run_uuid)
+    # Failed analysis should clear masks/statistics/transient files but keep the
+    # original upload and previews available for another attempt.
     changed = cleanup_processing_results(normalized_uuid)
     changed = cleanup_transient_processing_artifacts(
         normalized_uuid,
@@ -650,10 +688,14 @@ def delete_uploaded_run(uploaded_image: UploadedImage) -> bool:
     """Delete an uploaded run plus all associated media and derived rows."""
 
     run_uuid = str(uploaded_image.uuid)
+    # Full upload deletion removes derived artifacts first so cascaded rows and
+    # filesystem namespaces do not survive a later UploadedImage delete.
     changed = delete_preview_assets(uploaded_image)
     changed = cleanup_processing_results(run_uuid) or changed
 
     with transaction.atomic():
+        # Keep the source row deletion atomic; filesystem cleanup below remains
+        # best-effort because media files are outside the database transaction.
         UploadedImage.objects.filter(uuid=run_uuid).delete()
 
     changed = _safe_remove_path(run_media_path(run_uuid)) or changed
@@ -669,6 +711,8 @@ def delete_uploaded_run_by_uuid(run_uuid: str) -> bool:
     if uploaded is not None:
         return delete_uploaded_run(uploaded)
 
+    # UUID-only deletion covers cancellation or failed staging paths where the
+    # upload row has already disappeared but artifact directories may remain.
     changed = cleanup_processing_results(run_uuid)
     changed = cleanup_transient_processing_artifacts(
         run_uuid,
@@ -701,6 +745,8 @@ def sweep_user_run_artifacts(
         }
 
     protected_set = {str(value) for value in protected_uuids if str(value)}
+    # Build one snapshot of upload and segmented ownership so the sweep decides
+    # consistently which runs are saved, transient, protected, or stale.
     uploaded_items = list(
         UploadedImage.objects.filter(user=user).only("uuid", "created_at", "file_location")
     )
@@ -728,6 +774,8 @@ def sweep_user_run_artifacts(
     for run_uuid, uploaded in uploaded_by_uuid.items():
         segmented = segmented_by_uuid.get(run_uuid)
         if segmented is not None:
+            # Saved or still-displayable runs keep their source/results; only
+            # regenerable transient processing files are swept.
             changed = cleanup_transient_processing_artifacts(
                 run_uuid,
                 remove_preview_assets=True,
@@ -743,6 +791,8 @@ def sweep_user_run_artifacts(
             continue
         if uploaded.created_at >= cutoff:
             continue
+        # Old unsaved uploads are fully deleted so abandoned media namespaces do
+        # not accumulate after users leave upload/display workflows.
         delete_uploaded_run(uploaded)
         deleted_uuids.append(run_uuid)
 

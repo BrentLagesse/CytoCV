@@ -1,3 +1,5 @@
+"""Preprocess verification, analysis progress, and channel/scale update views."""
+
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
@@ -119,6 +121,8 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_channel_config(config: dict[str, object]) -> dict[str, int]:
+    """Normalize a channel_config.json payload into role-to-layer indexes."""
+
     normalized: dict[str, int] = {}
     for channel, index in (config or {}).items():
         role = normalize_channel_role(channel)
@@ -127,11 +131,15 @@ def _normalize_channel_config(config: dict[str, object]) -> dict[str, int]:
         try:
             normalized[role] = int(index)
         except (TypeError, ValueError):
+            # Invalid indexes are ignored so a partially corrupt sidecar can be
+            # repaired by metadata refresh or user channel-order updates.
             continue
     return normalized
 
 
 def _write_channel_config(path: Path, config: dict[str, int]) -> None:
+    """Persist the sidecar channel mapping consumed by preprocess/statistics."""
+
     path.write_text(json.dumps(config), encoding="utf-8")
 
 
@@ -158,11 +166,15 @@ def _refresh_default_tiff_channel_config(
     if metadata_config is None or metadata_config == normalized_config:
         return normalized_config
 
+    # Historical TIFF uploads could keep a default order even when metadata later
+    # became parseable; rewrite only that default sidecar so user edits survive.
     _write_channel_config(config_path, metadata_config)
     return metadata_config
 
 
 def _channel_labels_from_config(config: dict[str, int]) -> list[str]:
+    """Return display labels sorted by layer order for sidebar summaries."""
+
     return [
         channel_display_label(channel)
         for channel, _ in sorted(config.items(), key=lambda item: item[1])
@@ -173,6 +185,8 @@ def _channel_labels_for_present_config(
     config: dict[str, int],
     present_channels,
 ) -> list[str]:
+    """Return display labels for channels confirmed present in this run."""
+
     present = set(present_channels or CHANNEL_ROLE_ORDER)
     return [
         channel_display_label(channel)
@@ -213,6 +227,8 @@ def _missing_required_channels_for_batch(
     selected_plugins,
     puncta_line_mode: str,
 ) -> dict[str, set[str]]:
+    """Return plugin-required channels missing from each prepared source image."""
+
     required_channels = set(
         build_requirement_summary(
             selected_plugins,
@@ -223,6 +239,8 @@ def _missing_required_channels_for_batch(
     for run_uuid in uuid_values:
         presence = get_channel_presence(run_uuid)
         if not presence.present_channels:
+            # Absence of a sidecar means legacy all-present behavior; validation
+            # should not fail restored runs that predate channel presence checks.
             continue
         missing = required_channels - set(presence.present_channels)
         if missing:
@@ -232,6 +250,8 @@ def _missing_required_channels_for_batch(
 
 @require_GET
 def get_progress(request, uuids):
+    """Return analysis progress for a user/session-authorized UUID batch."""
+
     try:
         batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
@@ -263,6 +283,8 @@ def get_progress(request, uuids):
         )
     except Exception:
         logger.exception("Progress read failed")
+        # Progress details are user-facing, so unexpected errors are logged with
+        # internals server-side and collapsed into a safe generic response.
         return _progress_read_error_response(
             SAFE_PROGRESS_ERROR_MESSAGE,
             status_code=500,
@@ -281,10 +303,7 @@ def _finalize_terminal_progress_batch(
 
 
 def pre_process(request, uuids):
-    """
-    GET: Render previews + sidebar (with auto-detected channel order).
-    POST: Run preprocess + inference on every UUID, then redirect.
-    """
+    """Render preprocess controls or start sync/worker analysis for a batch."""
 
     uuid_list = uuids.split(",")
     owner_filter = _current_owner_filter(request)
@@ -295,6 +314,8 @@ def pre_process(request, uuids):
         if str(value)
     }
     protected_uuids.update(str(value) for value in uuid_list if str(value))
+    # Preprocess can revisit transient runs; sweeping excludes both current and
+    # session-protected UUIDs so navigation does not delete active artifacts.
     sweep_user_run_artifacts(request.user, protected_uuids=protected_uuids)
     preferences = get_user_preferences(request.user)
     show_saved_file_channels = bool(preferences.get("show_saved_file_channels", True))
@@ -322,11 +343,13 @@ def pre_process(request, uuids):
         default=default_spatial_stats_unit,
     )
 
-    # clamp file_index into [0, total_files-1]
+    # Clamp file_index into [0, total_files-1] because the query parameter is
+    # controlled by browser navigation and bookmarks.
     current_file_index = int(request.GET.get("file_index", 0))
     current_file_index = max(0, min(current_file_index, total_files - 1))
 
-    # build sidebar list, including the 4-channel order per file
+    # Build sidebar list, including the per-file channel order and scale payload
+    # read by the preprocess page controller.
     file_list = []
     for uid in uuid_list:
         uploaded = get_object_or_404(UploadedImage, uuid=uid, **owner_filter)
@@ -347,7 +370,8 @@ def pre_process(request, uuids):
                 presence.present_channels or CHANNEL_ROLE_ORDER,
             )
         else:
-            # fallback: parse the stored source image file
+            # Fall back to parsing the stored source image file when the sidecar
+            # is missing, which supports legacy uploads and repaired artifacts.
             source_path = Path(MEDIA_ROOT) / str(uploaded.file_location)
             if source_path.exists():
                 cfg = extract_channel_config(
@@ -377,7 +401,8 @@ def pre_process(request, uuids):
             }
         )
 
-    # current file previews
+    # Preview rows are generated during upload preparation but can be regenerated
+    # here for restored runs whose preview files were cleaned up.
     current_uuid = uuid_list[current_file_index]
     uploaded_image = get_object_or_404(UploadedImage, uuid=current_uuid, **owner_filter)
     preview_images = ensure_preview_assets(uploaded_image)
@@ -392,6 +417,8 @@ def pre_process(request, uuids):
                 active_uuid_set.add(str(UUID(str(value))))
             except (TypeError, ValueError, AttributeError):
                 active_uuid_set.add(str(value))
+        # Scale controls are rendered per file but submitted as hidden JSON; the
+        # parser validates both shape and membership in this server-owned batch.
         scale_map, scale_error, scale_status = parse_file_scale_map_payload(
             request.POST.get("file_scale_map", ""),
             active_uuid_set=active_uuid_set,
@@ -753,6 +780,8 @@ def pre_process(request, uuids):
             puncta_line_mode=puncta_line_mode,
         )
         if missing_required:
+            # Upload preparation records detailed missing-channel state; this
+            # guard prevents a stale POST from starting incompatible statistics.
             first_missing = next(iter(missing_required.values()))
             missing_labels = ", ".join(
                 channel_display_label(channel)
@@ -797,6 +826,9 @@ def pre_process(request, uuids):
             return redirect("pre_process", uuids=batch_key)
 
         if context.execution_mode == "worker":
+            # Worker mode returns a polling contract immediately; the analysis
+            # job owns the long-running preprocess, inference, and statistics
+            # side effects.
             transient_uuids = {
                 str(value)
                 for value in request.session.get("transient_experiment_uuids", [])
@@ -891,7 +923,8 @@ def pre_process(request, uuids):
             }
         )
 
-    # Normal render
+    # Normal render: template JSON blocks expose file scale state and execution mode
+    # to pre-process.js while the server remains the source of validation truth.
     return TemplateResponse(
         request,
         "pre_process.html",
@@ -921,6 +954,8 @@ def pre_process(request, uuids):
 
 @require_POST
 def set_progress(request, key):
+    """Write an explicit progress phase for an authorized batch."""
+
     try:
         body = json.loads(request.body or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -955,11 +990,15 @@ def set_progress(request, key):
 @csrf_protect
 @require_POST
 def cancel_progress(request, uuids):
+    """Request cancellation for sync or worker-backed analysis."""
+
     try:
         batch_key, uuid_list = _resolve_owned_progress_batch(request, uuids)
         reap_stale_analysis_jobs(user_id=request.user.id, batch_key=batch_key)
         snapshot = get_progress_snapshot(batch_key=batch_key, user_id=request.user.id)
         if snapshot.status in {"idle", "succeeded", "failed", "cancelled"}:
+            # Idle or terminal batches have no active worker to notify; cleanup
+            # is the remaining cancellation effect for transient runs.
             _delete_cancelled_runs(request, uuid_list)
             progress = AnalysisProgressHandle(batch_key)
             progress.clear_cancel()
@@ -1009,6 +1048,8 @@ def update_channel_order(request, uuid):
         normalized_order = [normalize_channel_role(channel) for channel in new_order]
         presence = get_channel_presence(uuid)
         expected = set(presence.present_channels or CHANNEL_ROLE_ORDER)
+        # The browser may only reorder channels the server has confirmed for
+        # this run; missing-channel state must not be bypassed by JSON input.
         if (
             any(channel is None for channel in normalized_order)
             or len(normalized_order) != len(expected)
@@ -1020,6 +1061,8 @@ def update_channel_order(request, uuid):
             str(channel): index for index, channel in enumerate(normalized_order)
         }
 
+        # Ownership is checked before touching the sidecar so a guessed UUID
+        # cannot update channel order for another user's upload.
         if not UploadedImage.objects.filter(
             uuid=uuid,
             **_current_owner_filter(request),

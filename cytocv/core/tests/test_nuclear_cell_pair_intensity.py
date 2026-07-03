@@ -1,4 +1,6 @@
-﻿from pathlib import Path
+﻿"""Regression tests for nuclear/cell-pair intensity modes and provenance fields."""
+
+from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 

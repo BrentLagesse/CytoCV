@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Bootstrap a native Windows/Git Bash development environment without touching
+# tracked source files. The script records state under .cytocv-local-install so
+# repeated runs can skip steps whose outputs are still valid.
+
 set -euo pipefail
 
 readonly REQUIRED_PYTHON_VERSION="3.11.5"
@@ -57,6 +61,8 @@ mark_skip() {
 }
 
 require_git_bash() {
+    # Native Git Bash is required because the installer crosses Windows and Unix
+    # path conventions while invoking Windows-native Python, winget, and Django.
     local uname_out
     uname_out="$(uname -s)"
     case "${uname_out}" in
@@ -80,6 +86,8 @@ windows_path_to_unix() {
 }
 
 find_python_3115() {
+    # Prefer the Windows py launcher, then python.exe on PATH, but only accept
+    # the exact version used by the pinned local virtual environment.
     local result version executable unix_executable
     if command -v py.exe >/dev/null 2>&1; then
         result="$(py.exe -3.11 -c "import sys; print(sys.version.split()[0]); print(sys.executable)" 2>/dev/null || true)"
@@ -149,6 +157,8 @@ ensure_python_3115() {
 }
 
 ensure_venv() {
+    # Refuse to reuse a mismatched virtual environment; repairing in place could
+    # leave TensorFlow/OpenCV wheels compiled for the wrong interpreter version.
     local base_python="$1"
     local venv_version
 
@@ -170,6 +180,8 @@ requirements_hash() {
 }
 
 ensure_dependencies() {
+    # Dependency installation is idempotent when the requirements hash matches
+    # and pip check confirms the environment is still internally consistent.
     local current_hash stored_hash
     current_hash="$(requirements_hash)"
 
@@ -213,6 +225,8 @@ append_env_if_missing() {
 }
 
 ensure_env_file() {
+    # The installer only manages a local SQLite/debug .env. Existing production
+    # or custom database settings are surfaced for manual handling.
     local current_db current_debug
 
     if [[ ! -f "${ENV_FILE}" ]]; then
@@ -259,6 +273,8 @@ weights_are_valid() {
 }
 
 ensure_weights() {
+    # The Mask R-CNN weights are too large for the repository; size validation
+    # prevents partial Google Drive downloads from being treated as usable.
     mkdir -p "$(dirname "${WEIGHTS_PATH}")"
 
     if weights_are_valid; then
@@ -277,6 +293,8 @@ ensure_weights() {
 }
 
 print_migration_recovery_guidance() {
+    # Migration repair can rewrite tracked files, so the installer prints the
+    # known recovery commands and exits instead of mutating the repository.
     cat <<'EOF'
 
 Known local migration recovery path:
@@ -296,6 +314,8 @@ EOF
 }
 
 run_migrations_and_checks() {
+    # Database setup runs after dependencies, .env, and weights so Django sees
+    # the same runtime environment the local server will use.
     mark_run "Running Django migrations"
     if ! (
         cd "${DJANGO_DIR}" &&
@@ -344,6 +364,8 @@ EOF
 }
 
 main() {
+    # Run setup steps in dependency order; each helper owns its own idempotency
+    # checks and reports whether it ran or skipped.
     local python_3115
 
     require_git_bash

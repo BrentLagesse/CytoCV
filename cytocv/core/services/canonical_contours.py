@@ -47,6 +47,8 @@ class CanonicalContourSlot:
 
     @property
     def center_int(self) -> tuple[int, int]:
+        """Return pixel-rounded center coordinates for JSON/debug payloads."""
+
         return (int(round(self.center[0])), int(round(self.center[1])))
 
 
@@ -99,6 +101,8 @@ def load_neck_split(image_name: str, cell_id: int, output_dir: str) -> Optional[
 
 
 def _shape_tuple(shape: tuple[int, ...] | Iterable[int]) -> tuple[int, int]:
+    """Normalize an array-like shape into the height/width tuple used by masks."""
+
     values = tuple(int(value) for value in shape)
     if len(values) < 2:
         raise ValueError("Expected at least two dimensions for contour shape")
@@ -106,10 +110,14 @@ def _shape_tuple(shape: tuple[int, ...] | Iterable[int]) -> tuple[int, int]:
 
 
 def _full_frame_mask(shape: tuple[int, int]) -> np.ndarray:
+    """Return a permissive support mask for legacy payloads without cell masks."""
+
     return np.full(shape, 255, dtype=np.uint8)
 
 
 def _extract_mask_contours(mask: np.ndarray) -> tuple[np.ndarray, ...]:
+    """Extract valid external contours from a binary mask."""
+
     contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     valid_contours = []
     for contour in contours:
@@ -120,10 +128,14 @@ def _extract_mask_contours(mask: np.ndarray) -> tuple[np.ndarray, ...]:
 
 
 def _mask_area_from_contours(contours: tuple[np.ndarray, ...]) -> float:
+    """Return the combined OpenCV area of all contours in a canonical slot."""
+
     return float(sum(cv2.contourArea(contour) for contour in contours))
 
 
 def _mask_center(mask: np.ndarray) -> tuple[float, float]:
+    """Return the x,y centroid of a binary mask, falling back to pixel mean."""
+
     moment = cv2.moments(mask, binaryImage=True)
     if moment["m00"] != 0:
         return (moment["m10"] / moment["m00"], moment["m01"] / moment["m00"])
@@ -150,6 +162,8 @@ def build_canonical_contour_slots(
             continue
         raw_mask = np.zeros(height_width, np.uint8)
         cv2.drawContours(raw_mask, [contour], -1, 255, thickness=-1)
+        # Clip every fluorescence contour to the DIC cell support so intensity and
+        # classification plugins do not measure signal outside the segmented cell.
         clipped_mask = cv2.bitwise_and(raw_mask, cell_mask)
         if not np.any(clipped_mask):
             continue
@@ -166,6 +180,8 @@ def build_canonical_contour_slots(
             )
         )
 
+    # Area-first sorting creates stable slot identities for table columns when
+    # contours are detected in nondeterministic OpenCV order.
     slots.sort(key=lambda slot: (-slot.area, slot.center[0], slot.center[1]))
     return slots[:limit]
 
@@ -186,6 +202,8 @@ def build_canonical_contour_slot_from_mask(
     if mask.shape[:2] != height_width:
         return None
     if mask.ndim == 3:
+        # Debug/replay payloads can carry rendered masks; convert them to a single
+        # support plane before canonical clipping.
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
     binary_mask = np.where(mask > 0, 255, 0).astype(np.uint8)
     clipped_mask = cv2.bitwise_and(binary_mask, cell_mask)
@@ -212,6 +230,8 @@ def _select_raw_blue_contours(contours_data: dict, shape: tuple[int, int]) -> li
 
     for key in ("contours_blue_3", "contours_blue"):
         source = contours_data.get(key, [])
+        # Blue legacy workflows prefer the tighter 3-channel contour source, but
+        # fall back to the broader historical contour list when needed.
         valid = [
             c for c in source
             if c is not None and len(c) >= 3
@@ -235,10 +255,14 @@ def build_canonical_contour_payload(
 
     height_width = _shape_tuple(shape)
     payload = dict(contours_data or {})
+    # The saved DIC outline is the common support mask for Red/Green/Blue slot
+    # clipping, parentage derivation, and downstream intensity measurements.
     cell_mask = load_cell_mask(image_name, cell_id, output_dir, height_width)
     payload[CELL_MASK_KEY] = cell_mask
     neck_split = load_neck_split(image_name, cell_id, output_dir)
     payload[NECK_SPLIT_KEY] = neck_split
+    # Parentage is attached to the same payload so CEN-dot, overlays, and exports
+    # can agree on mother/daughter context without recomputing geometry.
     parentage = derive_cell_parentage(cell_mask, neck_split)
     payload[CELL_PARENTAGE_KEY] = parentage.to_payload()
     mother_mask = parentage.mother_mask
@@ -295,6 +319,8 @@ def build_canonical_contour_payload(
 
 
 def _resolve_cell_mask(contours_data: dict, shape: tuple[int, int] | Iterable[int]) -> np.ndarray:
+    """Return a valid cell support mask or a full-frame legacy fallback."""
+
     height_width = _shape_tuple(shape)
     cell_mask = contours_data.get(CELL_MASK_KEY)
     if isinstance(cell_mask, np.ndarray) and cell_mask.shape[:2] == height_width and np.any(cell_mask):

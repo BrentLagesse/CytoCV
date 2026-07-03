@@ -1,4 +1,9 @@
-"""Build combined statistics exports for multiple files."""
+"""Build combined statistics exports for multiple files.
+
+This module keeps the multi-file download path separate from the views so CSV
+and XLSX responses share the same table formatting, filtering, and filename
+contract as single-file exports.
+"""
 
 from __future__ import annotations
 
@@ -51,6 +56,10 @@ def _generic_headers_for_fields(
     *,
     spatial_stats_unit: str,
 ) -> list[str]:
+    """Return export headers for selected field names without row data."""
+
+    # A throwaway table instance is used only for verbose-name lookup so the
+    # combined export inherits the same label customizations as normal tables.
     table = CellTable(
         [],
         intensity_mode=None,
@@ -93,9 +102,13 @@ def _table_rows_for_file(
     cell_type_filter: str = "all",
     puncta_source_contour_count_filter: str = "all",
 ) -> list[list[Any]]:
+    """Render one source file through ``CellTable`` into export-ready rows."""
+
     stats_qs = CellStatistics.objects.filter(
         segmented_image=source.segmented_image,
     ).order_by("cell_id")
+    # Filters are resolved against the source queryset so "all" and legacy
+    # options collapse to the concrete subset that actually exists for the file.
     effective_cell_type_filter = resolve_effective_cell_type_filter(
         stats_qs,
         cell_type_filter,
@@ -112,8 +125,12 @@ def _table_rows_for_file(
         effective_puncta_source_contour_count_filter,
     )
     if not stats:
+        # Empty per-file selections are skipped; the caller raises only if every
+        # selected file has no exportable statistics.
         return []
 
+    # CellTable.as_values owns unit conversion and visibility handling, so the
+    # combined export strips only the header row and preserves value semantics.
     table = CellTable(
         stats,
         intensity_mode=None,
@@ -146,6 +163,8 @@ def build_combined_statistics_export_response(
         raise CombinedStatisticsExportError("Select at least one file to download.")
 
     unit = normalize_spatial_stats_unit(spatial_stats_unit, default="px")
+    # Column selection is required for the combined modal; identity fields are
+    # added by export_included_columns and hidden from the user's checkbox list.
     included_columns = export_included_columns(raw_columns, columns_present=True)
     if included_columns is None:
         raise CombinedStatisticsExportError("Select at least one statistic to export.")
@@ -157,6 +176,8 @@ def build_combined_statistics_export_response(
         *_generic_headers_for_fields(included_columns, spatial_stats_unit=unit),
     ]
     row_count = 0
+    # The first row for each file carries its display name and following rows use
+    # a blank leading cell, matching spreadsheet grouping expectations.
     for source in sources:
         rows = _table_rows_for_file(
             source,
@@ -183,5 +204,7 @@ def build_combined_statistics_export_response(
     )
     response = HttpResponse(content_type=TableExport.FORMATS[export_format])
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    # Tablib owns the CSV/XLSX serialization details; this response only fixes
+    # the attachment headers and selected dataset shape.
     response.write(dataset.export(export_format))
     return response

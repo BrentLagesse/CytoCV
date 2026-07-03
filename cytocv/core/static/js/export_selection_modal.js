@@ -1,3 +1,6 @@
+// Reusable export selector for Display and Dashboard. The server owns the
+// exportSelectionConfig schema; this controller only normalizes user choices
+// into the request parameters understood by the export views.
 (function () {
   'use strict';
 
@@ -24,6 +27,8 @@
   ];
 
   function parseConfig(scriptId) {
+    // A missing or invalid config disables the modal instead of changing export
+    // URLs or falling back to hard-coded column lists.
     const node = document.getElementById(scriptId || 'exportSelectionConfig');
     if (!node) return null;
     try {
@@ -119,6 +124,8 @@
   }
 
   function normalizeIntensityFilters(filters) {
+    // Intensity filters are normalized into Sets because modal presets and
+    // restored selections can arrive as arrays, Sets, or scalar query values.
     const source = filters || {};
     return {
       statistics: normalizedStringSet(
@@ -201,6 +208,8 @@
   }
 
   function applyContourIntensitySelection(items, selectedIds, filters, options) {
+    // Contour intensity is a derived export family. Rebuild only that family so
+    // unrelated selected export fields survive preset changes.
     const selected = new Set(arrayFromMaybeSet(selectedIds).map((item) => String(item)));
     const normalized = normalizeIntensityFilters(filters);
     const applicable = !options || options.applicable !== false;
@@ -1085,6 +1094,8 @@
       downloading = true;
       updateStatCount();
       try {
+        // Bulk export posts the modal's ordered file IDs and selected columns; the
+        // Django endpoint revalidates stale selections before streaming a file.
         const response = await fetch(options.bulkExportUrl, {
           method: 'POST',
           headers: {
@@ -1099,6 +1110,8 @@
           })),
         });
         if (!response.ok) {
+          // Error payloads may be JSON contract errors or plain export responses,
+          // so support both without changing the modal's visible message shape.
           let message = 'Unable to download selected files.';
           const errorResponse = response.clone();
           try {

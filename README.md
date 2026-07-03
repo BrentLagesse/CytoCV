@@ -1,6 +1,6 @@
 ﻿# CytoCV
 
-CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy stacks of yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
+CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) and stack TIFF (`.tif`, `.tiff`) microscopy files of yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
 > **Version:** 1.0  
 > **Python:** 3.11.5  
@@ -23,7 +23,7 @@ CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) microscopy st
 
 CytoCV combines:
 
-- upload-time DeltaVision validation and preview generation
+- upload-time DV/TIFF validation and preview generation
 - Mask R-CNN-driven segmentation built around the `DIC` structural channel
 - plugin-based per-cell quantification
 - database-backed review, retention, and export workflows
@@ -41,9 +41,9 @@ These outputs are software-generated measurements intended to support review and
 
 ## System Scope
 
-CytoCV is intended for research workflows built around DeltaVision microscopy of yeast cells. The application can process anything from a DIC-only structural run to a full four-role stack, depending on the selected plugin set and validation policy. In the current implementation, the platform coordinates:
+CytoCV is intended for research workflows built around yeast-cell microscopy stacks. The application can process anything from a DIC-only structural run to a full four-role stack, depending on the selected plugin set and validation policy. In the current implementation, the platform coordinates:
 
-- DeltaVision ingestion and configurable validation
+- DV/TIFF ingestion and configurable validation
 - channel interpretation and preview generation
 - machine-learning-driven cell segmentation
 - plugin-scoped downstream measurements

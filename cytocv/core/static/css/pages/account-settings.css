@@ -1,3 +1,4 @@
+    /* Account settings layout and destructive account-delete confirmation UI. */
     .account-settings-page {
         flex: 1 0 auto;
         width: 100%;
@@ -88,6 +89,7 @@
     .delete-account-btn:hover {
         background: #911b25;
     }
+    /* The modal is opened by account-settings.js; the Django view still validates email confirmation. */
     .delete-modal-backdrop {
         position: fixed;
         inset: 0;

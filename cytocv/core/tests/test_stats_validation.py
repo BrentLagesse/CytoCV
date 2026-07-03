@@ -1,4 +1,6 @@
-﻿from django.test import SimpleTestCase
+﻿"""Protect upload-time statistics validation for layer and channel requirements."""
+
+from django.test import SimpleTestCase
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace

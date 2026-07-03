@@ -3,10 +3,14 @@ Description=CytoCV Analysis Worker
 After=network.target postgresql.service cytocv.service
 
 [Service]
+# Keep analysis work in its own process because Mask R-CNN/TensorFlow runtime
+# setup is expensive and should not run inside the web request process.
 User=REPLACE_WITH_DEPLOY_USER
 Group=REPLACE_WITH_DEPLOY_USER
 WorkingDirectory=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv
 Environment="PATH=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin"
+# Maintenance is skipped here because a timer owns artifact cleanup; this worker
+# should focus on claimed analysis jobs and their persisted status transitions.
 ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/python /home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv/manage.py run_analysis_worker --job-type analysis --skip-maintenance
 Restart=always
 RestartSec=5

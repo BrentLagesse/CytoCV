@@ -3,10 +3,14 @@ Description=CytoCV Gunicorn
 After=network.target postgresql.service
 
 [Service]
+# Replace the user/group and paths with the deployment account that owns the
+# checkout, virtual environment, media directory, and static files.
 User=REPLACE_WITH_DEPLOY_USER
 Group=REPLACE_WITH_DEPLOY_USER
 WorkingDirectory=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv
 Environment="PATH=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin"
+# Gunicorn serves Django only on localhost; Nginx should terminate public HTTP
+# traffic and enforce upload-size limits before proxying here.
 ExecStart=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cyto_cv/bin/gunicorn --workers 3 --timeout 120 --bind 127.0.0.1:8000 cytocv.wsgi:application
 Restart=always
 RestartSec=5

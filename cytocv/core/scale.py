@@ -36,6 +36,8 @@ SPATIAL_STAT_UNITS = {"px", "um"}
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
+    """Coerce stored/request boolean flags without raising on legacy values."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -48,6 +50,8 @@ def _as_bool(value: Any, default: bool = False) -> bool:
 
 
 def normalize_length_unit(value: Any, default: str = "px") -> str:
+    """Normalize line-width/distance units used by analysis settings."""
+
     normalized = str(value or "").strip().lower()
     if normalized not in LENGTH_UNITS:
         return default
@@ -55,6 +59,8 @@ def normalize_length_unit(value: Any, default: str = "px") -> str:
 
 
 def normalize_spatial_stats_unit(value: Any, default: str = "px") -> str:
+    """Normalize display/export spatial statistic units."""
+
     normalized = str(value or "").strip().lower()
     if normalized not in SPATIAL_STAT_UNITS:
         return default
@@ -62,6 +68,8 @@ def normalize_spatial_stats_unit(value: Any, default: str = "px") -> str:
 
 
 def _as_positive_float(value: Any) -> float | None:
+    """Return a finite positive float or None for invalid metadata."""
+
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -72,6 +80,8 @@ def _as_positive_float(value: Any) -> float | None:
 
 
 def parse_microns_per_pixel(value: Any, default: float = DEFAULT_MICRONS_PER_PIXEL) -> float:
+    """Return a bounded microns-per-pixel value for scale conversion."""
+
     parsed = _as_positive_float(value)
     if parsed is None:
         return default
@@ -81,6 +91,8 @@ def parse_microns_per_pixel(value: Any, default: float = DEFAULT_MICRONS_PER_PIX
 
 
 def format_scale_value(value: Any, precision: int = 4) -> str:
+    """Format scale values for compact display in templates."""
+
     parsed = parse_microns_per_pixel(value)
     formatted = f"{parsed:.{precision}f}"
     return formatted.rstrip("0").rstrip(".")
@@ -103,6 +115,8 @@ def build_scale_info(
     metadata_value = _as_positive_float(metadata_um_per_px)
     prefer_metadata_value = _as_bool(prefer_metadata, default=True)
 
+    # Status/source are normalized independently so invalid metadata can still
+    # preserve a useful manual fallback and explanatory note.
     raw_status = str(status or "").strip().lower()
     normalized_status = raw_status if raw_status in SCALE_STATUSES else "missing"
     normalized_note = str(note or "").strip()
@@ -171,6 +185,8 @@ def normalize_scale_info(
 
     source = str(raw_scale_info.get("source") or "").strip().lower()
     if source == "manual_override":
+        # Manual overrides pin the effective value even if metadata is present;
+        # clearing the override restores normal metadata/manual precedence.
         override_value = _as_positive_float(raw_scale_info.get("effective_um_per_px"))
         if override_value is not None:
             normalized["source"] = "manual_override"

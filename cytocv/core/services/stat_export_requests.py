@@ -1,3 +1,5 @@
+"""Request payload helpers for dashboard/display statistics exports."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -7,6 +9,8 @@ from core.services.combined_stat_export import StatisticsExportFile
 
 
 def normalize_uuid_list(raw_values: Any) -> list[str]:
+    """Return valid UUID strings in request order, or an empty invalid result."""
+
     if not isinstance(raw_values, list):
         return []
     normalized: list[str] = []
@@ -29,6 +33,8 @@ def build_statistics_export_sources(
     uploaded_map: dict[str, Any],
     segmented_map: dict[str, Any],
 ) -> list[StatisticsExportFile]:
+    """Build export source objects without changing the requested file order."""
+
     return [
         StatisticsExportFile(
             uuid=uuid,

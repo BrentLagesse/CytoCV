@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def _protected_run_uuids_by_user() -> dict[int, set[str]]:
+    """Return active analysis run UUIDs that maintenance must not delete."""
+
     protected: dict[int, set[str]] = {}
 
     for row in AnalysisJob.objects.filter(

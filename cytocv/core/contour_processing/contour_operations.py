@@ -1,3 +1,12 @@
+"""Contour extraction, splitting, and filtering algorithms for cell statistics.
+
+This module owns the technical image-processing layer between Mask R-CNN output,
+channel-specific fluorescence images, and the stable contour payloads consumed by
+statistics plugins. Functions accept OpenCV contour arrays, binary masks, and
+optional grayscale evidence images; rejected split/filter candidates return the
+original contour set or an empty result rather than failing the full analysis.
+"""
+
 import cv2
 import math
 import numpy as np
@@ -135,6 +144,8 @@ GREEN_STRONG_PEAK_P90_RATIO = 2.5
 
 @dataclass(slots=True)
 class _ContourShapeMetrics:
+    """Shape summary used to decide whether a dot contour is likely merged."""
+
     contour: np.ndarray
     mask: np.ndarray
     area: float
@@ -152,6 +163,8 @@ class _ContourShapeMetrics:
 
 @dataclass(slots=True)
 class _NeckCandidate:
+    """Pair of convexity defects that may define a separating neck chord."""
+
     point_a: tuple[int, int]
     point_b: tuple[int, int]
     width_px: float
@@ -164,17 +177,23 @@ class _NeckCandidate:
 
 @dataclass(slots=True)
 class _Peak:
+    """Local maximum inside a contour mask in image ``(x, y)`` coordinates."""
+
     x: int
     y: int
     value: float
 
     @property
     def point(self) -> tuple[int, int]:
+        """Return the OpenCV point tuple expected by marker builders."""
+
         return self.x, self.y
 
 
 @dataclass(slots=True)
 class _PeakPair:
+    """Candidate pair of lobe centers with valley evidence between them."""
+
     peak_a: _Peak
     peak_b: _Peak
     distance_px: float
@@ -186,6 +205,8 @@ class _PeakPair:
 
 @dataclass(slots=True)
 class _SingleDefectCandidate:
+    """Single concavity used by the asymmetric split fallback path."""
+
     point: tuple[int, int]
     depth_px: float
     score: float
@@ -193,6 +214,8 @@ class _SingleDefectCandidate:
 
 @dataclass(slots=True)
 class _SaddleMetrics:
+    """Intensity/distance evidence for a saddle between two peaks."""
+
     point: tuple[int, int]
     intensity_valley_ratio: float
     intensity_drop_ratio: float
@@ -201,6 +224,8 @@ class _SaddleMetrics:
 
 @dataclass(slots=True)
 class _AsymmetricSplitCandidate:
+    """Peak/saddle/defect bundle evaluated by asymmetric split validation."""
+
     peak_pair: _PeakPair
     saddle: _SaddleMetrics
     single_defect: _SingleDefectCandidate | None
@@ -209,6 +234,8 @@ class _AsymmetricSplitCandidate:
 
 @dataclass(slots=True)
 class _AggressiveSplitDecision:
+    """Result of aggressive contour splitting before channel-specific filtering."""
+
     original_contour: np.ndarray
     output_contours: list[np.ndarray]
     accepted_split: bool
@@ -216,6 +243,8 @@ class _AggressiveSplitDecision:
 
 @dataclass(slots=True, frozen=True)
 class _GreenContourFilterDecision:
+    """Diagnostic record for accepting or rejecting a green contour candidate."""
+
     bbox: tuple[int, int, int, int]
     area: float
     closed_open_ratio: float | None
@@ -229,6 +258,8 @@ class _GreenContourFilterDecision:
 
 
 def _split_params(split_mode: str) -> dict:
+    """Return the tuned split parameter set after normalizing mode aliases."""
+
     mode = normalize_dot_split_mode(split_mode)
     return DOT_SPLIT_PARAMS[mode]
 
@@ -244,6 +275,8 @@ def contour_to_mask(contour: np.ndarray, shape: tuple[int, int] | tuple[int, int
 
 
 def _dense_outer_contour(mask: np.ndarray) -> np.ndarray | None:
+    """Return the largest dense external contour for a binary support mask."""
+
     contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         return None
@@ -251,6 +284,8 @@ def _dense_outer_contour(mask: np.ndarray) -> np.ndarray | None:
 
 
 def _contour_center_from_mask(mask: np.ndarray) -> tuple[float, float]:
+    """Return a mask centroid, falling back to mean occupied pixels when needed."""
+
     moment = cv2.moments(mask, binaryImage=True)
     if moment["m00"] != 0:
         return (moment["m10"] / moment["m00"], moment["m01"] / moment["m00"])
@@ -261,6 +296,8 @@ def _contour_center_from_mask(mask: np.ndarray) -> tuple[float, float]:
 
 
 def _contour_defects(contour: np.ndarray):
+    """Return convexity defects, tolerating OpenCV hull-order edge cases."""
+
     if contour is None or len(contour) < 4:
         return None
     hull = cv2.convexHull(contour, returnPoints=False)
@@ -342,6 +379,8 @@ def _sample_profile(
     *,
     sample_count: int = PROFILE_SAMPLE_COUNT,
 ) -> np.ndarray:
+    """Sample image values along a clipped line segment between two points."""
+
     height, width = image.shape[:2]
     xs = np.linspace(float(point_a[0]), float(point_b[0]), int(sample_count))
     ys = np.linspace(float(point_a[1]), float(point_b[1]), int(sample_count))
@@ -357,6 +396,8 @@ def _sample_profile_with_points(
     *,
     sample_count: int = PROFILE_SAMPLE_COUNT,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Sample values and return the exact clipped pixel coordinates used."""
+
     height, width = image.shape[:2]
     xs = np.linspace(float(point_a[0]), float(point_b[0]), int(sample_count))
     ys = np.linspace(float(point_a[1]), float(point_b[1]), int(sample_count))
@@ -370,6 +411,8 @@ def _chord_mask_fraction(
     point_a: tuple[int, int],
     point_b: tuple[int, int],
 ) -> float:
+    """Return the fraction of a proposed chord that lies inside the mask."""
+
     profile = _sample_profile(mask, point_a, point_b)
     if profile.size <= 2:
         return 0.0
@@ -460,6 +503,8 @@ def find_convexity_defect_neck_candidates(
 
 
 def _as_gray_float(image: np.ndarray | None) -> np.ndarray | None:
+    """Normalize optional evidence images to 2D float arrays for scoring."""
+
     if image is None:
         return None
     gray = np.asarray(image)
@@ -471,6 +516,8 @@ def _as_gray_float(image: np.ndarray | None) -> np.ndarray | None:
 
 
 def _smooth_dot_evidence_image(evidence_image: np.ndarray | None) -> np.ndarray | None:
+    """Return a lightly blurred evidence image for robust local-peak detection."""
+
     gray = _as_gray_float(evidence_image)
     if gray is None or gray.size == 0:
         return None
@@ -510,6 +557,8 @@ def find_intensity_peaks_in_contour(
 
 
 def _find_distance_peaks_in_contour(mask: np.ndarray, params: dict) -> tuple[list[_Peak], np.ndarray]:
+    """Find distance-transform lobe centers when intensity evidence is absent."""
+
     dist = ndi.distance_transform_edt(mask > 0).astype(np.float32)
     max_value = float(dist.max())
     if max_value <= 0:
@@ -536,6 +585,8 @@ def _best_peak_pair(
     *,
     max_valley_ratio_key: str,
 ) -> _PeakPair | None:
+    """Choose the strongest separated peak pair with an acceptable valley."""
+
     if len(peaks) < 2:
         return None
     best: _PeakPair | None = None
@@ -580,6 +631,8 @@ def _best_peak_pair(
 
 
 def _markers_from_peak_pair(shape: tuple[int, int], peak_pair: _PeakPair) -> np.ndarray:
+    """Seed a two-label watershed from the selected lobe centers."""
+
     markers = np.zeros(shape, dtype=np.int32)
     markers[int(peak_pair.peak_a.y), int(peak_pair.peak_a.x)] = 1
     markers[int(peak_pair.peak_b.y), int(peak_pair.peak_b.x)] = 2
@@ -587,6 +640,8 @@ def _markers_from_peak_pair(shape: tuple[int, int], peak_pair: _PeakPair) -> np.
 
 
 def _markers_from_neck(mask: np.ndarray, neck: _NeckCandidate, params: dict) -> np.ndarray | None:
+    """Seed watershed markers from regions disconnected by a neck chord."""
+
     working = mask.copy()
     cv2.line(
         working,
@@ -616,6 +671,8 @@ def _markers_from_neck(mask: np.ndarray, neck: _NeckCandidate, params: dict) -> 
 
 
 def _split_score_image(mask: np.ndarray, evidence_image: np.ndarray | None) -> np.ndarray:
+    """Blend distance and intensity evidence into the watershed topography."""
+
     dist = ndi.distance_transform_edt(mask > 0).astype(np.float32)
     if dist.max() > 0:
         dist = dist / float(dist.max())
@@ -671,6 +728,8 @@ def _split_contour_with_neck_chord(
     neck: _NeckCandidate,
     params: dict,
 ) -> np.ndarray | None:
+    """Cut a contour directly along the neck chord and label the two regions."""
+
     working = mask.copy()
     cv2.line(
         working,
@@ -751,6 +810,8 @@ def _peak_pair_bisector_labels(
     mask: np.ndarray,
     peak_pair: _PeakPair,
 ) -> np.ndarray:
+    """Partition a mask by the perpendicular bisector between two peaks."""
+
     point_a = np.array(peak_pair.peak_a.point, dtype=np.float32)
     point_b = np.array(peak_pair.peak_b.point, dtype=np.float32)
     peak_axis = point_b - point_a
@@ -765,6 +826,8 @@ def _asymmetric_candidate_axis_labels(
     mask: np.ndarray,
     candidate: _AsymmetricSplitCandidate,
 ) -> np.ndarray:
+    """Partition a mask through the saddle perpendicular to the peak axis."""
+
     point_a = np.array(candidate.peak_pair.peak_a.point, dtype=np.float32)
     point_b = np.array(candidate.peak_pair.peak_b.point, dtype=np.float32)
     peak_axis = point_b - point_a
@@ -784,6 +847,8 @@ def _principal_axis_bridge_labels(
     mask: np.ndarray,
     neck_candidate: _NeckCandidate | None = None,
 ) -> np.ndarray:
+    """Split bridge-like masks along the principal-axis midpoint fallback."""
+
     ys, xs = np.nonzero(mask > 0)
     if xs.size < 2:
         return np.zeros(mask.shape, dtype=np.int32)
@@ -861,6 +926,8 @@ def split_contour_with_geometry_first_watershed(
 
 
 def _region_circularity(region: np.ndarray) -> float:
+    """Measure circularity of a binary child region for split validation."""
+
     contours, _ = cv2.findContours(
         (region.astype(np.uint8) * 255),
         cv2.RETR_EXTERNAL,
@@ -878,6 +945,8 @@ def _region_circularity(region: np.ndarray) -> float:
 
 
 def _region_solidity(region: np.ndarray) -> float:
+    """Measure convex-hull fill ratio for a binary child region."""
+
     contours, _ = cv2.findContours(
         (region.astype(np.uint8) * 255),
         cv2.RETR_EXTERNAL,
@@ -895,6 +964,8 @@ def _region_solidity(region: np.ndarray) -> float:
 
 
 def _contour_from_region(region: np.ndarray) -> np.ndarray | None:
+    """Return the largest contour around a labeled child region."""
+
     contours, _ = cv2.findContours(
         (region.astype(np.uint8) * 255),
         cv2.RETR_EXTERNAL,
@@ -906,6 +977,8 @@ def _contour_from_region(region: np.ndarray) -> np.ndarray | None:
 
 
 def _label_at_point(labels: np.ndarray, point: tuple[int, int]) -> int:
+    """Read a split label at a point, falling back to the nearest 3x3 label."""
+
     x_coord, y_coord = int(point[0]), int(point[1])
     height, width = labels.shape[:2]
     if x_coord < 0 or y_coord < 0 or x_coord >= width or y_coord >= height:
@@ -1030,6 +1103,8 @@ def _boundary_intersects_neck_chord(
     split_labels: np.ndarray,
     neck_candidate: _NeckCandidate,
 ) -> bool:
+    """Return whether the accepted boundary actually crosses the proposed neck."""
+
     boundary = _boundary_between_split_labels(original_mask, split_labels)
     if not np.any(boundary):
         return False
@@ -1081,6 +1156,8 @@ def _boundary_has_low_signal_support(
     saddle_point: tuple[int, int] | None = None,
     peak_distance_px: float | None = None,
 ) -> bool:
+    """Check that a split boundary follows low-intensity or narrow-mask evidence."""
+
     boundary = _boundary_between_split_labels(original_mask, split_labels)
     if not np.any(boundary):
         return False
@@ -1137,6 +1214,8 @@ def _validate_peak_backed_deterministic_split(
     saddle_point: tuple[int, int] | None = None,
     peak_distance_px: float | None = None,
 ) -> list[np.ndarray]:
+    """Validate deterministic geometry labels against peak and low-signal gates."""
+
     child_contours = validate_split_contours(
         original_mask,
         split_labels,
@@ -1177,7 +1256,12 @@ def _try_deterministic_aggressive_split(
     tightening_image: np.ndarray | None,
     split_mode: str,
 ) -> list[np.ndarray]:
+    """Try non-watershed aggressive routes before falling back to no split."""
+
     if neck_candidate is not None:
+        # Neck-side labels are attempted first because they are easiest to
+        # explain: the two child regions lie on opposite sides of a concavity
+        # chord and still must satisfy the common child-contour contract.
         neck_side_labels = _neck_chord_side_labels(metrics.mask, neck_candidate)
         if split_peak_pair is not None:
             child_contours = _validate_peak_backed_deterministic_split(
@@ -1205,6 +1289,8 @@ def _try_deterministic_aggressive_split(
             )
 
     if split_peak_pair is not None and neck_candidate is not None:
+        # The peak-axis route protects merged two-lobe dots where a neck exists
+        # but direct chord cutting does not disconnect the binary mask cleanly.
         peak_axis_labels = _peak_pair_bisector_labels(metrics.mask, split_peak_pair)
         child_contours = _validate_peak_backed_deterministic_split(
             metrics.mask,
@@ -1223,6 +1309,8 @@ def _try_deterministic_aggressive_split(
             )
 
     if asymmetric_candidate is not None:
+        # Asymmetric candidates use a saddle rather than a paired neck, so they
+        # go through the stricter asymmetric validator before replacing contours.
         asymmetric_axis_labels = _asymmetric_candidate_axis_labels(
             metrics.mask,
             asymmetric_candidate,
@@ -1244,6 +1332,8 @@ def _try_deterministic_aggressive_split(
             )
 
     if neck_candidate is not None:
+        # Principal-axis splitting is the broadest deterministic fallback and is
+        # retained only when the same child-shape and boundary tests pass.
         bridge_axis_labels = _principal_axis_bridge_labels(metrics.mask, neck_candidate)
         if split_peak_pair is not None:
             child_contours = _validate_peak_backed_deterministic_split(
@@ -1367,6 +1457,8 @@ def _finalize_accepted_split_children(
     *,
     peak_pair: _PeakPair | None = None,
 ) -> list[np.ndarray]:
+    """Apply optional child tightening after a split has already been accepted."""
+
     if len(child_contours) != 2:
         return child_contours
     return _tighten_aggressive_split_children(
@@ -1406,6 +1498,8 @@ def _internal_watershed_boundaries(labels: np.ndarray) -> np.ndarray:
 
 
 def _is_round_single_dot(metrics: _ContourShapeMetrics, params: dict) -> bool:
+    """Return whether shape metrics look like one compact dot rather than a merge."""
+
     return (
         metrics.circularity >= float(params["max_single_dot_circularity"])
         and metrics.solidity >= float(params["min_single_dot_solidity"])
@@ -1415,6 +1509,8 @@ def _is_round_single_dot(metrics: _ContourShapeMetrics, params: dict) -> bool:
 
 
 def _shape_is_suspicious(metrics: _ContourShapeMetrics, params: dict) -> bool:
+    """Return whether the contour shape warrants extra split attempts."""
+
     return (
         metrics.aspect_ratio >= float(params["min_suspicious_aspect_ratio"])
         or metrics.circularity <= float(params["max_suspicious_circularity"])
@@ -1428,6 +1524,8 @@ def _choose_split_peak_pair(
     distance_pair: _PeakPair | None,
     params: dict,
 ) -> _PeakPair | None:
+    """Choose intensity or distance peak evidence when valley thresholds pass."""
+
     intensity_ok = (
         intensity_pair is not None
         and intensity_pair.valley_ratio <= float(params["max_intensity_valley_ratio"])
@@ -1478,6 +1576,8 @@ def find_single_concavity_candidates(
 
 
 def _central_profile_indices(length: int) -> np.ndarray:
+    """Return the central profile range where a separating saddle should appear."""
+
     start = max(1, int(round(float(length) * 0.20)))
     stop = min(length - 1, int(round(float(length) * 0.80)))
     if stop <= start:
@@ -1490,6 +1590,8 @@ def _single_defect_supports_saddle(
     saddle_point: tuple[int, int],
     params: dict,
 ) -> _SingleDefectCandidate | None:
+    """Return the strongest nearby concavity supporting an asymmetric saddle."""
+
     max_distance = float(params.get("asymmetric_max_saddle_to_defect_distance_px", 8.0))
     supported = [
         defect
@@ -1659,6 +1761,8 @@ def _boundary_between_split_labels(
     original_mask: np.ndarray,
     split_labels: np.ndarray,
 ) -> np.ndarray:
+    """Return candidate separator pixels touching both child labels."""
+
     label_1_touch = ndi.binary_dilation(
         split_labels == 1,
         structure=np.ones((3, 3), dtype=bool),
@@ -1683,6 +1787,8 @@ def _boundary_reaches_saddle(
     params: dict,
     peak_distance: float,
 ) -> bool:
+    """Return whether the separator passes close enough to the saddle point."""
+
     points = np.column_stack(np.nonzero(boundary))
     if points.size == 0:
         return False
@@ -1800,6 +1906,8 @@ def split_asymmetric_dot_contour_if_needed(
     split_mode: str = DEFAULT_DOT_SPLIT_MODE,
     debug: bool = False,
 ) -> list[np.ndarray]:
+    """Try the one-sided saddle fallback and return the original contract shape."""
+
     if not bool(params.get("asymmetric_fallback_enabled", False)):
         return []
     if _is_round_single_dot(metrics, params):
@@ -1910,6 +2018,8 @@ def split_necked_dot_contour_if_needed(
     asymmetric_candidate = find_asymmetric_peak_saddle_candidate(metrics.mask, evidence_image, params)
 
     def try_asymmetric_fallback() -> list[np.ndarray]:
+        """Run the asymmetric branch with the evidence already computed above."""
+
         return split_asymmetric_dot_contour_if_needed(
             metrics,
             evidence_image,
@@ -1944,6 +2054,8 @@ def split_necked_dot_contour_if_needed(
     )
 
     def try_balanced_baseline_routes(active_mode: str) -> list[np.ndarray]:
+        """Run the conservative balanced routes shared by both public modes."""
+
         if neck is None:
             child_contours = try_asymmetric_fallback()
             if len(child_contours) == 2:
@@ -2285,6 +2397,8 @@ def _split_merged_green_contours(
 
 
 def _should_bridge_alternate_contours(gray_blue: np.ndarray | None) -> bool:
+    """Return whether legacy alternate-contour bridging should be enabled."""
+
     if gray_blue is None:
         return False
     gray_blue_blur = cv2.GaussianBlur(gray_blue, (9, 9), 0)
@@ -2401,6 +2515,8 @@ def _alternate_nucleus_contours_from_family(
     base_image: np.ndarray | None,
     bridge_contours: bool,
 ) -> list[np.ndarray]:
+    """Return the preferred alternate nucleus contour family with dot fallback."""
+
     dot_contours, contours, _, _, _ = _origin_main_alternate_channel_contour_family(
         bright_image=bright_image,
         base_image=base_image,
@@ -2423,10 +2539,15 @@ def find_contours(
     nuclear_cell_pair_contour_mode: str = DEFAULT_NUCLEAR_CELL_PAIR_CONTOUR_MODE,
     cell_mask: np.ndarray | None = None,
 ):
-    """
-    Find red dot contours, blue nucleus contours, and green signal contours.
+    """Find channel-specific contour families for downstream statistics plugins.
+
+    The returned dictionary keys are a public plugin contract. Missing channels
+    stay as empty lists or ``None`` masks so disabled or absent-channel workflows
+    can continue without producing malformed statistics payloads.
     """
 
+    # GrayImage keys mirror the preprocessing layer and plugin expectations; the
+    # contour code treats absent keys as missing channels rather than errors.
     gray_red_3 = images.get_image("gray_red_3")
     gray_red = images.get_image("gray_red")
     gray_red_no_bg = images.get_image("red_no_bg")
@@ -2470,6 +2591,9 @@ def find_contours(
     skip_standard_green = CHANNEL_ROLE_GREEN in skipped_standard_channels
 
     if not legacy_alternate_red_detection:
+        # Standard Red contours are derived from both blurred/no-background and
+        # raw Red planes; the dot-contour branch remains separate because small
+        # puncta-like structures feed different statistics than whole contours.
         if gray_red_3 is not None and not skip_standard_red:
             low_val, _ = cv2.threshold(
                 gray_red_3,
@@ -2545,6 +2669,8 @@ def find_contours(
         )
 
     if normalized_alternate_channel == CHANNEL_ROLE_RED and not legacy_alternate_red_detection:
+        # Alternate nuclear contour detection uses the Red contour family while
+        # leaving standard Red dot/stat contours untouched for other plugins.
         alternate_nucleus_base_contours_red = _alternate_nucleus_contours_from_family(
             bright_image=gray_red_3,
             base_image=gray_red,
@@ -2571,6 +2697,8 @@ def find_contours(
     best_contours_blue = []
     best_contours_blue_3 = []
     if gray_blue_3 is not None and gray_blue is not None:
+        # Blue contours are legacy-compatible nuclear contours. The threshold
+        # offsets are preserved because downstream tests assert stable counts.
         low_val, _ = cv2.threshold(
             gray_blue,
             0.65,
@@ -2612,6 +2740,8 @@ def find_contours(
 
     contours_green = []
     if gray_green is not None and not skip_standard_green:
+        # Green contour extraction optionally splits merged dots before applying
+        # the local-background filter, depending on the workflow controls.
         low_val, _ = cv2.threshold(
             gray_green,
             0.65,
@@ -2661,6 +2791,8 @@ def find_contours(
             )
 
     if normalized_alternate_channel == CHANNEL_ROLE_GREEN:
+        # Green alternate detection reuses the origin/main contour family and
+        # only materializes an alternate mask for aggressive nuclear mode.
         alternate_nucleus_contours_green = _alternate_nucleus_contours_from_family(
             bright_image=gray_green,
             base_image=gray_green_no_bg if gray_green_no_bg is not None else gray_green,
@@ -2676,6 +2808,8 @@ def find_contours(
                 cell_mask=cell_mask,
             )
 
+    # Keep this return shape stable: statistics plugins look up exact contour
+    # family names and debug payload keys rather than probing the image data.
     return {
         "best_contours": best_contours,
         "best_contours_red": best_contours_red,
@@ -2696,6 +2830,8 @@ def find_contours(
 
 
 def _closed_open_ratio(contour: np.ndarray) -> float | None:
+    """Return the closed/open arc-length ratio used by the legacy green filter."""
+
     closed = cv2.arcLength(contour, True)
     opened = cv2.arcLength(contour, False)
     if opened <= 0:
@@ -2706,6 +2842,8 @@ def _closed_open_ratio(contour: np.ndarray) -> float | None:
 def _log_green_contour_filter_decisions(
     decisions: list[_GreenContourFilterDecision],
 ) -> None:
+    """Emit green-contour filter diagnostics without affecting accepted output."""
+
     for decision in decisions:
         logger.debug(
             "Green contour filter decision: bbox=%s area=%.3f "
@@ -2729,6 +2867,8 @@ def _filter_green_contours_with_image(
     contours: list[np.ndarray] | tuple[np.ndarray, ...],
     gray_green: np.ndarray,
 ) -> tuple[list[np.ndarray], list[_GreenContourFilterDecision]]:
+    """Reject weak green contours using shape and local ring-background evidence."""
+
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, GREEN_RING_KERNEL_SIZE)
     accepted: list[np.ndarray] = []
     decisions: list[_GreenContourFilterDecision] = []
@@ -2738,6 +2878,8 @@ def _filter_green_contours_with_image(
         bbox = tuple(int(value) for value in cv2.boundingRect(contour))
 
         if area < MIN_GREEN_CONTOUR_AREA:
+            # Very small components are usually threshold specks and cannot
+            # produce reliable centroid/distance statistics.
             decisions.append(
                 _GreenContourFilterDecision(
                     bbox=bbox,
@@ -2759,6 +2901,9 @@ def _filter_green_contours_with_image(
             closed_open_ratio <= 0.9 or closed_open_ratio >= 1.06
         )
         if legacy_shape_pass:
+            # The historical shape-only acceptance path is retained so prior
+            # green-contour behavior remains compatible when intensity contrast
+            # is not needed to separate signal from local background.
             accepted.append(contour)
             decisions.append(
                 _GreenContourFilterDecision(
@@ -2781,6 +2926,8 @@ def _filter_green_contours_with_image(
         ring_mask = cv2.subtract(ring_mask, filled_mask)
         ring_pixel_count = int(np.count_nonzero(ring_mask))
         if ring_pixel_count == 0:
+            # Without a background ring there is no local contrast estimate, so
+            # the conservative path rejects the contour instead of guessing.
             decisions.append(
                 _GreenContourFilterDecision(
                     bbox=bbox,
@@ -2806,6 +2953,8 @@ def _filter_green_contours_with_image(
         max_over_ring_p90 = inside_max / ring_reference
         p90_over_ring_p90 = inside_p90 / ring_reference
 
+        # Strong peaks must exceed the immediate background ring by both max and
+        # high-percentile measures to avoid accepting single bright outliers.
         if (
             max_over_ring_p90 >= GREEN_STRONG_PEAK_MAX_RATIO
             and p90_over_ring_p90 >= GREEN_STRONG_PEAK_P90_RATIO
@@ -2837,6 +2986,8 @@ def _filter_green_contours_with_image(
 def filterContours(contours):
     """Remove small or obviously invalid contours from the green contour set."""
 
+    # This legacy wrapper keeps the old shape-only behavior for callers that do
+    # not have access to the original green intensity image.
     contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= 8]
     ret = []
     for cnt in contours:

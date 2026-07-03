@@ -4,6 +4,8 @@ After=network.target postgresql.service
 
 [Service]
 Type=oneshot
+# The maintenance command deletes only regenerable artifacts that are not
+# protected by active upload-preparation or analysis jobs.
 User=REPLACE_WITH_DEPLOY_USER
 Group=REPLACE_WITH_DEPLOY_USER
 WorkingDirectory=/home/REPLACE_WITH_DEPLOY_USER/CytoCV/cytocv

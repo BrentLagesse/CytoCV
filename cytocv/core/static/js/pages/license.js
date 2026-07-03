@@ -1,3 +1,5 @@
+    // License back navigation prefers a same-origin referrer and falls back to
+    // Home so the page does not send users outside CytoCV.
     (function () {
         const backLink = document.getElementById('licenseBackLink');
         if (!backLink) return;

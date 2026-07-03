@@ -1,3 +1,6 @@
+      // Preprocess review controller. Server-rendered JSON supplies the file
+      // list, scale metadata, and async execution mode; DOM IDs and progress
+      // payload keys are covered by frontend contract tests.
       const preprocessPageConfigElement = document.getElementById("preprocessPageConfig");
       const preprocessPageConfig = JSON.parse(
         preprocessPageConfigElement ? preprocessPageConfigElement.textContent || "{}" : "{}"
@@ -6,7 +9,8 @@
       const preprocessExperimentUrl = String(preprocessPageConfig.experimentUrl || "/experiment/");
       const preprocessAnalysisExecutionMode = String(preprocessPageConfig.analysisExecutionMode || "");
 
-      // Current index & total
+      // currentFileIndex/totalFiles stay server-originated so browser history
+      // restores and back-navigation resume the same review position.
       let currentFileIndex = parseInt(String(preprocessPageConfig.currentFileIndex ?? 0), 10);
       const totalFiles = parseInt(String(preprocessPageConfig.totalFiles ?? 1), 10);
       const setAsyncProgress = (target, payload) => {
@@ -20,7 +24,8 @@
         }
       };
 
-      // Sidebar elements
+      // Sidebar state spans channels, scale overrides, and user preferences; the
+      // selectors here are shared with template contract tests.
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleSidebarBtn");
       const channelVisibilityBtn = document.getElementById("toggleChannelVisibilityBtn");
@@ -127,6 +132,8 @@
       }
 
       function parseScalePayload() {
+        // preprocessScalePayload is a per-file scale map, not authorization.
+        // The backend revalidates ownership and selected UUIDs on submit.
         const payloadElement = document.getElementById("preprocessScalePayload");
         if (!payloadElement) return {};
         try {
@@ -673,6 +680,8 @@
       }
 
       const cancelClientAnalysis = () => {
+        // Client-side cancellation first stops local polling/fetches; the server
+        // cancellation endpoint below owns worker cleanup and status transitions.
         suppressAnalysisErrors = true;
         window.isAnalysisRunning = false;
         if (analysisPollTimer) {
@@ -686,6 +695,8 @@
       };
       let cancelPromise = null;
       const requestAnalysisCancel = async () => {
+        // A single shared promise prevents repeated navigation/logout handlers
+        // from issuing duplicate cancel requests for the same analysis job.
         if (!window.isAnalysisRunning) {
           return true;
         }
@@ -784,6 +795,8 @@
         }
 
         let pendingHref = null;
+        // Navigation uses the same cancel path as logout so workers see one
+        // cancellation contract regardless of how the user leaves the page.
         const defaultTitle = 'Leave experiment?';
         const defaultBody = 'You have an active experiment session. Are you sure you want to leave this page?';
         const runningTitle = 'Leave experiment and cancel analysis?';
@@ -1009,6 +1022,8 @@
           }));
         };
         const startPolling = () => {
+          // Polling begins while the POST is still in flight so sync and worker
+          // paths can share the same progress button contract.
           const poll = async () => {
             try {
               const pollUrl = new URL(`/api/progress/${encodeURIComponent(uuids)}/`, window.location.origin);
@@ -1054,6 +1069,8 @@
                 if (analysisPollTimer) clearInterval(analysisPollTimer);
                 analysisPollTimer = null;
                 if (isWorkerAnalysis && data.redirect) {
+                  // Worker completion redirects from the poll payload; sync mode
+                  // waits for the original POST response below to avoid double navigation.
                   if (data.failure_summary) {
                     persistDisplayInfoMessage(data.failure_summary);
                   }

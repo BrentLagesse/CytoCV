@@ -1,3 +1,5 @@
+"""Regression tests for CEN-dot classification and location metadata."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

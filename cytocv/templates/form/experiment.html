@@ -12,6 +12,7 @@
 <div class="experiment-page">
 <form action="" method="post" enctype="multipart/form-data" id="uploadForm">
     {% csrf_token %}
+    {# experiment.js fills these plugin settings panels from statsPluginPayload. #}
     <div class="settings-modal-backdrop" id="settingsBackdrop" aria-hidden="true">
         <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
             <div class="settings-modal-header">
@@ -30,6 +31,7 @@
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Puncta &amp; Contour Detection</div>
                     <div class="stats-list dot-detection-list">
+                        {# Dot-split control IDs map directly to localStorage keys and upload-prep payload fields. #}
                         <div class="toggle-row combo" id="dotSplitRow">
                             <div class="toggle-text">
                                 <span class="toggle-label-row">
@@ -94,6 +96,7 @@
                     </div>
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Measurement Scale</div>
+                    {# Measurement scale and wavelength order groups are rendered by experiment.js from server defaults. #}
                     <div class="measurement-scale-card" id="measurementScaleGroup"></div>
                     <div class="stats-divider"></div>
                     <div class="stats-view-title">Wavelength Channel Assignment</div>
@@ -206,6 +209,7 @@
     </div>
 
     <div class="reset-modal-backdrop popup-backdrop" id="resetBackdrop" aria-hidden="true">
+        {# Queue reset modal mutates only the client-side File queue before upload. #}
         <div class="reset-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
             <div class="reset-modal-header">
                 <span class="reset-modal-title" id="resetTitle">Reset Uploaded Files</span>
@@ -220,6 +224,7 @@
         </div>
     </div>
 
+    {# Folder-upload issue resolution is client-side; backend upload preparation still validates files. #}
     <div class="folder-issue-backdrop popup-backdrop" id="folderIssueBackdrop" aria-hidden="true">
         <div class="folder-issue-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="folderIssueTitle">
             <div class="folder-issue-title" id="folderIssueTitle">Folder Upload Issues</div>
@@ -280,6 +285,7 @@
     </div>
 </form>
 
+{# experiment.js consumes these JSON script ids for upload, quota, resume, and workflow defaults. #}
 <script id="statsPluginPayload" type="application/json">{{ stats_plugin_payload_json|safe }}</script>
 <script id="restoredQueuePayload" type="application/json">{{ restored_queue_payload_json|safe }}</script>
 <script id="serverPreferenceDefaults" type="application/json">{{ user_preference_defaults_json|safe }}</script>
@@ -289,6 +295,7 @@
 <script id="uploadPreparationConfig" type="application/json">{"batch_target_bytes": {{ upload_batch_target_bytes|default:83886080 }}, "execution_mode": "{{ upload_preparation_execution_mode|default:'worker'|escapejs }}", "workflow_defaults_url": "{% url 'experiment_workflow_defaults' %}", "upload_batch_url": "{% url 'experiment_upload_batch' %}", "upload_prepare_url": "{% url 'experiment_upload_prepare' %}"}</script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
+{# Navigation guards keep queued client-side upload state from being discarded silently. #}
 <div class="nav-exit-backdrop popup-backdrop" id="navExitBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="navExitTitle">
         <div class="nav-exit-title" id="navExitTitle">Leave experiment?</div>
@@ -315,6 +322,7 @@
     </div>
 </div>
 
+{# Workflow-default saves use the current client draft and the backend preference endpoint. #}
 <div class="nav-exit-backdrop popup-backdrop" id="saveWorkflowDefaultsBackdrop" aria-hidden="true">
     <div class="nav-exit-modal popup-surface" role="dialog" aria-modal="true" aria-labelledby="saveWorkflowDefaultsTitle">
         <div class="nav-exit-title" id="saveWorkflowDefaultsTitle">Save as workflow default?</div>

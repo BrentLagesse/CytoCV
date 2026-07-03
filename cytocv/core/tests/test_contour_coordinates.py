@@ -1,3 +1,5 @@
+"""Protect contour center coordinate storage and unit conversion contracts."""
+
 from django.test import SimpleTestCase
 
 from core.services.contour_coordinates import (

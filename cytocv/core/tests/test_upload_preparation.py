@@ -1,3 +1,5 @@
+"""Upload-preparation job and frontend polling contract tests."""
+
 from __future__ import annotations
 
 import errno
@@ -30,7 +32,11 @@ from core.tests.test_artifact_storage import temporary_media_root
 
 @override_settings(ANALYSIS_EXECUTION_MODE="worker")
 class UploadPreparationTestCase(TestCase):
+    """Exercise sync/worker-compatible upload-preparation status semantics."""
+
     def setUp(self):
+        """Create owner/edu/other clients for quota, access, and ownership checks."""
+
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             email="upload-prep@example.com",
@@ -57,6 +63,8 @@ class UploadPreparationTestCase(TestCase):
         user=None,
         name: str = "sample",
     ) -> UploadedImage:
+        """Create one uploaded source row and matching disk path for preparation."""
+
         owner = user or self.user
         file_uuid = str(uuid4())
         source_path = media_root / file_uuid / f"{name}.dv"
@@ -90,6 +98,8 @@ class UploadPreparationTestCase(TestCase):
 
     @staticmethod
     def _config_snapshot() -> dict[str, object]:
+        """Return the persisted job snapshot shape produced by experiment.js."""
+
         return {
             "manual_um_per_px": 0.2,
             "prefer_metadata_scale": True,
@@ -104,6 +114,8 @@ class UploadPreparationTestCase(TestCase):
 
     @staticmethod
     def _all_present_resolution():
+        """Return the common four-channel resolution used by mocked valid uploads."""
+
         return (
             DEFAULT_CHANNEL_CONFIG,
             ChannelPresence(
@@ -125,6 +137,8 @@ class UploadPreparationTestCase(TestCase):
                 config_snapshot=self._config_snapshot(),
             )
 
+            # Metadata, channel config, and preview generation are mocked at the
+            # service boundary so this test protects job status and sidecars.
             with patch(
                 "core.services.upload_preparation.validate_source_image_file",
                 return_value=self._valid_result(),

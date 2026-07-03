@@ -37,6 +37,7 @@ When a deployment asks you to complete email verification, open the newest verif
 Authenticated users can save workflow defaults for:
 
 - selected plugins
+- Cell Inclusion Mode under Cell Detection & Inclusion
 - validation module behavior
 - layer and wavelength enforcement
 - manual required channels
@@ -45,6 +46,9 @@ Authenticated users can save workflow defaults for:
 - default threshold, length, and scale settings
 
 These settings are saved to the user account and reused in future sessions.
+Cell Inclusion Mode is an analysis-time workflow default. Changing it affects
+future runs only; it does not add rows to saved results that were already
+analyzed.
 
 ## Dashboard Behavior
 
@@ -55,9 +59,10 @@ The dashboard shows saved runs owned by the current user. For each saved run, th
 - detected channel badges
 - scale summary
 - cell count
+- Cell Type Filter and source contour count row filters for the current statistics table when applicable
 - CSV or XLSX statistics-table exports for one saved file or selected saved files
 
-Dashboard statistics downloads can include all cell metrics or a selected metric subset. Download filenames use `cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`, where `all` or `selected` refers to metric selection and the file count reports how many files were exported. Combined exports list `File Name` only on the first row for each exported file group.
+Dashboard statistics downloads can include all cell metrics or a selected metric subset. The Cell Type Filter and Puncta Source / Source Contour Count filter are row filters. Selected metrics are column filters. Deleted cells remain excluded before either row filter is applied, and exports follow the effective row filters visible for the current result. Download filenames use `cytocv_<all-or-selected>_cell-metrics_<number>files_<YYYY-MM-DD_HHMM>.<extension>`, where `all` or `selected` refers to metric selection and the file count reports how many files were exported. Combined exports list `File Name` only on the first row for each exported file group.
 
 The dashboard also reports storage information:
 

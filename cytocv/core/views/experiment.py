@@ -1,3 +1,5 @@
+"""Upload and workflow-default views for the experiment intake page."""
+
 from django.shortcuts import render, redirect
 import logging
 from core.forms import UploadImageForm
@@ -153,6 +155,8 @@ def _upload_preparation_redirect_for_request(
     job: UploadPreparationJob,
     status: str,
 ) -> str | None:
+    """Return the preprocess redirect and persist the approved UUID list."""
+
     if status != UploadPreparationJob.Status.SUCCEEDED or not job.valid_run_uuids:
         return None
 
@@ -168,6 +172,8 @@ def _build_upload_preparation_payload_for_request(
     *,
     stale_state: tuple[str, str, str] | None = None,
 ) -> dict[str, object]:
+    """Build the upload-prep payload with request/session redirect side effects."""
+
     status = stale_state[0] if stale_state is not None else job.status
     redirect_url = _upload_preparation_redirect_for_request(request, job, status)
     return build_upload_preparation_payload(
@@ -184,6 +190,8 @@ def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | N
     if not recent_job_uuids:
         return None
 
+    # Session state is advisory: every remembered UUID is reloaded through the
+    # current user id before the browser sees a resumable job payload.
     jobs_by_uuid = {
         str(job.job_uuid): job
         for job in get_upload_preparation_jobs_for_user(
@@ -210,6 +218,8 @@ def _resolve_upload_preparation_resume_payload(request) -> dict[str, object] | N
             UploadPreparationJob.Status.CANCELLING,
         }:
             break
+        # Terminal resume payloads are shown once, then consumed so a later page
+        # load does not keep replaying old upload-preparation failures.
         consume_job_uuid = job_uuid
         break
 
@@ -299,6 +309,8 @@ def _configured_experiment_label(
     puncta_line_mode: str,
     selected_analysis: list[str],
 ) -> str:
+    """Return the human-readable analysis label stored with validation errors."""
+
     if getattr(signal_selection, "enabled", False):
         mode = getattr(signal_selection, "mode", "")
         if mode == "puncta_distance" and "PunctaDistance" in selected_analysis:
@@ -362,6 +374,8 @@ def _upload_view_context(
 ):
     """Build template context for the upload page."""
 
+    # Static JS reads these JSON strings by stable script IDs; keep route URLs and
+    # preference/quota payloads server-rendered rather than embedding template syntax.
     context = {
         "form": form,
         "progress_key": progress_key,
@@ -397,6 +411,8 @@ def _create_upload_preparation_job_for_mode(
         **config_snapshot,
         "upload_preparation_execution_mode": execution_mode,
     }
+    # Sync mode exists for local/dev compatibility; worker mode uses the same job
+    # row and config snapshot so polling responses keep one shape.
     if execution_mode == "sync":
         job = start_inline_upload_preparation_job(
             user_id=user_id,
@@ -415,6 +431,8 @@ def _create_upload_preparation_job_for_mode(
 
 
 def _track_active_upload_preparation_job(request, job: UploadPreparationJob) -> None:
+    """Keep the session resume list aligned with one upload-preparation job."""
+
     if job.status in ACTIVE_UPLOAD_PREPARATION_STATUSES:
         _remember_upload_preparation_job(request, str(job.job_uuid))
     else:
@@ -480,6 +498,8 @@ def _upload_limit_error_response(
 
 
 def _getlist(payload, key: str) -> list[str]:
+    """Read list-like values from Django QueryDicts or JSON-ish mappings."""
+
     if hasattr(payload, "getlist"):
         return list(payload.getlist(key))
     value = payload.get(key) if isinstance(payload, dict) else None
@@ -491,6 +511,8 @@ def _getlist(payload, key: str) -> list[str]:
 
 
 def _has_payload_key(payload, key: str) -> bool:
+    """Return whether a payload contains a key without assuming mapping type."""
+
     try:
         return key in payload
     except TypeError:
@@ -502,6 +524,8 @@ def _parse_experiment_submission(
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Parse upload settings once for session persistence and worker execution."""
 
+    # This helper emits two payloads: session values for the next request and a
+    # whitelisted snapshot that can safely be executed later by a worker.
     experiment_defaults = user_preferences.get("experiment_defaults", {})
     default_microns_per_pixel = parse_microns_per_pixel(
         experiment_defaults.get("microns_per_pixel"),
@@ -522,6 +546,8 @@ def _parse_experiment_submission(
         _getlist(payload, "selected_analysis")
     )
 
+    # Scale and channel-order preferences are resolved at upload preparation time
+    # because each source file may expose different metadata.
     posted_microns_per_pixel = parse_microns_per_pixel(
         payload.get("stats_microns_per_pixel"),
         default=default_microns_per_pixel,
@@ -610,6 +636,8 @@ def _parse_experiment_submission(
         minimum=0,
     )
 
+    # Persist both the original user-entered units and pixel equivalents so old
+    # session consumers and newer scale-aware workers can use the same snapshot.
     puncta_line_width = _convert_length_to_pixels(
         puncta_line_width_value,
         puncta_line_source_unit,
@@ -796,8 +824,12 @@ def _parse_experiment_submission(
     )
     required_channels = set(requirement_summary["required_channels"])
     if module_enabled:
+        # Extra channel requirements are honored only while the validation module
+        # is enabled; saved paused requirements are handled by profile defaults.
         required_channels.update(extra_required_channels)
 
+    # Session values preserve historical camelCase keys because downstream
+    # preprocess/statistics code and templates still read those names.
     session_values = {
         "selected_analysis": requirement_summary["selected_plugins"],
         "punctaLineWidth": puncta_line_width,
@@ -851,21 +883,23 @@ def _parse_experiment_submission(
             "configured_experiment_label": configured_experiment_label,
         },
     }
+    # Workers receive the sanitized snapshot; request/session objects are never
+    # passed into upload preparation outside this view boundary.
     return session_values, config_snapshot
 
 
 def _persist_experiment_session(request, session_values: dict[str, object]) -> None:
+    """Persist parsed experiment settings for preprocess and legacy views."""
+
     for key, value in session_values.items():
         request.session[key] = value
     request.session.modified = True
 
 
 def experiment(request):
-    """
-    Uploads and processes each image in the selected folder individually.
-    Generates a unique UUID for each image and applies the same process to each one.
-    """
-    # Ensure session exists to derive a stable progress key
+    """Render upload intake or preserve the legacy whole-form upload POST."""
+
+    # Ensure session exists to derive a stable progress key for upload preparation.
     if not request.session.session_key:
         request.session.save()
     progress_key = request.session.session_key
@@ -923,6 +957,8 @@ def experiment(request):
                 status=400,
             )
 
+        # New and restored runs share the same per-request access policy because
+        # they enter one upload-preparation queue and one preprocess selection.
         requested_file_count = len(files) + len(existing_uuids)
         if (
             access_policy.upload_max_files is not None
@@ -938,6 +974,8 @@ def experiment(request):
 
         new_upload_uuids: list[str] = []
         try:
+            # Legacy whole-form POSTs still create UploadedImage rows directly;
+            # staged uploads use upload_file_batch and join this path later.
             for image_location in files:
                 name = Path(str(image_location.name)).stem or "upload"
                 image_uuid = uuid.uuid4()
@@ -975,6 +1013,8 @@ def experiment(request):
 
         requested_uuids = [*new_upload_uuids, *existing_uuids]
         owner_filter = _current_owner_filter(request)
+        # Restored UUIDs come from hidden form state; re-authorize the whole
+        # requested batch before upload preparation can validate or preview it.
         owned_uuids = set(
             str(value)
             for value in UploadedImage.objects.filter(
@@ -1050,6 +1090,8 @@ def experiment(request):
                 }
             )
         upload_resume_payload = _resolve_upload_preparation_resume_payload(request)
+    # GET and non-terminal POST fall through to the same template context so
+    # static upload code always receives stable JSON script payloads.
     return render(
         request,
         "form/experiment.html",
@@ -1105,7 +1147,7 @@ def save_experiment_workflow_defaults(request):
 
 @require_POST
 def upload_file_batch(request):
-    """Save a small batch of source image files and return queued upload UUIDs."""
+    """Save one staged browser upload batch and return pending run UUIDs."""
 
     files = request.FILES.getlist("files")
     if not files:
@@ -1142,6 +1184,8 @@ def upload_file_batch(request):
         )
 
     try:
+        # This endpoint only stages source files. Validation, metadata extraction,
+        # channel_config writing, and preview generation happen in upload prep.
         for image_location in files:
             name = Path(str(image_location.name)).stem or "upload"
             image_uuid = uuid.uuid4()
@@ -1177,7 +1221,12 @@ def upload_file_batch(request):
 
 @require_POST
 def enqueue_upload_preparation(request):
-    """Queue worker-owned upload validation and preview preparation."""
+    """Start upload validation, metadata extraction, and preview preparation.
+
+    The response shape is shared by sync and worker modes so the browser can
+    either follow an immediate terminal redirect or poll the status endpoint for
+    the same job UUID.
+    """
 
     reap_stale_upload_preparation_jobs(user_id=request.user.id)
     user_preferences = get_user_preferences(request.user)
@@ -1194,6 +1243,8 @@ def enqueue_upload_preparation(request):
     if not requested_uuids:
         return JsonResponse({"errors": ["No files were uploaded."]}, status=400)
 
+    # Staged UUIDs arrive from hidden form fields after separate upload
+    # requests; the server still owns the authorization boundary.
     owned_uuids = set(
         str(value)
         for value in UploadedImage.objects.filter(
@@ -1218,6 +1269,8 @@ def enqueue_upload_preparation(request):
         access_policy.upload_max_files is not None
         and len(requested_uuids) > access_policy.upload_max_files
     ):
+        # New staged uploads are safe to delete on limit failure; restored files are
+        # existing user-owned runs and are left untouched.
         for cleanup_uuid in new_run_uuids:
             if cleanup_uuid in owned_uuids:
                 delete_uploaded_run_by_uuid(cleanup_uuid)
@@ -1243,7 +1296,7 @@ def enqueue_upload_preparation(request):
 
 @require_GET
 def upload_preparation_status(request, job_uuid):
-    """Return upload-preparation job status for the owning user."""
+    """Return the stable polling payload for an upload-preparation job."""
 
     job = get_upload_preparation_job_for_user(
         user_id=request.user.id,
@@ -1271,7 +1324,7 @@ def upload_preparation_status(request, job_uuid):
 
 @require_POST
 def cancel_upload_preparation(request, job_uuid):
-    """Cancel a queued or running upload-preparation job owned by the user."""
+    """Cancel queued/running upload preparation without changing response keys."""
 
     reap_stale_upload_preparation_jobs(user_id=request.user.id)
     job = get_upload_preparation_job_for_user(
@@ -1290,6 +1343,9 @@ def cancel_upload_preparation(request, job_uuid):
         return JsonResponse(build_upload_preparation_cancel_payload(job))
 
     if job.status == UploadPreparationJob.Status.QUEUED:
+        # Queued jobs have not been claimed by a worker, so newly uploaded
+        # source files can be deleted synchronously before persisting terminal
+        # state.
         for run_uuid in job.new_run_uuids:
             delete_uploaded_run_by_uuid(str(run_uuid))
         job = finalize_upload_preparation_job(
