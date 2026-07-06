@@ -1436,6 +1436,54 @@
             };
         }
 
+        function getPunctaSourceContourCardFilterLabel(statistics, filterValue) {
+            const normalized = normalizePunctaSourceContourCountFilter(filterValue);
+            if (normalized === 'all') return '';
+            const context = getPunctaSourceContourContext(statistics || {});
+            const countLabel = normalized === 'exactly_1'
+                ? 'Exactly 1'
+                : 'Exactly 2';
+            const sourceLabel = context.channelLabel
+                ? `${context.channelLabel.toLowerCase()} source contour${normalized === 'exactly_1' ? '' : 's'}`
+                : `source contour${normalized === 'exactly_1' ? '' : 's'}`;
+            return `${countLabel} ${sourceLabel}`;
+        }
+
+        function getCellCardFilterBadgeState(statistics, {
+            cellTypeFilter = 'all',
+            punctaSourceContourCountFilter = 'all',
+        } = {}) {
+            const rows = statistics || {};
+            const cellTypeState = getCellTypeFilterUiState(rows, cellTypeFilter);
+            const sourceState = getPunctaSourceContourFilterUiState(
+                rows,
+                punctaSourceContourCountFilter,
+            );
+            const parts = [];
+            if (cellTypeState.effectiveFilter !== 'all') {
+                parts.push(getCellTypeFilterLabel(cellTypeState.effectiveFilter));
+            }
+            if (sourceState.effectiveFilter !== 'all') {
+                const sourceLabel = getPunctaSourceContourCardFilterLabel(
+                    rows,
+                    sourceState.effectiveFilter,
+                );
+                if (sourceLabel) {
+                    parts.push(sourceLabel);
+                }
+            }
+            const hasActiveFilter = parts.length > 0;
+            return {
+                hidden: cellTypeState.baseRowCount === 0,
+                prefix: hasActiveFilter ? 'Filtered view' : 'Retained cells',
+                value: hasActiveFilter
+                    ? parts.join(' / ')
+                    : cellTypeState.displayLabel,
+                cellTypeState,
+                punctaSourceContourState: sourceState,
+            };
+        }
+
         function getRowFilterEmptyMessage(statistics, renderedRowCount, {
             cellTypeState = null,
             punctaSourceContourState = null,
@@ -1858,6 +1906,7 @@
             matchesPunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterCounts,
             getPunctaSourceContourFilterUiState,
+            getCellCardFilterBadgeState,
             getRowFilterEmptyMessage,
             getPunctaSourceContourFilteredCellIds,
             findNearestMatchingCellByOriginalOrder,

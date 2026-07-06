@@ -287,10 +287,10 @@
             getCellTypeFilterLabel,
             matchesCellTypeFilter,
             getCellTypeFilterUiState,
-            getPunctaSourceContourContext,
             matchesPunctaSourceContourCountFilter,
             getPunctaSourceContourCountFilterCounts,
             getPunctaSourceContourFilterUiState,
+            getCellCardFilterBadgeState,
             getRowFilterEmptyMessage,
             getPunctaSourceContourFilteredCellIds,
             findNearestMatchingCellByOriginalOrder,
@@ -1059,44 +1059,30 @@
                 .filter((cellId) => allIds.has(cellId));
         }
 
-        function getPunctaSourceContourCardFilterLabel(fileData) {
-            const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
-            const parts = [];
-            const cellTypeFilter = getCurrentCellTypeFilter();
-            if (cellTypeFilter !== 'all') {
-                parts.push(getCellTypeFilterLabel(cellTypeFilter));
-            }
-            if (filterValue !== 'all') {
-                const context = getPunctaSourceContourContext(fileData?.Statistics || {});
-                const countLabel = filterValue === 'exactly_1'
-                    ? 'Exactly 1'
-                    : 'Exactly 2';
-                const sourceLabel = context.channelLabel
-                    ? `${context.channelLabel.toLowerCase()} source contour${filterValue === 'exactly_1' ? '' : 's'}`
-                    : `source contour${filterValue === 'exactly_1' ? '' : 's'}`;
-                parts.push(`${countLabel} ${sourceLabel}`);
-            }
-            return parts.join(' / ');
-        }
-
         function syncPunctaSourceContourCellCardState(fileData) {
             const badge = document.getElementById('punctaSourceContourCellFilterBadge');
             const filterValue = getEffectivePunctaSourceContourCountFilter(fileData);
             if (badge) {
-                const label = getPunctaSourceContourCardFilterLabel(fileData);
+                const badgeState = getCellCardFilterBadgeState(
+                    fileData?.Statistics || {},
+                    {
+                        cellTypeFilter: getCurrentCellTypeFilter(fileData),
+                        punctaSourceContourCountFilter: filterValue,
+                    },
+                );
                 badge.replaceChildren();
                 const prefix = document.createElement('span');
                 prefix.className = 'cell-card-filter-label';
-                prefix.textContent = 'Filtered view';
+                prefix.textContent = badgeState.prefix;
                 const separator = document.createElement('span');
                 separator.className = 'cell-card-filter-separator';
                 separator.setAttribute('aria-hidden', 'true');
                 separator.textContent = '\u00b7';
                 const value = document.createElement('span');
                 value.className = 'cell-card-filter-value';
-                value.textContent = label || getCellTypeFilterLabel('all');
+                value.textContent = badgeState.value;
                 badge.append(prefix, separator, value);
-                badge.hidden = false;
+                badge.hidden = badgeState.hidden;
             }
 
             const message = document.getElementById('punctaSourceContourActiveCellMessage');

@@ -62,6 +62,21 @@ def _ambiguous_mask() -> np.ndarray:
     return seg
 
 
+def _tiny_edge_pair_mask() -> np.ndarray:
+    seg = np.zeros((12, 18), dtype=np.float64)
+    seg[0:2, 0:2] = 1.0
+    seg[0:2, 4:6] = 2.0
+    return seg
+
+
+def _dominant_pair_with_weak_neighbor_mask() -> np.ndarray:
+    seg = np.zeros((40, 50), dtype=np.float64)
+    seg[15:23, 10:18] = 1.0
+    seg[15:23, 20:28] = 2.0
+    seg[11:13, 16:18] = 3.0
+    return seg
+
+
 class CellInclusionCandidateTests(TestCase):
     def test_pairs_only_mode_preserves_pair_and_removes_single(self):
         result, cell_type_by_label = build_retained_candidate_label_image(
@@ -107,6 +122,40 @@ class CellInclusionCandidateTests(TestCase):
 
         self.assertEqual(cell_type_by_label, {})
         self.assertEqual(set(np.unique(result)) - {0}, set())
+
+    def test_edge_pair_candidates_are_paired_instead_of_true_singles(self):
+        result, cell_type_by_label = build_retained_candidate_label_image(
+            _tiny_edge_pair_mask(),
+            CELL_INCLUSION_MODE_SINGLES_ONLY,
+        )
+
+        self.assertEqual(cell_type_by_label, {})
+        self.assertEqual(set(np.unique(result)) - {0}, set())
+
+        pair_result, pair_type_by_label = build_retained_candidate_label_image(
+            _tiny_edge_pair_mask(),
+            CELL_INCLUSION_MODE_PAIRS_ONLY,
+        )
+        self.assertEqual(pair_type_by_label, {1: CELL_TYPE_PAIR})
+        self.assertEqual(set(np.unique(pair_result)) - {0}, {1.0})
+
+    def test_dominant_mutual_pair_with_weak_neighbor_is_not_counted_as_single(self):
+        result, cell_type_by_label = build_retained_candidate_label_image(
+            _dominant_pair_with_weak_neighbor_mask(),
+            CELL_INCLUSION_MODE_SINGLES_ONLY,
+        )
+
+        self.assertEqual(cell_type_by_label, {})
+        self.assertEqual(set(np.unique(result)) - {0}, set())
+
+        pair_result, pair_type_by_label = build_retained_candidate_label_image(
+            _dominant_pair_with_weak_neighbor_mask(),
+            CELL_INCLUSION_MODE_PAIRS_ONLY,
+        )
+        self.assertEqual(pair_type_by_label, {1: CELL_TYPE_PAIR})
+        self.assertTrue(np.all(pair_result[15:23, 10:18] == 1.0))
+        self.assertTrue(np.all(pair_result[15:23, 20:28] == 1.0))
+        self.assertTrue(np.all(pair_result[11:13, 16:18] == 0.0))
 
 
 class CellInclusionPersistenceAndFilteringTests(TestCase):
