@@ -1245,6 +1245,48 @@ assert.strictEqual(state.enabled, false);
 assert.strictEqual(state.effectiveFilter, 'all');
 assert.strictEqual(state.displayLabel, 'No cells');
 
+let badgeState = helpers.getCellCardFilterBadgeState({{ '1': {{ cell_type: 'single_cell' }} }}, {{
+  cellTypeFilter: 'all',
+  punctaSourceContourCountFilter: 'all',
+}});
+assert.strictEqual(badgeState.hidden, false);
+assert.strictEqual(badgeState.prefix, 'Retained cells');
+assert.strictEqual(badgeState.value, 'Only single cells');
+
+badgeState = helpers.getCellCardFilterBadgeState({{ '1': {{ cell_type: 'cell_pair' }} }}, {{
+  cellTypeFilter: 'all',
+  punctaSourceContourCountFilter: 'all',
+}});
+assert.strictEqual(badgeState.prefix, 'Retained cells');
+assert.strictEqual(badgeState.value, 'Only cell pairs');
+
+badgeState = helpers.getCellCardFilterBadgeState(mixed, {{
+  cellTypeFilter: 'all',
+  punctaSourceContourCountFilter: 'all',
+}});
+assert.strictEqual(badgeState.prefix, 'Retained cells');
+assert.strictEqual(badgeState.value, 'Both cells');
+
+badgeState = helpers.getCellCardFilterBadgeState(mixed, {{
+  cellTypeFilter: 'single_cell',
+  punctaSourceContourCountFilter: 'all',
+}});
+assert.strictEqual(badgeState.prefix, 'Filtered view');
+assert.strictEqual(badgeState.value, 'Only single cells');
+
+badgeState = helpers.getCellCardFilterBadgeState(mixed, {{
+  cellTypeFilter: 'single_cell',
+  punctaSourceContourCountFilter: 'exactly_1',
+}});
+assert.strictEqual(badgeState.prefix, 'Filtered view');
+assert.strictEqual(badgeState.value, 'Only single cells / Exactly 1 red source contour');
+
+badgeState = helpers.getCellCardFilterBadgeState({{}}, {{
+  cellTypeFilter: 'single_cell',
+  punctaSourceContourCountFilter: 'all',
+}});
+assert.strictEqual(badgeState.hidden, true);
+
 const sourceState = helpers.getPunctaSourceContourFilterUiState(mixed, 'exactly_2');
 assert.strictEqual(sourceState.enabled, true);
 assert.strictEqual(sourceState.effectiveFilter, 'exactly_2');

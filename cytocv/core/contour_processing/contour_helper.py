@@ -53,12 +53,17 @@ def get_neighbor_count(seg_image, center, radius=1, loss=0):
     neighbor_list = list()
     center_y = center[0]
     center_x = center[1]
-    # select a square segment that is a radius away from the center
-    neighbors = seg_image[center_y - radius:center_y + radius + 1, center_x - radius:center_x + radius + 1]
-    for x, row in enumerate(neighbors):
-        for y, val in enumerate(row):
-            if ((x, y) != (radius, radius) and # check for pixel that are in the circumference
-                    int(val) != 0 and # not a cell pixel
-                    int(val) != int(seg_image[center_y, center_x])): # not part of the same cell
+    min_y = max(center_y - radius, 0)
+    max_y = min(center_y + radius + 1, seg_image.shape[0])
+    min_x = max(center_x - radius, 0)
+    max_x = min(center_x + radius + 1, seg_image.shape[1])
+    neighbors = seg_image[min_y:max_y, min_x:max_x]
+    for y_offset, row in enumerate(neighbors):
+        for x_offset, val in enumerate(row):
+            y = min_y + y_offset
+            x = min_x + x_offset
+            if ((y, x) != (center_y, center_x) and
+                    int(val) != 0 and
+                    int(val) != int(seg_image[center_y, center_x])):
                 neighbor_list.append(val)
     return neighbor_list

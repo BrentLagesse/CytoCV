@@ -64,22 +64,24 @@ def build_retained_candidate_label_image(
                     continue
                 neighbor_count[neighbor_id] = neighbor_count.get(neighbor_id, 0) + 1
 
-        sorted_dict = {
-            k: v for k, v in sorted(neighbor_count.items(), key=lambda item: item[1])
-        }
-        if len(sorted_dict) == 0:
+        sorted_neighbors = sorted(
+            neighbor_count.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        if len(sorted_neighbors) == 0:
             single_labels.add(int(i))
-        elif len(sorted_dict) == 1:
-            closest_neighbors[int(i)] = int(list(sorted_dict.items())[0][0])
+        elif len(sorted_neighbors) == 1:
+            closest_neighbors[int(i)] = int(sorted_neighbors[0][0])
         else:
-            top_val = list(sorted_dict.items())[0][1]
-            second_val = list(sorted_dict.items())[1][1]
+            top_val = sorted_neighbors[0][1]
+            second_val = sorted_neighbors[1][1]
             if second_val > 0.5 * top_val:
                 unknown_labels.add(int(i))
                 for cluster_cell in neighbor_count:
                     unknown_labels.add(int(cluster_cell))
             else:
-                closest_neighbors[int(i)] = int(list(sorted_dict.items())[0][0])
+                closest_neighbors[int(i)] = int(sorted_neighbors[0][0])
         neighbor_count = {}
 
     ignored_labels: set[int] = set()
