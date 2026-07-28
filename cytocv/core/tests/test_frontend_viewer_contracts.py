@@ -151,7 +151,7 @@ class FrontendViewerContractTests(TestCase):
                 self.assertNotIn("setCellDataRegionLoading", update_cell_images_block)
                 self.assertNotIn("cellDataRegionLoadingController", update_cell_images_block)
 
-    def test_overlay_visibility_changes_preload_only_changed_images_without_blending(self):
+    def test_overlay_visibility_changes_use_image_only_skeleton_without_blending(self):
         shared_source = static_text("js/shared/results-viewer.js")
         self.assertIn("function getMissingCellImageStackUrls", shared_source)
         self.assertIn("renderState?.preloadUrls || []", shared_source)
@@ -174,6 +174,11 @@ class FrontendViewerContractTests(TestCase):
                 self.assertIn("blendImages: false", handler)
                 self.assertIn("preload: true", handler)
                 self.assertIn("preloadChangedOnly: true", handler)
+                self.assertIn("imageLoading: true", handler)
+                self.assertIn(
+                    "minimumImageLoadingMs: OVERLAY_IMAGE_LOADING_MIN_MS",
+                    handler,
+                )
                 self.assertNotIn("animateLayers", handler)
                 self.assertIn("const updated = await updateCellImages", handler)
                 self.assertIn("!updated", handler)
@@ -199,7 +204,7 @@ class FrontendViewerContractTests(TestCase):
                 self.assertIn("closeMenu: closeCellTypeFilterMenu", source)
                 self.assertIn("control: punctaSourceContourFilterControl", source)
                 self.assertIn("closeMenu: closePunctaSourceContourFilterMenu", source)
-                self.assertEqual(source.count("imageLoading: true"), 4)
+                self.assertEqual(source.count("imageLoading: true"), 5)
                 self.assertEqual(source.count("imageLoading: options.imageLoading === true"), 2)
                 self.assertNotIn("dataRegionLoading", source)
                 cell_type_handler_start = source.index("if (cellTypeFilterButton && cellTypeFilterMenu) {")

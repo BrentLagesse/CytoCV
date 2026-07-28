@@ -21,7 +21,7 @@ from .frontend_contract_helpers import (
 
 RESULTS_VIEWER_CSS_VERSION = "overlay-no-fade-20260728"
 RESULTS_VIEWER_JS_VERSION = "overlay-no-fade-20260728"
-PAGE_VIEWER_JS_VERSION = "overlay-no-fade-20260728"
+PAGE_VIEWER_JS_VERSION = "overlay-image-skeleton-20260728"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "metadata-driven-3plane-20260626"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
