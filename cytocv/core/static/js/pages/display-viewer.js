@@ -50,6 +50,7 @@
         } = resultsViewerShared;
         const FILE_BLEND_TEXT_MS = 170;
         const FILE_BLEND_IMAGE_MS = 190;
+        const OVERLAY_IMAGE_LOADING_MIN_MS = 160;
         const BLEND_METRIC_IDS = [
             'distance',
             'punctaLineIntensity',
@@ -1546,6 +1547,11 @@
                 || (blendImages && options.preload !== false)
             );
             const showImageLoading = options.imageLoading === true;
+            const minimumImageLoadingMs = Math.max(
+                0,
+                Number(options.minimumImageLoadingMs) || 0,
+            );
+            const imageLoadingStartedAt = showImageLoading ? Date.now() : 0;
             const state = getCellDisplayState(cellPairImages, statistics, {
                 overlayVisibility: options.overlayVisibility
                     || overlayVisibilityController.getSelected(),
@@ -1596,14 +1602,21 @@
 
                 return true;
             } finally {
+                if (showImageLoading) {
+                    const remainingLoadingMs = Math.max(
+                        0,
+                        minimumImageLoadingMs - (Date.now() - imageLoadingStartedAt),
+                    );
+                    if (remainingLoadingMs > 0) {
+                        await new Promise((resolve) => window.setTimeout(resolve, remainingLoadingMs));
+                    }
+                }
                 const shouldClearLoading = (
                     renderToken === activeCellRenderToken
                     && (!options.fileToken || options.fileToken === activeFileLoadToken)
                 );
                 if (shouldClearLoading) {
-                    if (showImageLoading) {
-                        setCellPairImagesLoading(false);
-                    }
+                    setCellPairImagesLoading(false);
                 }
             }
         }
@@ -1620,6 +1633,8 @@
                 blendText: false,
                 preload: true,
                 preloadChangedOnly: true,
+                imageLoading: true,
+                minimumImageLoadingMs: OVERLAY_IMAGE_LOADING_MIN_MS,
                 overlayVisibility: selection,
             });
             if (
