@@ -1,32 +1,42 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px"}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px"}}}%%
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Preprocessing : pre_process POST
-    Preprocessing --> Detecting : predict_images
-    Detecting --> Converting : convert_to_image
-    Converting --> Segmenting : segment_image
-    Segmenting --> Calculating : selected statistics
-    Segmenting --> Completed : no statistics selected
-    Calculating --> Completed
+    Idle --> Queued : analysis job created
+    Queued --> PreprocessingImages : worker claims job
+    PreprocessingImages --> DetectingCells : preprocessing complete
+    DetectingCells --> SegmentingCellPairs : mask inference complete
+    SegmentingCellPairs --> CalculatingStatistics : retained cells available
+    SegmentingCellPairs --> Completed : no selected statistics
+    CalculatingStatistics --> Completed : all selected plugins complete
 
-    Preprocessing --> Cancelling : cancel_progress
-    Detecting --> Cancelling : cancel_progress
-    Converting --> Cancelling : cancel_progress
-    Segmenting --> Cancelling : cancel_progress
-    Calculating --> Cancelling : cancel_progress
-    Idle --> Cancelled : cancel before work starts
-    Cancelling --> Cancelled : delete runs and clear session state
+    Queued --> Cancelling : cancel_progress
+    PreprocessingImages --> Cancelling : cancel_progress
+    DetectingCells --> Cancelling : cancel_progress
+    SegmentingCellPairs --> Cancelling : cancel_progress
+    CalculatingStatistics --> Cancelling : cancel_progress
+    Cancelling --> Cancelled : cooperative cleanup
 
-    note right of Preprocessing
-      Progress phases are written to
-      media/progress/sha256.json
+    Queued --> Failed : stale queued job
+    PreprocessingImages --> Failed : internal error
+    DetectingCells --> Failed : internal error
+    SegmentingCellPairs --> Failed : internal error
+    CalculatingStatistics --> Failed : internal error
+
+    note right of Queued
+      status = queued
+      phase = Queued
+    end note
+
+    note right of Completed
+      status = succeeded
+      phase = Completed
     end note
 
     note right of Cancelling
-      Cancel requests also create
-      media/progress/sha256.cancel
+      status = cancelling
+      cancellation is checked at safe boundaries
     end note
 
     Completed --> [*]
     Cancelled --> [*]
-
+    Failed --> [*]

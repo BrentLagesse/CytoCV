@@ -104,6 +104,7 @@ class FrontendJsonContractTests(TestCase):
             "MainImagePaths",
             "NumberOfCells",
             "CellPairImages",
+            "OverlayLayers",
             "Image_Name",
             "ScaleContext",
             "ChannelConfig",
@@ -127,6 +128,8 @@ class FrontendJsonContractTests(TestCase):
             ],
         )
         self.assertEqual(list(display_file["Statistics"].keys()), ["1"])
+        self.assertEqual(display_file["OverlayLayers"]["schemaVersion"], 1)
+        self.assertIn("availableFamilies", display_file["OverlayLayers"])
         self.assertEqual(display_file["Statistics"]["1"]["cell_type"], "unknown")
         self.assertEqual(display_file["Statistics"]["1"]["cell_type_label"], "Unknown")
         display_config = assert_json_script_keys(

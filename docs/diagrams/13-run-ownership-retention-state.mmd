@@ -1,28 +1,29 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px"}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px"}}}%%
 stateDiagram-v2
     [*] --> ResultCreated
-    ResultCreated --> SavedRun : auto_save_experiments = true
-    ResultCreated --> TransientRun : guest or autosave off
+    ResultCreated --> SavedRun : authenticated and autosave enabled
+    ResultCreated --> TransientRun : guest or autosave disabled
 
     TransientRun --> SavedRun : save_display_files
-    TransientRun --> SavedRun : sync selection
+    TransientRun --> SavedRun : sync selected run
     SavedRun --> TransientRun : unsave_display_files
-    SavedRun --> TransientRun : sync selection
+    SavedRun --> TransientRun : sync deselects run
 
-    SavedRun --> SavedRun : clean preview and preprocess assets
-    TransientRun --> Deleted : retention cutoff exceeded
-    TransientRun --> Deleted : explicit delete or cancel
+    SavedRun --> Retained : durable database rows and result artifacts
+    TransientRun --> SessionAccessible : available during current review session
+    SessionAccessible --> SavedRun : user saves before cleanup
+    SessionAccessible --> CleanupEligible : retention cutoff, cancel, or explicit delete
+    CleanupEligible --> Deleted : remove transient artifacts and rows
 
     note right of SavedRun
-      SegmentedImage.user is the
-      authenticated account
+      SegmentedImage.user points to
+      the authenticated account.
     end note
 
     note right of TransientRun
-      Results remain accessible in the
-      current session but are eligible
-      for later cleanup
+      Transient outputs can be reviewed
+      but are eligible for cleanup.
     end note
 
+    Retained --> [*]
     Deleted --> [*]
-

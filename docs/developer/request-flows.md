@@ -136,9 +136,17 @@ Sequence:
 5. scan segmented cell imagery
 6. load `CellStatistics`
 7. emit fluorescence contour-on URLs through the protected exact overlay endpoint
-8. render the main display payload and statistics table
+8. add the versioned selective `OverlayLayers` family/availability contract
+9. render the main display payload and statistics table
 
 `display.html` passes serialized result payloads through `displayFilesData` and page preferences through `displayPageConfig`.
+
+The protected aggregate route remains
+`/experiment/<uuid>/cell/<cell>/overlay/<channel>/`. Selective layers use
+`/experiment/<uuid>/cell/<cell>/overlay-layer/v1/<family>/<display-channel>/`.
+Both routes apply the same saved-run ownership or transient-session access
+check and hide unauthorized runs as `404`. A layer request performs display
+replay only; it does not save a `CellStatistics` row.
 
 Related write actions:
 
@@ -159,6 +167,7 @@ Sequence:
 2. rebuild saved-run dashboard payload
 3. expose storage usage and file-capacity projection
 4. support export of table data for a selected saved run
+5. add the same versioned selective overlay contract used by Display
 
 `dashboard.html` passes serialized saved-run payloads through `dashboardFilesData` and page preferences through `dashboardPageConfig`.
 

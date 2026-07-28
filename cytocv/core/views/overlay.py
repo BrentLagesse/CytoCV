@@ -10,10 +10,14 @@ from django.shortcuts import get_object_or_404
 
 from core.models import CellStatistics, SegmentedImage, UploadedImage
 from core.services.overlay_rendering import (
+    OVERLAY_LAYER_SCHEMA_VERSION,
     ensure_overlay_cache_image,
+    ensure_overlay_layer_cache_image,
     find_historical_overlay_cache_image_path,
     find_legacy_debug_image_path,
     normalize_overlay_channel,
+    normalize_overlay_family,
+    normalize_overlay_layer_channel,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,3 +108,54 @@ def cell_overlay_image(
             raise fallback_exc from exc
 
     return FileResponse(overlay_path.open("rb"), content_type="image/png")
+
+
+def cell_overlay_layer_image(
+    request: HttpRequest,
+    uuid: str,
+    cell_id: int,
+    schema_version: int,
+    family: str,
+    channel: str,
+) -> HttpResponse:
+    """Serve one lazily generated transparent logical-overlay layer."""
+
+    from .display import _can_access_display_uuid
+
+    if int(schema_version) != OVERLAY_LAYER_SCHEMA_VERSION:
+        raise Http404("Overlay layer not found")
+    try:
+        normalized_family = normalize_overlay_family(family)
+        normalized_channel = normalize_overlay_layer_channel(channel)
+    except ValueError as exc:
+        raise Http404("Overlay layer not found") from exc
+
+    uploaded_image = get_object_or_404(UploadedImage, uuid=uuid)
+    segmented_image = get_object_or_404(SegmentedImage, UUID=uuid)
+    if not _can_access_display_uuid(request, uploaded_image, segmented_image):
+        raise Http404("Overlay layer not found")
+
+    cell_stat = get_object_or_404(
+        CellStatistics.objects.select_related("segmented_image"),
+        segmented_image=segmented_image,
+        cell_id=cell_id,
+    )
+    try:
+        layer_path = ensure_overlay_layer_cache_image(
+            uuid,
+            cell_id,
+            normalized_family,
+            normalized_channel,
+            cell_stat=cell_stat,
+        )
+    except (
+        FileNotFoundError,
+        OSError,
+        KeyError,
+        TypeError,
+        ValueError,
+        CellStatistics.DoesNotExist,
+    ) as exc:
+        raise Http404("Overlay layer not found") from exc
+
+    return FileResponse(layer_path.open("rb"), content_type="image/png")

@@ -57,7 +57,7 @@ from core.views.home import (
     home,
     license_page,
 )
-from core.views.overlay import cell_overlay_image
+from core.views.overlay import cell_overlay_image, cell_overlay_layer_image
 from core.views.pre_process import (
     cancel_progress,
     get_progress,
@@ -153,6 +153,11 @@ urlpatterns = [
         'experiment/<str:uuid>/cell/<int:cell_id>/overlay/<str:channel>/',
         login_required(cell_overlay_image),
         name='cell_overlay_image',
+    ),
+    path(
+        'experiment/<str:uuid>/cell/<int:cell_id>/overlay-layer/v<int:schema_version>/<str:family>/<str:channel>/',
+        login_required(cell_overlay_layer_image),
+        name='cell_overlay_layer_image',
     ),
     path(
         'experiment/<str:uuid>/cell/<int:cell_id>/delete/',

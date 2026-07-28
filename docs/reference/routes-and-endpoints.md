@@ -196,6 +196,23 @@ This is a maintainer reference, not an end-user guide.
   - renders on demand through the existing server-side `get_stats()` path when the cache is missing
   - may still serve legacy `*_debug.png` files for older runs that predate overlay replay snapshots
 
+### `GET /experiment/<uuid>/cell/<cell_id>/overlay-layer/v<schema_version>/<family>/<channel>/`
+
+- Name: `cell_overlay_layer_image`
+- Auth: required
+- Purpose: lazily serve one transparent logical-overlay family layer for one
+  displayed cell channel
+- Schema: `v1`
+- Families: `cell-boundary`, `red-contours`, `green-contours`,
+  `blue-contour`, `analysis-annotations`
+- Display channels: family-dependent `dic`, `blue`, `red`, or `green`
+- Notes:
+  - applies the same saved ownership or transient-session access check as Display
+  - returns `404` for unauthorized, unsupported, legacy aggregate-only, or
+    unavailable family/channel requests
+  - uses a per-cell/family lock and atomic cache writes
+  - never saves a family-combination image and never updates `CellStatistics`
+
 ## API-Style Utility Routes
 
 ### `POST /api/update-channel-order/<uuid>/`

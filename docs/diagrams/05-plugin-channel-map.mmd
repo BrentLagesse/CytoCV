@@ -1,63 +1,60 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":24,"rankSpacing":40}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":32,"rankSpacing":46}}}%%
 flowchart LR
     classDef channel fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
-    classDef plugin fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
+    classDef modern fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef single fill:#f0f9ff,stroke:#38bdf8,color:#075985,stroke-width:1.2px;
     classDef legacy fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
     classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
-    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+    classDef note fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.1px,stroke-dasharray:4 3;
 
-    dic[DIC]
-    blue[Blue]
-    red[Red]
-    green[Green]
-
-    base[Base required channels<br/>DIC plus selected plugin inputs]
-    manual[Manual required channels<br/>module enabled only]
-    fullset[All-wavelength enforcement<br/>adds DIC, Blue, Red, Green]
-    effective[Effective required channel set]
-    validate[Upload validation]
-
-    subgraph modern[Modern plugins]
-        p1[PunctaDistance]
-        p2[CENDot]
-        p3[GreenRedIntensity]
-        p4[NuclearCellPairIntensity]
+    subgraph roles["1. Logical channel roles"]
+        direction TB
+        dic["DIC<br/>segmentation and mask reference"]
+        blue["Blue<br/>legacy nucleus paths"]
+        red["Red<br/>puncta and red anchors"]
+        green["Green<br/>puncta and CEN signal"]
     end
 
-    subgraph legacygroup[Legacy Blue plugins]
-        p5[NucleusIntensity<br/>legacy]
-        p6[BlueNucleusIntensity<br/>legacy]
-        p7[RedBlueIntensity<br/>legacy]
+    subgraph selection["2. User-selected analysis configuration"]
+        direction TB
+        plugins["Selected statistics plugins"]
+        signal["Signal quantification mode<br/>paired, red-only, or green-only"]
+        legacy["Optional legacy Blue plugins"]
     end
 
-    dic --> base
-    red --> p1
-    green --> p1
-    red --> p2
-    green --> p2
-    red --> p3
-    green --> p3
-    red --> p4
-    green --> p4
-    blue --> p5
-    green --> p5
-    blue --> p6
-    red --> p7
-    blue --> p7
-    p1 --> base
-    p2 --> base
-    p3 --> base
-    p4 --> base
-    p5 --> base
-    p6 --> base
-    p7 --> base
-    base --> effective
-    manual --> effective
-    fullset --> effective
-    effective --> validate
+    subgraph requirements["3. Required channel classes"]
+        direction TB
+        always["All enabled analyses<br/>require DIC"]
+
+        subgraph current["Current Red/Green paths"]
+            direction LR
+            paired["DIC + Red + Green<br/>PunctaDistance paired mode<br/>GreenRedIntensity<br/>CENDot<br/>Biorientation<br/>NuclearCellPairIntensity"]
+            redonly["DIC + Red<br/>Red-only puncta mode"]
+            greenonly["DIC + Green<br/>Green-only puncta mode"]
+        end
+
+        subgraph legacy_requirements["Legacy Blue paths"]
+            direction LR
+            bluegreen["DIC + Blue + Green<br/>NucleusIntensity legacy"]
+            blueonly["DIC + Blue<br/>BlueNucleusIntensity legacy"]
+            redblue["DIC + Red + Blue<br/>RedBlueIntensity legacy"]
+        end
+    end
+
+    subgraph validation["4. Validation result"]
+        direction TB
+        note["TIFF/DV metadata and manual mapping<br/>resolve source layers into logical roles"]
+        effective["Effective required roles<br/>union of enabled requirement classes"]
+        upload["Upload validation<br/>rejects missing required channels"]
+    end
+
+    roles --> selection --> requirements
+    requirements --> note
+    note --> effective --> upload
 
     class dic,blue,red,green channel
-    class base,manual,fullset,effective,validate process
-    class p1,p2,p3,p4 plugin
-    class p5,p6,p7 legacy
-
+    class paired modern
+    class redonly,greenonly single
+    class bluegreen,blueonly,redblue legacy
+    class always,plugins,signal,legacy,effective,upload process
+    class note note

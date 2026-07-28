@@ -661,6 +661,10 @@ class AccountDeletionIntegrationTests(TestCase):
             uuid_dir / f"{stem}.dv",
             uuid_dir / "output" / f"{stem}_frame_0.png",
             uuid_dir / "segmented" / "cell_1.png",
+            uuid_dir
+            / "segmented"
+            / "overlay-layers-v1"
+            / "cell-1-cell-boundary-dic.png",
             user_uuid_dir / f"{stem}.png",
         ]
         for path in paths:
@@ -831,14 +835,32 @@ class DashboardBulkDeleteTests(TestCase):
         self.assertTrue(UploadedImage.objects.filter(uuid=foreign_uuid).exists())
 
     def test_bulk_delete_removes_owned_files(self):
-        uuid_one = self._create_saved_file(self.user, "sample_one")
-        uuid_two = self._create_saved_file(self.user, "sample_two")
+        with TemporaryDirectory() as temp_media, patch(
+            "accounts.views.profile.MEDIA_ROOT",
+            temp_media,
+        ):
+            uuid_one = self._create_saved_file(self.user, "sample_one")
+            uuid_two = self._create_saved_file(self.user, "sample_two")
+            layer_paths = []
+            for file_uuid in (uuid_one, uuid_two):
+                layer_path = (
+                    Path(temp_media)
+                    / file_uuid
+                    / "segmented"
+                    / "overlay-layers-v1"
+                    / "cell-1-red-contours-green.png"
+                )
+                layer_path.parent.mkdir(parents=True, exist_ok=True)
+                layer_path.write_bytes(b"layer")
+                layer_paths.append(layer_path)
 
-        response = self.client.post(
-            reverse("dashboard_bulk_delete"),
-            data=json.dumps({"uuids": [uuid_one, uuid_two]}),
-            content_type="application/json",
-        )
+            response = self.client.post(
+                reverse("dashboard_bulk_delete"),
+                data=json.dumps({"uuids": [uuid_one, uuid_two]}),
+                content_type="application/json",
+            )
+
+            self.assertTrue(all(not path.exists() for path in layer_paths))
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -1398,7 +1420,8 @@ class DisplayManualSaveTests(TestCase):
         )
         self.assertContains(response, 'id="viewerPanel"', html=False)
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
-        self.assertContains(response, 'id="toggleContours"', html=False)
+        self.assertContains(response, 'id="overlayVisibilityControl"', html=False)
+        self.assertNotContains(response, 'id="toggleContours"', html=False)
         self.assertContains(response, 'id="statsTablePanel"', html=False)
         self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)
@@ -1481,7 +1504,8 @@ class DisplayManualSaveTests(TestCase):
         self.assertContains(response, 'class="main-content glass-shell"', html=False)
         self.assertContains(response, 'id="viewerPanel"', html=False)
         self.assertContains(response, 'id="mainChannelSwitcher"', html=False)
-        self.assertContains(response, 'id="toggleContours"', html=False)
+        self.assertContains(response, 'id="overlayVisibilityControl"', html=False)
+        self.assertNotContains(response, 'id="toggleContours"', html=False)
         self.assertContains(response, 'id="statsTablePanel"', html=False)
         self.assertContains(response, 'id="sidebarSpatialUnitToggle"', html=False)
         self.assertContains(response, 'id="tableFullscreenBtn"', html=False)

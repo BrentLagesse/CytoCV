@@ -70,7 +70,8 @@ Persistent segmentation-stage outputs include:
 - full-frame outlined PNGs in `output/`
 - segmented cell masks and crops in `segmented/`
 - `segmented/overlay-render-config.json`
-- `segmented/overlay-cache-v1/` exact fluorescence overlay PNG cache
+- `segmented/overlay-cache-v4/` exact aggregate fluorescence overlay PNG cache
+- `segmented/overlay-layers-v1/` lazy transparent logical-overlay layers
 - optional legacy fluorescence debug overlays
 - `SegmentedImage` row
 - `CellStatistics` rows
@@ -80,8 +81,21 @@ Performance note:
 - live analysis artifacts use a fast PNG save profile to reduce request/worker CPU cost
 - the old second-pass PNG optimization step is no longer part of the live analysis path
 - the display/dashboard fluorescence contour view is now driven by exact server replay through `get_stats()`, not by eagerly written debug PNGs
+- selective overlay rendering reuses the same replay configuration but draws
+  one logical family onto transparent canvases; only displayed channels affected
+  by a mixed selection switch to the existing no-outline crop and layers
+- DIC morphology is a single Cell boundary family extracted by exact
+  outlined/no-outline pixel difference, preserving the boundary, seam, and
+  anti-aliased mother/daughter labels without color-key assumptions
+- current family/channel applicability is sparse: Cell boundary on DIC; Red
+  and Green contour families on Blue, Red, and Green; Blue contour on Blue;
+  puncta Analysis annotations on available Red and/or Green crops
+- layer cache identity contains schema, cell, family, and displayed channel,
+  never a selected-family combination
 - debug overlays are disabled by default and should remain off in production unless raster debug exports are explicitly needed
-- in `worker` mode, the overlay cache is prewarmed during analysis completion so Gunicorn does not absorb contour replay cost on first view
+- in `worker` mode, the aggregate overlay cache is prewarmed during analysis
+  completion; selective layers remain lazy and are requested only when a mixed
+  visibility state needs them on an affected displayed channel
 
 ## Saved Versus Transient Retention
 
@@ -107,6 +121,12 @@ Artifact cleanup helpers include:
 
 Cleanup is designed to preserve the source upload and previews when only partial processing failed, and remove regenerable preprocessing artifacts after successful segmentation. The worker maintenance pass protects UUIDs that are still referenced by active upload-preparation or analysis jobs.
 
+Per-cell deletion explicitly removes aggregate overlay cache entries,
+`overlay-layers-v*` PNGs, and their cooperative lock files. File deletion,
+failed processing cleanup, stale transient run deletion, and account deletion
+remove the full run directory or namespace. A stale-run maintenance pass that
+retains a saved/current run also retains its overlay caches.
+
 ## Storage Accounting
 
 Quota projections and enforcement use:
@@ -115,6 +135,11 @@ Quota projections and enforcement use:
 - recalculated used and available storage
 - estimated bytes for candidate saved runs
 - average saved run size for projection
+
+Accounting recursively totals the run and retained user namespaces. Lazy
+aggregate and selective overlay caches therefore affect the next usage
+recalculation without a separate database counter. Transient guest runs do not
+count against an account until they are saved.
 
 ## Related Documents
 

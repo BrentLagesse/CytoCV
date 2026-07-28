@@ -1,80 +1,66 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":44}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":34,"rankSpacing":54}}}%%
 flowchart TD
     classDef actor fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
-    classDef presentation fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
-    classDef application fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
-    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef interface fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.3px;
+    classDef service fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef science fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef data fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
     classDef control fill:#f1f5f9,stroke:#64748b,color:#334155,stroke-width:1.2px;
-    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
 
-    user[User]
+    user[Research user]
+    browser[Browser interface<br/>upload, configure, review, export]
 
-    subgraph layer1[Layer 1. Presentation]
+    subgraph application["Django application layer"]
         direction LR
-        ui[Browser interface]
+        workflow[Workflow views<br/>Experiment, Preprocess, Display]
+        auth[Accounts and access control<br/>email, provider SSO, reCAPTCHA]
+        progress[Progress and cancellation API]
     end
 
-    subgraph layer2[Layer 2. Application and control]
+    subgraph jobs["Job coordination layer"]
         direction LR
-        workflow[Workflow views]
-        auth[Authentication and<br/>access control]
-        progress_api[Progress and<br/>cancellation control]
-        worker[Background worker<br/>upload prep and analysis]
+        upload_jobs[UploadPreparationJob<br/>validation and previews]
+        analysis_jobs[AnalysisJob<br/>preprocess, inference, statistics]
+        worker[Background worker<br/>or synchronous fallback]
     end
 
-    subgraph layer3[Layer 3. Scientific processing]
+    subgraph science["Scientific processing layer"]
         direction LR
-        metadata[DV metadata parsing<br/>and validation]
-        preview[Preview generation]
-        ml[Preprocessing and<br/>Mask R-CNN inference]
-        segmentation[Mask reconstruction<br/>and segmentation]
-        analysis[Plugin-based<br/>quantitative analysis]
-        retention[Artifact retention<br/>and cleanup]
+        ingestion[Source and metadata<br/>.dv and stack TIFF]
+        channel_scale[Channel and scale context<br/>DIC, Blue, Red, Green<br/>pixels or microns]
+        segmentation[DIC-guided segmentation<br/>preprocess, Mask R-CNN, masks]
+        quantification[Plugin statistics<br/>contours, distances, intensities,<br/>CEN, biorientation, nuclear]
+        retention[Artifact retention<br/>saved or transient]
     end
 
-    subgraph layer4[Layer 4. Persistence]
+    subgraph persistence["Persistence layer"]
         direction LR
-        db[(Database records<br/>UploadedImage, UploadPreparationJob,<br/>AnalysisJob, SegmentedImage,<br/>CellStatistics)]
-        media[(Run artifacts<br/>under MEDIA_ROOT)]
-        progress[(Progress and<br/>cancel files)]
-        weights[(Model weights)]
+        db[(Database<br/>runs, jobs, cells, statistics)]
+        media[(MEDIA_ROOT artifacts<br/>sources, previews, masks,<br/>crops, overlays)]
+        state[(Progress mirrors<br/>cancel markers, model weights)]
     end
 
-    user --> ui
-    ui --> workflow
-    ui --> auth
+    user --> browser --> workflow
     auth --> workflow
-    auth --> media
-    auth --> progress_api
-
-    workflow --> metadata
-    workflow --> preview
-    workflow --> ml
-    workflow --> worker
-    worker --> metadata
-    worker --> preview
-    worker --> ml
-    worker --> segmentation
-    worker --> retention
-    ml --> segmentation
-    segmentation --> analysis
-    workflow --> retention
-
+    workflow --> upload_jobs
+    workflow --> analysis_jobs
+    progress --> analysis_jobs
+    upload_jobs --> worker
+    analysis_jobs --> worker
+    worker --> ingestion --> channel_scale --> segmentation --> quantification --> retention
     workflow --> db
-    preview --> media
-    ml --> media
-    ml --> weights
+    jobs --> db
+    quantification --> db
+    ingestion --> media
     segmentation --> media
-    analysis --> db
-    analysis --> media
-    progress_api --> progress
-    retention --> db
+    quantification --> media
     retention --> media
+    progress --> state
+    segmentation --> state
 
     class user actor
-    class ui presentation
-    class workflow presentation
-    class auth,progress_api,worker application
-    class metadata,preview,ml,segmentation,analysis process
-    class retention control
-    class db,media,progress,weights data
+    class browser interface
+    class workflow,auth,upload_jobs,analysis_jobs,worker service
+    class progress,retention control
+    class ingestion,channel_scale,segmentation,quantification science
+    class db,media,state data

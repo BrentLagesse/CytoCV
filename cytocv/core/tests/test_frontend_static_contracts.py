@@ -346,6 +346,86 @@ class FrontendStaticContractTests(SimpleTestCase):
             results_css,
             r"\.cell-image\s*\{[^}]*width:\s*100%;[^}]*aspect-ratio:\s*1\s*/\s*1;[^}]*border-radius:\s*14px;",
         )
+        self.assertRegex(
+            results_css,
+            r"\.cell-image-frame\s+\.cell-image,\s*\.cell-overlay-layer\s*\{"
+            r"[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*width:\s*100%;"
+            r"[^}]*height:\s*100%;[^}]*object-fit:\s*contain;"
+            r"[^}]*object-position:\s*center;",
+        )
+        self.assertNotRegex(
+            results_css,
+            r"\.cell-overlay-layer\s*\{[^}]*object-fit:\s*fill;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-image-frame\s+\.cell-image\s*\{[^}]*z-index:\s*1;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.cell-overlay-layer\s*\{[^}]*z-index:\s*2;",
+        )
+        self.assertNotRegex(
+            results_css,
+            r"\.cell-overlay-layer\s*\{[^}]*transition:\s*opacity",
+        )
+
+    def test_overlay_visibility_control_uses_blue_filter_treatment(self):
+        results_css = static_text("css/components/results-viewer.css")
+
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-control\s*\{[^}]*width:\s*184px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-trigger\s*\{"
+            r"[^}]*width:\s*98px;"
+            r"[^}]*min-width:\s*98px;"
+            r"[^}]*border:\s*1px solid rgba\(0,\s*123,\s*255,\s*0\.64\);"
+            r"[^}]*background:\s*#007bff;"
+            r"[^}]*box-shadow:\s*inset 0 1px 0 rgba\(255,\s*255,\s*255,\s*0\.16\);",
+        )
+        self.assertNotIn(
+            '.overlay-visibility-trigger[aria-expanded="true"] .overlay-visibility-caret',
+            results_css,
+        )
+        self.assertNotRegex(
+            results_css,
+            r"\.overlay-visibility-caret\s*\{[^}]*transition:\s*transform",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-trigger:hover\s*\{[^}]*background:\s*#006fe6;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-option input\s*\{[^}]*accent-color:\s*#007bff;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-option:not\(:has\(input:disabled\)\):hover\s*\{"
+            r"[^}]*background:\s*rgba\(0,\s*122,\s*255,\s*0\.82\);"
+            r"[^}]*color:\s*#ffffff;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-actions button\s*\{"
+            r"[^}]*background:\s*transparent;"
+            r"[^}]*box-shadow:\s*none;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.overlay-visibility-actions button:hover,\s*"
+            r"\.overlay-visibility-actions button:focus-visible\s*\{"
+            r"[^}]*background:\s*rgba\(0,\s*122,\s*255,\s*0\.82\);"
+            r"[^}]*color:\s*#ffffff;"
+            r"[^}]*outline:\s*none;",
+        )
+        self.assertNotRegex(
+            results_css,
+            r"\.overlay-visibility-(?:trigger|option input)\s*\{[^}]*(?:#2f8f4e|#277b43|rgba\(73,\s*171,\s*104)",
+        )
 
     def test_cell_card_contour_filter_badge_uses_quiet_meta_styling(self):
         results_css = static_text("css/components/results-viewer.css")
@@ -394,6 +474,12 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertRegex(
             results_css,
             r"\.table-puncta-source-contour-filter\[data-puncta-source-contour-filter\]\s+\.table-filter-menu\s*\{[^}]*min-width:\s*104px;",
+        )
+        self.assertRegex(
+            results_css,
+            r"\.table-filter-menu button\s*\{"
+            r"[^}]*background:\s*transparent;"
+            r"[^}]*box-shadow:\s*none;",
         )
         self.assertRegex(
             results_css,
@@ -514,6 +600,13 @@ class FrontendStaticContractTests(SimpleTestCase):
         self.assertRegex(
             results_css,
             r"\.contour-intensity-toggle-btn\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;[^}]*width:\s*72px;[^}]*min-height:\s*24px;[^}]*border-radius:\s*6px;[^}]*white-space:\s*nowrap;",
+        )
+        self.assertRegex(
+            results_css,
+            r'\.contour-intensity-toggle-btn:not\(\.active\):not\(\[aria-pressed="true"\]\):not\(:hover\):not\(:focus-visible\)\s*\{'
+            r"[^}]*background:\s*transparent;"
+            r"[^}]*box-shadow:\s*none\s*!important;"
+            r"[^}]*filter:\s*none\s*!important;",
         )
         self.assertRegex(
             results_css,
