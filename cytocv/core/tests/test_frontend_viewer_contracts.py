@@ -144,12 +144,44 @@ class FrontendViewerContractTests(TestCase):
                 self.assertEqual(source.count("cellDataRegionLoadingController.run(async () => {"), 4)
                 update_cell_images_start = source.index("async function updateCellImages")
                 update_cell_images_end = source.index(
-                    "async function handleContourToggleChange",
+                    "async function handleOverlayVisibilityChange",
                     update_cell_images_start,
                 )
                 update_cell_images_block = source[update_cell_images_start:update_cell_images_end]
                 self.assertNotIn("setCellDataRegionLoading", update_cell_images_block)
                 self.assertNotIn("cellDataRegionLoadingController", update_cell_images_block)
+
+    def test_overlay_visibility_changes_preload_only_changed_images_without_blending(self):
+        shared_source = static_text("js/shared/results-viewer.js")
+        self.assertIn("function getMissingCellImageStackUrls", shared_source)
+        self.assertIn("renderState?.preloadUrls || []", shared_source)
+        self.assertIn("!currentUrls.has(url)", shared_source)
+        self.assertNotIn("is-overlay-layer-entering", shared_source)
+        self.assertNotIn("is-overlay-layer-leaving", shared_source)
+
+        for page_name, source in (
+            ("display", static_text("js/pages/display-viewer.js")),
+            ("dashboard", static_text("js/pages/dashboard-viewer.js")),
+        ):
+            with self.subTest(page=page_name):
+                self.assertIn("getMissingCellImageStackUrls,", source)
+                self.assertIn("const shouldPreloadImages = (", source)
+                self.assertIn("options.preload === true", source)
+                self.assertIn("options.preloadChangedOnly", source)
+                handler_start = source.index("async function handleOverlayVisibilityChange")
+                handler_end = source.index("async function nextFile()", handler_start)
+                handler = source[handler_start:handler_end]
+                self.assertIn("blendImages: false", handler)
+                self.assertIn("preload: true", handler)
+                self.assertIn("preloadChangedOnly: true", handler)
+                self.assertNotIn("animateLayers", handler)
+                self.assertIn("const updated = await updateCellImages", handler)
+                self.assertIn("!updated", handler)
+                self.assertIn("getOverlaySelectionSignature(selection)", handler)
+                self.assertIn(
+                    "getOverlaySelectionSignature(overlayVisibilityController.getSelected())",
+                    handler,
+                )
 
     def test_row_filter_menus_close_when_pointer_moves_away(self):
         shared_source = static_text("js/shared/results-viewer.js")
@@ -226,7 +258,7 @@ class FrontendViewerContractTests(TestCase):
                     "updateTableState(fileUUID, fileData)",
                 )
                 previous_cell_start = next_cell_end
-                previous_cell_end = source.index("let contourToggleBound", previous_cell_start)
+                previous_cell_end = source.index("// Sidebar elements", previous_cell_start)
                 assert_in_order(
                     self,
                     source[previous_cell_start:previous_cell_end],

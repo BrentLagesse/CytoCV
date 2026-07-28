@@ -1,21 +1,21 @@
 {# Shared cell metrics card. IDs and data-cell-card-section values are updated by results-viewer.js. #}
 <div class="cell-stats-strip" data-ui-region="cell-metrics-strip" data-cell-card-root data-cell-card-mode="puncta_distance">
     <div class="cell-stats-top-grid" data-ui-region="cell-metrics-top">
-        {# Reference section always remains available so contour-toggle state can be displayed. #}
+        {# Reference section always remains available so overlay visibility can be displayed. #}
         <div class="cell-stats-section reference-stat-section" data-cell-card-section="reference">
             <div class="metric-lead-row">
                 <p class="metric-lead">Reference Channel</p>
                 <span
                     class="selection-info-dot metric-info-dot"
-                    data-info-text="Shows the brightfield/DIC reference used to inspect cell outlines and segmentation overlays. Contours indicates whether the detected cell-pair outline is currently visible on the cell images."
+                    data-info-text="Shows the brightfield/DIC reference used to inspect cell outlines and display-only overlays. Overlay visibility does not change measurements or segmentation."
                     aria-label="Reference Channel Details"
                     title="Reference Channel Details"
                 >i</span>
             </div>
             <p class="metric-note">Brightfield morphology reference.</p>
             <div class="metric-row">
-                <span class="metric-label">Contours</span>
-                <span class="metric-value" id="contourStateValue">On</span>
+                <span class="metric-label">Overlays</span>
+                <span class="metric-value" data-overlay-state-value>All</span>
             </div>
         </div>
         {# Nuclear section IDs mirror JSON keys produced by cell_statistics_payload.py. #}

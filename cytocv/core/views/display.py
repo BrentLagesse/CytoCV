@@ -62,7 +62,11 @@ from core.services.artifact_paths import (
 )
 from core.services.main_image_urls import build_main_image_paths
 from core.services.channel_presence import get_channel_presence
-from core.services.overlay_rendering import build_overlay_image_url, overlay_image_available
+from core.services.overlay_rendering import (
+    build_overlay_image_url,
+    build_overlay_layer_contract,
+    overlay_image_available,
+)
 from core.services.result_view_payloads import (
     RESULT_CHANNEL_ORDER,
     channel_config_payload,
@@ -320,6 +324,44 @@ def display(request, uuids):
                     if path.stem.split('_', 1)[1].isdigit()
                 )
             number_of_cells = len(cell_ids)
+            segmented_dir = Path(MEDIA_ROOT) / str(uuid) / 'segmented'
+            available_result_channels = {
+                channel_name
+                for channel_name in channel_order
+                if channel_config.get(channel_name) is not None
+                and (
+                    present_channels is None
+                    or channel_name in present_channels
+                )
+                and any(
+                    (
+                        segmented_dir
+                        / (
+                            f"{image_name_stem}-{channel_config[channel_name]}-"
+                            f"{cell_id}-no_outline.png"
+                        )
+                    ).exists()
+                    for cell_id in cell_ids
+                )
+            }
+            dic_channel_index = channel_config.get(CHANNEL_ROLE_DIC)
+            cell_boundary_available = (
+                dic_channel_index is not None
+                and any(
+                    (
+                        segmented_dir
+                        / f"{image_name_stem}-{dic_channel_index}-{cell_id}.png"
+                    ).exists()
+                    and (
+                        segmented_dir
+                        / (
+                            f"{image_name_stem}-{dic_channel_index}-{cell_id}"
+                            "-no_outline.png"
+                        )
+                    ).exists()
+                    for cell_id in cell_ids
+                )
+            )
             no_cells_warning = None
             if number_of_cells == 0:
                 no_cells_warning = (
@@ -440,6 +482,12 @@ def display(request, uuids):
                 'MainImagePaths': main_image_paths,
                 'NumberOfCells': number_of_cells,
                 'CellPairImages': images,
+                'OverlayLayers': build_overlay_layer_contract(
+                    str(uuid),
+                    available_channels=available_result_channels,
+                    aggregate_available=number_of_cells > 0,
+                    cell_boundary_available=cell_boundary_available,
+                ),
                 'Image_Name': image_name,
                 'ScaleContext': scale_context,
                 'ChannelConfig': channel_config_payload(channel_config),

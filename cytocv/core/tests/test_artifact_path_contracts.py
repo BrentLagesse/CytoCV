@@ -25,6 +25,7 @@ from core.services.artifact_storage import (
 from core.services.neck_split import manifest_path, sidecar_path
 from core.services.overlay_rendering import (
     overlay_cache_image_path,
+    overlay_layer_cache_image_path,
     overlay_render_config_path,
 )
 
@@ -151,3 +152,16 @@ class ArtifactPathContractTests(SimpleTestCase):
                             / "overlay-cache-v4"
                             / f"cell-{cell_id}-{channel}.png",
                         )
+                self.assertEqual(
+                    overlay_layer_cache_image_path(
+                        str(run_uuid),
+                        cell_id,
+                        "redContours",
+                        "green",
+                    ),
+                    media_root
+                    / str(run_uuid)
+                    / "segmented"
+                    / "overlay-layers-v1"
+                    / f"cell-{cell_id}-red-contours-green.png",
+                )

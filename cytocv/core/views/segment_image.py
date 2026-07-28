@@ -370,6 +370,8 @@ def get_stats(
     contour_main_image_shape=None,
     nuclear_cell_pair_contour_mode=None,
     legacy_exact_cell_pair_mask=None,
+    overlay_visibility=None,
+    transparent_overlay_canvas=False,
 ):
     """Calculate configured statistics and return red/green/blue overlay images.
 
@@ -451,6 +453,21 @@ def get_stats(
         )
     selected_plugins = list(execution_plan.selected_plugins)
     selected_plugin_set = set(selected_plugins)
+    overlay_family_defaults = {
+        "cellBoundary": True,
+        "redContours": True,
+        "greenContours": True,
+        "blueContour": True,
+        "analysisAnnotations": True,
+    }
+    overlay_family_visibility = {
+        family: (
+            value
+            if isinstance((value := (overlay_visibility or {}).get(family)), bool)
+            else default
+        )
+        for family, default in overlay_family_defaults.items()
+    }
     raw_alternate_detection_channel = (
         alternate_detection_channel
         or conf.get("alternate_nucleus_detection_channel")
@@ -530,6 +547,8 @@ def get_stats(
         """Return a drawable BGR canvas for a channel, falling back to reference."""
 
         base = images.get(channel_key, reference)
+        if transparent_overlay_canvas:
+            return np.zeros_like(ensure_3channel_bgr(np.asarray(base)))
         return ensure_3channel_bgr(np.array(base, copy=True))
 
     edit_red_img = _canvas_for("red")
@@ -676,6 +695,7 @@ def get_stats(
     _store_contour_count_metadata(contours_data)
     if (
         settings.SEGMENT_SAVE_DEBUG_ARTIFACTS
+        and not transparent_overlay_canvas
         and effective_alternate_enabled
         and effective_alternate_channel == CHANNEL_ROLE_RED
         and nuclear_cell_pair_contour_mode == NUCLEAR_CELL_PAIR_CONTOUR_MODE_AGGRESSIVE
@@ -722,26 +742,52 @@ def get_stats(
         contour_center_context,
     )
 
-    if canonical_red_contours and suppressed_overlay_channel != CHANNEL_ROLE_RED:
+    if (
+        overlay_family_visibility["redContours"]
+        and canonical_red_contours
+        and suppressed_overlay_channel != CHANNEL_ROLE_RED
+    ):
         cv2.drawContours(edit_red_img, canonical_red_contours, -1, (0, 0, 255), 1)
         cv2.drawContours(edit_green_img, canonical_red_contours, -1, (0, 0, 255), 1)
         cv2.drawContours(edit_blue_img, canonical_red_contours, -1, (0, 0, 255), 1)
 
-    if canonical_blue_contours:
+    if overlay_family_visibility["blueContour"] and canonical_blue_contours:
         cv2.drawContours(edit_blue_img, canonical_blue_contours, -1, (255, 0, 0), 1)
 
-    if canonical_green_contours and suppressed_overlay_channel != CHANNEL_ROLE_GREEN:
+    if (
+        overlay_family_visibility["greenContours"]
+        and canonical_green_contours
+        and suppressed_overlay_channel != CHANNEL_ROLE_GREEN
+    ):
         cv2.drawContours(edit_red_img, canonical_green_contours, -1, (0, 255, 0), 1)
         cv2.drawContours(edit_green_img, canonical_green_contours, -1, (0, 255, 0), 1)
         cv2.drawContours(edit_blue_img, canonical_green_contours, -1, (0, 255, 0), 1)
 
-    for analysis in execution_plan.analyses:
+    for plugin_id, analysis in zip(
+        execution_plan.selected_plugins,
+        execution_plan.analyses,
+    ):
         analysis.setting_up(cp, preprocessed_images, output_dir)
+        plugin_red_canvas = edit_red_img
+        plugin_green_canvas = edit_green_img
+        if plugin_id == PUNCTA_DISTANCE_PLUGIN:
+            if not overlay_family_visibility["analysisAnnotations"]:
+                plugin_red_canvas = None
+                plugin_green_canvas = None
+        elif plugin_id == NUCLEAR_CELL_PAIR_PLUGIN:
+            nucleus_family = (
+                "redContours"
+                if cp.properties.get("nuclear_cell_pair_mode") == "red_nucleus"
+                else "greenContours"
+            )
+            if not overlay_family_visibility[nucleus_family]:
+                plugin_red_canvas = None
+                plugin_green_canvas = None
         analysis.calculate_statistics(
             {},
             contours_data,
-            edit_red_img,
-            edit_green_img,
+            plugin_red_canvas,
+            plugin_green_canvas,
             puncta_line_width,
             cen_dot_distance,
             cen_dot_proximity_radius,

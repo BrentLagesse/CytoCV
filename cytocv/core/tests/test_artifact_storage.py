@@ -41,6 +41,7 @@ from core.services.artifact_storage import (
     PREVIEW_FOLDER_NAME,
     StorageQuotaExceeded,
     assert_user_can_save_runs,
+    cleanup_failed_processing_artifacts,
     cleanup_transient_processing_artifacts,
     ensure_preview_assets,
     generate_preview_assets,
@@ -335,6 +336,31 @@ class StorageCapacityHelperTests(ArtifactStorageTestCase):
 
             self.assertEqual(get_run_storage_bytes(str(uploaded.uuid)), 98)
 
+    def test_overlay_layer_cache_bytes_are_included_in_run_usage_and_projection(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="layer-quota")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=self.user.id,
+                name="layer-quota",
+            )
+            layer_path = (
+                media_root
+                / str(uploaded.uuid)
+                / "segmented"
+                / "overlay-layers-v1"
+                / "cell-1-red-contours-green.png"
+            )
+            self._write_bytes(layer_path, 37)
+            self.user.total_storage = 100
+            self.user.save(update_fields=["total_storage"])
+
+            projection = get_user_storage_projection(self.user)
+
+            self.assertEqual(get_run_storage_bytes(str(uploaded.uuid)), 39)
+            self.assertEqual(projection["used_storage"], 39)
+            self.assertEqual(projection["available_storage"], 61)
+
     def test_get_user_storage_projection_returns_average_and_capacity(self):
         with temporary_media_root() as media_root:
             first = self._create_uploaded_image(media_root, name="projection_first")
@@ -413,6 +439,13 @@ class ArtifactSweepTests(ArtifactStorageTestCase):
             run_dir = media_root / str(uploaded.uuid)
             self._create_png(run_dir / PRE_PROCESS_FOLDER_NAME / "saved_run.png")
             (run_dir / "compressed_masks.csv").write_text("mask", encoding="utf-8")
+            layer_path = (
+                run_dir
+                / "segmented"
+                / "overlay-layers-v1"
+                / "cell-1-cell-boundary-dic.png"
+            )
+            self._create_png(layer_path)
 
             result = sweep_user_run_artifacts(self.user)
 
@@ -422,6 +455,32 @@ class ArtifactSweepTests(ArtifactStorageTestCase):
             self.assertTrue(SegmentedImage.objects.filter(UUID=uploaded.uuid).exists())
             self.assertFalse((run_dir / PRE_PROCESS_FOLDER_NAME).exists())
             self.assertFalse((run_dir / PREVIEW_FOLDER_NAME).exists())
+            self.assertTrue(layer_path.exists())
+
+    def test_failed_processing_cleanup_removes_overlay_layer_directory(self):
+        with temporary_media_root() as media_root:
+            uploaded = self._create_uploaded_image(media_root, name="failed-layer")
+            self._create_segmented_image(
+                uuid_value=str(uploaded.uuid),
+                owner_id=get_guest_user(),
+                name="failed-layer",
+            )
+            layer_path = (
+                media_root
+                / str(uploaded.uuid)
+                / "segmented"
+                / "overlay-layers-v1"
+                / "cell-1-red-contours-green.png"
+            )
+            self._create_png(layer_path)
+
+            changed = cleanup_failed_processing_artifacts(str(uploaded.uuid))
+
+            self.assertTrue(changed)
+            self.assertFalse(layer_path.exists())
+            self.assertTrue(
+                (media_root / str(uploaded.uuid) / "failed-layer.dv").exists()
+            )
 
     def test_sweep_user_run_artifacts_deletes_stale_incomplete_upload(self):
         with temporary_media_root() as media_root:
@@ -455,6 +514,14 @@ class ArtifactSweepTests(ArtifactStorageTestCase):
             )
             (media_root / str(uploaded.uuid) / "output").mkdir(parents=True, exist_ok=True)
             self._create_png(media_root / str(uploaded.uuid) / "output" / "stale_unsaved_frame_0.png")
+            stale_layer = (
+                media_root
+                / str(uploaded.uuid)
+                / "segmented"
+                / "overlay-layers-v1"
+                / "cell-1-analysis-annotations-red.png"
+            )
+            self._create_png(stale_layer)
 
             result = sweep_user_run_artifacts(self.user)
 
@@ -462,6 +529,7 @@ class ArtifactSweepTests(ArtifactStorageTestCase):
             self.assertFalse(UploadedImage.objects.filter(uuid=uploaded.uuid).exists())
             self.assertFalse(SegmentedImage.objects.filter(UUID=uploaded.uuid).exists())
             self.assertFalse((media_root / str(uploaded.uuid)).exists())
+            self.assertFalse(stale_layer.exists())
 
     def test_sweep_user_run_artifacts_keeps_protected_unsaved_run(self):
         with temporary_media_root() as media_root:

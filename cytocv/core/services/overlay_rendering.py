@@ -67,6 +67,41 @@ OVERLAY_BASE_CHANNELS = (
 OVERLAY_RENDER_CHANNELS = tuple(OVERLAY_CHANNEL_LABELS.keys())
 OVERLAY_CACHE_LOCK_POLL_SECONDS = 0.05
 OVERLAY_CACHE_LOCK_STALE_SECONDS = 45.0
+OVERLAY_LAYER_SCHEMA_VERSION = 1
+OVERLAY_LAYER_CACHE_DIR_PREFIX = "overlay-layers-v"
+OVERLAY_LAYER_CACHE_DIRNAME = (
+    f"{OVERLAY_LAYER_CACHE_DIR_PREFIX}{OVERLAY_LAYER_SCHEMA_VERSION}"
+)
+OVERLAY_FAMILY_CELL_BOUNDARY = "cellBoundary"
+OVERLAY_FAMILY_RED_CONTOURS = "redContours"
+OVERLAY_FAMILY_GREEN_CONTOURS = "greenContours"
+OVERLAY_FAMILY_BLUE_CONTOUR = "blueContour"
+OVERLAY_FAMILY_ANALYSIS_ANNOTATIONS = "analysisAnnotations"
+OVERLAY_LAYER_FAMILIES = (
+    OVERLAY_FAMILY_CELL_BOUNDARY,
+    OVERLAY_FAMILY_RED_CONTOURS,
+    OVERLAY_FAMILY_GREEN_CONTOURS,
+    OVERLAY_FAMILY_BLUE_CONTOUR,
+    OVERLAY_FAMILY_ANALYSIS_ANNOTATIONS,
+)
+OVERLAY_LAYER_FAMILY_SLUGS = {
+    OVERLAY_FAMILY_CELL_BOUNDARY: "cell-boundary",
+    OVERLAY_FAMILY_RED_CONTOURS: "red-contours",
+    OVERLAY_FAMILY_GREEN_CONTOURS: "green-contours",
+    OVERLAY_FAMILY_BLUE_CONTOUR: "blue-contour",
+    OVERLAY_FAMILY_ANALYSIS_ANNOTATIONS: "analysis-annotations",
+}
+OVERLAY_LAYER_FAMILY_BY_SLUG = {
+    slug: family for family, slug in OVERLAY_LAYER_FAMILY_SLUGS.items()
+}
+OVERLAY_LAYER_CHANNELS = ("dic", "blue", "red", "green")
+OVERLAY_LAYER_TARGET_CHANNELS = {
+    OVERLAY_FAMILY_CELL_BOUNDARY: ("dic",),
+    OVERLAY_FAMILY_RED_CONTOURS: ("blue", "red", "green"),
+    OVERLAY_FAMILY_GREEN_CONTOURS: ("blue", "red", "green"),
+    OVERLAY_FAMILY_BLUE_CONTOUR: ("blue",),
+    OVERLAY_FAMILY_ANALYSIS_ANNOTATIONS: ("red", "green"),
+}
 
 
 def _normalize_render_config_payload(payload: dict[str, object]) -> dict[str, object]:
@@ -179,6 +214,77 @@ def overlay_cache_lock_path(run_uuid: str, cell_id: int) -> Path:
     return overlay_cache_dir(run_uuid) / f"cell-{int(cell_id)}.lock"
 
 
+def normalize_overlay_family(family: str) -> str:
+    """Normalize a public overlay-family key or path slug."""
+
+    raw = str(family or "").strip()
+    if raw in OVERLAY_LAYER_FAMILIES:
+        return raw
+    normalized_slug = raw.lower().replace("_", "-")
+    normalized = OVERLAY_LAYER_FAMILY_BY_SLUG.get(normalized_slug)
+    if normalized is None:
+        raise ValueError(f"Unsupported overlay family: {family}")
+    return normalized
+
+
+def normalize_overlay_layer_channel(channel: str) -> str:
+    """Normalize a displayed result channel for a transparent overlay layer."""
+
+    normalized_role = normalize_channel_role(channel)
+    if normalized_role == CHANNEL_ROLE_DIC:
+        return "dic"
+    if normalized_role in {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN, CHANNEL_ROLE_BLUE}:
+        return channel_slug(normalized_role)
+    normalized = str(channel or "").strip().lower()
+    if normalized not in OVERLAY_LAYER_CHANNELS:
+        raise ValueError(f"Unsupported overlay layer channel: {channel}")
+    return normalized
+
+
+def overlay_layer_cache_dir(run_uuid: str) -> Path:
+    """Return the schema-versioned transparent overlay-layer directory."""
+
+    return (
+        Path(settings.MEDIA_ROOT)
+        / str(run_uuid)
+        / "segmented"
+        / OVERLAY_LAYER_CACHE_DIRNAME
+    )
+
+
+def overlay_layer_cache_image_path(
+    run_uuid: str,
+    cell_id: int,
+    family: str,
+    channel: str,
+) -> Path:
+    """Return one stable transparent layer cache path."""
+
+    normalized_family = normalize_overlay_family(family)
+    normalized_channel = normalize_overlay_layer_channel(channel)
+    family_slug = OVERLAY_LAYER_FAMILY_SLUGS[normalized_family]
+    if normalized_channel not in OVERLAY_LAYER_TARGET_CHANNELS[normalized_family]:
+        raise ValueError(
+            f"Overlay family {normalized_family} does not apply to {normalized_channel}"
+        )
+    return (
+        overlay_layer_cache_dir(run_uuid)
+        / f"cell-{int(cell_id)}-{family_slug}-{normalized_channel}.png"
+    )
+
+
+def overlay_layer_cache_lock_path(
+    run_uuid: str,
+    cell_id: int,
+    family: str,
+) -> Path:
+    """Return the cooperative per-cell/family layer lock path."""
+
+    normalized_family = normalize_overlay_family(family)
+    family_slug = OVERLAY_LAYER_FAMILY_SLUGS[normalized_family]
+    return overlay_layer_cache_dir(run_uuid) / f"cell-{int(cell_id)}-{family_slug}.lock"
+
+
 def build_overlay_image_url(run_uuid: str, cell_id: int, channel: str) -> str:
     """Build the protected dynamic overlay endpoint URL for viewer payloads."""
 
@@ -190,6 +296,136 @@ def build_overlay_image_url(run_uuid: str, cell_id: int, channel: str) -> str:
             "channel": normalize_overlay_channel(channel),
         },
     )
+
+
+def build_overlay_layer_image_url(
+    run_uuid: str,
+    cell_id: int,
+    family: str,
+    channel: str,
+) -> str:
+    """Build one protected transparent overlay-layer endpoint URL."""
+
+    normalized_family = normalize_overlay_family(family)
+    normalized_channel = normalize_overlay_layer_channel(channel)
+    if normalized_channel not in OVERLAY_LAYER_TARGET_CHANNELS[normalized_family]:
+        raise ValueError(
+            f"Overlay family {normalized_family} does not apply to {normalized_channel}"
+        )
+    return reverse(
+        "cell_overlay_layer_image",
+        kwargs={
+            "uuid": str(run_uuid),
+            "cell_id": int(cell_id),
+            "schema_version": OVERLAY_LAYER_SCHEMA_VERSION,
+            "family": OVERLAY_LAYER_FAMILY_SLUGS[normalized_family],
+            "channel": normalized_channel,
+        },
+    )
+
+
+def build_overlay_layer_contract(
+    run_uuid: str,
+    *,
+    available_channels: set[str] | tuple[str, ...] | list[str],
+    aggregate_available: bool,
+    cell_boundary_available: bool | None = None,
+) -> dict[str, object]:
+    """Return the compact versioned frontend contract for one run's layers."""
+
+    normalized_channels = {
+        normalized
+        for channel in available_channels or ()
+        if (normalized := normalize_channel_role(channel)) is not None
+    }
+    selective = overlay_render_config_supported(run_uuid)
+    selected_analysis: set[str] = set()
+    if selective:
+        try:
+            selected_analysis = {
+                str(value)
+                for value in load_overlay_render_config(run_uuid).get(
+                    "selected_analysis", []
+                )
+                if str(value)
+            }
+        except (FileNotFoundError, OSError, TypeError, ValueError):
+            selective = False
+
+    has_analysis = bool(selected_analysis)
+    has_cell_boundary_source = (
+        CHANNEL_ROLE_DIC in normalized_channels
+        if cell_boundary_available is None
+        else bool(cell_boundary_available)
+    )
+    available_families = {
+        OVERLAY_FAMILY_CELL_BOUNDARY: (
+            selective and has_cell_boundary_source
+        ),
+        OVERLAY_FAMILY_RED_CONTOURS: (
+            selective
+            and has_analysis
+            and CHANNEL_ROLE_RED in normalized_channels
+        ),
+        OVERLAY_FAMILY_GREEN_CONTOURS: (
+            selective
+            and has_analysis
+            and CHANNEL_ROLE_GREEN in normalized_channels
+        ),
+        OVERLAY_FAMILY_BLUE_CONTOUR: (
+            selective
+            and has_analysis
+            and CHANNEL_ROLE_BLUE in normalized_channels
+        ),
+        OVERLAY_FAMILY_ANALYSIS_ANNOTATIONS: (
+            selective
+            and "PunctaDistance" in selected_analysis
+            and bool(
+                {CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN} & normalized_channels
+            )
+        ),
+    }
+    # A current replay snapshot alone is insufficient when none of the source
+    # crop pairs needed by selective rendering survive. Treat that file as
+    # aggregate-only so the default state still resolves to its best outline.
+    selective = selective and any(available_families.values())
+
+    role_by_slug = {
+        "dic": CHANNEL_ROLE_DIC,
+        "blue": CHANNEL_ROLE_BLUE,
+        "red": CHANNEL_ROLE_RED,
+        "green": CHANNEL_ROLE_GREEN,
+    }
+    layer_url_templates: dict[str, dict[str, str]] = {}
+    if selective:
+        for family in OVERLAY_LAYER_FAMILIES:
+            if not available_families[family]:
+                continue
+            channel_templates: dict[str, str] = {}
+            for channel in OVERLAY_LAYER_TARGET_CHANNELS[family]:
+                if role_by_slug[channel] not in normalized_channels:
+                    continue
+                template = build_overlay_layer_image_url(
+                    run_uuid,
+                    0,
+                    family,
+                    channel,
+                )
+                channel_templates[channel] = template.replace(
+                    "/cell/0/",
+                    "/cell/{cellId}/",
+                    1,
+                )
+            if channel_templates:
+                layer_url_templates[family] = channel_templates
+
+    return {
+        "schemaVersion": OVERLAY_LAYER_SCHEMA_VERSION,
+        "selective": selective,
+        "aggregateAvailable": bool(aggregate_available),
+        "availableFamilies": available_families,
+        "layerUrlTemplates": layer_url_templates,
+    }
 
 
 def build_overlay_render_config(
@@ -558,6 +794,8 @@ def render_overlay_images_for_cell(
     render_config: dict[str, object],
     *,
     cached_images: dict[str, np.ndarray] | None = None,
+    overlay_visibility: dict[str, bool] | None = None,
+    transparent_canvas: bool = False,
 ) -> dict[str, Image.Image]:
     """Replay ``get_stats`` to render contour-on fluorescence overlays."""
 
@@ -654,6 +892,8 @@ def render_overlay_images_for_cell(
         cached_images=images_to_use,
         alternate_detection_channel=overlay_conf["alternate_nucleus_detection_channel"],
         nuclear_cell_pair_contour_mode=overlay_conf["nuclear_cell_pair_contour_mode"],
+        overlay_visibility=overlay_visibility,
+        transparent_overlay_canvas=transparent_canvas,
     )
     return {
         "red": debug_red,
@@ -722,6 +962,168 @@ def persist_debug_overlay_exports(
     return written
 
 
+def _transparent_rgba_from_annotation_canvas(image: Image.Image) -> Image.Image:
+    """Convert a black annotation canvas into a transparent RGBA layer."""
+
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    alpha = np.where(np.any(rgb != 0, axis=2), 255, 0).astype(np.uint8)
+    rgba = np.dstack((rgb, alpha))
+    return Image.fromarray(rgba)
+
+
+def _dic_overlay_layer_image(
+    run_uuid: str,
+    cell_id: int,
+    render_config: dict[str, object],
+) -> Image.Image:
+    """Extract the complete DIC morphology family without color classification."""
+
+    image_stem = str(render_config["image_stem"])
+    channel_config = {
+        normalize_channel_role(channel_name) or str(channel_name): int(channel_index)
+        for channel_name, channel_index in dict(
+            render_config.get("channel_config", {})
+        ).items()
+    }
+    channel_index = channel_config.get(CHANNEL_ROLE_DIC)
+    if channel_index is None:
+        raise FileNotFoundError("DIC crop is unavailable")
+
+    segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
+    outlined_path = segmented_dir / f"{image_stem}-{channel_index}-{int(cell_id)}.png"
+    base_path = (
+        segmented_dir
+        / f"{image_stem}-{channel_index}-{int(cell_id)}-no_outline.png"
+    )
+    with Image.open(outlined_path) as outlined_source:
+        outlined = np.asarray(outlined_source.convert("RGB"), dtype=np.uint8)
+    with Image.open(base_path) as base_source:
+        base = np.asarray(base_source.convert("RGB"), dtype=np.uint8)
+    if outlined.shape != base.shape:
+        raise ValueError("DIC outlined and no-outline crops have different dimensions")
+
+    changed = np.any(outlined != base, axis=2)
+    alpha = np.where(changed, 255, 0).astype(np.uint8)
+    layer_rgb = np.where(changed[:, :, np.newaxis], outlined, 0).astype(np.uint8)
+    rgba = np.dstack((layer_rgb, alpha))
+    return Image.fromarray(rgba)
+
+
+def render_overlay_layer_images_for_family(
+    run_uuid: str,
+    cell_stat: CellStatistics,
+    render_config: dict[str, object],
+    family: str,
+) -> dict[str, Image.Image]:
+    """Render every applicable displayed-channel layer for one logical family."""
+
+    normalized_family = normalize_overlay_family(family)
+    selected_analysis = {
+        str(value)
+        for value in render_config.get("selected_analysis", [])
+        if str(value)
+    }
+    configured_roles = {
+        normalize_channel_role(channel_name)
+        for channel_name in dict(render_config.get("channel_config", {}))
+    }
+    family_supported = {
+        OVERLAY_FAMILY_CELL_BOUNDARY: CHANNEL_ROLE_DIC in configured_roles,
+        OVERLAY_FAMILY_RED_CONTOURS: (
+            bool(selected_analysis) and CHANNEL_ROLE_RED in configured_roles
+        ),
+        OVERLAY_FAMILY_GREEN_CONTOURS: (
+            bool(selected_analysis) and CHANNEL_ROLE_GREEN in configured_roles
+        ),
+        OVERLAY_FAMILY_BLUE_CONTOUR: (
+            bool(selected_analysis) and CHANNEL_ROLE_BLUE in configured_roles
+        ),
+        OVERLAY_FAMILY_ANALYSIS_ANNOTATIONS: (
+            "PunctaDistance" in selected_analysis
+            and bool({CHANNEL_ROLE_RED, CHANNEL_ROLE_GREEN} & configured_roles)
+        ),
+    }
+    if not family_supported[normalized_family]:
+        raise FileNotFoundError("Overlay family is unavailable for this run")
+    if normalized_family == OVERLAY_FAMILY_CELL_BOUNDARY:
+        return {
+            "dic": _dic_overlay_layer_image(
+                run_uuid,
+                int(cell_stat.cell_id),
+                render_config,
+            )
+        }
+
+    visibility = {family_key: False for family_key in OVERLAY_LAYER_FAMILIES}
+    visibility[normalized_family] = True
+    rendered = render_overlay_images_for_cell(
+        run_uuid,
+        cell_stat,
+        render_config,
+        overlay_visibility=visibility,
+        transparent_canvas=True,
+    )
+
+    image_stem = str(render_config["image_stem"])
+    channel_config = {
+        normalize_channel_role(channel_name) or str(channel_name): int(channel_index)
+        for channel_name, channel_index in dict(
+            render_config.get("channel_config", {})
+        ).items()
+    }
+    role_by_slug = {
+        "blue": CHANNEL_ROLE_BLUE,
+        "red": CHANNEL_ROLE_RED,
+        "green": CHANNEL_ROLE_GREEN,
+    }
+    segmented_dir = Path(settings.MEDIA_ROOT) / str(run_uuid) / "segmented"
+    layers: dict[str, Image.Image] = {}
+    for channel in OVERLAY_LAYER_TARGET_CHANNELS[normalized_family]:
+        if channel == "dic":
+            continue
+        channel_index = channel_config.get(role_by_slug[channel])
+        if channel_index is None:
+            continue
+        base_path = (
+            segmented_dir
+            / f"{image_stem}-{channel_index}-{int(cell_stat.cell_id)}-no_outline.png"
+        )
+        if not base_path.exists():
+            continue
+        rendered_image = rendered.get(channel)
+        if rendered_image is None:
+            continue
+        layers[channel] = _transparent_rgba_from_annotation_canvas(rendered_image)
+    return layers
+
+
+def persist_overlay_layer_cache_images(
+    run_uuid: str,
+    cell_id: int,
+    family: str,
+    images: dict[str, Image.Image],
+    *,
+    overwrite: bool = False,
+) -> dict[str, Path]:
+    """Atomically persist only one logical family's transparent channel layers."""
+
+    normalized_family = normalize_overlay_family(family)
+    written: dict[str, Path] = {}
+    for channel, image in images.items():
+        cache_path = overlay_layer_cache_image_path(
+            run_uuid,
+            cell_id,
+            normalized_family,
+            channel,
+        )
+        if cache_path.exists() and not overwrite:
+            written[channel] = cache_path
+            continue
+        _atomic_save_overlay_cache_image(image, cache_path)
+        written[channel] = cache_path
+    return written
+
+
 def _overlay_cache_is_complete(paths: dict[str, Path]) -> bool:
     """Return whether all channel cache files for a cell are present."""
 
@@ -783,6 +1185,41 @@ def _acquire_overlay_cache_lock(run_uuid: str, cell_id: int) -> tuple[Path, bool
                         run_uuid,
                         int(cell_id),
                     )
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    time.sleep(OVERLAY_CACHE_LOCK_POLL_SECONDS)
+                    continue
+                continue
+            time.sleep(OVERLAY_CACHE_LOCK_POLL_SECONDS)
+            continue
+
+        with os.fdopen(fd, "w", encoding="utf-8") as lock_file:
+            lock_file.write(f"pid={os.getpid()} started_at={time.time():.6f}\n")
+        return lock_path, waited
+
+
+def _acquire_overlay_layer_cache_lock(
+    run_uuid: str,
+    cell_id: int,
+    family: str,
+) -> tuple[Path, bool]:
+    """Acquire one per-cell/family layer lock without blocking other families."""
+
+    lock_path = overlay_layer_cache_lock_path(run_uuid, cell_id, family)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    waited = False
+    while True:
+        try:
+            fd = os.open(
+                lock_path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+            )
+        except FileExistsError:
+            waited = True
+            if _overlay_lock_is_stale(lock_path):
+                try:
+                    lock_path.unlink()
                 except FileNotFoundError:
                     continue
                 except OSError:
@@ -897,3 +1334,66 @@ def ensure_overlay_cache_image(
         requested_channel=normalized_channel,
     )
     return cache_paths[normalized_channel]
+
+
+def ensure_overlay_layer_cache_image(
+    run_uuid: str,
+    cell_id: int,
+    family: str,
+    channel: str,
+    *,
+    cell_stat: CellStatistics | None = None,
+    render_config: dict[str, object] | None = None,
+) -> Path:
+    """Return one lazily generated transparent family-layer cache path."""
+
+    normalized_family = normalize_overlay_family(family)
+    normalized_channel = normalize_overlay_layer_channel(channel)
+    cache_path = overlay_layer_cache_image_path(
+        run_uuid,
+        cell_id,
+        normalized_family,
+        normalized_channel,
+    )
+    if cache_path.exists():
+        return cache_path
+
+    lock_path, _ = _acquire_overlay_layer_cache_lock(
+        run_uuid,
+        cell_id,
+        normalized_family,
+    )
+    try:
+        if cache_path.exists():
+            return cache_path
+
+        resolved_render_config = render_config or load_overlay_render_config(run_uuid)
+        resolved_cell_stat = cell_stat
+        if resolved_cell_stat is None:
+            resolved_cell_stat = (
+                CellStatistics.objects.select_related("segmented_image")
+                .get(segmented_image_id=run_uuid, cell_id=cell_id)
+            )
+        rendered_layers = render_overlay_layer_images_for_family(
+            run_uuid,
+            resolved_cell_stat,
+            resolved_render_config,
+            normalized_family,
+        )
+        if normalized_channel not in rendered_layers:
+            raise FileNotFoundError("Overlay layer is unavailable")
+        persist_overlay_layer_cache_images(
+            run_uuid,
+            cell_id,
+            normalized_family,
+            rendered_layers,
+            overwrite=False,
+        )
+        return cache_path
+    finally:
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            logger.debug("Could not remove overlay layer cache lock %s", lock_path)

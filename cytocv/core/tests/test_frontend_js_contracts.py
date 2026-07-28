@@ -487,6 +487,14 @@ assert.strictEqual(
         for helper_name in (
             "readJsonConfig",
             "createBlendHelpers",
+            "defaultOverlayVisibility",
+            "normalizeOverlayVisibility",
+            "getOverlaySelectionSignature",
+            "intersectOverlayVisibility",
+            "getOverlaySelectionSummary",
+            "getCellOverlayRenderState",
+            "getMissingCellImageStackUrls",
+            "createOverlayVisibilityController",
             "preloadImageSet",
             "getSortedCellIds",
             "getCircularWarmQueue",
@@ -504,6 +512,395 @@ assert.strictEqual(
         ):
             with self.subTest(helper=helper_name):
                 self.assertIn(helper_name, source)
+
+    def test_overlay_visibility_normalization_summaries_and_image_resolution(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is not available for static JavaScript helper checks.")
+
+        js_path = CORE_STATIC_ROOT / "js" / "shared" / "results-viewer.js"
+        script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const source = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+const context = {{ window: {{}} }};
+vm.runInNewContext(source, context);
+const shared = context.window.CytoCVResultsViewerShared;
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+const all = plain(shared.defaultOverlayVisibility());
+assert.deepStrictEqual(all, {{
+  cellBoundary: true,
+  redContours: true,
+  greenContours: true,
+  blueContour: true,
+  analysisAnnotations: true,
+}});
+assert.deepStrictEqual(plain(shared.normalizeOverlayVisibility(null)), all);
+assert.deepStrictEqual(plain(shared.normalizeOverlayVisibility({{
+  cellBoundary: false,
+  redContours: 'invalid',
+  unknown: false,
+}})), {{
+  cellBoundary: false,
+  redContours: true,
+  greenContours: true,
+  blueContour: true,
+  analysisAnnotations: true,
+}});
+
+const none = Object.fromEntries(Object.keys(all).map((key) => [key, false]));
+assert.strictEqual(shared.getOverlaySelectionSummary(all), 'All');
+assert.strictEqual(shared.getOverlaySelectionSummary(none), 'None');
+assert.strictEqual(shared.getOverlaySelectionSummary({{ ...none, redContours: true }}), 'Red');
+assert.strictEqual(
+  shared.getOverlaySelectionSummary({{ ...none, cellBoundary: true, redContours: true }}),
+  '2 selected'
+);
+assert.strictEqual(
+  shared.getOverlaySelectionSummary({{
+    ...none,
+    redContours: true,
+    greenContours: true,
+    analysisAnnotations: true,
+  }}),
+  '3 selected'
+);
+
+const availability = {{
+  cellBoundary: true,
+  redContours: false,
+  greenContours: true,
+  blueContour: false,
+  analysisAnnotations: false,
+}};
+assert.deepStrictEqual(
+  plain(shared.intersectOverlayVisibility(all, availability)),
+  {{
+    cellBoundary: true,
+    redContours: false,
+    greenContours: true,
+    blueContour: false,
+    analysisAnnotations: false,
+  }}
+);
+assert.strictEqual(shared.getOverlaySelectionSummary(all, availability), 'All');
+
+const images = ['dic-on', 'dic-raw', 'blue-on', 'blue-raw', 'red-on', 'red-raw', 'green-on', 'green-raw'];
+const contract = {{
+  schemaVersion: 1,
+  selective: true,
+  aggregateAvailable: true,
+  availableFamilies: Object.fromEntries(Object.keys(all).map((key) => [key, true])),
+  layerUrlTemplates: {{
+    cellBoundary: {{ dic: '/cell/{{cellId}}/cell.png' }},
+    redContours: {{
+      blue: '/cell/{{cellId}}/red-blue.png',
+      red: '/cell/{{cellId}}/red-red.png',
+      green: '/cell/{{cellId}}/red-green.png',
+    }},
+    greenContours: {{
+      blue: '/cell/{{cellId}}/green-blue.png',
+      red: '/cell/{{cellId}}/green-red.png',
+      green: '/cell/{{cellId}}/green-green.png',
+    }},
+    blueContour: {{ blue: '/cell/{{cellId}}/blue.png' }},
+    analysisAnnotations: {{
+      red: '/cell/{{cellId}}/analysis-red.png',
+      green: '/cell/{{cellId}}/analysis-green.png',
+    }},
+  }},
+}};
+const allState = plain(shared.getCellOverlayRenderState(images, contract, 7, all, 'missing'));
+assert.deepStrictEqual(allState.renderModeByChannel, {{
+  dic: 'aggregate',
+  blue: 'aggregate',
+  red: 'aggregate',
+  green: 'aggregate',
+}});
+assert.deepStrictEqual(allState.baseUrls, ['dic-on', 'blue-on', 'red-on', 'green-on']);
+assert.deepStrictEqual(allState.fallbackBaseUrls, ['dic-raw', 'blue-raw', 'red-raw', 'green-raw']);
+assert.deepStrictEqual(allState.layerUrls, []);
+
+const noneState = plain(shared.getCellOverlayRenderState(images, contract, 7, none, 'missing'));
+assert.deepStrictEqual(noneState.renderModeByChannel, {{
+  dic: 'raw',
+  blue: 'raw',
+  red: 'raw',
+  green: 'raw',
+}});
+assert.deepStrictEqual(noneState.baseUrls, ['dic-raw', 'blue-raw', 'red-raw', 'green-raw']);
+assert.deepStrictEqual(noneState.fallbackBaseUrls, ['missing', 'missing', 'missing', 'missing']);
+assert.deepStrictEqual(noneState.layerUrls, []);
+assert.deepStrictEqual(noneState.usefulOverlayUrls, []);
+
+const blueOffState = plain(shared.getCellOverlayRenderState(
+  images,
+  contract,
+  7,
+  {{ ...all, blueContour: false }},
+  'missing',
+));
+assert.deepStrictEqual(blueOffState.renderModeByChannel, {{
+  dic: 'aggregate',
+  blue: 'layered',
+  red: 'aggregate',
+  green: 'aggregate',
+}});
+assert.deepStrictEqual(blueOffState.baseUrls, ['dic-on', 'blue-raw', 'red-on', 'green-on']);
+assert.strictEqual(blueOffState.baseUrls[0], allState.baseUrls[0]);
+assert.strictEqual(blueOffState.baseUrls[2], allState.baseUrls[2]);
+assert.strictEqual(blueOffState.baseUrls[3], allState.baseUrls[3]);
+assert.deepStrictEqual(blueOffState.fallbackBaseUrls, [
+  'dic-raw',
+  'missing',
+  'red-raw',
+  'green-raw',
+]);
+assert.deepStrictEqual(blueOffState.layerUrls, [
+  '/cell/7/red-blue.png',
+  '/cell/7/green-blue.png',
+]);
+assert.deepStrictEqual(blueOffState.usefulOverlayUrls, blueOffState.layerUrls);
+const renderedAllBaseImages = allState.baseUrls.map((url) => ({{
+  getAttribute: (name) => name === 'src' ? url : '',
+  closest: () => ({{ querySelectorAll: () => [] }}),
+}}));
+assert.deepStrictEqual(
+  plain(shared.getMissingCellImageStackUrls(renderedAllBaseImages, blueOffState)),
+  ['blue-raw', '/cell/7/red-blue.png', '/cell/7/green-blue.png'],
+);
+
+const analysisOffState = plain(shared.getCellOverlayRenderState(
+  images,
+  contract,
+  7,
+  {{ ...all, analysisAnnotations: false }},
+  'missing',
+));
+assert.deepStrictEqual(analysisOffState.renderModeByChannel, {{
+  dic: 'aggregate',
+  blue: 'aggregate',
+  red: 'layered',
+  green: 'layered',
+}});
+assert.deepStrictEqual(analysisOffState.baseUrls, ['dic-on', 'blue-on', 'red-raw', 'green-raw']);
+assert.deepStrictEqual(analysisOffState.layerUrls, [
+  '/cell/7/red-red.png',
+  '/cell/7/green-red.png',
+  '/cell/7/red-green.png',
+  '/cell/7/green-green.png',
+]);
+
+const cellOffState = plain(shared.getCellOverlayRenderState(
+  images,
+  contract,
+  7,
+  {{ ...all, cellBoundary: false }},
+  'missing',
+));
+assert.deepStrictEqual(cellOffState.renderModeByChannel, {{
+  dic: 'raw',
+  blue: 'aggregate',
+  red: 'aggregate',
+  green: 'aggregate',
+}});
+assert.deepStrictEqual(cellOffState.baseUrls, ['dic-raw', 'blue-on', 'red-on', 'green-on']);
+assert.deepStrictEqual(cellOffState.layerUrls, []);
+
+const redState = plain(shared.getCellOverlayRenderState(
+  images,
+  contract,
+  7,
+  {{ ...none, redContours: true }},
+  'missing',
+));
+assert.deepStrictEqual(redState.renderModeByChannel, {{
+  dic: 'raw',
+  blue: 'layered',
+  red: 'layered',
+  green: 'layered',
+}});
+assert.deepStrictEqual(redState.layerUrls, [
+  '/cell/7/red-blue.png',
+  '/cell/7/red-red.png',
+  '/cell/7/red-green.png',
+]);
+assert.deepStrictEqual(redState.layersByChannel.dic, []);
+
+const singleFamilyModes = {{
+  cellBoundary: {{ dic: 'aggregate', blue: 'raw', red: 'raw', green: 'raw' }},
+  redContours: {{ dic: 'raw', blue: 'layered', red: 'layered', green: 'layered' }},
+  greenContours: {{ dic: 'raw', blue: 'layered', red: 'layered', green: 'layered' }},
+  blueContour: {{ dic: 'raw', blue: 'layered', red: 'raw', green: 'raw' }},
+  analysisAnnotations: {{ dic: 'raw', blue: 'raw', red: 'layered', green: 'layered' }},
+}};
+Object.entries(singleFamilyModes).forEach(([family, expectedModes]) => {{
+  const state = plain(shared.getCellOverlayRenderState(
+    images,
+    contract,
+    7,
+    {{ ...none, [family]: true }},
+    'missing',
+  ));
+  assert.deepStrictEqual(state.renderModeByChannel, expectedModes);
+}});
+
+const missingRawChannelImages = [...images];
+missingRawChannelImages[3] = missingRawChannelImages[2];
+const missingRawChannelState = plain(shared.getCellOverlayRenderState(
+  missingRawChannelImages,
+  contract,
+  7,
+  {{ ...none, redContours: true }},
+  'missing',
+));
+assert.strictEqual(missingRawChannelState.baseUrls[1], 'missing');
+
+const uniqueLayerUrls = new Set();
+for (let bits = 0; bits < 32; bits += 1) {{
+  const selection = Object.fromEntries(
+    Object.keys(all).map((key, index) => [key, Boolean(bits & (1 << index))])
+  );
+  const state = shared.getCellOverlayRenderState(
+    images,
+    contract,
+    7,
+    selection,
+    'missing',
+  );
+  state.layerUrls.forEach((url) => uniqueLayerUrls.add(url));
+}}
+assert.strictEqual(uniqueLayerUrls.size, 9);
+assert.ok(Array.from(uniqueLayerUrls).every((url) => !url.includes('selected')));
+
+const noAggregateContract = {{ ...contract, aggregateAvailable: false }};
+const noAggregateState = plain(shared.getCellOverlayRenderState(
+  images,
+  noAggregateContract,
+  7,
+  all,
+  'missing',
+));
+assert.deepStrictEqual(noAggregateState.renderModeByChannel, {{
+  dic: 'layered',
+  blue: 'layered',
+  red: 'layered',
+  green: 'layered',
+}});
+assert.deepStrictEqual(noAggregateState.baseUrls, ['dic-raw', 'blue-raw', 'red-raw', 'green-raw']);
+assert.strictEqual(noAggregateState.layerUrls.length, 10);
+assert.deepStrictEqual(
+  noAggregateState.layersByChannel.blue.map((layer) => layer.family),
+  ['redContours', 'blueContour', 'greenContours'],
+);
+assert.deepStrictEqual(
+  noAggregateState.layersByChannel.red.map((layer) => layer.family),
+  ['redContours', 'greenContours', 'analysisAnnotations'],
+);
+
+const missingState = plain(shared.getCellOverlayRenderState([], contract, 7, none, 'missing'));
+assert.deepStrictEqual(missingState.baseUrls, ['missing', 'missing', 'missing', 'missing']);
+
+const legacy = {{ selective: false, aggregateAvailable: true }};
+assert.deepStrictEqual(
+  plain(shared.getCellOverlayRenderState(images, legacy, 7, all, 'missing').renderModeByChannel),
+  {{ dic: 'aggregate', blue: 'aggregate', red: 'aggregate', green: 'aggregate' }},
+);
+assert.deepStrictEqual(
+  plain(shared.getCellOverlayRenderState(
+    images,
+    legacy,
+    7,
+    {{ ...all, redContours: false }},
+    'missing',
+  ).renderModeByChannel),
+  {{ dic: 'raw', blue: 'raw', red: 'raw', green: 'raw' }},
+);
+assert.strictEqual(shared.getOverlayContractSelectionSummary(all, legacy), 'All');
+assert.strictEqual(
+  shared.getOverlayContractSelectionSummary({{ ...all, redContours: false }}, legacy),
+  'None',
+);
+"""
+        result = subprocess.run(
+            [node, "-e", script],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
+    def test_viewer_sources_have_no_legacy_boolean_contour_contract(self):
+        sources = "\n".join(
+            static_text(path)
+            for path in (
+                "js/shared/results-viewer.js",
+                "js/shared/results-cell-actions.js",
+                "js/pages/display-viewer.js",
+                "js/pages/dashboard-viewer.js",
+            )
+        )
+        for obsolete_name in (
+            "toggleContours",
+            "getContourToggleState",
+            "getVisibleCellImageUrls",
+            "applyContourToggleState",
+            "handleContourToggleChange",
+            "useAggregate",
+        ):
+            with self.subTest(name=obsolete_name):
+                self.assertNotIn(obsolete_name, sources)
+
+    def test_overlay_menu_and_page_controllers_preserve_shared_selection_contract(self):
+        shared_source = static_text("js/shared/results-viewer.js")
+        for marker in (
+            "event.key === 'Escape'",
+            "close({ returnFocus: true })",
+            "document.addEventListener('pointerdown'",
+            "document.addEventListener('focusin'",
+            "trigger.setAttribute('aria-expanded', 'true')",
+            "input.addEventListener('change'",
+            "selected = defaultOverlayVisibility();",
+            "OVERLAY_FAMILY_KEYS.map((key) => [key, false])",
+        ):
+            with self.subTest(shared_marker=marker):
+                self.assertIn(marker, shared_source)
+
+        for page_path in (
+            "js/pages/display-viewer.js",
+            "js/pages/dashboard-viewer.js",
+        ):
+            source = static_text(page_path)
+            with self.subTest(page=page_path):
+                self.assertIn(
+                    "overlayVisibility = overlayVisibilityController.getSelected()",
+                    source,
+                )
+                self.assertIn(
+                    "overlayVisibilityController.refreshContract(fileData.OverlayLayers)",
+                    source,
+                )
+                self.assertNotIn(
+                    "overlayVisibilityController.setSelected(",
+                    source,
+                )
+                self.assertIn(
+                    "await preloadImageSet(preloadUrls)",
+                    source,
+                )
+                self.assertIn(
+                    ": state.overlayRenderState.preloadUrls",
+                    source,
+                )
+                self.assertIn("const renderToken = ++activeCellRenderToken;", source)
+                self.assertIn("if (renderToken !== activeCellRenderToken)", source)
+                self.assertIn("async function nextCell()", source)
+                self.assertIn("async function previousCell()", source)
+                self.assertIn("async function nextFile()", source)
+                self.assertIn("async function previousFile()", source)
+                self.assertIn("statisticsTable.addEventListener('click'", source)
 
     def test_cell_data_region_loading_controller_keeps_regions_busy_through_transition(self):
         node = shutil.which("node")

@@ -19,9 +19,9 @@ from .frontend_contract_helpers import (
 )
 
 
-RESULTS_VIEWER_CSS_VERSION = "single-channel-contour-card-20260626"
-RESULTS_VIEWER_JS_VERSION = "cell-type-filter-labels-20260626-v2"
-PAGE_VIEWER_JS_VERSION = "single-channel-contour-card-20260626"
+RESULTS_VIEWER_CSS_VERSION = "overlay-no-fade-20260728"
+RESULTS_VIEWER_JS_VERSION = "overlay-no-fade-20260728"
+PAGE_VIEWER_JS_VERSION = "overlay-no-fade-20260728"
 ICON_ALIGN_VERSION = "icon-align-20260610-v5"
 EXPERIMENT_JS_VERSION = "metadata-driven-3plane-20260626"
 EXPERIMENT_CSS_VERSION = "channel-label-nudge-20260610"
@@ -58,7 +58,7 @@ class FrontendTemplateContractTests(TestCase):
             "<p class=\"metric-lead\">Contour Intensities</p>",
         )
         for hook in (
-            'id="contourStateValue"',
+            'data-overlay-state-value',
             'id="colinearDots"',
             'id="offAxisDots"',
             'id="nucleusContourChannel"',
@@ -435,6 +435,15 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"', display_content)
         self.assertIn('id="displayPageConfig"', display_content)
         self.assertIn('id="displayFilesData"', display_content)
+        self.assertIn('id="overlayVisibilityControl"', display_content)
+        self.assertIn('id="overlayVisibilityTrigger"', display_content)
+        self.assertIn('<span class="overlay-visibility-label">Overlays:</span>', display_content)
+        self.assertIn('aria-haspopup="menu"', display_content)
+        self.assertIn('aria-expanded="false"', display_content)
+        self.assertIn('aria-label="Overlay visibility"', display_content)
+        self.assertIn('data-overlay-family="cellBoundary"', display_content)
+        self.assertIn('data-overlay-family="analysisAnnotations"', display_content)
+        self.assertNotIn('id="toggleContours"', display_content)
         self.assertIn('id="saveFilesBackdrop"', display_content)
         self.assertEqual(
             display_content.count('class="table-spatial-unit-control"'),
@@ -580,6 +589,15 @@ class FrontendTemplateContractTests(TestCase):
         self.assertIn('id="toggleSidebarBtn" type="button" aria-label="Toggle sidebar"', dashboard_content)
         self.assertIn('id="dashboardPageConfig"', dashboard_content)
         self.assertIn('id="dashboardFilesData"', dashboard_content)
+        self.assertIn('id="overlayVisibilityControl"', dashboard_content)
+        self.assertIn('id="overlayVisibilityTrigger"', dashboard_content)
+        self.assertIn('<span class="overlay-visibility-label">Overlays:</span>', dashboard_content)
+        self.assertIn('aria-haspopup="menu"', dashboard_content)
+        self.assertIn('aria-expanded="false"', dashboard_content)
+        self.assertIn('aria-label="Overlay visibility"', dashboard_content)
+        self.assertIn('data-overlay-family="cellBoundary"', dashboard_content)
+        self.assertIn('data-overlay-family="analysisAnnotations"', dashboard_content)
+        self.assertNotIn('id="toggleContours"', dashboard_content)
         self.assertIn('id="deleteFilesBackdrop"', dashboard_content)
         self.assertEqual(
             dashboard_content.count('class="table-spatial-unit-control"'),

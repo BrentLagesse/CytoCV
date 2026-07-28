@@ -72,6 +72,7 @@ from core.services.export_filenames import (
 from core.services.main_image_urls import build_main_image_paths
 from core.services.overlay_rendering import (
     build_overlay_image_url,
+    build_overlay_layer_contract,
     overlay_image_available,
 )
 from core.services.puncta_line_mode import (
@@ -952,6 +953,8 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                         ),
                         "",
                     )
+                if not outlined_url:
+                    outlined_url = no_outline_url
                 if not no_outline_url:
                     no_outline_url = outlined_url
 
@@ -961,6 +964,32 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
                 statistics[str(cell_id)] = _serialize_cell_statistics(cell_stat)
 
         number_of_cells = len(cell_ids)
+        available_result_channels = {
+            channel_name
+            for channel_name in channel_order
+            if any(
+                candidate_index
+                == channel_config.get(
+                    channel_name,
+                    DEFAULT_CHANNEL_CONFIG.get(
+                        channel_name,
+                        channel_order.index(channel_name),
+                    ),
+                )
+                for candidate_index, _ in (
+                    set(no_outline_images.keys())
+                )
+            )
+        }
+        dic_channel_index = channel_config.get(
+            CHANNEL_ROLE_DIC,
+            DEFAULT_CHANNEL_CONFIG.get(CHANNEL_ROLE_DIC, 0),
+        )
+        cell_boundary_available = any(
+            (dic_channel_index, cell_id) in outlined_images
+            and (dic_channel_index, cell_id) in no_outline_images
+            for cell_id in cell_ids
+        )
         file_list.append(
             {
                 "uuid": uuid,
@@ -1008,6 +1037,12 @@ def _build_dashboard_payload(user: Any, request: HttpRequest | None = None) -> d
             "MainImagePaths": main_image_paths,
             "NumberOfCells": number_of_cells,
             "CellPairImages": cell_images,
+            "OverlayLayers": build_overlay_layer_contract(
+                uuid,
+                available_channels=available_result_channels,
+                aggregate_available=number_of_cells > 0,
+                cell_boundary_available=cell_boundary_available,
+            ),
             "Image_Name": image_name,
             "ScaleContext": scale_context,
             "ChannelConfig": channel_config_payload(channel_config),

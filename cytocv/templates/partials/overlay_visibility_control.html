@@ -1,0 +1,49 @@
+<div class="overlay-visibility-control" id="overlayVisibilityControl" data-overlay-visibility-control>
+    <span class="overlay-visibility-label">Overlays:</span>
+    <button
+        type="button"
+        class="overlay-visibility-trigger"
+        id="overlayVisibilityTrigger"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-controls="overlayVisibilityMenu"
+    >
+        <span id="overlayVisibilitySummary" data-overlay-visibility-summary>All</span>
+        <span class="overlay-visibility-caret" aria-hidden="true"></span>
+    </button>
+    <div
+        class="overlay-visibility-menu"
+        id="overlayVisibilityMenu"
+        role="menu"
+        aria-label="Overlay visibility"
+        hidden
+    >
+        <div class="overlay-visibility-actions">
+            <button type="button" data-overlay-select-all>Select all</button>
+            <button type="button" data-overlay-clear>Clear</button>
+        </div>
+        <label class="overlay-visibility-option">
+            <input type="checkbox" data-overlay-family="cellBoundary" checked>
+            <span>Cell boundary</span>
+        </label>
+        <label class="overlay-visibility-option">
+            <input type="checkbox" data-overlay-family="redContours" checked>
+            <span>Red contours</span>
+        </label>
+        <label class="overlay-visibility-option">
+            <input type="checkbox" data-overlay-family="greenContours" checked>
+            <span>Green contours</span>
+        </label>
+        <label class="overlay-visibility-option">
+            <input type="checkbox" data-overlay-family="blueContour" checked>
+            <span>Blue contour</span>
+        </label>
+        <label class="overlay-visibility-option" data-overlay-analysis-option>
+            <input type="checkbox" data-overlay-family="analysisAnnotations" checked>
+            <span>Analysis annotations</span>
+        </label>
+        <p class="overlay-visibility-legacy-note" data-overlay-legacy-note hidden>
+            Individual layers are unavailable for this saved run.
+        </p>
+    </div>
+</div>

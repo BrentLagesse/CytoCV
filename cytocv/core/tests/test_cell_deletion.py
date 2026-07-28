@@ -55,6 +55,8 @@ def _create_cell_artifacts(
     segmented_dir.mkdir(parents=True, exist_ok=True)
     overlay_dir = segmented_dir / "overlay-cache-v4"
     overlay_dir.mkdir(parents=True, exist_ok=True)
+    overlay_layer_dir = segmented_dir / "overlay-layers-v1"
+    overlay_layer_dir.mkdir(parents=True, exist_ok=True)
 
     def _png(path: Path) -> Path:
         Image.new("RGB", (4, 4), color=(0, 0, 0)).save(path, format="PNG")
@@ -79,6 +81,13 @@ def _create_cell_artifacts(
         )
     paths["overlay_lock"] = overlay_dir / f"cell-{cell_id}.lock"
     paths["overlay_lock"].write_text("", encoding="utf-8")
+    paths["overlay_layer_red"] = _png(
+        overlay_layer_dir / f"cell-{cell_id}-red-contours-green.png"
+    )
+    paths["overlay_layer_lock"] = (
+        overlay_layer_dir / f"cell-{cell_id}-red-contours.lock"
+    )
+    paths["overlay_layer_lock"].write_text("", encoding="utf-8")
     return paths
 
 

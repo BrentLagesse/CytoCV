@@ -254,24 +254,485 @@
         };
     }
 
-    // Contour toggles intentionally read the canonical checkbox ID used by both
-    // viewer templates.
-    function getContourToggleState(forceShowContours = null) {
-        if (forceShowContours !== null) {
-            return !!forceShowContours;
-        }
-        const toggleElement = document.getElementById('toggleContours');
-        return !!(toggleElement && toggleElement.checked);
+    const OVERLAY_FAMILY_DEFINITIONS = Object.freeze([
+        Object.freeze({ key: 'cellBoundary', label: 'Cell boundary', shortLabel: 'Cell' }),
+        Object.freeze({ key: 'redContours', label: 'Red contours', shortLabel: 'Red' }),
+        Object.freeze({ key: 'greenContours', label: 'Green contours', shortLabel: 'Green' }),
+        Object.freeze({ key: 'blueContour', label: 'Blue contour', shortLabel: 'Blue' }),
+        Object.freeze({ key: 'analysisAnnotations', label: 'Analysis annotations', shortLabel: 'Analysis' }),
+    ]);
+    const OVERLAY_FAMILY_KEYS = Object.freeze(
+        OVERLAY_FAMILY_DEFINITIONS.map(({ key }) => key)
+    );
+    const OVERLAY_CHANNELS = Object.freeze(['dic', 'blue', 'red', 'green']);
+    const OVERLAY_RENDER_ORDER = Object.freeze([
+        'cellBoundary',
+        'redContours',
+        'blueContour',
+        'greenContours',
+        'analysisAnnotations',
+    ]);
+    const RAW_CELL_IMAGE_INDICES = Object.freeze([1, 3, 5, 7]);
+    const AGGREGATE_CELL_IMAGE_INDICES = Object.freeze([0, 2, 4, 6]);
+
+    function defaultOverlayVisibility() {
+        return Object.fromEntries(OVERLAY_FAMILY_KEYS.map((key) => [key, true]));
     }
 
-    // Cell image URLs are ordered outline/no-outline pairs by channel; missing
-    // entries fall back to the no-cell placeholder instead of breaking navigation.
-    function getVisibleCellImageUrls(imageUrls, showContours, noCellPlaceholder) {
-        if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-            return [noCellPlaceholder, noCellPlaceholder, noCellPlaceholder, noCellPlaceholder];
+    function normalizeOverlayVisibility(value) {
+        const source = value && typeof value === 'object' && !Array.isArray(value)
+            ? value
+            : {};
+        return Object.fromEntries(
+            OVERLAY_FAMILY_KEYS.map((key) => [
+                key,
+                typeof source[key] === 'boolean' ? source[key] : true,
+            ])
+        );
+    }
+
+    function getOverlaySelectionSignature(value) {
+        const normalized = normalizeOverlayVisibility(value);
+        return OVERLAY_FAMILY_KEYS
+            .map((key) => `${key}:${normalized[key] ? '1' : '0'}`)
+            .join('|');
+    }
+
+    function normalizeOverlayLayerContract(value) {
+        const source = value && typeof value === 'object' && !Array.isArray(value)
+            ? value
+            : {};
+        const availableSource = (
+            source.availableFamilies
+            && typeof source.availableFamilies === 'object'
+            && !Array.isArray(source.availableFamilies)
+        ) ? source.availableFamilies : {};
+        const templatesSource = (
+            source.layerUrlTemplates
+            && typeof source.layerUrlTemplates === 'object'
+            && !Array.isArray(source.layerUrlTemplates)
+        ) ? source.layerUrlTemplates : {};
+        const availableFamilies = Object.fromEntries(
+            OVERLAY_FAMILY_KEYS.map((key) => [key, availableSource[key] === true])
+        );
+        const layerUrlTemplates = {};
+        OVERLAY_FAMILY_KEYS.forEach((family) => {
+            const channels = templatesSource[family];
+            if (!channels || typeof channels !== 'object' || Array.isArray(channels)) {
+                return;
+            }
+            const normalizedChannels = {};
+            OVERLAY_CHANNELS.forEach((channel) => {
+                if (typeof channels[channel] === 'string' && channels[channel]) {
+                    normalizedChannels[channel] = channels[channel];
+                }
+            });
+            if (Object.keys(normalizedChannels).length) {
+                layerUrlTemplates[family] = normalizedChannels;
+            }
+        });
+        return {
+            schemaVersion: Number(source.schemaVersion) || 0,
+            selective: source.selective === true,
+            aggregateAvailable: source.aggregateAvailable !== false,
+            availableFamilies,
+            layerUrlTemplates,
+        };
+    }
+
+    function intersectOverlayVisibility(selection, availability) {
+        const normalizedSelection = normalizeOverlayVisibility(selection);
+        const normalizedAvailability = availability
+            && typeof availability === 'object'
+            && !Array.isArray(availability)
+            ? availability
+            : {};
+        return Object.fromEntries(
+            OVERLAY_FAMILY_KEYS.map((key) => [
+                key,
+                normalizedSelection[key] && normalizedAvailability[key] === true,
+            ])
+        );
+    }
+
+    function getOverlaySelectionSummary(selection, availability = null) {
+        const normalized = normalizeOverlayVisibility(selection);
+        const state = availability
+            ? intersectOverlayVisibility(normalized, availability)
+            : normalized;
+        const applicableKeys = availability
+            ? OVERLAY_FAMILY_KEYS.filter((key) => availability[key] === true)
+            : [...OVERLAY_FAMILY_KEYS];
+        const selectedDefinitions = OVERLAY_FAMILY_DEFINITIONS.filter(
+            ({ key }) => state[key] && applicableKeys.includes(key)
+        );
+        if (!selectedDefinitions.length) {
+            return 'None';
         }
-        const indices = showContours ? [0, 2, 4, 6] : [1, 3, 5, 7];
-        return indices.map((index) => imageUrls[index] || noCellPlaceholder);
+        if (
+            applicableKeys.length > 0
+            && selectedDefinitions.length === applicableKeys.length
+        ) {
+            return 'All';
+        }
+        if (selectedDefinitions.length === 1) {
+            return selectedDefinitions[0].shortLabel;
+        }
+        return `${selectedDefinitions.length} selected`;
+    }
+
+    function getOverlayContractSelectionSummary(selection, overlayContract) {
+        const normalizedSelection = normalizeOverlayVisibility(selection);
+        const contract = normalizeOverlayLayerContract(overlayContract);
+        if (!contract.selective) {
+            return OVERLAY_FAMILY_KEYS.every((key) => normalizedSelection[key])
+                ? 'All'
+                : 'None';
+        }
+        return getOverlaySelectionSummary(
+            normalizedSelection,
+            contract.availableFamilies,
+        );
+    }
+
+    function overlayTemplateUrl(template, cellId) {
+        if (typeof template !== 'string' || !template) {
+            return '';
+        }
+        return template.replace('{cellId}', encodeURIComponent(String(cellId)));
+    }
+
+    function getCellOverlayRenderState(
+        imageUrls,
+        overlayContract,
+        cellId,
+        selection,
+        noCellPlaceholder,
+    ) {
+        const images = Array.isArray(imageUrls) ? imageUrls : [];
+        const contract = normalizeOverlayLayerContract(overlayContract);
+        const selected = normalizeOverlayVisibility(selection);
+        const effective = intersectOverlayVisibility(
+            selected,
+            contract.availableFamilies,
+        );
+        const availableKeys = OVERLAY_FAMILY_KEYS.filter(
+            (key) => contract.availableFamilies[key]
+        );
+        const allEffectiveSelected = availableKeys.length > 0
+            && availableKeys.every((key) => effective[key]);
+        const noneEffectiveSelected = !availableKeys.some((key) => effective[key]);
+        const everyGlobalFamilySelected = OVERLAY_FAMILY_KEYS.every((key) => selected[key]);
+        const renderModeByChannel = Object.fromEntries(
+            OVERLAY_CHANNELS.map((channel) => {
+                if (!contract.selective) {
+                    const mode = contract.aggregateAvailable && everyGlobalFamilySelected
+                        ? 'aggregate'
+                        : 'raw';
+                    return [channel, mode];
+                }
+                if (noneEffectiveSelected) {
+                    return [channel, 'raw'];
+                }
+
+                const applicableFamilies = OVERLAY_RENDER_ORDER.filter((family) => (
+                    contract.availableFamilies[family]
+                    && typeof contract.layerUrlTemplates[family]?.[channel] === 'string'
+                ));
+                const allChannelFamiliesSelected = applicableFamilies.every(
+                    (family) => effective[family]
+                );
+                if (
+                    contract.aggregateAvailable
+                    && (allEffectiveSelected || allChannelFamiliesSelected)
+                ) {
+                    return [channel, 'aggregate'];
+                }
+                const hasSelectedLayer = applicableFamilies.some(
+                    (family) => effective[family]
+                );
+                return [channel, hasSelectedLayer ? 'layered' : 'raw'];
+            })
+        );
+        const baseUrls = OVERLAY_CHANNELS.map((channel, channelIndex) => {
+            const renderMode = renderModeByChannel[channel];
+            const index = renderMode === 'aggregate'
+                ? AGGREGATE_CELL_IMAGE_INDICES[channelIndex]
+                : RAW_CELL_IMAGE_INDICES[channelIndex];
+            const candidate = images[index] || '';
+            if (
+                contract.selective
+                && renderMode !== 'aggregate'
+                && candidate
+                && candidate === images[AGGREGATE_CELL_IMAGE_INDICES[channelIndex]]
+            ) {
+                // Dashboard legacy recovery can substitute the aggregate when a
+                // raw crop is absent. Selective states must use a placeholder
+                // instead of silently reintroducing every annotation family.
+                return noCellPlaceholder;
+            }
+            return candidate || noCellPlaceholder;
+        });
+        // Aggregate failures may safely degrade to the raw crop. Mixed/None
+        // states must never fall back to an aggregate that would reintroduce
+        // hidden families or lazily generate an overlay.
+        const fallbackBaseUrls = OVERLAY_CHANNELS.map((channel, channelIndex) => (
+            renderModeByChannel[channel] === 'aggregate'
+                ? images[RAW_CELL_IMAGE_INDICES[channelIndex]] || noCellPlaceholder
+                : noCellPlaceholder
+        ));
+        const layersByChannel = Object.fromEntries(
+            OVERLAY_CHANNELS.map((channel) => [channel, []])
+        );
+        if (contract.selective) {
+            OVERLAY_RENDER_ORDER.forEach((family) => {
+                if (!effective[family]) {
+                    return;
+                }
+                const templates = contract.layerUrlTemplates[family] || {};
+                OVERLAY_CHANNELS.forEach((channel) => {
+                    if (renderModeByChannel[channel] !== 'layered') {
+                        return;
+                    }
+                    const url = overlayTemplateUrl(templates[channel], cellId);
+                    if (url) {
+                        layersByChannel[channel].push({ family, url });
+                    }
+                });
+            });
+        }
+        const layerUrls = OVERLAY_CHANNELS.flatMap(
+            (channel) => layersByChannel[channel].map(({ url }) => url)
+        );
+        const aggregateOverlayUrls = OVERLAY_CHANNELS.flatMap((channel, channelIndex) => {
+            const url = baseUrls[channelIndex];
+            return (
+                renderModeByChannel[channel] === 'aggregate'
+                && typeof url === 'string'
+                && url.includes('/overlay/')
+            ) ? [url] : [];
+        });
+        return {
+            selected,
+            effective,
+            renderModeByChannel,
+            baseUrls,
+            fallbackBaseUrls,
+            placeholderUrl: noCellPlaceholder,
+            layersByChannel,
+            layerUrls,
+            preloadUrls: [...new Set([...baseUrls, ...layerUrls])],
+            usefulOverlayUrls: [...new Set([...aggregateOverlayUrls, ...layerUrls])],
+        };
+    }
+
+    function setCellImageStack(
+        baseImage,
+        channel,
+        renderState,
+        setImageWithBlend,
+        options = {},
+    ) {
+        if (!baseImage) {
+            return Promise.resolve();
+        }
+        const frame = baseImage.closest('[data-cell-image-frame]') || baseImage.parentElement;
+        if (frame) {
+            frame.querySelectorAll('.cell-overlay-layer').forEach((element) => element.remove());
+            (renderState?.layersByChannel?.[channel] || []).forEach(({ family, url }) => {
+                const layer = document.createElement('img');
+                layer.className = 'cell-overlay-layer';
+                layer.alt = '';
+                layer.setAttribute('aria-hidden', 'true');
+                layer.dataset.overlayFamily = family;
+                layer.addEventListener('error', () => layer.remove(), { once: true });
+                layer.src = url;
+                frame.appendChild(layer);
+            });
+        }
+        const channelIndex = OVERLAY_CHANNELS.indexOf(channel);
+        const nextBase = renderState?.baseUrls?.[channelIndex];
+        const fallbackBase = renderState?.fallbackBaseUrls?.[channelIndex];
+        const placeholder = renderState?.placeholderUrl || '';
+        baseImage.onerror = () => {
+            const currentSrc = baseImage.getAttribute('src') || '';
+            if (fallbackBase && currentSrc !== fallbackBase && currentSrc !== placeholder) {
+                baseImage.src = fallbackBase;
+                return;
+            }
+            if (placeholder && currentSrc !== placeholder) {
+                baseImage.src = placeholder;
+                return;
+            }
+            baseImage.onerror = null;
+        };
+        return setImageWithBlend(baseImage, nextBase, options);
+    }
+
+    function getMissingCellImageStackUrls(baseImages, renderState) {
+        const currentUrls = new Set();
+        Array.from(baseImages || []).forEach((baseImage) => {
+            if (!baseImage) {
+                return;
+            }
+            const baseUrl = baseImage.getAttribute('src') || '';
+            if (baseUrl) {
+                currentUrls.add(baseUrl);
+            }
+            const frame = baseImage.closest('[data-cell-image-frame]') || baseImage.parentElement;
+            frame?.querySelectorAll('.cell-overlay-layer').forEach((layer) => {
+                const layerUrl = layer.getAttribute('src') || '';
+                if (layerUrl) {
+                    currentUrls.add(layerUrl);
+                }
+            });
+        });
+        return (renderState?.preloadUrls || []).filter((url) => !currentUrls.has(url));
+    }
+
+    function createOverlayVisibilityController({
+        contractProvider = () => ({}),
+        onChange = () => {},
+    } = {}) {
+        const root = document.querySelector('[data-overlay-visibility-control]');
+        const trigger = root?.querySelector('#overlayVisibilityTrigger');
+        const menu = root?.querySelector('#overlayVisibilityMenu');
+        const summary = root?.querySelector('[data-overlay-visibility-summary]');
+        const familyInputs = root
+            ? Array.from(root.querySelectorAll('[data-overlay-family]'))
+            : [];
+        const selectAllButton = root?.querySelector('[data-overlay-select-all]');
+        const clearButton = root?.querySelector('[data-overlay-clear]');
+        const legacyNote = root?.querySelector('[data-overlay-legacy-note]');
+        let selected = defaultOverlayVisibility();
+        let contract = normalizeOverlayLayerContract(contractProvider());
+        let bound = false;
+
+        function close({ returnFocus = false } = {}) {
+            if (!trigger || !menu || menu.hidden) {
+                return;
+            }
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            if (returnFocus) {
+                trigger.focus();
+            }
+        }
+
+        function open() {
+            if (!trigger || !menu) {
+                return;
+            }
+            menu.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+            const firstEnabled = familyInputs.find((input) => !input.disabled);
+            (firstEnabled || selectAllButton)?.focus();
+        }
+
+        function sync() {
+            familyInputs.forEach((input) => {
+                const family = input.dataset.overlayFamily;
+                input.checked = selected[family] === true;
+                input.disabled = !contract.selective || !contract.availableFamilies[family];
+            });
+            if (legacyNote) {
+                legacyNote.hidden = contract.selective;
+            }
+            if (summary) {
+                const summaryText = getOverlayContractSelectionSummary(
+                    selected,
+                    contract,
+                );
+                summary.textContent = summaryText;
+                document.querySelectorAll('[data-overlay-state-value]').forEach((element) => {
+                    element.textContent = summaryText;
+                });
+            }
+        }
+
+        function notify() {
+            sync();
+            void onChange(normalizeOverlayVisibility(selected));
+        }
+
+        function setSelected(nextSelection, { notifyChange = true } = {}) {
+            selected = normalizeOverlayVisibility(nextSelection);
+            if (notifyChange) {
+                notify();
+            } else {
+                sync();
+            }
+            return getSelected();
+        }
+
+        function getSelected() {
+            return normalizeOverlayVisibility(selected);
+        }
+
+        function refreshContract(nextContract = contractProvider()) {
+            contract = normalizeOverlayLayerContract(nextContract);
+            sync();
+            return contract;
+        }
+
+        function bind() {
+            if (bound || !root || !trigger || !menu) {
+                sync();
+                return;
+            }
+            bound = true;
+            trigger.addEventListener('click', () => {
+                if (menu.hidden) {
+                    open();
+                } else {
+                    close();
+                }
+            });
+            familyInputs.forEach((input) => {
+                input.addEventListener('change', () => {
+                    selected = {
+                        ...selected,
+                        [input.dataset.overlayFamily]: input.checked,
+                    };
+                    notify();
+                });
+            });
+            selectAllButton?.addEventListener('click', () => {
+                selected = defaultOverlayVisibility();
+                notify();
+            });
+            clearButton?.addEventListener('click', () => {
+                selected = Object.fromEntries(
+                    OVERLAY_FAMILY_KEYS.map((key) => [key, false])
+                );
+                notify();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !menu.hidden) {
+                    event.preventDefault();
+                    close({ returnFocus: true });
+                }
+            });
+            document.addEventListener('pointerdown', (event) => {
+                if (!menu.hidden && !root.contains(event.target)) {
+                    close();
+                }
+            });
+            document.addEventListener('focusin', (event) => {
+                if (!menu.hidden && !root.contains(event.target)) {
+                    close();
+                }
+            });
+            sync();
+        }
+
+        return {
+            bind,
+            close,
+            getSelected,
+            refreshContract,
+            setSelected,
+        };
     }
 
     const CELL_CARD_SIGNAL_MODES = {
@@ -1922,8 +2383,19 @@
     global.CytoCVResultsViewerShared = {
         readJsonConfig,
         createBlendHelpers,
-        getContourToggleState,
-        getVisibleCellImageUrls,
+        OVERLAY_FAMILY_DEFINITIONS,
+        OVERLAY_FAMILY_KEYS,
+        defaultOverlayVisibility,
+        normalizeOverlayVisibility,
+        getOverlaySelectionSignature,
+        normalizeOverlayLayerContract,
+        intersectOverlayVisibility,
+        getOverlaySelectionSummary,
+        getOverlayContractSelectionSummary,
+        getCellOverlayRenderState,
+        setCellImageStack,
+        getMissingCellImageStackUrls,
+        createOverlayVisibilityController,
         defaultStatVisibility,
         getStatVisibility,
         normalizeContourIntensityDisplayType,

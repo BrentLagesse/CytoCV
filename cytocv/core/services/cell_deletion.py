@@ -19,6 +19,7 @@ from core.models import CellStatistics, SegmentedImage
 from core.services.artifact_storage import _safe_remove_path
 from core.services.overlay_rendering import (
     OVERLAY_CHANNEL_LABELS,
+    OVERLAY_LAYER_CACHE_DIR_PREFIX,
     OVERLAY_RENDER_CHANNELS,
     overlay_cache_image_path,
     overlay_cache_lock_path,
@@ -81,6 +82,14 @@ def _collect_artifact_paths(
     paths.append(overlay_cache_lock_path(str(run_uuid), cell_id))
 
     if segmented_dir.is_dir():
+        # Selective overlay layers are schema-versioned and sparse. Remove current
+        # and historical versions by cell prefix, including an interrupted lock.
+        for layer_dir in segmented_dir.glob(f"{OVERLAY_LAYER_CACHE_DIR_PREFIX}*"):
+            if not layer_dir.is_dir():
+                continue
+            paths.extend(layer_dir.glob(f"cell-{cell_id}-*.png"))
+            paths.extend(layer_dir.glob(f"cell-{cell_id}-*.lock"))
+
         # Legacy debug overlays are still served for old runs, so deletion checks
         # their historical channel-label suffixes in addition to current cache paths.
         for channel_label in OVERLAY_CHANNEL_LABELS.values():

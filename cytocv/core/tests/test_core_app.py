@@ -24,13 +24,23 @@ from PIL import Image
 from core.cell_analysis import Analysis
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
-from core.models import CellStatistics, DVLayerTifPreview, SegmentedImage, UploadedImage
+from core.models import (
+    CellStatistics,
+    DVLayerTifPreview,
+    SegmentedImage,
+    UploadedImage,
+    get_guest_user,
+)
 from core.services.neck_split import NeckSplit, sidecar_path, write_neck_split
 from core.services.overlay_rendering import (
+    OVERLAY_LAYER_SCHEMA_VERSION,
     build_legacy_debug_image_path,
+    build_overlay_layer_contract,
     build_overlay_render_config,
     ensure_overlay_cache_image,
+    ensure_overlay_layer_cache_image,
     overlay_cache_image_path,
+    overlay_layer_cache_image_path,
     render_overlay_images_for_cell,
     write_overlay_render_config,
 )
@@ -76,6 +86,7 @@ class RouteSurfaceRefactorTests(TestCase):
         "MainImagePaths",
         "NumberOfCells",
         "CellPairImages",
+        "OverlayLayers",
         "Image_Name",
         "ScaleContext",
         "ChannelConfig",
@@ -255,15 +266,16 @@ class RouteSurfaceRefactorTests(TestCase):
         image_stem: str,
         *,
         cell_id: int = 1,
+        shape: tuple[int, int] = (6, 6),
     ) -> dict[str, np.ndarray]:
         segmented_dir = media_root / uuid_value / "segmented"
         segmented_dir.mkdir(parents=True, exist_ok=True)
 
         channel_pixels = {
-            "channel_red": np.full((6, 6, 3), (220, 30, 30), dtype=np.uint8),
-            "channel_green": np.full((6, 6, 3), (30, 220, 30), dtype=np.uint8),
-            "channel_blue": np.full((6, 6, 3), (30, 30, 220), dtype=np.uint8),
-            "DIC": np.full((6, 6, 3), (120, 120, 120), dtype=np.uint8),
+            "channel_red": np.full((*shape, 3), (220, 30, 30), dtype=np.uint8),
+            "channel_green": np.full((*shape, 3), (30, 220, 30), dtype=np.uint8),
+            "channel_blue": np.full((*shape, 3), (30, 30, 220), dtype=np.uint8),
+            "DIC": np.full((*shape, 3), (120, 120, 120), dtype=np.uint8),
         }
 
         for channel_name, channel_index in DEFAULT_CHANNEL_CONFIG.items():
@@ -1683,6 +1695,325 @@ class RouteSurfaceRefactorTests(TestCase):
         uuid_value = str(uuid4())
         cache_path = overlay_cache_image_path(uuid_value, 1, "green")
         self.assertIn("overlay-cache-v4", str(cache_path))
+
+    def test_overlay_layer_contract_is_additive_versioned_and_legacy_safe(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root():
+            render_config = self._write_overlay_config(uuid_value, "layer-contract")
+            render_config["selected_analysis"] = ["PunctaDistance"]
+            write_overlay_render_config(uuid_value, render_config)
+
+            contract = build_overlay_layer_contract(
+                uuid_value,
+                available_channels={"DIC", "channel_blue", "channel_red", "channel_green"},
+                aggregate_available=True,
+            )
+            self.assertEqual(contract["schemaVersion"], OVERLAY_LAYER_SCHEMA_VERSION)
+            self.assertTrue(contract["selective"])
+            self.assertTrue(all(contract["availableFamilies"].values()))
+            self.assertIn("{cellId}", contract["layerUrlTemplates"]["redContours"]["green"])
+            self.assertNotIn("red-green-cell", json.dumps(contract))
+
+            single_channel_contract = build_overlay_layer_contract(
+                uuid_value,
+                available_channels={"DIC", "channel_red"},
+                aggregate_available=True,
+            )
+            self.assertTrue(
+                single_channel_contract["availableFamilies"]["analysisAnnotations"]
+            )
+            self.assertEqual(
+                set(
+                    single_channel_contract["layerUrlTemplates"][
+                        "analysisAnnotations"
+                    ]
+                ),
+                {"red"},
+            )
+
+            missing_dic_pair_contract = build_overlay_layer_contract(
+                uuid_value,
+                available_channels={"DIC", "channel_red"},
+                aggregate_available=True,
+                cell_boundary_available=False,
+            )
+            self.assertFalse(
+                missing_dic_pair_contract["availableFamilies"]["cellBoundary"]
+            )
+
+            no_selective_sources_contract = build_overlay_layer_contract(
+                uuid_value,
+                available_channels=set(),
+                aggregate_available=True,
+                cell_boundary_available=False,
+            )
+            self.assertFalse(no_selective_sources_contract["selective"])
+            self.assertEqual(
+                no_selective_sources_contract["layerUrlTemplates"],
+                {},
+            )
+
+            render_config["schema_version"] = 3
+            write_overlay_render_config(uuid_value, render_config)
+            legacy_contract = build_overlay_layer_contract(
+                uuid_value,
+                available_channels={"DIC", "channel_blue", "channel_red", "channel_green"},
+                aggregate_available=True,
+            )
+
+        self.assertFalse(legacy_contract["selective"])
+        self.assertFalse(any(legacy_contract["availableFamilies"].values()))
+        self.assertEqual(legacy_contract["layerUrlTemplates"], {})
+
+    def test_cell_boundary_layer_endpoint_is_transparent_and_does_not_mutate_statistics(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="boundary-layer")
+            segmented = self._create_segmented_image(uuid_value, name="boundary-layer")
+            segmented.user_id = get_guest_user()
+            segmented.NumCells = 1
+            segmented.save(update_fields=["user_id", "NumCells"])
+            session = self.client.session
+            session["transient_experiment_uuids"] = [uuid_value]
+            session.save()
+            channel_pixels = self._write_segmented_cell_assets(
+                media_root,
+                uuid_value,
+                "boundary-layer",
+                shape=(5, 9),
+            )
+            cell_stat = self._create_cell_stats(
+                segmented,
+                "boundary-layer",
+                puncta_distance=17.25,
+            )
+            self._write_overlay_config(uuid_value, "boundary-layer")
+            dic_index = DEFAULT_CHANNEL_CONFIG["DIC"]
+            outlined_path = (
+                media_root
+                / uuid_value
+                / "segmented"
+                / f"boundary-layer-{dic_index}-1.png"
+            )
+            outlined = np.full((5, 9, 3), (120, 120, 120), dtype=np.uint8)
+            outlined[2, 3] = (0, 255, 255)
+            Image.fromarray(outlined).save(outlined_path)
+            before = CellStatistics.objects.values().get(pk=cell_stat.pk)
+
+            response = self.client.get(
+                reverse(
+                    "cell_overlay_layer_image",
+                    args=[
+                        uuid_value,
+                        1,
+                        OVERLAY_LAYER_SCHEMA_VERSION,
+                        "cell-boundary",
+                        "dic",
+                    ],
+                )
+            )
+            self.assertEqual(response.status_code, 200)
+            rendered = np.array(Image.open(BytesIO(b"".join(response.streaming_content))))
+            response.close()
+            after = CellStatistics.objects.values().get(pk=cell_stat.pk)
+
+            self.assertEqual(rendered.shape, (5, 9, 4))
+            self.assertEqual(tuple(rendered[2, 3]), (0, 255, 255, 255))
+            self.assertEqual(int(np.count_nonzero(rendered[:, :, 3])), 1)
+            self.assertEqual(tuple(rendered[0, 0]), (0, 0, 0, 0))
+            composited = Image.alpha_composite(
+                Image.fromarray(channel_pixels["DIC"]).convert("RGBA"),
+                Image.fromarray(rendered, mode="RGBA"),
+            )
+            self.assertTrue(
+                np.array_equal(
+                    np.asarray(composited.convert("RGB")),
+                    outlined,
+                )
+            )
+            self.assertTrue(
+                overlay_layer_cache_image_path(
+                    uuid_value,
+                    1,
+                    "cellBoundary",
+                    "dic",
+                ).exists()
+            )
+
+        self.assertEqual(before, after)
+
+    def test_overlay_layer_endpoint_hides_unauthorized_runs_as_not_found(self):
+        other_user = get_user_model().objects.create_user(
+            email="overlay-layer-other@example.com",
+            password="TestPass123!",
+        )
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            UploadedImage.objects.create(
+                user=other_user,
+                uuid=uuid_value,
+                name="private-layer",
+                file_location=f"{uuid_value}/private-layer.dv",
+            )
+            segmented = SegmentedImage.objects.create(
+                user=other_user,
+                UUID=uuid_value,
+                file_location=f"user_{uuid_value}/private-layer.png",
+                ImagePath=f"{uuid_value}/output/private-layer_frame_0.png",
+                CellPairPrefix=f"{uuid_value}/segmented/cell_",
+                NumCells=1,
+            )
+            self._write_segmented_cell_assets(media_root, uuid_value, "private-layer")
+            self._create_cell_stats(segmented, "private-layer")
+            self._write_overlay_config(uuid_value, "private-layer")
+
+            response = self.client.get(
+                reverse(
+                    "cell_overlay_layer_image",
+                    args=[
+                        uuid_value,
+                        1,
+                        OVERLAY_LAYER_SCHEMA_VERSION,
+                        "cell-boundary",
+                        "dic",
+                    ],
+                )
+            )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_fluorescence_layer_endpoint_persists_only_requested_family_channels(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root() as media_root:
+            self._write_channel_config(media_root, uuid_value)
+            self._create_uploaded_image(uuid_value, name="red-family-layer")
+            segmented = self._create_segmented_image(
+                uuid_value,
+                name="red-family-layer",
+            )
+            segmented.NumCells = 1
+            segmented.save(update_fields=["NumCells"])
+            channel_pixels = self._write_segmented_cell_assets(
+                media_root,
+                uuid_value,
+                "red-family-layer",
+                shape=(5, 9),
+            )
+            cell_stat = self._create_cell_stats(segmented, "red-family-layer")
+            render_config = self._write_overlay_config(
+                uuid_value,
+                "red-family-layer",
+            )
+            render_config["selected_analysis"] = ["GreenRedIntensity"]
+            write_overlay_render_config(uuid_value, render_config)
+            before = CellStatistics.objects.values().get(pk=cell_stat.pk)
+            canvas = np.zeros((5, 9, 3), dtype=np.uint8)
+            canvas[1, 4] = (255, 0, 0)
+            rendered_channels = {
+                channel: Image.fromarray(canvas.copy())
+                for channel in ("blue", "red", "green")
+            }
+
+            with patch(
+                "core.services.overlay_rendering.render_overlay_images_for_cell",
+                return_value=rendered_channels,
+            ):
+                response = self.client.get(
+                    reverse(
+                        "cell_overlay_layer_image",
+                        args=[
+                            uuid_value,
+                            1,
+                            OVERLAY_LAYER_SCHEMA_VERSION,
+                            "red-contours",
+                            "red",
+                        ],
+                    )
+                )
+            self.assertEqual(response.status_code, 200)
+            rendered = np.array(
+                Image.open(BytesIO(b"".join(response.streaming_content)))
+            )
+            response.close()
+            after = CellStatistics.objects.values().get(pk=cell_stat.pk)
+            layer_dir = (
+                media_root
+                / uuid_value
+                / "segmented"
+                / f"overlay-layers-v{OVERLAY_LAYER_SCHEMA_VERSION}"
+            )
+            layer_files = sorted(layer_dir.glob("*.png"))
+
+        self.assertEqual(tuple(rendered[1, 4]), (255, 0, 0, 255))
+        self.assertEqual(rendered.shape, (5, 9, 4))
+        self.assertEqual(int(np.count_nonzero(rendered[:, :, 3])), 1)
+        composited = np.asarray(
+            Image.alpha_composite(
+                Image.fromarray(channel_pixels["channel_red"]).convert("RGBA"),
+                Image.fromarray(rendered, mode="RGBA"),
+            ).convert("RGB")
+        )
+        self.assertEqual(tuple(composited[1, 4]), (255, 0, 0))
+        self.assertEqual(tuple(composited[0, 0]), (220, 30, 30))
+        self.assertEqual(len(layer_files), 3)
+        self.assertTrue(all("red-contours" in path.name for path in layer_files))
+        self.assertEqual(before, after)
+
+    def test_overlay_layer_family_cache_is_linear_and_concurrency_safe(self):
+        uuid_value = str(uuid4())
+        with temporary_media_root():
+            self._create_uploaded_image(uuid_value, name="layer-dedupe")
+            segmented = self._create_segmented_image(uuid_value, name="layer-dedupe")
+            cell_stat = self._create_cell_stats(segmented, "layer-dedupe")
+            render_config = {
+                "image_stem": "layer-dedupe",
+                "channel_config": DEFAULT_CHANNEL_CONFIG,
+                "selected_analysis": ["GreenRedIntensity"],
+            }
+            start_barrier = threading.Barrier(3)
+            render_calls = 0
+            render_lock = threading.Lock()
+
+            def fake_render(*args, **kwargs):
+                nonlocal render_calls
+                with render_lock:
+                    render_calls += 1
+                time.sleep(0.1)
+                return {
+                    channel: Image.fromarray(
+                        np.full((4, 4, 4), (220, 20, 20, 255), dtype=np.uint8),
+                        mode="RGBA",
+                    )
+                    for channel in ("blue", "red", "green")
+                }
+
+            def warm_channel(channel: str):
+                start_barrier.wait(timeout=5)
+                return ensure_overlay_layer_cache_image(
+                    uuid_value,
+                    1,
+                    "redContours",
+                    channel,
+                    cell_stat=cell_stat,
+                    render_config=render_config,
+                )
+
+            with patch(
+                "core.services.overlay_rendering.render_overlay_layer_images_for_family",
+                side_effect=fake_render,
+            ):
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    paths = list(executor.map(warm_channel, ("blue", "red", "green")))
+
+            cache_dir = paths[0].parent
+            cached_pngs = sorted(cache_dir.glob("*.png"))
+
+        self.assertEqual(render_calls, 1)
+        self.assertEqual(len(cached_pngs), 3)
+        self.assertEqual({path.name for path in paths}, {path.name for path in cached_pngs})
+        self.assertTrue(all("red-contours" in path.name for path in cached_pngs))
 
     def test_overlay_endpoint_returns_404_for_unauthorized_user(self):
         other_user = get_user_model().objects.create_user(

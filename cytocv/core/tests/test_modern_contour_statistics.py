@@ -67,6 +67,18 @@ class ModernContourStatisticsTests(SimpleTestCase):
         return int(np.count_nonzero((mask > 0) & np.all(image == color, axis=2)))
 
     @staticmethod
+    def _overlay_visibility(**selected: bool) -> dict[str, bool]:
+        visibility = {
+            "cellBoundary": False,
+            "redContours": False,
+            "greenContours": False,
+            "blueContour": False,
+            "analysisAnnotations": False,
+        }
+        visibility.update(selected)
+        return visibility
+
+    @staticmethod
     def _write_outline(
         output_dir: Path,
         *,
@@ -142,6 +154,8 @@ class ModernContourStatisticsTests(SimpleTestCase):
         contour_main_image_shape=None,
         use_legacy_nuclear_cell_pair_pipeline: bool = False,
         legacy_exact_cell_pair_mask=None,
+        overlay_visibility: dict[str, bool] | None = None,
+        transparent_overlay_canvas: bool = False,
     ):
         cp = SimpleNamespace(
             image_name="test.dv",
@@ -205,6 +219,8 @@ class ModernContourStatisticsTests(SimpleTestCase):
                     contour_crop_origin=contour_crop_origin,
                     contour_main_image_shape=contour_main_image_shape,
                     legacy_exact_cell_pair_mask=legacy_exact_cell_pair_mask,
+                    overlay_visibility=overlay_visibility,
+                    transparent_overlay_canvas=transparent_overlay_canvas,
                 )
 
         return cp, np.array(debug_red), np.array(debug_green), np.array(debug_blue)
@@ -372,6 +388,114 @@ class ModernContourStatisticsTests(SimpleTestCase):
         self.assertEqual(
             cp.properties["puncta_source_contour_count_source"],
             "standard_canonical_slots_v1",
+        )
+
+    def test_selective_overlay_canvases_isolate_canonical_contour_families(self):
+        shape = (32, 32)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        contours_data = {
+            "dot_contours": [self._rect_contour(3, 3, 9, 9)],
+            "contours_green": [self._rect_contour(12, 12, 19, 19)],
+            "contours_blue": [self._rect_contour(21, 21, 28, 28)],
+        }
+
+        _, red_only, green_red_only, blue_red_only = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["GreenRedIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            overlay_visibility=self._overlay_visibility(redContours=True),
+            transparent_overlay_canvas=True,
+        )
+        for rendered in (red_only, green_red_only, blue_red_only):
+            self.assertGreater(int(np.count_nonzero(np.all(rendered == (255, 0, 0), axis=2))), 0)
+            self.assertEqual(int(np.count_nonzero(np.all(rendered == (0, 255, 0), axis=2))), 0)
+            self.assertEqual(int(np.count_nonzero(np.all(rendered == (0, 0, 255), axis=2))), 0)
+
+        _, red_green_only, green_only, blue_green_only = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["GreenRedIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            overlay_visibility=self._overlay_visibility(greenContours=True),
+            transparent_overlay_canvas=True,
+        )
+        for rendered in (red_green_only, green_only, blue_green_only):
+            self.assertGreater(int(np.count_nonzero(np.all(rendered == (0, 255, 0), axis=2))), 0)
+            self.assertEqual(int(np.count_nonzero(np.all(rendered == (255, 0, 0), axis=2))), 0)
+            self.assertEqual(int(np.count_nonzero(np.all(rendered == (0, 0, 255), axis=2))), 0)
+
+        _, red_blue_only, green_blue_only, blue_only = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["GreenRedIntensity"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            overlay_visibility=self._overlay_visibility(blueContour=True),
+            transparent_overlay_canvas=True,
+        )
+        self.assertEqual(int(np.count_nonzero(red_blue_only)), 0)
+        self.assertEqual(int(np.count_nonzero(green_blue_only)), 0)
+        self.assertGreater(int(np.count_nonzero(np.all(blue_only == (0, 0, 255), axis=2))), 0)
+        self.assertEqual(int(np.count_nonzero(np.all(blue_only == (255, 0, 0), axis=2))), 0)
+        self.assertEqual(int(np.count_nonzero(np.all(blue_only == (0, 255, 0), axis=2))), 0)
+
+    def test_analysis_annotation_layer_contains_puncta_line_without_contours(self):
+        shape = (32, 32)
+        red_gray = np.zeros(shape, dtype=np.uint8)
+        green_gray = np.zeros(shape, dtype=np.uint8)
+        contours_data = {
+            "dot_contours": [
+                self._rect_contour(4, 4, 8, 8),
+                self._rect_contour(22, 22, 26, 26),
+            ],
+            "contours_green": [],
+            "contours_blue": [],
+        }
+
+        cp_annotations, debug_red, debug_green, debug_blue = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["PunctaDistance"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            overlay_visibility=self._overlay_visibility(analysisAnnotations=True),
+            transparent_overlay_canvas=True,
+            signal_quantification_mode=SIGNAL_MODE_PUNCTA_DISTANCE,
+        )
+        cp_hidden, _, _, _ = self._run_get_stats(
+            mode="green_nucleus",
+            selected_analysis=["PunctaDistance"],
+            red_gray=red_gray,
+            green_gray=green_gray,
+            contours_data=contours_data,
+            y_range=range(0, shape[0]),
+            x_range=range(0, shape[1]),
+            overlay_visibility=self._overlay_visibility(),
+            transparent_overlay_canvas=True,
+            signal_quantification_mode=SIGNAL_MODE_PUNCTA_DISTANCE,
+        )
+
+        for rendered in (debug_red, debug_green):
+            self.assertGreater(int(np.count_nonzero(np.all(rendered == (255, 255, 255), axis=2))), 0)
+            self.assertEqual(int(np.count_nonzero(np.all(rendered == (255, 0, 0), axis=2))), 0)
+            self.assertEqual(int(np.count_nonzero(np.all(rendered == (0, 255, 0), axis=2))), 0)
+        self.assertEqual(int(np.count_nonzero(debug_blue)), 0)
+        self.assertEqual(cp_annotations.puncta_distance, cp_hidden.puncta_distance)
+        self.assertEqual(
+            cp_annotations.puncta_line_intensity,
+            cp_hidden.puncta_line_intensity,
         )
 
     def test_get_stats_green_puncta_uses_green_source_contour_count(self):

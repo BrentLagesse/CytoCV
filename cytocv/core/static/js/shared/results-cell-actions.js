@@ -358,13 +358,9 @@
                 }
             }
             if (typeof updateCellImages === 'function') {
-                const showContours = typeof getContourToggleState === 'function'
-                    ? getContourToggleState()
-                    : true;
                 await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                     blendImages: true,
                     blendText: true,
-                    forceShowContours: showContours,
                 });
             }
         }

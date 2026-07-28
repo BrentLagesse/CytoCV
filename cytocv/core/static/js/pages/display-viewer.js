@@ -32,15 +32,17 @@
                 '</svg>'
             );
         const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const getContourToggleState = resultsViewerShared.getContourToggleState;
-        const getVisibleCellImageUrls = (imageUrls, showContours = getContourToggleState()) =>
-            resultsViewerShared.getVisibleCellImageUrls(imageUrls, showContours, noCellPlaceholder);
         const {
+            createOverlayVisibilityController,
             defaultStatVisibility,
+            getCellOverlayRenderState,
+            getMissingCellImageStackUrls,
+            getOverlaySelectionSignature,
             getStatVisibility,
             showChannelError,
             preloadImage,
             preloadImageSet,
+            setCellImageStack,
             setCellPairImagesLoading,
             setCellDataRegionLoading,
             createCellDataRegionLoadingController,
@@ -346,6 +348,14 @@
             defaultTextDuration: FILE_BLEND_TEXT_MS,
             defaultImageDuration: FILE_BLEND_IMAGE_MS,
         });
+        const overlayVisibilityController = createOverlayVisibilityController({
+            contractProvider: () => (
+                filesData[fileUUIDs[currentFileIndex]]?.OverlayLayers || {}
+            ),
+            onChange: (selection) => {
+                void handleOverlayVisibilityChange(selection);
+            },
+        });
         const {
             getMainImagePaths,
             markMainImageChannelWarm,
@@ -364,7 +374,8 @@
         const overlayWarmCoordinator = window.CytoCVOverlayPrefetch
             ? window.CytoCVOverlayPrefetch.createWarmCoordinator({
                 resolveUrl: ({ fileKey, cellNumber }) => {
-                    const fileData = filesData[fileKey];
+                    const runKey = String(fileKey || '').split('::', 1)[0];
+                    const fileData = filesData[runKey];
                     if (!fileData) {
                         return '';
                     }
@@ -373,9 +384,14 @@
                     if (!Array.isArray(imageUrls)) {
                         return '';
                     }
-                    return [2, 4, 6]
-                        .map((index) => imageUrls[index] || '')
-                        .find((url) => typeof url === 'string' && url.includes('/overlay/')) || '';
+                    const renderState = getCellOverlayRenderState(
+                        imageUrls,
+                        fileData.OverlayLayers,
+                        cellNumber,
+                        overlayVisibilityController.getSelected(),
+                        noCellPlaceholder,
+                    );
+                    return renderState.usefulOverlayUrls[0] || '';
                 },
                 warmUrl: (url) => preloadImage(url),
             })
@@ -401,13 +417,22 @@
 
 
 
-        function getCellDisplayState(cellPairImages, statistics, { showContours = getContourToggleState(), cellNumber = currentCellNumber } = {}) {
+        function getCellDisplayState(cellPairImages, statistics, {
+            overlayVisibility = overlayVisibilityController.getSelected(),
+            cellNumber = currentCellNumber,
+        } = {}) {
             const safeCellPairImages = cellPairImages || {};
             const safeStatistics = statistics || {};
             const imageUrls = safeCellPairImages[cellNumber] || safeCellPairImages[String(cellNumber)] || null;
-            const visibleImageUrls = getVisibleCellImageUrls(imageUrls, showContours);
             const cellStats = safeStatistics[cellNumber] || safeStatistics[String(cellNumber)] || null;
             const fileUUID = fileUUIDs[currentFileIndex];
+            const overlayRenderState = getCellOverlayRenderState(
+                imageUrls,
+                filesData[fileUUID]?.OverlayLayers,
+                cellNumber,
+                overlayVisibility,
+                noCellPlaceholder,
+            );
             const scaleContext = getScaleContext(filesData[fileUUID]);
             const cellCard = buildCellCardMetricValues(cellStats, {
                 scaleContext,
@@ -415,7 +440,7 @@
             });
 
             return {
-                visibleImageUrls,
+                overlayRenderState,
                 cellId: (imageUrls || cellStats) ? cellNumber : 0,
                 mode: cellCard.mode,
                 sections: cellCard.sections,
@@ -453,10 +478,16 @@
 
             const imageIds = ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'];
             const imageUpdates = imageIds.map((id, index) =>
-                setImageWithBlend(document.getElementById(id), state.visibleImageUrls[index], {
+                setCellImageStack(
+                    document.getElementById(id),
+                    channels[index],
+                    state.overlayRenderState,
+                    setImageWithBlend,
+                    {
                     duration: FILE_BLEND_IMAGE_MS,
                     blend: blendImages,
-                })
+                    },
+                )
             );
 
             const textUpdates = [
@@ -475,10 +506,11 @@
             if (!fileData) {
                 return Promise.resolve(false);
             }
-            const state = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
-                showContours: getContourToggleState(),
-                cellNumber: currentCellNumber,
-            });
+            const state = getCellDisplayState(
+                fileData.CellPairImages,
+                fileData.Statistics,
+                { cellNumber: currentCellNumber },
+            );
             return renderCellDisplayState(state, {
                 blendImages: false,
                 blendText: hasInitializedDisplayFile,
@@ -496,7 +528,7 @@
                 },
             });
             syncFileNavigationState();
-            toggleContourOverlays();
+            overlayVisibilityController.bind();
             await loadFile(currentFileIndex);
         };
 
@@ -515,6 +547,7 @@
             const requestToken = ++activeFileLoadToken;
             ++activeChannelRequest;
             currentFileIndex = normalizedIndex;
+            overlayVisibilityController.refreshContract(fileData.OverlayLayers);
             maxCells = Number(fileData.NumberOfCells || 0);
             if (!Number.isFinite(maxCells) || maxCells < 0) {
                 maxCells = 0;
@@ -538,10 +571,7 @@
             if (activeMainChannel && activeMainChannel !== inferredDefaultChannel) {
                 markMainImageChannelWarm(fileUUID, fileData, activeMainChannel, mainImagePath);
             }
-            const showContours = getContourToggleState();
-            syncContourStateLabel(showContours);
             const initialCellState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
-                showContours,
                 cellNumber: currentCellNumber,
             });
             const shouldShowSkeleton = hasInitializedDisplayFile;
@@ -554,7 +584,7 @@
                 if (hasInitializedDisplayFile) {
                     await Promise.all([
                         preloadImage(mainImagePath),
-                        preloadImageSet(initialCellState.visibleImageUrls),
+                        preloadImageSet(initialCellState.overlayRenderState.preloadUrls),
                     ]);
                     if (requestToken !== activeFileLoadToken) {
                         return false;
@@ -581,7 +611,6 @@
                     updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                         blendImages: hasInitializedDisplayFile,
                         blendText: hasInitializedDisplayFile,
-                        forceShowContours: showContours,
                         preload: false,
                         fileToken: requestToken,
                     }),
@@ -605,8 +634,8 @@
                     setActiveChannel(inferredDefaultChannel);
                 }
                 scheduleMainImageWarmup(fileUUID, fileData, activeMainChannel || inferredDefaultChannel);
-                if (showContours) {
-                    markCurrentCellWarm(fileUUID, true);
+                if (initialCellState.overlayRenderState.usefulOverlayUrls.length) {
+                    markCurrentCellWarm(fileUUID);
                     scheduleCircularOverlayWarmup('initial');
                 }
 
@@ -741,12 +770,7 @@
             return setPreferredMainImageChannel(payload.main_image_channel || channel);
         }
 
-        function syncContourStateLabel(showContours) {
-            const contourStateValue = document.getElementById('contourStateValue');
-            if (contourStateValue) {
-                contourStateValue.textContent = showContours ? 'On' : 'Off';
-            }
-        }
+
 
 
 
@@ -1176,7 +1200,6 @@
                     await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                         blendImages: options.blendImages !== false,
                         blendText: options.blendText !== false,
-                        forceShowContours: getContourToggleState(),
                         imageLoading: options.imageLoading === true,
                     });
                 }
@@ -1184,16 +1207,18 @@
                 return null;
             }
             if (changed || options.forceRender) {
-                const showContours = getContourToggleState();
                 await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                     blendImages: options.blendImages !== false,
                     blendText: options.blendText !== false,
-                    forceShowContours: showContours,
                     imageLoading: options.imageLoading === true,
                 });
-                if (showContours) {
+                const warmState = getCellDisplayState(
+                    fileData.CellPairImages,
+                    fileData.Statistics,
+                ).overlayRenderState;
+                if (warmState.usefulOverlayUrls.length) {
                     const fileUUID = fileUUIDs[currentFileIndex];
-                    markCurrentCellWarm(fileUUID, true);
+                    markCurrentCellWarm(fileUUID);
                     scheduleCircularOverlayWarmup(options.warmDirection || 'initial');
                 }
             } else {
@@ -1396,7 +1421,6 @@
                 await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                     blendImages: true,
                     blendText: true,
-                    forceShowContours: getContourToggleState(),
                 });
                 updateTableState(fileUUID, fileData);
             });
@@ -1408,10 +1432,11 @@
             if (!fileUUID || !fileData) {
                 return;
             }
-            const nextState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics, {
-                showContours: getContourToggleState(),
-                cellNumber: currentCellNumber,
-            });
+            const nextState = getCellDisplayState(
+                fileData.CellPairImages,
+                fileData.Statistics,
+                { cellNumber: currentCellNumber },
+            );
             renderCellDisplayState(nextState, { blendImages: false, blendText: false });
             updateTableState(fileUUID, fileData);
             if (displayExportSelectionController && displayExportSelectionController.refreshStatLabels) {
@@ -1445,15 +1470,6 @@
             },
         });
 
-        function getCurrentCellImageUrls() {
-            const fileData = filesData[fileUUIDs[currentFileIndex]];
-            if (!fileData) {
-                return null;
-            }
-            const pairImages = fileData.CellPairImages || {};
-            return pairImages[currentCellNumber] || pairImages[String(currentCellNumber)] || null;
-        }
-
         function hasMultipleFiles() {
             return fileUUIDs.length > 1;
         }
@@ -1474,31 +1490,6 @@
             syncCellNavigationState();
         }
 
-        function applyContourToggleState(forceShowContours = null) {
-            const toggleElement = document.getElementById('toggleContours');
-            const showContours = forceShowContours === null
-                ? !!(toggleElement && toggleElement.checked)
-                : !!forceShowContours;
-            syncContourStateLabel(showContours);
-            const imageUrls = getCurrentCellImageUrls();
-            if (!imageUrls) {
-                return;
-            }
-            if (showContours) {
-                document.getElementById("cellImage1").src = imageUrls[0] || noCellPlaceholder;
-                document.getElementById("cellImage2").src = imageUrls[2] || noCellPlaceholder;
-                document.getElementById("cellImage3").src = imageUrls[4] || noCellPlaceholder;
-                document.getElementById("cellImage4").src = imageUrls[6] || noCellPlaceholder;
-            } else {
-                document.getElementById("cellImage1").src = imageUrls[1] || noCellPlaceholder;
-                document.getElementById("cellImage2").src = imageUrls[3] || noCellPlaceholder;
-                document.getElementById("cellImage3").src = imageUrls[5] || noCellPlaceholder;
-                document.getElementById("cellImage4").src = imageUrls[7] || noCellPlaceholder;
-            }
-        }
-
-
-
         function getCircularWarmQueue(direction = 'initial') {
             const fileData = filesData[fileUUIDs[currentFileIndex]];
             return resultsViewerShared.getCircularWarmQueue({
@@ -1509,19 +1500,39 @@
             });
         }
 
-        function markCurrentCellWarm(fileUUID, showContours) {
-            if (!showContours || !fileUUID || maxCells < 1) {
+        function getOverlayWarmStateKey(fileUUID) {
+            return `${fileUUID}::${getOverlaySelectionSignature(
+                overlayVisibilityController.getSelected()
+            )}`;
+        }
+
+        function markCurrentCellWarm(fileUUID) {
+            if (!fileUUID || maxCells < 1) {
                 return;
             }
-            overlayWarmCoordinator.markCellWarm(fileUUID, currentCellNumber);
+            overlayWarmCoordinator.markCellWarm(
+                getOverlayWarmStateKey(fileUUID),
+                currentCellNumber,
+            );
         }
 
         function scheduleCircularOverlayWarmup(direction = 'initial') {
             const fileUUID = fileUUIDs[currentFileIndex];
-            if (!fileUUID || !getContourToggleState() || maxCells < 1) {
+            const fileData = filesData[fileUUID];
+            if (!fileUUID || !fileData || maxCells < 1) {
                 return;
             }
-            overlayWarmCoordinator.scheduleCells(fileUUID, getCircularWarmQueue(direction));
+            const currentState = getCellDisplayState(
+                fileData.CellPairImages,
+                fileData.Statistics,
+            );
+            if (!currentState.overlayRenderState.usefulOverlayUrls.length) {
+                return;
+            }
+            overlayWarmCoordinator.scheduleCells(
+                getOverlayWarmStateKey(fileUUID),
+                getCircularWarmQueue(direction),
+            );
         }
 
         async function updateCellImages(cellPairImages, statistics, options = {}) {
@@ -1530,10 +1541,14 @@
             const renderToken = ++activeCellRenderToken;
             const blendImages = !!options.blendImages;
             const blendText = !!options.blendText;
+            const shouldPreloadImages = (
+                options.preload === true
+                || (blendImages && options.preload !== false)
+            );
             const showImageLoading = options.imageLoading === true;
-            const showContours = getContourToggleState(options.forceShowContours ?? null);
             const state = getCellDisplayState(cellPairImages, statistics, {
-                showContours,
+                overlayVisibility: options.overlayVisibility
+                    || overlayVisibilityController.getSelected(),
                 cellNumber: options.cellNumber ?? currentCellNumber,
             });
 
@@ -1542,8 +1557,16 @@
             }
 
             try {
-                if (blendImages && options.preload !== false) {
-                    await preloadImageSet(state.visibleImageUrls);
+                if (shouldPreloadImages) {
+                    const preloadUrls = options.preloadChangedOnly
+                        ? getMissingCellImageStackUrls(
+                            ['cellImage1', 'cellImage2', 'cellImage3', 'cellImage4'].map(
+                                (id) => document.getElementById(id)
+                            ),
+                            state.overlayRenderState,
+                        )
+                        : state.overlayRenderState.preloadUrls;
+                    await preloadImageSet(preloadUrls);
                     if (renderToken !== activeCellRenderToken) {
                         return false;
                     }
@@ -1585,24 +1608,35 @@
             }
         }
 
-        async function handleContourToggleChange(forceShowContours = null) {
-            const showContours = getContourToggleState(forceShowContours);
-            syncContourStateLabel(showContours);
-
+        async function handleOverlayVisibilityChange(selection) {
             const fileUUID = fileUUIDs[currentFileIndex];
             const fileData = filesData[fileUUID];
             if (!fileData) {
                 return;
             }
 
-            await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
-                blendImages: hasInitializedDisplayFile,
+            const updated = await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
+                blendImages: false,
                 blendText: false,
-                forceShowContours: showContours,
+                preload: true,
+                preloadChangedOnly: true,
+                overlayVisibility: selection,
             });
+            if (
+                !updated
+                || getOverlaySelectionSignature(selection)
+                    !== getOverlaySelectionSignature(overlayVisibilityController.getSelected())
+            ) {
+                return;
+            }
 
-            if (showContours) {
-                markCurrentCellWarm(fileUUID, true);
+            const currentState = getCellDisplayState(
+                fileData.CellPairImages,
+                fileData.Statistics,
+                { overlayVisibility: selection },
+            );
+            if (currentState.overlayRenderState.usefulOverlayUrls.length) {
+                markCurrentCellWarm(fileUUID);
                 scheduleCircularOverlayWarmup('initial');
             }
         }
@@ -1641,18 +1675,17 @@
                 return;
             }
             currentCellNumber = getAdjacentFilteredCellId(currentCellNumber, activeIds, 'next');
-            const showContours = getContourToggleState();
             await cellDataRegionLoadingController.run(async () => {
                 await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                     blendImages: true,
                     blendText: true,
-                    forceShowContours: showContours,
                     imageLoading: true,
                 });
                 updateTableState(fileUUID, fileData);
             });
-            if (showContours) {
-                markCurrentCellWarm(fileUUID, true);
+            const nextState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics);
+            if (nextState.overlayRenderState.usefulOverlayUrls.length) {
+                markCurrentCellWarm(fileUUID);
                 scheduleCircularOverlayWarmup('next');
             }
         }
@@ -1672,36 +1705,19 @@
                 return;
             }
             currentCellNumber = getAdjacentFilteredCellId(currentCellNumber, activeIds, 'previous');
-            const showContours = getContourToggleState();
             await cellDataRegionLoadingController.run(async () => {
                 await updateCellImages(fileData.CellPairImages, fileData.Statistics, {
                     blendImages: true,
                     blendText: true,
-                    forceShowContours: showContours,
                     imageLoading: true,
                 });
                 updateTableState(fileUUID, fileData);
             });
-            if (showContours) {
-                markCurrentCellWarm(fileUUID, true);
+            const previousState = getCellDisplayState(fileData.CellPairImages, fileData.Statistics);
+            if (previousState.overlayRenderState.usefulOverlayUrls.length) {
+                markCurrentCellWarm(fileUUID);
                 scheduleCircularOverlayWarmup('previous');
             }
-        }
-
-        let contourToggleBound = false;
-        function toggleContourOverlays() {
-            const toggleElement = document.getElementById('toggleContours');
-            if (!toggleElement) {
-                return;
-            }
-            syncContourStateLabel(toggleElement.checked);
-            if (contourToggleBound) {
-                return;
-            }
-            contourToggleBound = true;
-            toggleElement.addEventListener('change', function () {
-                void handleContourToggleChange(this.checked);
-            });
         }
 
         // Sidebar elements
