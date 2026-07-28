@@ -1,33 +1,31 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":30,"rankSpacing":48}}}%%
 flowchart TD
     classDef actor fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
     classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef optional fill:#eff6ff,stroke:#60a5fa,color:#1d4ed8,stroke-width:1.2px;
     classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
-    classDef control fill:#f1f5f9,stroke:#64748b,color:#334155,stroke-width:1.2px;
 
     visitor[User]
-    gate[reCAPTCHA gate]
-    auth[Authentication options<br/>email/password or provider SSO<br/>Google and Microsoft]
-    signup[Account creation<br/>with email verification]
-    recovery[Password recovery]
-    session[Authenticated session]
-    dashboard[Dashboard and experiment workflow]
-    prefs[Workflow defaults]
-    settings[Account management]
+    gate["Optional reCAPTCHA gate<br/>deployment controlled"]
+    native["Native email workflow<br/>sign in, signup, recovery"]
+    providers["Optional provider SSO<br/>Google and Microsoft via allauth"]
+    verify["Email verification<br/>codes or provider confirmation"]
+    session["Authenticated session"]
+    workflow["Experiment workflow<br/>Dashboard and Display"]
+    prefs["Workflow defaults<br/>plugin, scale, export settings"]
+    account["Account management<br/>email and security settings"]
 
     visitor --> gate
-    gate --> auth
-    gate --> signup
-    gate --> recovery
-    auth --> session
-    signup --> session
-    recovery --> session
-    session --> dashboard
-    dashboard --> prefs
-    dashboard --> settings
+    gate --> native
+    gate --> providers
+    native --> verify --> session
+    providers --> verify
+    providers --> session
+    session --> workflow
+    workflow --> prefs
+    session --> account
 
     class visitor actor
-    class gate control
-    class auth,signup,recovery,dashboard,prefs,settings process
+    class gate,providers optional
+    class native,verify,workflow,prefs,account process
     class session output
-

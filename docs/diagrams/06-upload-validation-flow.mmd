@@ -1,37 +1,45 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
-flowchart TD
-    classDef actor fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":30,"rankSpacing":48}}}%%
+flowchart LR
+    classDef input fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
     classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
     classDef decision fill:#fef3c7,stroke:#f59e0b,color:#92400e,stroke-width:1.2px;
     classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
     classDef warn fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
     classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
 
-    start[Experiment page]
-    batch[POST upload batches<br/>under request-size target]
-    create[Create UploadedImage row<br/>and save DV bytes]
-    prep[Enqueue UploadPreparationJob]
-    worker[Background worker]
-    input[New files and<br/>restored queue UUIDs]
-    select[Normalize plugins and<br/>required channels]
-    validate[Recognized DV,<br/>configured layer-count policy,<br/>effective required channels]
-    ok{Valid?}
-    reject[Delete invalid new run<br/>or skip restored run]
-    scale[Extract scale metadata]
-    channels[Extract channel map]
-    config[channel_config.json]
-    preview[Generate preview PNGs]
-    queue[Persist valid UUID set]
-    poll[Poll upload-prep status]
-    redirect[Redirect to preprocess]
+    subgraph intake["Upload request"]
+        direction TB
+        start["Experiment upload<br/>one or more source stacks"]
+        source["Supported source<br/>.dv, .tif, .tiff"]
+        job["UploadPreparationJob<br/>queued or sync execution"]
+    end
 
-    start --> batch --> create --> prep --> worker --> input --> select --> validate --> ok
-    ok -- no --> reject
-    ok -- yes --> scale --> channels --> config --> preview --> queue --> poll --> redirect
+    subgraph validation["Validation logic"]
+        direction TB
+        parse["Read stack shape<br/>and metadata"]
+        channel["Resolve channel roles<br/>DIC, Blue, Red, Green"]
+        plugins["Normalize selected plugins<br/>and puncta mode"]
+        required["Derive required channels<br/>DIC plus plugin roles"]
+    end
 
-    class start,input actor
-    class select,create,validate,scale,channels,preview,queue,batch,prep,worker,poll process
-    class ok decision
+    valid{"Valid source<br/>and required roles?"}
+    reject["Reject invalid new run<br/>or skip restored run"]
+
+    subgraph accepted["Accepted run setup"]
+        direction TB
+        scale["Extract scale metadata<br/>or default manual scale"]
+        config["Write channel_config.json<br/>and scale_info"]
+        preview["Generate preview PNGs<br/>for mapped layers"]
+        ready["Valid UUID set<br/>ready for preprocessing"]
+    end
+
+    start --> source --> job --> parse --> channel --> plugins --> required --> valid
+    valid -- no --> reject
+    valid -- yes --> scale --> config --> preview --> ready
+
+    class start,source input
+    class job,parse,channel,plugins,required,scale,preview process
+    class valid decision
     class config data
     class reject warn
-    class redirect output
+    class ready output

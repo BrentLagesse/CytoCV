@@ -1,0 +1,41 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":30,"rankSpacing":48}}}%%
+flowchart LR
+    classDef channel fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef modern fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef legacy fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+
+    dic["DIC mask<br/>shared segmentation input"]
+    blue["Blue contour or image<br/>legacy role"]
+    red["Red contours"]
+    green["Green contours or signal"]
+
+    modern["NuclearCellPairIntensity<br/>current configurable path"]
+    nucleus["NucleusIntensity<br/>legacy Blue contour plus Green signal"]
+    bluenuc["BlueNucleusIntensity<br/>legacy Blue contour plus Blue signal"]
+    redblue["RedBlueIntensity<br/>legacy Red contour plus Blue signal"]
+    compat["Backward-compatible<br/>legacy Blue outputs"]
+
+    dic --> modern
+    green --> modern
+    red --> modern
+
+    dic --> nucleus
+    blue --> nucleus
+    green --> nucleus
+
+    dic --> bluenuc
+    blue --> bluenuc
+
+    dic --> redblue
+    red --> redblue
+    blue --> redblue
+
+    nucleus --> compat
+    bluenuc --> compat
+    redblue --> compat
+
+    class dic,blue,red,green channel
+    class modern modern
+    class nucleus,bluenuc,redblue legacy
+    class compat output

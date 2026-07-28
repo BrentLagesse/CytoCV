@@ -94,6 +94,9 @@ The display view provides:
 
 - one main outlined image per file
 - per-cell image panels in channel order
+- a compact Overlays menu for independently showing Cell boundary, Red
+  contours, Green contours, Blue contour, and analysis annotations when those
+  layers are available
 - software-generated measurements for each cell
 - a Cell Type Filter for retained single-cell and cell-pair rows
 - a Puncta Source / Red or Green Source Contour Count row filter when source contour count data is available
@@ -101,6 +104,23 @@ The display view provides:
 - save, unsave, and selection synchronization actions
 
 Main display frames can be switched by channel, and channel order is based on the stored `channel_config.json`.
+
+The Overlays menu starts at `All` on each page load. `Select all` reproduces
+the previous outlined presentation, while `Clear` shows no-outline cell crops.
+Selections remain active while moving between cells and files on the same
+page. A family can stay selected when a file lacks its source channel; it is
+temporarily unavailable for that file and becomes active again on a compatible
+file. Older saved runs without current replay metadata remain viewable with
+aggregate `All` and `None` behavior.
+
+Changing one family updates only the image columns where that family is drawn.
+Other columns keep the same crop and presentation. Rectangular cell crops and
+their annotations retain the same aspect ratio instead of stretching to fill
+the square viewer card.
+
+Changing overlay visibility affects only the pictures shown in Display or
+Dashboard. It does not change segmentation, measurements, saved statistics,
+or exported values.
 
 ## Step 7: Save Or Export
 

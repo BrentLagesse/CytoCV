@@ -99,12 +99,35 @@ Batch verification preserves the backend-owned UUID list. Frontend code must not
 Common contracts:
 
 - `displayFilesData` and `dashboardFilesData` serialize files, channel paths, scale context, cell images, and statistics.
+- each file retains the eight-entry `CellPairImages` pairs and adds a versioned
+  `OverlayLayers` contract describing selective support, family availability,
+  and protected layer URL templates
 - `displayPageConfig` and `dashboardPageConfig` serialize deletion preferences, sidebar unit preference, preferred main image channel, and table UUID.
 - `viewer_overlay_prefetch.js` owns overlay warmup helpers.
 - `js/shared/results-viewer.js` owns duplicate viewer utilities such as blend transitions, image preloading, stat formatting, spatial-unit table formatting, and main-image warmup helpers.
 - `js/shared/results-cell-actions.js` owns the shared cell delete/select modal and context-menu controller. `dashboard-cell-actions.js` and `display-cell-actions.js` only pass the page config into that shared controller.
 - `css/components/results-viewer.css` owns exact shared dashboard/display viewer selectors.
+- `partials/overlay_visibility_control.html` is the single shared Overlays
+  multi-select markup used by both pages
 - `export_selection_modal.js` owns selectable column/file export behavior.
+
+`js/shared/results-viewer.js` owns overlay selection normalization, stable
+signatures, availability intersection, compact summary labels, legacy
+aggregate fallback, image/layer resolution, and menu behavior. Display and
+Dashboard each keep one page-level selected state, default it to all families
+on page load, and never store it per file or per cell. File availability
+produces an effective state without erasing unavailable selections.
+
+The outlined member remains the exact `All` source and the no-outline member is
+the `None` source. Mixed states resolve each displayed channel independently.
+A channel whose applicable families are all still selected keeps its aggregate
+source; only an affected channel switches to its no-outline crop plus protected
+transparent PNG layers in renderer draw order. Base images and layers share the
+same centered `contain` geometry, which is required because cell crops are
+usually rectangular. Overlay-only changes preload only changed stack URLs and
+apply without a whole-image blend. Selecting no overlays does not request
+dynamic overlay resources. Render tokens prevent an older preload from
+overwriting a newer file, cell, or visibility selection.
 
 Only factor display/dashboard code when the DOM, payload, preference, and save/delete behavior contracts are identical.
 

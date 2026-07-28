@@ -1,43 +1,63 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":42}}}%%
-flowchart LR
-    classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
-    classDef decision fill:#fef3c7,stroke:#f59e0b,color:#92400e,stroke-width:1.2px;
-    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
-    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":46}}}%%
+flowchart TD
+    classDef input fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef mask fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
+    classDef modern fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
     classDef legacy fill:#fef2f2,stroke:#f87171,color:#991b1b,stroke-width:1.2px;
+    classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
 
-    crops[Per-cell channel crops]
-    gray[Grayscale conversion,<br/>blur, and background subtraction]
-    contours[Contour extraction for<br/>Red dots, Green regions,<br/>and optional Blue nuclei]
-    scale[Scale-aware threshold<br/>resolution]
-    plugins[Selected plugins]
-    blue{Blue contour needed by a<br/>selected legacy plugin?}
-    run_all[Run modern plugins and<br/>selected legacy plugins]
-    run_partial[Run modern and other<br/>non-Blue plugins only]
-    debug[Debug overlays]
-    save[(CellStatistics row)]
+    crop["Per-cell crop<br/>from retained DIC mask"]
+    cellmask["Cell or cell-pair mask<br/>single, pair, or both"]
+    parentage["Pair geometry<br/>neck split and parentage"]
+    canonical["Canonical contour slots<br/>clipped to DIC mask"]
 
-    crops --> gray --> contours --> scale --> plugins --> blue
-    blue -- yes --> run_all --> debug --> save
-    blue -- no --> run_partial --> debug --> save
+    red["Red dot contours"]
+    green["Green contours"]
+    blue["Blue contours<br/>legacy when selected"]
 
-    subgraph families[Plugin families]
-        p1[Puncta distance]
-        p2[CEN dot]
-        p3[Green and red intensity]
-        p4[Modern nuclear or cell-pair<br/>Green or Red contour]
-        p5[Legacy Blue contour<br/>measurements]
-    end
+    puncta["PunctaDistance<br/>paired, red-only, green-only"]
+    gr["GreenRedIntensity<br/>total, max, mean intensity"]
+    cen["CENDot<br/>mother/daughter classification"]
+    bio["Biorientation<br/>on-axis and off-axis counts"]
+    nuclear["NuclearCellPairIntensity<br/>cell, nucleus, cytoplasm"]
+    legacy["Legacy Blue modules<br/>Nucleus, BlueNucleus, RedBlue"]
 
-    plugins --> p1
-    plugins --> p2
-    plugins --> p3
-    plugins --> p4
-    plugins --> p5
+    row["CellStatistics row<br/>fields plus properties JSON"]
+    overlays["Review artifacts<br/>overlays, crops, debug outputs"]
+    export["Display and export<br/>applicability-aware values"]
 
-    class crops,gray,contours,scale,plugins,run_all,run_partial process
-    class blue decision
-    class save data
-    class debug,p1,p2,p3,p4 output
-    class p5 legacy
+    crop --> cellmask --> parentage --> canonical
+    canonical --> red
+    canonical --> green
+    canonical --> blue
 
+    red --> puncta
+    green --> puncta
+    red --> gr
+    green --> gr
+    red --> cen
+    green --> cen
+    parentage --> cen
+    red --> bio
+    green --> bio
+    green --> nuclear
+    red --> nuclear
+    blue --> legacy
+    red --> legacy
+    green --> legacy
+
+    puncta --> row
+    gr --> row
+    cen --> row
+    bio --> row
+    nuclear --> row
+    legacy --> row
+    row --> export
+    canonical --> overlays
+    row --> overlays
+
+    class crop input
+    class cellmask,parentage,canonical,red,green,blue mask
+    class puncta,gr,cen,bio,nuclear modern
+    class legacy legacy
+    class row,overlays,export output

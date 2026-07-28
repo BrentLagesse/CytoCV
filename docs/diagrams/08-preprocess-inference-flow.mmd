@@ -1,28 +1,26 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":28,"rankSpacing":40}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":30,"rankSpacing":48}}}%%
 flowchart LR
-    classDef source fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef input fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
     classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
-    classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
+    classDef model fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
     classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
 
-    dic[DIC layer]
-    png[Normalize and save<br/>preprocessed PNG]
-    list[preprocessed_images_list.csv]
-    model[Mask R-CNN inference]
-    weights[deepretina_final.h5]
-    rle[compressed_masks.csv]
-    decode[RLE to mask conversion]
-    mask[output/mask.tif]
+    source["Mapped source stack<br/>DIC plus fluorescence roles"]
+    dic["DIC layer<br/>segmentation reference"]
+    fluo["Fluorescence layers<br/>raw and preprocessed copies"]
+    preprocess["Preprocess images<br/>grayscale, blur, background handling"]
+    weights["Mask R-CNN weights<br/>deployment supplied"]
+    infer["DIC-guided<br/>Mask R-CNN inference"]
+    mask["Postprocess masks<br/>fill holes and relabel"]
+    write["Write output/mask.tif"]
+    next["Segmentation and<br/>per-cell analysis"]
 
-    dic --> png
-    png --> list
-    png --> model
-    list --> model
-    weights --> model
-    model --> rle --> decode --> mask
+    source --> dic --> preprocess --> infer
+    source --> fluo --> preprocess
+    weights --> infer
+    infer --> mask --> write --> next
 
-    class dic,weights source
-    class png,model,decode process
-    class list,rle data
-    class mask output
-
+    class source,dic,fluo input
+    class preprocess,mask,write process
+    class weights,infer model
+    class next output

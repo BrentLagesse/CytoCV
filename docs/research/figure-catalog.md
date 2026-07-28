@@ -2,33 +2,35 @@
 
 ## Purpose
 
-This catalog summarizes the current CytoCV diagram set for reports, appendices, collaborator packets, and research-facing documentation. It uses the same public terminology as the current interface: DIC, Blue, Red, and Green.
+This catalog identifies the current CytoCV diagram set for manuscript figures, supplementary figures, reports, appendices, and collaborator packets. It uses the same public terminology as the current application and documentation: DIC, Blue, Red, Green, `.dv`, stack TIFF, plugin-based statistics, Display/Dashboard review, CSV/XLSX export, and saved/transient runs.
 
-## Primary Figures
+## Recommended Primary Figures
 
-| Figure | Recommended use | Caption focus |
-| --- | --- | --- |
-| Figure 1. System architecture | Overall software architecture | Layered view of the web interface, scientific processing components, and persistent storage boundaries. |
-| Figure 2. End-to-end workflow | Methods overview | DeltaVision ingestion through validation, segmentation, quantification, review, and export. |
-| Figure 3. Cell analysis flow | Per-cell measurement section | How DIC-based segmentation and channel-specific measurements combine at the single-cell level. |
-| Figure 4. Data model | Reproducibility or implementation appendix | Relationships among uploaded runs, previews, segmented outputs, and per-cell statistics. |
+| Figure | Source | Recommended use | Caption focus |
+| --- | --- | --- | --- |
+| Figure 1. System architecture | `docs/diagrams/01-system-architecture.png` | Overall software architecture | Browser workflow, Django services, job processing, scientific image-analysis services, and persistence boundaries. |
+| Figure 2. End-to-end workflow | `docs/diagrams/02-end-to-end-workflow.png` | Methods overview | `.dv` or stack TIFF upload through validation, channel mapping, DIC-guided segmentation, plugin measurement, review, saved/transient storage, and CSV/XLSX export. |
+| Figure 3. Cell analysis flow | `docs/diagrams/03-cell-analysis-flow.png` | Per-cell measurement section | Retained DIC masks, canonical fluorescence contours, puncta modes, contour intensities, CEN-dot classification, biorientation, nuclear-cell-pair intensity, and legacy Blue modules. |
+| Figure 4. Data model | `docs/diagrams/11-data-model.png` | Reproducibility or implementation appendix | Relationships among uploaded runs, upload-preparation jobs, analysis jobs, previews, segmented outputs, and per-cell statistics. |
 
 ## Supplementary Figures
 
-| Topic group | Figures | Typical use |
+| Topic group | Figure sources | Typical use |
 | --- | --- | --- |
-| Validation and channel rules | Plugin-channel map; upload validation flow; scale and channel resolution | Appendix material for required-channel logic, metadata interpretation, and scale handling. |
-| Processing and output | Preprocess and inference flow; segmentation output flow; display and export flow | Detailed workflow explanation beyond the main narrative figure set. |
-| Retention and control | Artifact lifecycle; progress and cancellation state; run ownership and retention state | Operational context for run persistence, cancellation, and saved-result handling. |
-| Access and legacy context | Authentication and account flow; legacy Blue measurements | Account-based access overview and legacy analysis behavior when Blue-channel workflows are still needed. |
+| Artifacts and retention | `04-artifact-lifecycle.png`; `13-run-ownership-retention-state.png` | Explain saved/transient result storage, generated artifacts, and cleanup behavior. |
+| Channel and validation rules | `05-plugin-channel-map.png`; `06-upload-validation-flow.png`; `07-scale-channel-resolution.png` | Document required-channel logic, metadata interpretation, TIFF/DV scale handling, and pixel/micron conversion. |
+| Processing and output | `08-preprocess-inference-flow.png`; `09-segmentation-output-flow.png`; `10-display-export-flow.png` | Provide detailed workflow explanation beyond the main narrative figure set. |
+| Progress and cancellation | `12-progress-cancellation-state.png` | Explain worker-backed progress phases, cancellation, terminal states, and failure handling. |
+| Access and legacy context | `14-authentication-account-flow.png`; `15-legacy-blue-measurements.png` | Supplementary account-flow overview and backward-compatible legacy Blue measurement context. |
 
 ## Figure Usage Notes
 
-- Use the first four figures for the primary narrative in a manuscript, thesis chapter, or software appendix.
-- Use the supplementary figures when reviewers or collaborators need more detail on validation rules, workflow control, or legacy analysis paths.
-- Keep figure captions aligned with the current public channel terms Blue, Red, Green, and DIC rather than older instrument-specific names.
-- Revise the figure set whenever the workflow, validation policy, or measurement terminology changes.
+- Use Figures 1-4 for the primary manuscript narrative unless the target journal requests fewer software architecture figures.
+- Use supplementary figures for reviewer questions about validation rules, workflow control, generated artifacts, access control, or legacy behavior.
+- Treat CEN-dot, biorientation, puncta, and nuclear-cell-pair outputs as software-generated measurements unless biology-side validation is described separately.
+- Keep figure captions aligned with current logical channel terms rather than older fluorophore-specific or instrument-only terms.
+- Regenerate all PNGs after any `.mmd` change and verify the images open in ordinary PNG viewers before submission.
 
 ## Maintenance Note
 
-Editable diagram sources and rendered PNG assets are maintained alongside the rest of the repository documentation so that captions and diagrams can be updated together.
+Editable diagram sources and rendered PNG assets are maintained in `docs/diagrams/`. The render script in that folder validates PNG compatibility so corrupted raster files cannot silently remain in the repository.

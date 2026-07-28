@@ -1,30 +1,29 @@
-﻿%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Helvetica","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":26,"rankSpacing":42}}}%%
+%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryColor":"#f8fafc","primaryBorderColor":"#94a3b8","primaryTextColor":"#0f172a","secondaryColor":"#eff6ff","tertiaryColor":"#eef2ff","lineColor":"#475569","fontFamily":"Arial","fontSize":"16px","clusterBorder":"#cbd5e1","clusterBkg":"#ffffff"},"flowchart":{"htmlLabels":true,"curve":"linear","nodeSpacing":30,"rankSpacing":48}}}%%
 flowchart LR
-    classDef source fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
+    classDef input fill:#fff7ed,stroke:#fb923c,color:#9a3412,stroke-width:1.4px;
     classDef process fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.2px;
     classDef data fill:#ecfdf5,stroke:#4ade80,color:#166534,stroke-width:1.2px;
     classDef output fill:#eef2ff,stroke:#818cf8,color:#3730a3,stroke-width:1.2px;
 
-    dv[DV file]
-    channel[extract_channel_config]
-    map[channel_config.json]
-    scale_meta[extract_dv_scale_metadata]
-    build[build_scale_info]
-    prefs[Manual scale and<br/>prefer metadata]
-    override[Per-file override<br/>in preprocess]
-    resolve[resolve_scale_context]
-    convert[convert_length_to_pixels]
-    stats[Scale-aware thresholds<br/>inside statistics]
+    source["Source stack<br/>.dv or stack TIFF"]
+    channel_meta["Channel metadata<br/>labels and wavelengths"]
+    scale_meta["Scale metadata<br/>dx, dy, dz when available"]
+    fallback["Manual fallback<br/>microns per pixel"]
+    override["Per-run override<br/>from preprocessing controls"]
+    config["channel_config.json<br/>logical roles"]
+    scale_info["UploadedImage.scale_info<br/>source, status, values"]
+    context["resolve_scale_context<br/>unit, x scale, y scale"]
+    thresholds["Convert user lengths<br/>line width and dot thresholds"]
+    tables["Display/export conversion<br/>px or microns"]
 
-    dv --> channel --> map
-    dv --> scale_meta --> build
-    prefs --> build
-    build --> resolve
-    build --> override --> resolve
-    resolve --> convert --> stats
+    source --> channel_meta --> config
+    source --> scale_meta --> scale_info
+    fallback --> scale_info
+    override --> scale_info
+    scale_info --> context
+    context --> thresholds
+    context --> tables
 
-    class dv,prefs source
-    class channel,scale_meta,build,override,resolve,convert process
-    class map data
-    class stats output
-
+    class source,fallback,override input
+    class channel_meta,scale_meta,context,thresholds,tables process
+    class config,scale_info data

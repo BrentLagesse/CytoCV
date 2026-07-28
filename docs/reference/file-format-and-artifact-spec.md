@@ -92,6 +92,7 @@ Common artifacts under `MEDIA_ROOT/<uuid>/`:
 - `segmented/*-no_outline.png`
 - `segmented/overlay-render-config.json`
 - `segmented/overlay-cache-v4/*.png`
+- `segmented/overlay-layers-v1/*.png` (lazy, transparent display-only layers)
 - `segmented/*_debug.png`
 
 ## Channel Configuration File
@@ -143,7 +144,107 @@ Observed output naming patterns include:
   outline patterns are still checked by cleanup/deletion paths
 - exact overlay render snapshot: `overlay-render-config.json`
 - exact overlay cache entries: `overlay-cache-v4/cell-<cell>-<channel>.png`
+- selective overlay layer entries:
+  `overlay-layers-v1/cell-<cell>-<family>-<display-channel>.png`
 - optional legacy debug overlays when raster export is enabled: `<image>-<cell>-Red_debug.png`, `<image>-<cell>-Green_debug.png`, `<image>-<cell>-Blue_debug.png`
+
+## Cell Viewer Overlay Contract
+
+`CellPairImages` remains an eight-entry array in this exact order:
+
+1. DIC outlined
+2. DIC no-outline
+3. Blue outlined
+4. Blue no-outline
+5. Red outlined
+6. Red no-outline
+7. Green outlined
+8. Green no-outline
+
+Display and Dashboard add an `OverlayLayers` object without changing those
+entries. Schema version `1` contains `selective`, `aggregateAvailable`,
+`availableFamilies`, and sparse `layerUrlTemplates`. URL templates contain the
+literal `{cellId}` placeholder.
+
+The viewer's logical families are:
+
+- `cellBoundary`: DIC external cell or cell-pair boundary, neck seam, and
+  mother/daughter labels
+- `redContours`: canonical or selected alternate Red contour geometry,
+  wherever it is drawn on Blue, Red, or Green display crops
+- `greenContours`: canonical or selected alternate Green contour geometry,
+  wherever it is drawn on Blue, Red, or Green display crops
+- `blueContour`: canonical Blue contour geometry on the Blue display crop
+- `analysisAnnotations`: the independently drawn puncta measurement line on
+  available Red and/or Green display crops, including single-channel puncta runs
+
+Layer PNGs are transparent RGBA annotations and never contain the base
+microscopy pixels. Schema `v1` uses the renderer's existing colors: Red
+`(255, 0, 0)`, Green `(0, 255, 0)`, Blue `(0, 0, 255)`, and puncta-line white
+`(255, 255, 255)`. The DIC family preserves all changed pixels from the stored
+outlined DIC crop, including anti-aliased labels and their black stroke, rather
+than trying to classify those pixels by color.
+
+Current DIC morphology consists of the cyan external boundary at one-pixel
+thickness, the cyan one-pixel neck seam with two-pixel dash/gap spacing, and
+white `M`/`D` labels with a one-pixel black stroke. Canonical Red, Green, and
+Blue contours and alternate nucleus contours use one-pixel lines. The puncta
+measurement line uses the run's configured line thickness. Red and Green
+geometry can appear on several fluorescence display channels; family identity
+is therefore independent of the displayed column.
+
+Layers are generated lazily with a per-cell/family lock and atomic PNG writes.
+One request can write that family's applicable display-channel layers, but no
+filename or file contains a visibility combination. A four-channel run has at
+most ten sparse layer files per cell: one Cell boundary, three Red, three
+Green, one Blue, and two Analysis annotations.
+
+`All` continues to use the existing outlined or exact aggregate overlay image,
+so it is pixel-identical to the previous checked Contours state. `None` uses
+the existing no-outline crop. Mixed selections resolve each displayed channel
+independently: channels whose applicable families remain fully selected keep
+their aggregate source, while affected channels use the no-outline crop plus
+only the chosen transparent layers. Base crops and layers are centered with the
+same contain geometry, so rectangular cell crops retain their coordinate
+system and aspect ratio. Runs without a current replay snapshot remain
+aggregate-only: their best outlined/debug image is used for `All`, and their
+no-outline image is used for `None` when present. A restored run whose snapshot
+survives but whose required no-outline source crops do not is likewise treated
+as aggregate-only.
+
+Overlay visibility is display-only. It does not rerun segmentation, alter
+contour detection, update `CellStatistics`, or change table/export values.
+
+Layer bytes live under the normal run namespace, so saved-run quota usage and
+storage projections include them automatically. Per-cell deletion removes
+layer PNGs and locks across schema-versioned `overlay-layers-v*` directories.
+File deletion, failed-run cleanup, stale transient deletion, and account
+deletion remove the containing run namespace and therefore remove the layers.
+
+### Representative Storage Verification
+
+A temporary-copy replay of three current four-channel cells produced ten layer
+PNGs per cell after generating every family. It did not write to the retained
+run. For the two sampled cells that already had a complete three-file
+`overlay-cache-v4` entry, the comparison was:
+
+| Artifact set per cell | Files | Average bytes |
+| --- | ---: | ---: |
+| Existing four no-outline crops | 4 | 24,821.5 |
+| Existing complete aggregate fluorescence cache | 3 | 14,608 |
+| All new transparent family layers | 10 | 4,016.5 |
+
+Across all three sampled cells, the full ten-layer set averaged 3,935.7 bytes.
+Transparent pixels store zero RGB rather than hidden base microscopy pixels.
+The Cell boundary layer was still the largest individual layer because it
+preserves anti-aliased DIC labels; fluorescence layers were smaller.
+Exercising all menu combinations cannot increase the per-cell layer count
+beyond those ten family/channel files, because selection combinations are
+never persisted. These layer bytes are additional to any retained aggregate
+cache: the three-file aggregate remains necessary for exact `All` rendering
+and legacy fallback, while the ten-file figure remains the lazy artifact upper
+bound if every family is requested for that cell. Per-channel aggregate reuse
+can avoid requesting families that do not need layered composition.
 
 ## Export Output
 
