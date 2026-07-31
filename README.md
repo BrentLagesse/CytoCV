@@ -2,7 +2,7 @@
 
 CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) and stack TIFF (`.tif`, `.tiff`) microscopy files of yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
-> **Version:** 1.0  
+> **Version:** 2.0.0
 > **Python:** 3.11.5  
 > **Database:** PostgreSQL in production; SQLite for local development only  
 > **Platform:** Windows-native development and Linux-compatible deployment
