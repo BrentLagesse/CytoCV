@@ -7,7 +7,11 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from core.services.signal_quantification import DEFAULT_SIGNAL_SELECTED_PLUGINS
+from core.services.signal_quantification import (
+    DEFAULT_SIGNAL_SELECTED_PLUGINS,
+    NUCLEAR_CELL_PAIR_PLUGIN,
+    PUNCTA_DISTANCE_PLUGIN,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -18,25 +22,89 @@ def doc_text(relative_path: str) -> str:
 
 
 class DocumentationContractTests(SimpleTestCase):
-    def test_readme_default_plugins_match_runtime_defaults(self):
+    def test_docs_distinguish_primary_modes_from_puncta_defaults(self):
         readme = doc_text("README.md")
-        default_section = readme.split(
-            "The current workflow defaults enable these plugins:",
-            maxsplit=1,
-        )[1].split(
-            "That default set requires",
+        workflow_guide = doc_text("docs/user/workflow-guide.md")
+        analysis_options = doc_text("docs/user/analysis-options.md")
+        getting_started = doc_text("docs/user/getting-started.md")
+        overview = readme.split("## Overview", maxsplit=1)[1].split(
+            "## System Scope",
             maxsplit=1,
         )[0]
-        documented_defaults = tuple(
-            re.findall(r"^- `([^`]+)`$", default_section, flags=re.MULTILINE)
+        companion_plugins = tuple(
+            re.findall(r"^- `([^`]+)`$", overview, flags=re.MULTILINE)
+        )
+        documented_default_plugins = (
+            PUNCTA_DISTANCE_PLUGIN,
+            *companion_plugins,
         )
 
-        self.assertEqual(documented_defaults, DEFAULT_SIGNAL_SELECTED_PLUGINS)
-        self.assertIn(
-            "`NuclearCellPairIntensity` remains available as a selectable "
-            "analysis module\nbut is not enabled in the default plugin set.",
-            readme,
+        self.assertEqual(
+            documented_default_plugins,
+            DEFAULT_SIGNAL_SELECTED_PLUGINS,
         )
+        self.assertNotIn(NUCLEAR_CELL_PAIR_PLUGIN, DEFAULT_SIGNAL_SELECTED_PLUGINS)
+        self.assertIn(
+            "CytoCV exposes two primary Signal Quantification modes:",
+            overview,
+        )
+        self.assertIn(
+            f"`{PUNCTA_DISTANCE_PLUGIN}` (`Puncta Distance`)",
+            overview,
+        )
+        self.assertIn(
+            f"`{NUCLEAR_CELL_PAIR_PLUGIN}` (`Nuclear, Cell-Pair Intensity`)",
+            overview,
+        )
+        self.assertIn("fully supported selectable primary mode", overview)
+        self.assertIn("default puncta-oriented plugin selection", overview)
+
+        self.assertIn(PUNCTA_DISTANCE_PLUGIN, workflow_guide)
+        self.assertIn(NUCLEAR_CELL_PAIR_PLUGIN, workflow_guide)
+        self.assertIn("default primary mode", workflow_guide)
+        self.assertIn("default puncta-oriented selection", workflow_guide)
+        self.assertIn("nucleus-contour and measurement controls", workflow_guide)
+
+        current_docs = {
+            "README.md": readme,
+            "docs/user/workflow-guide.md": workflow_guide,
+            "docs/user/analysis-options.md": analysis_options,
+            "docs/user/getting-started.md": getting_started,
+        }
+        for path, content in current_docs.items():
+            normalized_content = " ".join(content.split())
+            with self.subTest(path=path, mode=PUNCTA_DISTANCE_PLUGIN):
+                self.assertIn(PUNCTA_DISTANCE_PLUGIN, normalized_content)
+            with self.subTest(path=path, mode=NUCLEAR_CELL_PAIR_PLUGIN):
+                self.assertIn(NUCLEAR_CELL_PAIR_PLUGIN, normalized_content)
+            with self.subTest(path=path, default="puncta"):
+                self.assertRegex(
+                    normalized_content,
+                    rf"(?:default.{{0,80}}{PUNCTA_DISTANCE_PLUGIN}|"
+                    rf"{PUNCTA_DISTANCE_PLUGIN}.{{0,80}}default)",
+                )
+            with self.subTest(path=path, alternative="nuclear"):
+                self.assertRegex(
+                    normalized_content,
+                    rf"{NUCLEAR_CELL_PAIR_PLUGIN}.{{0,300}}"
+                    r"(?:fully supported|selectable|activates)",
+                )
+
+        prohibited_descriptions = (
+            " ".join(("not enabled in the", "default plugin set")),
+        )
+        prohibited_mode_pattern = re.compile(
+            rf"{NUCLEAR_CELL_PAIR_PLUGIN.lower()}\s+"
+            r"(?:is|was|has been)\s+"
+            r"(?:unavailable|removed|deprecated|legacy|not (?:offered|available))"
+        )
+        for path, content in current_docs.items():
+            normalized_content = " ".join(content.replace("`", "").split()).lower()
+            for prohibited in prohibited_descriptions:
+                with self.subTest(path=path, prohibited=prohibited):
+                    self.assertNotIn(prohibited.lower(), normalized_content)
+            with self.subTest(path=path, prohibited="mode status"):
+                self.assertIsNone(prohibited_mode_pattern.search(normalized_content))
 
     def test_citation_metadata_and_readme_release_citation(self):
         citation = doc_text("CITATION.cff")
