@@ -17,6 +17,7 @@ CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) and stack TIF
 - [Runtime Requirements](#runtime-requirements)
 - [Security Notes](#security-notes)
 - [Historical Notes](#historical-notes)
+- [Citation](#citation)
 - [License](#license)
 
 ## Overview
@@ -34,7 +35,9 @@ The current workflow defaults enable these plugins:
 - `CENDot`
 - `Biorientation`
 - `GreenRedIntensity`
-- `NuclearCellPairIntensity`
+
+`NuclearCellPairIntensity` remains available as a selectable analysis module
+but is not enabled in the default plugin set.
 
 That default set requires `DIC`, `Red`, and `Green`. `Blue` remains supported for legacy measurements and for optional full-wavelength validation.
 These outputs are software-generated measurements intended to support review and downstream research analysis. They should not be treated as final biological conclusions on their own.
@@ -250,6 +253,19 @@ Detailed operational guidance is documented in:
 ## Historical Notes
 
 This tool derived from the python application found at https://github.com/BrentLagesse/YeastAnalysisTool.  That tool is no longer maintained, but is still available for historical development purposes.
+
+## Citation
+
+The archived CytoCV v2.0.0 software record is identified by:
+
+**DOI:** [10.5281/zenodo.21901187](https://doi.org/10.5281/zenodo.21901187)
+
+Citation metadata are also provided in
+[`CITATION.cff`](CITATION.cff).
+
+When reporting analyses, cite the exact CytoCV version used. Later releases may
+change interfaces, dependencies, outputs, or scientific workflow behavior and
+should be cited separately.
 
 ## License
 

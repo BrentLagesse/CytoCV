@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django.template.response import TemplateResponse
 
-from core.licensing import SOURCE_CODE_URL
+from core.licensing import DOCUMENTATION_URL, RELEASE_TAG, REPOSITORY_URL
 
 # These constants are intentionally kept in Python rather than templates so the
 # public pages can share repository links and institutional branding data.
@@ -12,7 +12,7 @@ UWB_STEM_URL = "https://www.uwb.edu/stem"
 UWB_STEM_FACT_SHEET_URL = "https://www.uwb.edu/wp-content/uploads/2026/02/School_of_STEM_Fact_Sheet.pdf"
 UWB_STEM_LOGO_STATIC_PATH = "assets/uwb/web-left-school-signature-uw-bothell.png"
 UWB_STEM_WHITE_LOGO_STATIC_PATH = "assets/uwb/web-white-left-school-signature-uw-bothell.png"
-GITHUB_BLOB_BASE_URL = f"{SOURCE_CODE_URL}/blob/main"
+GITHUB_BLOB_BASE_URL = f"{REPOSITORY_URL}/blob/{RELEASE_TAG}"
 
 HOME_AFFILIATION_LINES = (
     "University of Washington Bothell",
@@ -97,7 +97,7 @@ HOME_SECTION_CARDS = (
             "Find upload requirements, workflow guidance, output explanations, and "
             "troubleshooting notes."
         ),
-        "href": "https://github.com/BrentLagesse/CytoCV/tree/main/docs",
+        "href": DOCUMENTATION_URL,
         "link_label": "View Documentation",
         "external": True,
     },

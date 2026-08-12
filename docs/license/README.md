@@ -7,7 +7,7 @@ Authoritative references:
 - [Repository LICENSE file](../../LICENSE)
 - [SPDX license record](https://spdx.org/licenses/AGPL-3.0-or-later.html)
 - [Official GNU AGPL page](https://www.gnu.org/licenses/agpl-3.0.html)
-- [CytoCV source repository](https://github.com/BrentLagesse/CytoCV)
+- [CytoCV v2.0.0 source](https://github.com/BrentLagesse/CytoCV/tree/v2.0.0)
 
 ## Strong Copyleft Notice
 

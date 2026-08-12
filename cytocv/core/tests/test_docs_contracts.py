@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from django.test import SimpleTestCase
+
+from core.services.signal_quantification import DEFAULT_SIGNAL_SELECTED_PLUGINS
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -15,6 +18,108 @@ def doc_text(relative_path: str) -> str:
 
 
 class DocumentationContractTests(SimpleTestCase):
+    def test_readme_default_plugins_match_runtime_defaults(self):
+        readme = doc_text("README.md")
+        default_section = readme.split(
+            "The current workflow defaults enable these plugins:",
+            maxsplit=1,
+        )[1].split(
+            "That default set requires",
+            maxsplit=1,
+        )[0]
+        documented_defaults = tuple(
+            re.findall(r"^- `([^`]+)`$", default_section, flags=re.MULTILINE)
+        )
+
+        self.assertEqual(documented_defaults, DEFAULT_SIGNAL_SELECTED_PLUGINS)
+        self.assertIn(
+            "`NuclearCellPairIntensity` remains available as a selectable "
+            "analysis module\nbut is not enabled in the default plugin set.",
+            readme,
+        )
+
+    def test_citation_metadata_and_readme_release_citation(self):
+        citation = doc_text("CITATION.cff")
+        readme = doc_text("README.md")
+        normalized_citation = " ".join(citation.split())
+        citation_section = readme.split("## Citation", maxsplit=1)[1].split(
+            "## License",
+            maxsplit=1,
+        )[0]
+
+        for expected in (
+            'version: "2.0.0"',
+            'date-released: "2026-08-12"',
+            'doi: "10.5281/zenodo.21901187"',
+            'repository-code: "https://github.com/BrentLagesse/CytoCV"',
+            'repository-artifact: "https://doi.org/10.5281/zenodo.21901187"',
+            'url: "https://cytocv2.uwb.edu/"',
+            'license: "AGPL-3.0-or-later"',
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, citation)
+
+        self.assertIn(
+            "[10.5281/zenodo.21901187](https://doi.org/10.5281/zenodo.21901187)",
+            citation_section,
+        )
+        self.assertIn("[`CITATION.cff`](CITATION.cff)", citation_section)
+        self.assertLess(readme.index("## Citation"), readme.index("## License"))
+        self.assertIn(
+            "CytoCV is a browser-accessible Django platform for reproducible "
+            "analysis of yeast fluorescence microscopy images. It supports "
+            "DeltaVision and stack TIFF inputs, DIC-guided Mask R-CNN "
+            "segmentation, configurable single-cell and cell-pair retention, "
+            "plugin-based per-cell measurements, visual review, and structured "
+            "CSV/XLSX export.",
+            normalized_citation,
+        )
+
+        keywords = (
+            "yeast microscopy",
+            "fluorescence quantification",
+            "bioimage analysis",
+            "cell instance segmentation",
+            "Django",
+            "Mask R-CNN",
+            "reproducible research",
+        )
+        keyword_positions = [citation.index(f"  - {keyword}") for keyword in keywords]
+        self.assertEqual(keyword_positions, sorted(keyword_positions))
+
+        for family_name, given_name in (
+            ("Gioanni", "Nicolas"),
+            ("Prasad", "Anoop"),
+            ("Parnell", "Emily"),
+            ("Miller", "Matthew P."),
+            ("Lagesse", "Brent"),
+        ):
+            with self.subTest(author=family_name):
+                self.assertIn(
+                    f'- family-names: "{family_name}"\n'
+                    f'    given-names: "{given_name}"',
+                    citation,
+                )
+
+    def test_license_docs_preserve_v2_release_and_commercial_position(self):
+        license_docs = doc_text("docs/license/README.md")
+
+        self.assertIn("AGPL-3.0-or-later", license_docs)
+        self.assertIn("Section 13 network-source requirement", license_docs)
+        self.assertIn("non-binding project preference", license_docs)
+        self.assertIn("The full `LICENSE` file controls.", license_docs)
+        self.assertIn("Releases through v1.8.2", license_docs)
+        self.assertIn(
+            "Beginning with v2.0.0, CytoCV releases are published under "
+            "`AGPL-3.0-or-later`.",
+            license_docs,
+        )
+        self.assertIn(
+            "https://github.com/BrentLagesse/CytoCV/tree/v2.0.0",
+            license_docs,
+        )
+        self.assertNotIn("COMMERCIAL USE IS PERMITTED", license_docs)
+
     def test_uw_names_and_marks_notice_is_separate_from_agpl(self):
         notice_path = PROJECT_ROOT / "TRADEMARKS.md"
         notice = doc_text("TRADEMARKS.md")
