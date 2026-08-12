@@ -47,12 +47,6 @@
         <div class="site-footer-bottom">
             <a
                 class="site-footer-link"
-                href="{% url 'license' %}"
-            >
-                License
-            </a>
-            <a
-                class="site-footer-link"
                 href="https://www.washington.edu/online/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -77,15 +71,26 @@
             </a>
         </div>
         <p class="site-footer-license">
-            &copy; {% now "Y" %} CytoCV. Licensed under
+            CytoCV is licensed under
             <a
                 class="site-footer-link"
-                href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
+                href="{{ license_spdx_url }}"
                 target="_blank"
                 rel="noopener noreferrer"
             >
-                CC BY-NC-SA 4.0
-            </a>.
+                {{ license_spdx_id }}
+            </a>
+            <span aria-hidden="true">&middot;</span>
+            <a class="site-footer-link" href="{% url 'license' %}">License</a>
+            <span aria-hidden="true">&middot;</span>
+            <a
+                class="site-footer-link"
+                href="{{ source_code_url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Source Code
+            </a>
         </p>
     </div>
 </footer>

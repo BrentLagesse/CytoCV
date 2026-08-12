@@ -253,9 +253,12 @@ This tool derived from the python application found at https://github.com/BrentL
 
 ## License
 
-CytoCV is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
+CytoCV is free and open-source software licensed under the **GNU Affero General Public License v3.0 or later** (`AGPL-3.0-or-later`).
 
-License reference:
+Commercial use, paid hosting, consulting, support, modification, and redistribution are permitted, subject to the license terms. If a covered modified version is distributed or made available for users to interact with over a network, the corresponding source must be offered as required by the AGPL.
 
-- [docs/license/README.md](docs/license/README.md)
-- <https://creativecommons.org/licenses/by-nc-sa/4.0/>
+See [LICENSE](LICENSE) for the complete legal terms and [docs/license/README.md](docs/license/README.md) for a plain-language compliance summary. The full legal text controls over the summary.
+
+Third-party dependencies, model weights, datasets, and assets remain governed by their respective licenses.
+
+University of Washington names, logos, and marks are addressed separately in [TRADEMARKS.md](TRADEMARKS.md).

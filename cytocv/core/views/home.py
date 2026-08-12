@@ -4,44 +4,21 @@ from __future__ import annotations
 
 from django.template.response import TemplateResponse
 
+from core.licensing import SOURCE_CODE_URL
+
 # These constants are intentionally kept in Python rather than templates so the
-# public pages can share links, licensing text, and institutional branding data.
+# public pages can share repository links and institutional branding data.
 UWB_STEM_URL = "https://www.uwb.edu/stem"
 UWB_STEM_FACT_SHEET_URL = "https://www.uwb.edu/wp-content/uploads/2026/02/School_of_STEM_Fact_Sheet.pdf"
 UWB_STEM_LOGO_STATIC_PATH = "assets/uwb/web-left-school-signature-uw-bothell.png"
 UWB_STEM_WHITE_LOGO_STATIC_PATH = "assets/uwb/web-white-left-school-signature-uw-bothell.png"
-GITHUB_BLOB_BASE_URL = "https://github.com/BrentLagesse/CytoCV/blob/main"
-CC_LICENSE_NAME = "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License"
-CC_LICENSE_IDENTIFIER = "CC BY-NC-SA 4.0"
-CC_LICENSE_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/"
-CC_LICENSE_LEGAL_CODE_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en"
+GITHUB_BLOB_BASE_URL = f"{SOURCE_CODE_URL}/blob/main"
 
 HOME_AFFILIATION_LINES = (
     "University of Washington Bothell",
     "School of STEM",
     "School of Science, Technology, Engineering & Mathematics",
     "Department of Computing & Software Systems",
-)
-
-LICENSE_SUMMARY_POINTS = (
-    "You may copy and redistribute the material in any medium or format.",
-    "You may remix, transform, and build upon the material.",
-    "You must give appropriate credit, provide a link to the license, and indicate whether changes were made.",
-    "You may not use the material for commercial purposes.",
-    "If you adapt the material, you must distribute your contributions under the same license.",
-    "You may not apply legal terms or technological measures that restrict uses the license permits.",
-)
-
-LICENSE_SCOPE_NOTE = (
-    "CytoCV's current published project statement is that it is licensed under "
-    "CC BY-NC-SA 4.0. If maintainers later intend different terms for source code, "
-    "documentation, or other assets, that distinction should be clarified separately."
-)
-
-LICENSE_DISCLAIMER = (
-    "This page is a brief summary only. Confirm reuse, attribution, noncommercial, "
-    "and share-alike requirements against the official Creative Commons license and "
-    "legal code."
 )
 
 # Home-page card payloads are template data, not navigation configuration; route
@@ -829,13 +806,6 @@ def _shared_public_context() -> dict[str, object]:
         "about_nav_current_key": None,
         "page_section_nav": None,
         "github_blob_base_url": GITHUB_BLOB_BASE_URL,
-        "cc_license_name": CC_LICENSE_NAME,
-        "cc_license_identifier": CC_LICENSE_IDENTIFIER,
-        "cc_license_url": CC_LICENSE_URL,
-        "cc_license_legal_code_url": CC_LICENSE_LEGAL_CODE_URL,
-        "license_summary_points": LICENSE_SUMMARY_POINTS,
-        "license_scope_note": LICENSE_SCOPE_NOTE,
-        "license_disclaimer": LICENSE_DISCLAIMER,
         "uwb_logo_static_path": UWB_STEM_LOGO_STATIC_PATH,
         "uwb_white_logo_static_path": UWB_STEM_WHITE_LOGO_STATIC_PATH,
         "uwb_logo_alt": "University of Washington Bothell School of STEM signature logo",

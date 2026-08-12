@@ -11,10 +11,12 @@
             max-width: 980px;
             margin: 0 auto;
             display: grid;
+            align-content: start;
             gap: 14px;
         }
         .license-card {
             display: grid;
+            align-content: start;
             gap: 16px;
             padding: 28px 30px;
         }
@@ -30,14 +32,39 @@
         .license-card strong {
             color: rgba(247, 250, 255, 0.98);
         }
+        .license-card h2 {
+            margin: 0;
+            color: rgba(247, 250, 255, 0.98);
+            font-size: clamp(18px, 2.4vw, 22px);
+            line-height: 1.25;
+        }
+        .license-lead {
+            font-size: clamp(17px, 2.4vw, 21px) !important;
+        }
         /* Metadata block highlights the license identifier rendered by Django. */
         .license-meta {
             display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
             gap: 6px;
             padding: 16px 18px;
             border-radius: 16px;
             background: rgba(16, 24, 35, 0.5);
             border: 1px solid rgba(var(--glass-border-rgb), 0.24);
+        }
+        .license-meta .license-status {
+            width: fit-content;
+            margin-right: 14px;
+            padding: 8px 12px;
+            border: 1px solid rgba(165, 181, 207, 0.38);
+            border-radius: 999px;
+            background: rgba(72, 88, 113, 0.28);
+            color: #d6deec;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            line-height: 1.2;
+            text-transform: uppercase;
         }
         .license-meta-label {
             margin: 0;
@@ -53,6 +80,43 @@
             font-size: 18px;
             font-weight: 600;
         }
+        .license-callout {
+            display: grid;
+            gap: 9px;
+            padding: 20px;
+            border: 1px solid rgba(255, 198, 96, 0.48);
+            border-left: 5px solid #f4b84d;
+            border-radius: 14px;
+            background: rgba(116, 70, 10, 0.2);
+        }
+        .license-section {
+            display: grid;
+            gap: 10px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(var(--glass-border-rgb), 0.18);
+        }
+        .license-source,
+        .license-full-terms {
+            padding: 20px;
+            border: 1px solid rgba(107, 183, 255, 0.32);
+            border-radius: 14px;
+            background: rgba(38, 91, 163, 0.12);
+        }
+        .license-source .license-link,
+        .license-full-terms .license-link {
+            width: fit-content;
+            margin-top: 2px;
+        }
+        .license-term-actions {
+            display: grid;
+            grid-template-columns: repeat(2, max-content);
+            gap: 10px;
+            width: fit-content;
+            margin-top: 2px;
+        }
+        .license-term-actions .license-link {
+            margin-top: 0;
+        }
         .license-list {
             margin: 0;
             padding-left: 20px;
@@ -63,6 +127,10 @@
             color: rgba(241, 245, 252, 0.96);
             font-size: 14px;
             line-height: 1.6;
+        }
+        .license-checklist li::marker {
+            color: #a9c9ff;
+            font-weight: 700;
         }
         .license-note,
         .license-disclaimer {
@@ -117,11 +185,30 @@
             .license-card {
                 padding: 24px 22px;
             }
+            .license-meta {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .license-meta .license-status {
+                margin-right: 0;
+            }
             .license-actions {
                 width: 100%;
                 justify-content: stretch;
             }
             .license-link {
                 width: 100%;
+            }
+            .license-source .license-link,
+            .license-full-terms .license-link {
+                width: 100%;
+            }
+            .license-term-actions {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: 100%;
+            }
+            .license-full-terms .license-term-actions .license-link {
+                padding-right: 12px;
+                padding-left: 12px;
             }
         }
