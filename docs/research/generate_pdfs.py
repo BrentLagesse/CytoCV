@@ -25,7 +25,7 @@ RIGHT_MARGIN = 0.9 * inch
 TOP_MARGIN = 0.9 * inch
 BOTTOM_MARGIN = 0.75 * inch
 RESEARCH_SERIES_LABEL = "CytoCV Research Documentation"
-LICENSE_FOOTER = "CC BY-NC-SA 4.0"
+LICENSE_FOOTER = "AGPL-3.0-or-later"
 OUTPUT_STEMS = (
     "methods-and-system-description",
     "reproducibility-and-validation",
@@ -454,6 +454,7 @@ def build_pdf(title: str, blocks: list[Block], destination: Path) -> None:
     doc = SimpleDocTemplate(
         str(destination),
         pagesize=LETTER,
+        invariant=True,
         leftMargin=LEFT_MARGIN,
         rightMargin=RIGHT_MARGIN,
         topMargin=TOP_MARGIN,
