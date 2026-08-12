@@ -15,6 +15,26 @@ def doc_text(relative_path: str) -> str:
 
 
 class DocumentationContractTests(SimpleTestCase):
+    def test_uw_names_and_marks_notice_is_separate_from_agpl(self):
+        notice_path = PROJECT_ROOT / "TRADEMARKS.md"
+        notice = doc_text("TRADEMARKS.md")
+        readme = doc_text("README.md")
+        normalized_notice = " ".join(notice.split())
+
+        self.assertTrue(notice_path.is_file())
+        self.assertIn(
+            "University of Washington names, logos, and marks are not licensed "
+            "under AGPL-3.0-or-later.",
+            normalized_notice,
+        )
+        self.assertIn(
+            "Their use is subject to the applicable University of Washington "
+            "branding and trademark requirements.",
+            normalized_notice,
+        )
+        self.assertIn("[TRADEMARKS.md](TRADEMARKS.md)", readme)
+        self.assertNotIn("used with permission", f"{notice}\n{readme}".lower())
+
     def test_docs_describe_cell_inclusion_mode_as_analysis_time_setting(self):
         combined = "\n".join(
             [

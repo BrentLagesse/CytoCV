@@ -2,41 +2,114 @@
 {% load static %}
 
 {# Public license page; license.js only owns same-origin back/home navigation. #}
-{% block title %}CytoCV License{% endblock title %}
-{% block meta_description %}Public license information for CytoCV project materials.{% endblock meta_description %}
-{% block og_title %}CytoCV License{% endblock og_title %}
-{% block og_description %}Public license information for CytoCV project materials.{% endblock og_description %}
-{% block twitter_title %}CytoCV License{% endblock twitter_title %}
-{% block twitter_description %}Public license information for CytoCV project materials.{% endblock twitter_description %}
+{% block title %}{{ license_full_name }} | CytoCV{% endblock title %}
+{% block meta_description %}CytoCV is licensed under {{ license_spdx_id }}, a strong network copyleft open-source license.{% endblock meta_description %}
+{% block og_title %}{{ license_full_name }} | CytoCV{% endblock og_title %}
+{% block og_description %}CytoCV is licensed under {{ license_spdx_id }}, a strong network copyleft open-source license.{% endblock og_description %}
+{% block twitter_title %}{{ license_full_name }} | CytoCV{% endblock twitter_title %}
+{% block twitter_description %}CytoCV is licensed under {{ license_spdx_id }}, a strong network copyleft open-source license.{% endblock twitter_description %}
 
 {% block head %}
-        <link rel="stylesheet" href="{% static 'css/pages/license.css' %}?v=frontend-modularization-20260609">
+        <link rel="stylesheet" href="{% static 'css/pages/license.css' %}?v=license-agpl-20260811">
 {% endblock head %}
 
 {% block content %}
 <div class="license-page">
     <div class="license-shell soft-fade-in">
         <section class="license-card glass-card glass-section" aria-labelledby="licensePageTitle">
-            <p class="section-eyebrow">License</p>
-            <h1 id="licensePageTitle" class="glass-title">CytoCV License</h1>
-            <p><strong>CytoCV is licensed under the {{ cc_license_name }} ({{ cc_license_identifier }}).</strong> The summary below is a brief plain-language overview based on the official Creative Commons materials.</p>
-            <div class="license-meta" aria-label="Canonical license identifier">
-                <p class="license-meta-label">Canonical identifier</p>
-                <p class="license-meta-value">{{ cc_license_identifier }}</p>
+            <p class="section-eyebrow">CytoCV project license</p>
+            <h1 id="licensePageTitle" class="glass-title">{{ license_full_name }}</h1>
+            <div class="license-meta" aria-label="License status and canonical identifier">
+                <p class="license-status">STRONG NETWORK COPYLEFT</p>
+                <div>
+                    <p class="license-meta-label">Canonical SPDX identifier</p>
+                    <p class="license-meta-value">{{ license_spdx_id }}</p>
+                </div>
             </div>
-            <ul class="license-list">
-                {% for point in license_summary_points %}
-                    <li>{{ point }}</li>
-                {% endfor %}
-            </ul>
-            <p class="license-note">{{ license_scope_note }}</p>
-            <p class="license-disclaimer">
-                {{ license_disclaimer }}
-                Review the
-                <a href="{{ cc_license_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">official license summary</a>
-                and
-                <a href="{{ cc_license_legal_code_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">legal code</a>.
-            </p>
+            <p class="license-lead"><strong>AGPL compliance is mandatory.</strong></p>
+
+            <aside class="license-callout" aria-labelledby="networkSourceNoticeTitle">
+                <h2 id="networkSourceNoticeTitle">Network source obligation</h2>
+                <p><strong>If you modify CytoCV and make the modified version available for users to interact with over a network, you must prominently offer those users access to the corresponding source as required by the AGPL.</strong></p>
+            </aside>
+
+            <section class="license-section" aria-labelledby="strongCopyleftTitle">
+                <h2 id="strongCopyleftTitle">Strong copyleft</h2>
+                <p>CytoCV is free and open-source software licensed under the {{ license_full_name }} (<a href="{{ license_spdx_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">{{ license_spdx_id }}</a>). Covered modifications that are distributed must be licensed consistently with the AGPL, and the corresponding source required by the license must be made available.</p>
+            </section>
+
+            <section class="license-section" aria-labelledby="networkDeploymentsTitle">
+                <h2 id="networkDeploymentsTitle">Network deployments</h2>
+                <p>AGPL section 13 applies when a modified version is made available for users to interact with remotely through a computer network. The modified version must prominently offer those users an opportunity to receive its corresponding source.</p>
+            </section>
+
+            <section class="license-section" aria-labelledby="commercialUseTitle">
+                <h2 id="commercialUseTitle">Project Position on Commercial Use</h2>
+                <p>CytoCV was developed primarily to support academic research, reproducible science, and open collaboration. The maintainers strongly discourage commercial exploitation that extracts value from CytoCV without providing meaningful support to the project or research community.</p>
+                <p>The license permits commercial use. This statement expresses a non-binding project preference and does not add, modify, or override any permission or requirement in {{ license_spdx_id }}. The full LICENSE file controls.</p>
+                <p>Commercial users are strongly encouraged to:</p>
+                <ul class="license-list license-checklist">
+                    <li>Contribute useful modifications upstream.</li>
+                    <li>Report defects, compatibility problems, and security issues.</li>
+                    <li>Support ongoing maintenance, infrastructure, and documentation.</li>
+                    <li>Preserve clear attribution to CytoCV and its contributors.</li>
+                    <li>Make the corresponding source required by the AGPL readily available.</li>
+                </ul>
+            </section>
+
+            <section class="license-section" aria-labelledby="complianceChecklistTitle">
+                <h2 id="complianceChecklistTitle">Compliance checklist</h2>
+                <p>Organizations modifying or deploying CytoCV should:</p>
+                <ol class="license-list license-checklist">
+                    <li>Read the complete AGPL license.</li>
+                    <li>Preserve applicable copyright and license notices.</li>
+                    <li>Clearly identify covered modifications where required.</li>
+                    <li>Make the required corresponding source available.</li>
+                    <li>Provide a prominent source offer to remote users of a modified network version.</li>
+                    <li>Include the AGPL license with covered distributions.</li>
+                    <li>Avoid imposing additional restrictions inconsistent with the AGPL.</li>
+                    <li>Review separately licensed dependencies, weights, data, and assets.</li>
+                </ol>
+            </section>
+
+            <section class="license-section" aria-labelledby="noncompliantConductTitle">
+                <h2 id="noncompliantConductTitle">Prohibited noncompliant conduct</h2>
+                <ul class="license-list">
+                    <li>Operating a covered modified network version while denying remote users the source access required by the AGPL.</li>
+                    <li>Distributing a covered modified version without satisfying applicable corresponding-source obligations.</li>
+                    <li>Removing or obscuring applicable license notices.</li>
+                    <li>Imposing additional restrictions inconsistent with rights granted by the AGPL.</li>
+                    <li>Presenting covered AGPL code as a closed proprietary fork while withholding required rights or source.</li>
+                </ul>
+                <p>Failure to comply can terminate the permissions granted by the license, subject to the AGPL's cure and reinstatement provisions.</p>
+            </section>
+
+            <section class="license-section license-source" aria-labelledby="sourceCodeTitle">
+                <h2 id="sourceCodeTitle">Source code</h2>
+                <p>The canonical CytoCV repository contains the project source and development history.</p>
+                <a href="{{ source_code_url }}" class="license-link primary" target="_blank" rel="noopener noreferrer">Source Code</a>
+            </section>
+
+            <section class="license-section" aria-labelledby="noWarrantyTitle">
+                <h2 id="noWarrantyTitle">No warranty</h2>
+                <p>CytoCV is provided without warranty, subject to the complete terms of the AGPL.</p>
+            </section>
+
+            <section class="license-section" aria-labelledby="thirdPartyTitle">
+                <h2 id="thirdPartyTitle">Third-party materials</h2>
+                <p>Third-party dependencies, model weights, data, and assets may be governed by separate licenses. The CytoCV project license does not automatically replace those terms.</p>
+            </section>
+
+            <section class="license-section license-full-terms" aria-labelledby="fullTermsTitle">
+                <h2 id="fullTermsTitle">Full legal terms</h2>
+                <p>This page is a plain-language summary provided for convenience and is not legal advice. The full LICENSE file controls.</p>
+                <p>Review the <a href="{{ license_official_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">official GNU AGPL text</a> and the <a href="{{ license_spdx_url }}" class="license-inline-link" target="_blank" rel="noopener noreferrer">SPDX license record</a>.</p>
+                <div class="license-term-actions" aria-label="Full license links">
+                    <a href="{{ license_repository_url }}" class="license-link primary" target="_blank" rel="noopener noreferrer">GitHub License</a>
+                    <a href="{{ license_official_url }}" class="license-link primary" target="_blank" rel="noopener noreferrer">Official License</a>
+                </div>
+            </section>
+
             <div class="license-actions">
                 <a
                     href="{% url 'home' %}"
@@ -47,7 +120,6 @@
                 >
                     Back
                 </a>
-                <a href="{{ cc_license_url }}" class="license-link primary" target="_blank" rel="noopener noreferrer">View official license</a>
             </div>
         </section>
     </div>

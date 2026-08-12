@@ -73,10 +73,20 @@ def temporary_media_root():
 
 
 class RouteSurfaceRefactorTests(TestCase):
+    SOURCE_CODE_URL = "https://github.com/BrentLagesse/CytoCV"
+    FULL_LICENSE_URL = f"{SOURCE_CODE_URL}/blob/main/LICENSE"
+    OFFICIAL_LICENSE_URL = "https://www.gnu.org/licenses/agpl-3.0.html"
+    LICENSE_SPDX_URL = "https://spdx.org/licenses/AGPL-3.0-or-later.html"
+    LEGACY_LICENSE_LABEL = " ".join(("CC", "BY-" + "NC-SA", "4.0"))
+    LEGACY_POLICY_TERM = "".join(("Non", "Commercial"))
+    LEGACY_LICENSE_URL = "".join(
+        ("https://creativecommons.org/licenses/", "by-", "nc-sa/", "4.0/")
+    )
     FOOTER_LINKS = (
         "https://www.uwb.edu/stem/about",
         "https://www.uwb.edu/stem/about/departments/css",
-        "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        LICENSE_SPDX_URL,
+        SOURCE_CODE_URL,
         "https://www.washington.edu/online/privacy",
         "https://www.washington.edu/online/terms",
         "https://www.uwb.edu/accessibility/",
@@ -129,13 +139,27 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(response, "Accessibility")
         self.assertContains(
             response,
-            "Licensed under",
+            "CytoCV is licensed under",
         )
         self.assertContains(
             response,
-            "CC BY-NC-SA 4.0",
+            "AGPL-3.0-or-later",
         )
-        self.assertContains(response, reverse("license"))
+        self.assertContains(response, "Source Code")
+        self.assertContains(
+            response,
+            (
+                f'<a class="site-footer-link" href="{self.LICENSE_SPDX_URL}" '
+                'target="_blank" rel="noopener noreferrer">'
+                "AGPL-3.0-or-later</a>"
+            ),
+            html=True,
+        )
+        self.assertContains(
+            response,
+            f'<a class="site-footer-link" href="{reverse("license")}">License</a>',
+            html=True,
+        )
         self.assertContains(
             response,
             "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
@@ -143,15 +167,21 @@ class RouteSurfaceRefactorTests(TestCase):
         )
         for url in self.FOOTER_LINKS:
             self.assertContains(response, url, html=False)
+        self._assert_legacy_license_absent(response)
 
     def _assert_footer_absent(self, response):
         self.assertNotContains(response, '<footer class="site-footer"', html=False)
-        self.assertNotContains(response, "Licensed under")
+        self.assertNotContains(response, "CytoCV is licensed under")
         self.assertNotContains(
             response,
             "/static/assets/uwb/web-white-left-school-signature-uw-bothell.png",
             html=False,
         )
+
+    def _assert_legacy_license_absent(self, response):
+        self.assertNotContains(response, self.LEGACY_LICENSE_LABEL)
+        self.assertNotContains(response, self.LEGACY_POLICY_TERM)
+        self.assertNotContains(response, self.LEGACY_LICENSE_URL, html=False)
 
     def _assert_files_data_payload_contract(self, payload):
         self.assertTrue(
@@ -584,6 +614,103 @@ class RouteSurfaceRefactorTests(TestCase):
         self._assert_footer_absent(preprocess_response)
         self._assert_footer_absent(display_response)
 
+    def test_license_context_exposes_exact_canonical_metadata(self):
+        response = self.client.get(reverse("license"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["license_full_name"],
+            "GNU Affero General Public License v3.0 or later",
+        )
+        self.assertEqual(response.context["license_spdx_id"], "AGPL-3.0-or-later")
+        self.assertEqual(
+            response.context["license_official_url"],
+            self.OFFICIAL_LICENSE_URL,
+        )
+        self.assertEqual(
+            response.context["license_spdx_url"],
+            self.LICENSE_SPDX_URL,
+        )
+        self.assertEqual(response.context["source_code_url"], self.SOURCE_CODE_URL)
+        self.assertEqual(
+            response.context["license_repository_url"],
+            self.FULL_LICENSE_URL,
+        )
+
+    def test_license_page_presents_agpl_terms_and_required_links(self):
+        self.client.logout()
+
+        response = self.client.get(reverse("license"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "license.html")
+        self.assertContains(
+            response,
+            "GNU Affero General Public License v3.0 or later",
+        )
+        self.assertContains(response, "AGPL-3.0-or-later")
+        self.assertContains(response, "STRONG NETWORK COPYLEFT")
+        self.assertContains(response, "AGPL compliance is mandatory.")
+        self.assertContains(response, "The license permits commercial use.", count=1)
+        self.assertNotContains(
+            response,
+            "Commercial use is permitted. Compliance is mandatory.",
+        )
+        self.assertContains(response, "Project Position on Commercial Use")
+        self.assertNotContains(response, "COMMERCIAL USE IS PERMITTED")
+        self.assertContains(
+            response,
+            '<aside class="license-callout" aria-labelledby="networkSourceNoticeTitle">',
+            html=False,
+        )
+        self.assertContains(response, "Network source obligation")
+        self.assertContains(
+            response,
+            "Make the corresponding source required by the AGPL readily available.",
+        )
+        self.assertContains(
+            response,
+            "This statement expresses a non-binding project preference and does not add, modify, or override any permission or requirement in AGPL-3.0-or-later.",
+        )
+        self.assertContains(
+            response,
+            "you must prominently offer those users access to the corresponding source as required by the AGPL",
+        )
+        self.assertContains(response, "No warranty")
+        self.assertContains(response, "The full LICENSE file controls.")
+        self.assertContains(response, self.SOURCE_CODE_URL, html=False)
+        self.assertContains(response, self.FULL_LICENSE_URL, html=False)
+        self.assertContains(response, ">Source Code</a>", html=False)
+        self.assertContains(
+            response,
+            (
+                f'<a href="{self.FULL_LICENSE_URL}" class="license-link primary" '
+                'target="_blank" rel="noopener noreferrer">GitHub License</a>'
+            ),
+            html=True,
+        )
+        self.assertContains(
+            response,
+            (
+                f'<a href="{self.OFFICIAL_LICENSE_URL}" class="license-link primary" '
+                'target="_blank" rel="noopener noreferrer">Official License</a>'
+            ),
+            html=True,
+        )
+        self.assertNotContains(response, ">Full License</a>", html=False)
+        self.assertContains(response, 'id="licenseBackLink"', html=False)
+        self.assertNotContains(response, "Commercial use is prohibited")
+        self.assertNotContains(response, "Commercial use requires permission")
+        self.assertNotContains(response, "Companies may not profit")
+        self.assertNotContains(response, self.LEGACY_POLICY_TERM)
+        self._assert_legacy_license_absent(response)
+
+    def test_authenticated_public_page_keeps_agpl_footer_chrome(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self._assert_footer_present(response)
+
     def test_authenticated_pages_render_renamed_templates(self):
         response = self.client.get(reverse("account_settings"))
         self.assertEqual(response.status_code, 200)
@@ -937,29 +1064,16 @@ class RouteSurfaceRefactorTests(TestCase):
         license_response = self.client.get(reverse("license"))
         self.assertEqual(license_response.status_code, 200)
         self.assertTemplateUsed(license_response, "license.html")
-        self.assertContains(license_response, "CytoCV License")
         self.assertContains(
             license_response,
-            "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License",
+            "GNU Affero General Public License v3.0 or later",
         )
-        self.assertContains(
-            license_response,
-            "CytoCV is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).",
-        )
-        self.assertContains(license_response, "CC BY-NC-SA 4.0")
-        self.assertContains(
-            license_response,
-            "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-            html=False,
-        )
-        self.assertContains(
-            license_response,
-            "https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en",
-            html=False,
-        )
-        self.assertContains(license_response, "View official license")
+        self.assertContains(license_response, "AGPL-3.0-or-later")
+        self.assertContains(license_response, "The license permits commercial use")
+        self.assertContains(license_response, self.SOURCE_CODE_URL, html=False)
+        self.assertContains(license_response, self.FULL_LICENSE_URL, html=False)
         self.assertContains(license_response, 'id="licenseBackLink"', html=False)
-        self.assertNotContains(license_response, "This page summarizes the")
+        self._assert_legacy_license_absent(license_response)
 
     @override_settings(RECAPTCHA_ENABLED=False)
     def test_auth_public_pages_use_user_facing_copy(self):

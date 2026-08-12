@@ -267,6 +267,7 @@ TEMPLATES = [
                 'django.template.context_processors.media',
                 'django.template.context_processors.request',
                 'accounts.context_processors.auth_verification_policy',
+                'core.licensing.license_metadata',
             ],
         },
     },
