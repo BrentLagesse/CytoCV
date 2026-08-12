@@ -34,17 +34,9 @@ Consult the full license for the precise scope and conditions of this requiremen
 
 ## Project Position on Commercial Use
 
-> **COMMERCIAL USE IS PERMITTED**
->
-> Commercial use is permitted under the GNU Affero General Public License v3.0 or later.
->
-> Paid hosting, consulting, support, modification, redistribution, and sale of copies or related services are permitted, subject to the license terms.
+CytoCV was developed primarily to support academic research, reproducible science, and open collaboration. The maintainers strongly discourage commercial exploitation that extracts value from CytoCV without providing meaningful support to the project or research community.
 
-AGPL compliance is mandatory. Commercial activities do not remove the source-code obligations that apply to covered modified versions.
-
-Commercial exploitation without reciprocal support is strongly discouraged.
-
-CytoCV was developed primarily to support academic research, reproducible science, and open collaboration. The maintainers strongly discourage commercial exploitation that extracts value from CytoCV without providing meaningful support to the project or the research community.
+The license permits commercial use. This statement expresses a non-binding project preference and does not add, modify, or override any permission or requirement in `AGPL-3.0-or-later`. The full `LICENSE` file controls.
 
 Commercial users are strongly encouraged to:
 
@@ -52,11 +44,7 @@ Commercial users are strongly encouraged to:
 2. report defects, compatibility problems, and security issues;
 3. support ongoing maintenance, infrastructure, and documentation;
 4. preserve clear attribution to CytoCV and its contributors; and
-5. make all corresponding source required by the AGPL readily available.
-
-Contributing changes directly upstream is strongly encouraged, but it is not an additional license condition.
-
-This statement expresses a non-binding project preference. It does not add, modify, or override any restriction or permission in AGPL-3.0-or-later. The full LICENSE file controls.
+5. make the corresponding source required by the AGPL readily available.
 
 ## What Is Not Acceptable
 
@@ -86,4 +74,4 @@ This page is a plain-language summary and is not legal advice. The full [LICENSE
 
 ## License History
 
-Releases through v1.8.2 were published under **CC BY-NC-SA 4.0**. Those previously published versions remain available under the license terms under which they were originally released. The forthcoming v2.0.0 release adopts `AGPL-3.0-or-later`.
+Releases through v1.8.2 were published under **CC BY-NC-SA 4.0**. Those previously published versions remain available under the license terms under which they were originally released. Beginning with v2.0.0, CytoCV releases are published under `AGPL-3.0-or-later`.
