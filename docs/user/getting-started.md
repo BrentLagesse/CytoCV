@@ -68,7 +68,7 @@ python manage.py runserver
 
 1. Open the `Experiment` page.
 2. Upload one or more supported `.dv`, `.tif`, or `.tiff` files.
-3. Leave the default modern workflow enabled unless you are intentionally testing a reduced plugin set or a legacy Blue workflow. The default set includes `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`.
+3. Leave the default `PunctaDistance` primary mode and its puncta-oriented companion selection enabled unless another workflow is needed. `NuclearCellPairIntensity` remains a fully supported alternative primary mode and can be selected to run the nuclear/cell-pair intensity workflow.
 4. Confirm that the file provides `DIC` plus any channels required by the selected plugin set.
 5. Review scale settings and, if needed, advanced validation toggles.
 6. Continue to preprocessing.

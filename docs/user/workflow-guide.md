@@ -43,7 +43,21 @@ The upload step also captures the active analysis configuration. This includes:
 
 These selections are stored with the current workflow state and reused in later steps. Signed-in users can also save them as workflow defaults for future runs.
 
-The current workflow defaults select `PunctaDistance`, `CENDot`, `Biorientation`, `GreenRedIntensity`, and `NuclearCellPairIntensity`. That default set requires `DIC`, `Red`, and `Green`. Mother/daughter parentage is computed automatically from DIC geometry and consumed by `CENDot`. `Blue` becomes required only when a legacy plugin or all-wavelength enforcement is active.
+Signal Quantification provides two primary modes:
+`PunctaDistance` and `NuclearCellPairIntensity`. `PunctaDistance` is the
+default primary mode. The default puncta-oriented selection also includes
+`CENDot`, `Biorientation`, and `GreenRedIntensity`.
+
+Selecting `NuclearCellPairIntensity` activates the current nuclear/cell-pair
+intensity workflow and exposes its nucleus-contour and measurement controls.
+Mode compatibility determines which additional statistics are active for a
+given run.
+
+The default puncta-oriented selection requires `DIC`, `Red`, and `Green`.
+Mother/daughter parentage is computed automatically from DIC geometry and is
+used by applicable pair-dependent measurements. `Blue` becomes required only
+when a backward-compatible Blue-channel module or all-wavelength enforcement
+is active.
 
 Cell Inclusion Mode is resolved at analysis time. The default is Cell pairs
 only. Single cells only and Single cells and cell pairs can be selected when the

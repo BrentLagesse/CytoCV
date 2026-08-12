@@ -9,11 +9,12 @@ LICENSE_FULL_NAME = "GNU Affero General Public License v3.0 or later"
 LICENSE_SPDX_ID = "AGPL-3.0-or-later"
 LICENSE_OFFICIAL_URL = "https://www.gnu.org/licenses/agpl-3.0.html"
 LICENSE_SPDX_URL = "https://spdx.org/licenses/AGPL-3.0-or-later.html"
-SOURCE_CODE_URL = "https://github.com/BrentLagesse/CytoCV"
-
-# Release follow-up: after v2.0.0 is published, production source and license
-# links should target the immutable release tag or the exact deployed commit.
-LICENSE_REPOSITORY_URL = f"{SOURCE_CODE_URL}/blob/main/LICENSE"
+REPOSITORY_URL = "https://github.com/BrentLagesse/CytoCV"
+RELEASE_VERSION = "2.0.0"
+RELEASE_TAG = f"v{RELEASE_VERSION}"
+SOURCE_CODE_URL = f"{REPOSITORY_URL}/tree/{RELEASE_TAG}"
+LICENSE_REPOSITORY_URL = f"{REPOSITORY_URL}/blob/{RELEASE_TAG}/LICENSE"
+DOCUMENTATION_URL = f"{SOURCE_CODE_URL}/docs"
 
 
 def license_metadata(request: HttpRequest) -> dict[str, str]:

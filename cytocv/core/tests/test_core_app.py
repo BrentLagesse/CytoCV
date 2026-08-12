@@ -21,6 +21,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 
+from core import licensing
 from core.cell_analysis import Analysis
 from core.config import DEFAULT_CHANNEL_CONFIG
 from core.image_processing import GrayImage
@@ -73,8 +74,14 @@ def temporary_media_root():
 
 
 class RouteSurfaceRefactorTests(TestCase):
-    SOURCE_CODE_URL = "https://github.com/BrentLagesse/CytoCV"
-    FULL_LICENSE_URL = f"{SOURCE_CODE_URL}/blob/main/LICENSE"
+    REPOSITORY_URL = "https://github.com/BrentLagesse/CytoCV"
+    RELEASE_VERSION = "2.0.0"
+    RELEASE_TAG = f"v{RELEASE_VERSION}"
+    SOURCE_CODE_URL = f"{REPOSITORY_URL}/tree/{RELEASE_TAG}"
+    GITHUB_BLOB_BASE_URL = f"{REPOSITORY_URL}/blob/{RELEASE_TAG}"
+    FULL_LICENSE_URL = f"{GITHUB_BLOB_BASE_URL}/LICENSE"
+    DOCUMENTATION_URL = f"{SOURCE_CODE_URL}/docs"
+    MALFORMED_RELEASE_URL = f"{SOURCE_CODE_URL}/blob/main"
     OFFICIAL_LICENSE_URL = "https://www.gnu.org/licenses/agpl-3.0.html"
     LICENSE_SPDX_URL = "https://spdx.org/licenses/AGPL-3.0-or-later.html"
     LEGACY_LICENSE_LABEL = " ".join(("CC", "BY-" + "NC-SA", "4.0"))
@@ -182,6 +189,9 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertNotContains(response, self.LEGACY_LICENSE_LABEL)
         self.assertNotContains(response, self.LEGACY_POLICY_TERM)
         self.assertNotContains(response, self.LEGACY_LICENSE_URL, html=False)
+
+    def _assert_release_links_are_well_formed(self, response):
+        self.assertNotContains(response, self.MALFORMED_RELEASE_URL, html=False)
 
     def _assert_files_data_payload_contract(self, payload):
         self.assertTrue(
@@ -618,6 +628,15 @@ class RouteSurfaceRefactorTests(TestCase):
         response = self.client.get(reverse("license"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(licensing.REPOSITORY_URL, self.REPOSITORY_URL)
+        self.assertEqual(licensing.RELEASE_VERSION, self.RELEASE_VERSION)
+        self.assertEqual(licensing.RELEASE_TAG, self.RELEASE_TAG)
+        self.assertEqual(licensing.SOURCE_CODE_URL, self.SOURCE_CODE_URL)
+        self.assertEqual(
+            licensing.LICENSE_REPOSITORY_URL,
+            self.FULL_LICENSE_URL,
+        )
+        self.assertEqual(licensing.DOCUMENTATION_URL, self.DOCUMENTATION_URL)
         self.assertEqual(
             response.context["license_full_name"],
             "GNU Affero General Public License v3.0 or later",
@@ -731,6 +750,7 @@ class RouteSurfaceRefactorTests(TestCase):
 
         home_response = self.client.get(reverse("home"))
         self.assertEqual(home_response.status_code, 200)
+        self._assert_release_links_are_well_formed(home_response)
         self.assertContains(home_response, reverse("experiment"))
         self.assertContains(home_response, reverse("about"))
         self.assertContains(home_response, reverse("collaborators"))
@@ -779,8 +799,12 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(home_response, f"{reverse('about')}#results", html=False)
         self.assertContains(
             home_response,
-            "https://github.com/BrentLagesse/CytoCV/tree/main/docs",
+            self.DOCUMENTATION_URL,
             html=False,
+        )
+        self.assertEqual(
+            home_response.context["github_blob_base_url"],
+            self.GITHUB_BLOB_BASE_URL,
         )
         self.assertNotContains(home_response, "What CytoCV Is")
         self.assertNotContains(home_response, "Why Researchers Need It")
@@ -874,6 +898,7 @@ class RouteSurfaceRefactorTests(TestCase):
 
         technical_response = self.client.get(reverse("about_technical"))
         self.assertEqual(technical_response.status_code, 200)
+        self._assert_release_links_are_well_formed(technical_response)
         self.assertTemplateUsed(technical_response, "about_detail.html")
         self.assertContains(technical_response, 'id="aboutNavMenu"', html=False)
         self.assertContains(technical_response, 'data-about-current="technical"', html=False)
@@ -896,17 +921,17 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(technical_response, 'href="#developer-docs"', html=False)
         self.assertContains(
             technical_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/developer/architecture-overview.md",
+            f"{self.GITHUB_BLOB_BASE_URL}/docs/developer/architecture-overview.md",
             html=False,
         )
         self.assertContains(
             technical_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/reference/data-model.md",
+            f"{self.GITHUB_BLOB_BASE_URL}/docs/reference/data-model.md",
             html=False,
         )
         self.assertContains(
             technical_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/pdfs/methods-and-system-description.pdf",
+            f"{self.GITHUB_BLOB_BASE_URL}/docs/research/pdfs/methods-and-system-description.pdf",
             html=False,
         )
         self.assertNotContains(technical_response, "docs/ops/deployment-guide.md", html=False)
@@ -915,6 +940,7 @@ class RouteSurfaceRefactorTests(TestCase):
 
         biology_response = self.client.get(reverse("about_biology"))
         self.assertEqual(biology_response.status_code, 200)
+        self._assert_release_links_are_well_formed(biology_response)
         self.assertTemplateUsed(biology_response, "about_detail.html")
         self.assertContains(biology_response, 'id="aboutNavMenu"', html=False)
         self.assertContains(biology_response, 'data-about-current="biological"', html=False)
@@ -937,17 +963,17 @@ class RouteSurfaceRefactorTests(TestCase):
         self.assertContains(biology_response, 'href="#biology-workflow-docs"', html=False)
         self.assertContains(
             biology_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/research/pdfs/figure-catalog.pdf",
+            f"{self.GITHUB_BLOB_BASE_URL}/docs/research/pdfs/figure-catalog.pdf",
             html=False,
         )
         self.assertContains(
             biology_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/user/output-guide.md",
+            f"{self.GITHUB_BLOB_BASE_URL}/docs/user/output-guide.md",
             html=False,
         )
         self.assertNotContains(
             biology_response,
-            "https://github.com/BrentLagesse/CytoCV/blob/main/docs/developer/architecture-overview.md",
+            f"{self.GITHUB_BLOB_BASE_URL}/docs/developer/architecture-overview.md",
             html=False,
         )
 
@@ -1063,6 +1089,7 @@ class RouteSurfaceRefactorTests(TestCase):
 
         license_response = self.client.get(reverse("license"))
         self.assertEqual(license_response.status_code, 200)
+        self._assert_release_links_are_well_formed(license_response)
         self.assertTemplateUsed(license_response, "license.html")
         self.assertContains(
             license_response,

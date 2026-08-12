@@ -9,17 +9,23 @@ This guide explains the user-visible analysis controls that affect validation, s
 - access to the upload page or workflow defaults interface
 - familiarity with the logical channel roles `DIC`, `Blue`, `Red`, and `Green`
 
-## Default Plugin Configuration
+## Signal Quantification Modes And Default Selection
 
-The current workflow defaults select:
+Signal Quantification provides two primary modes:
 
-- `PunctaDistance`
+- `PunctaDistance` (`Puncta Distance`), the default primary mode
+- `NuclearCellPairIntensity` (`Nuclear, Cell-Pair Intensity`), a fully
+  supported selectable primary mode
+
+The default puncta-oriented selection also includes:
+
 - `CENDot`
 - `Biorientation`
 - `GreenRedIntensity`
-- `NuclearCellPairIntensity`
 
-These defaults require `DIC`, `Red`, and `Green`. They do not require `Blue`.
+The default puncta-oriented selection requires `DIC`, `Red`, and `Green`. It
+does not require `Blue`. Selecting the nuclear/cell-pair primary mode activates
+`NuclearCellPairIntensity` and its nucleus-contour and measurement controls.
 
 Legacy plugins remain available when legacy visibility is enabled:
 
@@ -60,13 +66,13 @@ If no plugins are selected and no validation overrides are enabled, the enforced
 
 ### Plugin-Specific Channel Requirements
 
-| Plugin | Required channels beyond `DIC` | Legacy | Included in modern defaults |
+| Plugin | Required channels beyond `DIC` | Legacy | Default puncta-oriented selection |
 | --- | --- | --- | --- |
 | `PunctaDistance` | `Red`, `Green` | No | Yes |
 | `CENDot` | `Red`, `Green` | No | Yes |
 | `Biorientation` | `Red`, `Green` | No | Yes |
 | `GreenRedIntensity` | `Red`, `Green` | No | Yes |
-| `NuclearCellPairIntensity` | `Red`, `Green` | No | Yes |
+| `NuclearCellPairIntensity` | `Red`, `Green` | No | No — selectable primary mode |
 | `NucleusIntensity` | `Blue`, `Green` | Yes | No |
 | `BlueNucleusIntensity` | `Blue` | Yes | No |
 | `RedBlueIntensity` | `Red`, `Blue` | Yes | No |

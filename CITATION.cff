@@ -3,9 +3,28 @@ message: "If you use CytoCV in your research, please cite this software."
 title: "CytoCV"
 type: software
 version: "2.0.0"
+date-released: "2026-08-12"
+doi: "10.5281/zenodo.21901187"
 repository-code: "https://github.com/BrentLagesse/CytoCV"
+repository-artifact: "https://doi.org/10.5281/zenodo.21901187"
 url: "https://cytocv2.uwb.edu/"
 license: "AGPL-3.0-or-later"
+
+abstract: >-
+  CytoCV is a browser-accessible Django platform for reproducible analysis
+  of yeast fluorescence microscopy images. It supports DeltaVision and
+  stack TIFF inputs, DIC-guided Mask R-CNN segmentation, configurable
+  single-cell and cell-pair retention, plugin-based per-cell measurements,
+  visual review, and structured CSV/XLSX export.
+
+keywords:
+  - yeast microscopy
+  - fluorescence quantification
+  - bioimage analysis
+  - cell instance segmentation
+  - Django
+  - Mask R-CNN
+  - reproducible research
 
 authors:
   - family-names: "Gioanni"
