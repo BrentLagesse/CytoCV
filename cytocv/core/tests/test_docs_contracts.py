@@ -16,9 +16,81 @@ from core.services.signal_quantification import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
+ACTIVE_PUBLIC_HOSTNAME_FILES = (
+    "CITATION.cff",
+    "README.md",
+    ".env.example",
+    "cytocv/manage.py",
+)
+ACTIVE_PUBLIC_HOSTNAME_DIRECTORIES = (
+    "docs",
+    "cytocv/accounts",
+    "cytocv/core",
+    "cytocv/cytocv",
+    "cytocv/templates",
+)
+ACTIVE_TEXT_SUFFIXES = frozenset(
+    {
+        ".bib",
+        ".cff",
+        ".cfg",
+        ".css",
+        ".env",
+        ".example",
+        ".html",
+        ".ini",
+        ".js",
+        ".json",
+        ".md",
+        ".mmd",
+        ".py",
+        ".rst",
+        ".svg",
+        ".tex",
+        ".toml",
+        ".txt",
+        ".xml",
+        ".yaml",
+        ".yml",
+    }
+)
+IGNORED_ACTIVE_DIRECTORY_NAMES = frozenset(
+    {
+        ".git",
+        ".pytest_cache",
+        ".ruff_cache",
+        "__pycache__",
+        "archive",
+        "cache",
+        "media",
+        "node_modules",
+        "release-note-rewrites",
+        "staticfiles",
+    }
+)
+IGNORED_ACTIVE_DIRECTORY_PREFIXES = ("vm-deployment-record",)
+
 
 def doc_text(relative_path: str) -> str:
     return (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+
+def active_text_document_paths():
+    candidates = [PROJECT_ROOT / path for path in ACTIVE_PUBLIC_HOSTNAME_FILES]
+    for relative_directory in ACTIVE_PUBLIC_HOSTNAME_DIRECTORIES:
+        candidates.extend((PROJECT_ROOT / relative_directory).rglob("*"))
+
+    for path in sorted(set(candidates)):
+        if not path.is_file() or path.suffix.lower() not in ACTIVE_TEXT_SUFFIXES:
+            continue
+        directory_parts = path.relative_to(PROJECT_ROOT).parts[:-1]
+        if any(
+            part in IGNORED_ACTIVE_DIRECTORY_NAMES
+            or part.startswith(IGNORED_ACTIVE_DIRECTORY_PREFIXES)
+            for part in directory_parts
+        ):
+            continue
+        yield path
 
 
 class DocumentationContractTests(SimpleTestCase):
@@ -121,7 +193,7 @@ class DocumentationContractTests(SimpleTestCase):
             'doi: "10.5281/zenodo.21901187"',
             'repository-code: "https://github.com/BrentLagesse/CytoCV"',
             'repository-artifact: "https://doi.org/10.5281/zenodo.21901187"',
-            'url: "https://cytocv2.uwb.edu/"',
+            'url: "https://cytocv.uwb.edu/"',
             'license: "AGPL-3.0-or-later"',
         ):
             with self.subTest(expected=expected):
@@ -133,6 +205,11 @@ class DocumentationContractTests(SimpleTestCase):
         )
         self.assertIn("[`CITATION.cff`](CITATION.cff)", citation_section)
         self.assertLess(readme.index("## Citation"), readme.index("## License"))
+        self.assertIn(
+            "> **Current release:** [CytoCV v2.0.0]"
+            "(https://github.com/BrentLagesse/CytoCV/releases/tag/v2.0.0)",
+            readme,
+        )
         self.assertIn(
             "CytoCV is a browser-accessible Django platform for reproducible "
             "analysis of yeast fluorescence microscopy images. It supports "
@@ -168,6 +245,32 @@ class DocumentationContractTests(SimpleTestCase):
                     f'    given-names: "{given_name}"',
                     citation,
                 )
+
+    def test_active_docs_use_permanent_public_hostname(self):
+        current_public_url = "https://cytocv.uwb.edu/"
+
+        for relative_path in ("CITATION.cff", "README.md"):
+            with self.subTest(relative_path=relative_path, hostname="current"):
+                self.assertIn(current_public_url, doc_text(relative_path))
+
+        former_hostname = f"cytocv{2}.uwb.edu"
+        former_hostname_matches = []
+        for path in active_text_document_paths():
+            try:
+                content = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            for line_number, line in enumerate(content.splitlines(), start=1):
+                if former_hostname in line.casefold():
+                    relative_path = path.relative_to(PROJECT_ROOT).as_posix()
+                    former_hostname_matches.append(f"{relative_path}:{line_number}")
+
+        self.assertEqual(
+            former_hostname_matches,
+            [],
+            "The former public hostname remains in active text files: "
+            + ", ".join(former_hostname_matches),
+        )
 
     def test_license_docs_preserve_v2_release_and_commercial_position(self):
         license_docs = doc_text("docs/license/README.md")

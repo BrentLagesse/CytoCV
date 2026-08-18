@@ -7,7 +7,7 @@ date-released: "2026-08-12"
 doi: "10.5281/zenodo.21901187"
 repository-code: "https://github.com/BrentLagesse/CytoCV"
 repository-artifact: "https://doi.org/10.5281/zenodo.21901187"
-url: "https://cytocv2.uwb.edu/"
+url: "https://cytocv.uwb.edu/"
 license: "AGPL-3.0-or-later"
 
 abstract: >-
