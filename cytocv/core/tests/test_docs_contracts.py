@@ -249,11 +249,11 @@ class DocumentationContractTests(SimpleTestCase):
         )
 
         keywords = (
-            "yeast microscopy",
-            "fluorescence quantification",
             "bioimage analysis",
+            "yeast fluorescence microscopy",
+            "Saccharomyces cerevisiae",
             "cell instance segmentation",
-            "Django",
+            "fluorescence quantification",
             "Mask R-CNN",
             "reproducible research",
         )
