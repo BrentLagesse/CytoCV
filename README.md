@@ -1,8 +1,13 @@
 ﻿# CytoCV
 
+**A web-based computer vision platform for reproducible quantitative analysis of yeast microscopy images**
+
 CytoCV is a Django-based analysis platform for DeltaVision (`.dv`) and stack TIFF (`.tif`, `.tiff`) microscopy files of yeast cells. The application supports four logical channel roles (`DIC`, `Blue`, `Red`, and `Green`), but only `DIC` is universally required. Additional channels are enforced by the selected statistics plugins and, when enabled, the upload validation module.
 
 > **Version:** 2.0.0
+>
+> **Hosted application:** https://cytocv.uwb.edu/
+>
 > **Python:** 3.11.5  
 > **Database:** PostgreSQL in production; SQLite for local development only  
 > **Platform:** Windows-native development and Linux-compatible deployment
@@ -265,9 +270,9 @@ This tool derived from the python application found at https://github.com/BrentL
 
 ## Citation
 
-The archived CytoCV v2.0.0 software record is identified by:
+The current CytoCV v2.0.0 software record is identified by:
 
-**DOI:** [10.5281/zenodo.21901187](https://doi.org/10.5281/zenodo.21901187)
+**DOI:** [10.5281/zenodo.21988218](https://doi.org/10.5281/zenodo.21988218)
 
 Citation metadata are also provided in
 [`CITATION.cff`](CITATION.cff).

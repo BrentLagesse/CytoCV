@@ -16,9 +16,110 @@ from core.services.signal_quantification import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
+ACTIVE_RELEASE_METADATA_FILES = (
+    ".env.example",
+    "CITATION.cff",
+    "Dockerfile",
+    "POSTGRES_SETUP.md",
+    "README.md",
+    "TRADEMARKS.md",
+    "compose.yml",
+    "cytocv/manage.py",
+    "cytocv_algorithm_biology_methods.md",
+    "cytocv_current_system_inventory.md",
+    "cytocv_manuscript_update_plan.md",
+    "requirements.txt",
+    "start-worker.sh",
+    "start.sh",
+)
+ACTIVE_RELEASE_METADATA_DIRECTORIES = (
+    ".github",
+    "deploy",
+    "docs",
+    "scripts",
+    "cytocv/accounts",
+    "cytocv/core",
+    "cytocv/cytocv",
+    "cytocv/templates",
+)
+ACTIVE_TEXT_SUFFIXES = frozenset(
+    {
+        ".bib",
+        ".cff",
+        ".cfg",
+        ".css",
+        ".env",
+        ".example",
+        ".html",
+        ".ini",
+        ".js",
+        ".json",
+        ".md",
+        ".mmd",
+        ".ps1",
+        ".py",
+        ".rst",
+        ".sh",
+        ".svg",
+        ".tex",
+        ".toml",
+        ".txt",
+        ".xml",
+        ".yaml",
+        ".yml",
+    }
+)
+IGNORED_ACTIVE_DIRECTORY_NAMES = frozenset(
+    {
+        ".git",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+        "archive",
+        "cache",
+        "cyto_cv",
+        "cytocv_venv",
+        "media",
+        "node_modules",
+        "release-note-rewrites",
+        "staticfiles",
+        "venv",
+    }
+)
+# This prefix excludes every protected docs/vm-deployment-record* directory.
+IGNORED_ACTIVE_DIRECTORY_PREFIXES = ("vm-deployment-record",)
+
 
 def doc_text(relative_path: str) -> str:
     return (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+
+def active_release_metadata_paths():
+    explicit_paths = {
+        PROJECT_ROOT / relative_path
+        for relative_path in ACTIVE_RELEASE_METADATA_FILES
+    }
+    candidates = set(explicit_paths)
+    for relative_directory in ACTIVE_RELEASE_METADATA_DIRECTORIES:
+        candidates.update((PROJECT_ROOT / relative_directory).rglob("*"))
+
+    for path in sorted(candidates):
+        if not path.is_file():
+            continue
+        directory_parts = path.relative_to(PROJECT_ROOT).parts[:-1]
+        if any(
+            part in IGNORED_ACTIVE_DIRECTORY_NAMES
+            or part.startswith(IGNORED_ACTIVE_DIRECTORY_PREFIXES)
+            for part in directory_parts
+        ):
+            continue
+        if (
+            path not in explicit_paths
+            and path.suffix.lower() not in ACTIVE_TEXT_SUFFIXES
+        ):
+            continue
+        yield path
 
 
 class DocumentationContractTests(SimpleTestCase):
@@ -117,22 +218,26 @@ class DocumentationContractTests(SimpleTestCase):
 
         for expected in (
             'version: "2.0.0"',
-            'date-released: "2026-08-12"',
-            'doi: "10.5281/zenodo.21901187"',
+            'date-released: "2026-08-17"',
+            'doi: "10.5281/zenodo.21988218"',
             'repository-code: "https://github.com/BrentLagesse/CytoCV"',
-            'repository-artifact: "https://doi.org/10.5281/zenodo.21901187"',
-            'url: "https://cytocv2.uwb.edu/"',
+            'repository-artifact: "https://doi.org/10.5281/zenodo.21988218"',
+            'url: "https://cytocv.uwb.edu/"',
             'license: "AGPL-3.0-or-later"',
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, citation)
 
         self.assertIn(
-            "[10.5281/zenodo.21901187](https://doi.org/10.5281/zenodo.21901187)",
+            "[10.5281/zenodo.21988218](https://doi.org/10.5281/zenodo.21988218)",
             citation_section,
         )
         self.assertIn("[`CITATION.cff`](CITATION.cff)", citation_section)
         self.assertLess(readme.index("## Citation"), readme.index("## License"))
+        self.assertIn(
+            "The current CytoCV v2.0.0 software record is identified by:",
+            citation_section,
+        )
         self.assertIn(
             "CytoCV is a browser-accessible Django platform for reproducible "
             "analysis of yeast fluorescence microscopy images. It supports "
@@ -167,6 +272,54 @@ class DocumentationContractTests(SimpleTestCase):
                     f'- family-names: "{family_name}"\n'
                     f'    given-names: "{given_name}"',
                     citation,
+                )
+
+    def test_active_docs_use_current_release_metadata(self):
+        citation = doc_text("CITATION.cff")
+        readme = doc_text("README.md")
+        current_public_url = "https://cytocv.uwb.edu/"
+        current_software_doi = "10.5281/zenodo.21988218"
+
+        for path, content in (("CITATION.cff", citation), ("README.md", readme)):
+            with self.subTest(path=path, metadata="public URL"):
+                self.assertIn(current_public_url, content)
+            with self.subTest(path=path, metadata="software DOI"):
+                self.assertIn(current_software_doi, content)
+
+        self.assertIn('version: "2.0.0"', citation)
+        self.assertIn('date-released: "2026-08-17"', citation)
+        self.assertIn("> **Version:** 2.0.0", readme)
+        self.assertIn(
+            "> **Hosted application:** https://cytocv.uwb.edu/",
+            readme,
+        )
+
+        # Bare historical directory names remain valid; only the retired exact
+        # public hostname is prohibited on active surfaces.
+        self.assertIn("vm-deployment-record-cytocv2", readme)
+        prohibited_values = {
+            "retired public hostname": "cytocv" + "2.uwb.edu",
+            "deleted software DOI": "10.5281/zenodo." + "21901187",
+        }
+        violations = {label: [] for label in prohibited_values}
+        for path in active_release_metadata_paths():
+            try:
+                content = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            for line_number, line in enumerate(content.splitlines(), start=1):
+                folded_line = line.casefold()
+                for label, prohibited_value in prohibited_values.items():
+                    if prohibited_value.casefold() in folded_line:
+                        relative_path = path.relative_to(PROJECT_ROOT).as_posix()
+                        violations[label].append(f"{relative_path}:{line_number}")
+
+        for label, matches in violations.items():
+            with self.subTest(prohibited=label):
+                self.assertEqual(
+                    matches,
+                    [],
+                    f"{label} remains in active text files: " + ", ".join(matches),
                 )
 
     def test_license_docs_preserve_v2_release_and_commercial_position(self):
