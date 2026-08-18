@@ -3,11 +3,11 @@ message: "If you use CytoCV in your research, please cite this software."
 title: "CytoCV"
 type: software
 version: "2.0.0"
-date-released: "2026-08-12"
-doi: "10.5281/zenodo.21901187"
+date-released: "8/17/2026"
+doi: "10.5281/zenodo.21988218"
 repository-code: "https://github.com/BrentLagesse/CytoCV"
-repository-artifact: "https://doi.org/10.5281/zenodo.21901187"
-url: "https://cytocv2.uwb.edu/"
+repository-artifact: "https://doi.org/10.5281/zenodo.21988218"
+url: "https://cytocv.uwb.edu/"
 license: "AGPL-3.0-or-later"
 
 abstract: >-
