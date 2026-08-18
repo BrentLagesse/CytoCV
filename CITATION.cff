@@ -3,7 +3,7 @@ message: "If you use CytoCV in your research, please cite this software."
 title: "CytoCV"
 type: software
 version: "2.0.0"
-date-released: "8/17/2026"
+date-released: "2026-08-17"
 doi: "10.5281/zenodo.21988218"
 repository-code: "https://github.com/BrentLagesse/CytoCV"
 repository-artifact: "https://doi.org/10.5281/zenodo.21988218"

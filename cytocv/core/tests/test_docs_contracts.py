@@ -218,7 +218,7 @@ class DocumentationContractTests(SimpleTestCase):
 
         for expected in (
             'version: "2.0.0"',
-            'date-released: "8/17/2026"',
+            'date-released: "2026-08-17"',
             'doi: "10.5281/zenodo.21988218"',
             'repository-code: "https://github.com/BrentLagesse/CytoCV"',
             'repository-artifact: "https://doi.org/10.5281/zenodo.21988218"',
@@ -287,7 +287,7 @@ class DocumentationContractTests(SimpleTestCase):
                 self.assertIn(current_software_doi, content)
 
         self.assertIn('version: "2.0.0"', citation)
-        self.assertIn('date-released: "8/17/2026"', citation)
+        self.assertIn('date-released: "2026-08-17"', citation)
         self.assertIn("> **Version:** 2.0.0", readme)
         self.assertIn(
             "> **Hosted application:** https://cytocv.uwb.edu/",
