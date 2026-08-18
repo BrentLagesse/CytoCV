@@ -64,11 +64,11 @@
                                 <button
                                     type="button"
                                     class="selection-info-dot info-dot compact export-intensity-info-dot"
-                                    data-info-text="Quick Select helps you choose contour-intensity columns for CSV or Excel downloads without manually checking every individual statistic.&#10;&#10;It does not rerun analysis, change the saved results, or change the table itself. It only checks or unchecks the download columns.&#10;&#10;Use Intensity Value to choose which intensity measurements to export:&#10;Total is the summed signal inside the contour.&#10;Max is the brightest pixel inside the contour.&#10;Average is the mean signal inside the contour.&#10;&#10;Use Contour Slot to choose contour 1, 2, or 3. These slots match the same contour numbering used by the contour size and contour center columns.&#10;&#10;Use Signal Measured Inside Contour to choose which signal is measured inside which contour. For example, Red in Green means the red signal is measured inside the green contour.&#10;&#10;After choosing filters, click Apply custom filters. You can still manually check or uncheck individual statistics on the right before downloading."
+                                    data-info-text="Quick Select helps you choose contour-intensity columns for CSV or Excel downloads without manually checking every individual statistic.&#10;&#10;It does not rerun analysis, change the saved results, or change the table itself. It only checks or unchecks the download columns.&#10;&#10;Use Intensity Value to choose which intensity measurements to export:&#10;Total is the summed signal inside the contour.&#10;Max is the brightest pixel inside the contour.&#10;Average is the mean signal inside the contour.&#10;&#10;Use Contour Slot to choose contour 1, 2, or 3. These slots match the same contour numbering used by the contour size and contour center columns.&#10;&#10;Use Signal Measured Inside Contour to choose which signal is measured inside which contour. For example, Red in Green means the red signal is measured inside the green contour.&#10;&#10;Presets apply immediately. Custom Filter changes are staged until you click Apply custom filters. Download remains unavailable until you apply or reset those changes. You can still manually check or uncheck individual statistics on the right before downloading."
                                     aria-label="Quick Select information"
                                 >i</button>
                             </div>
-                            <p class="export-intensity-filter-status" id="exportIntensityFilterStatus" aria-live="polite">0 filters applied</p>
+                            <p class="export-intensity-filter-status" id="exportIntensityFilterStatus" role="status" aria-live="polite" aria-atomic="true" data-filter-state="applied">0 filters applied</p>
                             <p class="export-intensity-unavailable-message" id="exportIntensityUnavailableMessage" hidden>
                                 Contour intensity columns are not available because Red/Green contour intensity was not computed for this file set.
                             </p>
@@ -81,17 +81,17 @@
                                         <button
                                             type="button"
                                             class="selection-info-dot info-dot compact export-intensity-info-dot export-intensity-section-info-dot"
-                                            data-info-text="Presets apply immediately. Clicking one changes the matching download columns and updates the Custom Filters below."
+                                            data-info-text="Presets apply immediately. Clicking one changes the matching download columns, updates the Custom Filters below, and replaces any unapplied custom-filter changes."
                                             aria-label="Presets information"
                                         >i</button>
                                     </div>
                                     <div class="export-intensity-action-row">
-                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="totals">Totals only</button>
-                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="total_max">Totals + Max</button>
-                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="average">Average only</button>
-                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="slots_1_2">Slots 1 + 2 only</button>
-                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="all">Select all intensity columns</button>
-                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="clear">Clear intensity columns</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="totals" aria-controls="exportSelectionList">Totals only</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="total_max" aria-controls="exportSelectionList">Totals + Max</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="average" aria-controls="exportSelectionList">Average only</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="slots_1_2" aria-controls="exportSelectionList">Slots 1 + 2 only</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="all" aria-controls="exportSelectionList">Select all intensity columns</button>
+                                        <button type="button" class="export-selection-btn export-intensity-btn" data-export-intensity-action="clear" aria-controls="exportSelectionList">Clear intensity columns</button>
                                     </div>
                                 </section>
                                 <section class="export-intensity-module export-intensity-custom-module" aria-label="Custom contour intensity filters">
@@ -100,7 +100,7 @@
                                         <button
                                             type="button"
                                             class="selection-info-dot info-dot compact export-intensity-info-dot export-intensity-section-info-dot"
-                                            data-info-text="Custom Filters let you choose value type, contour slot, and signal pairing. Click Apply custom filters at the bottom to update the download columns."
+                                            data-info-text="Custom Filters let you choose value type, contour slot, and signal pairing. Changes are staged until you click Apply custom filters, and Download remains unavailable while they are staged. Reset changes restores the contour-intensity selection from when this window opened."
                                             aria-label="Custom Filters information"
                                         >i</button>
                                     </div>
@@ -129,8 +129,8 @@
                             </div>
                         </div>
                         <div class="export-quick-select-actions">
-                            <button type="button" class="export-selection-btn export-intensity-btn export-quick-select-reset" data-export-intensity-action="reset">Reset changes</button>
-                            <button type="button" class="export-selection-btn export-intensity-btn export-quick-select-apply confirm" data-export-intensity-action="apply">Apply custom filters</button>
+                            <button type="button" class="export-selection-btn export-intensity-btn export-quick-select-reset" data-export-intensity-action="reset" aria-controls="exportSelectionList">Reset changes</button>
+                            <button type="button" class="export-selection-btn export-intensity-btn export-quick-select-apply confirm" data-export-intensity-action="apply" aria-controls="exportSelectionList" aria-describedby="exportIntensityFilterStatus" disabled>Apply custom filters</button>
                         </div>
                     </section>
                 </aside>
