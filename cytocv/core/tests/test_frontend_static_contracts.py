@@ -208,6 +208,14 @@ class FrontendStaticContractTests(SimpleTestCase):
         )
         self.assertRegex(
             css_source,
+            r'\.export-intensity-filter-status\[data-filter-state="pending"\]\s*\{[^}]*color:\s*#f0c95a;',
+        )
+        self.assertRegex(
+            css_source,
+            r"\.export-selection-btn:disabled\s*\{[^}]*opacity:\s*0\.52;[^}]*cursor:\s*not-allowed;",
+        )
+        self.assertRegex(
+            css_source,
             r"\.export-quick-select-sidebar\s*\{[^}]*overflow:\s*hidden;",
         )
         self.assertRegex(
