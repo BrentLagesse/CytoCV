@@ -9,6 +9,12 @@ from django.test import SimpleTestCase
 
 
 WORKFLOW_PATH = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "backend-ci.yml"
+OPENCV_RUNTIME_SCRIPT_PATH = (
+    Path(__file__).resolve().parents[3]
+    / ".github"
+    / "scripts"
+    / "install-opencv-runtime-libraries.sh"
+)
 
 
 class BackendCiContractTests(SimpleTestCase):
@@ -46,6 +52,45 @@ class BackendCiContractTests(SimpleTestCase):
         self.assertNotIn("GOOGLE_CLIENT_SECRET", workflow)
         self.assertNotIn("MICROSOFT_CLIENT_SECRET", workflow)
         self.assertNotIn("EMAIL_HOST_PASSWORD", workflow)
+
+    def test_opencv_runtime_setup_skips_present_libraries_and_bounds_apt(self):
+        workflow = self._workflow_text()
+        setup_command = "bash .github/scripts/install-opencv-runtime-libraries.sh"
+        setup_step = (
+            "      - name: Ensure OpenCV runtime libraries\n"
+            "        timeout-minutes: 5\n"
+            f"        run: {setup_command}"
+        )
+
+        for job_name in (
+            "backend-full-suite",
+            "targeted-regressions",
+            "frontend-contracts",
+            "docs-and-ci-contracts",
+        ):
+            with self.subTest(job=job_name):
+                self.assertIn(setup_step, self._job_block(job_name))
+
+        self.assertNotIn("sudo apt-get update", workflow)
+
+        script = OPENCV_RUNTIME_SCRIPT_PATH.read_text(encoding="utf-8").replace(
+            "\r\n", "\n"
+        )
+        for snippet in (
+            '"libGL.so.1"',
+            '"libglib-2.0.so.0"',
+            "ldconfig -p",
+            "Acquire::Retries=3",
+            "Acquire::http::Timeout=15",
+            "Acquire::https::Timeout=15",
+            "timeout --signal=TERM --kill-after=30s 3m",
+            "run_apt update",
+            'run_apt install -y --no-install-recommends "${APT_PACKAGES[@]}"',
+        ):
+            with self.subTest(snippet=snippet):
+                self.assertIn(snippet, script)
+
+        self.assertLess(script.index("ldconfig -p"), script.index("run_apt update"))
 
     def test_backend_full_suite_runs_django_safety_gate_and_full_suite(self):
         job = self._job_block("backend-full-suite")
