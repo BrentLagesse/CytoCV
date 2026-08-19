@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.urls import include, path
+from django.views.generic import TemplateView
 
 from accounts.views import (
     account_settings_view,
@@ -71,6 +72,11 @@ from core.seo import robots_txt, sitemap_xml
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path(
+        'google97643732cc74b099.html',
+        TemplateView.as_view(template_name="google97643732cc74b099.html"),
+        name="google_site_verification",
+    ),
     path('robots.txt', robots_txt, name="robots_txt"),
     path('sitemap.xml', sitemap_xml, name="sitemap"),
     path('', home, name="home"),

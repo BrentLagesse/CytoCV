@@ -62,6 +62,17 @@ class SearchIndexingTests(TestCase):
             f"Sitemap: {PUBLIC_ORIGIN}/sitemap.xml\n",
         )
 
+    def test_google_site_verification_file_is_served_from_site_root(self):
+        response = self.client.get(reverse("google_site_verification"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+        self.assertEqual(response["X-Robots-Tag"], "noindex,follow")
+        self.assertEqual(
+            response.content.decode("utf-8"),
+            "google-site-verification: google97643732cc74b099.html\n",
+        )
+
     def test_sitemap_contains_only_canonical_public_information_pages(self):
         response = self.client.get(
             reverse("sitemap"),
