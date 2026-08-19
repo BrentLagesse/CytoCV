@@ -30,6 +30,7 @@ contracts, and CI workflow contracts.
 - plugin and stats validation behavior
 - exact artifact path contracts for generated media and overlay files
 - protected media access, ownership, missing-file, and traversal contracts
+- search discovery endpoints, canonical metadata, and public/non-public indexing boundaries
 - job status names and default queued-state fields for analysis and upload-preparation work
 - Backend CI command and frontend-contract step contracts
 - settings import behavior for CI/test SQLite and production SQLite rejection
@@ -118,6 +119,7 @@ python manage.py test core.tests.test_frontend_js_contracts
 python manage.py test core.tests.test_frontend_workflow_contracts
 python manage.py test core.tests.test_frontend_viewer_contracts
 python manage.py test core.tests.test_frontend_export_contracts
+python manage.py test core.tests.test_seo
 python manage.py test core.tests.test_core_app
 python manage.py test core.tests.test_accounts_preferences
 python manage.py test
