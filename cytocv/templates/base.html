@@ -9,6 +9,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}CytoCV{% endblock title %}</title>
     <meta name="description" content="{% block meta_description %}CytoCV image analysis platform.{% endblock meta_description %}">
+    <meta name="robots" content="{{ seo_robots_directive|default:'noindex,follow' }}">
+    {% if seo_canonical_url %}
+        <link rel="canonical" href="{{ seo_canonical_url }}">
+    {% endif %}
     <link rel="icon" type="image/png" href="{{ uwb_logo_png }}?v=6">
     <link rel="shortcut icon" type="image/png" href="{{ uwb_logo_png }}?v=6">
     <link rel="apple-touch-icon" href="{{ uwb_logo_png }}?v=4">
@@ -16,13 +20,15 @@
     <meta property="og:site_name" content="CytoCV">
     <meta property="og:title" content="{% block og_title %}CytoCV{% endblock og_title %}">
     <meta property="og:description" content="{% block og_description %}CytoCV image analysis platform.{% endblock og_description %}">
-    <meta property="og:url" content="{{ request.build_absolute_uri }}">
-    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ uwb_logo_png }}?v=4">
+    {% if seo_canonical_url %}
+        <meta property="og:url" content="{{ seo_canonical_url }}">
+    {% endif %}
+    <meta property="og:image" content="{{ seo_public_origin }}{{ uwb_logo_png }}?v=4">
     <meta property="og:image:alt" content="UWB logo">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{% block twitter_title %}CytoCV{% endblock twitter_title %}">
     <meta name="twitter:description" content="{% block twitter_description %}CytoCV image analysis platform.{% endblock twitter_description %}">
-    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ uwb_logo_png }}?v=4">
+    <meta name="twitter:image" content="{{ seo_public_origin }}{{ uwb_logo_png }}?v=4">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap">
     <link rel="stylesheet" href="{% static 'css/base.css' %}?v=frontend-modularization-20260609">
     {% block head %}{% endblock head %}

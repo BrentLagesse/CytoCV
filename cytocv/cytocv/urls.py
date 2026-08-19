@@ -67,9 +67,12 @@ from core.views.pre_process import (
 )
 from core.views.segment_image import segment_image
 from core.views.media import serve_media
+from core.seo import robots_txt, sitemap_xml
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('robots.txt', robots_txt, name="robots_txt"),
+    path('sitemap.xml', sitemap_xml, name="sitemap"),
     path('', home, name="home"),
     path('about/', about, name="about"),
     path('about/technical/', about_technical, name="about_technical"),
