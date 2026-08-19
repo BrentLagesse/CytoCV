@@ -301,6 +301,31 @@ After deployment:
 9. confirm one test `.dv` file can complete the full workflow
 10. confirm protected media access works after login
 
+## Google Search Registration
+
+The application publishes crawler discovery files, but Search Console ownership
+and DNS verification remain deployment-owner tasks.
+
+1. Confirm `CYTOCV_PUBLIC_BASE_URL=https://cytocv.uwb.edu` in the production
+   environment, then deploy and restart the web service.
+2. Confirm `https://cytocv.uwb.edu/robots.txt` returns plain text and
+   `https://cytocv.uwb.edu/sitemap.xml` returns the six public informational
+   URLs under the production HTTPS origin.
+3. In [Google Search Console](https://search.google.com/search-console/), add a
+   Domain property named `cytocv.uwb.edu`, publish Google's generated TXT
+   verification record in DNS, and keep that record in place.
+4. Submit `https://cytocv.uwb.edu/sitemap.xml` in the Sitemaps report.
+5. Run the live URL Inspection test and request indexing once for `/`,
+   `/about/`, `/about/technical/`, `/about/biology/`, `/collaborators/`, and
+   `/license/`.
+6. Monitor Page Indexing for fetch errors, unexpected `noindex` results, or
+   duplicate canonical selections. Indexing can take days or weeks and is not
+   guaranteed by sitemap submission or an indexing request.
+
+Do not submit sign-in, signup, account, experiment, API, media, OAuth, or admin
+URLs. Those routes are intentionally excluded from the sitemap, and rendered
+non-public HTML pages use `noindex,follow`.
+
 ## Related Documents
 
 - [`environment-reference.md`](environment-reference.md)

@@ -319,8 +319,11 @@ This is a maintainer reference. Document variable names and behavior here, but d
 - Required: no
 - Type: URL
 - Default: empty
-- Effect: public absolute base URL used when account emails need absolute static asset links, such as the UWB STEM logo
-- Notes: keep this aligned with the public site origin when branded email content or other absolute public links need it.
+- Effect: trusted public origin used for canonical page URLs, sitemap and `robots.txt` discovery URLs, and absolute static asset links in account emails
+- Notes:
+  - set this to the production HTTP(S) origin without a path, query string, fragment, or credentials
+  - production CytoCV uses `https://cytocv.uwb.edu`
+  - when empty, a request-origin fallback supports local development, but production deployments should set it explicitly so every discovery signal uses the same trusted host
 
 ## Storage Quota Settings
 

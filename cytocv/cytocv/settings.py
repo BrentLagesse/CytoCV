@@ -211,6 +211,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.sitemaps',
     "django_tables2",
     'core',
     'accounts',
@@ -225,6 +226,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'core.middleware.security_headers.ContentSecurityPolicyMiddleware',
+    'core.seo.SearchIndexingPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -268,6 +270,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'accounts.context_processors.auth_verification_policy',
                 'core.licensing.license_metadata',
+                'core.seo.seo_metadata',
             ],
         },
     },
